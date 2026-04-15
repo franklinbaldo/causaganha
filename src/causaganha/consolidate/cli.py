@@ -171,8 +171,10 @@ async def _consolidate_zips(
                     stats["uploaded"] += uploaded
                     stats["uploaded_mb"] += size_mb
 
-            if stats["parquets_created"] > 0 and not dry_run and await upload_marker(
-                client, item_id, date_tag, circuit_breaker=breaker
+            if (
+                stats["parquets_created"] > 0
+                and not dry_run
+                and await upload_marker(client, item_id, date_tag, circuit_breaker=breaker)
             ):
                 log.info("marker_uploaded", item_id=item_id)
 
@@ -264,9 +266,7 @@ def backfill(
         zips = manifest_reader.uploaded_zips_for_date(target_date)
         item_id = f"djen-{target_date}"
         stats = asyncio.run(
-            _consolidate_zips(
-                zips, item_id, target_date, dry_run=dry_run, workers=workers
-            )
+            _consolidate_zips(zips, item_id, target_date, dry_run=dry_run, workers=workers)
         )
         for k in total_stats:
             total_stats[k] += stats.get(k, 0)

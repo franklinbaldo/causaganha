@@ -44,6 +44,10 @@
     let status = 'idle';
     let countdownInterval: number | null = null;
     let countdown = 0;
+    let slowTimer: number | null = null;
+    // Page load timestamp — slow-network events fired within 3 s of load are
+    // treated as false positives (common on initial hydration / static renders).
+    const loadedAt = Date.now();
 
     function hideAll() {
       elSlow!.style.display = 'none';
@@ -52,6 +56,10 @@
       if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
+      }
+      if (slowTimer) {
+        clearTimeout(slowTimer);
+        slowTimer = null;
       }
     }
 
@@ -69,7 +77,20 @@
     }
 
     const handleSlow = () => {
-      if (status !== 'error' && status !== 'retrying') {
+      if (status === 'error' || status === 'retrying' || status === 'slow') return;
+      const elapsed = Date.now() - loadedAt;
+      if (elapsed < 3000) {
+        // Debounce: only show after the page has been interactive for 3 s to
+        // avoid false positives during initial hydration / static pre-renders.
+        if (slowTimer) return;
+        slowTimer = window.setTimeout(() => {
+          slowTimer = null;
+          if (status !== 'error' && status !== 'retrying' && status !== 'slow') {
+            status = 'slow';
+            updateView();
+          }
+        }, 3000 - elapsed);
+      } else {
         status = 'slow';
         updateView();
       }
@@ -130,6 +151,7 @@
       window.removeEventListener('cg-network-error', handleError);
       window.removeEventListener('cg-network-success', handleSuccess);
       if (countdownInterval) clearInterval(countdownInterval);
+      if (slowTimer) clearTimeout(slowTimer);
     }, { once: true });
   }
 

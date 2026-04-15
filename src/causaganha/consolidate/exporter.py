@@ -65,9 +65,7 @@ async def _upload_consolidated(
     circuit_breaker: CircuitBreaker | None = None,
 ) -> bool:
     """Upload a file to IA with consolidation-specific metadata overrides."""
-    overrides = {
-        k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()
-    }
+    overrides = {k: v.format(date_str=date_str) for k, v in _CONSOLIDATION_META_OVERRIDES.items()}
     return await upload_to_ia(
         client,
         item_id,
@@ -94,9 +92,7 @@ async def export_and_upload_table(
     Any exception during export or upload is logged and returns ``(False, 0.0, 0)``.
     """
     try:
-        export_result = await asyncio.to_thread(
-            export_table_sync, table_name, con, output_dir
-        )
+        export_result = await asyncio.to_thread(export_table_sync, table_name, con, output_dir)
         if export_result is None:
             return False, 0.0, 0
 

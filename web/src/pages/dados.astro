@@ -3,11 +3,18 @@ import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import DatabaseCloudIcon from '../components/icons/DatabaseCloudIcon.astro';
-import { readArchiveSnapshot } from '../lib/readJson';
+import { readArchiveSnapshot, type IaSnapshot } from '../lib/readJson';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const iaSnapshot = readArchiveSnapshot();
+const iaSnapshot = readArchiveSnapshot<IaSnapshot>();
 const snap = iaSnapshot?.summary;
+
+const snapGB = snap?.total_size_gb ?? 0;
+const snapVolumeLabel = snapGB === 0
+  ? '–'
+  : snapGB >= 1000
+    ? `${(snapGB / 1000).toFixed(1)} TB`
+    : `${snapGB.toFixed(1)} GB`;
 ---
 
 <Layout
@@ -47,7 +54,7 @@ const snap = iaSnapshot?.summary;
           </div>
           <div class="card">
             <div class="card-body-compact">
-              <strong class="stat-value">{snap.total_size_gb} GB</strong>
+              <strong class="stat-value">{snapVolumeLabel}</strong>
               <small class="stat-label">Volume total</small>
             </div>
           </div>

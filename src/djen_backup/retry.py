@@ -78,9 +78,7 @@ async def request_with_retry(
         retry=(
             tenacity.retry_if_exception_type((httpx.TransportError, httpx.TimeoutException))
             | tenacity.retry_if_result(
-                lambda r: _retriable_response(
-                    r, retry_djen_400=retry_djen_400, retry_404=retry_404
-                )
+                lambda r: _retriable_response(r, retry_djen_400=retry_djen_400, retry_404=retry_404)
             )
         ),
         reraise=True,

@@ -45,9 +45,7 @@ def load_checkpoint_state(path: Path = DEFAULT_CHECKPOINT_PATH) -> dict[str, Any
         return _empty_state()
 
 
-def save_checkpoint_state(
-    state: dict[str, Any], path: Path = DEFAULT_CHECKPOINT_PATH
-) -> None:
+def save_checkpoint_state(state: dict[str, Any], path: Path = DEFAULT_CHECKPOINT_PATH) -> None:
     """Persist checkpoint state, creating the parent directory if needed."""
     path.parent.mkdir(parents=True, exist_ok=True)
     try:
@@ -94,9 +92,7 @@ def mark_date_complete(date: str, path: Path = DEFAULT_CHECKPOINT_PATH) -> None:
     save_checkpoint_state(state, path)
 
 
-def should_skip_zip(
-    date: str, zip_filename: str, path: Path = DEFAULT_CHECKPOINT_PATH
-) -> bool:
+def should_skip_zip(date: str, zip_filename: str, path: Path = DEFAULT_CHECKPOINT_PATH) -> bool:
     """Return True if this ZIP has already been processed for this date."""
     state = load_checkpoint_state(path)
     if state["current_date"] != date:
