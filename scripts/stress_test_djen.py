@@ -36,9 +36,21 @@ DJEN_BASE = "https://comunicaapi.pje.jus.br"
 
 # Tribunals known to have data for many recent dates
 DEFAULT_TRIBUNALS = [
-    "TJSP", "TJBA", "TJMG", "TJRS", "TJPR",
-    "TJCE", "TJDFT", "TJES", "TJMA", "TJRN",
-    "TRF1", "TRF3", "TRF4", "TRT1", "TST",
+    "TJSP",
+    "TJBA",
+    "TJMG",
+    "TJRS",
+    "TJPR",
+    "TJCE",
+    "TJDFT",
+    "TJES",
+    "TJMA",
+    "TJRN",
+    "TRF1",
+    "TRF3",
+    "TRF4",
+    "TRT1",
+    "TST",
 ]
 
 
@@ -82,6 +94,7 @@ async def run_burst(
     rng = random.Random(42)  # noqa: S311 — not cryptographic, just reproducible picks
 
     async with httpx.AsyncClient(follow_redirects=True) as client:
+
         async def _one() -> None:
             async with sem:
                 t = rng.choice(tribunals)
@@ -115,9 +128,7 @@ def print_result(
     """Print one row and return error rate (0.0-1.0)."""
     rps = total / elapsed if elapsed > 0 else 0
     errors = sum(
-        c
-        for s, c in statuses.items()
-        if s in {"403", "timeout"} or s.startswith(("err:", "5"))
+        c for s, c in statuses.items() if s in {"403", "timeout"} or s.startswith(("err:", "5"))
     )
     err_rate = errors / total if total else 0
 
@@ -179,9 +190,7 @@ async def main() -> None:
         statuses, latencies, elapsed = await run_burst(
             concurrency, args.reqs_per_level, tribunals, days
         )
-        err_rate = print_result(
-            concurrency, statuses, latencies, elapsed, args.reqs_per_level
-        )
+        err_rate = print_result(concurrency, statuses, latencies, elapsed, args.reqs_per_level)
 
         if err_rate >= args.err_threshold:
             safe = levels[max(0, i - 1)]

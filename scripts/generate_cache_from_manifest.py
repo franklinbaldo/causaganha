@@ -30,12 +30,8 @@ from typing import Any
 IA_DASHBOARD_ITEM = "causaganha-dashboard"
 
 
-MANIFEST_SUMMARY_URL = (
-    "https://archive.org/download/causaganha-dashboard/manifest-summary.json"
-)
-MANIFEST_CSV_URL = (
-    "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
-)
+MANIFEST_SUMMARY_URL = "https://archive.org/download/causaganha-dashboard/manifest-summary.json"
+MANIFEST_CSV_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
 OUTPUT_DIR = Path(__file__).parent.parent / "web" / "public"
 CACHE_DIR = OUTPUT_DIR / "cache"
 
@@ -85,9 +81,7 @@ def generate_backfill_json(summary: dict[str, Any], rows: list[dict[str, str]]) 
     for row in rows:
         if row.get("ia_status") == "uploaded":
             by_date[row["date"]] += 1
-    daily_stats = [
-        {"date": d, "count": c} for d, c in sorted(by_date.items())
-    ]
+    daily_stats = [{"date": d, "count": c} for d, c in sorted(by_date.items())]
 
     recent_activity = daily_stats[-30:] if daily_stats else []
 
@@ -114,9 +108,7 @@ def generate_backfill_json(summary: dict[str, Any], rows: list[dict[str, str]]) 
         "summary": {
             "total_zips": totals["uploaded"],
             "tribunals_total": len(summary["tribunals"]),
-            "tribunals_with_data": sum(
-                1 for t in summary["tribunals"] if t["uploaded"] > 0
-            ),
+            "tribunals_with_data": sum(1 for t in summary["tribunals"] if t["uploaded"] > 0),
             "total_size_gb": 0,  # not tracked in summary
         },
     }
@@ -165,17 +157,13 @@ def generate_backfill_json(summary: dict[str, Any], rows: list[dict[str, str]]) 
     }
 
 
-def generate_today_json(
-    summary: dict[str, Any], rows: list[dict[str, str]]
-) -> dict[str, Any]:
+def generate_today_json(summary: dict[str, Any], rows: list[dict[str, str]]) -> dict[str, Any]:
     """Generate cache/today.json."""
     today = datetime.now(UTC).date()
     today_str = today.isoformat()
 
     files_today = sum(
-        1
-        for r in rows
-        if r.get("ia_status") == "uploaded" and r.get("date") == today_str
+        1 for r in rows if r.get("ia_status") == "uploaded" and r.get("date") == today_str
     )
 
     tribunal_status: dict[str, dict[str, Any]] = {}
@@ -238,9 +226,7 @@ def generate_calendar_json(rows: list[dict[str, str]]) -> dict[str, Any]:
             "uploaded": v["uploaded"],
             "absent": v["absent"],
             "total": v["total"],
-            "coverage_pct": round(v["uploaded"] / v["total"] * 100, 1)
-            if v["total"]
-            else 0,
+            "coverage_pct": round(v["uploaded"] / v["total"] * 100, 1) if v["total"] else 0,
         }
         for d, v in sorted(by_date.items())
     ]
@@ -258,9 +244,7 @@ def generate_meta_json(summary: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def generate_ia_snapshot(
-    summary: dict[str, Any], rows: list[dict[str, str]]
-) -> dict[str, Any]:
+def generate_ia_snapshot(summary: dict[str, Any], rows: list[dict[str, str]]) -> dict[str, Any]:
     """Generate ia-snapshot.json at /public root (used by homepage)."""
     by_t_y: dict[tuple[str, int], list[str]] = defaultdict(list)
     for row in rows:
@@ -292,9 +276,7 @@ def generate_ia_snapshot(
         "summary": {
             "total_zips": totals["uploaded"],
             "tribunals_total": len(summary["tribunals"]),
-            "tribunals_with_data": sum(
-                1 for t in summary["tribunals"] if t["uploaded"] > 0
-            ),
+            "tribunals_with_data": sum(1 for t in summary["tribunals"] if t["uploaded"] > 0),
             "total_size_gb": 0,
         },
     }

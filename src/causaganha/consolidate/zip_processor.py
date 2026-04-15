@@ -54,9 +54,7 @@ def stream_zip_to_ndjson(zip_path: Path, ndjson_path: Path) -> int:
     """
     count = 0
     try:
-        with zipfile.ZipFile(zip_path, "r") as zf, ndjson_path.open(
-            "w", encoding="utf-8"
-        ) as out:
+        with zipfile.ZipFile(zip_path, "r") as zf, ndjson_path.open("w", encoding="utf-8") as out:
             for name in zf.namelist():
                 if not name.endswith(".json"):
                     continue

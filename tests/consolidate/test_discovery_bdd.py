@@ -27,9 +27,7 @@ def ctx() -> dict:
     parsers.parse("a sync-manifest with {count:d} dates: {d1}, {d2}, {d3}"),
     target_fixture="manifest",
 )
-def manifest_with_three_dates(
-    tmp_path: Path, count: int, d1: str, d2: str, d3: str
-) -> Path:
+def manifest_with_three_dates(tmp_path: Path, count: int, d1: str, d2: str, d3: str) -> Path:
     path = tmp_path / "sync-manifest.csv"
     write_manifest(
         path,
@@ -79,10 +77,7 @@ def no_manifest(tmp_path: Path) -> Path:
 
 
 @given(
-    parsers.parse(
-        "a sync-manifest with {up:d} uploaded, {ab:d} absent, "
-        "and {unk:d} unknown rows"
-    ),
+    parsers.parse("a sync-manifest with {up:d} uploaded, {ab:d} absent, and {unk:d} unknown rows"),
     target_fixture="manifest",
 )
 def manifest_with_counts(tmp_path: Path, up: int, ab: int, unk: int) -> Path:

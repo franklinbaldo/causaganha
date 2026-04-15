@@ -35,9 +35,7 @@ import yaml
 
 QUERIES_DIR = Path(__file__).parent.parent / "web" / "src" / "queries"
 PUBLIC_DIR = Path(__file__).parent.parent / "web" / "public"
-MANIFEST_CSV_URL = (
-    "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
-)
+MANIFEST_CSV_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
 LOCAL_MANIFEST = Path(__file__).parent.parent / "data" / "sync-manifest.csv"
 
 SQL_FENCE_RE = re.compile(
@@ -135,7 +133,9 @@ def render_all() -> int:
             json.dumps(data, indent=2, default=json_default),
             encoding="utf-8",
         )
-        print(f"  → {output_path.relative_to(PUBLIC_DIR.parent.parent)} ({output_path.stat().st_size:,} bytes)")
+        print(
+            f"  → {output_path.relative_to(PUBLIC_DIR.parent.parent)} ({output_path.stat().st_size:,} bytes)"
+        )
         count += 1
 
     return count
