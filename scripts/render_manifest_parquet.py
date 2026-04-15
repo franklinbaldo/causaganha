@@ -30,12 +30,12 @@ IA_TARGET = "sync-manifest.parquet"
 
 
 def ensure_csv() -> Path:
-    if LOCAL_CSV.exists():
-        return LOCAL_CSV
+    """Always fetch fresh from IA — local CSV may be stale from another workflow."""
     LOCAL_CSV.parent.mkdir(parents=True, exist_ok=True)
     print(f"Downloading manifest from {MANIFEST_CSV_URL}...")
     with urllib.request.urlopen(MANIFEST_CSV_URL, timeout=120) as resp:
         LOCAL_CSV.write_bytes(resp.read())
+    print(f"  fetched {LOCAL_CSV.stat().st_size:,} bytes")
     return LOCAL_CSV
 
 
