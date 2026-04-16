@@ -24,7 +24,7 @@
     "@observablehq/plot": "^0.6.0",
     "@tanstack/svelte-query": "^6.1.14",
     "astro": "^5.18.1",
-    "dompurify": "^3.3.3",
+    "dompurify": "^3.4.0",
     "openapi-fetch": "^0.17.0",
     "svelte": "^5.55.2",
     "zod": "^4.0.0"
