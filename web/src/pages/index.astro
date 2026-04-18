@@ -582,12 +582,18 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     white-space: nowrap;
   }
 
-  .search-hint-chip:hover,
+  .search-hint-chip:hover {
+    border-color: var(--color-primary);
+    color: var(--color-primary);
+    background: rgba(26, 107, 60, 0.06);
+  }
+
   .search-hint-chip:focus-visible {
     border-color: var(--color-primary);
     color: var(--color-primary);
     background: rgba(26, 107, 60, 0.06);
-    outline: none;
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   /* ── Quick access (task-first hero strip) ── */

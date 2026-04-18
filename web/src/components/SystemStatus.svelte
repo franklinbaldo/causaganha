@@ -83,21 +83,21 @@
         <div class="status-text">
           <div class="status-title">
             {#if stats}
-              {isSuccess ? 'Pipeline Operational' : 'Pipeline Issue'}
+              {isSuccess ? 'Pipeline operacional' : 'Falha no pipeline'}
             {:else}
-              Loading...
+              Carregando...
             {/if}
           </div>
           {#if stats?.timestamp}
             <small class="status-timestamp">
-              Last run: {new Date(stats.timestamp).toLocaleString()}
+              Última execução: {new Date(stats.timestamp).toLocaleString('pt-BR')}
             </small>
           {/if}
           <span class="status-subtitle">
             {#if stats}
-              {isSuccess ? 'System operational' : 'System fault detected'}
+              {isSuccess ? 'Sistema operacional' : 'Falha detectada no sistema'}
             {:else}
-              Loading system status
+              Carregando status do sistema
             {/if}
           </span>
         </div>
@@ -121,10 +121,10 @@
         {/if}
         {#if filesToday != null}
           <div class="stat-pill">
-            <span>{isDataStale ? dataDate : 'Today'}:</span>
+            <span>{isDataStale ? dataDate : 'Hoje'}:</span>
             <span class={isDataStale ? 'text-warning' : ''}>{filesToday}/91</span>
             {#if isDataStale}
-              <span class="text-warning" title="Data collection appears stalled — no new data since this date">stale</span>
+              <span class="text-warning" title="A coleta de dados parece travada — sem novos dados desde esta data">defasado</span>
             {/if}
           </div>
         {/if}
@@ -143,7 +143,7 @@
     <div class="status-right">
       {#if stats?.timestamp}
         <div class="countdown-block">
-          <small class="countdown-label">Next run</small>
+          <small class="countdown-label">Próxima execução</small>
           <div class="countdown-value">{countdown}</div>
         </div>
       {/if}
@@ -153,7 +153,7 @@
           class="toggle-btn"
           onclick={() => showDetails = !showDetails}
           aria-expanded={showDetails}
-          aria-label="Toggle run details">
+          aria-label="Alternar detalhes da execução">
           {#if showDetails}
             <svg class="toggle-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
               <path d="m18 15-6-6-6 6"/>
@@ -172,7 +172,7 @@
   {#if stats?.steps && showDetails}
     <div class="details-section">
       <div class="details-inner">
-        <h3 class="details-heading">Pipeline Steps</h3>
+        <h3 class="details-heading">Etapas do pipeline</h3>
         <div class="steps-list">
           {#each Object.entries(stats.steps) as [stepName, stepData]}
             {@const isOk = (stepData.success !== 0 && stepData.failed === 0) || stepData.success === true}
@@ -191,7 +191,7 @@
                       <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
                     </svg>
                   {/if}
-                  <span>{isOk ? 'OK' : 'Issue'}</span>
+                  <span>{isOk ? 'OK' : 'Falha'}</span>
                 </span>
               </div>
               <div class="step-details">
@@ -223,12 +223,12 @@
 
   <!-- Footer -->
   <footer class="status-footer">
-    <small class="footer-text">Pipeline runs every {PIPELINE_INTERVAL_MINUTES} minutes via GitHub Actions</small>
+    <small class="footer-text">Pipeline executa a cada {PIPELINE_INTERVAL_MINUTES} minutos via GitHub Actions</small>
     <a
       class="footer-link"
       href="https://github.com/franklinbaldo/causaganha/actions" target="_blank"
       rel="noopener noreferrer">
-      View Actions
+      Ver Actions
       <svg class="footer-link-icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
         <path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
       </svg>

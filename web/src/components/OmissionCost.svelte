@@ -19,17 +19,17 @@
 
 <div class="card bg-base-100 shadow-sm border border-base-300">
   <div class="card-body">
-    <h2 class="card-title text-xl mb-4">Omission Cost</h2>
+    <h2 class="card-title text-xl mb-4">Custo de omissão</h2>
 
     {#if !omissionStats}
-      <div class="text-center py-4 opacity-70" aria-busy="true">
+      <div class="text-center py-4 opacity-70" aria-busy="true" aria-live="polite">
         Carregando dados...
       </div>
     {:else}
       <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         <!-- Global Stats -->
         <div class="md:col-span-1 flex flex-col justify-center items-center p-6 bg-base-200 rounded-lg">
-          <span class="text-sm uppercase tracking-wider opacity-70 mb-2">Global Omission Cost</span>
+          <span class="text-sm uppercase tracking-wider opacity-70 mb-2">Custo global de omissão</span>
           <span class="text-5xl font-bold text-error">{globalOmissionCost}</span>
           <span class="text-xs opacity-50 mt-4">Dias úteis perdidos (sem .zip ou .absent)</span>
         </div>
