@@ -274,6 +274,29 @@ small { font-size: var(--font-size-sm); }
   border-width: 0;
 }
 
+/* Skip link — visually hidden until focused, then jumps into view. */
+.skip-link {
+  position: absolute;
+  top: 0;
+  left: 0;
+  transform: translateY(-120%);
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: 0 0 var(--radius-btn) 0;
+  z-index: 1000;
+  transition: transform var(--transition-base);
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-primary-content);
+  outline-offset: -4px;
+}
+
 .container {
   width: 100%;
   max-width: 1280px;
