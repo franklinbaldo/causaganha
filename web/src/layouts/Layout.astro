@@ -15,7 +15,7 @@ interface Props {
   showNetworkBanner?: boolean;
 }
 
-const { title, description = 'CausaGanha - Judicial Data Intelligence Pipeline', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
+const { title, description = 'CausaGanha — Inteligência de dados judiciais e pipeline de publicações oficiais', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -56,7 +56,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </head>
   <body>
     <a href="#main-content" class="sr-only">
-      Skip to main content
+      Pular para o conteúdo principal
     </a>
     {showNetworkBanner && <NetworkStatusBanner />}
     <main id="main-content" class:list={[{ container: !fullWidth }]}>
