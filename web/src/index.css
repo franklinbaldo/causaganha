@@ -274,6 +274,29 @@ small { font-size: var(--font-size-sm); }
   border-width: 0;
 }
 
+/* Skip-links and similar: invisible until focused, then surfaced.
+   Lets keyboard users jump past the chrome. */
+a.sr-only:focus,
+a.sr-only:focus-visible {
+  position: fixed;
+  top: var(--space-sm);
+  left: var(--space-sm);
+  width: auto;
+  height: auto;
+  margin: 0;
+  padding: var(--space-sm) var(--space-md);
+  clip: auto;
+  overflow: visible;
+  white-space: normal;
+  background: var(--color-base-100);
+  color: var(--color-base-content);
+  border: 2px solid var(--color-base-content);
+  border-radius: var(--radius-btn);
+  font-weight: 600;
+  z-index: 1000;
+  text-decoration: underline;
+}
+
 .container {
   width: 100%;
   max-width: 1280px;
