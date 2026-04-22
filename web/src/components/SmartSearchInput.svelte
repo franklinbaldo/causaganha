@@ -7,6 +7,7 @@
     kind?: SmartParseKind | '';
     placeholder?: string;
     onsubmit?: () => void;
+    inputRef?: HTMLInputElement | null;
   }
 
   let {
@@ -15,12 +16,16 @@
     kind = '',
     placeholder = 'OAB, número do processo ou texto livre...',
     onsubmit,
+    inputRef = $bindable(null),
   }: Props = $props();
 
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter' && onsubmit) {
       e.preventDefault();
       onsubmit();
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      value = '';
     }
   }
 </script>
@@ -32,6 +37,7 @@
     </svg>
     <input
       type="text"
+      bind:this={inputRef}
       bind:value
       onkeydown={handleKeyDown}
       {placeholder}
@@ -39,6 +45,8 @@
       spellcheck="false"
       aria-label="Buscar publicações"
     />
+    <kbd class="kbd-tag">Ctrl</kbd>
+    <kbd class="kbd-tag">K</kbd>
     {#if value}
       <button type="button" class="clear-btn" onclick={() => (value = '')} aria-label="Limpar busca">×</button>
     {/if}
@@ -91,6 +99,23 @@
     outline: none;
     font-size: var(--font-size-base, 1rem);
     color: inherit;
+  }
+
+  .kbd-tag {
+    display: none;
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+    padding: 0.125rem 0.375rem;
+    border-radius: var(--radius-btn);
+    background: var(--color-base-200);
+    border: none;
+    box-shadow: none;
+  }
+
+  @media (min-width: 640px) {
+    .kbd-tag {
+      display: inline-flex;
+    }
   }
 
   .clear-btn {

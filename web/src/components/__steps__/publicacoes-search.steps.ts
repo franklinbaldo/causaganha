@@ -149,4 +149,45 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
       });
     });
   });
+
+  Scenario('User uses Ctrl+K to focus search input', ({ When, Then }) => {
+    When('I press Ctrl+K', () => {
+      render(PublicationSearch);
+      fireEvent.keyDown(window, { key: 'k', ctrlKey: true });
+    });
+
+    Then('the search input should be focused', () => {
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      expect(document.activeElement).toBe(input);
+    });
+  });
+
+  Scenario('User presses Escape to clear input', ({ When, Then, And }) => {
+    When('I type "Some search text" in the search input', async () => {
+      render(PublicationSearch);
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      await fireEvent.input(input, { target: { value: 'Some search text' } });
+    });
+
+    And('I press Escape', async () => {
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      await fireEvent.keyDown(input, { key: 'Escape' });
+    });
+
+    Then('the search input should be empty', () => {
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      expect(input.value).toBe('');
+    });
+  });
+
+  Scenario('Input is auto-focused on load', ({ When, Then }) => {
+    When('the publication search loads with no URL params', () => {
+      render(PublicationSearch);
+    });
+
+    Then('the search input should be focused', () => {
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      expect(document.activeElement).toBe(input);
+    });
+  });
 });

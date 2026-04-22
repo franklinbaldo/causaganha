@@ -22,3 +22,16 @@ Feature: Live DJEN publication search
     Given the DJEN API responds with HTTP 429 and retry-after 60
     When I enter "contrato" with tribunal "TJSP" and press Enter
     Then I should see a rate-limit banner with a countdown
+
+  Scenario: User uses Ctrl+K to focus search input
+    When I press Ctrl+K
+    Then the search input should be focused
+
+  Scenario: User presses Escape to clear input
+    When I type "Some search text" in the search input
+    And I press Escape
+    Then the search input should be empty
+
+  Scenario: Input is auto-focused on load
+    When the publication search loads with no URL params
+    Then the search input should be focused

@@ -38,6 +38,7 @@
   let filters = $state<DjenComunicacaoQuery>({ itensPorPagina: 30, pagina: 1 });
   let showFilters = $state(false);
   let expandedSeq = $state<number | null>(null);
+  let searchInputRef = $state<HTMLInputElement | null>(null);
 
   // The query that was actually submitted (debounced or immediate on submit)
   let submittedQuery = $state<DjenComunicacaoQuery | null>(null);
@@ -214,11 +215,31 @@
     };
   });
 
+  // Global keydown for Ctrl+K
+  onMount(() => {
+    function handleGlobalKeydown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+        e.preventDefault();
+        if (searchInputRef) {
+          searchInputRef.focus();
+        }
+      }
+    }
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => {
+      window.removeEventListener('keydown', handleGlobalKeydown);
+    };
+  });
+
   // Hydrate from URL on mount
   onMount(() => {
     if (typeof window === 'undefined') return;
     const sp = new URLSearchParams(window.location.search);
-    if ([...sp.keys()].length === 0) return;
+    if ([...sp.keys()].length === 0) {
+       // Focus input automatically if there are no search params
+       if (searchInputRef) searchInputRef.focus();
+       return;
+    }
     const hydrated = searchParamsToQuery(sp);
     filters = {
       ...filters,
@@ -241,7 +262,7 @@
 <section class="search-root" aria-labelledby="publication-search-heading">
   <h2 id="publication-search-heading" class="visually-hidden">Busca de publicações</h2>
 
-  <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} />
+  <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} bind:inputRef={searchInputRef} />
   {#if !rawInput}
     <div class="example-chips">
       <span class="chips-label">Experimente:</span>
