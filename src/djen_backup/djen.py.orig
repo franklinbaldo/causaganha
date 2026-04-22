@@ -183,21 +183,23 @@ async def download_zip(
     for i in range(DOWNLOAD_SEGMENTS):
         start = i * segment_size
         end = total_size - 1 if i == DOWNLOAD_SEGMENTS - 1 else (i + 1) * segment_size - 1
-        tasks.append(_download_segment(client, url, start, end))
+        tasks.append(_download_segment(client, url, start, end, i))
 
     segments = await asyncio.gather(*tasks)
 
     # Write all segments to temp file
-    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
-        tmp_path = Path(tmp.name)
-        try:
-            for seg in segments:
-                tmp.write(seg)
-        except Exception:
-            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-            raise
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    tmp_path = Path(tmp.name)
+    try:
+        for seg in segments:
+            tmp.write(seg)
+        tmp.close()
+    except Exception:
+        tmp.close()
+        await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+        raise
 
-    log.info("download_complete", path=tmp_path.name, size_mb=size_mb, segments=DOWNLOAD_SEGMENTS)
+    log.info("download_complete", path=tmp.name, size_mb=size_mb, segments=DOWNLOAD_SEGMENTS)
     return tmp_path
 
 
