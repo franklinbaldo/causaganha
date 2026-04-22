@@ -82,13 +82,18 @@ def no_manifest(tmp_path: Path) -> Path:
 )
 def manifest_with_counts(tmp_path: Path, up: int, ab: int, unk: int) -> Path:
     path = tmp_path / "sync-manifest.csv"
-    rows: list[dict] = []
-    for i in range(up):
-        rows.append({"tribunal": "TJSP", "date": f"2026-01-{i + 1:02d}", "ia_status": "uploaded"})
-    for i in range(ab):
-        rows.append({"tribunal": "TJRS", "date": f"2026-02-{i + 1:02d}", "djen_status": "absent"})
-    for i in range(unk):
-        rows.append({"tribunal": "TJBA", "date": f"2026-03-{i + 1:02d}"})
+    rows: list[dict] = [
+        {"tribunal": "TJSP", "date": f"2026-01-{i + 1:02d}", "ia_status": "uploaded"}
+        for i in range(up)
+    ]
+    rows.extend(
+        {"tribunal": "TJRS", "date": f"2026-02-{i + 1:02d}", "djen_status": "absent"}
+        for i in range(ab)
+    )
+    rows.extend(
+        {"tribunal": "TJBA", "date": f"2026-03-{i + 1:02d}"}
+        for i in range(unk)
+    )
     write_manifest(path, rows)
     return path
 

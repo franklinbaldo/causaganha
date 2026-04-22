@@ -113,7 +113,6 @@ async def _download_segment(
     url: str,
     start: int,
     end: int,
-    index: int,
 ) -> bytes:
     """Download a byte range segment with retries."""
     headers = {"Range": f"bytes={start}-{end}"}
@@ -184,23 +183,21 @@ async def download_zip(
     for i in range(DOWNLOAD_SEGMENTS):
         start = i * segment_size
         end = total_size - 1 if i == DOWNLOAD_SEGMENTS - 1 else (i + 1) * segment_size - 1
-        tasks.append(_download_segment(client, url, start, end, i))
+        tasks.append(_download_segment(client, url, start, end))
 
     segments = await asyncio.gather(*tasks)
 
     # Write all segments to temp file
-    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-    tmp_path = Path(tmp.name)
-    try:
-        for seg in segments:
-            tmp.write(seg)
-        tmp.close()
-    except Exception:
-        tmp.close()
-        await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-        raise
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+        try:
+            for seg in segments:
+                tmp.write(seg)
+        except Exception:
+            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+            raise
 
-    log.info("download_complete", path=tmp.name, size_mb=size_mb, segments=DOWNLOAD_SEGMENTS)
+    log.info("download_complete", path=tmp_path.name, size_mb=size_mb, segments=DOWNLOAD_SEGMENTS)
     return tmp_path
 
 
@@ -210,54 +207,50 @@ async def _download_simple(
     filename: str,
 ) -> Path:
     """Simple streaming download fallback for small files or no range support."""
-    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
-    tmp_path = Path(tmp.name)
-    total_bytes = 0
+    with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
+        tmp_path = Path(tmp.name)
+        total_bytes = 0
 
-    try:
-        # Use request_with_retry to fetch the entire file into memory with retries.
-        # This fallback is only used for files < 5MB, so in-memory loading is acceptable.
-        resp = await request_with_retry(
-            client,
-            "GET",
-            url,
-            max_retries=3,
-            retry_djen_400=True,
-            retry_404=True,
-        )
-
-        if resp.status_code == HTTP_NOT_FOUND:
-            tmp.close()
-            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-            _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
-
-        if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
-            tmp.close()
-            await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-            _raise_server_error(resp.status_code)
-
-        resp.raise_for_status()
-
-        content_length = resp.headers.get("content-length")
-        total_expected = int(content_length) if content_length else None
-        if total_expected:
-            log.info(
-                "download_starting",
-                file=filename,
-                size_mb=round(total_expected / 1024 / 1024, 1),
+        try:
+            # Use request_with_retry to fetch the entire file into memory with retries.
+            # This fallback is only used for files < 5MB, so in-memory loading is acceptable.
+            resp = await request_with_retry(
+                client,
+                "GET",
+                url,
+                max_retries=3,
+                retry_djen_400=True,
+                retry_404=True,
             )
 
-        tmp.write(resp.content)
-        total_bytes = len(resp.content)
+            if resp.status_code == HTTP_NOT_FOUND:
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+                _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
 
-        tmp.close()
-        if total_bytes == 0:
+            if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+                _raise_server_error(resp.status_code)
+
+            resp.raise_for_status()
+
+            content_length = resp.headers.get("content-length")
+            total_expected = int(content_length) if content_length else None
+            if total_expected:
+                log.info(
+                    "download_starting",
+                    file=filename,
+                    size_mb=round(total_expected / 1024 / 1024, 1),
+                )
+
+            tmp.write(resp.content)
+            total_bytes = len(resp.content)
+
+            if total_bytes == 0:
+                await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
+                _raise_not_found(resp.status_code, "Empty ZIP response")
+        except Exception:
             await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-            _raise_not_found(resp.status_code, "Empty ZIP response")
-    except Exception:
-        tmp.close()
-        await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
-        raise
+            raise
 
-    log.info("download_complete", path=tmp.name, size_mb=round(total_bytes / 1024 / 1024, 1))
+    log.info("download_complete", path=tmp_path.name, size_mb=round(total_bytes / 1024 / 1024, 1))
     return tmp_path
