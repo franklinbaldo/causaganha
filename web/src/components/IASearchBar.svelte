@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import { fetchWithRetry } from '../lib/fetchData';
 
   interface SearchResult {
@@ -32,6 +33,8 @@
   let searched = $state(false);
 
   let searchSubmitBtn: HTMLButtonElement;
+  let inputRef: HTMLInputElement | null = null;
+  let shortcutEnabled = $state(false);
   let suggestionTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   $effect(() => {
@@ -99,6 +102,25 @@
   function handleKeyDown(e: KeyboardEvent) {
     if (e.key === 'Enter') handleSearch();
   }
+
+  function handleGlobalKeydown(e: KeyboardEvent) {
+    if (!(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return;
+
+    const commandPalette = document.getElementById('command-palette-dialog') as HTMLDialogElement | null;
+    if (commandPalette?.open) return;
+
+    e.preventDefault();
+    (inputRef ?? document.getElementById('ia-search-input'))?.focus();
+  }
+
+  onMount(() => {
+    shortcutEnabled = true;
+    window.addEventListener('keydown', handleGlobalKeydown);
+    return () => {
+      shortcutEnabled = false;
+      window.removeEventListener('keydown', handleGlobalKeydown);
+    };
+  });
 </script>
 
 <div class="search-container">
@@ -107,6 +129,7 @@
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="search-icon"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
       <input
         id="ia-search-input"
+        bind:this={inputRef}
         class="search-input"
         type="search"
         value={query}
@@ -114,8 +137,10 @@
         onkeydown={handleKeyDown}
         placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03)"
       />
-      <kbd class="kbd-tag">Ctrl</kbd>
-      <kbd class="kbd-tag">K</kbd>
+      {#if shortcutEnabled}
+        <kbd class="kbd-tag">Ctrl</kbd>
+        <kbd class="kbd-tag">K</kbd>
+      {/if}
     </label>
 
     <div class="suggestions-row">
