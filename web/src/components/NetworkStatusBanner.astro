@@ -137,10 +137,7 @@
     if (retryBtn) {
       retryBtn.addEventListener('click', () => {
         handleSuccess(); // Hide banner immediately
-        // Force refetch by dispatching an event that fetchData uses, or import fetchAllData dynamically
-        import('../lib/fetchData').then(({ fetchAllData }) => {
-          fetchAllData().catch(console.error);
-        });
+        window.dispatchEvent(new CustomEvent('cg-network-force-refresh'));
       });
     }
 
