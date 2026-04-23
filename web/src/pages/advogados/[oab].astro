@@ -32,8 +32,13 @@ export function getStaticPaths() {
 const { oab } = Astro.params;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const key = String(oab ?? '').toUpperCase();
-const tribunal = tribunalStats.find((item: any) => item.tribunal === key);
-const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\nWHERE tribunal = '${key}'\nGROUP BY numero_oab, uf_oab\nORDER BY aparicoes DESC\nLIMIT 25;`;
+const TRIBUNAL_CODE_PATTERN = /^[A-Z0-9]{2,10}$/;
+const allowedTribunalCodes = new Set(tribunalStats.map((item: any) => item.tribunal));
+const isValidTribunalCode = TRIBUNAL_CODE_PATTERN.test(key) && allowedTribunalCodes.has(key);
+const tribunal = isValidTribunalCode ? tribunalStats.find((item: any) => item.tribunal === key) : null;
+const query = isValidTribunalCode
+  ? `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\nWHERE tribunal = '${key}'\nGROUP BY numero_oab, uf_oab\nORDER BY aparicoes DESC\nLIMIT 25;`
+  : '';
 ---
 
 <Layout title={`${key} - Advogados - CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
