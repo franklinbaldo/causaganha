@@ -274,6 +274,28 @@ small { font-size: var(--font-size-sm); }
   border-width: 0;
 }
 
+.skip-link {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 100;
+  padding: 0.5rem 1rem;
+  background: var(--color-primary);
+  color: var(--color-primary-content);
+  text-decoration: none;
+  font-weight: 600;
+  border-radius: 0 0 var(--radius-btn) 0;
+  transform: translateY(-120%);
+  transition: transform 120ms ease-out;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-primary-content);
+  outline-offset: -4px;
+}
+
 .container {
   width: 100%;
   max-width: 1280px;
