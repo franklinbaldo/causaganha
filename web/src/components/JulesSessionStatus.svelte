@@ -48,8 +48,8 @@
       sessions = data.sessions || [];
       // Keep only the last 5
       sessions = sessions.slice(0, 5);
-    } catch (err: any) {
-      error = err.message || 'Failed to fetch sessions';
+    } catch (err: unknown) {
+      error = err instanceof Error ? err.message : 'Failed to fetch sessions';
     } finally {
       loading = false;
     }
@@ -71,32 +71,32 @@
   }
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
+<div class="card jules-card">
   <div class="card-body">
-    <h3 class="card-title mb-4 flex justify-between items-center">
+    <h3 class="card-title jules-header">
       Jules Sessions
-      <button class="btn btn-sm btn-ghost" on:click={fetchSessions} disabled={loading || !apiKey}>
-        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <button class="btn btn-sm btn-ghost" onclick={fetchSessions} disabled={loading || !apiKey}>
+        <svg xmlns="http://www.w3.org/2000/svg" class="jules-refresh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
         </svg>
       </button>
     </h3>
 
     {#if error}
-      <div class="alert alert-error text-sm">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-4 w-4" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+      <div class="jules-alert jules-alert-error">
+        <svg xmlns="http://www.w3.org/2000/svg" class="jules-alert-icon" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
         <span>{error}</span>
       </div>
     {:else if loading}
-      <div class="flex justify-center py-4" aria-busy="true">
-        <span class="loading loading-spinner loading-md text-primary"></span>
+      <div class="jules-loading" aria-busy="true">
+        <span class="jules-spinner"></span>
       </div>
     {:else if sessions.length === 0}
-      <div class="text-center py-4 text-base-content/50 text-sm">
+      <div class="jules-empty">
         No active sessions found.
       </div>
     {:else}
-      <div class="overflow-x-auto">
+      <div class="jules-table-wrap">
         <table class="table table-sm">
           <thead>
             <tr>
@@ -109,19 +109,18 @@
           <tbody>
             {#each sessions as session}
               <tr>
-                <td class="font-mono text-xs">
+                <td class="jules-id-cell">
                   <a href="#" class="link link-hover link-primary" title="Open in console">
-                    <!-- Extracting ID if it's in the format 'sessions/ID' -->
                     {session.name ? session.name.split('/').pop() : 'Unknown'}
                   </a>
                 </td>
-                <td class="whitespace-nowrap max-w-xs truncate" title={session.title}>{session.title || 'Untitled'}</td>
+                <td class="jules-title-cell" title={session.title}>{session.title || 'Untitled'}</td>
                 <td>
                   <span class="badge badge-sm {getStateColor(session.state)}">
                     {session.state || 'UNKNOWN'}
                   </span>
                 </td>
-                <td class="text-xs text-base-content/70 whitespace-nowrap">
+                <td class="jules-created-at">
                   {formatDate(session.createTime)}
                 </td>
               </tr>
@@ -132,3 +131,94 @@
     {/if}
   </div>
 </div>
+
+<style>
+  .jules-card {
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .jules-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-md);
+  }
+
+  .jules-refresh-icon {
+    width: 1rem;
+    height: 1rem;
+  }
+
+  .jules-alert {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    padding: var(--space-sm);
+    border-radius: var(--radius-box);
+    font-size: var(--font-size-sm);
+  }
+
+  .jules-alert-error {
+    background: color-mix(in srgb, var(--color-error) 10%, var(--color-base-100));
+    color: var(--color-error-content, var(--color-base-content));
+  }
+
+  .jules-alert-icon {
+    width: 1rem;
+    height: 1rem;
+    flex-shrink: 0;
+  }
+
+  .jules-loading {
+    display: flex;
+    justify-content: center;
+    padding: var(--space-md) 0;
+  }
+
+  .jules-spinner {
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 2px solid var(--color-base-300);
+    border-top-color: var(--color-primary);
+    border-radius: 9999px;
+    animation: jules-spin 0.8s linear infinite;
+  }
+
+  .jules-empty {
+    padding: var(--space-md) 0;
+    text-align: center;
+    color: color-mix(in srgb, var(--color-base-content) 50%, transparent);
+    font-size: var(--font-size-sm);
+  }
+
+  .jules-table-wrap {
+    overflow-x: auto;
+  }
+
+  .jules-id-cell {
+    font-family: var(--font-mono);
+    font-size: var(--font-size-xs);
+  }
+
+  .jules-title-cell {
+    max-width: 16rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .jules-created-at {
+    white-space: nowrap;
+    font-size: var(--font-size-xs);
+    color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
+  }
+
+  @keyframes jules-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+</style>
