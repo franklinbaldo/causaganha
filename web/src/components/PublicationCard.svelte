@@ -242,7 +242,32 @@
   const parties = $derived(uniquePartyNames(pub));
   const lawyers = $derived(uniqueLawyers(pub));
 
-  function handleShare(e: MouseEvent, context: "main" | "reader" | "compact") {
+  async function copyToClipboard(text: string): Promise<boolean> {
+    if (navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(text);
+        return true;
+      } catch {
+        // fall through to legacy path
+      }
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.setAttribute("readonly", "");
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      const ok = document.execCommand("copy");
+      document.body.removeChild(ta);
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function handleShare(e: MouseEvent, context: "main" | "reader" | "compact") {
     e.preventDefault();
     e.stopPropagation();
     const base = window.location.pathname;
@@ -250,7 +275,8 @@
     if (page) hash += `/${page}`;
     if (seq) hash += `/${seq}`;
     const url = `${window.location.origin}${base}#${hash}`;
-    navigator.clipboard?.writeText(url);
+    const ok = await copyToClipboard(url);
+    if (!ok) return;
     if (shareTimeoutId) clearTimeout(shareTimeoutId);
     activeCopied = context;
     shareTimeoutId = setTimeout(() => {

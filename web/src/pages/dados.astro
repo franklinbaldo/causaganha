@@ -2,8 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
-import DatabaseCloudIcon from '../components/icons/DatabaseCloudIcon.astro';
 import { readArchiveSnapshot, type IaSnapshot } from '../lib/readJson';
+import { formatNumber } from '../lib/homepage-content';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const iaSnapshot = readArchiveSnapshot<IaSnapshot>();
@@ -42,13 +42,13 @@ const snapVolumeLabel = snapGB === 0
         <div class="stats-grid">
           <div class="card">
             <div class="card-body-compact">
-              <strong class="stat-value">{snap.total_zips?.toLocaleString()}</strong>
+              <strong class="stat-value">{formatNumber(snap.total_zips ?? 0)}</strong>
               <small class="stat-label">ZIPs arquivados</small>
             </div>
           </div>
           <div class="card">
             <div class="card-body-compact">
-              <strong class="stat-value">{snap.tribunals_with_data}</strong>
+              <strong class="stat-value">{formatNumber(snap.tribunals_with_data ?? 0)}</strong>
               <small class="stat-label">Tribunais</small>
             </div>
           </div>
@@ -61,7 +61,7 @@ const snapVolumeLabel = snapGB === 0
           {(snap.total_parquets ?? 0) > 0 && (
             <div class="card">
               <div class="card-body-compact">
-                <strong class="stat-value">{snap.total_parquets}</strong>
+                <strong class="stat-value">{formatNumber(snap.total_parquets ?? 0)}</strong>
                 <small class="stat-label">Parquets consolidados</small>
               </div>
             </div>
