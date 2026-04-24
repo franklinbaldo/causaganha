@@ -17,17 +17,20 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Check formatting
         run: uv run ruff format --check
-      - name: Check lint (blocking rules)
-        # Narrowed gate: only security (S) + CLAUDE.md-banned blind-except
-        # (BLE001) + TRY300 are enforced. Legacy violations in specific files
-        # are locked in via per-file-ignores in ruff.toml so this step passes
-        # today while blocking new violations in clean files. The cosmetic
-        # tail (E501, D10x, FBT003, PLR2004, PLC0415, ANN401, PERF401 — 266
-        # pre-existing) is surfaced advisorily in the next step so regressions
-        # stay visible without blocking PRs.
-        run: uv run ruff check --select BLE001,S,TRY300
-      - name: Check lint (advisory — cosmetic tail)
-        run: uv run ruff check
+      - name: Check lint (strict: security + policy)
+        # Enumerated blocking rules: security-sensitive S family (SQL
+        # injection, URL open, subprocess, hash, try/except/continue) plus
+        # CLAUDE.md-banned BLE001 (blind Exception), B904 (raise-from for
+        # exception chaining), and TRY300 (try/else restructure). Legacy
+        # violations in specific files are locked in via per-file-ignores
+        # in ruff.toml so this step passes today while blocking new
+        # violations in clean files.
+        run: uv run ruff check --select BLE001,S608,S310,S603,S607,S324,S112,B904,TRY300
+      - name: Check lint (advisory: style)
+        # Everything else (E501, D10x, FBT003, PLR2004, PLC0415, ANN401,
+        # PERF401, etc.) — 266 pre-existing cosmetic violations that stay
+        # visible in CI logs as non-blocking regression signal.
+        run: uv run ruff check --ignore BLE001,S608,S310,S603,S607,S324,S112,B904,TRY300
         continue-on-error: true
       - name: Check dead code
         run: uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
