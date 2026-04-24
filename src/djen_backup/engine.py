@@ -229,14 +229,10 @@ async def run_pipeline(
     download_queue: asyncio.Queue[ManifestEntry | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
     upload_queue: asyncio.Queue[StagedItem | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
 
-    # ── PRIORITY: Load existing backlog into download queue ──
+    # ── PRIORITY: Load existing backlog ──
     backlog = manifest.entries_needing_upload()
     if backlog:
         log.info("backlog_priority_load", count=len(backlog))
-        # We only load up to maxsize or max_items to avoid blocking the feeder
-        initial_load = backlog[:config.max_items] if config.max_items else backlog
-        for entry in initial_load:
-            download_queue.put_nowait(entry)
 
     circuit_breaker = CircuitBreaker()
     last_save = time.monotonic()
@@ -382,7 +378,13 @@ async def run_pipeline(
         create_upload_client(config.ia_auth) as upload_client,
     ):
         async def feed_available() -> None:
+            # 1. Load backlog first (respecting max_items)
+            initial_backlog = backlog[:config.max_items] if config.max_items else backlog
+            for entry in initial_backlog:
+                await download_queue.put(entry)
+            
             seen = {f"{e.tribunal}/{e.date.isoformat()}" for e in backlog}
+            # 2. Continuous feed for newly discovered entries
             while not abort_event.is_set():
                 if config.max_items and summary.downloads >= config.max_items: return
                 entries = manifest.entries_needing_upload()
