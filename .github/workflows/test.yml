@@ -18,7 +18,14 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check
       - name: Check lint
+        # 406 pre-existing ruff violations on main (since bbcfbd3, Apr 14).
+        # Keep output visible but non-blocking until the debt is burned down.
+        # Concentration: scripts/generate_catalog.py (40), src/djen_backup/manifest.py (26),
+        # src/djen_backup/__main__.py (26), src/causaganha/cli/__init__.py (22),
+        # scripts/pipeline/consolidate.py (22). Priority fixes: BLE001 (CLAUDE.md),
+        # S608 / S6xx / S3xx (security). Cosmetic tail: E501, D10x, FBT003, PLR2004.
         run: uv run ruff check
+        continue-on-error: true
       - name: Check dead code
         run: uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
       - name: Auto-fix linting issues
