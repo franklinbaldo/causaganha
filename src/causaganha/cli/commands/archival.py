@@ -81,7 +81,7 @@ def generate_compliance_report(
 
     except Exception:
         logger.exception("Failed to generate report")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
 
 if __name__ == "__main__":
