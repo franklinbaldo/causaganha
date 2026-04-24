@@ -45,8 +45,12 @@ const ogDesc = zipCount > 0
   ? `${zipCount} publicações arquivadas de ${earliestDate} a ${latestDate}`
   : `Publicações judiciais do ${tribunalCode} arquivadas no Internet Archive`;
 
-// Generate OG image SVG file at build time
-const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
+// Regenerate the OG image SVG from live snapshot data — but only during
+// production builds and only when we actually have stats. Skipping in dev
+// (and when zipCount is 0) avoids clobbering the committed fallback SVGs
+// in web/public/og/ whenever a contributor browses this page locally.
+if (import.meta.env.PROD && zipCount > 0) {
+  const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
   <rect width="1200" height="630" fill="#0f172a"/>
   <rect x="40" y="40" width="1120" height="550" rx="20" fill="#1e293b" stroke="#334155" stroke-width="2"/>
   <text x="80" y="120" font-family="system-ui,sans-serif" font-size="24" fill="#94a3b8">CausaGanha</text>
@@ -57,9 +61,10 @@ const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"
   <text x="80" y="520" font-family="system-ui,sans-serif" font-size="20" fill="#475569">Dados públicos do Diário de Justiça Eletrônico Nacional</text>
   <text x="80" y="555" font-family="system-ui,sans-serif" font-size="18" fill="#334155">franklinbaldo.github.io/causaganha</text>
 </svg>`;
-const ogDir = path.resolve('./public/og');
-fs.mkdirSync(ogDir, { recursive: true });
-fs.writeFileSync(path.join(ogDir, `${tribunalCode.toLowerCase()}.svg`), ogSvg);
+  const ogDir = path.resolve('./public/og');
+  fs.mkdirSync(ogDir, { recursive: true });
+  fs.writeFileSync(path.join(ogDir, `${tribunalCode.toLowerCase()}.svg`), ogSvg);
+}
 const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
 ---
 
