@@ -90,10 +90,7 @@ def manifest_with_counts(tmp_path: Path, up: int, ab: int, unk: int) -> Path:
         {"tribunal": "TJRS", "date": f"2026-02-{i + 1:02d}", "djen_status": "absent"}
         for i in range(ab)
     )
-    rows.extend(
-        {"tribunal": "TJBA", "date": f"2026-03-{i + 1:02d}"}
-        for i in range(unk)
-    )
+    rows.extend({"tribunal": "TJBA", "date": f"2026-03-{i + 1:02d}"} for i in range(unk))
     write_manifest(path, rows)
     return path
 
