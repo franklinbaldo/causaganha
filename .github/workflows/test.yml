@@ -18,19 +18,21 @@ jobs:
       - name: Check formatting
         run: uv run ruff format --check
       - name: Check lint (strict: security + policy)
-        # Enumerated blocking rules: security-sensitive S family (SQL
-        # injection, URL open, subprocess, hash, try/except/continue) plus
-        # CLAUDE.md-banned BLE001 (blind Exception), B904 (raise-from for
-        # exception chaining), and TRY300 (try/else restructure). Legacy
-        # violations in specific files are locked in via per-file-ignores
-        # in ruff.toml so this step passes today while blocking new
-        # violations in clean files.
-        run: uv run ruff check --select BLE001,S608,S310,S603,S607,S324,S112,B904,TRY300
+        # Blocking rules: the full `S` security family (bandit port —
+        # SQL injection, URL open, subprocess, shell=True, pickle,
+        # TLS verify, hash, asserts, etc.), CLAUDE.md-banned BLE001
+        # (blind Exception), B904 (raise-from for exception chaining),
+        # and TRY300 (try/else restructure). Using the family code `S`
+        # instead of an enumerated list so future S-rule additions are
+        # automatically enforced. Legacy violations in specific files
+        # are locked in via per-file-ignores in ruff.toml so this step
+        # passes today while blocking new violations in clean files.
+        run: uv run ruff check --select S,BLE001,B904,TRY300
       - name: Check lint (advisory: style)
         # Everything else (E501, D10x, FBT003, PLR2004, PLC0415, ANN401,
-        # PERF401, etc.) — 266 pre-existing cosmetic violations that stay
-        # visible in CI logs as non-blocking regression signal.
-        run: uv run ruff check --ignore BLE001,S608,S310,S603,S607,S324,S112,B904,TRY300
+        # PERF401, etc.) — ~265 pre-existing cosmetic violations that
+        # stay visible in CI logs as non-blocking regression signal.
+        run: uv run ruff check --ignore S,BLE001,B904,TRY300
         continue-on-error: true
       - name: Check dead code
         run: uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
