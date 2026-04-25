@@ -128,11 +128,21 @@ class SyncConfig:
 
 @dataclass
 class SyncSummary:
-    """Statistics for the current run."""
+    """Statistics for the current run, tracking session-level gains."""
 
+    # Real-time counters
     downloads: int = 0
     uploads: int = 0
     errors: int = 0
+
+    # Baseline for calculating net progress
+    initial_uploaded: int = 0
+    initial_absent: int = 0
+    initial_unknown: int = 0
+
+    # Final result state (set at the end of run_sync)
+    final_counts: ManifestCounts | None = None
+
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     async def inc_download(self) -> None:
@@ -412,7 +422,7 @@ async def run_pipeline(
         await asyncio.gather(*upload_tasks, return_exceptions=True)
 
 
-async def run_sync(config: SyncConfig) -> int:
+async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
     """Manifest-driven sync: build → check+download+upload (concurrent)."""
     start_time = time.monotonic()
     deadline = start_time + config.deadline_minutes * 60
@@ -423,6 +433,12 @@ async def run_sync(config: SyncConfig) -> int:
     if config.observer: config.observer.on_phase("Loading manifest")
     await manifest.load_from_ia()
     manifest.load_from_disk(config.manifest_file)
+    
+    # Capture baseline
+    counts_init = manifest.counts()
+    summary.initial_uploaded = counts_init.uploaded
+    summary.initial_absent = counts_init.absent
+    summary.initial_unknown = counts_init.unknown
 
     if config.observer: config.observer.on_phase("Building manifest")
     async with httpx.AsyncClient(timeout=httpx.Timeout(120.0), follow_redirects=True) as client:
@@ -446,4 +462,6 @@ async def run_sync(config: SyncConfig) -> int:
                 await manifest.upload_summary_to_ia(config.ia_auth)
                 log.info("final_ia_manifest_upload_complete")
 
-    return 1 if summary.errors > 0 or abort_event.is_set() else 0
+    summary.final_counts = manifest.counts()
+    exit_code = 1 if summary.errors > 0 or abort_event.is_set() else 0
+    return exit_code, summary
