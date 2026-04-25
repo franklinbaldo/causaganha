@@ -336,6 +336,32 @@ const recursosLinks = [
     cursor: pointer;
   }
 
+  .menu details summary {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    list-style: none;
+  }
+
+  .menu details summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .menu details summary::after {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    border-right: 1.5px solid currentColor;
+    border-bottom: 1.5px solid currentColor;
+    transform: translateY(-2px) rotate(45deg);
+    opacity: 0.6;
+    transition: transform var(--transition-base, 0.15s ease);
+  }
+
+  .menu details[open] summary::after {
+    transform: translateY(1px) rotate(225deg);
+  }
+
   .menu a:hover,
   .menu summary:hover {
     background: var(--color-base-200);
