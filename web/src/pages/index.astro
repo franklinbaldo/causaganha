@@ -742,6 +742,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     }
   }
 
+  @media (max-width: 420px) {
+    .stats-row {
+      grid-template-columns: 1fr;
+    }
+  }
+
   /* ── Activity strip (widget 1) ── */
   .activity-strip-section {
     padding-top: var(--space-sm);

@@ -282,8 +282,21 @@
     >
       {showFilters ? 'Ocultar filtros' : 'Filtros avançados'}
     </button>
-    <button type="button" class="submit-btn" disabled={!canSubmit} onclick={handleSubmit}>
-      {status === 'loading' ? 'Buscando…' : cooldownRemaining > 0 ? `Aguarde ${cooldownRemaining}s` : 'Buscar'}
+    <button
+      type="button"
+      class="submit-btn"
+      disabled={!canSubmit}
+      aria-busy={status === 'loading'}
+      onclick={handleSubmit}
+    >
+      {#if status === 'loading'}
+        <span class="submit-spinner" aria-hidden="true"></span>
+        Buscando…
+      {:else if cooldownRemaining > 0}
+        Aguarde {cooldownRemaining}s
+      {:else}
+        Buscar
+      {/if}
     </button>
     <div class="toolbar-spacer"></div>
     <RateLimitBadge limit={rateLimit.limit} remaining={rateLimit.remaining} {usedFallback} />
@@ -328,18 +341,21 @@
         <p>Ajuste os filtros ou amplie o período.</p>
       </div>
     {:else if status === 'success'}
+      {@const perPage = filters.itensPorPagina ?? 30}
+      {@const currentPage = filters.pagina ?? 1}
+      {@const totalPages = Math.max(1, Math.ceil(totalCount / perPage))}
       <div class="results-header" id={resultsHeadingId}>
         <span class="result-count">{totalCount.toLocaleString('pt-BR')} resultado(s)</span>
         <div class="pagination">
           <button
             type="button"
-            disabled={(filters.pagina ?? 1) <= 1}
+            disabled={currentPage <= 1}
             onclick={() => handlePageChange(-1)}
           >‹ Anterior</button>
-          <span>Página {filters.pagina ?? 1}</span>
+          <span>Página {currentPage} de {totalPages.toLocaleString('pt-BR')}</span>
           <button
             type="button"
-            disabled={results.length < (filters.itensPorPagina ?? 30)}
+            disabled={currentPage >= totalPages || results.length < perPage}
             onclick={() => handlePageChange(1)}
           >Próxima ›</button>
         </div>
@@ -450,6 +466,10 @@
     background: var(--color-primary, #3b82f6);
     color: white;
     border-color: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
   }
 
   .submit-btn:disabled {
@@ -459,6 +479,25 @@
 
   .submit-btn:not(:disabled):hover {
     filter: brightness(0.95);
+  }
+
+  .submit-spinner {
+    width: 0.85rem;
+    height: 0.85rem;
+    border-radius: 50%;
+    border: 2px solid currentColor;
+    border-top-color: transparent;
+    animation: submit-spin 0.7s linear infinite;
+  }
+
+  @keyframes submit-spin {
+    to { transform: rotate(360deg); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .submit-spinner {
+      animation-duration: 1.8s;
+    }
   }
 
   .status-region {

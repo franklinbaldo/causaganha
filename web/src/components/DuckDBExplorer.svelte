@@ -226,7 +226,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
         Exportar CSV
       </button>
       <small class="result-meta">
-        {result.rowCount} linha{result.rowCount !== 1 ? 's' : ''} em {result.duration}ms
+        {result.rowCount.toLocaleString('pt-BR')} linha{result.rowCount !== 1 ? 's' : ''} em {result.duration.toLocaleString('pt-BR')}ms
       </small>
     {/if}
   </div>
@@ -290,7 +290,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
       </table>
       {#if result.rows.length > 500}
         <small class="truncation-notice">
-          Mostrando 500 de {result.rowCount} linhas. Use LIMIT na query para controlar.
+          Mostrando 500 de {result.rowCount.toLocaleString('pt-BR')} linhas. Use LIMIT na query para controlar.
         </small>
       {/if}
     </div>
