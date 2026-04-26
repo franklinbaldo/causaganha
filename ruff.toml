@@ -68,7 +68,6 @@ ignore = [
 "src/causaganha/analysis/ground_truth.py" = ["S608"]
 "src/causaganha/archival/cold_storage.py" = ["S108"]
 "src/djen_backup/drain.py" = ["S608", "TRY300"]
-"src/djen_backup/archive.py" = ["S101"]
 
 # ── Tests ──────────────────────────────────────────────────────────────────
 # assert is idiomatic pytest; no docstrings/type-hints required; private access

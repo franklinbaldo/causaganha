@@ -20,7 +20,6 @@ from aiolimiter import AsyncLimiter
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
     CircuitBreaker,
-    ItemBusyError,
     check_ia_file_exists,
     fetch_ia_existing,
     get_ia_item_id,
@@ -46,6 +45,7 @@ def load_djen_safe_concurrency() -> int:
         return DEFAULT_DJEN_CONCURRENCY
     try:
         import json
+
         data = json.loads(DJEN_SAFE_CONCURRENCY_FILE.read_text())
         return max(1, int(data.get("safe_concurrency", DEFAULT_DJEN_CONCURRENCY)))
     except Exception:
@@ -55,13 +55,17 @@ def load_djen_safe_concurrency() -> int:
 def _save_safe_concurrency(value: int, *, reason: str) -> None:
     import json
     from datetime import UTC, datetime
+
     DJEN_SAFE_CONCURRENCY_FILE.parent.mkdir(parents=True, exist_ok=True)
     DJEN_SAFE_CONCURRENCY_FILE.write_text(
-        json.dumps({
-            "safe_concurrency": value,
-            "reason": reason,
-            "measured_at": datetime.now(UTC).isoformat(timespec="seconds"),
-        }, indent=2)
+        json.dumps(
+            {
+                "safe_concurrency": value,
+                "reason": reason,
+                "measured_at": datetime.now(UTC).isoformat(timespec="seconds"),
+            },
+            indent=2,
+        )
     )
 
 
@@ -119,11 +123,16 @@ class SyncSummary:
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     async def inc_download(self) -> None:
-        async with self._lock: self.downloads += 1
+        async with self._lock:
+            self.downloads += 1
+
     async def inc_upload(self) -> None:
-        async with self._lock: self.uploads += 1
+        async with self._lock:
+            self.uploads += 1
+
     async def inc_error(self) -> None:
-        async with self._lock: self.errors += 1
+        async with self._lock:
+            self.errors += 1
 
 
 # ── Unified check + download + upload pipeline ──────────────────────
@@ -146,7 +155,12 @@ async def run_pipeline(
             try:
                 resp = await client.get(
                     "https://archive.org/advancedsearch.php",
-                    params={"q": "identifier:djen-*-*", "fl[]": "identifier", "rows": "2000", "output": "json"},
+                    params={
+                        "q": "identifier:djen-*-*",
+                        "fl[]": "identifier",
+                        "rows": "2000",
+                        "output": "json",
+                    },
                 )
                 for d in resp.json()["response"]["docs"]:
                     ident = d["identifier"]
@@ -156,41 +170,56 @@ async def run_pipeline(
                 log.info("ia_items_discovered", count=len(existing_items))
             except Exception as exc:
                 log.warning("ia_search_failed_fallback", error=str(exc))
-                existing_items = {(e.tribunal, e.date.year) for e in manifest._entries.values() if e.ia_status != "uploaded"}
+                existing_items = {
+                    (e.tribunal, e.date.year)
+                    for e in manifest._entries.values()
+                    if e.ia_status != "uploaded"
+                }
 
     # Build check priority
     from collections import defaultdict
+
     uploaded_by_tribunal: dict[str, list[date]] = defaultdict(list)
     for e in manifest._entries.values():
-        if e.ia_status == "uploaded": uploaded_by_tribunal[e.tribunal].append(e.date)
-    for dates in uploaded_by_tribunal.values(): dates.sort()
+        if e.ia_status == "uploaded":
+            uploaded_by_tribunal[e.tribunal].append(e.date)
+    for dates in uploaded_by_tribunal.values():
+        dates.sort()
 
     def _is_adjacent(entry: ManifestEntry) -> bool:
         uploads = uploaded_by_tribunal.get(entry.tribunal)
-        if not uploads: return False
+        if not uploads:
+            return False
         for up in uploads:
-            if abs((up - entry.date).days) <= 30: return True
+            if abs((up - entry.date).days) <= 30:
+                return True
         return False
 
     adjacent_entries, isolated_entries = [], []
     for e in manifest._entries.values():
-        if e.ia_status != "" or e.djen_status != "": continue
-        if _is_adjacent(e): adjacent_entries.append(e)
-        else: isolated_entries.append(e)
+        if e.ia_status != "" or e.djen_status != "":
+            continue
+        if _is_adjacent(e):
+            adjacent_entries.append(e)
+        else:
+            isolated_entries.append(e)
 
-    random.shuffle(adjacent_entries); random.shuffle(isolated_entries)
+    random.shuffle(adjacent_entries)
+    random.shuffle(isolated_entries)
     unknown_entries = adjacent_entries + isolated_entries
 
     await anyio.Path(STAGING_DIR).mkdir(parents=True, exist_ok=True)
 
     check_queue: asyncio.Queue[ManifestEntry] = asyncio.Queue()
-    for entry in unknown_entries: check_queue.put_nowait(entry)
+    for entry in unknown_entries:
+        check_queue.put_nowait(entry)
 
     download_queue: asyncio.Queue[ManifestEntry | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
     upload_queue: asyncio.Queue[StagedItem | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
 
     backlog = manifest.entries_needing_upload()
-    if backlog: log.info("backlog_priority_load", count=len(backlog))
+    if backlog:
+        log.info("backlog_priority_load", count=len(backlog))
 
     circuit_breaker = CircuitBreaker()
     last_save = last_ia_upload = time.monotonic()
@@ -201,31 +230,39 @@ async def run_pipeline(
     stats_log_interval, notify_interval = 30.0, 0.5
 
     djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
-    djen_limiter = AsyncLimiter(max_rate=1, time_period=1) 
+    djen_limiter = AsyncLimiter(max_rate=1, time_period=1)
 
     async def _check_djen_breaker() -> bool:
         while not await djen_breaker.allow_request():
-            if abort_event.is_set() or time.monotonic() > deadline: return False
+            if abort_event.is_set() or time.monotonic() > deadline:
+                return False
             await asyncio.sleep(5.0)
         return True
 
     _ia_upload_running = False
+
     async def _upload_manifest_background() -> None:
         nonlocal _ia_upload_running
-        if _ia_upload_running: return
+        if _ia_upload_running:
+            return
         _ia_upload_running = True
         try:
-            if await manifest.upload_to_ia(config.ia_auth): await manifest.upload_summary_to_ia(config.ia_auth)
-        except Exception: pass
-        finally: _ia_upload_running = False
+            if await manifest.upload_to_ia(config.ia_auth):
+                await manifest.upload_summary_to_ia(config.ia_auth)
+        except Exception:
+            pass
+        finally:
+            _ia_upload_running = False
 
     def _notify_counts() -> None:
         nonlocal last_stats_log, last_notify
         now = time.monotonic()
-        if now - last_notify < notify_interval: return
+        if now - last_notify < notify_interval:
+            return
         last_notify = now
         c = manifest.counts()
-        if config.observer: config.observer.on_counts_updated(c)
+        if config.observer:
+            config.observer.on_counts_updated(c)
         if now - last_stats_log > stats_log_interval:
             last_stats_log = now
             log.info("progress", uploaded=c.uploaded, pending=c.available, unknown=c.unknown)
@@ -236,142 +273,213 @@ async def run_pipeline(
     async def checker_worker(client: httpx.AsyncClient) -> None:
         nonlocal last_save, last_ia_upload
         while not abort_event.is_set() and time.monotonic() < deadline:
-            try: entry = check_queue.get_nowait()
-            except asyncio.QueueEmpty: return
+            try:
+                entry = check_queue.get_nowait()
+            except asyncio.QueueEmpty:
+                return
 
             item_key = (entry.tribunal, entry.date.year)
             if item_key in existing_items and item_key not in synced_ia_items:
                 async with ia_sync_lock:
                     if item_key not in synced_ia_items:
                         try:
-                            ia_dates = await fetch_ia_existing(client, entry.tribunal, entry.date.year)
-                            if ia_dates: await manifest.mark_ia_uploaded(entry.tribunal, set(ia_dates.keys()))
+                            ia_dates = await fetch_ia_existing(
+                                client, entry.tribunal, entry.date.year
+                            )
+                            if ia_dates:
+                                await manifest.mark_ia_uploaded(
+                                    entry.tribunal, set(ia_dates.keys())
+                                )
                             synced_ia_items.add(item_key)
                             _notify_counts()
-                        except Exception: pass
+                        except Exception:
+                            pass
 
-            if entry.ia_status == "uploaded": continue
-            if not await _check_djen_breaker(): return
+            if entry.ia_status == "uploaded":
+                continue
+            if not await _check_djen_breaker():
+                return
 
             try:
                 async with djen_limiter:
                     await get_caderno_url(client, config.djen_proxy_url, entry.tribunal, entry.date)
                 raw_status = "200"
-            except DJENNotFoundError as exc: raw_status = str(exc.status_code)
-            except Exception: raw_status = "error"
+            except DJENNotFoundError as exc:
+                raw_status = str(exc.status_code)
+            except Exception:
+                raw_status = "error"
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
-            if raw_status in ("403", "429", "timeout", "error"): await djen_breaker.record_failure()
-            else: await djen_breaker.record_success()
+            if raw_status in ("403", "429", "timeout", "error"):
+                await djen_breaker.record_failure()
+            else:
+                await djen_breaker.record_success()
 
             _notify_counts()
             if time.monotonic() - last_save > save_interval:
-                last_save = time.monotonic(); manifest.save_to_disk(config.manifest_file)
+                last_save = time.monotonic()
+                manifest.save_to_disk(config.manifest_file)
             if time.monotonic() - last_ia_upload > ia_upload_interval and not config.dry_run:
-                last_ia_upload = time.monotonic(); asyncio.create_task(_upload_manifest_background())
+                last_ia_upload = time.monotonic()
+                asyncio.create_task(_upload_manifest_background())
 
     async def download_worker(client: httpx.AsyncClient) -> None:
         while not abort_event.is_set():
             entry = await download_queue.get()
-            if entry is None: download_queue.task_done(); return
-            if config.max_items and summary.downloads >= config.max_items: download_queue.task_done(); continue
+            if entry is None:
+                download_queue.task_done()
+                return
+            if config.max_items and summary.downloads >= config.max_items:
+                download_queue.task_done()
+                continue
             try:
                 async with djen_limiter:
                     async for attempt in tenacity.AsyncRetrying(
-                        stop=tenacity.stop_after_attempt(3), wait=tenacity.wait_exponential(multiplier=2, min=4, max=10),
-                        retry=tenacity.retry_if_exception_type(DJENNotFoundError), reraise=True,
+                        stop=tenacity.stop_after_attempt(3),
+                        wait=tenacity.wait_exponential(multiplier=2, min=4, max=10),
+                        retry=tenacity.retry_if_exception_type(DJENNotFoundError),
+                        reraise=True,
                     ):
                         with attempt:
                             # IMPORTANT: The proxy URL is used to fetch the file, NOT the direct DJEN URL
                             # to avoid Geofencing 403s on GitHub Runners.
-                            url = await get_caderno_url(client, config.djen_proxy_url, entry.tribunal, entry.date)
+                            url = await get_caderno_url(
+                                client, config.djen_proxy_url, entry.tribunal, entry.date
+                            )
                             zip_path = await download_zip(client, url)
-                
+
                 item_id = get_ia_item_id(entry.tribunal, entry.date)
                 dest_dir = STAGING_DIR / item_id
                 dest_dir.mkdir(parents=True, exist_ok=True)
-                final_path = dest_dir / f"djen-{entry.date.isoformat()}-{entry.tribunal.upper()}.zip"
+                final_path = (
+                    dest_dir / f"djen-{entry.date.isoformat()}-{entry.tribunal.upper()}.zip"
+                )
                 await asyncio.to_thread(shutil.move, str(zip_path), str(final_path))
                 await summary.inc_download()
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
             except Exception as exc:
-                log.warning("download_failed", tribunal=entry.tribunal, date=entry.date.isoformat(), error=str(exc))
+                log.warning(
+                    "download_failed",
+                    tribunal=entry.tribunal,
+                    date=entry.date.isoformat(),
+                    error=str(exc),
+                )
                 await summary.inc_error()
-            finally: download_queue.task_done()
+            finally:
+                download_queue.task_done()
 
     async def upload_worker(upload_client: httpx.AsyncClient) -> None:
         while not abort_event.is_set():
             item = await upload_queue.get()
-            if item is None: upload_queue.task_done(); return
+            if item is None:
+                upload_queue.task_done()
+                return
             try:
                 if await check_ia_file_exists(upload_client, item.tribunal, item.d):
                     await manifest.mark_uploaded(item.tribunal, item.d)
                     await summary.inc_upload()
-                    if config.observer: config.observer.on_log(f"[dim]Already on IA[/dim] {item.tribunal} {item.d}")
-                elif await upload_zip(upload_client, item.item_id, item.path, circuit_breaker=circuit_breaker, try_lock=True):
+                    if config.observer:
+                        config.observer.on_log(f"[dim]Already on IA[/dim] {item.tribunal} {item.d}")
+                elif await upload_zip(
+                    upload_client,
+                    item.item_id,
+                    item.path,
+                    circuit_breaker=circuit_breaker,
+                    try_lock=True,
+                ):
                     await manifest.mark_uploaded(item.tribunal, item.d)
                     await summary.inc_upload()
-                    if config.observer: config.observer.on_log(f"[green]Uploaded[/green] {item.tribunal} {item.d}")
-                else:
-                    if config.fail_fast: abort_event.set()
+                    if config.observer:
+                        config.observer.on_log(f"[green]Uploaded[/green] {item.tribunal} {item.d}")
+                elif config.fail_fast:
+                    abort_event.set()
                 item.path.unlink(missing_ok=True)
             except Exception as exc:
                 log.warning("upload_exception", item_id=item.item_id, error=str(exc))
-            finally: upload_queue.task_done()
+            finally:
+                upload_queue.task_done()
 
     async with (
         httpx.AsyncClient(timeout=httpx.Timeout(15.0), follow_redirects=True) as check_client,
         httpx.AsyncClient(timeout=httpx.Timeout(120.0), follow_redirects=True) as dl_client,
         create_upload_client(config.ia_auth) as upload_client,
     ):
+
         async def feed_available() -> None:
-            initial_backlog = backlog[:config.max_items] if config.max_items else backlog
-            for entry in initial_backlog: await download_queue.put(entry)
+            initial_backlog = backlog[: config.max_items] if config.max_items else backlog
+            for entry in initial_backlog:
+                await download_queue.put(entry)
             seen = {f"{e.tribunal}/{e.date.isoformat()}" for e in backlog}
             while not abort_event.is_set():
-                if config.max_items and summary.downloads >= config.max_items: return
+                if config.max_items and summary.downloads >= config.max_items:
+                    return
                 entries = manifest.entries_needing_upload()
                 for entry in entries:
                     key = f"{entry.tribunal}/{entry.date.isoformat()}"
-                    if key not in seen: seen.add(key); await download_queue.put(entry)
-                if checkers_done.is_set() and not entries: return
+                    if key not in seen:
+                        seen.add(key)
+                        await download_queue.put(entry)
+                if checkers_done.is_set() and not entries:
+                    return
                 await asyncio.sleep(5)
 
         feeder_task = asyncio.create_task(feed_available())
-        checker_tasks = [asyncio.create_task(checker_worker(check_client)) for _ in range(min(2, config.workers))]
+        checker_tasks = [
+            asyncio.create_task(checker_worker(check_client)) for _ in range(min(2, config.workers))
+        ]
         dl_tasks = [asyncio.create_task(download_worker(dl_client))]
-        upload_tasks = [asyncio.create_task(upload_worker(upload_client)) for _ in range(config.workers)]
+        upload_tasks = [
+            asyncio.create_task(upload_worker(upload_client)) for _ in range(config.workers)
+        ]
 
         await asyncio.gather(*checker_tasks, return_exceptions=True)
         checkers_done.set()
         await asyncio.gather(feeder_task, return_exceptions=True)
-        for _ in dl_tasks: await download_queue.put(None)
+        for _ in dl_tasks:
+            await download_queue.put(None)
         await asyncio.gather(*dl_tasks, return_exceptions=True)
-        for _ in upload_tasks: await upload_queue.put(None)
+        for _ in upload_tasks:
+            await upload_queue.put(None)
         with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(upload_queue.join(), timeout=max(0.0, deadline - time.monotonic()))
+            await asyncio.wait_for(
+                upload_queue.join(), timeout=max(0.0, deadline - time.monotonic())
+            )
         await asyncio.gather(*upload_tasks, return_exceptions=True)
 
 
 async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
-    summary = SyncSummary(); abort_event = asyncio.Event(); manifest = SyncManifest()
-    await manifest.load_from_ia(); manifest.load_from_disk(config.manifest_file)
+    summary = SyncSummary()
+    abort_event = asyncio.Event()
+    manifest = SyncManifest()
+    await manifest.load_from_ia()
+    manifest.load_from_disk(config.manifest_file)
     counts_init = manifest.counts()
-    summary.initial_uploaded, summary.initial_absent, summary.initial_unknown = counts_init.uploaded, counts_init.absent, counts_init.unknown
+    summary.initial_uploaded, summary.initial_absent, summary.initial_unknown = (
+        counts_init.uploaded,
+        counts_init.absent,
+        counts_init.unknown,
+    )
 
     async with httpx.AsyncClient(timeout=httpx.Timeout(120.0), follow_redirects=True) as client:
         tribunals = await get_tribunal_list(client, config.djen_proxy_url)
-    if config.tribunal: tribunals = [config.tribunal.upper()]
-    manifest.build(tribunals, config.lower_bound or date(2020, 1, 1), config.start_date); manifest.prune()
-    if config.observer: config.observer.on_counts_updated(manifest.counts())
+    if config.tribunal:
+        tribunals = [config.tribunal.upper()]
+    manifest.build(tribunals, config.lower_bound or date(2020, 1, 1), config.start_date)
+    manifest.prune()
+    if config.observer:
+        config.observer.on_counts_updated(manifest.counts())
 
     try:
-        await run_pipeline(manifest, config, abort_event, summary, time.monotonic() + config.deadline_minutes * 60)
-    except (KeyboardInterrupt, asyncio.CancelledError): pass
+        await run_pipeline(
+            manifest, config, abort_event, summary, time.monotonic() + config.deadline_minutes * 60
+        )
+    except (KeyboardInterrupt, asyncio.CancelledError):
+        pass
     finally:
         manifest.save_to_disk(config.manifest_file)
         if not config.dry_run:
-            if await manifest.upload_to_ia(config.ia_auth): await manifest.upload_summary_to_ia(config.ia_auth)
+            if await manifest.upload_to_ia(config.ia_auth):
+                await manifest.upload_summary_to_ia(config.ia_auth)
 
     summary.final_counts = manifest.counts()
     return (1 if summary.errors > 0 or abort_event.is_set() else 0), summary
