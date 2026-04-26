@@ -170,4 +170,4 @@ async def test_run_sync_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
         )
 
         exit_code = await engine_module.run_sync(config)
-        assert exit_code == 0
+        assert exit_code[0] == 0

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import os
-from dataclasses import dataclass, field
-from datetime import UTC, date, datetime, timedelta
+from dataclasses import dataclass
+from datetime import date, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
@@ -224,12 +224,12 @@ def _show_run_summary(
         status = "[red]Error[/red]"
 
     counts = summary.final_counts or ManifestCounts(0, 0, 0, 0, 0)
-    
+
     # Session Gains
     real_uploads = summary.uploads
     discovered = (counts.uploaded - summary.initial_uploaded) - real_uploads
     backfill_advance = counts.uploaded - summary.initial_uploaded
-    
+
     total = counts.total or 1
     coverage = counts.uploaded * 100 // total
 
@@ -239,21 +239,23 @@ def _show_run_summary(
     rows.add_row("Status:", status)
     rows.add_row("Mode:", "Dry run" if dry_run else "Live upload")
     rows.add_row("Tribunal:", tribunal or "All")
-    
+
     rows.add_row("", "")
     rows.add_row("[bold white]Session Progress:[/bold white]", "")
     rows.add_row("  Real Uploads:", f"[green]{real_uploads}[/green]")
     rows.add_row("  IA Discoveries:", f"[blue]{max(0, discovered)}[/blue]")
     rows.add_row("  Net Advance:", f"[bold green]+{backfill_advance}[/bold green] entries")
-    
+
     rows.add_row("", "")
     rows.add_row("[bold white]Global State:[/bold white]", "")
     rows.add_row("  Total IA:", f"{counts.uploaded} ({coverage}%)")
     rows.add_row("  Pending:", str(counts.available))
     rows.add_row("  Absent:", str(counts.absent))
     rows.add_row("  Unknown:", str(counts.unknown))
-    
-    console.print(Panel(rows, title=f"[bold white]{title}[/bold white]", border_style=border, expand=False))
+
+    console.print(
+        Panel(rows, title=f"[bold white]{title}[/bold white]", border_style=border, expand=False)
+    )
 
 
 @dataclass
@@ -297,7 +299,9 @@ def _run_pipeline(c: PipelineRunConfig) -> int:
     config_table.add_row("Manifest:", "data/sync-manifest.csv")
     config_table.add_row("DJEN Mode:", "Proxy" if c.use_proxy else "Direct")
     config_table.add_row("DJEN URL:", djen_url)
-    console.print(Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue"))
+    console.print(
+        Panel(config_table, title="[bold white]Run Configuration[/bold white]", border_style="blue")
+    )
 
     progress = Progress(
         TextColumn("[progress.description]{task.description}"),
@@ -336,7 +340,7 @@ def _run_pipeline(c: PipelineRunConfig) -> int:
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
         return 130
-    
+
     _show_run_summary(
         exit_code,
         dry_run=False,
@@ -536,13 +540,13 @@ def reset(
 def show_banner() -> None:
     """Print the ASCII art banner."""
     banner = r"""
-    ______                               ______            __                 
-   / ____/___ ___  __________ __________ _/ ____/___ _____  / /_  ____ _      
-  / /   / __ `/ / / / ___/ __ `/ ___/ __ `/ / __/ __ `/ __ \/ __ \/ __ `/     
- / /___/ /_/ / /_/ (__  ) /_/ / /  / /_/ / /_/ / /_/ / / / / / / / /_/ /      
- \____/\__,_/\__,_/____/\__,_/_/   \__,_/\____/\__,_/ / /_/_/ /_/\__,_/       
-                                                                              
- DJEN Backup Engine v3.0 - Manifest-Driven Sync                               
+    ______                               ______            __
+   / ____/___ ___  __________ __________ _/ ____/___ _____  / /_  ____ _
+  / /   / __ `/ / / / ___/ __ `/ ___/ __ `/ / __/ __ `/ __ \/ __ \/ __ `/
+ / /___/ /_/ / /_/ (__  ) /_/ / /  / /_/ / /_/ / /_/ / / / / / / / /_/ /
+ \____/\__,_/\__,_/____/\__,_/_/   \__,_/\____/\__,_/ / /_/_/ /_/\__,_/
+
+ DJEN Backup Engine v3.0 - Manifest-Driven Sync
                                                                               """
     console.print(Panel(banner, border_style="cyan"))
 
