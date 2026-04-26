@@ -65,7 +65,7 @@ if (import.meta.env.PROD && zipCount > 0) {
   fs.mkdirSync(ogDir, { recursive: true });
   fs.writeFileSync(path.join(ogDir, `${tribunalCode.toLowerCase()}.svg`), ogSvg);
 }
-const ogImage = `${Astro.site}causaganha/og/${tribunalCode.toLowerCase()}.svg`;
+const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.site).toString();
 ---
 
 <Layout
