@@ -4,6 +4,8 @@ import { fetchAllData } from './fetchData';
 import { getQueryClient } from './queryClient';
 
 const IA_META_URL = 'https://archive.org/download/causaganha-dashboard/meta.json';
+const NETWORK_FORCE_REFRESH_EVENT = 'cg-network-force-refresh';
+let forceRefreshListenerAttached = false;
 
 /**
  * Initializes the TanStack QueryClient context for the current Svelte island,
@@ -19,6 +21,12 @@ export function useDashboardWithPolling() {
   setQueryClientContext(getQueryClient());
 
   const queryClient = useQueryClient();
+  if (typeof window !== 'undefined' && !forceRefreshListenerAttached) {
+    window.addEventListener(NETWORK_FORCE_REFRESH_EVENT, () => {
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.dashboard });
+    });
+    forceRefreshListenerAttached = true;
+  }
 
   // Lightweight 3-min sentinel — fetches only meta.json
   const metaQuery = createQuery(() => ({
