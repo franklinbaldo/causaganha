@@ -120,6 +120,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             type="search"
             class="search-input"
             placeholder="Busque por processo, tribunal ou palavra-chave..."
+            aria-label="Busque por processo, tribunal ou palavra-chave"
             autocomplete="off"
             autocorrect="off"
             spellcheck="false"
@@ -388,7 +389,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           Nosso código é aberto e nossos dados são seus.
         </p>
         <div class="cta-actions">
-          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener" class="btn btn-outline-light">
+          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener noreferrer" class="btn btn-outline-light">
             <GitHubIcon /> Contribuir no GitHub
           </a>
           <a href={BASE + 'dados'} class="btn btn-outline-light">
@@ -536,8 +537,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .search-submit {
     position: absolute;
     right: 0.375rem;
-    width: 2.5rem;
-    height: 2.5rem;
+    width: 2.75rem;
+    height: 2.75rem;
     display: flex;
     align-items: center;
     justify-content: center;

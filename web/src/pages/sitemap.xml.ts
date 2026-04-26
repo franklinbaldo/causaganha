@@ -2,9 +2,9 @@ import type { APIRoute } from 'astro';
 import { TRIBUNAIS } from '../lib/tribunais';
 import { readJson } from '../lib/readJson';
 
-const BASE_URL = 'https://franklinbaldo.github.io/causaganha';
-
-export const GET: APIRoute = () => {
+export const GET: APIRoute = ({ site }) => {
+  const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
+  const BASE_URL = new URL(basePath, site).toString().replace(/\/$/, '');
   const sitemapUrls: string[] = [];
   const now = new Date().toISOString();
   const backfill = readJson<any>('cache/backfill.json');
