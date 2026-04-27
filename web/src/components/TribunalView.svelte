@@ -92,7 +92,7 @@
     <!-- Quick Stats -->
     <div class="stats">
       <div class="stat">
-        <div class="stat-value value-info">{totalZips.toLocaleString()}</div>
+        <div class="stat-value value-info">{totalZips.toLocaleString('pt-BR')}</div>
         <p class="stat-title">ZIPs no IA</p>
       </div>
       <div class="stat">
@@ -122,7 +122,7 @@
           <div class="card card-compact"><div class="card-body-sm">
             <div class="year-row">
               <strong class="small-text">{year}</strong>
-              <span class="mono-value">{(d as any).zip_count.toLocaleString()}</span>
+              <span class="mono-value">{(d as any).zip_count.toLocaleString('pt-BR')}</span>
             </div>
             <small class="meta-text">
               {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
@@ -210,7 +210,7 @@
                   </div>
                   <div class="tribunal-card-meta">
                     {#if stats.hasData}
-                      {stats.totalZips.toLocaleString()} publicações
+                      {stats.totalZips.toLocaleString('pt-BR')} publicações
                     {:else}
                       Sem dados processados
                     {/if}

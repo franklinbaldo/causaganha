@@ -77,7 +77,7 @@
     {#if cellData.uploadedAt}
       <div class="tooltip-meta">
         <span>Uploaded:</span>{' '}
-        <span>{new Date(cellData.uploadedAt).toLocaleString()}</span>
+        <span>{new Date(cellData.uploadedAt).toLocaleString('pt-BR')}</span>
       </div>
     {/if}
     {#if cellData.sizeMb}

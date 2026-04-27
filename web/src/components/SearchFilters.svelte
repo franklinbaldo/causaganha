@@ -294,9 +294,15 @@
     transition: all 120ms ease;
   }
 
-  .presets-row button:hover {
+  .presets-row button:hover,
+  .presets-row button:focus-visible {
     border-color: var(--color-primary, #3b82f6);
     color: var(--color-primary, #3b82f6);
+    outline: none;
+  }
+
+  .presets-row button:focus-visible {
+    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
   }
 
   .presets-row .ghost {
@@ -304,8 +310,13 @@
     opacity: 0.75;
   }
 
-  .presets-row .ghost.danger:hover {
+  .presets-row .ghost.danger:hover,
+  .presets-row .ghost.danger:focus-visible {
     color: #dc2626;
     border-color: #dc2626;
+  }
+
+  .presets-row .ghost.danger:focus-visible {
+    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
   }
 </style>

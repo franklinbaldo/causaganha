@@ -69,7 +69,7 @@
               <tr>
                 <td>
                   <a href={run.html_url} target="_blank" rel="noopener noreferrer">
-                    {new Date(run.created_at).toLocaleString()}
+                    {new Date(run.created_at).toLocaleString('pt-BR')}
                   </a>
                 </td>
                 <td>

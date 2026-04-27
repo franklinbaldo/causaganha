@@ -223,7 +223,7 @@
                     {formatBytes(r.item_size)}
                   </span>
                 </td>
-                <td>{r.downloads > 0 ? r.downloads.toLocaleString() : '-'}</td>
+                <td>{r.downloads > 0 ? r.downloads.toLocaleString('pt-BR') : '-'}</td>
                 <td>
                   <a
                     href={`https://archive.org/details/${r.identifier}`}
