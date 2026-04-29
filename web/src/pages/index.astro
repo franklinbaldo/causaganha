@@ -550,8 +550,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     transition: background var(--transition-base);
   }
 
-  .search-submit:hover {
+  .search-submit:hover,
+  .search-submit:focus-visible {
     background: #155731;
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   /* ── Search hints ── */
@@ -959,7 +962,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     margin-top: var(--space-xs);
   }
 
-  .cta-link:hover {
+  .cta-link:hover,
+  .cta-link:focus-visible {
     text-decoration: underline;
   }
 
@@ -1211,10 +1215,13 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     transition: all var(--transition-base);
   }
 
-  .btn-outline-light:hover {
+  .btn-outline-light:hover,
+  .btn-outline-light:focus-visible {
     background: rgba(255,255,255,0.12);
     border-color: rgba(255,255,255,0.8);
     text-decoration: none;
+    outline: 2px solid rgba(255,255,255,0.6);
+    outline-offset: 2px;
   }
 
   .cta-deco {

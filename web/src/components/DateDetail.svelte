@@ -354,7 +354,7 @@
 
   {#if currentPage >= totalPages && publications.length > 0 && !loading && !featuredPub}
     <div class="end-summary">
-      {publications.length.toLocaleString()} publicações
+      {publications.length.toLocaleString('pt-BR')} publicações
     </div>
   {/if}
 

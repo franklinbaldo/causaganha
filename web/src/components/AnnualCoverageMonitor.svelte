@@ -171,7 +171,7 @@ function sortIcon(field: string): string {
                 {r.expectedDays}
               </td>
               <td>
-                {r.downloads > 0 ? r.downloads.toLocaleString() : '-'}
+                {r.downloads > 0 ? r.downloads.toLocaleString('pt-BR') : '-'}
               </td>
               <td class={colors.text || undefined}>
                 {r.notFound ? 'N/A' : `${r.percentage.toFixed(1)}%`}

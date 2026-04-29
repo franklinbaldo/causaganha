@@ -90,7 +90,7 @@
           </div>
           {#if stats?.timestamp}
             <small class="status-timestamp">
-              Last run: {new Date(stats.timestamp).toLocaleString()}
+              Last run: {new Date(stats.timestamp).toLocaleString('pt-BR')}
             </small>
           {/if}
           <span class="status-subtitle">
