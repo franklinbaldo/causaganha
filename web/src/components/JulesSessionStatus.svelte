@@ -110,9 +110,7 @@
             {#each sessions as session}
               <tr>
                 <td class="jules-id-cell">
-                  <a href="#" class="link link-hover link-primary" title="Open in console">
-                    {session.name ? session.name.split('/').pop() : 'Unknown'}
-                  </a>
+                  {session.name ? session.name.split('/').pop() : 'Unknown'}
                 </td>
                 <td class="jules-title-cell" title={session.title}>{session.title || 'Untitled'}</td>
                 <td>

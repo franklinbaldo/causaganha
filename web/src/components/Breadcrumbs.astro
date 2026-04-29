@@ -23,14 +23,14 @@ const breadcrumbList = {
 };
 ---
 
-<div class="breadcrumbs">
+<nav class="breadcrumbs" aria-label="Trilha de navegação">
   <ul>
     {crumbs.map((crumb, index) => {
       const isLast = index === crumbs.length - 1;
       return (
         <li>
           {isLast || !crumb.href ? (
-            <span class={isLast ? 'current' : ''}>{crumb.label}</span>
+            <span class={isLast ? 'current' : ''} aria-current={isLast ? 'page' : undefined}>{crumb.label}</span>
           ) : (
             <a href={crumb.href}>{crumb.label}</a>
           )}
@@ -38,7 +38,7 @@ const breadcrumbList = {
       );
     })}
   </ul>
-</div>
+</nav>
 
 <script is:inline type="application/ld+json" set:html={JSON.stringify(breadcrumbList)} />
 
