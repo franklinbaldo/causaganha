@@ -15,10 +15,10 @@ interface Props {
   showNetworkBanner?: boolean;
 }
 
-const { title, description = 'CausaGanha — Arquivo público das comunicações judiciais brasileiras (DJEN) no Internet Archive.', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
+const { title, description = 'CausaGanha — acervo público de comunicações judiciais brasileiras (DJEN), arquivado no Internet Archive.', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const ogImageUrl = ogImage || new URL(`${BASE}favicon.svg`, Astro.site).toString();
 ---
 
 <!doctype html>
@@ -45,9 +45,6 @@ const ogImageUrl = ogImage || new URL(`${BASE}favicon.svg`, Astro.site).toString
 
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href={`${BASE}favicon.svg`} />
-    <link rel="apple-touch-icon" href={`${BASE}favicon.svg`} />
-    <meta name="theme-color" content="#1A6B3C" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#3DA568" media="(prefers-color-scheme: dark)" />
     <title>{title}</title>
     <ClientRouter />
     <script is:inline>

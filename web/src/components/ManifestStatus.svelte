@@ -132,10 +132,10 @@
 
   <!-- Tab selector -->
   <div role="tablist" class="tabs tabs-boxed mb-4">
-    <button role="tab" class="tab" class:tab-active={view === 'tribunals'} onclick={() => view = 'tribunals'}>
+    <button type="button" role="tab" aria-selected={view === 'tribunals'} class="tab" class:tab-active={view === 'tribunals'} onclick={() => view = 'tribunals'}>
       Por Tribunal ({data.tribunals.length})
     </button>
-    <button role="tab" class="tab" class:tab-active={view === 'years'} onclick={() => view = 'years'}>
+    <button type="button" role="tab" aria-selected={view === 'years'} class="tab" class:tab-active={view === 'years'} onclick={() => view = 'years'}>
       Por Ano ({data.years.length})
     </button>
   </div>

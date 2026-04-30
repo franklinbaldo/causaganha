@@ -41,11 +41,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <!-- CSS-only mode switch — same radio-tab pattern as TribunalDetail.svelte -->
     <div class="mode-tabs">
       <input type="radio" id="mode-live" name="pub_mode" class="mode-tab-input" checked />
-      <label for="mode-live" class="mode-tab-label" role="tab">
+      <label for="mode-live" class="mode-tab-label" role="tab" aria-controls="panel-mode-live" aria-selected="true">
         Ao vivo
         <span class="mode-tab-desc">API pública do DJEN</span>
       </label>
-      <div role="tabpanel" class="mode-tab-content live-search-section">
+      <div id="panel-mode-live" role="tabpanel" aria-labelledby="mode-live" class="mode-tab-content live-search-section">
         <p class="section-description">
           Pesquise publicações diretamente na API pública do CNJ por OAB, número de processo, parte, advogado ou texto livre.
         </p>
@@ -53,11 +53,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       </div>
 
       <input type="radio" id="mode-arquivo" name="pub_mode" class="mode-tab-input" />
-      <label for="mode-arquivo" class="mode-tab-label" role="tab">
+      <label for="mode-arquivo" class="mode-tab-label" role="tab" aria-controls="panel-mode-arquivo" aria-selected="false">
         Arquivo
         <span class="mode-tab-desc">Internet Archive</span>
       </label>
-      <div role="tabpanel" class="mode-tab-content archive-section">
+      <div id="panel-mode-arquivo" role="tabpanel" aria-labelledby="mode-arquivo" class="mode-tab-content archive-section">
         <div class="overview-card">
           <h2 class="overview-title">Visão Geral do Arquivo</h2>
           <TribunalView
@@ -88,15 +88,33 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 </Layout>
 
 <script>
-  // Activate the "arquivo" tab when navigating with #arquivo hash
-  function applyHashMode() {
+  // Activate the "arquivo" tab when navigating with #arquivo hash, and keep
+  // aria-selected in sync with the underlying radio inputs so screen readers
+  // announce the current tab correctly.
+  function syncAriaSelected() {
+    const inputs = ['mode-live', 'mode-arquivo'];
+    for (const id of inputs) {
+      const input = document.getElementById(id) as HTMLInputElement | null;
+      const label = document.querySelector(`label[for="${id}"]`);
+      if (input && label) {
+        label.setAttribute('aria-selected', input.checked ? 'true' : 'false');
+      }
+    }
+  }
+
+  function setupModeTabs() {
     if (window.location.hash === '#arquivo') {
       const input = document.getElementById('mode-arquivo') as HTMLInputElement | null;
       if (input) input.checked = true;
     }
+    syncAriaSelected();
+    for (const id of ['mode-live', 'mode-arquivo']) {
+      const input = document.getElementById(id);
+      if (input) input.addEventListener('change', syncAriaSelected);
+    }
   }
-  applyHashMode();
-  document.addEventListener('astro:after-swap', applyHashMode);
+  setupModeTabs();
+  document.addEventListener('astro:after-swap', setupModeTabs);
 </script>
 
 <style>
