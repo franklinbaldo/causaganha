@@ -23,7 +23,8 @@
     if (!btn || !sun || !moon) return;
 
     const saved = localStorage.getItem('causaganha-theme');
-    let isDark = saved === 'dark';
+    const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    let isDark = saved ? saved === 'dark' : prefersDark;
 
     function applyTheme() {
       document.documentElement.setAttribute('data-theme', isDark ? 'causaganhadark' : 'causaganha');

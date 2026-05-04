@@ -17,7 +17,6 @@ interface Props {
 
 const { title, description = 'CausaGanha — acervo público de comunicações judiciais brasileiras (DJEN), arquivado no Internet Archive.', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
-const ogImageUrl = ogImage || new URL('/og-image.png', Astro.site).toString();
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
@@ -28,30 +27,39 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#1a6b3c" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#0f1a14" media="(prefers-color-scheme: dark)" />
 
     <!-- Open Graph / Facebook -->
     <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CausaGanha" />
+    <meta property="og:locale" content="pt_BR" />
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    <meta property="og:image" content={ogImageUrl} />
+    {ogImage && <meta property="og:image" content={ogImage} />}
 
     <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
     <meta property="twitter:url" content={canonicalURL} />
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
-    <meta property="twitter:image" content={ogImageUrl} />
+    {ogImage && <meta property="twitter:image" content={ogImage} />}
 
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href={`${BASE}favicon.svg`} />
+    <link rel="apple-touch-icon" href={`${BASE}favicon.svg`} />
     <title>{title}</title>
     <ClientRouter />
     <script is:inline>
-      // Apply saved theme before paint to prevent flash
-      document.documentElement.setAttribute('data-theme',
-        localStorage.getItem('causaganha-theme') === 'dark' ? 'causaganhadark' : 'causaganha'
-      );
+      // Apply saved theme before paint. When no preference saved, fall back to
+      // the user's system setting so dark-mode users don't get a flash of light.
+      (function () {
+        const saved = localStorage.getItem('causaganha-theme');
+        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const isDark = saved ? saved === 'dark' : prefersDark;
+        document.documentElement.setAttribute('data-theme', isDark ? 'causaganhadark' : 'causaganha');
+      })();
     </script>
   </head>
   <body>

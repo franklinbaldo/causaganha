@@ -76,6 +76,9 @@
       <span>OAB — número</span>
       <input
         type="text"
+        inputmode="numeric"
+        pattern="[0-9]*"
+        autocomplete="off"
         placeholder="123456"
         value={filters.numeroOab ?? ''}
         oninput={(e) => (filters = { ...filters, numeroOab: e.currentTarget.value || undefined })}
@@ -86,6 +89,8 @@
       <span>OAB — UF</span>
       <input
         type="text"
+        autocapitalize="characters"
+        autocomplete="off"
         placeholder="SP"
         maxlength="2"
         value={filters.ufOab ?? ''}
