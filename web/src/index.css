@@ -93,6 +93,7 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
 
   /* Brand */
   --color-primary: #1A6B3C;
+  --color-primary-hover: #155731;
   --color-primary-content: #FAFAF5;
   --color-secondary: #5C5C52;
   --color-secondary-content: #FAFAF5;
@@ -140,6 +141,7 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-base-content: #F2EFE8;
 
   --color-primary: #3DA568;
+  --color-primary-hover: #2F8552;
   --color-primary-content: #0F1A14;
   --color-secondary: #A8A89E;
   --color-secondary-content: #0F1A14;
@@ -347,10 +349,10 @@ small { font-size: var(--font-size-sm); }
 [data-theme="causaganhadark"] .heatmap-missing { background: #1A2E1F; }
 [data-theme="causaganhadark"] .heatmap-missing:hover { background: #2A3E2F; }
 
-.heatmap-collected { background: #1A6B3C; box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.08); }
-.heatmap-collected:hover { background: #155731; }
-[data-theme="causaganhadark"] .heatmap-collected { background: #1A6B3C; }
-[data-theme="causaganhadark"] .heatmap-collected:hover { background: #3DA568; }
+.heatmap-collected { background: var(--color-primary); box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.08); }
+.heatmap-collected:hover { background: var(--color-primary-hover); }
+[data-theme="causaganhadark"] .heatmap-collected { background: var(--color-primary); }
+[data-theme="causaganhadark"] .heatmap-collected:hover { background: var(--color-primary-hover); }
 
 .heatmap-absent { background: #C5972C; opacity: 0.9; }
 .heatmap-absent:hover { background: #A67D1E; }
