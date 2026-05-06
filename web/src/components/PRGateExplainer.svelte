@@ -75,7 +75,7 @@
         fetchWithRetry(`https://api.github.com/repos/${repo}/pulls/${prNumber}/reviews`)
       ]);
 
-      if (!prRes.ok) throw new Error("Failed to fetch PR details. Make sure PR number is correct.");
+      if (!prRes.ok) throw new Error("Falha ao consultar a PR. Confira se o número está correto.");
 
       const prInfo: PRInfo = await prRes.json();
       const reviews: Review[] = await reviewsRes.json();
@@ -96,30 +96,30 @@
     const isMerged = prInfo.merged;
     const isClosed = prInfo.state === 'closed';
 
-    if (isMerged) return { status: 'Merged', description: 'This PR is already merged.', color: 'status-success' };
-    if (isClosed) return { status: 'Closed', description: 'This PR is closed without merging.', color: 'status-error' };
+    if (isMerged) return { status: 'Merged', description: 'Esta PR já foi merged.', color: 'status-success' };
+    if (isClosed) return { status: 'Fechada', description: 'Esta PR foi fechada sem merge.', color: 'status-error' };
 
     const pendingChecks = checkRuns.filter(c => c.status !== 'completed');
     const failedChecks = checkRuns.filter(c => c.status === 'completed' && c.conclusion !== 'success' && c.conclusion !== 'neutral' && c.conclusion !== 'skipped');
 
     const blockedByKilo = failedChecks.find(c => c.name.toLowerCase().includes('kilo') || (c.output && c.output.title && c.output.title.toLowerCase().includes('kilo')));
 
-    let status = 'Mergeable';
-    let description = 'All checks passed and PR is ready to merge.';
+    let status = 'Pronta';
+    let description = 'Todas as verificações passaram — PR pronta para merge.';
     let color = 'status-success';
 
     if (failedChecks.length > 0) {
-      status = 'Blocked';
+      status = 'Bloqueada';
       color = 'status-error';
       if (blockedByKilo) {
-        description = `CI ${failedChecks.length > 1 ? 'and Kilo failed' : 'green, Kilo ACTION_REQUIRED'} → merge blocked by external review gate.`;
+        description = `CI ${failedChecks.length > 1 ? 'e Kilo falharam' : 'verde, Kilo ACTION_REQUIRED'} → merge bloqueado por revisão externa.`;
       } else {
-        description = `${failedChecks.length} check(s) failed.`;
+        description = `${failedChecks.length} verificação(ões) falharam.`;
       }
     } else if (pendingChecks.length > 0) {
-      status = 'Pending';
+      status = 'Pendente';
       color = 'status-accent';
-      description = `${pendingChecks.length} check(s) still in progress.`;
+      description = `${pendingChecks.length} verificação(ões) ainda em andamento.`;
     }
 
     return { status, description, color, blockedByKilo: blockedByKilo || failedChecks[0] };
@@ -127,16 +127,18 @@
 </script>
 
 <div class="card" id="pr-gate-explainer"><div class="card-body">
-  <h2>PR Readiness Gate Explainer</h2>
+  <h2>Status de prontidão da PR</h2>
   <form onsubmit={fetchPRStatus}>
     <input
       class="input-field"
-      type="number" placeholder="Enter PR Number (e.g., 425)"
+      type="number"
+      placeholder="Número da PR (ex.: 425)"
+      aria-label="Número da pull request"
       value={prNumber}
       oninput={(e: Event & { currentTarget: HTMLInputElement }) => prNumber = e.currentTarget.value}
     />
     <button type="submit" disabled={loading || !prNumber}>
-      {loading ? 'Checking...' : 'Check PR'}
+      {loading ? 'Verificando...' : 'Verificar PR'}
     </button>
   </form>
 
@@ -158,7 +160,7 @@
 
           {#if summary.blockedByKilo}
             <div>
-              <strong>Blocker: </strong>
+              <strong>Bloqueador: </strong>
               <a href={summary.blockedByKilo.html_url || '#'} target="_blank" rel="noopener noreferrer" class="link-accent">
                 {summary.blockedByKilo.name}
               </a>
@@ -169,7 +171,7 @@
 
       <div class="checks-grid">
         <div>
-          <h4>Completed Checks</h4>
+          <h4>Verificações concluídas</h4>
           <ul>
             {#each completedChecks as c (c.id)}
               <li>
@@ -180,22 +182,22 @@
               </li>
             {/each}
             {#if completedChecks.length === 0}
-              <li>No completed checks.</li>
+              <li>Nenhuma verificação concluída.</li>
             {/if}
           </ul>
         </div>
 
         <div>
-          <h4>Pending Checks</h4>
+          <h4>Verificações pendentes</h4>
           <ul>
             {#each pendingChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <span class="status-accent">In Progress...</span>
+                <span class="status-accent">Em andamento...</span>
               </li>
             {/each}
             {#if pendingChecks.length === 0}
-              <li>No pending checks.</li>
+              <li>Nenhuma verificação pendente.</li>
             {/if}
           </ul>
         </div>
@@ -213,6 +215,12 @@
     background: var(--color-base-100);
     color: var(--color-base-content);
     font-size: var(--font-size-base);
+  }
+
+  .input-field:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+    border-color: var(--color-primary);
   }
 
   .status-success {

@@ -54,18 +54,18 @@
   }
 
   .rate-limit-badge.ok {
-    border-color: #16a34a;
-    color: #16a34a;
+    border-color: var(--color-success);
+    color: var(--color-success);
   }
 
   .rate-limit-badge.warning {
-    border-color: #d97706;
-    color: #d97706;
+    border-color: var(--color-warning);
+    color: var(--color-warning);
   }
 
   .rate-limit-badge.danger {
-    border-color: #dc2626;
-    color: #dc2626;
+    border-color: var(--color-error);
+    color: var(--color-error);
   }
 
   .fallback-tag {

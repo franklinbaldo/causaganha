@@ -45,7 +45,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('I should see a submit button', () => {
-      expect(screen.getByText('Check PR')).toBeTruthy();
+      expect(screen.getByText('Verificar PR')).toBeTruthy();
     });
   });
 
@@ -62,7 +62,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see a loading indicator', () => {
-      expect(screen.getByText('Checking...')).toBeTruthy();
+      expect(screen.getByText('Verificando...')).toBeTruthy();
     });
   });
 
@@ -88,7 +88,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see an error message', () => {
-      expect(screen.getByText(/Failed to fetch PR details/)).toBeTruthy();
+      expect(screen.getByText(/Falha ao consultar a PR/)).toBeTruthy();
     });
   });
 

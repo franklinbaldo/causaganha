@@ -312,11 +312,11 @@
 
   .presets-row .ghost.danger:hover,
   .presets-row .ghost.danger:focus-visible {
-    color: #dc2626;
-    border-color: #dc2626;
+    color: var(--color-error);
+    border-color: var(--color-error);
   }
 
   .presets-row .ghost.danger:focus-visible {
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 25%, transparent);
   }
 </style>
