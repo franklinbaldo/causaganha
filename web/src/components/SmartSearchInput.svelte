@@ -129,12 +129,12 @@
     opacity: 0.55;
   }
 
-  .clear-btn:hover,
-  .clear-btn:focus-visible {
+  .clear-btn:hover {
     opacity: 1;
   }
 
   .clear-btn:focus-visible {
+    opacity: 1;
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
     border-radius: var(--radius-sm, 0.25rem);
