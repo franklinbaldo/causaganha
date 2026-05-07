@@ -498,6 +498,13 @@ class SyncManifest:
             djen_raw = "200" if djen_status == "available" else ""
             updated_at = parts[4] if len(parts) > 4 else ""
 
+        # Normalize legacy sentinel "error" → unknown so the row gets re-checked.
+        # Older engine versions wrote a derived "error" string; canonical raw
+        # values are HTTP codes or "timeout"/"network". See PR #677.
+        if djen_raw == "error":
+            djen_raw = ""
+            djen_status = ""
+
         k = self._key(tribunal, d)
         existing = self._entries.get(k)
 

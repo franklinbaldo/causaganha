@@ -218,11 +218,13 @@ async def _classify_djen_status(
 ) -> str:
     """Call DJEN once and map the outcome to a raw_status string.
 
-    Returns:
+    Returns the actual raw response token — never a derived sentinel:
         "200" — caderno available
         "404" / "400" — genuine absence (404 not found, 400 holiday)
         "403" — CloudFront/WAF block (transient, do NOT trip the breaker)
-        "error" — any other HTTP/timeout failure (caller should record it)
+        "timeout" — request timed out
+        "network" — transport error (connection reset, DNS, TLS, etc.)
+        str(status_code) — other HTTP error response (e.g. "500", "502")
     """
     try:
         async with djen_limiter:
@@ -231,14 +233,30 @@ async def _classify_djen_status(
         return str(exc.status_code)
     except DJENRateLimitedError:
         return "403"
-    except (httpx.HTTPError, asyncio.TimeoutError) as exc:
+    except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
         log.warning(
-            "djen_check_error",
+            "djen_check_timeout",
             tribunal=tribunal,
             date=d.isoformat(),
             error=str(exc),
         )
-        return "error"
+        return "timeout"
+    except httpx.HTTPStatusError as exc:
+        log.warning(
+            "djen_check_http_error",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            status=exc.response.status_code,
+        )
+        return str(exc.response.status_code)
+    except httpx.HTTPError as exc:
+        log.warning(
+            "djen_check_network_error",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            error=str(exc),
+        )
+        return "network"
     return "200"
 
 
@@ -465,7 +483,7 @@ async def run_pipeline(
             )
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
-            if raw_status in ("429", "timeout", "error"):
+            if raw_status in {"429", "timeout", "network", "500", "502", "503", "504"}:
                 djen_breaker.record_failure()
             elif raw_status != "403":
                 djen_breaker.record_success()

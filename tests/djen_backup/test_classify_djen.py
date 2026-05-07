@@ -4,7 +4,9 @@ Verifies the contract documented in CLAUDE.md:
 - 200 → "200" (available)
 - 404 / 400 → status code (genuine absent)
 - 403 → "403" (transient WAF, no breaker hit)
-- transport / 5xx → "error" (caller records it)
+- timeout → "timeout"
+- network / unknown HTTP error → "network"
+- HTTPStatusError → str(status_code)
 """
 
 from __future__ import annotations
@@ -97,7 +99,7 @@ async def test_classify_returns_403_for_cloudfront_block(
 
 
 @pytest.mark.asyncio
-async def test_classify_returns_error_on_transport_failure(
+async def test_classify_returns_network_on_transport_failure(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     import httpx
@@ -114,4 +116,48 @@ async def test_classify_returns_error_on_transport_failure(
         d=date(2024, 1, 2),
         djen_limiter=_limiter(),
     )
-    assert raw == "error"
+    assert raw == "network"
+
+
+@pytest.mark.asyncio
+async def test_classify_returns_timeout_on_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    async def _slow(*_args: object, **_kwargs: object) -> str:
+        raise httpx.ReadTimeout("read timed out")  # noqa: EM101, TRY003
+
+    monkeypatch.setattr(engine_module, "get_caderno_url", _slow)
+
+    raw = await _classify_djen_status(
+        client=object(),  # type: ignore[arg-type]
+        proxy_url="https://djen.example",
+        tribunal="TJSP",
+        d=date(2024, 1, 2),
+        djen_limiter=_limiter(),
+    )
+    assert raw == "timeout"
+
+
+@pytest.mark.asyncio
+async def test_classify_returns_status_code_on_http_status_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    async def _five_oh_two(*_args: object, **_kwargs: object) -> str:
+        request = httpx.Request("GET", "https://djen.example")
+        response = httpx.Response(502, request=request)
+        raise httpx.HTTPStatusError("502", request=request, response=response)  # noqa: EM101
+
+    monkeypatch.setattr(engine_module, "get_caderno_url", _five_oh_two)
+
+    raw = await _classify_djen_status(
+        client=object(),  # type: ignore[arg-type]
+        proxy_url="https://djen.example",
+        tribunal="TJSP",
+        d=date(2024, 1, 2),
+        djen_limiter=_limiter(),
+    )
+    assert raw == "502"
