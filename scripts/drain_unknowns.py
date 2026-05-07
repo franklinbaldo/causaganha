@@ -95,6 +95,13 @@ async def main() -> int:
     manifest = SyncManifest()
     loaded = await manifest.load_from_ia()
     print(f"manifest_rows:  {loaded}")
+    if loaded == 0:
+        # load_from_ia returns 0 on HTTP errors as well as on a truly empty
+        # manifest. Treat both as fatal here — we should not push an empty
+        # manifest back to IA, and "no unknowns" with zero rows almost
+        # certainly means the fetch silently failed.
+        print("FATAL: manifest fetch returned 0 rows — refusing to proceed.", file=sys.stderr)
+        return 2
 
     unknowns = [
         e
@@ -126,7 +133,16 @@ async def main() -> int:
         async def _worker() -> None:
             nonlocal processed, consecutive_403
             while True:
-                entry = await queue.get()
+                # Poll with a short timeout so workers self-exit on deadline
+                # even if the producer hasn't pushed sentinels yet (Codex P1,
+                # PR #677). Without this, workers blocked forever on get() if
+                # the deadline elapsed before sentinels were enqueued.
+                try:
+                    entry = await asyncio.wait_for(queue.get(), timeout=1.0)
+                except TimeoutError:
+                    if asyncio.get_event_loop().time() > deadline:
+                        return
+                    continue
                 try:
                     if entry is None or asyncio.get_event_loop().time() > deadline:
                         return
