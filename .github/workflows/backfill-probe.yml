@@ -1,0 +1,38 @@
+# ============================================================================
+# BACKFILL PROBE — Investigate sync-manifest vs DJEN proxy inconsistencies
+# ============================================================================
+#
+# Manual-only workflow. Pulls sync-manifest.csv from IA, samples entries by
+# category (absent / unknown / available / 403 / timeout), and re-probes the
+# DJEN proxy live to surface drift. Job exits non-zero by design so the run
+# is flagged failed and the report stays attached to a visible failure.
+# ============================================================================
+
+name: Backfill Probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backfill-probe
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: Probe DJEN proxy + manifest drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: dev
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+
+      - name: Run probe (intentionally fails)
+        run: uv run --no-dev --with httpx python scripts/backfill_probe.py
