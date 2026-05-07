@@ -85,11 +85,9 @@ async def get_caderno_url(
     if resp.status_code == HTTP_FORBIDDEN:
         raise DJENRateLimitedError("CloudFront block (403) — rate limited")
 
-    # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
-    # so the caller retries rather than permanently marking absent.
-    if resp.status_code >= HTTP_INTERNAL_SERVER_ERROR:
-        msg = f"Server error: {resp.status_code}"
-        raise httpx.HTTPError(msg)
+    # 5xx and other unexpected statuses propagate as HTTPStatusError so the
+    # caller can read response.status_code (engine._classify_djen_status uses
+    # this to record the real code in djen_raw, not just "network").
     resp.raise_for_status()
 
     try:
