@@ -45,7 +45,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('I should see a submit button', () => {
-      expect(screen.getByText('Check PR')).toBeTruthy();
+      expect(screen.getByText('Verificar PR')).toBeTruthy();
     });
   });
 
@@ -62,7 +62,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see a loading indicator', () => {
-      expect(screen.getByText('Checking...')).toBeTruthy();
+      expect(screen.getByText('Verificando...')).toBeTruthy();
     });
   });
 
@@ -88,7 +88,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see an error message', () => {
-      expect(screen.getByText(/Failed to fetch PR details/)).toBeTruthy();
+      expect(screen.getByText(/Falha ao obter detalhes do PR/)).toBeTruthy();
     });
   });
 
@@ -124,11 +124,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       const input = document.querySelector('input[type="number"]') as HTMLInputElement;
       fireEvent.input(input, { target: { value: '42' } });
       fireEvent.submit(input.closest('form')!);
-      await waitFor(() => screen.getByText('Merged'));
+      await waitFor(() => screen.getByText('Mesclado'));
     });
 
-    Then('I should see "Merged" status', () => {
-      expect(screen.getByText('Merged')).toBeTruthy();
+    Then('I should see "Mesclado" status', () => {
+      expect(screen.getByText('Mesclado')).toBeTruthy();
     });
   });
 });

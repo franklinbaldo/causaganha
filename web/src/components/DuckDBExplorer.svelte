@@ -380,9 +380,15 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     transition: background var(--transition-base), border-color var(--transition-base);
   }
 
-  .retry-btn:hover {
+  .retry-btn:hover,
+  .retry-btn:focus-visible {
     background: var(--color-base-200);
     border-color: var(--color-base-content);
+  }
+
+  .retry-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   /* Starter cards */

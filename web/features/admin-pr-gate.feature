@@ -21,4 +21,4 @@ Feature: PR Readiness Gate
     Given the PR gate page is loaded
     And PR 42 is already merged
     When I submit PR number "42"
-    Then I should see "Merged" status
+    Then I should see "Mesclado" status
