@@ -20,12 +20,18 @@ from aiolimiter import AsyncLimiter
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
     CircuitBreaker,
+    ItemBusyError,
     check_ia_file_exists,
     fetch_ia_existing,
     get_ia_item_id,
     upload_zip,
 )
-from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
+from djen_backup.djen import (
+    DJENNotFoundError,
+    DJENRateLimitedError,
+    download_zip,
+    get_caderno_url,
+)
 from djen_backup.manifest import ManifestCounts, ManifestEntry, SyncManifest
 from djen_backup.tribunais import get_tribunal_list
 
@@ -48,7 +54,7 @@ def load_djen_safe_concurrency() -> int:
 
         data = json.loads(DJEN_SAFE_CONCURRENCY_FILE.read_text())
         return max(1, int(data.get("safe_concurrency", DEFAULT_DJEN_CONCURRENCY)))
-    except Exception:
+    except (OSError, ValueError, TypeError):
         return DEFAULT_DJEN_CONCURRENCY
 
 
@@ -168,7 +174,7 @@ async def run_pipeline(
                     if len(parts) == 2 and parts[1].isdigit():
                         existing_items.add((parts[0][5:].upper(), int(parts[1])))
                 log.info("ia_items_discovered", count=len(existing_items))
-            except Exception as exc:
+            except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
                 log.warning("ia_search_failed_fallback", error=str(exc))
                 existing_items = {
                     (e.tribunal, e.date.year)
@@ -249,8 +255,8 @@ async def run_pipeline(
         try:
             if await manifest.upload_to_ia(config.ia_auth):
                 await manifest.upload_summary_to_ia(config.ia_auth)
-        except Exception:
-            pass
+        except (httpx.HTTPError, OSError) as exc:
+            log.warning("manifest_upload_background_failed", error=str(exc))
         finally:
             _ia_upload_running = False
 
@@ -292,8 +298,13 @@ async def run_pipeline(
                                 )
                             synced_ia_items.add(item_key)
                             _notify_counts()
-                        except Exception:
-                            pass
+                        except httpx.HTTPError as exc:
+                            log.warning(
+                                "ia_metadata_sync_failed",
+                                tribunal=entry.tribunal,
+                                year=entry.date.year,
+                                error=str(exc),
+                            )
 
             if entry.ia_status == "uploaded":
                 continue
@@ -306,13 +317,22 @@ async def run_pipeline(
                 raw_status = "200"
             except DJENNotFoundError as exc:
                 raw_status = str(exc.status_code)
-            except Exception:
+            except DJENRateLimitedError:
+                # 403 / CloudFront block — transient, do NOT trip the breaker.
+                raw_status = "403"
+            except (httpx.HTTPError, asyncio.TimeoutError) as exc:
+                log.warning(
+                    "djen_check_error",
+                    tribunal=entry.tribunal,
+                    date=entry.date.isoformat(),
+                    error=str(exc),
+                )
                 raw_status = "error"
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
-            if raw_status in ("403", "429", "timeout", "error"):
+            if raw_status in ("429", "timeout", "error"):
                 await djen_breaker.record_failure()
-            else:
+            elif raw_status != "403":
                 await djen_breaker.record_success()
 
             _notify_counts()
@@ -357,7 +377,13 @@ async def run_pipeline(
                 await asyncio.to_thread(shutil.move, str(zip_path), str(final_path))
                 await summary.inc_download()
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
-            except Exception as exc:
+            except (
+                httpx.HTTPError,
+                OSError,
+                ValueError,
+                DJENNotFoundError,
+                DJENRateLimitedError,
+            ) as exc:
                 log.warning(
                     "download_failed",
                     tribunal=entry.tribunal,
@@ -380,21 +406,42 @@ async def run_pipeline(
                     await summary.inc_upload()
                     if config.observer:
                         config.observer.on_log(f"[dim]Already on IA[/dim] {item.tribunal} {item.d}")
-                elif await upload_zip(
-                    upload_client,
-                    item.item_id,
-                    item.path,
-                    circuit_breaker=circuit_breaker,
-                    try_lock=True,
-                ):
-                    await manifest.mark_uploaded(item.tribunal, item.d)
-                    await summary.inc_upload()
-                    if config.observer:
-                        config.observer.on_log(f"[green]Uploaded[/green] {item.tribunal} {item.d}")
-                elif config.fail_fast:
-                    abort_event.set()
-                item.path.unlink(missing_ok=True)
-            except Exception as exc:
+                    item.path.unlink(missing_ok=True)
+                else:
+                    try:
+                        ok = await upload_zip(
+                            upload_client,
+                            item.item_id,
+                            item.path,
+                            circuit_breaker=circuit_breaker,
+                            try_lock=True,
+                        )
+                    except ItemBusyError:
+                        # Another worker holds the per-item lock — re-queue this
+                        # item and pick a different one rather than blocking on
+                        # the same bucket. Use put_nowait to avoid deadlocking
+                        # the bounded queue; if it's saturated, drop the staged
+                        # file (the manifest still flags the entry as available
+                        # so the next run re-feeds it).
+                        log.debug("upload_item_busy_requeue", item_id=item.item_id)
+                        await asyncio.sleep(0.25)
+                        try:
+                            upload_queue.put_nowait(item)
+                        except asyncio.QueueFull:
+                            log.info("upload_requeue_dropped", item_id=item.item_id)
+                            item.path.unlink(missing_ok=True)
+                    else:
+                        if ok:
+                            await manifest.mark_uploaded(item.tribunal, item.d)
+                            await summary.inc_upload()
+                            if config.observer:
+                                config.observer.on_log(
+                                    f"[green]Uploaded[/green] {item.tribunal} {item.d}"
+                                )
+                        elif config.fail_fast:
+                            abort_event.set()
+                        item.path.unlink(missing_ok=True)
+            except (httpx.HTTPError, OSError) as exc:
                 log.warning("upload_exception", item_id=item.item_id, error=str(exc))
             finally:
                 upload_queue.task_done()
