@@ -147,8 +147,18 @@ class SyncManifest:
         self._counts_tally[old_cat] -= 1
         self._counts_tally[new_cat] += 1
 
+    def _track_uploaded(self, tribunal: str, year: int) -> None:
+        """Incrementally add (tribunal, year) to the uploaded-items index.
+
+        No-op if the index hasn't been built yet — it'll be populated on
+        the first ``has_uploaded_entries`` call.
+        """
+        if self._uploaded_items is None:
+            return
+        self._uploaded_items.add((tribunal.upper(), year))
+
     def _invalidate_caches(self) -> None:
-        # Force a full counts rebuild on next counts() call.
+        # Force a full rebuild on next counts() / has_uploaded_entries() call.
         self._counts_tally = None
         self._uploaded_items = None
 
@@ -180,9 +190,8 @@ class SyncManifest:
                     entry.ia_status = "uploaded"
                     entry.updated_at = now
                     self._adjust_counts(old_cat, "uploaded")
+                    self._track_uploaded(tribunal, d.year)
                     changed += 1
-            if changed:
-                self._uploaded_items = None
         return changed
 
     async def mark_ia_checked(self, tribunal: str, year: int, found_dates: set[date]) -> None:
@@ -219,7 +228,7 @@ class SyncManifest:
                 entry.ia_status = "uploaded"
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._adjust_counts(old_cat, "uploaded")
-                self._uploaded_items = None
+                self._track_uploaded(tribunal, d.year)
 
     # ── Query methods ────────────────────────────────────────────────
 
