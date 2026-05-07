@@ -110,7 +110,9 @@ async def main() -> int:
         print("nothing to do.")
         return 0
 
-    sem = asyncio.Semaphore(CONCURRENCY)
+    # Bounded worker pool: N=CONCURRENCY consumers pulling from a queue, so
+    # we don't allocate a coroutine per row up front (Codex P2, PR #677).
+    queue: asyncio.Queue = asyncio.Queue(maxsize=CONCURRENCY * 4)
     results: Counter[str] = Counter()
     processed = 0
     consecutive_403 = 0
@@ -121,36 +123,48 @@ async def main() -> int:
         timeout=httpx.Timeout(PER_REQUEST_TIMEOUT), follow_redirects=True
     ) as client:
 
-        async def _one(entry) -> None:
+        async def _worker() -> None:
             nonlocal processed, consecutive_403
-            async with sem:
-                if asyncio.get_event_loop().time() > deadline:
-                    return
-                raw = await _classify(client, base, entry.tribunal, entry.date)
-                if raw == "403":
-                    # WAF/CloudFront block. Don't pollute the manifest with a
-                    # transient signal — leave djen_raw="" so the next sync
-                    # reclassifies cleanly. If we keep tripping, back off.
-                    consecutive_403 += 1
-                    results["403"] += 1
-                    if consecutive_403 >= WAF_403_THRESHOLD:
+            while True:
+                entry = await queue.get()
+                try:
+                    if entry is None or asyncio.get_event_loop().time() > deadline:
+                        return
+                    raw = await _classify(client, base, entry.tribunal, entry.date)
+                    if raw == "403":
+                        # WAF/CloudFront block. Don't pollute the manifest with a
+                        # transient signal — leave djen_raw="" so the next sync
+                        # reclassifies cleanly. If we keep tripping, back off.
+                        consecutive_403 += 1
+                        results["403"] += 1
+                        if consecutive_403 >= WAF_403_THRESHOLD:
+                            print(
+                                f"  WAF cooldown: {consecutive_403} consecutive 403s, "
+                                f"sleeping {WAF_403_COOLDOWN_S}s"
+                            )
+                            await asyncio.sleep(WAF_403_COOLDOWN_S)
+                        continue
+                    consecutive_403 = 0
+                    await manifest.mark_djen_raw(entry.tribunal, entry.date, raw)
+                    results[raw] += 1
+                    processed += 1
+                    if processed % 500 == 0:
+                        elapsed = asyncio.get_event_loop().time() - (deadline - DEADLINE_SECONDS)
+                        rate = processed / max(elapsed, 1)
                         print(
-                            f"  WAF cooldown: {consecutive_403} consecutive 403s, "
-                            f"sleeping {WAF_403_COOLDOWN_S}s"
+                            f"  progress: {processed}/{len(unknowns)} "
+                            f"({rate:.1f} req/s)  current={dict(results.most_common(5))}"
                         )
-                        await asyncio.sleep(WAF_403_COOLDOWN_S)
-                    return
-                consecutive_403 = 0
-                await manifest.mark_djen_raw(entry.tribunal, entry.date, raw)
-                results[raw] += 1
-                processed += 1
-                if processed % 500 == 0:
-                    elapsed = asyncio.get_event_loop().time() - (deadline - DEADLINE_SECONDS)
-                    rate = processed / max(elapsed, 1)
-                    print(
-                        f"  progress: {processed}/{len(unknowns)} "
-                        f"({rate:.1f} req/s)  current={dict(results.most_common(5))}"
-                    )
+                finally:
+                    queue.task_done()
+
+        async def _producer() -> None:
+            for entry in unknowns:
+                if asyncio.get_event_loop().time() > deadline:
+                    break
+                await queue.put(entry)
+            for _ in range(CONCURRENCY):
+                await queue.put(None)  # sentinel to stop each worker
 
         async def _periodic_upload() -> None:
             nonlocal last_upload
@@ -168,8 +182,10 @@ async def main() -> int:
                     print(f"  [periodic] upload failed: {exc!r}")
 
         upload_task = asyncio.create_task(_periodic_upload())
+        producer_task = asyncio.create_task(_producer())
+        worker_tasks = [asyncio.create_task(_worker()) for _ in range(CONCURRENCY)]
         try:
-            await asyncio.gather(*(_one(e) for e in unknowns))
+            await asyncio.gather(producer_task, *worker_tasks)
         finally:
             upload_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
