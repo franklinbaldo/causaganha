@@ -32,7 +32,13 @@ from djen_backup.djen import (
     download_zip,
     get_caderno_url,
 )
-from djen_backup.manifest import ManifestCounts, ManifestEntry, SyncManifest
+from djen_backup.manifest import (
+    ABSENT_CODES,
+    ManifestCounts,
+    ManifestEntry,
+    SyncManifest,
+    interpret_djen_raw,
+)
 from djen_backup.tribunais import get_tribunal_list
 
 
@@ -218,11 +224,13 @@ async def _classify_djen_status(
 ) -> str:
     """Call DJEN once and map the outcome to a raw_status string.
 
-    Returns:
+    Returns the actual raw response token — never a derived sentinel:
         "200" — caderno available
         "404" / "400" — genuine absence (404 not found, 400 holiday)
         "403" — CloudFront/WAF block (transient, do NOT trip the breaker)
-        "error" — any other HTTP/timeout failure (caller should record it)
+        "timeout" — request timed out
+        "network" — transport error (connection reset, DNS, TLS, etc.)
+        str(status_code) — other HTTP error response (e.g. "500", "502")
     """
     try:
         async with djen_limiter:
@@ -231,14 +239,30 @@ async def _classify_djen_status(
         return str(exc.status_code)
     except DJENRateLimitedError:
         return "403"
-    except (httpx.HTTPError, asyncio.TimeoutError) as exc:
+    except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
         log.warning(
-            "djen_check_error",
+            "djen_check_timeout",
             tribunal=tribunal,
             date=d.isoformat(),
             error=str(exc),
         )
-        return "error"
+        return "timeout"
+    except httpx.HTTPStatusError as exc:
+        log.warning(
+            "djen_check_http_error",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            status=exc.response.status_code,
+        )
+        return str(exc.response.status_code)
+    except httpx.HTTPError as exc:
+        log.warning(
+            "djen_check_network_error",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            error=str(exc),
+        )
+        return "network"
     return "200"
 
 
@@ -352,7 +376,15 @@ async def run_pipeline(
 
     adjacent_entries, isolated_entries = [], []
     for e in manifest._entries.values():
-        if e.ia_status != "" or e.djen_status != "":
+        if e.ia_status != "":
+            continue
+        # Use djen_raw (canonical) — not the derived djen_status field. Old
+        # manifests can carry a stale djen_status ("absent") with djen_raw=""
+        # from format migrations; trusting djen_status would skip those rows
+        # forever. Transient raws (403/timeout/network/5xx) map to "" here so
+        # they get re-checked, matching CLAUDE.md's "never treat 403 as absent".
+        terminal = interpret_djen_raw(e.djen_raw)
+        if terminal in {"available", "absent"}:
             continue
         if _is_adjacent(e):
             adjacent_entries.append(e)
@@ -361,7 +393,26 @@ async def run_pipeline(
 
     random.shuffle(adjacent_entries)
     random.shuffle(isolated_entries)
-    unknown_entries = adjacent_entries + isolated_entries
+    # Interleave instead of concatenating: with the global 1 req/sec limiter
+    # and a 17-min deadline, each run only drains ~1k entries off the front.
+    # Concatenation starved the isolated bucket forever — the probe in PR #677
+    # showed 74,908 isolated unknowns whose updated_at hadn't moved in 11 days
+    # while adjacent entries were re-classified weekly. Round-robin guarantees
+    # both buckets advance every run.
+    unknown_entries: list[ManifestEntry] = []
+    a_iter, i_iter = iter(adjacent_entries), iter(isolated_entries)
+    a_done = i_done = False
+    while not (a_done and i_done):
+        if not a_done:
+            try:
+                unknown_entries.append(next(a_iter))
+            except StopIteration:
+                a_done = True
+        if not i_done:
+            try:
+                unknown_entries.append(next(i_iter))
+            except StopIteration:
+                i_done = True
 
     await anyio.Path(STAGING_DIR).mkdir(parents=True, exist_ok=True)
 
@@ -465,10 +516,15 @@ async def run_pipeline(
             )
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
-            if raw_status in ("429", "timeout", "error"):
-                djen_breaker.record_failure()
-            elif raw_status != "403":
+            # Breaker accounting: only the proven-good statuses count as
+            # success. 403 is intentionally neutral (CloudFront/WAF block,
+            # see CLAUDE.md). Everything else — unexpected HTTP codes,
+            # timeouts, network errors — is a failure so the breaker can
+            # trip on persistent upstream/client problems.
+            if raw_status == "200" or raw_status in ABSENT_CODES:
                 djen_breaker.record_success()
+            elif raw_status != "403":
+                djen_breaker.record_failure()
 
             _notify_counts()
             if time.monotonic() - last_save > save_interval:

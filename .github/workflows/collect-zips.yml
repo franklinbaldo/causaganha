@@ -9,10 +9,8 @@
 name: Collect ZIPs
 
 on:
-  # DISABLED 2026-04-14: manifest data-loss incident. Re-enable after
-  # sync-manifest.csv is restored + overwrite source is identified.
   schedule:
-  -   cron: '*/20 * * * *'
+    - cron: '*/20 * * * *'
   workflow_dispatch:
     inputs:
       workers:
@@ -45,7 +43,13 @@ jobs:
   collect:
     name: Download & Upload ZIPs
     runs-on: ubuntu-latest
-    timeout-minutes: 19
+    # 17min engine deadline + Phase 0 IA discovery (~2min) + manifest
+    # upload_to_ia in the finally block (re-download merge + push of
+    # ~20MB CSV, can take 60-90s) easily breaches the previous 19min
+    # ceiling. PR #677's probe showed every recent run hitting 1170s
+    # and being cancelled mid-cleanup, so IA never received updates
+    # since 2026-05-01.
+    timeout-minutes: 25
     environment: dev
 
     env:

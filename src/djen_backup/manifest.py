@@ -498,6 +498,13 @@ class SyncManifest:
             djen_raw = "200" if djen_status == "available" else ""
             updated_at = parts[4] if len(parts) > 4 else ""
 
+        # Normalize legacy sentinel "error" → unknown so the row gets re-checked.
+        # Older engine versions wrote a derived "error" string; canonical raw
+        # values are HTTP codes or "timeout"/"network". See PR #677.
+        if djen_raw == "error":
+            djen_raw = ""
+            djen_status = ""
+
         k = self._key(tribunal, d)
         existing = self._entries.get(k)
 
@@ -512,10 +519,15 @@ class SyncManifest:
                 existing.ia_status = "uploaded"
                 existing.updated_at = updated_at or existing.updated_at
         else:
-            # New entry from IA: only keep uploaded, discard absent claims
-            if not overwrite:
-                djen_status = "" if djen_status == "absent" else djen_status
-                djen_raw = "" if djen_status == "" else djen_raw
+            # New entry from IA: legacy bare ``djen_status="absent"`` (without
+            # a djen_raw HTTP code) is the suspicious case CLAUDE.md flags —
+            # rows from before djen_raw was canonical can't be re-verified.
+            # Modern entries have djen_raw="404"/"400" alongside, and that IS
+            # the canonical truth — keep it as-is. PR #677 found drain was
+            # nuking 38k legitimate absent rows because this branch cleared
+            # djen_raw whenever djen_status said absent.
+            if not overwrite and djen_status == "absent" and not djen_raw:
+                djen_status = ""
             self._entries[k] = ManifestEntry(
                 tribunal=tribunal,
                 date=d,
