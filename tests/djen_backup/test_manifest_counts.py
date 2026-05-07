@@ -55,6 +55,31 @@ async def test_uploading_after_available_transitions_categories() -> None:
 
 
 @pytest.mark.asyncio
+async def test_has_uploaded_entries_incremental_after_marks() -> None:
+    """The (tribunal, year) index updates incrementally on mark_*.
+
+    Before this fix it was a binary cache rebuilt by O(N) scan; now it
+    starts populated on first call and is maintained on every transition
+    to ``uploaded`` so subsequent checks are O(1).
+    """
+    m = SyncManifest()
+    m.build(["TJSP", "TJBA"], date(2024, 1, 1), date(2024, 1, 5))
+
+    assert not m.has_uploaded_entries("TJSP", 2024)
+    # Index is now warm (built lazily on the call above).
+
+    await m.mark_uploaded("TJSP", date(2024, 1, 2))
+    assert m.has_uploaded_entries("TJSP", 2024)
+    assert not m.has_uploaded_entries("TJBA", 2024)
+
+    await m.mark_ia_uploaded("TJBA", {date(2024, 1, 3), date(2024, 1, 4)})
+    assert m.has_uploaded_entries("TJBA", 2024)
+    # Idempotent re-mark must not corrupt the index.
+    await m.mark_uploaded("TJSP", date(2024, 1, 2))
+    assert m.has_uploaded_entries("TJSP", 2024)
+
+
+@pytest.mark.asyncio
 async def test_bulk_load_invalidates_tally() -> None:
     m = SyncManifest()
     m.build(["TJSP"], date(2024, 1, 1), date(2024, 1, 2))
