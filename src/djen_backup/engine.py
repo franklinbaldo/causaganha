@@ -206,6 +206,76 @@ async def _process_upload_item(
         log.warning("upload_exception", item_id=item.item_id, error=str(exc))
 
 
+# ── DJEN check + download helpers (extracted for testability) ───────
+
+
+async def _classify_djen_status(
+    client: httpx.AsyncClient,
+    proxy_url: str,
+    tribunal: str,
+    d: date,
+    djen_limiter: AsyncLimiter,
+) -> str:
+    """Call DJEN once and map the outcome to a raw_status string.
+
+    Returns:
+        "200" — caderno available
+        "404" / "400" — genuine absence (404 not found, 400 holiday)
+        "403" — CloudFront/WAF block (transient, do NOT trip the breaker)
+        "error" — any other HTTP/timeout failure (caller should record it)
+    """
+    try:
+        async with djen_limiter:
+            await get_caderno_url(client, proxy_url, tribunal, d)
+    except DJENNotFoundError as exc:
+        return str(exc.status_code)
+    except DJENRateLimitedError:
+        return "403"
+    except (httpx.HTTPError, asyncio.TimeoutError) as exc:
+        log.warning(
+            "djen_check_error",
+            tribunal=tribunal,
+            date=d.isoformat(),
+            error=str(exc),
+        )
+        return "error"
+    return "200"
+
+
+async def _stage_download(
+    entry: ManifestEntry,
+    client: httpx.AsyncClient,
+    proxy_url: str,
+    djen_limiter: AsyncLimiter,
+    staging_dir: Path,
+) -> StagedItem:
+    """Resolve the caderno URL, download the ZIP, and stage it on disk.
+
+    Retries up to 3 times on ``DJENNotFoundError`` (the proxy occasionally
+    returns 404 transiently for newly-published cadernos). Returns the
+    final ``StagedItem``; raises on exhaustion or other transport errors.
+    """
+    async with djen_limiter:
+        async for attempt in tenacity.AsyncRetrying(
+            stop=tenacity.stop_after_attempt(3),
+            wait=tenacity.wait_exponential(multiplier=2, min=4, max=10),
+            retry=tenacity.retry_if_exception_type(DJENNotFoundError),
+            reraise=True,
+        ):
+            with attempt:
+                # IMPORTANT: The proxy URL is used to fetch the file, NOT the
+                # direct DJEN URL — avoids CloudFront 403s on GitHub Runners.
+                url = await get_caderno_url(client, proxy_url, entry.tribunal, entry.date)
+                zip_path = await download_zip(client, url)
+
+    item_id = get_ia_item_id(entry.tribunal, entry.date)
+    dest_dir = staging_dir / item_id
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    final_path = dest_dir / f"djen-{entry.date.isoformat()}-{entry.tribunal.upper()}.zip"
+    await asyncio.to_thread(shutil.move, str(zip_path), str(final_path))
+    return StagedItem(item_id, entry.date, entry.tribunal, final_path)
+
+
 # ── Unified check + download + upload pipeline ──────────────────────
 
 
@@ -376,23 +446,9 @@ async def run_pipeline(
             if not await _check_djen_breaker():
                 return
 
-            try:
-                async with djen_limiter:
-                    await get_caderno_url(client, config.djen_proxy_url, entry.tribunal, entry.date)
-                raw_status = "200"
-            except DJENNotFoundError as exc:
-                raw_status = str(exc.status_code)
-            except DJENRateLimitedError:
-                # 403 / CloudFront block — transient, do NOT trip the breaker.
-                raw_status = "403"
-            except (httpx.HTTPError, asyncio.TimeoutError) as exc:
-                log.warning(
-                    "djen_check_error",
-                    tribunal=entry.tribunal,
-                    date=entry.date.isoformat(),
-                    error=str(exc),
-                )
-                raw_status = "error"
+            raw_status = await _classify_djen_status(
+                client, config.djen_proxy_url, entry.tribunal, entry.date, djen_limiter
+            )
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
             if raw_status in ("429", "timeout", "error"):
@@ -418,30 +474,11 @@ async def run_pipeline(
                 download_queue.task_done()
                 continue
             try:
-                async with djen_limiter:
-                    async for attempt in tenacity.AsyncRetrying(
-                        stop=tenacity.stop_after_attempt(3),
-                        wait=tenacity.wait_exponential(multiplier=2, min=4, max=10),
-                        retry=tenacity.retry_if_exception_type(DJENNotFoundError),
-                        reraise=True,
-                    ):
-                        with attempt:
-                            # IMPORTANT: The proxy URL is used to fetch the file, NOT the direct DJEN URL
-                            # to avoid Geofencing 403s on GitHub Runners.
-                            url = await get_caderno_url(
-                                client, config.djen_proxy_url, entry.tribunal, entry.date
-                            )
-                            zip_path = await download_zip(client, url)
-
-                item_id = get_ia_item_id(entry.tribunal, entry.date)
-                dest_dir = STAGING_DIR / item_id
-                dest_dir.mkdir(parents=True, exist_ok=True)
-                final_path = (
-                    dest_dir / f"djen-{entry.date.isoformat()}-{entry.tribunal.upper()}.zip"
+                staged = await _stage_download(
+                    entry, client, config.djen_proxy_url, djen_limiter, STAGING_DIR
                 )
-                await asyncio.to_thread(shutil.move, str(zip_path), str(final_path))
                 await summary.inc_download()
-                await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
+                await upload_queue.put(staged)
             except (
                 httpx.HTTPError,
                 OSError,
