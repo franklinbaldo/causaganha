@@ -34,13 +34,16 @@ from djen_backup.manifest import SyncManifest
 
 DJEN_PROXY_FALLBACK = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
-# Tuned for backfill: more aggressive than the engine's 1 req/sec since we
-# have the proxy mostly to ourselves on a manual run.
-CONCURRENCY = 24
+# Tuned for backfill: still respectful of the proxy. The first run of this
+# script at 24x concurrency tripped CloudFront/WAF (PR #677), so keep this
+# low. The proxy can sustain a few req/s but rejects bursts.
+CONCURRENCY = 4
 PER_REQUEST_TIMEOUT = 30.0
 DEADLINE_SECONDS = int(os.environ.get("DRAIN_DEADLINE_SECONDS", "1500"))  # 25 min default
 LIMIT = int(os.environ.get("DRAIN_LIMIT", "0"))  # 0 = no cap
 UPLOAD_INTERVAL_S = 600  # push to IA every ~10min while draining
+WAF_403_COOLDOWN_S = 30  # consecutive 403s → sleep this long before continuing
+WAF_403_THRESHOLD = 5  # consecutive 403s required to trip the cooldown
 
 log = structlog.get_logger()
 
@@ -110,6 +113,7 @@ async def main() -> int:
     sem = asyncio.Semaphore(CONCURRENCY)
     results: Counter[str] = Counter()
     processed = 0
+    consecutive_403 = 0
     last_upload = asyncio.get_event_loop().time()
     deadline = asyncio.get_event_loop().time() + DEADLINE_SECONDS
 
@@ -118,11 +122,25 @@ async def main() -> int:
     ) as client:
 
         async def _one(entry) -> None:
-            nonlocal processed
+            nonlocal processed, consecutive_403
             async with sem:
                 if asyncio.get_event_loop().time() > deadline:
                     return
                 raw = await _classify(client, base, entry.tribunal, entry.date)
+                if raw == "403":
+                    # WAF/CloudFront block. Don't pollute the manifest with a
+                    # transient signal — leave djen_raw="" so the next sync
+                    # reclassifies cleanly. If we keep tripping, back off.
+                    consecutive_403 += 1
+                    results["403"] += 1
+                    if consecutive_403 >= WAF_403_THRESHOLD:
+                        print(
+                            f"  WAF cooldown: {consecutive_403} consecutive 403s, "
+                            f"sleeping {WAF_403_COOLDOWN_S}s"
+                        )
+                        await asyncio.sleep(WAF_403_COOLDOWN_S)
+                    return
+                consecutive_403 = 0
                 await manifest.mark_djen_raw(entry.tribunal, entry.date, raw)
                 results[raw] += 1
                 processed += 1

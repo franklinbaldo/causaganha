@@ -13,6 +13,9 @@
 name: Drain Unknowns
 
 on:
+  # Manual only. The first push-triggered run at high concurrency tripped
+  # CloudFront/WAF and 403'd every subsequent request including unrelated
+  # probes. Manual dispatch keeps a human in the loop on cadence/concurrency.
   workflow_dispatch:
     inputs:
       limit:
@@ -23,12 +26,6 @@ on:
         description: 'Soft deadline before we stop classifying and upload'
         required: false
         default: '1500'
-  push:
-    branches:
-      - claude/gha-backfill-probe-h2AK5
-    paths:
-      - .github/workflows/drain-unknowns.yml
-      - scripts/drain_unknowns.py
 
 permissions:
   contents: read
