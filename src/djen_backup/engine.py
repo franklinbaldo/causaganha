@@ -33,6 +33,7 @@ from djen_backup.djen import (
     get_caderno_url,
 )
 from djen_backup.manifest import (
+    ABSENT_CODES,
     ManifestCounts,
     ManifestEntry,
     SyncManifest,
@@ -496,10 +497,15 @@ async def run_pipeline(
             )
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
-            if raw_status in {"429", "timeout", "network", "500", "502", "503", "504"}:
-                djen_breaker.record_failure()
-            elif raw_status != "403":
+            # Breaker accounting: only the proven-good statuses count as
+            # success. 403 is intentionally neutral (CloudFront/WAF block,
+            # see CLAUDE.md). Everything else — unexpected HTTP codes,
+            # timeouts, network errors — is a failure so the breaker can
+            # trip on persistent upstream/client problems.
+            if raw_status == "200" or raw_status in ABSENT_CODES:
                 djen_breaker.record_success()
+            elif raw_status != "403":
+                djen_breaker.record_failure()
 
             _notify_counts()
             if time.monotonic() - last_save > save_interval:
