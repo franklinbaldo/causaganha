@@ -228,6 +228,28 @@ async def main() -> int:
             "the backlog is NOT being processed at any meaningful rate."
         )
 
+        # ── Legacy stale-status detection ───────────────────────────────────
+        # Rows with djen_raw="" but djen_status non-empty are leftovers from
+        # an old format where djen_status was written without a raw code.
+        # The pre-fix engine would skip these forever (selector trusted
+        # djen_status). After the fix, they re-enter the check queue.
+        stale_status_rows = [
+            r
+            for r in rows
+            if not (r.get("djen_raw") or "").strip() and (r.get("djen_status") or "").strip()
+        ]
+        stale_status_breakdown = Counter(
+            (r.get("djen_status") or "").strip() for r in stale_status_rows
+        )
+        _print_header("Legacy stale-status rows (djen_raw empty, djen_status set)")
+        print(f"count: {len(stale_status_rows)}")
+        for st, n in sorted(stale_status_breakdown.items(), key=lambda kv: -kv[1]):
+            print(f"  djen_status={st!r:>15s}  {n:>8d}")
+        print(
+            "  → These were unreachable to the worker before the engine "
+            "selector fix (PR #677). After merge, expect this to drop to 0."
+        )
+
         sampled = _sample_by_category(rows)
         _print_header("Probing samples against DJEN proxy")
 
