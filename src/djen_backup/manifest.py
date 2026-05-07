@@ -138,16 +138,14 @@ class SyncManifest:
             return "absent"
         return "unknown"
 
-    def _adjust_counts(self, old_cat: str | None, new_cat: str | None) -> None:
+    def _adjust_counts(self, old_cat: str, new_cat: str) -> None:
         """Incrementally adjust the maintained tally (no-op if not built yet)."""
         if self._counts_tally is None:
             return
         if old_cat == new_cat:
             return
-        if old_cat is not None:
-            self._counts_tally[old_cat] -= 1
-        if new_cat is not None:
-            self._counts_tally[new_cat] += 1
+        self._counts_tally[old_cat] -= 1
+        self._counts_tally[new_cat] += 1
 
     def _invalidate_caches(self) -> None:
         # Force a full counts rebuild on next counts() call.
