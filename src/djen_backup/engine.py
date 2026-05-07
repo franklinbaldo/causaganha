@@ -141,6 +141,71 @@ class SyncSummary:
             self.errors += 1
 
 
+# ── Upload item handler (extracted for testability) ─────────────────
+
+
+async def _process_upload_item(
+    item: StagedItem,
+    *,
+    upload_client: httpx.AsyncClient,
+    upload_queue: asyncio.Queue[StagedItem | None],
+    manifest: SyncManifest,
+    summary: SyncSummary,
+    circuit_breaker: CircuitBreaker,
+    abort_event: asyncio.Event,
+    fail_fast: bool,
+    observer: ManifestObserver | None,
+) -> None:
+    """Handle a single staged upload item.
+
+    Resolves to: already-on-IA short-circuit, real upload, busy re-queue,
+    or saturated-queue drop. The behaviour mirrors what was previously
+    inline in ``upload_worker`` — extracted so it can be unit-tested.
+    """
+    try:
+        if await check_ia_file_exists(upload_client, item.tribunal, item.d):
+            await manifest.mark_uploaded(item.tribunal, item.d)
+            await summary.inc_upload()
+            if observer:
+                observer.on_log(f"[dim]Already on IA[/dim] {item.tribunal} {item.d}")
+            item.path.unlink(missing_ok=True)
+            return
+
+        try:
+            ok = await upload_zip(
+                upload_client,
+                item.item_id,
+                item.path,
+                circuit_breaker=circuit_breaker,
+                try_lock=True,
+            )
+        except ItemBusyError:
+            # Another worker holds the per-item lock — re-queue and pick a
+            # different item rather than blocking on the same bucket. Use
+            # put_nowait so a saturated bounded queue can't deadlock; if it
+            # is full, drop the staged file (the manifest still flags the
+            # entry as available so the next run re-feeds it).
+            log.debug("upload_item_busy_requeue", item_id=item.item_id)
+            await asyncio.sleep(0.25)
+            try:
+                upload_queue.put_nowait(item)
+            except asyncio.QueueFull:
+                log.info("upload_requeue_dropped", item_id=item.item_id)
+                item.path.unlink(missing_ok=True)
+            return
+
+        if ok:
+            await manifest.mark_uploaded(item.tribunal, item.d)
+            await summary.inc_upload()
+            if observer:
+                observer.on_log(f"[green]Uploaded[/green] {item.tribunal} {item.d}")
+        elif fail_fast:
+            abort_event.set()
+        item.path.unlink(missing_ok=True)
+    except (httpx.HTTPError, OSError) as exc:
+        log.warning("upload_exception", item_id=item.item_id, error=str(exc))
+
+
 # ── Unified check + download + upload pipeline ──────────────────────
 
 
@@ -331,9 +396,9 @@ async def run_pipeline(
 
             await manifest.mark_djen_raw(entry.tribunal, entry.date, raw_status)
             if raw_status in ("429", "timeout", "error"):
-                await djen_breaker.record_failure()
+                djen_breaker.record_failure()
             elif raw_status != "403":
-                await djen_breaker.record_success()
+                djen_breaker.record_success()
 
             _notify_counts()
             if time.monotonic() - last_save > save_interval:
@@ -401,48 +466,17 @@ async def run_pipeline(
                 upload_queue.task_done()
                 return
             try:
-                if await check_ia_file_exists(upload_client, item.tribunal, item.d):
-                    await manifest.mark_uploaded(item.tribunal, item.d)
-                    await summary.inc_upload()
-                    if config.observer:
-                        config.observer.on_log(f"[dim]Already on IA[/dim] {item.tribunal} {item.d}")
-                    item.path.unlink(missing_ok=True)
-                else:
-                    try:
-                        ok = await upload_zip(
-                            upload_client,
-                            item.item_id,
-                            item.path,
-                            circuit_breaker=circuit_breaker,
-                            try_lock=True,
-                        )
-                    except ItemBusyError:
-                        # Another worker holds the per-item lock — re-queue this
-                        # item and pick a different one rather than blocking on
-                        # the same bucket. Use put_nowait to avoid deadlocking
-                        # the bounded queue; if it's saturated, drop the staged
-                        # file (the manifest still flags the entry as available
-                        # so the next run re-feeds it).
-                        log.debug("upload_item_busy_requeue", item_id=item.item_id)
-                        await asyncio.sleep(0.25)
-                        try:
-                            upload_queue.put_nowait(item)
-                        except asyncio.QueueFull:
-                            log.info("upload_requeue_dropped", item_id=item.item_id)
-                            item.path.unlink(missing_ok=True)
-                    else:
-                        if ok:
-                            await manifest.mark_uploaded(item.tribunal, item.d)
-                            await summary.inc_upload()
-                            if config.observer:
-                                config.observer.on_log(
-                                    f"[green]Uploaded[/green] {item.tribunal} {item.d}"
-                                )
-                        elif config.fail_fast:
-                            abort_event.set()
-                        item.path.unlink(missing_ok=True)
-            except (httpx.HTTPError, OSError) as exc:
-                log.warning("upload_exception", item_id=item.item_id, error=str(exc))
+                await _process_upload_item(
+                    item,
+                    upload_client=upload_client,
+                    upload_queue=upload_queue,
+                    manifest=manifest,
+                    summary=summary,
+                    circuit_breaker=circuit_breaker,
+                    abort_event=abort_event,
+                    fail_fast=config.fail_fast,
+                    observer=config.observer,
+                )
             finally:
                 upload_queue.task_done()
 

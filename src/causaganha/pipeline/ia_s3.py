@@ -23,6 +23,12 @@ import httpx
 import structlog
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
+# Re-export the canonical CircuitBreaker so legacy callers
+# (`from causaganha.pipeline.ia_s3 import CircuitBreaker`) keep working
+# without duplicating the implementation. The class supports both sync
+# (is_open / record_*) and async (allow_request) APIs.
+from djen_backup.circuit_breaker import CircuitBreaker as CircuitBreaker  # noqa: PLC0414
+
 
 logger = structlog.get_logger()
 
@@ -109,34 +115,6 @@ def parse_deadline(duration_str: str) -> int:
         return int(float(duration_str))
     except ValueError:
         return 0
-
-
-# ---------------------------------------------------------------------------
-# Circuit breaker (optional, for resilience during IA outages)
-# ---------------------------------------------------------------------------
-
-
-class CircuitBreaker:
-    """Lightweight circuit breaker for IA upload operations.
-
-    After *threshold* consecutive failures the breaker opens and
-    ``is_open`` returns ``True``, allowing callers to skip further
-    attempts and avoid wasting requests during an IA outage.
-    """
-
-    def __init__(self, threshold: int = 5) -> None:
-        self.consecutive_failures = 0
-        self.threshold = threshold
-
-    def record_success(self) -> None:
-        self.consecutive_failures = 0
-
-    def record_failure(self) -> None:
-        self.consecutive_failures += 1
-
-    @property
-    def is_open(self) -> bool:
-        return self.consecutive_failures >= self.threshold
 
 
 # ---------------------------------------------------------------------------

@@ -50,11 +50,8 @@ def given_recovery_timeout(circuit_breaker: CircuitBreaker, n: int) -> None:
 
 @when(parsers.parse("{n:d} consecutive IA uploads fail"))
 def when_n_failures(circuit_breaker: CircuitBreaker, n: int) -> None:
-    async def _run() -> None:
-        for _ in range(n):
-            await circuit_breaker.record_failure()
-
-    asyncio.run(_run())
+    for _ in range(n):
+        circuit_breaker.record_failure()
 
 
 @when("I wait for the recovery timeout")
@@ -68,9 +65,9 @@ def when_test_succeeds(circuit_breaker: CircuitBreaker) -> None:
     async def _run() -> None:
         allowed = await circuit_breaker.allow_request()
         assert allowed, "Expected half-open circuit to allow a test request"
-        await circuit_breaker.record_success()
 
     asyncio.run(_run())
+    circuit_breaker.record_success()
 
 
 # ── Then ─────────────────────────────────────────────────────────────
