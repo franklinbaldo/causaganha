@@ -158,13 +158,31 @@ async def main() -> int:
                 finally:
                     queue.task_done()
 
+        async def _put_with_deadline(item: object) -> bool:
+            """Put on queue, but bail out if deadline elapses while blocked.
+
+            Without this guard, workers exit on deadline and the producer
+            wedges forever on a full queue (Codex P1, PR #677).
+            """
+            while True:
+                remaining = deadline - asyncio.get_event_loop().time()
+                if remaining <= 0:
+                    return False
+                try:
+                    await asyncio.wait_for(queue.put(item), timeout=min(remaining, 1.0))
+                except TimeoutError:
+                    continue
+                return True
+
         async def _producer() -> None:
             for entry in unknowns:
-                if asyncio.get_event_loop().time() > deadline:
+                if not await _put_with_deadline(entry):
                     break
-                await queue.put(entry)
+            # Sentinels — best-effort; if the deadline already passed, workers
+            # have already exited on their own deadline check.
             for _ in range(CONCURRENCY):
-                await queue.put(None)  # sentinel to stop each worker
+                if not await _put_with_deadline(None):
+                    break
 
         async def _periodic_upload() -> None:
             nonlocal last_upload
