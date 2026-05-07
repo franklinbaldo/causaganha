@@ -393,7 +393,26 @@ async def run_pipeline(
 
     random.shuffle(adjacent_entries)
     random.shuffle(isolated_entries)
-    unknown_entries = adjacent_entries + isolated_entries
+    # Interleave instead of concatenating: with the global 1 req/sec limiter
+    # and a 17-min deadline, each run only drains ~1k entries off the front.
+    # Concatenation starved the isolated bucket forever — the probe in PR #677
+    # showed 74,908 isolated unknowns whose updated_at hadn't moved in 11 days
+    # while adjacent entries were re-classified weekly. Round-robin guarantees
+    # both buckets advance every run.
+    unknown_entries: list[ManifestEntry] = []
+    a_iter, i_iter = iter(adjacent_entries), iter(isolated_entries)
+    a_done = i_done = False
+    while not (a_done and i_done):
+        if not a_done:
+            try:
+                unknown_entries.append(next(a_iter))
+            except StopIteration:
+                a_done = True
+        if not i_done:
+            try:
+                unknown_entries.append(next(i_iter))
+            except StopIteration:
+                i_done = True
 
     await anyio.Path(STAGING_DIR).mkdir(parents=True, exist_ok=True)
 

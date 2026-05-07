@@ -228,6 +228,20 @@ async def main() -> int:
             "the backlog is NOT being processed at any meaningful rate."
         )
 
+        # ── Unknown-by-year distribution ────────────────────────────────────
+        # If isolated old unknowns are draining, we expect this distribution
+        # to shift toward recent years over time.
+        unknown_by_year: Counter[str] = Counter()
+        for r in rows:
+            if (r.get("djen_raw") or "").strip():
+                continue
+            d = (r.get("date") or "").strip()
+            year = d[:4] if len(d) >= 4 else "????"
+            unknown_by_year[year] += 1
+        _print_header("Unknown rows by year")
+        for y in sorted(unknown_by_year):
+            print(f"  {y}: {unknown_by_year[y]:>8d}")
+
         # ── Legacy stale-status detection ───────────────────────────────────
         # Rows with djen_raw="" but djen_status non-empty are leftovers from
         # an old format where djen_status was written without a raw code.
