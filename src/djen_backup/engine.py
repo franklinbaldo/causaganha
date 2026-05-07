@@ -276,6 +276,43 @@ async def _stage_download(
     return StagedItem(item_id, entry.date, entry.tribunal, final_path)
 
 
+async def _discover_ia_items(manifest: SyncManifest) -> set[tuple[str, int]]:
+    """Phase 0: enumerate existing ``djen-*-{year}`` items on Internet Archive.
+
+    Hits IA's advanced-search endpoint for ``identifier:djen-*-*`` and
+    returns the set of ``(tribunal, year)`` pairs found. On any HTTP or
+    parse failure, falls back to the manifest's not-yet-uploaded set so
+    the pipeline can still proceed offline-ish.
+    """
+    async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as client:
+        try:
+            resp = await client.get(
+                "https://archive.org/advancedsearch.php",
+                params={
+                    "q": "identifier:djen-*-*",
+                    "fl[]": "identifier",
+                    "rows": "2000",
+                    "output": "json",
+                },
+            )
+            existing: set[tuple[str, int]] = set()
+            for d in resp.json()["response"]["docs"]:
+                ident = d["identifier"]
+                parts = ident.rsplit("-", 1)
+                if len(parts) == 2 and parts[1].isdigit():
+                    existing.add((parts[0][len("djen-") :].upper(), int(parts[1])))
+            log.info("ia_items_discovered", count=len(existing))
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
+            log.warning("ia_search_failed_fallback", error=str(exc))
+            return {
+                (e.tribunal, e.date.year)
+                for e in manifest._entries.values()
+                if e.ia_status != "uploaded"
+            }
+        else:
+            return existing
+
+
 # ── Unified check + download + upload pipeline ──────────────────────
 
 
@@ -292,30 +329,7 @@ async def run_pipeline(
     existing_items: set[tuple[str, int]] = set()
     if not config.upload_only:
         log.info("ia_discovery_starting")
-        async with httpx.AsyncClient(timeout=httpx.Timeout(30.0), follow_redirects=True) as client:
-            try:
-                resp = await client.get(
-                    "https://archive.org/advancedsearch.php",
-                    params={
-                        "q": "identifier:djen-*-*",
-                        "fl[]": "identifier",
-                        "rows": "2000",
-                        "output": "json",
-                    },
-                )
-                for d in resp.json()["response"]["docs"]:
-                    ident = d["identifier"]
-                    parts = ident.rsplit("-", 1)
-                    if len(parts) == 2 and parts[1].isdigit():
-                        existing_items.add((parts[0][5:].upper(), int(parts[1])))
-                log.info("ia_items_discovered", count=len(existing_items))
-            except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
-                log.warning("ia_search_failed_fallback", error=str(exc))
-                existing_items = {
-                    (e.tribunal, e.date.year)
-                    for e in manifest._entries.values()
-                    if e.ia_status != "uploaded"
-                }
+        existing_items = await _discover_ia_items(manifest)
 
     # Build check priority
     from collections import defaultdict
