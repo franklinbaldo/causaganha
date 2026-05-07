@@ -174,7 +174,7 @@ async def run_pipeline(
                     if len(parts) == 2 and parts[1].isdigit():
                         existing_items.add((parts[0][5:].upper(), int(parts[1])))
                 log.info("ia_items_discovered", count=len(existing_items))
-            except (httpx.HTTPError, ValueError, KeyError) as exc:
+            except (httpx.HTTPError, ValueError, KeyError, TypeError, AttributeError) as exc:
                 log.warning("ia_search_failed_fallback", error=str(exc))
                 existing_items = {
                     (e.tribunal, e.date.year)
@@ -377,7 +377,13 @@ async def run_pipeline(
                 await asyncio.to_thread(shutil.move, str(zip_path), str(final_path))
                 await summary.inc_download()
                 await upload_queue.put(StagedItem(item_id, entry.date, entry.tribunal, final_path))
-            except (httpx.HTTPError, OSError, DJENNotFoundError, DJENRateLimitedError) as exc:
+            except (
+                httpx.HTTPError,
+                OSError,
+                ValueError,
+                DJENNotFoundError,
+                DJENRateLimitedError,
+            ) as exc:
                 log.warning(
                     "download_failed",
                     tribunal=entry.tribunal,
