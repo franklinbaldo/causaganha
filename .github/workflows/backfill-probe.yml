@@ -12,6 +12,12 @@ name: Backfill Probe
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - claude/gha-backfill-probe-h2AK5
+    paths:
+      - .github/workflows/backfill-probe.yml
+      - scripts/backfill_probe.py
 
 permissions:
   contents: read
