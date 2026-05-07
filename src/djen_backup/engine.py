@@ -54,7 +54,7 @@ def load_djen_safe_concurrency() -> int:
 
         data = json.loads(DJEN_SAFE_CONCURRENCY_FILE.read_text())
         return max(1, int(data.get("safe_concurrency", DEFAULT_DJEN_CONCURRENCY)))
-    except (OSError, ValueError):
+    except (OSError, ValueError, TypeError):
         return DEFAULT_DJEN_CONCURRENCY
 
 

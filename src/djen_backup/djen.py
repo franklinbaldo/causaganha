@@ -252,7 +252,7 @@ async def _download_simple(
             if total_bytes == 0:
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
                 _raise_not_found(resp.status_code, "Empty ZIP response")
-        except (OSError, httpx.HTTPError, DJENNotFoundError):
+        except (OSError, httpx.HTTPError, DJENNotFoundError, ValueError):
             await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
             raise
 
