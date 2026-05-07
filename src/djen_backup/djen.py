@@ -1,12 +1,6 @@
-from __future__ import annotations
-
-import httpx
-
-
-HTTP_500_INTERNAL_SERVER_ERROR = 500
-
 """DJEN proxy client — caderno info lookup and ZIP download."""
 
+from __future__ import annotations
 
 import asyncio
 import contextlib
@@ -14,6 +8,7 @@ import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import httpx
 import structlog
 
 from djen_backup.retry import request_with_retry
@@ -24,6 +19,13 @@ if TYPE_CHECKING:
 
 
 log = structlog.get_logger()
+
+
+# HTTP status constants
+HTTP_NOT_FOUND = 404
+HTTP_FORBIDDEN = 403
+HTTP_BAD_REQUEST = 400
+HTTP_INTERNAL_SERVER_ERROR = 500
 
 
 def _raise_not_found(status_code: int, reason: str) -> None:
@@ -37,10 +39,6 @@ def _raise_server_error(status_code: int) -> None:
     raise httpx.HTTPError(msg)
 
 
-# HTTP status constants
-HTTP_NOT_FOUND = 404
-
-
 class DJENNotFoundError(Exception):
     """Raised when the DJEN proxy returns 404 or an empty response."""
 
@@ -49,6 +47,13 @@ class DJENNotFoundError(Exception):
         super().__init__(reason)
         self.status_code = status_code
         self.reason = reason
+
+
+class DJENRateLimitedError(Exception):
+    """Raised when DJEN/CloudFront returns 403 (transient WAF block).
+
+    This is *not* a circuit-trip event — the next run should retry.
+    """
 
 
 async def get_caderno_url(
@@ -75,15 +80,14 @@ async def get_caderno_url(
     # 404 = no publication for this date (genuine "not found")
     # 400 = holiday/non-publication day (DJEN returns 400 instead of 404)
     # 403 = CloudFront/WAF block — NOT treated as absent, will retry next run
-    if resp.status_code in (HTTP_NOT_FOUND, 400):
+    if resp.status_code in (HTTP_NOT_FOUND, HTTP_BAD_REQUEST):
         raise DJENNotFoundError(status_code=resp.status_code, reason="Not Found")
-    if resp.status_code == 403:
-        msg = "CloudFront block (403) — rate limited"
-        raise httpx.HTTPError(msg)
+    if resp.status_code == HTTP_FORBIDDEN:
+        raise DJENRateLimitedError("CloudFront block (403) — rate limited")
 
     # Transient server errors (5xx, etc.) should propagate as HTTPStatusError
     # so the caller retries rather than permanently marking absent.
-    if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+    if resp.status_code >= HTTP_INTERNAL_SERVER_ERROR:
         msg = f"Server error: {resp.status_code}"
         raise httpx.HTTPError(msg)
     resp.raise_for_status()
@@ -130,7 +134,7 @@ async def _download_segment(
         retry_404=True,
     )
 
-    if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+    if resp.status_code >= HTTP_INTERNAL_SERVER_ERROR:
         msg = f"Server error on segment: {resp.status_code}"
         raise httpx.HTTPError(msg)
     resp.raise_for_status()
@@ -193,7 +197,7 @@ async def download_zip(
         try:
             for seg in segments:
                 tmp.write(seg)
-        except Exception:
+        except OSError:
             await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
             raise
 
@@ -227,7 +231,7 @@ async def _download_simple(
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
                 _raise_not_found(HTTP_NOT_FOUND, "ZIP download 404")
 
-            if resp.status_code >= HTTP_500_INTERNAL_SERVER_ERROR:
+            if resp.status_code >= HTTP_INTERNAL_SERVER_ERROR:
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
                 _raise_server_error(resp.status_code)
 
@@ -248,7 +252,7 @@ async def _download_simple(
             if total_bytes == 0:
                 await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
                 _raise_not_found(resp.status_code, "Empty ZIP response")
-        except Exception:
+        except (OSError, httpx.HTTPError, DJENNotFoundError):
             await asyncio.to_thread(tmp_path.unlink, missing_ok=True)
             raise
 

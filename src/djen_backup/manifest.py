@@ -83,8 +83,10 @@ class SyncManifest:
     def __init__(self) -> None:
         self._entries: dict[str, ManifestEntry] = {}
         self._lock = asyncio.Lock()
-        # Cached counts — invalidated on any mark_* call
-        self._counts_cache: ManifestCounts | None = None
+        # Maintained tally — updated incrementally by mark_* (O(1) per mark).
+        # Populated lazily on first counts() call; bulk operations (build,
+        # prune, load_*) reset to None to force a full rebuild.
+        self._counts_tally: dict[str, int] | None = None
         # Cache of (tribunal, year) pairs that have uploaded entries
         self._uploaded_items: set[tuple[str, int]] | None = None
 
@@ -125,8 +127,31 @@ class SyncManifest:
             self._invalidate_caches()
         return added
 
+    @staticmethod
+    def _categorize(entry: ManifestEntry) -> str:
+        """Bucket an entry into uploaded/available/absent/unknown."""
+        if entry.ia_status == "uploaded":
+            return "uploaded"
+        if entry.djen_status == "available":
+            return "available"
+        if entry.djen_status == "absent":
+            return "absent"
+        return "unknown"
+
+    def _adjust_counts(self, old_cat: str | None, new_cat: str | None) -> None:
+        """Incrementally adjust the maintained tally (no-op if not built yet)."""
+        if self._counts_tally is None:
+            return
+        if old_cat == new_cat:
+            return
+        if old_cat is not None:
+            self._counts_tally[old_cat] -= 1
+        if new_cat is not None:
+            self._counts_tally[new_cat] += 1
+
     def _invalidate_caches(self) -> None:
-        self._counts_cache = None
+        # Force a full counts rebuild on next counts() call.
+        self._counts_tally = None
         self._uploaded_items = None
 
     def prune(self) -> int:
@@ -153,11 +178,13 @@ class SyncManifest:
                 k = self._key(tribunal, d)
                 entry = self._entries.get(k)
                 if entry and entry.ia_status != "uploaded":
+                    old_cat = self._categorize(entry)
                     entry.ia_status = "uploaded"
                     entry.updated_at = now
+                    self._adjust_counts(old_cat, "uploaded")
                     changed += 1
             if changed:
-                self._invalidate_caches()
+                self._uploaded_items = None
         return changed
 
     async def mark_ia_checked(self, tribunal: str, year: int, found_dates: set[date]) -> None:
@@ -170,10 +197,11 @@ class SyncManifest:
             k = self._key(tribunal, d)
             entry = self._entries.get(k)
             if entry:
+                old_cat = self._categorize(entry)
                 entry.djen_raw = raw
                 entry.djen_status = interpret_djen_raw(raw)
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
-                self._invalidate_caches()
+                self._adjust_counts(old_cat, self._categorize(entry))
 
     async def mark_djen_available(self, tribunal: str, d: date) -> None:
         """Shortcut: mark djen_raw=200 → status=available."""
@@ -188,10 +216,12 @@ class SyncManifest:
         async with self._lock:
             k = self._key(tribunal, d)
             entry = self._entries.get(k)
-            if entry:
+            if entry and entry.ia_status != "uploaded":
+                old_cat = self._categorize(entry)
                 entry.ia_status = "uploaded"
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
-                self._invalidate_caches()
+                self._adjust_counts(old_cat, "uploaded")
+                self._uploaded_items = None
 
     # ── Query methods ────────────────────────────────────────────────
 
@@ -206,29 +236,20 @@ class SyncManifest:
         return (tribunal.upper(), year) in self._uploaded_items
 
     def counts(self) -> ManifestCounts:
-        if self._counts_cache is not None:
-            return self._counts_cache
-        uploaded = 0
-        available = 0
-        absent = 0
-        unknown = 0
-        for e in self._entries.values():
-            if e.ia_status == "uploaded":
-                uploaded += 1
-            elif e.djen_status == "available":
-                available += 1
-            elif e.djen_status == "absent":
-                absent += 1
-            else:
-                unknown += 1
-        self._counts_cache = ManifestCounts(
+        """Return aggregate counts. O(1) when tally is warm, O(N) on rebuild."""
+        if self._counts_tally is None:
+            tally = {"uploaded": 0, "available": 0, "absent": 0, "unknown": 0}
+            for e in self._entries.values():
+                tally[self._categorize(e)] += 1
+            self._counts_tally = tally
+        t = self._counts_tally
+        return ManifestCounts(
             total=len(self._entries),
-            uploaded=uploaded,
-            available=available,
-            absent=absent,
-            unknown=unknown,
+            uploaded=t["uploaded"],
+            available=t["available"],
+            absent=t["absent"],
+            unknown=t["unknown"],
         )
-        return self._counts_cache
 
     def items_needing_ia_check(self) -> list[tuple[str, int]]:
         """Return (tribunal, year) pairs that have fully unknown entries.
@@ -408,8 +429,9 @@ class SyncManifest:
                 self._load_manifest_line(parts, overwrite=overwrite)
 
         loaded = len(self._entries) - before
-        if loaded:
-            self._invalidate_caches()
+        # Always invalidate: even when no entries were added, overwrite-mode
+        # mutates existing entries' status which changes counts.
+        self._invalidate_caches()
         return loaded
 
     def _load_legacy_line(self, parts: list[str]) -> None:
