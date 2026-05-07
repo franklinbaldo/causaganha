@@ -38,6 +38,48 @@ def _proxy_base() -> str:
     return os.environ.get("DJEN_PROXY_URL", "").strip() or DJEN_PROXY_FALLBACK
 
 
+async def _fetch_collect_zips_runs(client: httpx.AsyncClient) -> None:
+    """Print recent collect-zips.yml workflow run history (auth via GH_TOKEN)."""
+    token = os.environ.get("GH_TOKEN", "").strip() or os.environ.get("GITHUB_TOKEN", "").strip()
+    repo = os.environ.get("GITHUB_REPOSITORY", "").strip() or "franklinbaldo/causaganha"
+    if not token:
+        print("  GH_TOKEN not set — skipping workflow-run history.")
+        return
+    url = f"https://api.github.com/repos/{repo}/actions/workflows/collect-zips.yml/runs?per_page=15"
+    headers = {
+        "Authorization": f"Bearer {token}",
+        "Accept": "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+    }
+    try:
+        resp = await client.get(url, headers=headers, timeout=30.0)
+        resp.raise_for_status()
+    except httpx.HTTPError as exc:
+        print(f"  workflow-run query failed: {exc!r}")
+        return
+    data = resp.json()
+    runs = data.get("workflow_runs", [])
+    if not runs:
+        print("  no recent runs found.")
+        return
+    print(f"  last {len(runs)} runs (most recent first):")
+    print(f"  {'started':<22s} {'event':<18s} {'status':<12s} {'concl':<12s} {'durs':>6s}  url")
+    for r in runs:
+        created = r.get("run_started_at") or r.get("created_at") or ""
+        updated = r.get("updated_at") or ""
+        try:
+            t0 = datetime.fromisoformat(created.removesuffix("Z") + "+00:00")
+            t1 = datetime.fromisoformat(updated.removesuffix("Z") + "+00:00")
+            dur_s = int((t1 - t0).total_seconds())
+        except (ValueError, TypeError):
+            dur_s = -1
+        print(
+            f"  {created:<22s} {r.get('event', ''):<18s} "
+            f"{r.get('status', ''):<12s} {r.get('conclusion') or '-':<12s} "
+            f"{dur_s:>6d}  {r.get('html_url', '')}"
+        )
+
+
 def _ia_auth_header() -> str | None:
     access = os.environ.get("IAS3_ACCESS_KEY", "").strip()
     secret = os.environ.get("IAS3_SECRET_KEY", "").strip()
@@ -227,6 +269,12 @@ async def main() -> int:
             "  → If `unknown` shows little activity in <1h/<1d/<7d, "
             "the backlog is NOT being processed at any meaningful rate."
         )
+
+        # ── collect-zips workflow run history ──────────────────────────────
+        # If runs aren't actually firing or are aborting fast, the unknown
+        # backlog can't drain regardless of selector / queue logic.
+        _print_header("collect-zips.yml workflow run history (GitHub API)")
+        await _fetch_collect_zips_runs(client)
 
         # ── Unknown-by-year distribution ────────────────────────────────────
         # If isolated old unknowns are draining, we expect this distribution
