@@ -171,6 +171,63 @@ async def main() -> int:
         for st, n in sorted(ia_status_counts.items(), key=lambda kv: -kv[1]):
             print(f"  {st or '<empty>':20s} {n:>8d}")
 
+        # ── Backlog liveness: is updated_at moving? ─────────────────────────
+        # If unknowns are being processed, their updated_at should be recent.
+        # Stale updated_at on unknowns means workers aren't touching them.
+        now = datetime.now(UTC)
+        age_buckets: dict[str, Counter[str]] = {
+            "unknown": Counter(),
+            "available": Counter(),
+            "absent": Counter(),
+        }
+
+        def _age_label(ts: str) -> str:
+            ts = (ts or "").strip()
+            if not ts:
+                return "never"
+            normalized = ts.removesuffix("Z") + "+00:00" if ts.endswith("Z") else ts
+            try:
+                parsed = datetime.fromisoformat(normalized)
+            except ValueError:
+                return "unparseable"
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=UTC)
+            delta = now - parsed
+            if delta < timedelta(hours=1):
+                return "<1h"
+            if delta < timedelta(days=1):
+                return "<1d"
+            if delta < timedelta(days=7):
+                return "<7d"
+            if delta < timedelta(days=30):
+                return "<30d"
+            if delta < timedelta(days=90):
+                return "<90d"
+            return ">=90d"
+
+        most_recent: dict[str, str] = {"unknown": "", "available": "", "absent": ""}
+        for r in rows:
+            cat = _classify(r.get("djen_raw", ""))
+            if cat in age_buckets:
+                ts = (r.get("updated_at") or "").strip()
+                age_buckets[cat][_age_label(ts)] += 1
+                if ts and ts > most_recent[cat]:
+                    most_recent[cat] = ts
+
+        print()
+        print("updated_at age (per category):")
+        order = ["<1h", "<1d", "<7d", "<30d", "<90d", ">=90d", "never", "unparseable"]
+        header = "  category    " + "".join(f"{b:>10s}" for b in order) + "   most_recent"
+        print(header)
+        for cat in ("unknown", "available", "absent"):
+            row = f"  {cat:11s} " + "".join(f"{age_buckets[cat].get(b, 0):>10d}" for b in order)
+            row += f"   {most_recent[cat] or '-'}"
+            print(row)
+        print(
+            "  → If `unknown` shows little activity in <1h/<1d/<7d, "
+            "the backlog is NOT being processed at any meaningful rate."
+        )
+
         sampled = _sample_by_category(rows)
         _print_header("Probing samples against DJEN proxy")
 
