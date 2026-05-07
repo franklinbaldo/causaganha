@@ -1,10 +1,13 @@
-"""Internet Archive S3 upload, metadata queries, and circuit breaker."""
+"""Internet Archive S3 upload and metadata queries.
+
+The circuit-breaker class lives in ``djen_backup.circuit_breaker`` and is
+re-exported here for backward compatibility with existing imports.
+"""
 
 from __future__ import annotations
 
 import asyncio
 import time
-from enum import StrEnum
 from typing import TYPE_CHECKING
 
 import httpx
@@ -12,7 +15,21 @@ import structlog
 from aiolimiter import AsyncLimiter
 
 from causaganha.pipeline import ia_s3
+from djen_backup.circuit_breaker import CircuitBreaker, CircuitState
 from djen_backup.retry import RETRIABLE_STATUS_CODES, _backoff, request_with_retry
+
+
+__all__ = [
+    "CircuitBreaker",
+    "CircuitState",
+    "ItemBusyError",
+    "check_ia_file_exists",
+    "fetch_ia_existing",
+    "get_ia_item_id",
+    "get_ia_item_tribunal",
+    "put_ia_bytes",
+    "upload_zip",
+]
 
 
 if TYPE_CHECKING:
@@ -244,114 +261,19 @@ async def upload_zip(
                 error=str(exc),
             )
             if circuit_breaker is not None:
-                await circuit_breaker.record_failure()
+                circuit_breaker.record_failure()
             return False
 
     elapsed = round(time.monotonic() - start, 1)
     if ok:
         log.info("upload_complete", item_id=item_id, file=zip_path.name, elapsed_s=elapsed)
         if circuit_breaker is not None:
-            await circuit_breaker.record_success()
+            circuit_breaker.record_success()
     else:
         log.warning("upload_failed", item_id=item_id, file=zip_path.name, elapsed_s=elapsed)
         if circuit_breaker is not None:
-            await circuit_breaker.record_failure()
+            circuit_breaker.record_failure()
     return ok
 
 
-# ── Circuit breaker ──────────────────────────────────────────────────
-
-
-class CircuitState(StrEnum):
-    """States for the circuit breaker."""
-
-    CLOSED = "closed"
-    OPEN = "open"
-    HALF_OPEN = "half_open"
-
-
-class CircuitBreaker:
-    """Circuit breaker with half-open recovery for IA uploads.
-
-    - CLOSED: normal operation, count consecutive failures.
-    - OPEN: after *threshold* failures, refuse requests for *recovery_timeout* seconds.
-    - HALF_OPEN: after timeout elapses, allow **one** test request.
-      Success → CLOSED.  Failure → OPEN with doubled timeout (capped at 5 min).
-    """
-
-    def __init__(
-        self,
-        threshold: int = 5,
-        recovery_timeout: float = 60.0,
-    ) -> None:
-        """Initialize the circuit breaker with failure threshold and recovery timeout."""
-        self._threshold = threshold
-        self._base_recovery = recovery_timeout
-        self._recovery_timeout = recovery_timeout
-        self._failure_count = 0
-        self._state = CircuitState.CLOSED
-        self._opened_at = 0.0
-        self._lock = asyncio.Lock()
-
-    @property
-    def state(self) -> CircuitState:
-        """Return the current state (for external inspection / tests)."""
-        if (
-            self._state == CircuitState.OPEN
-            and time.monotonic() - self._opened_at >= self._recovery_timeout
-        ):
-            return CircuitState.HALF_OPEN
-        return self._state
-
-    def _state_locked(self) -> CircuitState:
-        """Compute state while the lock is held (avoids TOCTOU)."""
-        if (
-            self._state == CircuitState.OPEN
-            and time.monotonic() - self._opened_at >= self._recovery_timeout
-        ):
-            return CircuitState.HALF_OPEN
-        return self._state
-
-    async def allow_request(self) -> bool:
-        """Check if a request is allowed by the circuit breaker."""
-        async with self._lock:
-            s = self._state_locked()
-            if s == CircuitState.CLOSED:
-                return True
-            if s == CircuitState.HALF_OPEN:
-                # Consume the probe slot — transition to OPEN so only one
-                # worker gets through while the test request is in-flight.
-                self._state = CircuitState.OPEN
-                self._opened_at = time.monotonic()
-                return True
-            return False
-
-    async def record_success(self) -> None:
-        """Record a successful request and reset the circuit."""
-        async with self._lock:
-            self._failure_count = 0
-            self._state = CircuitState.CLOSED
-            self._recovery_timeout = self._base_recovery
-
-    async def record_failure(self) -> None:
-        """Record a failed request and update circuit state accordingly."""
-        async with self._lock:
-            self._failure_count += 1
-            was_open = self._state == CircuitState.OPEN
-            if self._state_locked() == CircuitState.HALF_OPEN:
-                # Test request failed — reopen with increased timeout
-                self._recovery_timeout = min(self._recovery_timeout * 2, 300.0)
-                self._state = CircuitState.OPEN
-                self._opened_at = time.monotonic()
-                log.warning(
-                    "circuit_breaker_reopen",
-                    next_retry_s=self._recovery_timeout,
-                )
-            elif self._failure_count >= self._threshold and not was_open:
-                self._state = CircuitState.OPEN
-                self._opened_at = time.monotonic()
-                log.error(
-                    "circuit_breaker_open",
-                    failures=self._failure_count,
-                    recovery_s=self._recovery_timeout,
-                )
+# Circuit breaker class lives in djen_backup.circuit_breaker (imported above).
