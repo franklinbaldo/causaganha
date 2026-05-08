@@ -43,6 +43,7 @@
       {placeholder}
       autocomplete="off"
       spellcheck="false"
+      enterkeyhint="search"
       aria-label="Buscar publicações"
     />
     <kbd class="kbd-tag">Ctrl</kbd>
