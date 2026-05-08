@@ -27,10 +27,10 @@ const dictionary = [
       <table class="data-table">
         <thead>
           <tr>
-            <th>Tabela</th>
-            <th>Campo</th>
-            <th>Tipo</th>
-            <th>Descrição</th>
+            <th scope="col">Tabela</th>
+            <th scope="col">Campo</th>
+            <th scope="col">Tipo</th>
+            <th scope="col">Descrição</th>
           </tr>
         </thead>
         <tbody>
@@ -92,5 +92,9 @@ const dictionary = [
 
   .data-table tbody tr:nth-child(even) {
     background: var(--color-base-200);
+  }
+
+  .data-table tbody tr:hover {
+    background: var(--color-surface-overlay);
   }
 </style>

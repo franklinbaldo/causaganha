@@ -78,6 +78,13 @@ const base = import.meta.env.BASE_URL;
           {top5.length > 0 ? (
             <div class="table-responsive">
               <table class="ranking-table">
+                <thead class="sr-only">
+                  <tr>
+                    <th scope="col">Posição</th>
+                    <th scope="col">Tribunal</th>
+                    <th scope="col">Taxa de cobertura</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {top5.map((c, i) => (
                     <tr>
@@ -103,6 +110,13 @@ const base = import.meta.env.BASE_URL;
           {bottom5.length > 0 ? (
             <div class="table-responsive">
               <table class="ranking-table">
+                <thead class="sr-only">
+                  <tr>
+                    <th scope="col">Posição</th>
+                    <th scope="col">Tribunal</th>
+                    <th scope="col">Taxa de cobertura</th>
+                  </tr>
+                </thead>
                 <tbody>
                   {bottom5.map((c, i) => (
                     <tr>
