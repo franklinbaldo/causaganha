@@ -47,7 +47,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     And('I should see the ZIP count in the banner', () => {
-      expect(screen.getAllByText(/15,000/).length).toBeGreaterThan(0);
+      expect(screen.getAllByText(/15\.000/).length).toBeGreaterThan(0);
     });
 
     And('I should see "85" as tribunals with data', () => {

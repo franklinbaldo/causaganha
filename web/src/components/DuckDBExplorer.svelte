@@ -385,6 +385,13 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     border-color: var(--color-base-content);
   }
 
+  .retry-btn:focus-visible {
+    background: var(--color-base-200);
+    border-color: var(--color-base-content);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
   /* Starter cards */
   .starter-cards {
     display: grid;

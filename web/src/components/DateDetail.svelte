@@ -249,6 +249,7 @@
 
 {#snippet DateShareButton()}
   <button
+    type="button"
     onclick={handleShareClick}
     class="btn btn-outline-secondary"
   >
@@ -273,6 +274,7 @@
         usedFallback={featuredPub.usedFallback}
       />
       <button
+        type="button"
         class="btn"
         onclick={handleDismissFeatured}
       >
@@ -346,7 +348,7 @@
 
   {#if currentPage < totalPages && !loading}
     <div class="load-more-row">
-      <button onclick={handleLoadMore} disabled={loadingMore} class="btn btn-secondary" aria-busy={loadingMore}>
+      <button type="button" onclick={handleLoadMore} disabled={loadingMore} class="btn btn-secondary" aria-busy={loadingMore}>
         {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
       </button>
     </div>
