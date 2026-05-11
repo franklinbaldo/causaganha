@@ -80,17 +80,21 @@ function sortIcon(field: string): string {
       <div>
         {#each YEARS as y}
           <button
+            type="button"
             onclick={() => { year = y; }}
+            aria-pressed={year === y}
             class={year === y ? "year-btn year-btn-active" : "year-btn"}>
             {y}
           </button>
         {/each}
       </div>
       <button
+        type="button"
         onclick={() => handleForceRefresh()}
         disabled={loading}
+        aria-busy={loading}
         title="Atualizar dados">
-        Refresh
+        {loading ? 'Atualizando…' : 'Refresh'}
       </button>
     </div>
   </div>

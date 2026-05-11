@@ -175,7 +175,7 @@
         aria-label="Filtrar tribunais por sigla ou nome"
       />
       {#if query}
-        <span class="badge badge-info badge-sm" onclick={() => query = ''}>Limpar</span>
+        <button type="button" class="badge badge-info badge-sm clear-btn" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
       {/if}
     </label>
   </div>
@@ -405,6 +405,16 @@
   }
 
   /* Badges */
+  .clear-btn {
+    appearance: none;
+    border: 0;
+    cursor: pointer;
+    font: inherit;
+  }
+  .clear-btn:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 
   /* Empty state */
   .empty-state {

@@ -146,7 +146,7 @@
     <div class="suggestions-row">
       <span class="suggestions-label">Sugestões:</span>
       {#each suggestions as tag}
-        <button class="suggestion-badge"
+        <button type="button" class="suggestion-badge"
             onclick={() => {
               query = tag;
               if (suggestionTimeoutId) clearTimeout(suggestionTimeoutId);
@@ -159,6 +159,7 @@
         </button>
       {/each}
       <button
+        type="button"
         bind:this={searchSubmitBtn}
         id="search-submit-btn"
         class="search-btn"
