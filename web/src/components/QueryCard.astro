@@ -8,15 +8,75 @@ interface Props {
 const { title, description, sql } = Astro.props;
 ---
 
-<div class="card">
+<div class="card query-card">
   <div class="card-body">
-    <h3 class="card-title">{title}</h3>
+    <div class="card-header">
+      <h3 class="card-title">{title}</h3>
+      <button
+        type="button"
+        class="copy-btn"
+        data-sql={sql}
+        aria-label={`Copiar SQL: ${title}`}
+      >
+        <svg class="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+          <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+        </svg>
+        <svg class="check-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        <span class="copy-label">Copiar</span>
+      </button>
+    </div>
     <p class="description">{description}</p>
     <pre class="code-block"><code>{sql}</code></pre>
   </div>
 </div>
 
+<script>
+  function setupQueryCardCopy() {
+    const buttons = document.querySelectorAll<HTMLButtonElement>('.query-card .copy-btn');
+    buttons.forEach((btn) => {
+      if (btn.dataset.bound === '1') return;
+      btn.dataset.bound = '1';
+      btn.addEventListener('click', async () => {
+        const sql = btn.dataset.sql ?? '';
+        const label = btn.querySelector<HTMLElement>('.copy-label');
+        try {
+          await navigator.clipboard.writeText(sql);
+        } catch {
+          // Fallback: select the sibling code block so the user can copy manually.
+          const code = btn.closest('.card-body')?.querySelector('code');
+          if (code) {
+            const range = document.createRange();
+            range.selectNodeContents(code);
+            const sel = window.getSelection();
+            sel?.removeAllRanges();
+            sel?.addRange(range);
+          }
+          return;
+        }
+        btn.classList.add('copied');
+        if (label) label.textContent = 'Copiado!';
+        window.setTimeout(() => {
+          btn.classList.remove('copied');
+          if (label) label.textContent = 'Copiar';
+        }, 1800);
+      });
+    });
+  }
+
+  setupQueryCardCopy();
+  document.addEventListener('astro:after-swap', setupQueryCardCopy);
+</script>
+
 <style>
+  .query-card .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+  }
 
   .card-title {
     font-weight: 600;
@@ -29,6 +89,48 @@ const { title, description, sql } = Astro.props;
     margin: 0;
   }
 
+  .copy-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.65rem;
+    font-size: var(--font-size-xs);
+    font-weight: 500;
+    font-family: inherit;
+    color: var(--color-content-secondary);
+    background: var(--color-base-100);
+    border: 1px solid var(--color-base-300);
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: color var(--transition-base), background var(--transition-base), border-color var(--transition-base);
+    flex-shrink: 0;
+  }
+
+  .copy-btn:hover,
+  .copy-btn:focus-visible {
+    color: var(--color-primary);
+    border-color: var(--color-primary);
+    background: var(--color-surface);
+    outline: none;
+  }
+
+  .copy-btn .check-icon {
+    display: none;
+  }
+
+  .copy-btn.copied {
+    color: var(--color-success, var(--color-primary));
+    border-color: var(--color-success, var(--color-primary));
+  }
+
+  .copy-btn.copied .copy-icon {
+    display: none;
+  }
+
+  .copy-btn.copied .check-icon {
+    display: inline;
+  }
+
   .code-block {
     background: var(--color-base-200);
     border-radius: var(--radius-box);
@@ -39,6 +141,6 @@ const { title, description, sql } = Astro.props;
   }
 
   .code-block code {
-    font-family: monospace;
+    font-family: var(--font-mono);
   }
 </style>
