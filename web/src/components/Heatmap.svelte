@@ -491,6 +491,12 @@
     margin: 0 auto;
   }
 
+  .calendar-table:focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+  }
+
   .weekday-header {
     font-size: var(--font-size-xs);
     opacity: 0.5;
