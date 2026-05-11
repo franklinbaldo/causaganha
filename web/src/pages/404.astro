@@ -4,7 +4,10 @@ import Header from '../components/Header.astro';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<Layout title="Página não encontrada — CausaGanha">
+<Layout
+  title="Página não encontrada — CausaGanha"
+  description="O endereço não existe ou foi movido. Use a busca ou volte ao início para encontrar publicações judiciais arquivadas."
+>
   <Header variant="page" title="Página não encontrada" backHref={BASE} backLabel="Início" tile="404" />
 
   <div class="hero">

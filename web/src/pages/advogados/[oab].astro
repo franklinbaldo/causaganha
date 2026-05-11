@@ -36,7 +36,7 @@ const tribunal = tribunalStats.find((item: any) => item.tribunal === key);
 const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\nWHERE tribunal = '${key}'\nGROUP BY numero_oab, uf_oab\nORDER BY aparicoes DESC\nLIMIT 25;`;
 ---
 
-<Layout title={`${key} - Advogados - CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
+<Layout title={`${key} — Advogados — CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
   <Header variant="page" backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
 
   <div class="container">

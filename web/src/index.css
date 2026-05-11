@@ -622,6 +622,20 @@ small { font-size: var(--font-size-sm); }
 }
 
 /* ═══════════════════════════════════════════
+   Reduced Motion (WCAG 2.3.3)
+   Honor the user's OS-level preference to minimize motion.
+   ═══════════════════════════════════════════ */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ═══════════════════════════════════════════
    Touch Target Minimums (WCAG 2.5.5)
    ═══════════════════════════════════════════ */
 
