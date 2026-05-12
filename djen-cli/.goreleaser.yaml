@@ -1,0 +1,51 @@
+version: 2
+project_name: djen-pp-cli
+changelog:
+  disable: true
+builds:
+  - id: djen-pp-cli
+    main: ./cmd/djen-pp-cli
+    binary: djen-pp-cli
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w -X djen-pp-cli/internal/cli.version={{ .Version }}
+    targets:
+      - darwin_amd64
+      - darwin_arm64
+      - linux_amd64
+      - linux_arm64
+      - windows_amd64
+      - windows_arm64
+  - id: djen-pp-mcp
+    main: ./cmd/djen-pp-mcp
+    binary: djen-pp-mcp
+    env:
+      - CGO_ENABLED=0
+    ldflags:
+      - -s -w
+    targets:
+      - darwin_amd64
+      - darwin_arm64
+      - linux_amd64
+      - linux_arm64
+      - windows_amd64
+      - windows_arm64
+archives:
+  - formats: [tar.gz]
+    name_template: "{{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    format_overrides:
+      - goos: windows
+        formats: [zip]
+checksum:
+  name_template: checksums.txt
+brews:
+  - name: djen-pp-cli
+    repository:
+      owner: franklinbaldocausaganha
+      name: homebrew-tap
+    homepage: "https://github.com/franklinbaldocausaganha/djen-pp-cli"
+    description: "Última atualização em 29/05/2025.<br>- Atualizado informações sobre parâmetros do endpoint GET..."
+    install: |
+      bin.install "djen-pp-cli"
+      bin.install "djen-pp-mcp"

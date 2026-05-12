@@ -3,11 +3,11 @@ info:
   title: Diário de Justiça Eletrônico Nacional e Plataforma de Editais
   description: "Última atualização em 29/05/2025.<br>- Atualizado informações sobre parâmetros do endpoint GET /comunicacao.<br>- incluído informações sobre o controle de taxa de requisições (ratelimit) do endpoint GET /comunicacao."
   version: 1.0.3
-# servers:
-#   - url: https://comunicaapi.pje.jus.br/
-#     description: Produção
-#   - url: https://hcomunicaapi.cnj.jus.br/
-#     description: Homologação
+servers:
+  - url: https://comunicaapi.pje.jus.br
+    description: Produção
+  - url: https://djen-proxy-mhgmawcn3a-rj.a.run.app
+    description: Proxy (fallback quando a API direta estiver bloqueada)
 paths:
   /api/v1/login:
     post:
