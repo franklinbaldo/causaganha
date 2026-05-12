@@ -60,7 +60,9 @@
 
   .rate-limit-badge.warning {
     border-color: var(--color-warning);
-    color: var(--color-warning);
+    /* --color-warning is a light gold; mix toward base-content so the small
+       badge text clears WCAG AA contrast on the light theme background. */
+    color: color-mix(in srgb, var(--color-warning) 50%, var(--color-base-content));
   }
 
   .rate-limit-badge.danger {

@@ -543,7 +543,9 @@
 
   .banner.warning {
     border-color: var(--color-warning);
-    color: var(--color-warning);
+    /* --color-warning is a light gold (~2.5:1 on the light theme background);
+       mix toward base-content for WCAG AA contrast while keeping the warning hue. */
+    color: color-mix(in srgb, var(--color-warning) 50%, var(--color-base-content));
   }
 
   .banner.danger {
