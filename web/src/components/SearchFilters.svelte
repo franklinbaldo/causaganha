@@ -254,8 +254,8 @@
   .field input:focus,
   .field select:focus {
     outline: none;
-    border-color: var(--color-primary, #3b82f6);
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 15%, transparent);
   }
 
   .radio-row {
@@ -301,13 +301,13 @@
 
   .presets-row button:hover,
   .presets-row button:focus-visible {
-    border-color: var(--color-primary, #3b82f6);
-    color: var(--color-primary, #3b82f6);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
     outline: none;
   }
 
   .presets-row button:focus-visible {
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-primary) 25%, transparent);
   }
 
   .presets-row .ghost {
@@ -317,11 +317,11 @@
 
   .presets-row .ghost.danger:hover,
   .presets-row .ghost.danger:focus-visible {
-    color: #dc2626;
-    border-color: #dc2626;
+    color: var(--color-error);
+    border-color: var(--color-error);
   }
 
   .presets-row .ghost.danger:focus-visible {
-    box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.25);
+    box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 25%, transparent);
   }
 </style>

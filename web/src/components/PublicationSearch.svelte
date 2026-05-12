@@ -458,13 +458,13 @@
   }
 
   .toggle-btn:hover {
-    border-color: var(--color-primary, #3b82f6);
-    color: var(--color-primary, #3b82f6);
+    border-color: var(--color-primary);
+    color: var(--color-primary);
   }
 
   .submit-btn {
-    background: var(--color-primary, #3b82f6);
-    color: white;
+    background: var(--color-primary);
+    color: var(--color-primary-content);
     border-color: transparent;
     display: inline-flex;
     align-items: center;
@@ -537,18 +537,18 @@
   }
 
   .banner.info {
-    border-color: #3b82f6;
-    color: #1e40af;
+    border-color: var(--color-info);
+    color: var(--color-info);
   }
 
   .banner.warning {
-    border-color: #d97706;
-    color: #92400e;
+    border-color: var(--color-warning);
+    color: var(--color-warning);
   }
 
   .banner.danger {
-    border-color: #dc2626;
-    color: #991b1b;
+    border-color: var(--color-error);
+    color: var(--color-error);
   }
 
   .banner.muted {

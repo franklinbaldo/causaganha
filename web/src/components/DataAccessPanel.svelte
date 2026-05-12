@@ -113,7 +113,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 
     <!-- Parquet files -->
     {#if loading}
-      <p aria-busy="true">Carregando arquivos...</p>
+      <p role="status" aria-live="polite" aria-busy="true">Carregando arquivos...</p>
     {/if}
 
     {#if parquetFiles.length > 0}
