@@ -54,18 +54,20 @@
   }
 
   .rate-limit-badge.ok {
-    border-color: #16a34a;
-    color: #16a34a;
+    border-color: var(--color-success);
+    color: var(--color-success);
   }
 
   .rate-limit-badge.warning {
-    border-color: #d97706;
-    color: #d97706;
+    border-color: var(--color-warning);
+    /* --color-warning is a light gold; mix toward base-content so the small
+       badge text clears WCAG AA contrast on the light theme background. */
+    color: color-mix(in srgb, var(--color-warning) 50%, var(--color-base-content));
   }
 
   .rate-limit-badge.danger {
-    border-color: #dc2626;
-    color: #dc2626;
+    border-color: var(--color-error);
+    color: var(--color-error);
   }
 
   .fallback-tag {

@@ -842,23 +842,23 @@
   }
 
   .meta-chip.accent {
-    border-color: rgba(180, 83, 9, 0.3);
-    background: rgba(180, 83, 9, 0.08);
+    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
+    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
   }
 
   .meta-chip.success {
-    border-color: rgba(5, 150, 105, 0.25);
-    background: rgba(5, 150, 105, 0.08);
+    border-color: color-mix(in srgb, var(--color-success) 25%, transparent);
+    background: color-mix(in srgb, var(--color-success) 8%, transparent);
   }
 
   .meta-chip.warning {
-    border-color: rgba(217, 119, 6, 0.25);
-    background: rgba(217, 119, 6, 0.08);
+    border-color: color-mix(in srgb, var(--color-warning) 25%, transparent);
+    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
   }
 
   .meta-chip.danger {
-    border-color: rgba(220, 38, 38, 0.25);
-    background: rgba(220, 38, 38, 0.08);
+    border-color: color-mix(in srgb, var(--color-error) 25%, transparent);
+    background: color-mix(in srgb, var(--color-error) 8%, transparent);
   }
 
   .orgao-name,
