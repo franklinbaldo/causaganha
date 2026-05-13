@@ -9,6 +9,9 @@ on:
   schedule:
     - cron: '*/30 * * * *'
   workflow_dispatch:
+  workflow_run:
+    workflows: ["Upload Backlog"]
+    types: [completed]
 
 permissions:
   contents: read
