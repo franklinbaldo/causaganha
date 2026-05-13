@@ -11,7 +11,7 @@
     "lint": "eslint .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "codegen:djen": "openapi-typescript ../djen.yml -o src/lib/djen-types.gen.ts",
+    "codegen:djen": "openapi-typescript ../openapi/djen.yml -o src/lib/djen-types.gen.ts",
     "codegen:djen-zod": "orval --config orval.config.ts",
     "prebuild": "npm run codegen:djen && npm run codegen:djen-zod",
     "pretest": "npm run codegen:djen && npm run codegen:djen-zod",

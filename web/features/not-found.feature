@@ -8,5 +8,5 @@ Feature: Not Found Page
 
   Scenario: Show navigation buttons
     When the 404 page loads
-    Then I should see a "Dashboard" link
+    Then I should see a "Buscar publicações" link
     And I should see an "Início" link

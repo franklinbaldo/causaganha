@@ -445,11 +445,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   function setupHintChips() {
     const input = document.getElementById('home-search-input') as HTMLInputElement | null;
-    if (!input) return;
+    const form = document.getElementById('home-search-form') as HTMLFormElement | null;
+    if (!input || !form) return;
     document.querySelectorAll<HTMLButtonElement>('.search-hint-chip').forEach(chip => {
       chip.addEventListener('click', () => {
         input.value = chip.dataset.hint ?? '';
-        input.focus();
+        form.requestSubmit();
       });
     });
   }
@@ -531,7 +532,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   .search-input:focus {
     border-color: var(--color-primary);
-    box-shadow: 0 0 0 3px rgba(26, 107, 60, 0.12);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-primary) 12%, transparent);
   }
 
   .search-submit {
@@ -593,7 +594,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   .search-hint-chip:focus-visible {
     border-color: var(--color-primary);
     color: var(--color-primary);
-    background: rgba(26, 107, 60, 0.06);
+    background: color-mix(in srgb, var(--color-primary) 6%, transparent);
     outline: none;
   }
 

@@ -2,7 +2,7 @@ import { defineConfig } from "orval";
 
 export default defineConfig({
   djen: {
-    input: "../djen.yml",
+    input: "../openapi/djen.yml",
     output: {
       mode: "single",
       target: "./src/lib/djen-zod.gen.ts",

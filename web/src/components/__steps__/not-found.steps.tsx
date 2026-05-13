@@ -29,13 +29,11 @@ describeFeature(feature, ({ Scenario }) => {
       // Template already loaded above
     });
 
-    Then('I should see a "Dashboard" link', () => {
-      // Verify there's an <a> tag containing "Dashboard"
-      expect(templateContent).toMatch(/<a\s[^>]*>[\s\S]*?Dashboard[\s\S]*?<\/a>/);
+    Then('I should see a "Buscar publicações" link', () => {
+      expect(templateContent).toMatch(/<a\s[^>]*>[\s\S]*?Buscar publicações[\s\S]*?<\/a>/);
     });
 
     And('I should see an "Início" link', () => {
-      // Verify there's an <a> tag containing "Início"
       expect(templateContent).toMatch(/<a\s[^>]*>[\s\S]*?Início[\s\S]*?<\/a>/);
     });
   });

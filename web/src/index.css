@@ -247,12 +247,12 @@ small { font-size: var(--font-size-sm); }
    ═══════════════════════════════════════════ */
 
 ::selection {
-  background-color: rgba(26, 107, 60, 0.15);
+  background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
   color: var(--color-content);
 }
 
 [data-theme="causaganhadark"] ::selection {
-  background-color: rgba(61, 165, 104, 0.2);
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 ::-webkit-scrollbar { width: 6px; height: 6px; }
@@ -424,21 +424,21 @@ small { font-size: var(--font-size-sm); }
 }
 
 .reader-mode .reader-text mark.entity-party {
-  background-color: rgba(26, 107, 60, 0.15);
+  background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
   color: var(--color-content);
 }
 
 .reader-mode .reader-text mark.entity-lawyer {
-  background-color: rgba(197, 151, 44, 0.15);
+  background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-content);
 }
 
 [data-theme="causaganhadark"] .reader-mode .reader-text mark.entity-party {
-  background-color: rgba(61, 165, 104, 0.2);
+  background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
 [data-theme="causaganhadark"] .reader-mode .reader-text mark.entity-lawyer {
-  background-color: rgba(212, 168, 67, 0.2);
+  background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
 /* ═══════════════════════════════════════════
