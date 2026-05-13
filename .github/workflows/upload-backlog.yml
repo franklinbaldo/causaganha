@@ -1,10 +1,8 @@
 name: Upload Backlog
 
 on:
-  # DISABLED 2026-04-14: manifest data-loss incident. Re-enable after
-  # sync-manifest.csv is restored + overwrite source is identified.
-  # schedule:
-  #   - cron: '*/15 * * * *'
+  schedule:
+    - cron: '*/15 * * * *'
   workflow_dispatch:
 
 permissions:
