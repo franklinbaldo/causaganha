@@ -134,7 +134,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       </form>
 
       <!-- Search hint chips — clickable examples that pre-fill the search input. -->
-      <p class="search-hints" aria-label="Exemplos de busca">
+      <div class="search-hints" role="group" aria-label="Exemplos de busca">
         <span class="search-hints-label">Exemplos:</span>
         {['OAB SP 12345', 'TJSP mandado de segurança', 'TRF3 2026', 'STJ 2025'].map(hint => (
           <button
@@ -144,7 +144,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
             aria-label={`Buscar por ${hint}`}
           >{hint}</button>
         ))}
-      </p>
+      </div>
 
       <!-- Task-first entry points: three blunt actions someone can take right now. -->
       <ul class="quick-access" aria-label="Ações rápidas">

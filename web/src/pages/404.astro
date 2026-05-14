@@ -89,4 +89,16 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     background: var(--color-secondary);
     color: var(--color-secondary-content);
   }
+
+  .btn-secondary:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 3px;
+  }
+
+  @media (max-width: 480px) {
+    .action-buttons {
+      flex-direction: column;
+      align-items: stretch;
+    }
+  }
 </style>
