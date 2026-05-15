@@ -31,8 +31,8 @@
 
   let { perfMetrics, qualityScores } = $props<Props>();
 
-  let chartEl: HTMLDivElement;
-  let pieEl: HTMLDivElement;
+  let chartEl = $state<HTMLDivElement | undefined>(undefined);
+  let pieEl = $state<HTMLDivElement | undefined>(undefined);
 
   const latencies = $derived(perfMetrics?.causaganha_collect_latency_ms || []);
   const successRate = $derived(perfMetrics?.causaganha_upload_success_rate || 0);

@@ -292,7 +292,7 @@
         </thead>
         <tbody>
           {#each selectedMonthCalendar.weeks as week, wi}
-            <tr role="row">
+            <tr>
               {#each week as day, di}
                 <td
                   id={day ? `cell-${day}` : undefined}

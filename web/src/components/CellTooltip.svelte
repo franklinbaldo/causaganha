@@ -22,7 +22,7 @@
 
   let { cellData, position }: CellTooltipProps = $props();
 
-  let tooltipEl: HTMLDivElement;
+  let tooltipEl = $state<HTMLDivElement | undefined>(undefined);
   let style = $state<{ top: number; left: number; opacity: number }>({ top: -9999, left: -9999, opacity: 0 });
 
   const mapped = $derived(STATUS_MAP[cellData.status] ?? { ...DEFAULT_STATUS, text: cellData.status });

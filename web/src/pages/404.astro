@@ -13,8 +13,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <div class="hero">
     <div class="hero-content">
       <div class="hero-inner">
-        <p class="error-code">404</p>
-        <h2 class="error-heading">Página não encontrada</h2>
+        <p class="error-code" aria-hidden="true">404</p>
         <p class="error-message">
           O endereço não existe ou foi movido. Se você chegou por um link antigo, este conteúdo pode ainda não ter sido coletado — tente a busca ou volte ao início.
         </p>
@@ -50,12 +49,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     letter-spacing: -0.05em;
     opacity: 0.2;
     line-height: 1;
-  }
-
-  .error-heading {
-    font-size: var(--font-size-3xl);
-    font-weight: 700;
-    margin-top: 1rem;
   }
 
   .error-message {
