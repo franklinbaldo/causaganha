@@ -100,7 +100,7 @@
 </script>
 
 {#if !perfMetrics || !qualityScores}
-  <div>Loading performance data...</div>
+  <div>Carregando dados de desempenho...</div>
 {:else}
   <div>
     <div>
@@ -110,7 +110,7 @@
     <div class="stats-grid">
       <div class="card">
         <div class="card-body">
-          <small>Upload Success Rate</small>
+          <small>Taxa de sucesso de upload</small>
           <div class={successRate >= 90 ? 'value-success' : 'value-error'}>
             {successRate.toFixed(1)}%
           </div>
@@ -119,7 +119,7 @@
 
       <div class="card">
         <div class="card-body">
-          <small>Pending Backlog Days</small>
+          <small>Dias de backlog pendente</small>
           <div class="value-accent">
             {backlogDays}
           </div>
@@ -128,7 +128,7 @@
 
       <div class="card">
         <div class="card-body">
-          <small>Active Tribunals</small>
+          <small>Tribunais ativos</small>
           <div>
             {activeTribunals}
           </div>
@@ -138,10 +138,10 @@
 
     <div class="card">
       <div class="card-body">
-        <h3>Collection Latency Trend (7 days)</h3>
+        <h3>Tendência de latência de coleta (7 dias)</h3>
         <div bind:this={chartEl}></div>
         {#if latencies.length === 0}
-          <div>No latency data available.</div>
+          <div>Sem dados de latência disponíveis.</div>
         {/if}
       </div>
     </div>
@@ -149,23 +149,23 @@
     <div class="stats-grid">
       <div class="card">
         <div class="card-body">
-          <h3>Grade Distribution</h3>
+          <h3>Distribuição por nota</h3>
           <div bind:this={pieEl}></div>
         </div>
       </div>
 
       <div class="card">
         <div class="card-body">
-          <h3>Top 5 Slowest Tribunals</h3>
+          <h3>5 tribunais mais lentos</h3>
           <ul class="slowest-list">
             {#each slowestTribunals as t, idx}
               <li>
                 <span>{idx + 1}. {t.tribunal}</span>
-                <span>{t.velocity_14d.toFixed(1)} velocity (14d)</span>
+                <span>{t.velocity_14d.toFixed(1)} velocidade (14d)</span>
               </li>
             {/each}
             {#if slowestTribunals.length === 0}
-              <li>All tribunals are up to date!</li>
+              <li>Todos os tribunais estão atualizados!</li>
             {/if}
           </ul>
         </div>

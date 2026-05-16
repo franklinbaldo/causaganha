@@ -365,6 +365,7 @@
             </a>
           {/if}
           <button
+            type="button"
             class="btn btn-outline-secondary"
             onclick={(e: MouseEvent) => handleShare(e, "compact")}
             title="Copiar link"
@@ -431,6 +432,7 @@
         </div>
         <div class="header-actions" aria-label="Ações de navegação e leitura">
           <button
+            type="button"
             class="btn btn-outline-secondary"
             onclick={() => (isReaderMode = false)}
             title="Sair do Modo Leitura"
@@ -444,6 +446,7 @@
             </a>
           {/if}
           <button
+            type="button"
             class="btn btn-outline-secondary"
             onclick={(e: MouseEvent) => handleShare(e, "reader")}
             title="Copiar link"
@@ -543,6 +546,7 @@
         <div class="header-actions" aria-label="Ações de navegação e leitura">
           {#if onCollapse}
             <button
+              type="button"
               class="btn btn-outline-secondary"
               onclick={onCollapse}
               title="Fechar detalhes"
@@ -551,6 +555,7 @@
             </button>
           {/if}
           <button
+            type="button"
             class="btn btn-outline-primary"
             onclick={() => (isReaderMode = true)}
             title="Abrir Modo Leitura"
@@ -566,6 +571,7 @@
           <div class="nav-actions" aria-label="Ações de navegação">
             {#if onNavigate}
               <button
+                type="button"
                 class="btn btn-outline-secondary"
                 onclick={() => onNavigate(seq - 1)}
                 disabled={seq <= 1}
@@ -573,6 +579,7 @@
                 Anterior
               </button>
               <button
+                type="button"
                 class="btn btn-outline-secondary"
                 onclick={() => onNavigate(seq + 1)}
                 disabled={totalSeq != null && seq >= totalSeq}
@@ -581,6 +588,7 @@
               </button>
             {/if}
             <button
+              type="button"
               class="btn btn-outline-secondary"
               onclick={(e: MouseEvent) => handleShare(e, "main")}
               title="Copiar link"

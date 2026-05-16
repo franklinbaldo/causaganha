@@ -102,6 +102,7 @@
       <span>Nome do advogado</span>
       <input
         type="text"
+        autocomplete="off"
         placeholder="Ex.: João da Silva"
         value={filters.nomeAdvogado ?? ''}
         oninput={(e) => (filters = { ...filters, nomeAdvogado: e.currentTarget.value || undefined })}
@@ -112,6 +113,7 @@
       <span>Nome da parte</span>
       <input
         type="text"
+        autocomplete="off"
         placeholder="Ex.: Empresa XYZ LTDA"
         value={filters.nomeParte ?? ''}
         oninput={(e) => (filters = { ...filters, nomeParte: e.currentTarget.value || undefined })}
