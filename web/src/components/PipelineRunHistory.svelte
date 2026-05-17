@@ -77,11 +77,11 @@
                 </td>
                 <td>
                   {#if run.status !== 'completed'}
-                    <span title="Em andamento">⏳</span>
+                    <span title="Em andamento" aria-label="Em andamento">⏳</span>
                   {:else if run.conclusion === 'success'}
-                    <span title="Sucesso">✅</span>
+                    <span title="Sucesso" aria-label="Sucesso">✅</span>
                   {:else}
-                    <a href={run.html_url} target="_blank" rel="noopener noreferrer" title="Ver logs da falha">❌</a>
+                    <a href={run.html_url} target="_blank" rel="noopener noreferrer" title="Ver logs da falha" aria-label="Ver logs da falha">❌</a>
                   {/if}
                 </td>
               </tr>
