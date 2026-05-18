@@ -136,6 +136,7 @@
         oninput={(e) => query = (e.target as HTMLInputElement).value}
         onkeydown={handleKeyDown}
         placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03)"
+        aria-label="Buscar no Internet Archive por tribunal ou ano"
       />
       {#if shortcutEnabled}
         <kbd class="kbd-tag">Ctrl</kbd>
@@ -164,7 +165,8 @@
         id="search-submit-btn"
         class="search-btn"
         onclick={handleSearch}
-        disabled={loading || !query.trim()}>
+        disabled={loading || !query.trim()}
+        aria-busy={loading}>
         {#if loading}Buscando...{:else}Buscar{/if}
       </button>
     </div>

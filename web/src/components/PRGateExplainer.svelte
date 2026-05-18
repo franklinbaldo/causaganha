@@ -137,7 +137,7 @@
       value={prNumber}
       oninput={(e: Event & { currentTarget: HTMLInputElement }) => prNumber = e.currentTarget.value}
     />
-    <button type="submit" disabled={loading || !prNumber}>
+    <button type="submit" disabled={loading || !prNumber} aria-busy={loading}>
       {loading ? 'Verificando...' : 'Verificar PR'}
     </button>
   </form>
