@@ -7,6 +7,12 @@
 
   onMount(() => completedItemsStore.load());
 
+  // Svelte transitions are JS-driven, so the global CSS reduced-motion rule
+  // does not reach them. Read the OS preference and zero the duration.
+  const prefersReducedMotion = typeof window !== 'undefined'
+    && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const fadeDuration = prefersReducedMotion ? 0 : 120;
+
   const _now = new Date();
   let selectedYear  = $state(_now.getUTCFullYear());
   let selectedMonth = $state(_now.getUTCMonth());
@@ -105,7 +111,7 @@
       </div>
     {:else}
       {#key `${selectedYear}-${selectedMonth}`}
-        <div class="overflow-x-auto w-full pb-4" transition:fade={{ duration: 120 }}>
+        <div class="overflow-x-auto w-full pb-4" transition:fade={{ duration: fadeDuration }}>
           <table class="table table-xs w-full min-w-max">
             <thead>
               <tr>

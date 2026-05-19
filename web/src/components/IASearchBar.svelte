@@ -171,7 +171,12 @@
   </div>
 
   {#if loading}
-    <div class="table-responsive loading-overlay">
+    <div
+      class="table-responsive loading-overlay"
+      aria-busy="true"
+      aria-live="polite"
+      aria-label="Carregando resultados da busca"
+    >
       <table class="data-table">
         <thead>
           <tr>
@@ -195,7 +200,7 @@
   {/if}
 
   {#if !loading && searched && results.length === 0}
-    <p>Nenhum resultado encontrado.</p>
+    <p role="status">Nenhum resultado encontrado.</p>
   {/if}
 
   {#if results.length > 0}
