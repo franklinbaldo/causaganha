@@ -171,13 +171,9 @@
   </div>
 
   {#if loading}
-    <div
-      class="table-responsive loading-overlay"
-      aria-busy="true"
-      aria-live="polite"
-      aria-label="Carregando resultados da busca"
-    >
-      <table class="data-table">
+    <div class="table-responsive loading-overlay">
+      <p role="status" class="sr-only">Carregando resultados da busca…</p>
+      <table class="data-table" aria-hidden="true">
         <thead>
           <tr>
             <th>Tribunal</th><th>Ano</th><th>Arquivos</th><th>Tamanho</th><th>Downloads</th><th>Ação</th>
