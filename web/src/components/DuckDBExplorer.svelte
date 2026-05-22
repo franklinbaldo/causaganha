@@ -68,7 +68,6 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
       }
     } catch (err) {
       if (!cancelled) {
-        console.error('DuckDB init failed:', err);
         dbStatus = 'error';
         const msg = err instanceof Error ? err.message : String(err);
         error = `Falha ao inicializar DuckDB: ${msg}`;
