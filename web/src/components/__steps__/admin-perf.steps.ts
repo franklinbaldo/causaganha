@@ -103,7 +103,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see grade labels for non-zero grades', () => {
-      expect(screen.getByText('Grade Distribution')).toBeTruthy();
+      expect(screen.getByText('Distribuição por nota')).toBeTruthy();
     });
   });
 

@@ -79,6 +79,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 
 {#if !expanded}
   <button
+    type="button"
     class="btn btn-expand"
     onclick={() => (expanded = true)}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
@@ -92,6 +93,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     <header>
       <h4>Acesso aos Dados</h4>
       <button
+        type="button"
         class="btn btn-outline"
         onclick={() => (expanded = false)}>
         Fechar
@@ -103,6 +105,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
       <div>
         <span>Consulta via Catálogo (DuckDB)</span>
         <button
+          type="button"
           class="btn btn-outline"
           onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
           {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
@@ -138,6 +141,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
                   {duckdbQuery(f.name).substring(0, 80)}...
                 </code>
                 <button
+                  type="button"
                   class="btn btn-outline"
                   onclick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
                   {copied === f.name ? 'Copiado!' : 'SQL'}

@@ -46,10 +46,10 @@
 
 <div class="card">
   <div class="card-body">
-    <h3>Pipeline Run History (Collect ZIPs)</h3>
+    <h3>Histórico de Execuções do Pipeline (Collect ZIPs)</h3>
 
     {#if loading}
-      <div>Loading run history...</div>
+      <div>Carregando histórico de execuções...</div>
     {:else if error}
       <AlertBanner level="error" title="Erro ao carregar histórico" message={error} />
     {:else if runs.length === 0}
@@ -59,9 +59,9 @@
         <table class="data-table">
           <thead>
             <tr>
-              <th>Run Date</th>
-              <th>Duration (min)</th>
-              <th>Status</th>
+              <th scope="col">Data da execução</th>
+              <th scope="col">Duração (min)</th>
+              <th scope="col">Status</th>
             </tr>
           </thead>
           <tbody>
@@ -77,9 +77,9 @@
                 </td>
                 <td>
                   {#if run.status !== 'completed'}
-                    <span title="In Progress">⏳</span>
+                    <span title="Em andamento">⏳</span>
                   {:else if run.conclusion === 'success'}
-                    <span title="Success">✅</span>
+                    <span title="Sucesso">✅</span>
                   {:else}
                     <a href={run.html_url} target="_blank" rel="noopener noreferrer" title="Ver logs da falha">❌</a>
                   {/if}

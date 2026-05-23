@@ -94,7 +94,7 @@ function sortIcon(field: string): string {
         disabled={loading}
         aria-busy={loading}
         title="Atualizar dados">
-        {loading ? 'Atualizando…' : 'Refresh'}
+        {loading ? 'Atualizando…' : 'Atualizar'}
       </button>
     </div>
   </div>
