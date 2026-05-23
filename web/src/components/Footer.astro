@@ -2,10 +2,10 @@
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<footer class="site-footer">
+<footer class="site-footer" aria-labelledby="footer-brand">
   <div class="footer-inner">
-    <p class="footer-brand">CausaGanha</p>
-    <nav class="footer-links">
+    <p id="footer-brand" class="footer-brand">CausaGanha</p>
+    <nav class="footer-links" aria-label="Links do rodapé">
       <a href={BASE + 'publicacoes'} class="footer-link">Publicações</a>
       <a href={BASE + 'sobre'} class="footer-link">Metodologia</a>
       <a href="https://github.com/franklinbaldo/causaganha" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>

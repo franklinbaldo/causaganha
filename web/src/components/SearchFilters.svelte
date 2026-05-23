@@ -324,4 +324,10 @@
   .presets-row .ghost.danger:focus-visible {
     box-shadow: 0 0 0 2px color-mix(in srgb, var(--color-error) 25%, transparent);
   }
+
+  @media (pointer: coarse) {
+    .presets-row button {
+      min-height: 44px;
+    }
+  }
 </style>
