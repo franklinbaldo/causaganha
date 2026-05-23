@@ -88,4 +88,12 @@
   :root[data-theme='causaganhadark'] .theme-toggle-btn .icon-moon {
     display: none;
   }
+
+  /* WCAG 2.5.5 — 44×44 minimum hit area on touch devices. */
+  @media (pointer: coarse) {
+    .theme-toggle-btn {
+      width: 2.75rem;
+      height: 2.75rem;
+    }
+  }
 </style>

@@ -137,6 +137,7 @@
         onkeydown={handleKeyDown}
         placeholder="Buscar no Internet Archive (ex: TJSP, 2026, 2026-03)"
         aria-label="Buscar no Internet Archive por tribunal ou ano"
+        enterkeyhint="search"
       />
       {#if shortcutEnabled}
         <kbd class="kbd-tag">Ctrl</kbd>
