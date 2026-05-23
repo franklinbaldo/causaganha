@@ -54,7 +54,7 @@
     <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
     {#if loading}
-      <div class="loading-msg">Carregando dados de cobertura...</div>
+      <div class="loading-msg" role="status" aria-live="polite" aria-busy="true">Carregando dados de cobertura...</div>
     {:else if error}
       <div class="text-error">Erro: {error}</div>
     {:else}
