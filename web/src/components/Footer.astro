@@ -8,7 +8,18 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <nav class="footer-links" aria-label="Links do rodapé">
       <a href={BASE + 'publicacoes'} class="footer-link">Publicações</a>
       <a href={BASE + 'sobre'} class="footer-link">Metodologia</a>
-      <a href="https://github.com/franklinbaldo/causaganha" class="footer-link" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a
+        href="https://github.com/franklinbaldo/causaganha"
+        class="footer-link footer-link-external"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="GitHub (abre em nova aba)"
+      >
+        GitHub
+        <svg class="external-icon" aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
+        </svg>
+      </a>
       <a href={BASE + 'dados'} class="footer-link">Documentação</a>
     </nav>
     <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Inspirado no modernismo brasileiro</p>
@@ -57,9 +68,21 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     font-weight: 500;
   }
 
-  .footer-link:hover {
+  .footer-link:hover,
+  .footer-link:focus-visible {
     color: var(--color-primary);
     text-decoration: underline;
+  }
+
+  .footer-link-external {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .external-icon {
+    flex-shrink: 0;
+    opacity: 0.7;
   }
 
   .footer-tagline {

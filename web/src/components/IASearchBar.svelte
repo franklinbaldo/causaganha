@@ -174,7 +174,8 @@
 
   {#if loading}
     <div class="table-responsive loading-overlay">
-      <table class="data-table">
+      <p role="status" class="sr-only">Carregando resultados da busca…</p>
+      <table class="data-table" aria-hidden="true">
         <thead>
           <tr>
             <th>Tribunal</th><th>Ano</th><th>Arquivos</th><th>Tamanho</th><th>Downloads</th><th>Ação</th>
@@ -197,7 +198,7 @@
   {/if}
 
   {#if !loading && searched && results.length === 0}
-    <p>Nenhum resultado encontrado.</p>
+    <p role="status">Nenhum resultado encontrado.</p>
   {/if}
 
   {#if results.length > 0}
