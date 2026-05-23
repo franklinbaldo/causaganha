@@ -9,7 +9,7 @@ export default defineConfig({
     globals: true,
     include: [
       '**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts}',
-      '**/__steps__/**/*.steps.{js,ts}',
+      '**/__steps__/**/*.steps.{js,jsx,ts,tsx}',
     ],
   },
   resolve: {
