@@ -206,9 +206,11 @@ async def drain(
                 for entry in fresh:
                     seen.add(entry)
                     await queue.put(entry)
-                # Wait for this batch to be processed before fetching the next.
-                # Bounded by deadline check via worker shutdown.
-                await queue.join()
+                remaining = max(0.0, deadline - time.monotonic())
+                try:
+                    await asyncio.wait_for(queue.join(), timeout=remaining)
+                except TimeoutError:
+                    break
         finally:
             for _ in range(workers):
                 await queue.put(None)
