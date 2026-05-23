@@ -161,7 +161,7 @@
             {#each slowestTribunals as t, idx}
               <li>
                 <span>{idx + 1}. {t.tribunal}</span>
-                <span>{t.velocity_14d.toFixed(1)} velocidade (14d)</span>
+                <span>velocidade {t.velocity_14d.toFixed(1)} (14d)</span>
               </li>
             {/each}
             {#if slowestTribunals.length === 0}

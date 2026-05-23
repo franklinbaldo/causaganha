@@ -124,7 +124,7 @@
             <span>{isDataStale ? dataDate : 'Hoje'}:</span>
             <span class={isDataStale ? 'text-warning' : ''}>{filesToday}/91</span>
             {#if isDataStale}
-              <span class="text-warning" title="Coleta parece parada — sem novos dados desde esta data">desatualizado</span>
+              <span class="text-warning" title="A coleta parece estar parada — sem novos dados desde esta data">desatualizado</span>
             {/if}
           </div>
         {/if}
@@ -150,6 +150,7 @@
 
       {#if stats?.steps}
         <button
+          type="button"
           class="toggle-btn"
           onclick={() => showDetails = !showDetails}
           aria-expanded={showDetails}
@@ -191,7 +192,7 @@
                       <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
                     </svg>
                   {/if}
-                  <span>{isOk ? 'OK' : 'Falha'}</span>
+                  <span>{isOk ? 'OK' : 'Erro'}</span>
                 </span>
               </div>
               <div class="step-details">
