@@ -391,6 +391,13 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     background: var(--color-base-200);
   }
 
+  .menu a:focus-visible,
+  .menu summary:focus-visible {
+    background: var(--color-base-200);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
   .menu a.active,
   .menu summary.active {
     background: var(--color-base-200);
@@ -435,6 +442,12 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
 
   .dropdown-menu a:hover {
     background: var(--color-base-200);
+  }
+
+  .dropdown-menu a:focus-visible {
+    background: var(--color-base-200);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   .dropdown-divider {
@@ -519,6 +532,12 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
 
   .drawer-menu a:hover {
     background: var(--color-base-300);
+  }
+
+  .drawer-menu a:focus-visible {
+    background: var(--color-base-300);
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
   }
 
   .drawer-menu a.active {

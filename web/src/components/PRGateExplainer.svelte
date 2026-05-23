@@ -134,6 +134,9 @@
       type="number"
       placeholder="Número do PR (ex.: 425)"
       aria-label="Número do PR"
+      autocomplete="off"
+      inputmode="numeric"
+      min="1"
       value={prNumber}
       oninput={(e: Event & { currentTarget: HTMLInputElement }) => prNumber = e.currentTarget.value}
     />
@@ -161,7 +164,7 @@
           {#if summary.blockedByKilo}
             <div>
               <strong>Bloqueio: </strong>
-              <a href={summary.blockedByKilo.html_url || '#'} target="_blank" rel="noopener noreferrer" class="link-accent">
+              <a href={summary.blockedByKilo.html_url} target="_blank" rel="noopener noreferrer" class="link-accent">
                 {summary.blockedByKilo.name}
               </a>
             </div>
