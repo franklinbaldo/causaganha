@@ -462,7 +462,7 @@ async def run_pipeline(
     stats_log_interval, notify_interval = 30.0, 0.5
 
     djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
-    djen_limiter = AsyncLimiter(max_rate=1, time_period=1)
+    djen_limiter = AsyncLimiter(max_rate=5, time_period=1)
 
     async def _check_djen_breaker() -> bool:
         while not await djen_breaker.allow_request():

@@ -54,9 +54,9 @@ HTTP_NOT_FOUND = 404
 _item_locks: dict[str, asyncio.Lock] = {}
 _item_locks_guard = asyncio.Lock()
 
-# Rate limit: ~1 upload / 2 s steady-state, burst of 4.
+# Rate limit: ~1.5 uploads / s steady-state, burst of 12.
 # aiolimiter's leaky bucket: max_rate uploads per time_period.
-_IA_RATE_LIMITER = AsyncLimiter(max_rate=4, time_period=8)
+_IA_RATE_LIMITER = AsyncLimiter(max_rate=12, time_period=8)
 
 
 async def _lock_for(item_id: str) -> asyncio.Lock:
