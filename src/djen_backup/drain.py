@@ -58,21 +58,30 @@ def fetch_pending_batch(
 
 
 class DeltaWriter:
-    """Append-only CSV of (tribunal, date, ia_status='uploaded', updated_at)."""
+    """Append-only CSV of (tribunal, date, ia_status, djen_status, updated_at)."""
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text("tribunal,date,ia_status,updated_at\n", encoding="utf-8")
+        self.path.write_text("tribunal,date,ia_status,djen_status,updated_at\n", encoding="utf-8")
         self.count = 0
+        self.absent_count = 0
         self._lock = asyncio.Lock()
 
     async def mark_uploaded(self, tribunal: str, d: date) -> None:
         ts = datetime.now(UTC).isoformat(timespec="seconds")
         async with self._lock:
             with self.path.open("a", encoding="utf-8") as f:
-                f.write(f"{tribunal},{d.isoformat()},uploaded,{ts}\n")
+                f.write(f"{tribunal},{d.isoformat()},uploaded,,{ts}\n")
             self.count += 1
+
+    async def mark_absent(self, tribunal: str, d: date) -> None:
+        """Record a DJEN 404 so the parquet stops treating this entry as pending."""
+        ts = datetime.now(UTC).isoformat(timespec="seconds")
+        async with self._lock:
+            with self.path.open("a", encoding="utf-8") as f:
+                f.write(f"{tribunal},{d.isoformat()},,absent,{ts}\n")
+            self.absent_count += 1
 
 
 async def _drain_one(
@@ -107,6 +116,7 @@ async def _drain_one(
                 await asyncio.sleep(0.5 * (attempt + 1))
     except DJENNotFoundError:
         log.debug("drain_skip_404", tribunal=tribunal, date=d.isoformat())
+        await delta_writer.mark_absent(tribunal, d)
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.debug("drain_skip_error", tribunal=tribunal, date=d.isoformat(), error=str(exc))
     finally:
@@ -216,7 +226,12 @@ async def drain(
                 await queue.put(None)
             await asyncio.gather(*worker_tasks, return_exceptions=True)
 
-    log.info("drain_complete", uploads=delta_writer.count, delta=str(delta_path))
+    log.info(
+        "drain_complete",
+        uploads=delta_writer.count,
+        absent_marked=delta_writer.absent_count,
+        delta=str(delta_path),
+    )
 
     if delta_writer.count > 0:
         try:

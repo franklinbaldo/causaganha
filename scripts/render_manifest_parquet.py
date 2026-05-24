@@ -99,34 +99,47 @@ def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
         """
     )
 
-    # Apply each delta: mark rows as uploaded where the delta says so
-    merged = 0
+    # Apply each delta: mark uploaded rows and absent (DJEN 404) rows
+    merged_uploaded = 0
+    merged_absent = 0
     for url in delta_urls:
         try:
-            rows = con.execute(
+            delta_rows = con.execute(
                 f"""
-                SELECT tribunal::VARCHAR, date::DATE, updated_at::VARCHAR
+                SELECT tribunal::VARCHAR, date::DATE,
+                       ia_status::VARCHAR, djen_status::VARCHAR, updated_at::VARCHAR
                 FROM read_csv_auto('{url}', header=true,
-                    types={{'tribunal':'VARCHAR','date':'DATE',
-                            'ia_status':'VARCHAR','updated_at':'VARCHAR'}})
-                WHERE ia_status = 'uploaded'
+                    types={{'tribunal':'VARCHAR','date':'DATE','ia_status':'VARCHAR',
+                            'djen_status':'VARCHAR','updated_at':'VARCHAR'}})
                 """
             ).fetchall()
         except Exception as exc:
             print(f"  warning: could not read delta {url}: {exc}")
             continue
-        for tribunal, date, updated_at in rows:
-            con.execute(
-                """
-                UPDATE manifest SET ia_status = 'uploaded', updated_at = ?
-                WHERE tribunal = ? AND date = ? AND (ia_status IS NULL OR ia_status != 'uploaded')
-                """,
-                [updated_at, tribunal, date],
-            )
-        merged += len(rows)
+        for tribunal, date, ia_status, djen_status, updated_at in delta_rows:
+            if ia_status == "uploaded":
+                con.execute(
+                    """
+                    UPDATE manifest SET ia_status = 'uploaded', updated_at = ?
+                    WHERE tribunal = ? AND date = ? AND (ia_status IS NULL OR ia_status != 'uploaded')
+                    """,
+                    [updated_at, tribunal, date],
+                )
+                merged_uploaded += 1
+            elif djen_status == "absent":
+                con.execute(
+                    """
+                    UPDATE manifest SET djen_status = 'absent', updated_at = ?
+                    WHERE tribunal = ? AND date = ?
+                      AND (djen_status IS NULL OR djen_status != 'absent')
+                      AND (ia_status IS NULL OR ia_status != 'uploaded')
+                    """,
+                    [updated_at, tribunal, date],
+                )
+                merged_absent += 1
 
     if delta_urls:
-        print(f"  merged {merged} delta rows from {len(delta_urls)} delta file(s)")
+        print(f"  merged {merged_uploaded} uploaded + {merged_absent} absent rows from {len(delta_urls)} delta file(s)")
 
     con.execute(f"COPY manifest TO '{LOCAL_PARQUET}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     return LOCAL_PARQUET
