@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import contextlib
+import os
 import shutil
 import time
 from dataclasses import dataclass, field
@@ -462,7 +463,13 @@ async def run_pipeline(
     stats_log_interval, notify_interval = 30.0, 0.5
 
     djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
-    djen_limiter = AsyncLimiter(max_rate=5, time_period=1)
+
+    # Rate limit: 1 request/sec by default. Can be overridden via DJEN_RATE_LIMIT.
+    try:
+        _djen_max_rate = int(os.environ.get("DJEN_RATE_LIMIT", "1"))
+    except ValueError:
+        _djen_max_rate = 1
+    djen_limiter = AsyncLimiter(max_rate=_djen_max_rate, time_period=1)
 
     async def _check_djen_breaker() -> bool:
         while not await djen_breaker.allow_request():
