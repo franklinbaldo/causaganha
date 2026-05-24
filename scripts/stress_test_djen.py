@@ -21,13 +21,28 @@ import argparse
 import asyncio
 import json
 import random
+import sys
 import time
 from collections import Counter
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
 import httpx
+from rich.console import Console
 
+# Safely reconfigure standard output encoding error handling on Windows
+if sys.stdout.encoding and sys.stdout.encoding.lower() != "utf-8":
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except AttributeError:
+        pass
+
+console = Console()
+UTF8_SUPPORT = console.encoding.lower() in ("utf-8", "utf8")
+
+SYMBOL_WARNING = "⚠️ " if UTF8_SUPPORT else "[WARNING] "
+SYMBOL_SUCCESS = "✓ " if UTF8_SUPPORT else "[SUCCESS] "
+SYMBOL_ARROW = "→ " if UTF8_SUPPORT else "-> "
 
 CONFIG_PATH = Path(__file__).parent.parent / "data" / "djen-safe-concurrency.json"
 
@@ -132,14 +147,44 @@ def print_result(
     )
     err_rate = errors / total if total else 0
 
-    status_str = " ".join(f"{k}:{v}" for k, v in sorted(statuses.items()))
-    print(
-        f"  conc={concurrency:>3}  reqs={total:>3}  "
-        f"{elapsed:>5.1f}s  "
-        f"rps={rps:>5.1f}  "
-        f"p50={percentile(latencies, 50) * 1000:>5.0f}ms  "
-        f"p95={percentile(latencies, 95) * 1000:>5.0f}ms  "
-        f"err={err_rate * 100:>4.1f}%  {status_str}"
+    err_pct = err_rate * 100
+    if err_pct == 0:
+        err_style = "green"
+    elif err_pct < 10:
+        err_style = "yellow"
+    else:
+        err_style = "bold red"
+
+    if rps > 50:
+        rps_style = "bold green"
+    elif rps > 10:
+        rps_style = "green"
+    else:
+        rps_style = "cyan"
+
+    p50_ms = percentile(latencies, 50) * 1000
+    p95_ms = percentile(latencies, 95) * 1000
+
+    p50_style = "green" if p50_ms < 200 else "yellow" if p50_ms < 1000 else "red"
+    p95_style = "green" if p95_ms < 500 else "yellow" if p95_ms < 2000 else "red"
+
+    status_parts = []
+    for k, v in sorted(statuses.items()):
+        if k == "200":
+            status_parts.append(f"[green]{k}:{v}[/green]")
+        elif k in {"403", "timeout"} or k.startswith(("err:", "5")):
+            status_parts.append(f"[red]{k}:{v}[/red]")
+        else:
+            status_parts.append(f"[yellow]{k}:{v}[/yellow]")
+    status_str = " ".join(status_parts)
+
+    console.print(
+        f"  [bold]conc=[/][magenta]{concurrency:>3}[/]  [bold]reqs=[/]{total:>3}  "
+        f"[dim]{elapsed:>5.1f}s[/]  "
+        f"[bold]rps=[/][{rps_style}]{rps:>5.1f}[/]  "
+        f"[bold]p50=[/][{p50_style}]{p50_ms:>5.0f}ms[/]  "
+        f"[bold]p95=[/][{p95_style}]{p95_ms:>5.0f}ms[/]  "
+        f"[bold]err=[/][{err_style}]{err_pct:>4.1f}%[/]  {status_str}"
     )
     return err_rate
 
@@ -173,11 +218,11 @@ async def main() -> None:
     today = datetime.now(UTC).date()
     days = business_days(today - timedelta(days=2), 30)
 
-    print(f"DJEN stress test starting at {today.isoformat()}")
-    print(f"Tribunals: {','.join(tribunals)}")
-    print(f"Date pool: {days[-1]} to {days[0]} ({len(days)} business days)")
-    print(f"Requests per level: {args.reqs_per_level}, cooldown: {args.cooldown}s")
-    print(f"Stop threshold: {args.err_threshold * 100:.0f}% error rate\n")
+    console.print(f"[cyan]DJEN stress test starting at {today.isoformat()}[/cyan]")
+    console.print(f"Tribunals: [dim]{','.join(tribunals)}[/dim]")
+    console.print(f"Date pool: [dim]{days[-1]} to {days[0]} ({len(days)} business days)[/dim]")
+    console.print(f"Requests per level: [cyan]{args.reqs_per_level}[/cyan], cooldown: [cyan]{args.cooldown}s[/cyan]")
+    console.print(f"Stop threshold: [bold red]{args.err_threshold * 100:.0f}%[/bold red] error rate\n")
 
     # Geometric-ish progression: 1, 2, 4, 8, 16, 32, 64...
     levels = []
@@ -194,8 +239,8 @@ async def main() -> None:
 
         if err_rate >= args.err_threshold:
             safe = levels[max(0, i - 1)]
-            print(f"\n[WARNING] Error rate {err_rate * 100:.1f}% crossed threshold — stopping.")
-            print(f"   Safe concurrency: ~{safe}")
+            console.print(f"\n[bold yellow]{SYMBOL_WARNING}Error rate {err_rate * 100:.1f}% crossed threshold — stopping.[/bold yellow]")
+            console.print(f"   Safe concurrency: [bold green]~{safe}[/bold green]")
             _save_config(safe, err_threshold=args.err_threshold)
             return
 
@@ -203,8 +248,8 @@ async def main() -> None:
             await asyncio.sleep(args.cooldown)
 
     safe = levels[-1]
-    print("\n[SUCCESS] Max concurrency reached without crossing error threshold.")
-    print(f"   Safe concurrency: >= {safe}")
+    console.print(f"\n[bold green]{SYMBOL_SUCCESS}Max concurrency reached without crossing error threshold.[/bold green]")
+    console.print(f"   Safe concurrency: [bold green]>= {safe}[/bold green]")
     _save_config(safe, err_threshold=args.err_threshold)
 
 
@@ -221,7 +266,7 @@ def _save_config(safe_concurrency: int, err_threshold: float) -> None:
             indent=2,
         )
     )
-    print(f"   -> saved to {CONFIG_PATH.relative_to(Path.cwd())}")
+    console.print(f"   [dim]{SYMBOL_ARROW}[/dim]saved to [cyan]{CONFIG_PATH.relative_to(Path.cwd())}[/cyan]")
 
 
 if __name__ == "__main__":
