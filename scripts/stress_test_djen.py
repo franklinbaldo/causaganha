@@ -194,7 +194,7 @@ async def main() -> None:
 
         if err_rate >= args.err_threshold:
             safe = levels[max(0, i - 1)]
-            print(f"\n⚠️  Error rate {err_rate * 100:.1f}% crossed threshold — stopping.")
+            print(f"\n[WARNING] Error rate {err_rate * 100:.1f}% crossed threshold — stopping.")
             print(f"   Safe concurrency: ~{safe}")
             _save_config(safe, err_threshold=args.err_threshold)
             return
@@ -203,8 +203,8 @@ async def main() -> None:
             await asyncio.sleep(args.cooldown)
 
     safe = levels[-1]
-    print("\n✓ Max concurrency reached without crossing error threshold.")
-    print(f"   Safe concurrency: ≥{safe}")
+    print("\n[SUCCESS] Max concurrency reached without crossing error threshold.")
+    print(f"   Safe concurrency: >= {safe}")
     _save_config(safe, err_threshold=args.err_threshold)
 
 
@@ -221,7 +221,7 @@ def _save_config(safe_concurrency: int, err_threshold: float) -> None:
             indent=2,
         )
     )
-    print(f"   → saved to {CONFIG_PATH.relative_to(Path.cwd())}")
+    print(f"   -> saved to {CONFIG_PATH.relative_to(Path.cwd())}")
 
 
 if __name__ == "__main__":
