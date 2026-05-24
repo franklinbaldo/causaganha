@@ -349,6 +349,32 @@ async def run_pipeline(
 ) -> None:
     import random
 
+    deadline_event = asyncio.Event()
+
+    async def deadline_monitor() -> None:
+        delay = deadline - time.monotonic()
+        if delay > 0:
+            try:
+                await asyncio.sleep(delay)
+            except asyncio.CancelledError:
+                return
+        deadline_event.set()
+        log.info("deadline_reached_aborting")
+
+    monitor_task = asyncio.create_task(deadline_monitor())
+
+    async def _put_with_deadline(
+        queue: asyncio.Queue, item: ManifestEntry | StagedItem | None
+    ) -> bool:
+        while not abort_event.is_set() and not deadline_event.is_set():
+            try:
+                await asyncio.wait_for(queue.put(item), timeout=1.0)
+            except TimeoutError:
+                continue
+            else:
+                return True
+        return False
+
     # ── Phase 0: Discovery ──
     existing_items: set[tuple[str, int]] = set()
     if not config.upload_only:
@@ -440,7 +466,7 @@ async def run_pipeline(
 
     async def _check_djen_breaker() -> bool:
         while not await djen_breaker.allow_request():
-            if abort_event.is_set() or time.monotonic() > deadline:
+            if abort_event.is_set() or time.monotonic() > deadline or deadline_event.is_set():
                 return False
             await asyncio.sleep(5.0)
         return True
@@ -478,7 +504,11 @@ async def run_pipeline(
 
     async def checker_worker(client: httpx.AsyncClient) -> None:
         nonlocal last_save, last_ia_upload
-        while not abort_event.is_set() and time.monotonic() < deadline:
+        while (
+            not abort_event.is_set()
+            and not deadline_event.is_set()
+            and time.monotonic() < deadline
+        ):
             try:
                 entry = check_queue.get_nowait()
             except asyncio.QueueEmpty:
@@ -535,8 +565,15 @@ async def run_pipeline(
                 asyncio.create_task(_upload_manifest_background())
 
     async def download_worker(client: httpx.AsyncClient) -> None:
-        while not abort_event.is_set():
-            entry = await download_queue.get()
+        while (
+            not abort_event.is_set()
+            and not deadline_event.is_set()
+            and time.monotonic() < deadline
+        ):
+            try:
+                entry = await asyncio.wait_for(download_queue.get(), timeout=1.0)
+            except TimeoutError:
+                continue
             if entry is None:
                 download_queue.task_done()
                 return
@@ -548,7 +585,10 @@ async def run_pipeline(
                     entry, client, config.djen_proxy_url, djen_limiter, STAGING_DIR
                 )
                 await summary.inc_download()
-                await upload_queue.put(staged)
+                ok = await _put_with_deadline(upload_queue, staged)
+                if not ok:
+                    staged.path.unlink(missing_ok=True)
+                    return
             except (
                 httpx.HTTPError,
                 OSError,
@@ -567,8 +607,11 @@ async def run_pipeline(
                 download_queue.task_done()
 
     async def upload_worker(upload_client: httpx.AsyncClient) -> None:
-        while not abort_event.is_set():
-            item = await upload_queue.get()
+        while not abort_event.is_set() and not deadline_event.is_set():
+            try:
+                item = await asyncio.wait_for(upload_queue.get(), timeout=1.0)
+            except TimeoutError:
+                continue
             if item is None:
                 upload_queue.task_done()
                 return
@@ -596,9 +639,15 @@ async def run_pipeline(
         async def feed_available() -> None:
             initial_backlog = backlog[: config.max_items] if config.max_items else backlog
             for entry in initial_backlog:
-                await download_queue.put(entry)
+                ok = await _put_with_deadline(download_queue, entry)
+                if not ok:
+                    return
             seen = {f"{e.tribunal}/{e.date.isoformat()}" for e in backlog}
-            while not abort_event.is_set():
+            while (
+                not abort_event.is_set()
+                and not deadline_event.is_set()
+                and time.monotonic() < deadline
+            ):
                 if config.max_items and summary.downloads >= config.max_items:
                     return
                 entries = manifest.entries_needing_upload()
@@ -606,7 +655,9 @@ async def run_pipeline(
                     key = f"{entry.tribunal}/{entry.date.isoformat()}"
                     if key not in seen:
                         seen.add(key)
-                        await download_queue.put(entry)
+                        ok = await _put_with_deadline(download_queue, entry)
+                        if not ok:
+                            return
                 if checkers_done.is_set() and not entries:
                     return
                 await asyncio.sleep(5)
@@ -620,19 +671,24 @@ async def run_pipeline(
             asyncio.create_task(upload_worker(upload_client)) for _ in range(config.workers)
         ]
 
-        await asyncio.gather(*checker_tasks, return_exceptions=True)
-        checkers_done.set()
-        await asyncio.gather(feeder_task, return_exceptions=True)
-        for _ in dl_tasks:
-            await download_queue.put(None)
-        await asyncio.gather(*dl_tasks, return_exceptions=True)
-        for _ in upload_tasks:
-            await upload_queue.put(None)
-        with contextlib.suppress(asyncio.TimeoutError):
-            await asyncio.wait_for(
-                upload_queue.join(), timeout=max(0.0, deadline - time.monotonic())
-            )
-        await asyncio.gather(*upload_tasks, return_exceptions=True)
+        try:
+            await asyncio.gather(*checker_tasks, return_exceptions=True)
+            checkers_done.set()
+            await asyncio.gather(feeder_task, return_exceptions=True)
+            for _ in dl_tasks:
+                await _put_with_deadline(download_queue, None)
+            await asyncio.gather(*dl_tasks, return_exceptions=True)
+            for _ in upload_tasks:
+                await _put_with_deadline(upload_queue, None)
+            with contextlib.suppress(asyncio.TimeoutError):
+                await asyncio.wait_for(
+                    upload_queue.join(), timeout=max(0.0, deadline - time.monotonic())
+                )
+            await asyncio.gather(*upload_tasks, return_exceptions=True)
+        finally:
+            monitor_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await monitor_task
 
 
 async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
