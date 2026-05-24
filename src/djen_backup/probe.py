@@ -186,8 +186,9 @@ async def probe(
 ) -> tuple[int, int]:
     """Run the probe loop. Returns (confirmed_count, absent_count)."""
     deadline = time.monotonic() + deadline_seconds
-    delta_path = Path(f"data/probe-deltas-{int(time.time())}.csv")
+    delta_path = Path(f"data/upload-deltas-probe-{int(time.time())}.csv")
     delta_writer = ProbeDeltaWriter(delta_path)
+
 
     duck = duckdb.connect()
     duck.execute("INSTALL httpfs; LOAD httpfs;")
