@@ -1,3 +1,13 @@
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import sys
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        try:
+            stream.reconfigure(errors="replace")
+        except AttributeError:
+            pass
+
 HTTP_404_NOT_FOUND = 404
 MAX_FILE_SIZE_BYTES = 1024
 MAX_CONTENT_SIZE_BYTES = 100

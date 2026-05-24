@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import sys
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        try:
+            stream.reconfigure(errors="replace")
+        except AttributeError:
+            pass
+
 EARLIEST_TRIBUNAL_YEAR = 1990
 HTTP_429_TOO_MANY_REQUESTS = 429
 HTTP_404_NOT_FOUND = 404

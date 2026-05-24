@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
 
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import sys
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        try:
+            stream.reconfigure(errors="replace")
+        except AttributeError:
+            pass
+
 HTTP_200_OK = 200
 
 """Monitor GitHub Actions backfill progress.
