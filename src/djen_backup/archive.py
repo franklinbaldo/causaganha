@@ -7,6 +7,7 @@ re-exported here for backward compatibility with existing imports.
 from __future__ import annotations
 
 import asyncio
+import os
 import time
 from typing import TYPE_CHECKING
 
@@ -54,9 +55,16 @@ HTTP_NOT_FOUND = 404
 _item_locks: dict[str, asyncio.Lock] = {}
 _item_locks_guard = asyncio.Lock()
 
-# Rate limit: ~1 upload / 2 s steady-state, burst of 4.
-# aiolimiter's leaky bucket: max_rate uploads per time_period.
-_IA_RATE_LIMITER = AsyncLimiter(max_rate=4, time_period=8)
+# Rate limit: ~1 upload / 2 s steady-state, burst of 4 by default.
+# Can be overridden via the IA_UPLOAD_RATE_LIMIT environment variable.
+# NOTE: This is initialized at module import time; changing the env var
+# mid-process will not take effect.
+try:
+    _ia_max_rate = int(os.environ.get("IA_UPLOAD_RATE_LIMIT", "4"))
+except ValueError:
+    _ia_max_rate = 4
+
+_IA_RATE_LIMITER = AsyncLimiter(max_rate=_ia_max_rate, time_period=8)
 
 
 async def _lock_for(item_id: str) -> asyncio.Lock:
