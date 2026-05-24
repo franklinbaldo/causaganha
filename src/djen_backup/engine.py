@@ -466,7 +466,7 @@ async def run_pipeline(
 
     async def _check_djen_breaker() -> bool:
         while not await djen_breaker.allow_request():
-            if abort_event.is_set() or time.monotonic() > deadline or deadline_event.is_set():
+            if abort_event.is_set() or deadline_event.is_set():
                 return False
             await asyncio.sleep(5.0)
         return True
@@ -504,11 +504,7 @@ async def run_pipeline(
 
     async def checker_worker(client: httpx.AsyncClient) -> None:
         nonlocal last_save, last_ia_upload
-        while (
-            not abort_event.is_set()
-            and not deadline_event.is_set()
-            and time.monotonic() < deadline
-        ):
+        while not abort_event.is_set() and not deadline_event.is_set():
             try:
                 entry = check_queue.get_nowait()
             except asyncio.QueueEmpty:
@@ -565,11 +561,7 @@ async def run_pipeline(
                 asyncio.create_task(_upload_manifest_background())
 
     async def download_worker(client: httpx.AsyncClient) -> None:
-        while (
-            not abort_event.is_set()
-            and not deadline_event.is_set()
-            and time.monotonic() < deadline
-        ):
+        while not abort_event.is_set() and not deadline_event.is_set():
             try:
                 entry = await asyncio.wait_for(download_queue.get(), timeout=1.0)
             except TimeoutError:
@@ -643,11 +635,7 @@ async def run_pipeline(
                 if not ok:
                     return
             seen = {f"{e.tribunal}/{e.date.isoformat()}" for e in backlog}
-            while (
-                not abort_event.is_set()
-                and not deadline_event.is_set()
-                and time.monotonic() < deadline
-            ):
+            while not abort_event.is_set() and not deadline_event.is_set():
                 if config.max_items and summary.downloads >= config.max_items:
                     return
                 entries = manifest.entries_needing_upload()

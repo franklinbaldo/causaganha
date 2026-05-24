@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import asyncio
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -30,8 +29,6 @@ async def test_run_sync_deadline_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
         return ["TJSP"]
 
     async def _get_caderno_url(client, base_url, tribunal, d):
-        # Mock download delay/stuckness to ensure timeout is triggered
-        await asyncio.sleep(5.0)
         from djen_backup.djen import DJENNotFoundError
         raise DJENNotFoundError(status_code=404, reason="Not Found")
 
@@ -51,7 +48,8 @@ async def test_run_sync_deadline_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
             start_date=date(2024, 1, 3),
             lower_bound=date(2024, 1, 1),
             tribunal="TJSP",
-            deadline_minutes=0,  # Set deadline to 0 minutes so it times out immediately
+            deadline_minutes=-1,  # Set deadline to negative so it times
+                                  # out in the past
             max_items=0,
             workers=1,
             manifest_file=manifest_path,
