@@ -2,20 +2,21 @@
 
 from __future__ import annotations
 
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import asyncio
 import os
 from dataclasses import dataclass
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
 
@@ -35,8 +36,12 @@ from rich.progress import (
 from rich.table import Table
 
 from djen_backup.credentials import get_ia_s3_auth
+from djen_backup.drain import PARQUET_URL
+from djen_backup.drain import drain as _drain
 from djen_backup.engine import SyncConfig, SyncSummary, load_djen_safe_concurrency, run_sync
 from djen_backup.manifest import ManifestCounts, SyncManifest
+from djen_backup.probe import PARQUET_URL as _PROBE_PARQUET_URL
+from djen_backup.probe import probe as _probe
 
 
 DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
@@ -124,11 +129,13 @@ class RichManifestObserver:
         v_unknown = self._vel(counts.unknown - self._start_unknown, elapsed_min)
 
         desc = (
-            f"[bold green]On IA: {counts.uploaded} ({counts.uploaded * 100 // t}%){v_uploaded}[/bold green]  "
+            f"[bold green]On IA: {counts.uploaded} "
+            f"({counts.uploaded * 100 // t}%){v_uploaded}[/bold green]  "
             f"[yellow]Pending: {counts.available}[/yellow]  "
             f"[dim]Absent: {counts.absent} ({counts.absent * 100 // t}%){v_absent}[/dim]  "
             f"[red]Unknown: {counts.unknown} ({counts.unknown * 100 // t}%){v_unknown}[/red]"
         )
+
         self.progress.update(
             self.main_task,
             description=desc,
@@ -436,15 +443,16 @@ def upload(
     deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
     max_items: int = typer.Option(0, help="Stop after N successful uploads."),
     workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
+    fail_fast: bool = typer.Option(True, help="Stop on first error."),  # noqa: FBT001, FBT003
+    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),  # noqa: FBT001, FBT003
 ) -> None:
     """Upload already-discovered available entries (backlog drain)."""
     _run_pipeline(
         PipelineRunConfig(
             start_date=date(2020, 1, 1),
-            end_date=date.today(),
+            end_date=datetime.now(UTC).date(),
             lower_bound=None,
+
             tribunal=tribunal,
             deadline_minutes=deadline_minutes,
             max_items=max_items,
@@ -467,12 +475,9 @@ def drain(
         14, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
     ),
     *,
-    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),
+    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),  # noqa: FBT003
 ) -> None:
     """Batched upload-only drain via remote sync-manifest.parquet (no full manifest load)."""
-    from djen_backup.drain import PARQUET_URL
-    from djen_backup.drain import drain as _drain
-
     env_result = _load_local_env()
     show_banner()
     _show_env_hint(env_result)
@@ -511,10 +516,70 @@ def drain(
 
 
 @app.command()
+def probe(
+    workers: int = typer.Option(20, "--workers", help="Concurrent probe workers (URL check only)."),
+    batch_size: int = typer.Option(500, "--batch-size", help="Pending entries fetched per batch."),
+    deadline_minutes: int = typer.Option(
+        13, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
+    ),
+    *,
+    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),  # noqa: FBT003
+) -> None:
+    """Probe DJEN availability for pending entries — no download, no IA upload.
+
+    Marks 404s as absent and found URLs as confirmed in a delta CSV uploaded
+    to IA. Run in parallel with ``drain`` for maximum throughput.
+    """
+    env_result = _load_local_env()
+    show_banner()
+    _show_env_hint(env_result)
+
+    resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
+    djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
+    auth = _resolve_ia_auth(dry_run=False)
+
+    config_table = Table.grid(padding=(0, 2))
+    config_table.add_column(style="bold cyan")
+    config_table.add_column()
+    config_table.add_row("Mode:", "[bold yellow]Probe (URL check only)[/bold yellow]")
+    config_table.add_row("Workers:", str(workers))
+    config_table.add_row("Batch size:", str(batch_size))
+    config_table.add_row("Deadline:", f"{deadline_minutes} min")
+    config_table.add_row("Parquet:", _PROBE_PARQUET_URL)
+    config_table.add_row("DJEN URL:", djen_url)
+    console.print(
+        Panel(
+            config_table,
+            title="[bold white]Probe Configuration[/bold white]",
+            border_style="yellow",
+        )
+    )
+
+
+    confirmed, absent = asyncio.run(
+        _probe(
+            workers=workers,
+            batch_size=batch_size,
+            deadline_seconds=deadline_minutes * 60,
+            djen_proxy_url=djen_url,
+            ia_auth=auth,
+        )
+    )
+    console.print(
+        Panel(
+            f"[bold green]Confirmed:[/bold green] {confirmed}  "
+            f"[bold red]Absent (404):[/bold red] {absent}",
+            border_style="yellow",
+        )
+    )
+
+
+@app.command()
 def reset(
     tribunal: str | None = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
     *,
-    reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),
+    reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),  # noqa: FBT003
+
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
@@ -533,7 +598,8 @@ def reset(
 
     # Reset entries by rebuilding without the targeted entries
     count = 0
-    for _k, entry in list(manifest._entries.items()):
+    for _k, entry in list(manifest._entries.items()):  # noqa: SLF001
+
         if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
             entry.ia_status = ""
             entry.djen_status = ""

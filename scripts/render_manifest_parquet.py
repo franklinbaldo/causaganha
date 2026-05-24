@@ -16,15 +16,15 @@ encoding on the high-cardinality `tribunal` column).
 
 from __future__ import annotations
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import asyncio
 import os
@@ -102,6 +102,7 @@ def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
     # Apply each delta: mark uploaded rows and absent (DJEN 404) rows
     merged_uploaded = 0
     merged_absent = 0
+    merged_confirmed = 0
     for url in delta_urls:
         try:
             delta_rows = con.execute(
@@ -121,10 +122,12 @@ def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
                 con.execute(
                     """
                     UPDATE manifest SET ia_status = 'uploaded', updated_at = ?
-                    WHERE tribunal = ? AND date = ? AND (ia_status IS NULL OR ia_status != 'uploaded')
+                    WHERE tribunal = ? AND date = ?
+                      AND (ia_status IS NULL OR ia_status != 'uploaded')
                     """,
                     [updated_at, tribunal, date],
                 )
+
                 merged_uploaded += 1
             elif djen_status == "absent":
                 con.execute(
@@ -137,9 +140,25 @@ def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
                     [updated_at, tribunal, date],
                 )
                 merged_absent += 1
+            elif djen_status == "confirmed":
+                con.execute(
+                    """
+                    UPDATE manifest SET djen_status = 'confirmed', updated_at = ?
+                    WHERE tribunal = ? AND date = ?
+                      AND djen_status = 'available'
+                    """,
+                    [updated_at, tribunal, date],
+                )
+                merged_confirmed += 1
 
     if delta_urls:
-        print(f"  merged {merged_uploaded} uploaded + {merged_absent} absent rows from {len(delta_urls)} delta file(s)")
+        print(
+            f"  merged {merged_uploaded} uploaded + "
+            f"{merged_absent} absent + "
+            f"{merged_confirmed} confirmed rows from "
+            f"{len(delta_urls)} delta file(s)"
+        )
+
 
     con.execute(f"COPY manifest TO '{LOCAL_PARQUET}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     return LOCAL_PARQUET

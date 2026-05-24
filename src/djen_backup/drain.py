@@ -39,28 +39,43 @@ log = structlog.get_logger()
 
 PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
 IA_DASHBOARD_ITEM = "causaganha-dashboard"
+_MIN_CSV_SIZE = 50
+
 
 
 def fetch_pending_batch(
     con: duckdb.DuckDBPyConnection, parquet_url: str, batch_size: int
 ) -> list[tuple[str, date]]:
-    """Fetch a random batch of pending (tribunal, date) pairs from the remote parquet."""
+    """Fetch a random batch of pending (tribunal, date) pairs from the remote parquet.
+
+    Prioritises ``djen_status='confirmed'`` entries (verified by probe) over
+    plain ``'available'`` entries so that probe output is consumed first and
+    no worker time is wasted on unverified items.
+    """
     rows = con.execute(
         f"""
         SELECT tribunal, date FROM read_parquet('{parquet_url}')
-        WHERE djen_status = 'available'
+        WHERE djen_status IN ('available', 'confirmed')
           AND (ia_status IS NULL OR ia_status != 'uploaded')
-        ORDER BY random()
+        ORDER BY
+            CASE WHEN djen_status = 'confirmed' THEN 0 ELSE 1 END,
+            random()
         LIMIT {batch_size}
         """
     ).fetchall()
     return [(r[0], r[1]) for r in rows]
 
 
+
 class DeltaWriter:
     """Append-only CSV of (tribunal, date, ia_status, djen_status, updated_at)."""
 
     def __init__(self, path: Path) -> None:
+        """Initialize the DeltaWriter.
+
+        Args:
+            path: Path to write the CSV to.
+        """
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.path.write_text("tribunal,date,ia_status,djen_status,updated_at\n", encoding="utf-8")
@@ -68,12 +83,15 @@ class DeltaWriter:
         self.absent_count = 0
         self._lock = asyncio.Lock()
 
+
     async def mark_uploaded(self, tribunal: str, d: date) -> None:
+        """Record a successful upload to Internet Archive."""
         ts = datetime.now(UTC).isoformat(timespec="seconds")
         async with self._lock:
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(f"{tribunal},{d.isoformat()},uploaded,,{ts}\n")
             self.count += 1
+
 
     async def mark_absent(self, tribunal: str, d: date) -> None:
         """Record a DJEN 404 so the parquet stops treating this entry as pending."""
@@ -158,12 +176,14 @@ async def _drain_worker(
 
 
 async def upload_delta(delta_path: Path, ia_auth: str) -> bool:
+    """Upload delta CSV to Internet Archive."""
     stat = await anyio.Path(delta_path).stat()
-    if stat.st_size <= 50:  # only header
+    if stat.st_size <= _MIN_CSV_SIZE:  # only header
         return False
     target = f"upload-deltas/{delta_path.name}"
     async with create_upload_client(ia_auth) as client:
         return await upload_to_ia(client, IA_DASHBOARD_ITEM, delta_path, target)
+
 
 
 async def drain(

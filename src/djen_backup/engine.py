@@ -240,7 +240,7 @@ async def _classify_djen_status(
         return str(exc.status_code)
     except DJENRateLimitedError:
         return "403"
-    except (httpx.TimeoutException, asyncio.TimeoutError) as exc:
+    except (TimeoutError, httpx.TimeoutException) as exc:
         log.warning(
             "djen_check_timeout",
             tribunal=tribunal,
