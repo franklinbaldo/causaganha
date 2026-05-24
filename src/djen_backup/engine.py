@@ -465,9 +465,12 @@ async def run_pipeline(
     djen_breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
 
     # Rate limit: 1 request/sec by default. Can be overridden via DJEN_RATE_LIMIT.
+    # NOTE: Evaluated at runtime per pipeline run.
     try:
-        _djen_max_rate = int(os.environ.get("DJEN_RATE_LIMIT", "1"))
+        _djen_raw = os.environ.get("DJEN_RATE_LIMIT", "1")
+        _djen_max_rate = int(_djen_raw)
     except ValueError:
+        log.warning("invalid_djen_rate_limit_env", raw=_djen_raw, fallback=1)
         _djen_max_rate = 1
     djen_limiter = AsyncLimiter(max_rate=_djen_max_rate, time_period=1)
 

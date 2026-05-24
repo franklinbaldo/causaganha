@@ -57,6 +57,8 @@ _item_locks_guard = asyncio.Lock()
 
 # Rate limit: ~1 upload / 2 s steady-state, burst of 4 by default.
 # Can be overridden via the IA_UPLOAD_RATE_LIMIT environment variable.
+# NOTE: This is initialized at module import time; changing the env var
+# mid-process will not take effect.
 try:
     _ia_max_rate = int(os.environ.get("IA_UPLOAD_RATE_LIMIT", "4"))
 except ValueError:
