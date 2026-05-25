@@ -24,16 +24,16 @@
     btn.dataset.bound = '1';
 
     function syncLabel() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'causaganhadark';
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       btn!.setAttribute('aria-label', isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro');
     }
 
     syncLabel();
 
     btn.addEventListener('click', () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'causaganhadark';
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const nextDark = !isDark;
-      document.documentElement.setAttribute('data-theme', nextDark ? 'causaganhadark' : 'causaganha');
+      document.documentElement.setAttribute('data-theme', nextDark ? 'dark' : 'light');
       localStorage.setItem('causaganha-theme', nextDark ? 'dark' : 'light');
       syncLabel();
     });
@@ -81,11 +81,11 @@
     display: inline;
   }
 
-  :root[data-theme='causaganhadark'] .theme-toggle-btn .icon-sun {
+  :root[data-theme='dark'] .theme-toggle-btn .icon-sun {
     display: inline;
   }
 
-  :root[data-theme='causaganhadark'] .theme-toggle-btn .icon-moon {
+  :root[data-theme='dark'] .theme-toggle-btn .icon-moon {
     display: none;
   }
 

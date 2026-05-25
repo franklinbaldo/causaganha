@@ -1,43 +1,89 @@
 /* ═══════════════════════════════════════════
    CausaGanha Dashboard — Global Styles
-   No CSS framework. Design tokens + vanilla CSS.
+   Built on Pico CSS + brand overrides.
    ═══════════════════════════════════════════ */
 
+@import '@picocss/pico/css/pico.css';
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
 /* ═══════════════════════════════════════════
-   CSS Reset (Modern Minimal)
-   ═══════════════════════════════════════════ */
-
-*, *::before, *::after { box-sizing: border-box; }
-
-* { margin: 0; }
-
-html { -webkit-text-size-adjust: 100%; }
-
-body {
-  line-height: 1.6;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-img, picture, video, canvas, svg { display: block; max-width: 100%; }
-
-input, button, textarea, select { font: inherit; }
-
-p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
-
-/* ═══════════════════════════════════════════
-   Design Tokens
+   Pico Variable Overrides — Brand Tokens (Light)
    ═══════════════════════════════════════════ */
 
 :root {
-  /* Font Stacks */
+  /* Fonts */
   --font-sans: 'Inter', system-ui, -apple-system, sans-serif;
   --font-serif: 'DM Serif Display', 'Georgia', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Typography Scale (1.25 ratio) */
+  /* Override Pico font stacks */
+  --pico-font-family-sans-serif: 'Inter', system-ui, -apple-system, sans-serif;
+  --pico-font-family-monospace: 'JetBrains Mono', ui-monospace, monospace;
+
+  /* Pico primary = brand green */
+  --pico-primary: #1A6B3C;
+  --pico-primary-background: #1A6B3C;
+  --pico-primary-border: #1A6B3C;
+  --pico-primary-underline: rgba(26, 107, 60, 0.5);
+  --pico-primary-hover: #155731;
+  --pico-primary-hover-background: #155731;
+  --pico-primary-hover-border: #155731;
+  --pico-primary-hover-underline: rgba(21, 87, 49, 0.5);
+  --pico-primary-focus: rgba(26, 107, 60, 0.25);
+  --pico-primary-inverse: #FAFAF5;
+
+  /* Pico secondary = muted gray */
+  --pico-secondary: #5C5C52;
+  --pico-secondary-background: #5C5C52;
+  --pico-secondary-border: #5C5C52;
+  --pico-secondary-underline: rgba(92, 92, 82, 0.5);
+  --pico-secondary-hover: #4A4A42;
+  --pico-secondary-hover-background: #4A4A42;
+  --pico-secondary-hover-border: #4A4A42;
+  --pico-secondary-focus: rgba(92, 92, 82, 0.25);
+  --pico-secondary-inverse: #FAFAF5;
+
+  /* Page surface */
+  --pico-background-color: #FAFAF5;
+  --pico-color: #1C1C1C;
+  --pico-muted-color: #8A8A7E;
+  --pico-muted-border-color: #E0DDD4;
+
+  /* Cards */
+  --pico-card-background-color: #ffffff;
+  --pico-card-border-color: #E0DDD4;
+  --pico-card-box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --pico-card-sectioning-background-color: #F2EFE8;
+
+  /* Border & radius */
+  --pico-border-radius: 0.75rem;
+  --pico-border-color: #E0DDD4;
+
+  /* Forms */
+  --pico-form-element-background-color: #ffffff;
+  --pico-form-element-border-color: #E0DDD4;
+  --pico-form-element-color: #1C1C1C;
+  --pico-form-element-active-border-color: #1A6B3C;
+  --pico-form-element-focus-color: rgba(26, 107, 60, 0.25);
+  --pico-form-element-placeholder-color: #8A8A7E;
+
+  /* Headings */
+  --pico-h1-color: #1C1C1C;
+  --pico-h2-color: #1C1C1C;
+  --pico-h3-color: #1C1C1C;
+  --pico-h4-color: #1C1C1C;
+
+  /* Code */
+  --pico-code-background-color: #F2EFE8;
+  --pico-code-color: #5C5C52;
+
+  /* Nav */
+  --pico-nav-element-spacing-vertical: 0.5rem;
+  --pico-nav-element-spacing-horizontal: 0.25rem;
+  --pico-nav-link-spacing-vertical: 0.375rem;
+  --pico-nav-link-spacing-horizontal: 0.625rem;
+
+  /* ── Our semantic tokens (used throughout components) ── */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -48,7 +94,6 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --font-size-3xl: 2.441rem;
   --font-size-4xl: 3.052rem;
 
-  /* Spacing Scale */
   --space-xs: 0.5rem;
   --space-sm: 1rem;
   --space-md: 1.5rem;
@@ -56,42 +101,32 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --space-xl: 4rem;
   --space-2xl: 6rem;
   --space-3xl: 8rem;
+  --space-1:  0.25rem;
+  --space-2:  0.5rem;
+  --space-3:  0.75rem;
+  --space-4:  1rem;
+  --space-6:  1.5rem;
+  --space-8:  2rem;
+  --space-10: 2.5rem;
+  --space-20: 5rem;
 
-  /* Numeric spacing aliases (used by Header and Footer components) */
-  --space-1:  0.25rem;   /* 4px  */
-  --space-2:  0.5rem;    /* 8px  */
-  --space-3:  0.75rem;   /* 12px */
-  --space-4:  1rem;      /* 16px */
-  --space-6:  1.5rem;    /* 24px */
-  --space-8:  2rem;      /* 32px */
-  --space-10: 2.5rem;    /* 40px */
-  --space-20: 5rem;      /* 80px */
-
-  /* Radii */
   --radius-sm: 0.375rem;
   --radius-box: 0.75rem;
   --radius-btn: 2rem;
   --radius-field: 2rem;
   --radius-full: 9999px;
 
-  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
-  /* Transitions */
   --transition-base: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-slow: 400ms cubic-bezier(0.25, 0.1, 0.25, 1);
 
-  /* ── Semantic Colors (Light Theme — Brazilian Modernist) ── */
-
-  /* Base surfaces */
   --color-base-100: #FAFAF5;
   --color-base-200: #F2EFE8;
   --color-base-300: #E0DDD4;
   --color-base-content: #1C1C1C;
-
-  /* Brand */
   --color-primary: #1A6B3C;
   --color-primary-hover: #155731;
   --color-primary-content: #FAFAF5;
@@ -101,8 +136,6 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-accent-content: #FAFAF5;
   --color-neutral: #1C1C1C;
   --color-neutral-content: #FAFAF5;
-
-  /* Feedback */
   --color-info: #1A6B5C;
   --color-info-content: #ffffff;
   --color-success: #1A6B3C;
@@ -111,8 +144,6 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-warning-content: #ffffff;
   --color-error: #C53030;
   --color-error-content: #ffffff;
-
-  /* Surface aliases */
   --color-bg: #FAFAF5;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
@@ -122,24 +153,64 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-content: #1C1C1C;
   --color-content-secondary: #5C5C52;
   --color-content-tertiary: #8A8A7E;
-
-  /* Accent alias */
   --accent-gold: #C5972C;
   --accent-gold-hover: #A67D1E;
-
-  /* Scrollbar */
   --color-scrollbar: rgba(140, 138, 126, 0.3);
   --color-scrollbar-hover: rgba(140, 138, 126, 0.5);
 }
 
-/* ── Dark Theme ── */
+/* ═══════════════════════════════════════════
+   Dark Theme — Pico uses [data-theme="dark"]
+   ═══════════════════════════════════════════ */
 
-[data-theme="causaganhadark"] {
+[data-theme="dark"] {
+  /* Pico overrides */
+  --pico-primary: #3DA568;
+  --pico-primary-background: #3DA568;
+  --pico-primary-border: #3DA568;
+  --pico-primary-underline: rgba(61, 165, 104, 0.5);
+  --pico-primary-hover: #2F8552;
+  --pico-primary-hover-background: #2F8552;
+  --pico-primary-hover-border: #2F8552;
+  --pico-primary-hover-underline: rgba(47, 133, 82, 0.5);
+  --pico-primary-focus: rgba(61, 165, 104, 0.25);
+  --pico-primary-inverse: #0F1A14;
+
+  --pico-secondary: #A8A89E;
+  --pico-secondary-background: #A8A89E;
+  --pico-secondary-border: #A8A89E;
+  --pico-secondary-hover: #8E8E84;
+  --pico-secondary-hover-background: #8E8E84;
+  --pico-secondary-inverse: #0F1A14;
+
+  --pico-background-color: #0F1A14;
+  --pico-color: #F2EFE8;
+  --pico-muted-color: #6E6E64;
+  --pico-muted-border-color: #2A3E2F;
+
+  --pico-card-background-color: #1A2E1F;
+  --pico-card-border-color: #3A4E3F;
+  --pico-card-sectioning-background-color: #2A3E2F;
+
+  --pico-form-element-background-color: #1A2E1F;
+  --pico-form-element-border-color: #3A4E3F;
+  --pico-form-element-color: #F2EFE8;
+  --pico-form-element-active-border-color: #3DA568;
+  --pico-form-element-placeholder-color: #6E6E64;
+
+  --pico-h1-color: #F2EFE8;
+  --pico-h2-color: #F2EFE8;
+  --pico-h3-color: #F2EFE8;
+  --pico-h4-color: #F2EFE8;
+
+  --pico-code-background-color: #1A2E1F;
+  --pico-code-color: #A8A89E;
+
+  /* Our semantic tokens */
   --color-base-100: #0F1A14;
   --color-base-200: #1A2E1F;
   --color-base-300: #2A3E2F;
   --color-base-content: #F2EFE8;
-
   --color-primary: #3DA568;
   --color-primary-hover: #2F8552;
   --color-primary-content: #0F1A14;
@@ -149,7 +220,6 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-accent-content: #0F1A14;
   --color-neutral: #F2EFE8;
   --color-neutral-content: #0F1A14;
-
   --color-info: #4DA58E;
   --color-info-content: #0F1A14;
   --color-success: #3DA568;
@@ -158,7 +228,6 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-warning-content: #0F1A14;
   --color-error: #E05555;
   --color-error-content: #0F1A14;
-
   --color-bg: #0F1A14;
   --color-surface: #1A2E1F;
   --color-surface-raised: #2A3E2F;
@@ -168,82 +237,56 @@ p, h1, h2, h3, h4, h5, h6 { overflow-wrap: break-word; }
   --color-content: #F2EFE8;
   --color-content-secondary: #A8A89E;
   --color-content-tertiary: #6E6E64;
-
   --accent-gold: #D4A843;
   --accent-gold-hover: #E0B850;
-
   --color-scrollbar: rgba(110, 110, 100, 0.3);
   --color-scrollbar-hover: rgba(110, 110, 100, 0.5);
 }
 
 /* ═══════════════════════════════════════════
-   Base Element Styles
+   Element Overrides (on top of Pico)
    ═══════════════════════════════════════════ */
-
-html {
-  font-family: var(--font-sans);
-  font-size: var(--font-size-base);
-  color: var(--color-base-content);
-  background: var(--color-base-100);
-}
 
 body {
   min-height: 100dvh;
-  background: var(--color-base-100);
-  color: var(--color-base-content);
 }
 
-a {
-  color: var(--color-primary);
-  text-decoration: none;
+/* Our sections handle their own spacing; remove Pico's block padding */
+body > main,
+body > footer {
+  padding-block: 0;
 }
 
-a:hover {
-  text-decoration: underline;
+/* Pico adds margin-bottom to sections — suppress it inside main */
+main > section {
+  margin-bottom: 0;
 }
 
-code, pre, kbd {
+/* DM Serif Display for h1 and h2 */
+h1, h2 {
+  font-family: var(--font-serif);
+  font-weight: 400;
+}
+
+h3, h4, h5, h6 {
+  font-family: var(--font-sans);
+}
+
+code, kbd {
   font-family: var(--font-mono);
 }
 
-pre {
-  overflow-x: auto;
-  padding: var(--space-sm);
-  background: var(--color-base-200);
-  border-radius: var(--radius-box);
-  font-size: var(--font-size-sm);
-}
+/* ═══════════════════════════════════════════
+   Scrollbar
+   ═══════════════════════════════════════════ */
 
-code {
-  font-size: 0.875em;
-  background: var(--color-base-200);
-  padding: 0.125rem 0.375rem;
-  border-radius: var(--radius-sm);
-}
-
-pre code {
-  background: none;
-  padding: 0;
-}
-
-h1, h2, h3, h4, h5, h6 {
-  line-height: 1.25;
-  font-weight: 700;
-}
-
-h1, h2 { font-family: var(--font-serif); font-weight: 400; }
-h3, h4, h5, h6 { font-family: var(--font-sans); }
-
-h1 { font-size: var(--font-size-3xl); }
-h2 { font-size: var(--font-size-2xl); }
-h3 { font-size: var(--font-size-xl); }
-h4 { font-size: var(--font-size-lg); }
-h5 { font-size: var(--font-size-md); }
-
-small { font-size: var(--font-size-sm); }
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: var(--radius-full); }
+::-webkit-scrollbar-thumb:hover { background: var(--color-scrollbar-hover); }
 
 /* ═══════════════════════════════════════════
-   Selection & Scrollbar
+   Selection
    ═══════════════════════════════════════════ */
 
 ::selection {
@@ -251,14 +294,9 @@ small { font-size: var(--font-size-sm); }
   color: var(--color-content);
 }
 
-[data-theme="causaganhadark"] ::selection {
+[data-theme="dark"] ::selection {
   background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
-
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--color-scrollbar); border-radius: var(--radius-full); }
-::-webkit-scrollbar-thumb:hover { background: var(--color-scrollbar-hover); }
 
 /* ═══════════════════════════════════════════
    Global Utility Classes
@@ -342,17 +380,17 @@ small { font-size: var(--font-size-sm); }
 
 .heatmap-outside { background: #F2EFE8; opacity: 0.3; }
 .heatmap-outside:hover { background: #E0DDD4; }
-[data-theme="causaganhadark"] .heatmap-outside { background: #2A3E2F; }
+[data-theme="dark"] .heatmap-outside { background: #2A3E2F; }
 
 .heatmap-missing { background: #E0DDD4; }
 .heatmap-missing:hover { background: #D0CDC4; }
-[data-theme="causaganhadark"] .heatmap-missing { background: #1A2E1F; }
-[data-theme="causaganhadark"] .heatmap-missing:hover { background: #2A3E2F; }
+[data-theme="dark"] .heatmap-missing { background: #1A2E1F; }
+[data-theme="dark"] .heatmap-missing:hover { background: #2A3E2F; }
 
 .heatmap-collected { background: var(--color-primary); box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.08); }
 .heatmap-collected:hover { background: var(--color-primary-hover); }
-[data-theme="causaganhadark"] .heatmap-collected { background: var(--color-primary); }
-[data-theme="causaganhadark"] .heatmap-collected:hover { background: var(--color-primary-hover); }
+[data-theme="dark"] .heatmap-collected { background: var(--color-primary); }
+[data-theme="dark"] .heatmap-collected:hover { background: var(--color-primary-hover); }
 
 .heatmap-absent { background: #C5972C; opacity: 0.9; }
 .heatmap-absent:hover { background: #A67D1E; }
@@ -433,11 +471,11 @@ small { font-size: var(--font-size-sm); }
   color: var(--color-content);
 }
 
-[data-theme="causaganhadark"] .reader-mode .reader-text mark.entity-party {
+[data-theme="dark"] .reader-mode .reader-text mark.entity-party {
   background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-[data-theme="causaganhadark"] .reader-mode .reader-text mark.entity-lawyer {
+[data-theme="dark"] .reader-mode .reader-text mark.entity-lawyer {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
 }
 
@@ -536,7 +574,7 @@ small { font-size: var(--font-size-sm); }
   color: var(--color-error-content, #fff);
 }
 
-/* Buttons */
+/* Buttons — override Pico's defaults with our pill style */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -600,9 +638,6 @@ small { font-size: var(--font-size-sm); }
    Focus Visibility (Keyboard / Switch Access)
    ═══════════════════════════════════════════ */
 
-/* In browsers that support :focus-visible, suppress the always-on ring
-   so it only appears during keyboard/switch navigation. Browsers without
-   support (older Safari, embedded WebViews) keep their default outline. */
 @supports selector(:focus-visible) {
   :focus { outline: none; }
 }
@@ -623,7 +658,6 @@ small { font-size: var(--font-size-sm); }
 
 /* ═══════════════════════════════════════════
    Reduced Motion (WCAG 2.3.3)
-   Honor the user's OS-level preference to minimize motion.
    ═══════════════════════════════════════════ */
 
 @media (prefers-reduced-motion: reduce) {

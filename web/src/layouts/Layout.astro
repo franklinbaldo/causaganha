@@ -58,7 +58,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         const saved = localStorage.getItem('causaganha-theme');
         const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
         const isDark = saved ? saved === 'dark' : prefersDark;
-        document.documentElement.setAttribute('data-theme', isDark ? 'causaganhadark' : 'causaganha');
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
       })();
     </script>
   </head>

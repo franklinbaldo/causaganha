@@ -22,6 +22,7 @@
     "@astrojs/svelte": "^7.2.5",
     "@duckdb/duckdb-wasm": "^1.33.1-dev20.0",
     "@observablehq/plot": "^0.6.0",
+    "@picocss/pico": "^2.1.1",
     "@tanstack/svelte-query": "^6.1.14",
     "astro": "^5.18.1",
     "dompurify": "^3.4.0",
