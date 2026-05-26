@@ -389,8 +389,6 @@ code, kbd {
 
 .heatmap-collected { background: var(--color-primary); box-shadow: inset 0 0 8px rgba(255, 255, 255, 0.08); }
 .heatmap-collected:hover { background: var(--color-primary-hover); }
-[data-theme="dark"] .heatmap-collected { background: var(--color-primary); }
-[data-theme="dark"] .heatmap-collected:hover { background: var(--color-primary-hover); }
 
 .heatmap-absent { background: #C5972C; opacity: 0.9; }
 .heatmap-absent:hover { background: #A67D1E; }
@@ -663,8 +661,6 @@ code, kbd {
   .btn-primary,
   .btn-outline-secondary,
   .hint-chip,
-  .menu a,
-  .menu summary,
   .drawer-menu a,
   .mode-tab-label,
   .tab-label {

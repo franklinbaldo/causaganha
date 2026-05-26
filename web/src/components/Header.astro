@@ -49,95 +49,71 @@ const recursosLinks = [
 ];
 
 const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isActive(l.href));
+
+const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
 ---
 
 {variant === 'home' ? (
   <header class="site-header">
     <nav class="container">
+      <!-- Left: brand -->
       <ul>
         <li><a href={BASE} class="brand-link">CausaGanha</a></li>
       </ul>
-      <ul class="desktop-nav">
+      <!-- Right: all controls; desktop-only/mobile-only applied per li -->
+      <ul>
         {primaryLinks.map(link => (
-          <li>
-            <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-              {link.label}
-            </a>
+          <li class="desktop-only">
+            <a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a>
           </li>
         ))}
-        <li>
+        <li class="desktop-only">
           <details class="dropdown nav-dropdown">
             <summary aria-haspopup="true" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
             <ul>
               {ferramentasLinks.map(link => (
-                <li>
-                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                    {link.label}
-                  </a>
-                </li>
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
               ))}
-              <li class="dropdown-divider" role="separator"></li>
+              <li role="separator" class="dropdown-divider" aria-hidden="true"></li>
               {recursosLinks.map(link => (
-                <li>
-                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                    {link.label}
-                  </a>
-                </li>
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
               ))}
             </ul>
           </details>
         </li>
-        <li class="widget-li">
+        <li class="desktop-only widget-li">
           <ActivePipelineStatus client:idle />
         </li>
-        <li>
+        <li class="desktop-only">
           <a href={BASE + 'publicacoes'} class="btn-enter">Entrar</a>
         </li>
         <li><ThemeToggle /></li>
-      </ul>
-      <!-- Mobile controls -->
-      <ul class="mobile-nav">
-        <li><ThemeToggle /></li>
-        <li>
+        <li class="mobile-only">
           <div class="drawer drawer-end">
-            <input id="mobile-drawer-home" type="checkbox" class="drawer-toggle" />
+            <input id={`mobile-drawer-${drawerIdSuffix}`} type="checkbox" class="drawer-toggle" />
             <div class="drawer-content">
-              <label for="mobile-drawer-home" class="btn-menu" aria-label="Abrir menu de navegação">
+              <label for={`mobile-drawer-${drawerIdSuffix}`} class="btn-menu" aria-label="Abrir menu de navegação">
                 <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                  <line x1="3" y1="12" x2="21" y2="12"></line>
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </label>
             </div>
             <div class="drawer-side">
-              <label for="mobile-drawer-home" aria-label="Fechar menu" class="drawer-overlay"></label>
+              <label for={`mobile-drawer-${drawerIdSuffix}`} aria-label="Fechar menu" class="drawer-overlay"></label>
               <ul class="drawer-menu">
                 <li class="menu-title">Principal</li>
                 {primaryLinks.map(link => (
-                  <li>
-                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                      {link.label}
-                    </a>
-                  </li>
+                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
                 ))}
-                <div class="divider-horizontal"></div>
+                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
                 <li class="menu-title">Ferramentas</li>
                 {ferramentasLinks.map(link => (
-                  <li>
-                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                      {link.label}
-                    </a>
-                  </li>
+                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
                 ))}
-                <div class="divider-horizontal"></div>
+                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
                 <li class="menu-title">Recursos</li>
                 {recursosLinks.map(link => (
-                  <li>
-                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                      {link.label}
-                    </a>
-                  </li>
+                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
                 ))}
               </ul>
             </div>
@@ -149,12 +125,11 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
 ) : (
   <header class="site-header page-header">
     <nav class="container">
+      <!-- Left: back/icon + title -->
       <ul>
         <li>
           {hasIconSlot ? (
-            <div class="icon-slot">
-              <slot name="icon" />
-            </div>
+            <div class="icon-slot"><slot name="icon" /></div>
           ) : tile ? (
             <a href={backHref} aria-label={backLabel} class="tile-icon-link">
               <img src={`${BASE}tiles/${tile}.svg`} alt="" width="40" height="40" class="tile-icon" aria-hidden="true" />
@@ -175,89 +150,59 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
           </div>
         </li>
       </ul>
-      <ul class="desktop-nav">
-        <li class="widget-li">
+      <!-- Right: controls -->
+      <ul>
+        <li class="desktop-only widget-li">
           <ActivePipelineStatus client:idle />
         </li>
         {primaryLinks.map(link => (
-          <li>
-            <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-              {link.label}
-            </a>
+          <li class="desktop-only">
+            <a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a>
           </li>
         ))}
-        <li>
+        <li class="desktop-only">
           <details class="dropdown nav-dropdown">
             <summary aria-haspopup="true" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
             <ul>
               {ferramentasLinks.map(link => (
-                <li>
-                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                    {link.label}
-                  </a>
-                </li>
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
               ))}
-              <li class="dropdown-divider" role="separator"></li>
+              <li role="separator" class="dropdown-divider" aria-hidden="true"></li>
               {recursosLinks.map(link => (
-                <li>
-                  <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                    {link.label}
-                  </a>
-                </li>
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
               ))}
             </ul>
           </details>
         </li>
         <li><ThemeToggle /></li>
-      </ul>
-      <!-- Mobile controls -->
-      <ul class="mobile-nav">
-        <li class="widget-li">
-          <ActivePipelineStatus client:idle />
-        </li>
-        <li><ThemeToggle /></li>
-        <li>
+        <li class="mobile-only">
           <div class="drawer drawer-end">
-            <input id="mobile-drawer-page" type="checkbox" class="drawer-toggle" />
+            <input id={`mobile-drawer-${drawerIdSuffix}`} type="checkbox" class="drawer-toggle" />
             <div class="drawer-content">
-              <label for="mobile-drawer-page" class="btn-menu" aria-label="Abrir menu de navegação">
+              <label for={`mobile-drawer-${drawerIdSuffix}`} class="btn-menu" aria-label="Abrir menu de navegação">
                 <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                  <line x1="3" y1="12" x2="21" y2="12"></line>
-                  <line x1="3" y1="6" x2="21" y2="6"></line>
-                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                  <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
                 </svg>
               </label>
             </div>
             <div class="drawer-side">
-              <label for="mobile-drawer-page" aria-label="Fechar menu" class="drawer-overlay"></label>
+              <label for={`mobile-drawer-${drawerIdSuffix}`} aria-label="Fechar menu" class="drawer-overlay"></label>
               <ul class="drawer-menu">
                 <li><a href={BASE}>Início</a></li>
-                <div class="divider-horizontal"></div>
+                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
                 <li class="menu-title">Principal</li>
                 {primaryLinks.map(link => (
-                  <li>
-                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                      {link.label}
-                    </a>
-                  </li>
+                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
                 ))}
-                <div class="divider-horizontal"></div>
+                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
                 <li class="menu-title">Ferramentas</li>
                 {ferramentasLinks.map(link => (
-                  <li>
-                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                      {link.label}
-                    </a>
-                  </li>
+                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
                 ))}
-                <div class="divider-horizontal"></div>
+                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
                 <li class="menu-title">Recursos</li>
                 {recursosLinks.map(link => (
-                  <li>
-                    <a href={link.href} class={isActive(link.href) ? 'active' : ''}>
-                      {link.label}
-                    </a>
-                  </li>
+                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
                 ))}
               </ul>
             </div>
@@ -269,12 +214,10 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
 )}
 
 <script>
-  // Close any open <details class="nav-dropdown"> on outside click or Escape.
   if (!(window as any).__navDropdownBound) {
     (window as any).__navDropdownBound = true;
     document.addEventListener('click', (e) => {
-      const target = e.target as Element | null;
-      const inside = target?.closest('details.nav-dropdown');
+      const inside = (e.target as Element | null)?.closest('details.nav-dropdown');
       document.querySelectorAll<HTMLDetailsElement>('details.nav-dropdown[open]').forEach(d => {
         if (d !== inside) d.open = false;
       });
@@ -290,14 +233,9 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
 </script>
 
 <style>
-  /* ── Site header wraps the nav ── */
   .site-header {
     background: var(--color-base-100);
     border-bottom: 1px solid var(--color-base-300);
-  }
-
-  /* Use Pico's own spacing variable to suppress block padding on the header */
-  .site-header {
     --pico-block-spacing-vertical: 0;
   }
 
@@ -306,17 +244,20 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     align-items: center;
   }
 
-  /* Override Pico's nav ul margin hacks — we want full control */
-  .site-header nav > ul:first-of-type {
-    margin-left: 0;
-    flex-shrink: 0;
+  /* Suppress Pico's auto-margin on first/last ul */
+  .site-header nav > ul:first-of-type { margin-left: 0; flex-shrink: 0; }
+  .site-header nav > ul:last-of-type  { margin-right: 0; }
+
+  /* Responsive visibility — scoped to avoid collisions */
+  .site-header nav li.desktop-only { display: none; }
+  .site-header nav li.mobile-only  { display: inline-flex; align-items: center; }
+
+  @media (min-width: 1024px) {
+    .site-header nav li.desktop-only { display: inline-block; }
+    .site-header nav li.mobile-only  { display: none; }
   }
 
-  .site-header nav > ul:last-of-type {
-    margin-right: 0;
-  }
-
-  /* Brand link */
+  /* Brand */
   .brand-link {
     font-family: var(--font-serif);
     font-size: var(--font-size-lg);
@@ -326,19 +267,12 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-sm);
   }
-
-  .brand-link:hover {
-    background: var(--color-base-200);
-    text-decoration: none;
-  }
+  .brand-link:hover { background: var(--color-base-200); text-decoration: none; }
 
   /* Active nav link */
-  nav a.active {
-    font-weight: 600;
-    background: var(--color-base-200);
-  }
+  nav a.active { font-weight: 600; background: var(--color-base-200); }
 
-  /* Enter button (pill CTA in home nav) */
+  /* Enter button */
   .btn-enter {
     padding: 0.4rem 1.25rem;
     font-size: var(--font-size-sm);
@@ -347,47 +281,18 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     background: var(--color-primary);
     color: var(--color-primary-content);
     text-decoration: none;
-    border: none;
-    cursor: pointer;
     transition: background var(--transition-base);
   }
-
-  .btn-enter:hover,
-  .btn-enter:focus-visible {
+  .btn-enter:hover, .btn-enter:focus-visible {
     background: var(--color-primary-hover);
     color: var(--color-primary-content);
     text-decoration: none;
   }
 
-  /* Desktop/mobile nav visibility — higher specificity beats Pico's nav ul rule */
-  .site-header nav > ul.desktop-nav {
-    display: none;
-    margin-right: 0;
-  }
+  /* Widget li */
+  .widget-li { white-space: nowrap; flex-shrink: 0; }
 
-  .site-header nav > ul.mobile-nav {
-    display: flex;
-    align-items: center;
-    margin-right: 0;
-  }
-
-  @media (min-width: 1024px) {
-    .site-header nav > ul.desktop-nav {
-      display: flex;
-    }
-
-    .site-header nav > ul.mobile-nav {
-      display: none;
-    }
-  }
-
-  /* Widget inline in nav */
-  .widget-li {
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  /* Nav dropdown — override Pico's form-like default summary with a link-like one */
+  /* Nav dropdown — override Pico's form-like summary with link-like style */
   .nav-dropdown > summary {
     display: inline-flex;
     align-items: center;
@@ -397,40 +302,28 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     background: none;
     border: none;
     color: var(--color-base-content);
-    font-size: inherit;
     cursor: pointer;
     height: auto;
   }
-
   .nav-dropdown > summary::after {
     content: "";
+    display: inline-block;
     width: 0.5rem;
     height: 0.5rem;
     border-right: 1.5px solid currentColor;
     border-bottom: 1.5px solid currentColor;
     transform: translateY(-2px) rotate(45deg);
     opacity: 0.6;
-    transition: transform var(--transition-base, 0.15s ease);
-    display: inline-block;
+    transition: transform var(--transition-base);
     float: none;
     margin-inline-start: 0;
   }
-
-  .nav-dropdown[open] > summary::after {
-    transform: translateY(1px) rotate(225deg);
-  }
-
+  .nav-dropdown[open] > summary::after { transform: translateY(1px) rotate(225deg); }
   .nav-dropdown > summary:hover,
-  .nav-dropdown > summary:focus-visible {
-    background: var(--color-base-200);
-  }
+  .nav-dropdown > summary:focus-visible { background: var(--color-base-200); }
+  .nav-dropdown > summary.active { background: var(--color-base-200); font-weight: 600; }
 
-  .nav-dropdown > summary.active {
-    background: var(--color-base-200);
-    font-weight: 600;
-  }
-
-  /* Dropdown menu */
+  /* Dropdown list */
   .nav-dropdown > ul {
     right: 0;
     left: auto;
@@ -441,7 +334,6 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     box-shadow: var(--shadow-lg);
     padding: var(--space-2);
   }
-
   .nav-dropdown > ul li a {
     display: block;
     padding: var(--space-2) var(--space-3);
@@ -450,69 +342,39 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     text-decoration: none;
     color: var(--color-base-content);
   }
-
-  .nav-dropdown > ul li a:hover {
-    background: var(--color-base-200);
-  }
+  .nav-dropdown > ul li a:hover { background: var(--color-base-200); }
 
   .dropdown-divider {
     height: 1px;
     background: var(--color-base-300);
     margin: var(--space-1) 0;
     padding: 0;
-    list-style: none;
   }
 
-  /* Drawer (mobile off-canvas) */
-  .drawer {
-    position: relative;
-    width: auto;
-  }
-
-  .drawer-toggle {
-    display: none;
-  }
-
+  /* Drawer */
+  .drawer { position: relative; width: auto; }
+  .drawer-toggle { display: none; }
   .drawer-side {
-    position: fixed;
-    inset: 0;
-    z-index: 99;
+    position: fixed; inset: 0; z-index: 99;
     transform: translateX(100%);
-    transition: transform var(--transition-base, 0.2s ease);
+    transition: transform var(--transition-base);
     pointer-events: none;
   }
-
-  .drawer-toggle:checked ~ .drawer-side {
-    transform: translateX(0);
-    pointer-events: auto;
-  }
-
+  .drawer-toggle:checked ~ .drawer-side { transform: translateX(0); pointer-events: auto; }
   .drawer-overlay {
-    position: fixed;
-    inset: 0;
+    position: fixed; inset: 0;
     background: rgba(0, 0, 0, 0.5);
-    cursor: pointer;
-    display: block;
+    cursor: pointer; display: block;
   }
-
   .drawer-menu {
-    position: fixed;
-    top: 0;
-    right: 0;
-    bottom: 0;
+    position: fixed; top: 0; right: 0; bottom: 0;
     width: 20rem;
     background: var(--color-base-200);
-    min-height: 100%;
     padding: var(--space-4);
     list-style: none;
-    display: flex;
-    flex-direction: column;
-    gap: var(--space-1);
-    overflow-y: auto;
-    z-index: 1;
-    margin: 0;
+    display: flex; flex-direction: column; gap: var(--space-1);
+    overflow-y: auto; z-index: 1; margin: 0;
   }
-
   .drawer-menu a {
     padding: var(--space-2) var(--space-3);
     border-radius: var(--radius-btn);
@@ -521,23 +383,22 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     color: var(--color-base-content);
     display: block;
   }
-
-  .drawer-menu a:hover {
-    background: var(--color-base-300);
-  }
-
+  .drawer-menu a:hover     { background: var(--color-base-300); }
+  .drawer-menu a.active    { background: var(--color-base-300); font-weight: 600; }
   .drawer-menu a:focus-visible {
     background: var(--color-base-300);
     outline: 2px solid var(--color-primary);
     outline-offset: 2px;
   }
 
-  .drawer-menu a.active {
+  .drawer-divider {
+    height: 1px;
     background: var(--color-base-300);
-    font-weight: 600;
+    margin: var(--space-2) 0;
+    padding: 0;
+    list-style: none;
   }
 
-  /* Menu section titles */
   .menu-title {
     font-size: var(--font-size-xs);
     font-weight: 600;
@@ -548,66 +409,36 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     list-style: none;
   }
 
-  .divider-horizontal {
-    height: 1px;
-    background: var(--color-base-300);
-    margin: var(--space-2) 0;
-  }
-
-  /* Burger menu button */
+  /* Burger button */
   .btn-menu {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 3rem;
-    height: 3rem;
-    background: transparent;
-    border: none;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 3rem; height: 3rem;
+    background: transparent; border: none;
     border-radius: var(--radius-btn);
-    cursor: pointer;
-    color: var(--color-base-content);
+    cursor: pointer; color: var(--color-base-content);
   }
-
-  .btn-menu:hover {
-    background: var(--color-base-200);
-  }
-
+  .btn-menu:hover { background: var(--color-base-200); }
   .btn-menu:focus-visible {
     background: var(--color-base-200);
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+    outline: 2px solid var(--color-primary); outline-offset: 2px;
   }
 
   /* Back button */
   .btn-back {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
+    display: inline-flex; align-items: center; justify-content: center;
     padding: var(--space-1) var(--space-2);
-    background: transparent;
-    border: none;
+    background: transparent; border: none;
     border-radius: var(--radius-btn);
-    cursor: pointer;
-    color: var(--color-base-content);
-    text-decoration: none;
+    cursor: pointer; color: var(--color-base-content); text-decoration: none;
+  }
+  .btn-back:hover { background: var(--color-base-200); }
+  .btn-back:focus-visible {
+    background: var(--color-base-200);
+    outline: 2px solid var(--color-primary); outline-offset: 2px;
   }
 
   @media (pointer: coarse) {
-    .btn-back,
-    .btn-menu {
-      min-width: 44px;
-      min-height: 44px;
-    }
-  }
-
-  .btn-back:hover {
-    background: var(--color-base-200);
-  }
-
-  .btn-back:focus-visible {
-    background: var(--color-base-200);
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+    .btn-back, .btn-menu { min-width: 44px; min-height: 44px; }
   }
 
   /* Page header variant */
@@ -617,48 +448,27 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
   }
 
   .icon-slot {
-    width: 2.5rem;
-    height: 2.5rem;
-    flex-shrink: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+    width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
   }
 
   .tile-icon-link {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: var(--radius-sm);
-    overflow: hidden;
-    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0;
     transition: opacity var(--transition-base);
   }
+  .tile-icon-link:hover { opacity: 0.7; }
+  .tile-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); }
 
-  .tile-icon-link:hover {
-    opacity: 0.7;
-  }
-
-  .tile-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: var(--radius-sm);
-  }
-
-  .title-li {
-    flex: 1;
-  }
-
-  .title-group {
-    display: flex;
-    flex-direction: column;
-  }
+  .title-li { flex: 1; }
+  .title-group { display: flex; flex-direction: column; }
 
   .page-title {
     font-size: var(--font-size-2xl);
     font-family: var(--font-serif);
     font-weight: 400;
     line-height: 1.25;
+    margin: 0;
   }
 
   .page-subtitle {
@@ -669,8 +479,6 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     margin: 0;
   }
 
-  /* Override Pico's nav padding/margin on li */
-  .site-header nav li {
-    padding: 0;
-  }
+  /* Pico sets nav li padding — reset it in our header */
+  .site-header nav li { padding: 0; }
 </style>
