@@ -174,7 +174,7 @@
   {#if loading}
     <div class="table-responsive" aria-busy="true">
       <p role="status" class="sr-only">Carregando resultados da busca…</p>
-      <table class="data-table" aria-hidden="true">
+      <table class="striped" aria-hidden="true">
         <thead>
           <tr>
             <th>Tribunal</th><th>Ano</th><th>Arquivos</th><th>Tamanho</th><th>Downloads</th><th>Ação</th>
@@ -198,7 +198,7 @@
   {#if results.length > 0}
     <div>
       <div class="table-responsive">
-        <table class="data-table">
+        <table class="striped">
           <thead>
             <tr>
               <th>Tribunal</th>

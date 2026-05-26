@@ -110,7 +110,7 @@ const snapVolumeLabel = snapGB === 0
       <details open>
         <summary><code>comunicacoes.parquet</code> — Intimações e comunicações judiciais</summary>
         <div class="table-responsive">
-            <table class="data-table">
+            <table class="striped">
               <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
               <tbody>
                 <tr><td>id</td><td>string</td><td>UUID da comunicação (hash de id + tribunal)</td></tr>
@@ -128,7 +128,7 @@ const snapVolumeLabel = snapGB === 0
       <details>
         <summary><code>advogados.parquet</code> — Advogados identificados por OAB</summary>
         <div class="table-responsive">
-            <table class="data-table">
+            <table class="striped">
               <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
               <tbody>
                 <tr><td>id</td><td>string</td><td>UUID global (hash de OAB+UF ou nome+tribunal)</td></tr>
@@ -144,7 +144,7 @@ const snapVolumeLabel = snapGB === 0
       <details>
         <summary><code>classificacoes.parquet</code> — Classificação de resultado</summary>
         <div class="table-responsive">
-            <table class="data-table">
+            <table class="striped">
               <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
               <tbody>
                 <tr><td>texto_id</td><td>string</td><td>FK para textos.id</td></tr>
@@ -162,7 +162,7 @@ const snapVolumeLabel = snapGB === 0
       <details>
         <summary><code>processos.parquet</code> — Índice de atividade processual</summary>
         <div class="table-responsive">
-            <table class="data-table">
+            <table class="striped">
               <thead><tr><th>Campo</th><th>Tipo</th><th>Descrição</th></tr></thead>
               <tbody>
                 <tr><td>numero_processo</td><td>string</td><td>Número CNJ</td></tr>

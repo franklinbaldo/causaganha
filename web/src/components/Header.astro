@@ -68,9 +68,9 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
           </li>
         ))}
         <li class="desktop-only">
-          <details class="dropdown nav-dropdown">
-            <summary aria-haspopup="true" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
-            <ul>
+          <details role="list">
+            <summary aria-haspopup="listbox" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
+            <ul role="listbox">
               {ferramentasLinks.map(link => (
                 <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
               ))}
@@ -85,39 +85,34 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
           <ActivePipelineStatus client:idle />
         </li>
         <li class="desktop-only">
-          <a href={BASE + 'publicacoes'} class="btn-enter">Entrar</a>
+          <a href={BASE + 'publicacoes'} role="button" class="btn-enter">Entrar</a>
         </li>
         <li><ThemeToggle /></li>
         <li class="mobile-only">
-          <div class="drawer drawer-end">
-            <input id={`mobile-drawer-${drawerIdSuffix}`} type="checkbox" class="drawer-toggle" />
-            <div class="drawer-content">
-              <label for={`mobile-drawer-${drawerIdSuffix}`} class="btn-menu" aria-label="Abrir menu de navegação">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                  <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              </label>
-            </div>
-            <div class="drawer-side">
-              <label for={`mobile-drawer-${drawerIdSuffix}`} aria-label="Fechar menu" class="drawer-overlay"></label>
-              <ul class="drawer-menu">
-                <li class="menu-title">Principal</li>
-                {primaryLinks.map(link => (
-                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
-                ))}
-                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
-                <li class="menu-title">Ferramentas</li>
-                {ferramentasLinks.map(link => (
-                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
-                ))}
-                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
-                <li class="menu-title">Recursos</li>
-                {recursosLinks.map(link => (
-                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <button class="btn-menu" aria-label="Abrir menu de navegação" aria-haspopup="dialog"
+            onclick={`document.getElementById('nav-drawer-${drawerIdSuffix}').showModal()`}>
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <dialog id={`nav-drawer-${drawerIdSuffix}`} class="nav-drawer">
+            <ul>
+              <li class="menu-title">Principal</li>
+              {primaryLinks.map(link => (
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
+              ))}
+              <li role="separator" class="drawer-divider" aria-hidden="true"></li>
+              <li class="menu-title">Ferramentas</li>
+              {ferramentasLinks.map(link => (
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
+              ))}
+              <li role="separator" class="drawer-divider" aria-hidden="true"></li>
+              <li class="menu-title">Recursos</li>
+              {recursosLinks.map(link => (
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
+              ))}
+            </ul>
+          </dialog>
         </li>
       </ul>
     </nav>
@@ -161,9 +156,9 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
           </li>
         ))}
         <li class="desktop-only">
-          <details class="dropdown nav-dropdown">
-            <summary aria-haspopup="true" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
-            <ul>
+          <details role="list">
+            <summary aria-haspopup="listbox" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
+            <ul role="listbox">
               {ferramentasLinks.map(link => (
                 <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
               ))}
@@ -176,37 +171,32 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
         </li>
         <li><ThemeToggle /></li>
         <li class="mobile-only">
-          <div class="drawer drawer-end">
-            <input id={`mobile-drawer-${drawerIdSuffix}`} type="checkbox" class="drawer-toggle" />
-            <div class="drawer-content">
-              <label for={`mobile-drawer-${drawerIdSuffix}`} class="btn-menu" aria-label="Abrir menu de navegação">
-                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
-                  <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
-                </svg>
-              </label>
-            </div>
-            <div class="drawer-side">
-              <label for={`mobile-drawer-${drawerIdSuffix}`} aria-label="Fechar menu" class="drawer-overlay"></label>
-              <ul class="drawer-menu">
-                <li><a href={BASE}>Início</a></li>
-                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
-                <li class="menu-title">Principal</li>
-                {primaryLinks.map(link => (
-                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
-                ))}
-                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
-                <li class="menu-title">Ferramentas</li>
-                {ferramentasLinks.map(link => (
-                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
-                ))}
-                <li role="separator" class="drawer-divider" aria-hidden="true"></li>
-                <li class="menu-title">Recursos</li>
-                {recursosLinks.map(link => (
-                  <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
-                ))}
-              </ul>
-            </div>
-          </div>
+          <button class="btn-menu" aria-label="Abrir menu de navegação" aria-haspopup="dialog"
+            onclick={`document.getElementById('nav-drawer-${drawerIdSuffix}').showModal()`}>
+            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
+              <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
+            </svg>
+          </button>
+          <dialog id={`nav-drawer-${drawerIdSuffix}`} class="nav-drawer">
+            <ul>
+              <li><a href={BASE}>Início</a></li>
+              <li role="separator" class="drawer-divider" aria-hidden="true"></li>
+              <li class="menu-title">Principal</li>
+              {primaryLinks.map(link => (
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
+              ))}
+              <li role="separator" class="drawer-divider" aria-hidden="true"></li>
+              <li class="menu-title">Ferramentas</li>
+              {ferramentasLinks.map(link => (
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
+              ))}
+              <li role="separator" class="drawer-divider" aria-hidden="true"></li>
+              <li class="menu-title">Recursos</li>
+              {recursosLinks.map(link => (
+                <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
+              ))}
+            </ul>
+          </dialog>
         </li>
       </ul>
     </nav>
@@ -214,20 +204,43 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
 )}
 
 <script>
-  if (!(window as any).__navDropdownBound) {
-    (window as any).__navDropdownBound = true;
+  function setupNavHandlers() {
+    // Close details[role="list"] dropdowns on outside click
     document.addEventListener('click', (e) => {
-      const inside = (e.target as Element | null)?.closest('details.nav-dropdown');
-      document.querySelectorAll<HTMLDetailsElement>('details.nav-dropdown[open]').forEach(d => {
+      const inside = (e.target as Element | null)?.closest('details[role="list"]');
+      document.querySelectorAll<HTMLDetailsElement>('details[role="list"][open]').forEach(d => {
         if (d !== inside) d.open = false;
       });
     });
+
+    // Close details[role="list"] on Escape (dialog handles its own Escape natively)
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      const open = document.querySelector<HTMLDetailsElement>('details.nav-dropdown[open]');
+      const open = document.querySelector<HTMLDetailsElement>('details[role="list"][open]');
       if (!open) return;
       open.open = false;
       open.querySelector<HTMLElement>('summary')?.focus();
     });
+
+    // Close nav-drawer dialog on backdrop click
+    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close();
+      });
+    });
   }
+
+  if (!(window as any).__navHandlersBound) {
+    (window as any).__navHandlersBound = true;
+    setupNavHandlers();
+  }
+
+  // Re-bind dialog backdrop clicks after Astro view transitions
+  document.addEventListener('astro:page-load', () => {
+    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close();
+      });
+    });
+  });
 </script>

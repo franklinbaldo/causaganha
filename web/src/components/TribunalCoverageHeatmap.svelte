@@ -60,7 +60,7 @@
     {#key `${selectedYear}-${selectedMonth}`}
       <div transition:fade={{ duration: 120 }}>
         <div class="table-wrap">
-          <table class="data-table">
+          <table class="striped">
             <thead>
               <tr>
                 <th>Data</th>

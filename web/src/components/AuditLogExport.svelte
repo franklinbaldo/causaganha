@@ -94,7 +94,7 @@
 
 <article>
   <h2>Export Audit Log (CSV)</h2>
-  <p class="subtitle">
+  <p>
     Export pipeline history directly from the catalog's manifest.parquet.
   </p>
 
