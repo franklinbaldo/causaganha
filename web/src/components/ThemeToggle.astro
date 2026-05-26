@@ -2,7 +2,6 @@
 ---
 
 <button
-  id="theme-toggle"
   class="theme-toggle-btn"
   type="button"
   aria-label="Alternar tema"
@@ -17,37 +16,36 @@
 </button>
 
 <script>
-  function setupThemeToggle() {
-    const btn = document.getElementById('theme-toggle');
-    if (!btn) return;
-    if (btn.dataset.bound === '1') return;
-    btn.dataset.bound = '1';
+  // Bind all .theme-toggle-btn instances on the page (desktop + mobile nav
+  // both render a copy, so we query all of them rather than using getElementById).
+  function setupThemeToggles() {
+    document.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn:not([data-bound])').forEach(btn => {
+      btn.dataset.bound = '1';
 
-    function systemPrefersDark(): boolean {
-      return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-    }
+      function isDark(): boolean {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+      }
 
-    function currentlyDark(): boolean {
-      const theme = document.documentElement.getAttribute('data-theme');
-      return theme === 'dark' || (theme === 'auto' && systemPrefersDark());
-    }
+      function syncLabel() {
+        btn.setAttribute('aria-label', isDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+      }
 
-    function syncLabel() {
-      btn!.setAttribute('aria-label', currentlyDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro');
-    }
-
-    syncLabel();
-
-    btn.addEventListener('click', () => {
-      const nextDark = !currentlyDark();
-      document.documentElement.setAttribute('data-theme', nextDark ? 'dark' : 'light');
-      localStorage.setItem('causaganha-theme', nextDark ? 'dark' : 'light');
       syncLabel();
+
+      btn.addEventListener('click', () => {
+        const next = !isDark();
+        document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+        localStorage.setItem('causaganha-theme', next ? 'dark' : 'light');
+        // Sync labels on all instances after any toggle
+        document.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn').forEach(b => {
+          b.setAttribute('aria-label', next ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+        });
+      });
     });
   }
 
-  setupThemeToggle();
-  document.addEventListener('astro:after-swap', setupThemeToggle);
+  setupThemeToggles();
+  document.addEventListener('astro:after-swap', setupThemeToggles);
 </script>
 
 <style>
@@ -83,15 +81,8 @@
   .theme-toggle-btn .icon-sun  { display: none; }
   .theme-toggle-btn .icon-moon { display: inline; }
 
-  /* Explicit dark theme */
   :root[data-theme='dark'] .theme-toggle-btn .icon-sun  { display: inline; }
   :root[data-theme='dark'] .theme-toggle-btn .icon-moon { display: none; }
-
-  /* Auto mode: follow system preference via CSS — no JS needed */
-  @media (prefers-color-scheme: dark) {
-    :root[data-theme='auto'] .theme-toggle-btn .icon-sun  { display: inline; }
-    :root[data-theme='auto'] .theme-toggle-btn .icon-moon { display: none; }
-  }
 
   /* WCAG 2.5.5 — 44×44 minimum hit area on touch devices. */
   @media (pointer: coarse) {
