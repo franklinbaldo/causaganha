@@ -128,9 +128,8 @@
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
-  /* Transitions — set to 0 so no motion */
-  --transition-base: 0ms;
-  --transition-slow: 0ms;
+  --transition-base: 150ms;
+  --transition-slow: 300ms;
 
   /* ── Colors: aliased to Pico where direct equivalent exists ── */
   --color-primary:         var(--pico-primary);
@@ -385,31 +384,12 @@ mark[data-tone='error']   { background: color-mix(in srgb, var(--color-error)   
   gap: 0.75rem;
 }
 
-/* ── Data table utility ── */
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
+/* Global table overrides — font-size and hover (Pico handles structure/striping) */
+table {
   font-size: var(--font-size-sm);
 }
 
-.data-table th,
-.data-table td {
-  padding: 0.5rem 0.75rem;
-  text-align: left;
-  border-bottom: 1px solid var(--color-base-200);
-}
-
-.data-table thead th {
-  font-weight: 600;
-  border-bottom: 2px solid var(--color-base-300);
-  background: transparent;
-}
-
-.data-table tbody tr:nth-child(even) {
-  background: var(--color-base-200);
-}
-
-.data-table tbody tr:hover {
+table tbody tr:hover {
   background: color-mix(in srgb, var(--color-primary) 4%, transparent);
 }
 
@@ -585,7 +565,7 @@ mark[data-tone='error']   { background: color-mix(in srgb, var(--color-error)   
   button,
   [role="button"],
   .hint-chip,
-  .drawer-menu a,
+  dialog.nav-drawer a,
   .mode-tab-label,
   .tab-label {
     min-height: 44px;
@@ -710,75 +690,29 @@ mark[data-tone='error']   { background: color-mix(in srgb, var(--color-error)   
 /* Active nav link */
 nav a.active { font-weight: 600; background: var(--color-base-200); }
 
-/* Enter button */
+/* Enter button — Pico handles a[role="button"] colors; only pill shape is custom */
 .btn-enter {
   padding: 0.4rem 1.25rem;
-  font-size: var(--font-size-sm);
-  font-weight: 600;
   border-radius: var(--radius-full);
-  background: var(--color-primary);
-  color: var(--color-primary-content);
-  text-decoration: none;
-}
-.btn-enter:hover, .btn-enter:focus-visible {
-  background: var(--color-primary-hover);
-  color: var(--color-primary-content);
-  text-decoration: none;
+  font-size: var(--font-size-sm);
 }
 
 /* Widget li */
 .widget-li { white-space: nowrap; flex-shrink: 0; }
 
-/* Nav dropdown */
-.nav-dropdown > summary {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.3rem;
-  padding: var(--pico-nav-link-spacing-vertical) var(--pico-nav-link-spacing-horizontal);
-  border-radius: var(--pico-border-radius);
-  background: none;
-  border: none;
-  color: var(--color-base-content);
-  cursor: pointer;
-  height: auto;
-}
-.nav-dropdown > summary::after {
-  content: "";
-  display: inline-block;
-  width: 0.5rem;
-  height: 0.5rem;
-  border-right: 1.5px solid currentColor;
-  border-bottom: 1.5px solid currentColor;
-  transform: translateY(-2px) rotate(45deg);
-  opacity: 0.6;
-  float: none;
-  margin-inline-start: 0;
-}
-.nav-dropdown[open] > summary::after { transform: translateY(1px) rotate(225deg); }
-.nav-dropdown > summary:hover,
-.nav-dropdown > summary:focus-visible { background: var(--color-base-200); }
-.nav-dropdown > summary.active { background: var(--color-base-200); font-weight: 600; }
-
-/* Dropdown list */
-.nav-dropdown > ul {
+/* Nav dropdown — Pico handles details[role="list"] positioning natively */
+nav details[role="list"] > ul[role="listbox"] {
   right: 0;
   left: auto;
   min-width: 160px;
-  background: var(--color-base-100);
-  border: 1px solid var(--color-base-300);
-  border-radius: 0 0 var(--radius-btn) var(--radius-btn);
-  box-shadow: var(--shadow-lg);
-  padding: var(--space-2);
 }
-.nav-dropdown > ul li a {
-  display: block;
-  padding: var(--space-2) var(--space-3);
+
+nav details[role="list"] > ul[role="listbox"] a {
   border-radius: var(--radius-btn);
   font-size: var(--font-size-sm);
-  text-decoration: none;
-  color: var(--color-base-content);
 }
-.nav-dropdown > ul li a:hover { background: var(--color-base-200); }
+
+nav details[role="list"] > summary.active { background: var(--color-base-200); font-weight: 600; }
 
 .dropdown-divider {
   height: 1px;
@@ -787,40 +721,44 @@ nav a.active { font-weight: 600; background: var(--color-base-200); }
   padding: 0;
 }
 
-/* Drawer */
-.drawer { position: relative; width: auto; }
-.drawer-toggle { display: none; }
-.drawer-side {
-  position: fixed; inset: 0; z-index: 99;
-  transform: translateX(100%);
-  pointer-events: none;
-}
-.drawer-toggle:checked ~ .drawer-side { transform: translateX(0); pointer-events: auto; }
-.drawer-overlay {
-  position: fixed; inset: 0;
-  background: rgba(0, 0, 0, 0.5);
-  cursor: pointer; display: block;
-}
-.drawer-menu {
-  position: fixed; top: 0; right: 0; bottom: 0;
+/* Mobile nav drawer — native <dialog> positioned as right-side sheet;
+   Pico handles ::backdrop and focus-trap via showModal() */
+dialog.nav-drawer {
+  position: fixed;
+  right: 0;
+  left: auto;
+  top: 0;
+  bottom: 0;
   width: 20rem;
-  background: var(--color-base-200);
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
   padding: var(--space-4);
-  list-style: none;
-  display: flex; flex-direction: column; gap: var(--space-1);
-  overflow-y: auto; z-index: 1; margin: 0;
+  border-radius: var(--pico-border-radius) 0 0 var(--pico-border-radius);
+  overflow-y: auto;
 }
-.drawer-menu a {
+
+dialog.nav-drawer > ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+dialog.nav-drawer a {
+  display: block;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-btn);
   font-size: var(--font-size-sm);
   text-decoration: none;
   color: var(--color-base-content);
-  display: block;
 }
-.drawer-menu a:hover     { background: var(--color-base-300); }
-.drawer-menu a.active    { background: var(--color-base-300); font-weight: 600; }
-.drawer-menu a:focus-visible {
+
+dialog.nav-drawer a:hover     { background: var(--color-base-300); }
+dialog.nav-drawer a.active    { background: var(--color-base-300); font-weight: 600; }
+dialog.nav-drawer a:focus-visible {
   background: var(--color-base-300);
   outline: 2px solid var(--color-primary);
   outline-offset: 2px;
@@ -830,7 +768,6 @@ nav a.active { font-weight: 600; background: var(--color-base-200); }
   height: 1px;
   background: var(--color-base-300);
   margin: var(--space-2) 0;
-  padding: 0;
   list-style: none;
 }
 
@@ -973,28 +910,6 @@ nav a.active { font-weight: 600; background: var(--color-base-200); }
   margin: 0;
 }
 
-/* ═══════════════════════════════════════════
-   StatCard
-   ═══════════════════════════════════════════ */
-
-/* StatCard uses Pico's <article> — these classes style the inner elements */
-.label {
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
-  opacity: 0.6;
-  display: block;
-}
-
-.value {
-  font-size: 1.5rem;
-  font-weight: 700;
-  display: block;
-}
-
-.subtitle {
-  opacity: 0.6;
-  display: block;
-}
 
 /* ═══════════════════════════════════════════
    Theme Toggle

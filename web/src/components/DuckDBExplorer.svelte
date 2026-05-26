@@ -239,7 +239,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
 
   {#if result && result.rows.length > 0}
     <div class="table-responsive">
-      <table class="data-table">
+      <table class="striped">
         <thead>
           <tr>
             {#each result.columns as col}

@@ -46,7 +46,7 @@ const sorted = $derived.by(() => {
 </script>
 
 <div class="table-responsive">
-  <table class="data-table">
+  <table class="striped">
     <thead>
       <tr>
         <th role="button" onclick={() => handleSort('tribunal')}>
