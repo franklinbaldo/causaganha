@@ -51,6 +51,7 @@ class CircuitBreaker:
         self._failure_count = 0
         self._state = CircuitState.CLOSED
         self._opened_at = 0.0
+        self.was_opened = False
         self._lock = threading.Lock()
 
     @property
@@ -115,6 +116,7 @@ class CircuitBreaker:
                 self._recovery_timeout = min(self._recovery_timeout * 2, 300.0)
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
+                self.was_opened = True
                 log.warning(
                     "circuit_breaker_reopen",
                     next_retry_s=self._recovery_timeout,
@@ -122,6 +124,7 @@ class CircuitBreaker:
             elif self._failure_count >= self._threshold and not was_open:
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
+                self.was_opened = True
                 log.error(
                     "circuit_breaker_open",
                     failures=self._failure_count,

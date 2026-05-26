@@ -688,6 +688,15 @@ async def run_pipeline(
             with contextlib.suppress(asyncio.CancelledError):
                 await monitor_task
 
+            if circuit_breaker.was_opened:
+                log.warning(
+                    "pipeline_completed_with_throttling",
+                    reason=(
+                        "Circuit breaker opened during the run due to "
+                        "S3/WAF saturation. Performance was throttled."
+                    ),
+                )
+
 
 async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
     summary = SyncSummary()

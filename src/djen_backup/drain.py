@@ -42,7 +42,6 @@ IA_DASHBOARD_ITEM = "causaganha-dashboard"
 _MIN_CSV_SIZE = 50
 
 
-
 def fetch_pending_batch(
     con: duckdb.DuckDBPyConnection, parquet_url: str, batch_size: int
 ) -> list[tuple[str, date]]:
@@ -66,7 +65,6 @@ def fetch_pending_batch(
     return [(r[0], r[1]) for r in rows]
 
 
-
 class DeltaWriter:
     """Append-only CSV of (tribunal, date, ia_status, djen_status, updated_at)."""
 
@@ -83,7 +81,6 @@ class DeltaWriter:
         self.absent_count = 0
         self._lock = asyncio.Lock()
 
-
     async def mark_uploaded(self, tribunal: str, d: date) -> None:
         """Record a successful upload to Internet Archive."""
         ts = datetime.now(UTC).isoformat(timespec="seconds")
@@ -91,7 +88,6 @@ class DeltaWriter:
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(f"{tribunal},{d.isoformat()},uploaded,,{ts}\n")
             self.count += 1
-
 
     async def mark_absent(self, tribunal: str, d: date) -> None:
         """Record a DJEN 404 so the parquet stops treating this entry as pending."""
@@ -185,7 +181,6 @@ async def upload_delta(delta_path: Path, ia_auth: str) -> bool:
         return await upload_to_ia(client, IA_DASHBOARD_ITEM, delta_path, target)
 
 
-
 async def drain(
     *,
     workers: int,
@@ -252,6 +247,15 @@ async def drain(
         absent_marked=delta_writer.absent_count,
         delta=str(delta_path),
     )
+
+    if breaker.was_opened:
+        log.warning(
+            "drain_completed_with_throttling",
+            reason=(
+                "Circuit breaker opened during the run due to "
+                "S3/WAF saturation. Performance was throttled."
+            ),
+        )
 
     if delta_writer.count > 0:
         try:

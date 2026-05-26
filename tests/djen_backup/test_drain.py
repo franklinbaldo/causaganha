@@ -36,7 +36,7 @@ async def test_delta_writer_appends_rows(tmp_path: Path) -> None:
     await writer.mark_uploaded("TJBA", date(2024, 1, 3))
 
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == "tribunal,date,ia_status,updated_at"
+    assert lines[0] == "tribunal,date,ia_status,djen_status,updated_at"
     assert len(lines) == 3
     assert lines[1].startswith("TJSP,2024-01-02,uploaded,")
     assert lines[2].startswith("TJBA,2024-01-03,uploaded,")
