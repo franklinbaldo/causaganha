@@ -66,11 +66,11 @@
     }
   }
 
-  function coverageColor(pct: number): string {
-    if (pct >= 80) return 'text-success';
-    if (pct >= 40) return 'text-warning';
-    if (pct > 0) return 'text-error';
-    return 'text-base-content/30';
+  function coverageTone(pct: number): string {
+    if (pct >= 80) return 'success';
+    if (pct >= 40) return 'warning';
+    if (pct > 0) return 'error';
+    return 'muted';
   }
 
   async function fetchSummary() {
@@ -91,105 +91,89 @@
 </script>
 
 {#if loading}
-  <div class="flex justify-center p-8">
-    <span class="loading loading-spinner loading-lg"></span>
-  </div>
+  <p aria-busy="true">Carregando manifesto...</p>
 {:else if error}
-  <div class="alert alert-error">Erro ao carregar manifesto: {error}</div>
+  <aside role="alert" class="alert">Erro ao carregar manifesto: {error}</aside>
 {:else if data}
-  <!-- Totals -->
-  <div class="stats stats-vertical lg:stats-horizontal shadow w-full mb-6">
-    <div class="stat">
-      <div class="stat-title">Total</div>
-      <div class="stat-value text-2xl">{data.totals.total.toLocaleString('pt-BR')}</div>
-      <div class="stat-desc">datas x tribunais</div>
-    </div>
-    <div class="stat">
-      <div class="stat-title">No IA</div>
-      <div class="stat-value text-2xl text-success">{data.totals.uploaded.toLocaleString('pt-BR')}</div>
-      <div class="stat-desc">{data.totals.coverage_pct}% cobertura</div>
-    </div>
-    <div class="stat">
-      <div class="stat-title">Pendente</div>
-      <div class="stat-value text-2xl text-warning">{data.totals.available.toLocaleString('pt-BR')}</div>
-      <div class="stat-desc">aguardando upload</div>
-    </div>
-    <div class="stat">
-      <div class="stat-title">Ausente</div>
-      <div class="stat-value text-2xl text-base-content/50">{data.totals.absent.toLocaleString('pt-BR')}</div>
-      <div class="stat-desc">sem publicação</div>
-    </div>
-    <div class="stat">
-      <div class="stat-title">Desconhecido</div>
-      <div class="stat-value text-2xl text-error">{data.totals.unknown.toLocaleString('pt-BR')}</div>
-      <div class="stat-desc">não verificado</div>
-    </div>
+  <div class="totals-grid">
+    <article>
+      <small>Total</small>
+      <strong>{data.totals.total.toLocaleString('pt-BR')}</strong>
+      <small>datas × tribunais</small>
+    </article>
+    <article>
+      <small>No IA</small>
+      <strong data-tone="success">{data.totals.uploaded.toLocaleString('pt-BR')}</strong>
+      <small>{data.totals.coverage_pct}% cobertura</small>
+    </article>
+    <article>
+      <small>Pendente</small>
+      <strong data-tone="warning">{data.totals.available.toLocaleString('pt-BR')}</strong>
+      <small>aguardando upload</small>
+    </article>
+    <article>
+      <small>Ausente</small>
+      <strong class="muted">{data.totals.absent.toLocaleString('pt-BR')}</strong>
+      <small>sem publicação</small>
+    </article>
+    <article>
+      <small>Desconhecido</small>
+      <strong data-tone="error">{data.totals.unknown.toLocaleString('pt-BR')}</strong>
+      <small>não verificado</small>
+    </article>
   </div>
 
-  <div class="text-xs opacity-50 mb-4">
-    Atualizado: {new Date(data.generated_at).toLocaleString('pt-BR')}
-  </div>
+  <small class="updated-at">Atualizado: {new Date(data.generated_at).toLocaleString('pt-BR')}</small>
 
-  <!-- Tab selector -->
-  <div role="tablist" class="tabs tabs-boxed mb-4">
-    <button type="button" role="tab" aria-selected={view === 'tribunals'} class="tab" class:tab-active={view === 'tribunals'} onclick={() => view = 'tribunals'}>
+  <nav class="tab-nav" aria-label="Visualização">
+    <button type="button" aria-pressed={view === 'tribunals'} onclick={() => view = 'tribunals'}>
       Por Tribunal ({data.tribunals.length})
     </button>
-    <button type="button" role="tab" aria-selected={view === 'years'} class="tab" class:tab-active={view === 'years'} onclick={() => view = 'years'}>
+    <button type="button" aria-pressed={view === 'years'} onclick={() => view = 'years'}>
       Por Ano ({data.years.length})
     </button>
-  </div>
+  </nav>
 
   {#if view === 'tribunals'}
-    <div class="overflow-x-auto">
-      <table class="table table-zebra table-sm w-full">
+    <div class="table-wrap">
+      <table>
         <thead>
           <tr>
-            <th class="cursor-pointer" onclick={() => sortBy('tribunal')}>
+            <th><button type="button" class="sort-btn" onclick={() => sortBy('tribunal')}>
               Tribunal {sortKey === 'tribunal' ? (sortAsc ? '▲' : '▼') : ''}
-            </th>
-            <th class="cursor-pointer text-right" onclick={() => sortBy('uploaded')}>
+            </button></th>
+            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('uploaded')}>
               No IA {sortKey === 'uploaded' ? (sortAsc ? '▲' : '▼') : ''}
-            </th>
-            <th class="cursor-pointer text-right" onclick={() => sortBy('absent')}>
+            </button></th>
+            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('absent')}>
               Ausente {sortKey === 'absent' ? (sortAsc ? '▲' : '▼') : ''}
-            </th>
-            <th class="cursor-pointer text-right" onclick={() => sortBy('unknown')}>
+            </button></th>
+            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('unknown')}>
               ? {sortKey === 'unknown' ? (sortAsc ? '▲' : '▼') : ''}
-            </th>
-            <th class="cursor-pointer text-right" onclick={() => sortBy('coverage_pct')}>
+            </button></th>
+            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('coverage_pct')}>
               Cobertura {sortKey === 'coverage_pct' ? (sortAsc ? '▲' : '▼') : ''}
-            </th>
+            </button></th>
             <th>Período</th>
           </tr>
         </thead>
         <tbody>
           {#each sortedTribunals as t}
             <tr>
-              <td class="font-bold">{t.tribunal}</td>
-              <td class="text-right font-mono">{t.uploaded}</td>
-              <td class="text-right font-mono text-base-content/50">{t.absent}</td>
-              <td class="text-right font-mono text-error">{t.unknown || ''}</td>
-              <td class="text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <progress
-                    class="progress w-20"
-                    class:progress-success={t.coverage_pct >= 80}
-                    class:progress-warning={t.coverage_pct >= 40 && t.coverage_pct < 80}
-                    class:progress-error={t.coverage_pct > 0 && t.coverage_pct < 40}
-                    value={t.coverage_pct}
-                    max="100"
-                  ></progress>
-                  <span class="text-xs font-medium w-12 text-right {coverageColor(t.coverage_pct)}">
-                    {t.coverage_pct}%
-                  </span>
-                </div>
+              <td><strong>{t.tribunal}</strong></td>
+              <td class="num mono">{t.uploaded}</td>
+              <td class="num mono muted">{t.absent}</td>
+              <td class="num mono" data-tone={t.unknown ? 'error' : undefined}>{t.unknown || ''}</td>
+              <td class="num">
+                <progress value={t.coverage_pct} max="100" data-tone={coverageTone(t.coverage_pct)}
+                  aria-label="{t.tribunal}: {t.coverage_pct}%"></progress>
+                <span data-tone={coverageTone(t.coverage_pct)}>{t.coverage_pct}%</span>
               </td>
-              <td class="text-xs opacity-70">
+              <td class="period">
                 {#if t.earliest_upload}
                   {t.earliest_upload} → {t.latest_upload}
                 {:else}
-                  <span class="opacity-30">—</span>
+                  <span class="muted">—</span>
                 {/if}
               </td>
             </tr>
@@ -198,40 +182,30 @@
       </table>
     </div>
   {:else}
-    <div class="overflow-x-auto">
-      <table class="table table-zebra table-sm w-full">
+    <div class="table-wrap">
+      <table>
         <thead>
           <tr>
             <th>Ano</th>
-            <th class="text-right">No IA</th>
-            <th class="text-right">Ausente</th>
-            <th class="text-right">Desconhecido</th>
-            <th class="text-right">Total</th>
-            <th class="text-right">Cobertura</th>
+            <th class="num">No IA</th>
+            <th class="num">Ausente</th>
+            <th class="num">Desconhecido</th>
+            <th class="num">Total</th>
+            <th class="num">Cobertura</th>
           </tr>
         </thead>
         <tbody>
           {#each data.years as y}
             <tr>
-              <td class="font-bold">{y.year}</td>
-              <td class="text-right font-mono text-success">{y.uploaded.toLocaleString('pt-BR')}</td>
-              <td class="text-right font-mono text-base-content/50">{y.absent.toLocaleString('pt-BR')}</td>
-              <td class="text-right font-mono text-error">{y.unknown.toLocaleString('pt-BR')}</td>
-              <td class="text-right font-mono">{y.total.toLocaleString('pt-BR')}</td>
-              <td class="text-right">
-                <div class="flex items-center justify-end gap-2">
-                  <progress
-                    class="progress w-20"
-                    class:progress-success={y.coverage_pct >= 80}
-                    class:progress-warning={y.coverage_pct >= 40 && y.coverage_pct < 80}
-                    class:progress-error={y.coverage_pct > 0 && y.coverage_pct < 40}
-                    value={y.coverage_pct}
-                    max="100"
-                  ></progress>
-                  <span class="text-xs font-medium w-12 text-right {coverageColor(y.coverage_pct)}">
-                    {y.coverage_pct}%
-                  </span>
-                </div>
+              <td><strong>{y.year}</strong></td>
+              <td class="num mono" data-tone="success">{y.uploaded.toLocaleString('pt-BR')}</td>
+              <td class="num mono muted">{y.absent.toLocaleString('pt-BR')}</td>
+              <td class="num mono" data-tone="error">{y.unknown.toLocaleString('pt-BR')}</td>
+              <td class="num mono">{y.total.toLocaleString('pt-BR')}</td>
+              <td class="num">
+                <progress value={y.coverage_pct} max="100" data-tone={coverageTone(y.coverage_pct)}
+                  aria-label="{y.year}: {y.coverage_pct}%"></progress>
+                <span data-tone={coverageTone(y.coverage_pct)}>{y.coverage_pct}%</span>
               </td>
             </tr>
           {/each}
@@ -240,3 +214,94 @@
     </div>
   {/if}
 {/if}
+
+<style>
+  .totals-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .totals-grid article {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    text-align: center;
+  }
+
+  .totals-grid strong {
+    font-size: 1.5rem;
+  }
+
+  .updated-at {
+    display: block;
+    opacity: 0.5;
+    margin-bottom: 1rem;
+  }
+
+  .tab-nav {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1rem;
+  }
+
+  .tab-nav button {
+    font-size: var(--font-size-sm);
+    padding: 0.4rem 1rem;
+  }
+
+  .tab-nav button[aria-pressed='false'] {
+    background: transparent;
+    color: inherit;
+    border-color: var(--pico-muted-border-color);
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .sort-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: pointer;
+    color: inherit;
+    font-weight: 600;
+  }
+
+  .num {
+    text-align: right;
+  }
+
+  .num progress {
+    width: 5rem;
+    vertical-align: middle;
+  }
+
+  .num span {
+    display: inline-block;
+    width: 3rem;
+    text-align: right;
+    font-size: var(--font-size-xs);
+    vertical-align: middle;
+  }
+
+  .mono { font-family: var(--font-mono); }
+  .muted { opacity: 0.4; }
+  .period { font-size: var(--font-size-xs); opacity: 0.7; }
+
+  .alert {
+    padding: 0.75rem 1rem;
+    border-radius: var(--pico-border-radius);
+    border: 1px solid var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    color: var(--color-error);
+  }
+
+  [data-tone='success'] { color: var(--color-success); accent-color: var(--color-success); }
+  [data-tone='warning'] { color: var(--color-warning); accent-color: var(--color-warning); }
+  [data-tone='error']   { color: var(--color-error);   accent-color: var(--color-error); }
+  [data-tone='muted']   { opacity: 0.3; }
+</style>

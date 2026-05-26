@@ -17,57 +17,96 @@
   });
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
-  <div class="card-body">
-    <h2 class="card-title text-xl mb-4">Omission Cost</h2>
+<article>
+  <header>
+    <h2>Omission Cost</h2>
+  </header>
 
-    {#if !omissionStats}
-      <div class="text-center py-4 opacity-70" aria-busy="true">
-        Carregando dados...
+  {#if !omissionStats}
+    <p aria-busy="true">Carregando dados...</p>
+  {:else}
+    <div class="layout">
+      <div class="global-stat">
+        <small>Global Omission Cost</small>
+        <strong class="cost">{globalOmissionCost}</strong>
+        <small>Dias úteis perdidos (sem .zip ou .absent)</small>
       </div>
-    {:else}
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <!-- Global Stats -->
-        <div class="md:col-span-1 flex flex-col justify-center items-center p-6 bg-base-200 rounded-lg">
-          <span class="text-sm uppercase tracking-wider opacity-70 mb-2">Global Omission Cost</span>
-          <span class="text-5xl font-bold text-error">{globalOmissionCost}</span>
-          <span class="text-xs opacity-50 mt-4">Dias úteis perdidos (sem .zip ou .absent)</span>
-        </div>
 
-        <!-- Ranked Tribunals Table -->
-        <div class="md:col-span-2">
-          <div class="table-responsive" style="max-height: 400px; overflow-y: auto;">
-            <table class="table table-zebra table-sm w-full">
-              <thead class="sticky top-0 bg-base-100 z-10">
-                <tr>
-                  <th class="text-left w-12">#</th>
-                  <th class="text-left">Tribunal</th>
-                  <th class="text-right">Dias Omitidos</th>
-                  <th class="w-24"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each rankedTribunals() as {tribunal, count}, i}
-                  <tr>
-                    <td class="opacity-50">{i + 1}</td>
-                    <td class="font-medium">{tribunal}</td>
-                    <td class="text-right font-mono">{count}</td>
-                    <td>
-                      <!-- Simple bar chart visualization -->
-                      <div class="w-full bg-base-200 rounded-full h-2">
-                        <div
-                          class="bg-error h-2 rounded-full"
-                          style="width: {Math.min(100, Math.max(1, (count / (rankedTribunals()[0]?.count || 1)) * 100))}%"
-                        ></div>
-                      </div>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Tribunal</th>
+              <th>Dias Omitidos</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each rankedTribunals() as {tribunal, count}, i}
+              <tr>
+                <td><small>{i + 1}</small></td>
+                <td>{tribunal}</td>
+                <td><kbd>{count}</kbd></td>
+                <td>
+                  <progress
+                    value={count}
+                    max={rankedTribunals()[0]?.count || 1}
+                    aria-label="{tribunal}: {count} dias omitidos"
+                  ></progress>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       </div>
-    {/if}
-  </div>
-</div>
+    </div>
+  {/if}
+</article>
+
+<style>
+  header {
+    background: none;
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+
+  h2 { margin: 0; }
+
+  .layout {
+    display: grid;
+    grid-template-columns: 1fr 2fr;
+    gap: 1.5rem;
+  }
+
+  @media (max-width: 640px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .global-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    text-align: center;
+    background: var(--color-base-200);
+    border-radius: var(--pico-border-radius);
+    padding: 1.5rem;
+  }
+
+  .cost {
+    font-size: 3rem;
+    color: var(--color-error);
+  }
+
+  .table-wrap {
+    max-height: 400px;
+    overflow-y: auto;
+  }
+
+  progress {
+    width: 100%;
+    height: 0.5rem;
+  }
+</style>

@@ -16,26 +16,17 @@ const dateRange = earliestYear && latestYear
   : (latestDate || null);
 ---
 
-<article class="card">
-  <div class="card-body">
-    <h3 class="card-title">{tribunal}</h3>
-    {dateRange && <p class="date-range">{dateRange}</p>}
-    <p class="meta">{zipCount.toLocaleString('pt-BR')} ZIPs arquivados</p>
-    <div class="card-actions">
-      <a href={href} class="btn">Abrir tribunal</a>
-    </div>
-  </div>
+<article>
+  <h3>{tribunal}</h3>
+  {dateRange && <p class="date-range">{dateRange}</p>}
+  <p><small>{zipCount.toLocaleString('pt-BR')} ZIPs arquivados</small></p>
+  <footer>
+    <a href={href} role="button" class="secondary">Abrir tribunal</a>
+  </footer>
 </article>
 
 <style>
-  .card-body {
-    display: flex;
-    flex-direction: column;
-    gap: 0.75rem;
-  }
-
-  .card-title {
-    font-weight: 600;
+  h3 {
     margin: 0;
   }
 
@@ -43,15 +34,17 @@ const dateRange = earliestYear && latestYear
     font-size: var(--font-size-lg);
     font-weight: 600;
     opacity: 0.85;
+    margin: 0;
   }
 
-  .meta {
-    font-size: var(--font-size-sm);
+  small {
     opacity: 0.6;
   }
 
-  .card-actions {
+  footer {
     display: flex;
     justify-content: flex-end;
+    background: none;
+    padding: 0;
   }
 </style>

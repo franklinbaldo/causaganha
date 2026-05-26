@@ -70,10 +70,10 @@
     {:else if isPipelineActive}
       <div class="live-indicator">
         <span class="cg-pulse dot-pulse"></span>
-        <span class="status-text font-bold text-success">Ao Vivo</span>
+        <strong class="status-text live">Ao Vivo</strong>
       </div>
       {#if activeTribunal}
-        <span class="tribunal-badge badge badge-primary">{activeTribunal}</span>
+        <mark class="tribunal-badge">{activeTribunal}</mark>
       {/if}
     {:else}
       <span class="status-text muted">Sistema Ocioso</span>
@@ -111,12 +111,8 @@
     font-weight: 500;
   }
 
-  .font-bold {
-    font-weight: 700;
-  }
-
-  .text-success {
-    color: var(--color-success, #22c55e);
+  .live {
+    color: var(--color-success);
   }
 
   .muted {

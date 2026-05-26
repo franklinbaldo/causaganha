@@ -2,10 +2,7 @@
   let { data = null }: { data: any } = $props();
 
   const tribunals = $derived(data?.tribunals || []);
-
-  // Filter for non-active states (Paused or Stopped)
   const pausedTribunals = $derived(tribunals.filter((t: any) => t.state === 'Paused' || t.state === 'Stopped'));
-
   const updatedAt = $derived(data?.updated_at ? new Date(data.updated_at).toLocaleString('pt-BR') : 'N/A');
 
   function getDaysSinceDate(dateStr: string | null) {
@@ -14,10 +11,8 @@
       const pastDate = new Date(dateStr);
       if (isNaN(pastDate.getTime())) return 'Inválido';
       const today = new Date();
-      // Set hours to 0 to compare just dates
       today.setHours(0, 0, 0, 0);
       pastDate.setHours(0, 0, 0, 0);
-
       const diffTime = Math.abs(today.getTime() - pastDate.getTime());
       const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
       return `${diffDays} dia(s)`;
@@ -33,48 +28,83 @@
   }
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
-  <div class="card-body p-6">
-    <div class="flex justify-between items-center mb-4">
-      <h2 class="card-title text-xl">Tribunais Pausados ou Parados ({pausedTribunals.length})</h2>
-      <span class="text-xs opacity-70">Atualizado: {updatedAt}</span>
-    </div>
+<article>
+  <header>
+    <h2>Tribunais Pausados ou Parados ({pausedTribunals.length})</h2>
+    <small>Atualizado: {updatedAt}</small>
+  </header>
 
-    {#if pausedTribunals.length === 0}
-      <div class="alert alert-success">Todos os tribunais estão ativos! Não há tribunais pausados ou parados no momento.</div>
-    {:else}
-      <div class="table-responsive">
-        <table class="table table-zebra w-full">
-          <thead>
+  {#if pausedTribunals.length === 0}
+    <p>Todos os tribunais estão ativos! Não há tribunais pausados ou parados no momento.</p>
+  {:else}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Tribunal</th>
+            <th>Status Atual</th>
+            <th>Mensagem de Erro</th>
+            <th>Último Sucesso</th>
+            <th>Data do Cursor</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each pausedTribunals as t}
             <tr>
-              <th>Tribunal</th>
-              <th>Status Atual</th>
-              <th>Mensagem de Erro</th>
-              <th>Último Sucesso</th>
-              <th>Data do Cursor</th>
+              <td><strong>{t.tribunal}</strong></td>
+              <td>
+                {#if t.state === 'Paused'}
+                  <mark class="tone-warning">Pausado</mark>
+                {:else if t.state === 'Stopped'}
+                  <mark class="tone-error">Parado</mark>
+                {:else}
+                  <mark>{t.state}</mark>
+                {/if}
+              </td>
+              <td class="error-msg">{getErrorMessage(t.last_result)}</td>
+              <td>
+                {t.last_hit_date || 'Desconhecido'}
+                <br><small>({getDaysSinceDate(t.last_hit_date)})</small>
+              </td>
+              <td><kbd>{t.cursor_date || 'N/A'}</kbd></td>
             </tr>
-          </thead>
-          <tbody>
-            {#each pausedTribunals as t}
-              <tr>
-                <td class="font-bold">{t.tribunal}</td>
-                <td>
-                  {#if t.state === 'Paused'}
-                    <span class="badge badge-warning badge-sm">Pausado</span>
-                  {:else if t.state === 'Stopped'}
-                    <span class="badge badge-error badge-sm">Parado</span>
-                  {:else}
-                    <span class="badge badge-ghost badge-sm">{t.state}</span>
-                  {/if}
-                </td>
-                <td class="text-sm opacity-90 text-error">{getErrorMessage(t.last_result)}</td>
-                <td class="text-sm">{t.last_hit_date || 'Desconhecido'} <br><span class="text-xs opacity-60">({getDaysSinceDate(t.last_hit_date)})</span></td>
-                <td class="font-mono text-sm">{t.cursor_date || 'N/A'}</td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </div>
-</div>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</article>
+
+<style>
+  header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: none;
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+
+  h2 {
+    margin: 0;
+  }
+
+  .table-wrap {
+    overflow-x: auto;
+  }
+
+  .error-msg {
+    color: var(--color-error);
+    font-size: var(--font-size-sm);
+  }
+
+  mark.tone-warning {
+    background: color-mix(in srgb, var(--color-warning) 20%, transparent);
+    color: var(--color-warning);
+  }
+
+  mark.tone-error {
+    background: color-mix(in srgb, var(--color-error) 20%, transparent);
+    color: var(--color-error);
+  }
+</style>

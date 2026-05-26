@@ -7,52 +7,36 @@ interface Props {
 }
 
 const { title, value, subtitle, tone = 'default' } = Astro.props;
-
-const toneClass = {
-  default: 'tone-default',
-  success: 'tone-success',
-  warning: 'tone-warning',
-  info: 'tone-info',
-}[tone];
 ---
 
-<div class="card">
-  <div class="card-body">
-    <small class="card-title">{title}</small>
-    <strong class={`card-value ${toneClass}`}>{value}</strong>
-    {subtitle && <small class="card-subtitle">{subtitle}</small>}
-  </div>
-</div>
+<article>
+  <small class="label">{title}</small>
+  <strong class="value" data-tone={tone}>{value}</strong>
+  {subtitle && <small class="subtitle">{subtitle}</small>}
+</article>
 
 <style>
+  article {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
 
-  .card-title {
+  .label {
     text-transform: uppercase;
     letter-spacing: 0.05em;
     opacity: 0.6;
   }
 
-  .card-value {
+  .value {
     font-size: 1.5rem;
   }
 
-  .tone-default {
-    color: inherit;
-  }
+  [data-tone='success'] { color: var(--color-success); }
+  [data-tone='warning'] { color: var(--color-warning); }
+  [data-tone='info']    { color: var(--color-info); }
 
-  .tone-success {
-    color: var(--color-success);
-  }
-
-  .tone-warning {
-    color: var(--color-warning);
-  }
-
-  .tone-info {
-    color: var(--color-info);
-  }
-
-  .card-subtitle {
+  .subtitle {
     opacity: 0.6;
   }
 </style>

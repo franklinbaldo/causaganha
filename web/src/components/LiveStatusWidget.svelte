@@ -126,16 +126,16 @@
 </script>
 
 {#if error}
-  <div class="card"><div class="card-body">
-    <span>Status ao vivo indisponível.</span>
-  </div></div>
+  <article>
+    <p>Status ao vivo indisponível.</p>
+  </article>
 {:else if !data}
-  <div class="card"><div class="card-body">
-    <span aria-busy="true">Carregando status do pipeline...</span>
-  </div></div>
+  <article aria-busy="true">
+    <p>Carregando status do pipeline...</p>
+  </article>
 {:else}
-  <div class="card"><div class="card-body">
-    <header>
+  <article>
+    <header class="widget-header">
       {#if isActuallyRunning}
         <span class="cg-pulse"></span>
       {/if}
@@ -143,16 +143,14 @@
         <h2>
           Pipeline {translatedStatus}
           {#if source === 'ntfy-sse'}
-            <span> ● live</span>
+            <small> ● live</small>
           {/if}
         </h2>
-        <small>
-          Atualizado às {lastUpdatedTime!.toLocaleTimeString()}
-        </small>
+        <p>Atualizado às {lastUpdatedTime!.toLocaleTimeString()}</p>
       </hgroup>
     </header>
 
-    <div>
+    <div class="stats-row">
       <div>
         <small>ZIPs Enviados</small>
         <strong>{data.zips_uploaded ?? '—'}</strong>
@@ -162,7 +160,33 @@
         <strong>{data.active_tribunals ?? '—'}</strong>
       </div>
     </div>
-  </div></div>
+  </article>
 {/if}
+
+<style>
+  .widget-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    background: none;
+    padding: 0;
+    margin-bottom: 1rem;
+  }
+
+  .stats-row {
+    display: flex;
+    gap: 2rem;
+  }
+
+  .stats-row div {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+  }
+
+  .stats-row strong {
+    font-size: 1.5rem;
+  }
+</style>
 
 
