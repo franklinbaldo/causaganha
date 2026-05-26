@@ -36,7 +36,6 @@ IA_DASHBOARD_ITEM = "causaganha-dashboard"
 _MIN_CSV_SIZE = 50
 
 
-
 # ---------------------------------------------------------------------------
 # Delta writer (probe flavour — no upload tracking, just absent + confirmed)
 # ---------------------------------------------------------------------------
@@ -53,13 +52,10 @@ class ProbeDeltaWriter:
         """
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(
-            "tribunal,date,ia_status,djen_status,updated_at\n", encoding="utf-8"
-        )
+        self.path.write_text("tribunal,date,ia_status,djen_status,updated_at\n", encoding="utf-8")
         self.absent_count = 0
         self.confirmed_count = 0
         self._lock = asyncio.Lock()
-
 
     async def mark_absent(self, tribunal: str, d: date) -> None:
         """Mark entry as absent on DJEN (returned 404)."""
@@ -68,7 +64,6 @@ class ProbeDeltaWriter:
             with self.path.open("a", encoding="utf-8") as f:
                 f.write(f"{tribunal},{d.isoformat()},,absent,{ts}\n")
             self.absent_count += 1
-
 
     async def mark_confirmed(self, tribunal: str, d: date) -> None:
         """Mark entry as DJEN-confirmed — drain should prioritise it."""
@@ -85,21 +80,29 @@ class ProbeDeltaWriter:
 
 
 def fetch_pending_batch(
-    con: duckdb.DuckDBPyConnection, parquet_url: str, batch_size: int
+    con: duckdb.DuckDBPyConnection,
+    parquet_url: str,
+    batch_size: int,
+    seen: set[tuple[str, date]] | None = None,
 ) -> list[tuple[str, date]]:
     """Fetch a random batch of unconfirmed pending (tribunal, date) pairs."""
+    seen_filter = ""
+    if seen:
+        seen_list = ", ".join(f"'{t}_{d.isoformat()}'" for t, d in seen)
+        seen_filter = f"AND (tribunal || '_' || CAST(date AS VARCHAR)) NOT IN ({seen_list})"
+
     rows = con.execute(
-        """
+        f"""
         SELECT tribunal, date FROM read_parquet(?)
         WHERE djen_status = 'available'
           AND (ia_status IS NULL OR ia_status != 'uploaded')
+          {seen_filter}
         ORDER BY random()
         LIMIT ?
-        """,
+        """,  # noqa: S608
         (parquet_url, batch_size),
     ).fetchall()
     return [(r[0], r[1]) for r in rows]
-
 
 
 # ---------------------------------------------------------------------------
@@ -169,7 +172,6 @@ async def upload_delta(delta_path: Path, ia_auth: str) -> bool:
         return await upload_to_ia(client, IA_DASHBOARD_ITEM, delta_path, target)
 
 
-
 # ---------------------------------------------------------------------------
 # Main entry point
 # ---------------------------------------------------------------------------
@@ -189,7 +191,6 @@ async def probe(
     delta_path = Path(f"data/upload-deltas-probe-{int(time.time())}.csv")
     delta_writer = ProbeDeltaWriter(delta_path)
 
-
     duck = duckdb.connect()
     duck.execute("INSTALL httpfs; LOAD httpfs;")
 
@@ -208,7 +209,7 @@ async def probe(
 
         try:
             while time.monotonic() < deadline:
-                batch = fetch_pending_batch(duck, parquet_url, batch_size)
+                batch = fetch_pending_batch(duck, parquet_url, batch_size, seen)
                 fresh = [e for e in batch if e not in seen]
                 if not fresh:
                     if len(batch) < batch_size:

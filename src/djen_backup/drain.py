@@ -43,7 +43,10 @@ _MIN_CSV_SIZE = 50
 
 
 def fetch_pending_batch(
-    con: duckdb.DuckDBPyConnection, parquet_url: str, batch_size: int
+    con: duckdb.DuckDBPyConnection,
+    parquet_url: str,
+    batch_size: int,
+    seen: set[tuple[str, date]] | None = None,
 ) -> list[tuple[str, date]]:
     """Fetch a random batch of pending (tribunal, date) pairs from the remote parquet.
 
@@ -51,11 +54,17 @@ def fetch_pending_batch(
     plain ``'available'`` entries so that probe output is consumed first and
     no worker time is wasted on unverified items.
     """
+    seen_filter = ""
+    if seen:
+        seen_list = ", ".join(f"'{t}_{d.isoformat()}'" for t, d in seen)
+        seen_filter = f"AND (tribunal || '_' || CAST(date AS VARCHAR)) NOT IN ({seen_list})"
+
     rows = con.execute(
         f"""
         SELECT tribunal, date FROM read_parquet('{parquet_url}')
         WHERE djen_status IN ('available', 'confirmed')
           AND (ia_status IS NULL OR ia_status != 'uploaded')
+          {seen_filter}
         ORDER BY
             CASE WHEN djen_status = 'confirmed' THEN 0 ELSE 1 END,
             random()
@@ -219,7 +228,7 @@ async def drain(
         # Producer: fetch a batch, enqueue, wait for batch drained, repeat.
         try:
             while time.monotonic() < deadline:
-                batch = fetch_pending_batch(duck, parquet_url, batch_size)
+                batch = fetch_pending_batch(duck, parquet_url, batch_size, seen)
                 fresh = [e for e in batch if e not in seen]
                 if not fresh:
                     if len(batch) < batch_size:
