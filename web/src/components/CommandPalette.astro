@@ -2,59 +2,57 @@
 ---
 <dialog
   id="command-palette-dialog"
-  class="modal"
   aria-labelledby="command-palette-title">
-  <div class="modal-box">
-    <h3 class="modal-title" id="command-palette-title">Atalhos de teclado</h3>
-    <form method="dialog">
-      <button
-        id="command-palette-close"
-        class="btn-close"
-        aria-label="Fechar diálogo">
-        ✕
-      </button>
-    </form>
+  <article>
+    <header>
+      <h3 id="command-palette-title">Atalhos de teclado</h3>
+      <form method="dialog">
+        <button
+          id="command-palette-close"
+          class="outline"
+          aria-label="Fechar diálogo">
+          ✕
+        </button>
+      </form>
+    </header>
 
-    <div class="shortcut-list">
-      <div class="shortcut-row">
-        <span>Abrir paleta de comandos / ajuda</span>
-        <div class="shortcut-keys">
-          <kbd class="kbd">Ctrl</kbd>
-          <span>+</span>
-          <kbd class="kbd">K</kbd>
-          <span>ou</span>
-          <kbd class="kbd">?</kbd>
-        </div>
+    <dl>
+      <div>
+        <dt>Abrir paleta de comandos / ajuda</dt>
+        <dd>
+          <kbd>Ctrl</kbd>
+          +
+          <kbd>K</kbd>
+          ou
+          <kbd>?</kbd>
+        </dd>
       </div>
 
-      <div class="shortcut-row">
-        <span>Fechar diálogos / dicas</span>
-        <kbd class="kbd">Esc</kbd>
+      <div>
+        <dt>Fechar diálogos / dicas</dt>
+        <dd><kbd>Esc</kbd></dd>
       </div>
 
-      <div class="shortcut-row">
-        <span>Navegar mapa de calor</span>
-        <div class="shortcut-keys">
-          <kbd class="kbd">↑</kbd>
-          <kbd class="kbd">↓</kbd>
-          <kbd class="kbd">←</kbd>
-          <kbd class="kbd">→</kbd>
-        </div>
+      <div>
+        <dt>Navegar mapa de calor</dt>
+        <dd>
+          <kbd>↑</kbd>
+          <kbd>↓</kbd>
+          <kbd>←</kbd>
+          <kbd>→</kbd>
+        </dd>
       </div>
 
-      <div class="shortcut-row">
-        <span>Selecionar célula do mapa</span>
-        <kbd class="kbd">Enter</kbd>
+      <div>
+        <dt>Selecionar célula do mapa</dt>
+        <dd><kbd>Enter</kbd></dd>
       </div>
-    </div>
+    </dl>
 
-    <div class="modal-footer">
-      <small class="footer-note">O modo de acessibilidade está sempre ativo. Use Tab para navegar pelos elementos interativos.</small>
-    </div>
-  </div>
-  <form method="dialog" class="modal-backdrop">
-    <button aria-label="Fechar diálogo">fechar</button>
-  </form>
+    <footer>
+      <small>O modo de acessibilidade está sempre ativo. Use Tab para navegar pelos elementos interativos.</small>
+    </footer>
+  </article>
 </dialog>
 
 <script>

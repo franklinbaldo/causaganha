@@ -18,7 +18,7 @@ const dateRange = earliestYear && latestYear
 
 <article>
   <h3>{tribunal}</h3>
-  {dateRange && <p class="date-range">{dateRange}</p>}
+  {dateRange && <p><small>{dateRange}</small></p>}
   <p><small>{zipCount.toLocaleString('pt-BR')} ZIPs arquivados</small></p>
   <footer>
     <a href={href} role="button" class="secondary">Abrir tribunal</a>

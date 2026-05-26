@@ -15,45 +15,52 @@ const { tribunalStats, totalTribunals, statsHref } = Astro.props;
 // Sort by coverage descending so the greener cells come first
 const sorted = [...tribunalStats].sort((a, b) => b.data_rate_pct - a.data_rate_pct);
 
-function getCellClass(pct: number): string {
-  if (pct >= 80) return 'cell-high';
-  if (pct >= 40) return 'cell-mid';
-  if (pct > 0)   return 'cell-low';
-  return 'cell-none';
+function getCellTone(pct: number): string {
+  if (pct >= 80) return 'success';
+  if (pct >= 40) return '';
+  if (pct > 0)   return 'warning';
+  return 'error';
 }
 
 const withData = tribunalStats.filter(t => t.data_rate_pct > 0).length;
 const missing = totalTribunals - tribunalStats.length;
 ---
 
-<div class="coverage-wrapper">
-  <div class="coverage-header">
-    <div class="coverage-header-text">
-      <span class="coverage-label">Cobertura dos Tribunais</span>
-      <span class="coverage-count">{withData} de {totalTribunals} com dados</span>
-    </div>
-    <a href={statsHref} class="coverage-link">Ver estatísticas →</a>
-  </div>
+<article>
+  <header>
+    <h3><small>Cobertura dos Tribunais</small></h3>
+    <a href={statsHref}>Ver estatísticas →</a>
+  </header>
 
-  <div class="coverage-grid" aria-label="Grade de cobertura dos tribunais">
+  <div
+    aria-label="Grade de cobertura dos tribunais"
+    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(1.5rem, 1fr)); gap: 0.25rem;"
+  >
     {sorted.map(t => (
       <div
-        class={`coverage-cell ${getCellClass(t.data_rate_pct)}`}
+        data-tone={getCellTone(t.data_rate_pct) || undefined}
         title={`${t.tribunal}: ${t.data_rate_pct.toFixed(0)}%`}
         aria-label={`${t.tribunal}: ${t.data_rate_pct.toFixed(0)}% de cobertura`}
+        style="aspect-ratio: 1; border-radius: 2px;"
       />
     ))}
     {Array.from({ length: missing }).map(() => (
-      <div class="coverage-cell cell-unknown" title="Tribunal sem dados ainda" />
+      <div
+        data-tone="muted"
+        title="Tribunal sem dados ainda"
+        style="aspect-ratio: 1; border-radius: 2px;"
+      />
     ))}
   </div>
 
-  <div class="coverage-legend">
-    <span class="legend-item"><span class="legend-dot cell-high"></span> ≥80%</span>
-    <span class="legend-item"><span class="legend-dot cell-mid"></span> 40–79%</span>
-    <span class="legend-item"><span class="legend-dot cell-low"></span> 1–39%</span>
-    <span class="legend-item"><span class="legend-dot cell-none"></span> 0%</span>
-    <span class="legend-item"><span class="legend-dot cell-unknown"></span> Não iniciado</span>
-    <span class="legend-count">{withData} de {totalTribunals} com dados</span>
-  </div>
-</div>
+  <footer>
+    <ul class="auto-grid-sm">
+      <li><span data-tone="success" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> ≥80%</li>
+      <li><span style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;background:var(--pico-muted-border-color);"></span> 40–79%</li>
+      <li><span data-tone="warning" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> 1–39%</li>
+      <li><span data-tone="error" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> 0%</li>
+      <li><span data-tone="muted" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> Não iniciado</li>
+    </ul>
+    <small data-tone="muted">{withData} de {totalTribunals} com dados</small>
+  </footer>
+</article>

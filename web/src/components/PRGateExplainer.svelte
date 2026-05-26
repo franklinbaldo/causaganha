@@ -145,7 +145,7 @@
   </form>
 
   {#if error}
-    <aside role="alert" class="status-error">{error}</aside>
+    <aside role="alert" class="alert" data-level="error">{error}</aside>
   {/if}
 
   {#if prData && summary}
@@ -154,7 +154,7 @@
         <div>
           <div>
             <h3>PR #{prData.prInfo.number}: {prData.prInfo.title}</h3>
-            <mark class={summary.color}>
+            <mark data-tone={summary.color}>
               {summary.status}
             </mark>
           </div>
@@ -163,7 +163,7 @@
           {#if summary.blockedByKilo}
             <div>
               <strong>Bloqueio: </strong>
-              <a href={summary.blockedByKilo.html_url} target="_blank" rel="noopener noreferrer" class="link-accent">
+              <a href={summary.blockedByKilo.html_url} target="_blank" rel="noopener noreferrer">
                 {summary.blockedByKilo.name}
               </a>
             </div>
@@ -171,14 +171,14 @@
         </div>
       </div>
 
-      <div class="checks-grid">
+      <div class="auto-grid">
         <div>
           <h4>Verificações concluídas</h4>
           <ul>
             {#each completedChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <mark class={c.conclusion === 'success' ? 'status-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'status-error')}>
+                <mark data-tone={c.conclusion === 'success' ? 'success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? 'muted' : 'error')}>
                   {c.conclusion === 'success' ? '✓' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? '-' : '✗')} {c.conclusion}
                 </mark>
               </li>
@@ -195,7 +195,7 @@
             {#each pendingChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <mark class="status-accent">Em andamento...</mark>
+                <mark data-tone="info">Em andamento...</mark>
               </li>
             {/each}
             {#if pendingChecks.length === 0}

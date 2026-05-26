@@ -11,14 +11,14 @@
     position: { x: number; y: number };
   }
 
-  const STATUS_MAP: Record<string, { text: string; className: string }> = {
-    collected: { text: '\u2705 Collected & Uploaded', className: 'status-success' },
-    missing: { text: '\u274C Missing', className: 'status-error' },
-    partial: { text: '\u26A0\uFE0F Partial', className: 'status-warning' },
-    outside: { text: 'Outside active range', className: '' },
+  const STATUS_MAP: Record<string, { text: string; tone: string }> = {
+    collected: { text: '\u2705 Collected & Uploaded', tone: 'success' },
+    missing: { text: '\u274C Missing', tone: 'error' },
+    partial: { text: '\u26A0\uFE0F Partial', tone: 'warning' },
+    outside: { text: 'Outside active range', tone: '' },
   };
 
-  const DEFAULT_STATUS = { text: '', className: '' };
+  const DEFAULT_STATUS = { text: '', tone: '' };
 
   let { cellData, position }: CellTooltipProps = $props();
 
@@ -27,7 +27,7 @@
 
   const mapped = $derived(STATUS_MAP[cellData.status] ?? { ...DEFAULT_STATUS, text: cellData.status });
   const statusText = $derived(mapped.text);
-  const statusClass = $derived(mapped.className);
+  const statusTone = $derived(mapped.tone);
 
   $effect(() => {
     // Track dependencies
@@ -69,7 +69,7 @@
     <header>
       {cellData.date}
     </header>
-    <div class={statusClass || undefined}>
+    <div data-tone={statusTone || undefined}>
       {statusText}
     </div>
 

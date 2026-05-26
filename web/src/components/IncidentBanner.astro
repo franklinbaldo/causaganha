@@ -16,55 +16,60 @@ const { incident } = Astro.props;
 
 {incident && incident.streak > 0 && (
   <article
-    class="incident-banner" role="alert"
+    data-tone="error" role="alert"
     aria-live="polite">
-    <header class="incident-header">
-      <svg class="incident-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <header>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <circle cx="12" cy="12" r="10" />
         <line x1="12" y1="8" x2="12" y2="12" />
         <line x1="12" y1="16" x2="12.01" y2="16" />
       </svg>
       <hgroup>
-        <h3 class="incident-title">
+        <h3>
           Falha crítica no pipeline
         </h3>
-        <p class="incident-description">
+        <p>
           A coleta de ZIPs em <code>main</code> falhou
-          <span class="streak-count"> {incident.streak} {incident.streak === 1 ? 'vez consecutiva' : 'vezes consecutivas'}</span>.
+          <strong data-tone="error"> {incident.streak} {incident.streak === 1 ? 'vez consecutiva' : 'vezes consecutivas'}</strong>.
         </p>
       </hgroup>
     </header>
 
-    <div class="incident-details">
-      <div class="detail-row">
-        <span class="detail-label">Correção pronta:</span>
-        <a
-          href={incident.pr_url} target="_blank"
-          rel="noopener noreferrer"
-          class="pr-link">
-          PR #{incident.pr_number}
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1em; height: 1em; display: inline-block; vertical-align: middle;" aria-hidden="true">
-            <path d="M15 3h6v6" />
-            <path d="M10 14 21 3" />
-            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
-          </svg>
-        </a>
+    <dl>
+      <div>
+        <dt>Correção pronta:</dt>
+        <dd>
+          <a
+            href={incident.pr_url} target="_blank"
+            rel="noopener noreferrer">
+            PR #{incident.pr_number}
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 1em; height: 1em; display: inline-block; vertical-align: middle;" aria-hidden="true">
+              <path d="M15 3h6v6" />
+              <path d="M10 14 21 3" />
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+            </svg>
+          </a>
+        </dd>
       </div>
-      <div class="detail-row">
-        <span class="detail-label">Bloqueado por:</span>
-        <span class="blocked-badge">
-          {incident.pr_blocked_by}
-        </span>
+      <div>
+        <dt>Bloqueado por:</dt>
+        <dd>
+          <mark data-tone="warning">
+            {incident.pr_blocked_by}
+          </mark>
+        </dd>
       </div>
       {incident.latest_failing_run_url && (
-         <div class="detail-row">
-           <a
-             href={incident.latest_failing_run_url} target="_blank"
-             rel="noopener noreferrer">
-             Ver última execução com falha
-           </a>
+         <div>
+           <dd>
+             <a
+               href={incident.latest_failing_run_url} target="_blank"
+               rel="noopener noreferrer">
+               Ver última execução com falha
+             </a>
+           </dd>
          </div>
       )}
-    </div>
+    </dl>
   </article>
 )}
