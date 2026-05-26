@@ -44,73 +44,51 @@
   });
 </script>
 
-<div class="card">
-  <div class="card-body">
-    <h3>Histórico de Execuções do Pipeline (Collect ZIPs)</h3>
+<article>
+  <h3>Histórico de Execuções do Pipeline (Collect ZIPs)</h3>
 
-    {#if loading}
-      <div>Carregando histórico de execuções...</div>
-    {:else if error}
-      <AlertBanner level="error" title="Erro ao carregar histórico" message={error} />
-    {:else if runs.length === 0}
-      <EmptyState title="Nenhuma execução encontrada" message="Não foram encontradas execuções recentes do pipeline." />
-    {:else}
-      <div class="table-responsive">
-        <table class="data-table">
-          <thead>
+  {#if loading}
+    <p aria-busy="true">Carregando histórico de execuções...</p>
+  {:else if error}
+    <AlertBanner level="error" title="Erro ao carregar histórico" message={error} />
+  {:else if runs.length === 0}
+    <EmptyState title="Nenhuma execução encontrada" message="Não foram encontradas execuções recentes do pipeline." />
+  {:else}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th scope="col">Data da execução</th>
+            <th scope="col">Duração (min)</th>
+            <th scope="col">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each runs as run (run.id)}
             <tr>
-              <th scope="col">Data da execução</th>
-              <th scope="col">Duração (min)</th>
-              <th scope="col">Status</th>
+              <td>
+                <a href={run.html_url} target="_blank" rel="noopener noreferrer">
+                  {new Date(run.created_at).toLocaleString('pt-BR')}
+                </a>
+              </td>
+              <td>{calculateDuration(run.created_at, run.updated_at)}</td>
+              <td>
+                {#if run.status !== 'completed'}
+                  <span title="Em andamento" aria-label="Em andamento">⏳</span>
+                {:else if run.conclusion === 'success'}
+                  <span title="Sucesso" aria-label="Sucesso">✅</span>
+                {:else}
+                  <a href={run.html_url} target="_blank" rel="noopener noreferrer" title="Ver logs da falha" aria-label="Ver logs da falha">❌</a>
+                {/if}
+              </td>
             </tr>
-          </thead>
-          <tbody>
-            {#each runs as run (run.id)}
-              <tr>
-                <td>
-                  <a href={run.html_url} target="_blank" rel="noopener noreferrer">
-                    {new Date(run.created_at).toLocaleString('pt-BR')}
-                  </a>
-                </td>
-                <td>
-                  {calculateDuration(run.created_at, run.updated_at)}
-                </td>
-                <td>
-                  {#if run.status !== 'completed'}
-                    <span title="Em andamento" aria-label="Em andamento">⏳</span>
-                  {:else if run.conclusion === 'success'}
-                    <span title="Sucesso" aria-label="Sucesso">✅</span>
-                  {:else}
-                    <a href={run.html_url} target="_blank" rel="noopener noreferrer" title="Ver logs da falha" aria-label="Ver logs da falha">❌</a>
-                  {/if}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </div>
-</div>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</article>
 
 <style>
-  .table-responsive {
-    overflow-x: auto;
-  }
-
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .data-table th,
-  .data-table td {
-    padding: 0.375rem 0.5rem;
-    text-align: left;
-    font-size: var(--font-size-sm);
-  }
-
-  .data-table tbody tr:nth-child(even) {
-    background: var(--color-base-200);
-  }
+  .table-wrap { overflow-x: auto; }
 </style>

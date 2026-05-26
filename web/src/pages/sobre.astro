@@ -12,95 +12,60 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 >
   <Header variant="page" title="Projeto" backHref={BASE} backLabel="Início" tile="sobre" />
 
-  <div class="page-container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Projeto' }
-    ]} />
+  <Breadcrumbs crumbs={[
+    { label: 'Início', href: BASE },
+    { label: 'Projeto' }
+  ]} />
 
-    <section class="page-section">
-      <div class="card">
-        <div class="card-body">
-          <h2 class="card-heading">O Projeto</h2>
-          <p>
-            O <strong>CausaGanha</strong> é uma iniciativa independente e de código aberto dedicada a promover a transparência no mercado jurídico brasileiro. Nosso objetivo é coletar, estruturar e arquivar publicações de tribunais de todo o país, tornando-as acessíveis gratuitamente e preservadas de forma permanente.
-          </p>
-        </div>
-      </div>
+  <section class="page-section">
+    <article>
+      <h2>O Projeto</h2>
+      <p>
+        O <strong>CausaGanha</strong> é uma iniciativa independente e de código aberto dedicada a promover a transparência no mercado jurídico brasileiro. Nosso objetivo é coletar, estruturar e arquivar publicações de tribunais de todo o país, tornando-as acessíveis gratuitamente e preservadas de forma permanente.
+      </p>
+    </article>
 
-      <div class="card">
-        <div class="card-body">
-          <h2 class="card-heading">Metodologia</h2>
-          <p>
-            O sistema opera através de um pipeline automatizado no GitHub Actions com três cadências: a cada 20 minutos um robô consulta o DJEN para descobrir e baixar novos cadernos; a cada 15 minutos outro robô esvazia a fila dos arquivos já confirmados, enviando-os ao Internet Archive; e diariamente os ZIPs do dia anterior são consolidados em tabelas Parquet por (tribunal, ano), também publicadas no Internet Archive. Toda a evolução do estado é registrada num único manifesto CSV (<code>sync-manifest.csv</code>) também arquivado, garantindo que o histórico nunca se perca mesmo que os sistemas de origem fiquem indisponíveis.
-          </p>
-        </div>
-      </div>
+    <article>
+      <h2>Metodologia</h2>
+      <p>
+        O sistema opera através de um pipeline automatizado no GitHub Actions com três cadências: a cada 20 minutos um robô consulta o DJEN para descobrir e baixar novos cadernos; a cada 15 minutos outro robô esvazia a fila dos arquivos já confirmados, enviando-os ao Internet Archive; e diariamente os ZIPs do dia anterior são consolidados em tabelas Parquet por (tribunal, ano), também publicadas no Internet Archive. Toda a evolução do estado é registrada num único manifesto CSV (<code>sync-manifest.csv</code>) também arquivado, garantindo que o histórico nunca se perca mesmo que os sistemas de origem fiquem indisponíveis.
+      </p>
+    </article>
 
-      <div class="card">
-        <div class="card-body">
-          <h2 class="card-heading">Fontes de Dados</h2>
-          <p>
-            Os dados são provenientes integralmente de plataformas públicas, primordialmente do <strong>Diário de Justiça Eletrônico Nacional (DJEN)</strong> e dos sistemas próprios de publicação de cada tribunal (como STF, STJ, TST, Tribunais de Justiça Estaduais, entre outros).
-          </p>
-          <p>
-            Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
-          </p>
-        </div>
-      </div>
+    <article>
+      <h2>Fontes de Dados</h2>
+      <p>
+        Os dados são provenientes integralmente de plataformas públicas, primordialmente do <strong>Diário de Justiça Eletrônico Nacional (DJEN)</strong> e dos sistemas próprios de publicação de cada tribunal (como STF, STJ, TST, Tribunais de Justiça Estaduais, entre outros).
+      </p>
+      <p>
+        Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
+      </p>
+    </article>
 
-      <div class="card">
-        <div class="card-body">
-          <h2 class="card-heading">Acesso aos Dados</h2>
-          <p>
-            Todos os dados coletados são disponibilizados de maneira estruturada:
-          </p>
-          <ul class="bullet-list">
-            <li><strong>Zips Originais:</strong> Arquivados no Internet Archive (prefixo <code class="badge">djen-YYYY-MM-DD</code>).</li>
-            <li><strong>Catálogo Parquet:</strong> Um catálogo completo e indexado pode ser baixado e consultado utilizando ferramentas modernas como o DuckDB.</li>
-            <li><strong>Dashboard Público:</strong> Interface simplificada para acompanhar a cobertura diária e encontrar os arquivos de cada tribunal.</li>
-          </ul>
-        </div>
-      </div>
+    <article>
+      <h2>Acesso aos Dados</h2>
+      <p>Todos os dados coletados são disponibilizados de maneira estruturada:</p>
+      <ul>
+        <li><strong>Zips Originais:</strong> Arquivados no Internet Archive (prefixo <kbd>djen-YYYY-MM-DD</kbd>).</li>
+        <li><strong>Catálogo Parquet:</strong> Um catálogo completo e indexado pode ser baixado e consultado utilizando ferramentas modernas como o DuckDB.</li>
+        <li><strong>Dashboard Público:</strong> Interface simplificada para acompanhar a cobertura diária e encontrar os arquivos de cada tribunal.</li>
+      </ul>
+    </article>
 
-      <div class="card">
-        <div class="card-body">
-          <h2 class="card-heading">Licença</h2>
-          <p>
-            O código-fonte do pipeline, do painel de controle e das ferramentas de extração é 100% aberto sob a <strong>Licença MIT</strong>. Os dados armazenados são de domínio público. Encorajamos pesquisadores, jornalistas e legaltechs a utilizar este acervo de forma livre e responsável.
-          </p>
-        </div>
-      </div>
-    </section>
-  </div>
+    <article>
+      <h2>Licença</h2>
+      <p>
+        O código-fonte do pipeline, do painel de controle e das ferramentas de extração é 100% aberto sob a <strong>Licença MIT</strong>. Os dados armazenados são de domínio público. Encorajamos pesquisadores, jornalistas e legaltechs a utilizar este acervo de forma livre e responsável.
+      </p>
+    </article>
+  </section>
 </Layout>
 
 <style>
-  .page-container {
-    max-width: 1280px;
-    margin-inline: auto;
-    padding-inline: 1rem;
-  }
-
   .page-section {
-    margin-top: 2.5rem;
-    margin-bottom: 4rem;
+    margin-block: 2rem 4rem;
     display: flex;
     flex-direction: column;
-    gap: 2rem;
-  }
-
-  .card-heading {
-    font-size: var(--font-size-2xl);
-    font-weight: 700;
-    margin-bottom: 0.5rem;
-  }
-
-  .bullet-list {
-    list-style: disc;
-    padding-left: 1.25rem;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
+    gap: 1.5rem;
   }
 </style>

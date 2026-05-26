@@ -32,7 +32,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </p>
   </Header>
 
-  <div class="page-container">
+  <div class="container">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: BASE },
       { label: 'Publicações' }
@@ -122,14 +122,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     font-size: var(--font-size-sm);
     opacity: 0.5;
     margin: 0;
-  }
-
-  .page-container {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
   }
 
   /* ── Mode tabs (CSS-only, radio input pattern) ── */

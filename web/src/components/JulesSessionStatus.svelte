@@ -55,13 +55,13 @@
     }
   }
 
-  function getStateColor(state: string) {
+  function stateTone(state: string): string {
     switch (state) {
-      case 'IN_PROGRESS': return 'badge-info';
-      case 'COMPLETED': return 'badge-success';
-      case 'FAILED': return 'badge-error';
-      case 'AWAITING_USER_FEEDBACK': return 'badge-warning';
-      default: return 'badge-ghost';
+      case 'IN_PROGRESS': return 'info';
+      case 'COMPLETED': return 'success';
+      case 'FAILED': return 'error';
+      case 'AWAITING_USER_FEEDBACK': return 'warning';
+      default: return '';
     }
   }
 
@@ -71,152 +71,85 @@
   }
 </script>
 
-<div class="card jules-card">
-  <div class="card-body">
-    <h3 class="card-title jules-header">
-      Jules Sessions
-      <button class="btn btn-sm btn-ghost" onclick={fetchSessions} disabled={loading || !apiKey}>
-        <svg xmlns="http://www.w3.org/2000/svg" class="jules-refresh-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-        </svg>
-      </button>
-    </h3>
+<article>
+  <header class="jules-header">
+    <h3>Jules Sessions</h3>
+    <button type="button" class="outline secondary" onclick={fetchSessions} disabled={loading || !apiKey} aria-label="Atualizar">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+      </svg>
+    </button>
+  </header>
 
-    {#if error}
-      <div class="jules-alert jules-alert-error">
-        <svg xmlns="http://www.w3.org/2000/svg" class="jules-alert-icon" fill="none" viewBox="0 0 24 24"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-        <span>{error}</span>
-      </div>
-    {:else if loading}
-      <div class="jules-loading" aria-busy="true">
-        <span class="jules-spinner"></span>
-      </div>
-    {:else if sessions.length === 0}
-      <div class="jules-empty">
-        No active sessions found.
-      </div>
-    {:else}
-      <div class="jules-table-wrap">
-        <table class="table table-sm">
-          <thead>
+  {#if error}
+    <aside role="alert" class="error-alert">{error}</aside>
+  {:else if loading}
+    <p aria-busy="true">Carregando sessões...</p>
+  {:else if sessions.length === 0}
+    <p class="empty">No active sessions found.</p>
+  {:else}
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Title</th>
+            <th>State</th>
+            <th>Created At</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each sessions as session}
             <tr>
-              <th>ID</th>
-              <th>Title</th>
-              <th>State</th>
-              <th>Created At</th>
+              <td><kbd class="id-cell">{session.name ? session.name.split('/').pop() : 'Unknown'}</kbd></td>
+              <td class="title-cell" title={session.title}>{session.title || 'Untitled'}</td>
+              <td>
+                <mark data-tone={stateTone(session.state)}>{session.state || 'UNKNOWN'}</mark>
+              </td>
+              <td><small>{formatDate(session.createTime)}</small></td>
             </tr>
-          </thead>
-          <tbody>
-            {#each sessions as session}
-              <tr>
-                <td class="jules-id-cell">
-                  {session.name ? session.name.split('/').pop() : 'Unknown'}
-                </td>
-                <td class="jules-title-cell" title={session.title}>{session.title || 'Untitled'}</td>
-                <td>
-                  <span class="badge badge-sm {getStateColor(session.state)}">
-                    {session.state || 'UNKNOWN'}
-                  </span>
-                </td>
-                <td class="jules-created-at">
-                  {formatDate(session.createTime)}
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
-    {/if}
-  </div>
-</div>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+</article>
 
 <style>
-  .jules-card {
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    box-shadow: var(--shadow-sm);
-  }
-
   .jules-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    gap: var(--space-sm);
-    margin-bottom: var(--space-md);
+    background: none;
+    padding: 0;
+    margin-bottom: 1rem;
   }
 
-  .jules-refresh-icon {
-    width: 1rem;
-    height: 1rem;
+  .jules-header h3 { margin: 0; }
+
+  .error-alert {
+    padding: 0.75rem;
+    border-radius: var(--pico-border-radius);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    border: 1px solid var(--color-error);
+    color: var(--color-error);
   }
 
-  .jules-alert {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    padding: var(--space-sm);
-    border-radius: var(--radius-box);
-    font-size: var(--font-size-sm);
-  }
+  .empty { opacity: 0.6; text-align: center; }
 
-  .jules-alert-error {
-    background: color-mix(in srgb, var(--color-error) 10%, var(--color-base-100));
-    color: var(--color-error-content, var(--color-base-content));
-  }
+  .table-wrap { overflow-x: auto; }
 
-  .jules-alert-icon {
-    width: 1rem;
-    height: 1rem;
-    flex-shrink: 0;
-  }
+  .id-cell { font-size: var(--font-size-xs); }
 
-  .jules-loading {
-    display: flex;
-    justify-content: center;
-    padding: var(--space-md) 0;
-  }
-
-  .jules-spinner {
-    width: 1.25rem;
-    height: 1.25rem;
-    border: 2px solid var(--color-base-300);
-    border-top-color: var(--color-primary);
-    border-radius: 9999px;
-    animation: jules-spin 0.8s linear infinite;
-  }
-
-  .jules-empty {
-    padding: var(--space-md) 0;
-    text-align: center;
-    color: color-mix(in srgb, var(--color-base-content) 50%, transparent);
-    font-size: var(--font-size-sm);
-  }
-
-  .jules-table-wrap {
-    overflow-x: auto;
-  }
-
-  .jules-id-cell {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-  }
-
-  .jules-title-cell {
+  .title-cell {
     max-width: 16rem;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
   }
 
-  .jules-created-at {
-    white-space: nowrap;
-    font-size: var(--font-size-xs);
-    color: color-mix(in srgb, var(--color-base-content) 70%, transparent);
-  }
-
-  @keyframes jules-spin {
-    to {
-      transform: rotate(360deg);
-    }
-  }
+  mark[data-tone='info']    { background: color-mix(in srgb, var(--color-info)    20%, transparent); color: var(--color-info); }
+  mark[data-tone='success'] { background: color-mix(in srgb, var(--color-success) 20%, transparent); color: var(--color-success); }
+  mark[data-tone='warning'] { background: color-mix(in srgb, var(--color-warning) 20%, transparent); color: var(--color-warning); }
+  mark[data-tone='error']   { background: color-mix(in srgb, var(--color-error)   20%, transparent); color: var(--color-error); }
 </style>

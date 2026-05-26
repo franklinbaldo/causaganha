@@ -301,12 +301,12 @@
 
 {#snippet sourceBadge()}
   {#if source}
-    <span
-      class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}"
+    <mark
+      data-tone={source === 'djen' ? 'info' : 'warning'}
       title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}
     >
       Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
-    </span>
+    </mark>
   {/if}
 {/snippet}
 
@@ -320,8 +320,8 @@
 {#if compact}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div
-    class="card publication-card compact-card"
+  <article
+    class="publication-card compact-card"
     class:expandable={!!onExpand}
     id={`pub-${seq}`}
     role={onExpand ? "button" : undefined}
@@ -337,13 +337,13 @@
       }
     }}
   >
-    <div class="card-body compact-body">
+    <div class="compact-body">
       <header class="card-header">
         <div class="header-left-stack">
           <div class="header-meta">
             <span class="seq-number">#{seq}</span>
             {#if pub.tipoComunicacao}
-              <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+              <mark class="publication-badge">{pub.tipoComunicacao}</mark>
             {/if}
             {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
@@ -359,14 +359,14 @@
         </div>
         <div class="header-actions">
           {#if pub.link}
-            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer" role="button">
               {@render openExternalIcon()}
               Inteiro teor
             </a>
           {/if}
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="outline secondary"
             onclick={(e: MouseEvent) => handleShare(e, "compact")}
             title="Copiar link"
           >
@@ -406,20 +406,20 @@
       {#if parties.length > 0}
         <div class="tags-row">
           {#each parties.slice(0, 4) as party}
-            <span class="badge name-pill">{party}</span>
+            <mark class="name-pill">{party}</mark>
           {/each}
         </div>
       {/if}
     </div>
-  </div>
+  </article>
 {:else if isReaderMode}
-  <div class="card publication-card reader-mode" id={`pub-${seq}`}>
-    <div class="card-body reader-body">
+  <article class="publication-card reader-mode" id={`pub-${seq}`}>
+    <div class="reader-body">
       <header class="card-header">
         <div class="header-left-stack">
           <div class="header-meta">
             <span class="seq-number seq-bold">#{seq}</span>
-            <span class="badge publication-badge">Modo Leitura</span>
+            <mark class="publication-badge">Modo Leitura</mark>
             {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
           </div>
@@ -433,21 +433,21 @@
         <div class="header-actions" aria-label="Ações de navegação e leitura">
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="outline secondary"
             onclick={() => (isReaderMode = false)}
             title="Sair do Modo Leitura"
           >
             Voltar
           </button>
           {#if pub.link}
-            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
               {@render openExternalIcon()}
               Inteiro teor
             </a>
           {/if}
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="outline secondary"
             onclick={(e: MouseEvent) => handleShare(e, "reader")}
             title="Copiar link"
           >
@@ -486,12 +486,12 @@
             <div class="sidebar-tags">
               {#if parties.length > 0}
                 {#each parties as party}
-                  <span class="badge name-pill">{party}</span>
+                  <mark class="name-pill">{party}</mark>
                 {/each}
               {/if}
               {#if lawyers.length > 0}
                 {#each lawyers as lawyer}
-                  <span class="badge lawyer-pill">{lawyer}</span>
+                  <mark class="lawyer-pill">{lawyer}</mark>
                 {/each}
               {/if}
             </div>
@@ -521,16 +521,16 @@
         </div>
       </div>
     </div>
-  </div>
+  </article>
 {:else}
-  <div class="card publication-card featured-card" id={`pub-${seq}`}>
-    <div class="card-body featured-body">
+  <article class="publication-card featured-card" id={`pub-${seq}`}>
+    <div class="featured-body">
       <header class="card-header">
         <div class="header-left-stack">
           <div class="header-meta">
             <span class="seq-number seq-bold">#{seq}</span>
             {#if pub.tipoComunicacao}
-              <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+              <mark class="publication-badge">{pub.tipoComunicacao}</mark>
             {/if}
             {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
@@ -547,7 +547,7 @@
           {#if onCollapse}
             <button
               type="button"
-              class="btn btn-outline-secondary"
+              class="outline secondary"
               onclick={onCollapse}
               title="Fechar detalhes"
             >
@@ -556,14 +556,14 @@
           {/if}
           <button
             type="button"
-            class="btn btn-outline-primary"
+            class="outline"
             onclick={() => (isReaderMode = true)}
             title="Abrir Modo Leitura"
           >
             Modo Leitura
           </button>
           {#if pub.link}
-            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
               {@render openExternalIcon()}
               Inteiro teor
             </a>
@@ -572,7 +572,7 @@
             {#if onNavigate}
               <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="outline secondary"
                 onclick={() => onNavigate(seq - 1)}
                 disabled={seq <= 1}
               >
@@ -580,7 +580,7 @@
               </button>
               <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="outline secondary"
                 onclick={() => onNavigate(seq + 1)}
                 disabled={totalSeq != null && seq >= totalSeq}
               >
@@ -589,7 +589,7 @@
             {/if}
             <button
               type="button"
-              class="btn btn-outline-secondary"
+              class="outline secondary"
               onclick={(e: MouseEvent) => handleShare(e, "main")}
               title="Copiar link"
             >
@@ -647,7 +647,7 @@
               <strong class="sidebar-title">Destinatários</strong>
               <div class="sidebar-tags">
                 {#each parties as party}
-                  <span class="badge name-pill">{party}</span>
+                  <mark class="name-pill">{party}</mark>
                 {/each}
               </div>
             </div>
@@ -658,7 +658,7 @@
               <strong class="sidebar-title">Advogados</strong>
               <div class="sidebar-tags">
                 {#each lawyers as lawyer}
-                  <span class="badge lawyer-pill">{lawyer}</span>
+                  <mark class="lawyer-pill">{lawyer}</mark>
                 {/each}
               </div>
             </div>
@@ -666,7 +666,7 @@
         </aside>
       </div>
     </div>
-  </div>
+  </article>
 {/if}
 
 <style>
@@ -749,10 +749,13 @@
     font-weight: 700;
   }
 
-  .publication-badge {
+  mark.publication-badge {
     background: var(--color-primary);
     color: var(--color-primary-content);
   }
+
+  mark[data-tone='info']    { background: color-mix(in srgb, var(--color-info)    20%, transparent); color: var(--color-info); }
+  mark[data-tone='warning'] { background: color-mix(in srgb, var(--color-warning) 20%, transparent); color: var(--color-warning); }
 
   .date-label {
     opacity: 0.6;
@@ -793,27 +796,6 @@
 
   .featured-process {
     margin-bottom: 0;
-  }
-
-  .btn-outline-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--color-primary);
-    border-radius: var(--radius-btn);
-    background: transparent;
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: var(--transition-base);
-    min-height: 1.5rem;
-    min-width: 1.5rem;
-  }
-
-  .btn-outline-primary:hover {
-    background: var(--color-primary);
-    color: var(--color-base-100);
   }
 
   .meta-chip-row {
@@ -970,17 +952,20 @@
     word-break: break-word;
   }
 
-  .name-pill,
-  .lawyer-pill {
+  mark.name-pill {
     padding: 0.35rem 0.6rem;
     border: 1px solid var(--color-base-300);
     background: var(--color-base-200);
     color: var(--color-primary);
+    border-radius: 999px;
   }
 
-  .lawyer-pill {
+  mark.lawyer-pill {
+    padding: 0.35rem 0.6rem;
     background: rgba(180, 83, 9, 0.1);
-    border-color: rgba(180, 83, 9, 0.22);
+    border: 1px solid rgba(180, 83, 9, 0.22);
+    color: var(--color-primary);
+    border-radius: 999px;
   }
 
   .reader-content {

@@ -60,16 +60,14 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
           <StatCard title="Dias com dados" value={`${tribunal.daysWithData} / ${tribunal.daysTotal}`} />
         </section>
 
-        <div class="card">
-          <div class="card-body">
-            <h2 class="card-title">Consulta SQL sugerida</h2>
-            <p class="card-hint">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
-            <pre class="code-block"><code>{query}</code></pre>
-            <div class="card-actions">
-              <a href={BASE + 'explorador'} class="btn btn-primary">Abrir Explorador</a>
-            </div>
-          </div>
-        </div>
+        <article>
+          <h2>Consulta SQL sugerida</h2>
+          <p class="card-hint">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
+          <pre class="code-block"><code>{query}</code></pre>
+          <footer>
+            <a href={BASE + 'explorador'} role="button">Abrir Explorador</a>
+          </footer>
+        </article>
       </>
     ) : (
       <EmptyState
@@ -91,10 +89,10 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
     margin-bottom: var(--space-md);
   }
 
-  .card-title {
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    margin-bottom: var(--space-xs);
+  article > footer {
+    background: none;
+    padding: 0;
+    margin-top: var(--space-sm);
   }
 
   .card-hint {

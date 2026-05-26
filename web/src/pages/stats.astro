@@ -57,129 +57,113 @@ const base = import.meta.env.BASE_URL;
     ]} />
 
     <!-- Coverage Overview -->
-    <div class="card section-card">
-      <div class="card-body">
-        <div class="card-header">
-          <strong>Resumo de Cobertura</strong>
-          <small class="muted">Últimos 30 dias</small>
-        </div>
-        <div class="coverage-grid">
-          <figure>
-            <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
-            <figcaption>Média de Coleta</figcaption>
-            <small class="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
-          </figure>
-          <figure>
-            <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
-            <figcaption>Melhor Dia</figcaption>
-            <small class="muted">{bestDay ?? '--'}</small>
-          </figure>
-          <figure>
-            <div class="stat-value color-error">{worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
-            <figcaption>Pior Dia</figcaption>
-            <small class="muted">{worstDay ?? '--'}</small>
-          </figure>
-        </div>
+    <article class="section-card">
+      <header>
+        <strong>Resumo de Cobertura</strong>
+        <small class="muted">Últimos 30 dias</small>
+      </header>
+      <div class="coverage-grid">
+        <figure>
+          <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
+          <figcaption>Média de Coleta</figcaption>
+          <small class="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
+        </figure>
+        <figure>
+          <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+          <figcaption>Melhor Dia</figcaption>
+          <small class="muted">{bestDay ?? '--'}</small>
+        </figure>
+        <figure>
+          <div class="stat-value color-error">{worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+          <figcaption>Pior Dia</figcaption>
+          <small class="muted">{worstDay ?? '--'}</small>
+        </figure>
       </div>
-    </div>
+    </article>
 
     <!-- Court Rankings -->
     <div class="rankings-grid">
-      <div class="card">
-        <div class="card-body">
-          <div class="card-section-header">
-            <strong>Top 5 Mais Confiáveis</strong>
-          </div>
-          {top5.length > 0 ? (
-            <div class="table-responsive">
-              <table class="ranking-table">
-                <thead class="sr-only">
+      <article>
+        <strong>Top 5 Mais Confiáveis</strong>
+        {top5.length > 0 ? (
+          <div class="table-responsive">
+            <table class="ranking-table">
+              <thead class="sr-only">
+                <tr>
+                  <th scope="col">Posição</th>
+                  <th scope="col">Tribunal</th>
+                  <th scope="col">Taxa de cobertura</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top5.map((c, i) => (
                   <tr>
-                    <th scope="col">Posição</th>
-                    <th scope="col">Tribunal</th>
-                    <th scope="col">Taxa de cobertura</th>
+                    <td><small class="rank-num">{i + 1}</small></td>
+                    <td><strong>{c.court}</strong></td>
+                    <td class="cell-success cell-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {top5.map((c, i) => (
-                    <tr>
-                      <td><span class="rank-num">{i + 1}</span></td>
-                      <td><strong>{c.court}</strong></td>
-                      <td class="cell-success cell-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p class="empty-text">Sem dados suficientes</p>
-          )}
-        </div>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p class="empty-text">Sem dados suficientes</p>
+        )}
+      </article>
 
-      <div class="card">
-        <div class="card-body">
-          <div class="card-section-header">
-            <strong>Top 5 Mais Falhas</strong>
-          </div>
-          {bottom5.length > 0 ? (
-            <div class="table-responsive">
-              <table class="ranking-table">
-                <thead class="sr-only">
+      <article>
+        <strong>Top 5 Mais Falhas</strong>
+        {bottom5.length > 0 ? (
+          <div class="table-responsive">
+            <table class="ranking-table">
+              <thead class="sr-only">
+                <tr>
+                  <th scope="col">Posição</th>
+                  <th scope="col">Tribunal</th>
+                  <th scope="col">Taxa de cobertura</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bottom5.map((c, i) => (
                   <tr>
-                    <th scope="col">Posição</th>
-                    <th scope="col">Tribunal</th>
-                    <th scope="col">Taxa de cobertura</th>
+                    <td><small class="rank-num">{i + 1}</small></td>
+                    <td><strong>{c.court}</strong></td>
+                    <td class="cell-error cell-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
                   </tr>
-                </thead>
-                <tbody>
-                  {bottom5.map((c, i) => (
-                    <tr>
-                      <td><span class="rank-num">{i + 1}</span></td>
-                      <td><strong>{c.court}</strong></td>
-                      <td class="cell-error cell-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p class="empty-text">Sem dados suficientes</p>
-          )}
-        </div>
-      </div>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p class="empty-text">Sem dados suficientes</p>
+        )}
+      </article>
     </div>
 
     <!-- Weekly Pattern -->
-    <div class="card section-card-bottom">
-      <div class="card-body">
-        <div class="card-section-header weekly-header">
-          <h3 class="weekly-title">Padrão Semanal</h3>
-          <p class="weekly-subtitle">Média de cobertura por dia da semana</p>
-        </div>
-        <div class="weekly-grid">
-          {displayWeekly.map(w => {
-            if (!w) return null;
-            const isLowest = lowestDay && w.day_idx === lowestDay.day_idx;
-            const avgPct = (w.avg / totalTribunals) * 100;
-            return (
-              <div class="weekly-card">
-                <div class="weekly-card-body">
-                  <span class="day-name">{w.name.slice(0, 3)}</span>
-                  <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
-                    {avgPct.toFixed(0)}%
-                  </div>
-                  <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
-                  {isLowest && (
-                    <div class="badge-wrapper"><span class="badge-error">Menor</span></div>
-                  )}
-                </div>
+    <article class="section-card-bottom">
+      <header class="weekly-header">
+        <h3 class="weekly-title">Padrão Semanal</h3>
+        <p class="weekly-subtitle">Média de cobertura por dia da semana</p>
+      </header>
+      <div class="weekly-grid">
+        {displayWeekly.map(w => {
+          if (!w) return null;
+          const isLowest = lowestDay && w.day_idx === lowestDay.day_idx;
+          const avgPct = (w.avg / totalTribunals) * 100;
+          return (
+            <div class="weekly-card">
+              <span class="day-name">{w.name.slice(0, 3)}</span>
+              <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
+                {avgPct.toFixed(0)}%
               </div>
-            );
-          })}
-        </div>
+              <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
+              {isLowest && <mark data-tone="error">Menor</mark>}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </article>
   </div>
 </Layout>
 
@@ -189,21 +173,18 @@ const base = import.meta.env.BASE_URL;
     margin-bottom: var(--space-lg);
   }
 
-  .section-card-bottom {
-    margin-bottom: var(--space-xl);
-  }
-
-  .card-header {
+  .section-card header,
+  .section-card-bottom header {
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    border-bottom: 1px solid var(--color-base-300);
+    border-bottom: 1px solid var(--pico-muted-border-color);
     padding-bottom: 0.75rem;
+    background: none;
   }
 
-  .card-section-header {
-    border-bottom: 1px solid var(--color-base-300);
-    padding-bottom: 0.75rem;
+  .section-card-bottom {
+    margin-bottom: var(--space-xl);
   }
 
   .muted {
@@ -339,15 +320,11 @@ const base = import.meta.env.BASE_URL;
 
   .weekly-card {
     background: var(--color-base-200);
-    border-radius: var(--radius-box);
+    border-radius: var(--pico-border-radius);
     padding: var(--space-md) var(--space-sm);
-  }
-
-  .weekly-card-body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    padding: var(--space-sm);
   }
 
   .weekly-grid .stat-value {
@@ -363,7 +340,9 @@ const base = import.meta.env.BASE_URL;
     opacity: 0.7;
   }
 
-  .badge-wrapper {
+  mark[data-tone='error'] {
+    background: color-mix(in srgb, var(--color-error) 20%, transparent);
+    color: var(--color-error);
     margin-top: 0.25rem;
   }
 

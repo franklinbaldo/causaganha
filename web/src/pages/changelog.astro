@@ -34,18 +34,16 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 
     <section class="entries-section">
       {entries.map((entry) => (
-        <article class="card">
-          <div class="card-body">
-            <small class="entry-date">
-              <time datetime={entry.date}>
-                {dateFormatter.format(new Date(entry.date + 'T00:00:00Z'))}
-              </time>
-            </small>
-            <h2 class="card-heading">{entry.title}</h2>
-            <ul class="entry-list">
-              {entry.items.map((item) => <li>{item}</li>)}
-            </ul>
-          </div>
+        <article>
+          <small class="entry-date">
+            <time datetime={entry.date}>
+              {dateFormatter.format(new Date(entry.date + 'T00:00:00Z'))}
+            </time>
+          </small>
+          <h2>{entry.title}</h2>
+          <ul>
+            {entry.items.map((item) => <li>{item}</li>)}
+          </ul>
         </article>
       ))}
     </section>
@@ -69,17 +67,5 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   .entry-date {
     font-family: var(--font-mono);
     opacity: 0.7;
-  }
-
-  .card-heading {
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    margin-top: 0.25rem;
-  }
-
-  .entry-list {
-    list-style: disc;
-    padding-left: 1.25rem;
-    opacity: 0.8;
   }
 </style>
