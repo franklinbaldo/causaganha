@@ -565,7 +565,7 @@ table tbody tr:hover {
   button,
   [role="button"],
   .hint-chip,
-  .drawer-menu a,
+  dialog.nav-drawer a,
   .mode-tab-label,
   .tab-label {
     min-height: 44px;
