@@ -11,70 +11,15 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <Header variant="page" title="Página não encontrada" backHref={BASE} backLabel="Início" tile="404" />
 
   <div class="hero">
-    <div class="hero-content">
-      <div class="hero-inner">
-        <p class="error-code" aria-hidden="true">404</p>
-        <p class="error-message">
-          O endereço não existe ou foi movido. Se você chegou por um link antigo, este conteúdo pode ainda não ter sido coletado — tente a busca ou volte ao início.
-        </p>
-        <div class="action-buttons">
-          <a href={BASE + 'publicacoes'} class="btn btn-primary">Buscar publicações</a>
-          <a href={BASE} class="btn btn-outline-secondary">Início</a>
-        </div>
+    <div class="hero-inner">
+      <p class="error-code" aria-hidden="true">404</p>
+      <p class="error-message">
+        O endereço não existe ou foi movido. Se você chegou por um link antigo, este conteúdo pode ainda não ter sido coletado — tente a busca ou volte ao início.
+      </p>
+      <div class="action-buttons">
+        <a href={BASE + 'publicacoes'} role="button">Buscar publicações</a>
+        <a href={BASE} role="button" class="secondary outline">Início</a>
       </div>
     </div>
   </div>
 </Layout>
-
-<style>
-  .hero {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 50vh;
-  }
-
-  .hero-content {
-    text-align: center;
-  }
-
-  .hero-inner {
-    max-width: 28rem;
-  }
-
-  .error-code {
-    font-family: var(--font-mono);
-    font-size: 6rem;
-    font-weight: 800;
-    letter-spacing: -0.05em;
-    color: var(--color-primary);
-    opacity: 0.4;
-    line-height: 1;
-  }
-
-  .error-message {
-    padding-block: 1rem;
-    opacity: 0.6;
-  }
-
-  .action-buttons {
-    display: flex;
-    gap: 0.75rem;
-    justify-content: center;
-    flex-wrap: wrap;
-    padding-inline: 1rem;
-  }
-
-  .btn-secondary:focus-visible {
-    outline: 2px solid var(--color-accent);
-    outline-offset: 3px;
-  }
-
-  @media (max-width: 420px) {
-    .action-buttons .btn-primary,
-    .action-buttons .btn-outline-secondary {
-      flex: 1 1 14rem;
-      justify-content: center;
-    }
-  }
-</style>

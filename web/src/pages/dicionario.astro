@@ -18,7 +18,7 @@ const dictionary = [
 <Layout title="Dicionário de Dados — CausaGanha" description="Glossário de campos e tabelas do dataset jurídico aberto em Parquet — comunicações, advogados, processos e classificações do DJEN.">
   <Header variant="page" title="Dicionário de Dados" subtitle="Campos principais do catálogo Parquet" backHref={BASE + 'dados'} backLabel="Dados" tile="dicionario" />
 
-  <div class="page-container">
+  <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Dicionário de Dados' }]} />
 
     <p class="intro-text">Use este dicionário como referência rápida. Para uma visão completa de schemas, consulte também a página de <a class="link" href={BASE + 'dados'}>Dados Abertos</a>.</p>
@@ -47,54 +47,3 @@ const dictionary = [
     </div>
   </div>
 </Layout>
-
-<style>
-  .page-container {
-    max-width: 1280px;
-    margin-inline: auto;
-    padding-inline: 1rem;
-  }
-
-  .intro-text {
-    margin-block: 1.5rem;
-    opacity: 0.8;
-  }
-
-  .link {
-    color: var(--color-primary);
-    text-decoration: underline;
-  }
-
-  .link:hover {
-    opacity: 0.8;
-  }
-
-  .table-wrapper {
-    overflow-x: auto;
-    margin-bottom: 2rem;
-  }
-
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .data-table th,
-  .data-table td {
-    padding: 0.5rem 0.75rem;
-    text-align: left;
-  }
-
-  .data-table thead th {
-    font-weight: 600;
-    border-bottom: 2px solid var(--color-base-300);
-  }
-
-  .data-table tbody tr:nth-child(even) {
-    background: var(--color-base-200);
-  }
-
-  .data-table tbody tr:hover {
-    background: var(--color-surface-overlay);
-  }
-</style>

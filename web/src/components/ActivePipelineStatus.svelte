@@ -70,61 +70,13 @@
     {:else if isPipelineActive}
       <div class="live-indicator">
         <span class="cg-pulse dot-pulse"></span>
-        <span class="status-text font-bold text-success">Ao Vivo</span>
+        <strong class="status-text live">Ao Vivo</strong>
       </div>
       {#if activeTribunal}
-        <span class="tribunal-badge badge badge-primary">{activeTribunal}</span>
+        <mark class="tribunal-badge">{activeTribunal}</mark>
       {/if}
     {:else}
       <span class="status-text muted">Sistema Ocioso</span>
     {/if}
   </div>
 </QueryProvider>
-
-<style>
-  .active-pipeline-widget {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2);
-    font-size: var(--font-size-sm);
-    padding: var(--space-1) var(--space-2);
-    border-radius: var(--radius-btn);
-    background: var(--color-base-200);
-    border: 1px solid var(--color-base-300);
-  }
-
-  .live-indicator {
-    display: flex;
-    align-items: center;
-    gap: var(--space-1);
-  }
-
-  .dot-pulse {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background-color: var(--color-success, #22c55e);
-  }
-
-  .status-text {
-    font-weight: 500;
-  }
-
-  .font-bold {
-    font-weight: 700;
-  }
-
-  .text-success {
-    color: var(--color-success, #22c55e);
-  }
-
-  .muted {
-    opacity: 0.6;
-  }
-
-  .tribunal-badge {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-  }
-</style>

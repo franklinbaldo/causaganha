@@ -23,42 +23,34 @@ const adminPages = [
 <Layout title="Admin — CausaGanha" description="Painel de administração e monitoramento do CausaGanha.">
   <Header variant="page" title="Admin Dashboard" subtitle="Monitoramento interno e ferramentas do sistema" />
 
-  <div class="container mx-auto px-4">
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+  <div class="container">
+    <div class="admin-grid">
 
-      <!-- Left Column: Admin Links -->
-      <div class="lg:col-span-2">
-        <h2 class="text-xl font-bold mb-4">Painéis de Monitoramento</h2>
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="admin-main">
+        <h2>Painéis de Monitoramento</h2>
+        <div class="pages-grid">
           {adminPages.map(page => (
-            <a href={page.href} class="card bg-base-100 shadow-sm border border-base-300 hover:border-primary transition-colors">
-              <div class="card-body p-6">
-                <h3 class="card-title text-lg">{page.title}</h3>
-                <p class="text-sm opacity-70">{page.description}</p>
-              </div>
+            <a href={page.href} class="admin-page-link">
+              <article>
+                <strong>{page.title}</strong>
+                <small>{page.description}</small>
+              </article>
             </a>
           ))}
         </div>
       </div>
 
-      <!-- Right Column: Jules Sessions Widget -->
-      <div class="lg:col-span-1">
-        <h2 class="text-xl font-bold mb-4">Jules Assistant</h2>
+      <aside class="admin-sidebar">
+        <h2>Jules Assistant</h2>
         <JulesSessionStatus client:idle />
-      </div>
+      </aside>
 
     </div>
 
-    <!-- Bottom Section: Paused Tribunals -->
-    <div class="mt-8">
+    <div class="bottom-section">
       <PausedTribunals data={backfillState} client:idle />
-      <div class="mt-8">
-        <AuditLogExport client:only="svelte" />
-      </div>
-      <div class="mt-8">
-        <OmissionCost omissionStats={omissionStats} client:idle />
-      </div>
+      <AuditLogExport client:only="svelte" />
+      <OmissionCost omissionStats={omissionStats} client:idle />
     </div>
-
   </div>
 </Layout>

@@ -2,9 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
-import AlertBanner from '../../components/AlertBanner.astro';
+import AlertBanner from '../../components/AlertBanner.svelte';
 import StatCard from '../../components/StatCard.astro';
-import EmptyState from '../../components/EmptyState.astro';
+import EmptyState from '../../components/EmptyState.svelte';
 import { readJson } from '../../lib/readJson';
 
 const backfill = readJson<any>('cache/backfill.json');
@@ -60,16 +60,14 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
           <StatCard title="Dias com dados" value={`${tribunal.daysWithData} / ${tribunal.daysTotal}`} />
         </section>
 
-        <div class="card">
-          <div class="card-body">
-            <h2 class="card-title">Consulta SQL sugerida</h2>
-            <p class="card-hint">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
-            <pre class="code-block"><code>{query}</code></pre>
-            <div class="card-actions">
-              <a href={BASE + 'explorador'} class="btn btn-primary">Abrir Explorador</a>
-            </div>
-          </div>
-        </div>
+        <article>
+          <h2>Consulta SQL sugerida</h2>
+          <p class="card-hint">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
+          <pre class="code-block"><code>{query}</code></pre>
+          <footer>
+            <a href={BASE + 'explorador'} role="button">Abrir Explorador</a>
+          </footer>
+        </article>
       </>
     ) : (
       <EmptyState
@@ -81,45 +79,3 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
     )}
   </div>
 </Layout>
-
-<style>
-  .stats-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-sm);
-    margin-top: var(--space-md);
-    margin-bottom: var(--space-md);
-  }
-
-  .card-title {
-    font-size: var(--font-size-lg);
-    font-weight: 700;
-    margin-bottom: var(--space-xs);
-  }
-
-  .card-hint {
-    font-size: var(--font-size-sm);
-    opacity: 0.7;
-    margin-bottom: var(--space-sm);
-  }
-
-  .code-block {
-    background: var(--color-base-200);
-    border-radius: var(--radius-box);
-    padding: 0.75rem;
-    font-size: var(--font-size-xs);
-    overflow-x: auto;
-  }
-
-  .card-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: var(--space-sm);
-  }
-
-  @media (min-width: 768px) {
-    .stats-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-</style>

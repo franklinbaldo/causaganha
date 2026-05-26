@@ -54,11 +54,15 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <script is:inline>
       // Apply saved theme before paint. When no preference saved, fall back to
       // the user's system setting so dark-mode users don't get a flash of light.
+      // Apply saved preference, or fall back to system preference.
+      // We resolve to an explicit "dark"/"light" rather than "auto" because
+      // our custom --color-base-* tokens live in [data-theme="dark"], not in
+      // a @media block, so they would not activate under data-theme="auto".
       (function () {
         const saved = localStorage.getItem('causaganha-theme');
-        const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
         const isDark = saved ? saved === 'dark' : prefersDark;
-        document.documentElement.setAttribute('data-theme', isDark ? 'causaganhadark' : 'causaganha');
+        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
       })();
     </script>
   </head>

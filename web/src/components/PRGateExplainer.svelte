@@ -126,11 +126,10 @@
   }
 </script>
 
-<div class="card" id="pr-gate-explainer"><div class="card-body">
+<article id="pr-gate-explainer">
   <h2>Diagnóstico de prontidão do PR</h2>
   <form onsubmit={fetchPRStatus}>
     <input
-      class="input-field"
       type="number"
       placeholder="Número do PR (ex.: 425)"
       aria-label="Número do PR"
@@ -146,7 +145,7 @@
   </form>
 
   {#if error}
-    <div class="status-error">{error}</div>
+    <aside role="alert" class="status-error">{error}</aside>
   {/if}
 
   {#if prData && summary}
@@ -155,9 +154,9 @@
         <div>
           <div>
             <h3>PR #{prData.prInfo.number}: {prData.prInfo.title}</h3>
-            <span class={summary.color}>
+            <mark class={summary.color}>
               {summary.status}
-            </span>
+            </mark>
           </div>
           <p>{summary.description}</p>
 
@@ -179,9 +178,9 @@
             {#each completedChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <span class={c.conclusion === 'success' ? 'status-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'status-error')}>
+                <mark class={c.conclusion === 'success' ? 'status-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'status-error')}>
                   {c.conclusion === 'success' ? '✓' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? '-' : '✗')} {c.conclusion}
-                </span>
+                </mark>
               </li>
             {/each}
             {#if completedChecks.length === 0}
@@ -196,7 +195,7 @@
             {#each pendingChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <span class="status-accent">Em andamento...</span>
+                <mark class="status-accent">Em andamento...</mark>
               </li>
             {/each}
             {#if pendingChecks.length === 0}
@@ -207,45 +206,4 @@
       </div>
     </div>
   {/if}
-</div></div>
-
-<style>
-
-  .input-field {
-    border: 1px solid var(--color-base-300);
-    padding: 0.5rem 0.75rem;
-    border-radius: var(--radius-btn);
-    background: var(--color-base-100);
-    color: var(--color-base-content);
-    font-size: var(--font-size-base);
-  }
-
-  .status-success {
-    color: var(--color-success);
-  }
-
-  .status-error {
-    color: var(--color-error);
-  }
-
-  .status-accent {
-    color: var(--color-accent);
-  }
-
-  .link-accent {
-    color: var(--color-accent);
-    text-decoration: underline;
-  }
-
-  .checks-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-  }
-
-  @media (max-width: 767px) {
-    .checks-grid {
-      grid-template-columns: 1fr;
-    }
-  }
-</style>
+</article>

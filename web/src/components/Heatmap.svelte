@@ -3,6 +3,9 @@
   import { fade } from 'svelte/transition';
   import CellTooltip from './CellTooltip.svelte';
   import VelocityTimeline from './VelocityTimeline.svelte';
+  import HeatmapLegend from './HeatmapLegend.svelte';
+  import HeatmapYearNav from './HeatmapYearNav.svelte';
+  import HeatmapMonthPicker from './HeatmapMonthPicker.svelte';
   import { type CellStatus, CELL_STATUS_COLORS } from '../lib/colorUtils';
   import { toDateString } from '../lib/dateUtils';
 
@@ -61,8 +64,10 @@
 
   // ── Year/month picker state ──────────────────────────────────────────────
   const _now = new Date();
-  let selectedYear  = $state(_now.getUTCFullYear());
-  let selectedMonth = $state(_now.getUTCMonth()); // 0-indexed
+  const currentYear  = _now.getUTCFullYear();
+  const currentMonth = _now.getUTCMonth(); // 0-indexed
+  let selectedYear  = $state(currentYear);
+  let selectedMonth = $state(currentMonth);
 
   let minYear = $derived(start.getUTCFullYear());
   let maxYear = $derived(end.getUTCFullYear());
@@ -78,14 +83,6 @@
     selectedYear; selectedMonth;
     focusedCell = null;
   });
-
-  function prevYear() { if (selectedYear > minYear) selectedYear--; }
-  function nextYear() { if (selectedYear < maxYear) selectedYear++; }
-  function goToToday() {
-    const now = new Date();
-    selectedYear = now.getUTCFullYear();
-    selectedMonth = now.getUTCMonth();
-  }
 
   function selectMonth(mo: number) {
     const first = new Date(Date.UTC(selectedYear, mo, 1));
@@ -115,14 +112,6 @@
       return { name, mo, total, collected, pct: total > 0 ? collected / total : 0 };
     })
   );
-
-  function monthBadgeClass(pct: number): string {
-    if (pct < 0)    return 'month-outside';
-    if (pct >= 0.8) return 'month-high';
-    if (pct >= 0.5) return 'month-mid';
-    if (pct > 0)    return 'month-low';
-    return 'month-zero';
-  }
 
   // ── Single-month calendar ────────────────────────────────────────────────
   let selectedMonthCalendar = $derived.by(() => {
@@ -227,48 +216,21 @@
   <div class="heatmap-wrapper">
 
     <!-- ── Year wheel ──────────────────────────────────────── -->
-    <div class="year-nav">
-      <button
-        class="year-arrow"
-        onclick={prevYear}
-        disabled={selectedYear <= minYear}
-        aria-label="Ano anterior"
-      >&#8592;</button>
-      <span class="year-label">{selectedYear}</span>
-      <button
-        class="year-arrow"
-        onclick={nextYear}
-        disabled={selectedYear >= maxYear}
-        aria-label="Próximo ano"
-      >&#8594;</button>
-      <button class="today-btn" onclick={goToToday} aria-label="Ir para o mês atual">
-        Hoje
-      </button>
-    </div>
+    <HeatmapYearNav
+      selectedYear={selectedYear}
+      minYear={minYear}
+      maxYear={maxYear}
+      onprev={() => selectedYear--}
+      onnext={() => selectedYear++}
+      ontoday={() => { selectedYear = currentYear; selectedMonth = currentMonth; }}
+    />
 
     <!-- ── Month picker grid ───────────────────────────────── -->
-    <div class="month-picker" role="listbox" aria-label="Selecionar mês">
-      {#each monthCoverage as mc}
-        {@const isSelected = mc.mo === selectedMonth}
-        {@const isDisabled = mc.pct < 0}
-        <button
-          class="month-btn {monthBadgeClass(mc.pct)} {isSelected ? 'month-selected' : ''}"
-          onclick={() => selectMonth(mc.mo)}
-          disabled={isDisabled}
-          role="option"
-          aria-selected={isSelected}
-          aria-label="{mc.name}: {mc.pct >= 0 ? Math.round(mc.pct * 100) + '% coletado' : 'fora do intervalo'}"
-          title="{mc.collected}/{mc.total} dias coletados"
-        >
-          <span class="month-name">{mc.name}</span>
-          {#if mc.pct >= 0 && mc.total > 0}
-            <div class="month-progress">
-              <div class="month-progress-fill" style="width:{Math.round(mc.pct * 100)}%"></div>
-            </div>
-          {/if}
-        </button>
-      {/each}
-    </div>
+    <HeatmapMonthPicker
+      monthCoverage={monthCoverage}
+      selectedMonth={selectedMonth}
+      onselect={(mo) => selectMonth(mo)}
+    />
 
     <!-- ── Single-month calendar ───────────────────────────── -->
     {#key `${selectedYear}-${selectedMonth}`}
@@ -317,19 +279,7 @@
     {/key}
 
     <!-- ── Legend ──────────────────────────────────────────── -->
-    <div class="legend-card">
-      <div class="legend-body">
-        <span class="legend-summary">
-          <strong>{coveredDays}</strong> de <strong>{totalDays}</strong> dias com dados neste mês
-        </span>
-        <div class="legend-items">
-          <span class="legend-label">Legenda:</span>
-          <div class="legend-item"><div class="legend-swatch heatmap-missing"></div><span>Faltante</span></div>
-          <div class="legend-item"><div class="legend-swatch heatmap-absent"></div><span>Ausente</span></div>
-          <div class="legend-item"><div class="legend-swatch heatmap-collected"></div><span>Coletado</span></div>
-        </div>
-      </div>
-    </div>
+    <HeatmapLegend coveredDays={coveredDays} totalDays={totalDays} />
 
     {#if velocityMetrics?.hasEnoughHistory}
       <div class="velocity-section">
@@ -343,215 +293,3 @@
 
   </div>
 {/if}
-
-<style>
-  .heatmap-wrapper {
-    display: flex;
-    flex-direction: column;
-    gap: 1.25rem;
-  }
-
-  /* ── Year navigation ── */
-  .year-nav {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 1rem;
-  }
-
-  .year-arrow {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--color-base-300);
-    background: transparent;
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    transition: background 0.15s;
-  }
-
-  .year-arrow:hover:not(:disabled) {
-    background: var(--color-base-200);
-  }
-
-  .year-arrow:disabled {
-    opacity: 0.3;
-    cursor: default;
-  }
-
-  .year-label {
-    font-size: var(--font-size-xl, 1.25rem);
-    font-weight: 700;
-    min-width: 4rem;
-    text-align: center;
-  }
-
-  .today-btn {
-    font-size: var(--font-size-xs);
-    padding: 0.25rem 0.625rem;
-    border-radius: var(--radius-full);
-    border: 1px solid var(--color-base-300);
-    background: transparent;
-    cursor: pointer;
-    opacity: 0.7;
-    transition: opacity 0.15s, background 0.15s;
-  }
-
-  .today-btn:hover {
-    opacity: 1;
-    background: var(--color-base-200);
-  }
-
-  /* ── Month picker ── */
-  .month-picker {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(4rem, 1fr));
-    gap: 0.375rem;
-  }
-
-  .month-btn {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.5rem 0.25rem 0.375rem;
-    border-radius: var(--radius-box);
-    border: 2px solid transparent;
-    background: var(--color-base-200);
-    cursor: pointer;
-    transition: border-color 0.15s, background 0.15s;
-    position: relative;
-    overflow: hidden;
-  }
-
-  .month-btn:disabled {
-    opacity: 0.35;
-    cursor: default;
-  }
-
-  .month-btn:not(:disabled):hover {
-    border-color: var(--color-primary);
-  }
-
-  .month-selected {
-    border-color: var(--color-primary) !important;
-    background: color-mix(in srgb, var(--color-primary) 10%, var(--color-base-100));
-  }
-
-  .month-name {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    line-height: 1;
-  }
-
-  /* ── Month coverage mini-bar ── */
-  .month-progress {
-    width: 100%;
-    height: 3px;
-    background: var(--color-base-300);
-    border-radius: 2px;
-    overflow: hidden;
-  }
-
-  .month-progress-fill {
-    height: 100%;
-    border-radius: 2px;
-    transition: width 0.3s;
-  }
-
-  .month-high   .month-progress-fill { background: var(--color-success); }
-  .month-mid    .month-progress-fill { background: var(--color-warning); }
-  .month-low    .month-progress-fill { background: var(--color-error);   }
-  .month-zero   .month-progress-fill { background: var(--color-base-300); }
-  .month-outside { opacity: 0.3; }
-
-  /* ── Single month calendar ── */
-  .month-card {
-    background: var(--color-base-100);
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    padding: 1rem;
-  }
-
-  .month-title {
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    text-transform: capitalize;
-    margin-bottom: 0.75rem;
-    text-align: center;
-  }
-
-  .calendar-table {
-    width: 100%;
-    max-width: 22rem;
-    margin: 0 auto;
-  }
-
-  .calendar-table:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 4px;
-    border-radius: var(--radius-sm);
-  }
-
-  .weekday-header {
-    font-size: var(--font-size-xs);
-    opacity: 0.5;
-    font-weight: 400;
-    text-align: center;
-    padding-bottom: 0.25rem;
-  }
-
-  .day-cell {
-    text-align: center;
-    font-size: var(--font-size-xs);
-    padding: 0.2rem;
-  }
-
-  .day-cell--active   { border-radius: var(--radius-sm); }
-  .day-cell--clickable { cursor: pointer; }
-  .day-cell--default  { cursor: default; }
-
-  /* ── Legend ── */
-  .legend-card   { background: var(--color-base-200); border-radius: var(--radius-box); }
-
-  .legend-body {
-    padding: 0.75rem 1rem;
-    display: flex;
-    flex-direction: row;
-    justify-content: space-between;
-    align-items: center;
-    font-size: var(--font-size-sm);
-    flex-wrap: wrap;
-    gap: 0.75rem;
-  }
-
-  .legend-summary { opacity: 0.7; }
-
-  .legend-items {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 1rem;
-  }
-
-  .legend-label { opacity: 0.5; }
-
-  .legend-item  { display: flex; align-items: center; gap: 0.375rem; }
-
-  .legend-swatch {
-    width: 0.75rem;
-    height: 0.75rem;
-    border-radius: var(--radius-sm);
-  }
-
-  /* ── Velocity section ── */
-  .velocity-section {
-    border-top: 1px solid var(--color-base-300);
-    padding-top: 1.5rem;
-    margin-top: 1rem;
-  }
-</style>

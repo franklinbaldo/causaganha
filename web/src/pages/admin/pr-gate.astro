@@ -14,17 +14,7 @@ import PRGateExplainer from '../../components/PRGateExplainer.svelte';
     subtitle="Entenda por que um PR está ou não pronto para ser mesclado"
   />
 
-  <div class="page-container">
+  <div class="container">
     <PRGateExplainer client:load />
   </div>
 </Layout>
-
-<style>
-  .page-container {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
-  }
-</style>

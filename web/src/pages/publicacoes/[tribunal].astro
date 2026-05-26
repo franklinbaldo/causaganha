@@ -77,7 +77,7 @@ const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.sit
     <Fragment slot="title">CausaGanha <small>/ {tribunalCode}</small></Fragment>
   </Header>
 
-  <div class="page-container">
+  <div class="container">
     <Breadcrumbs crumbs={[
       { label: 'Início', href: BASE },
       { label: 'Publicações', href: BASE + 'publicacoes' },
@@ -95,13 +95,3 @@ const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.sit
     />
   </div>
 </Layout>
-
-<style>
-  .page-container {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
-  }
-</style>

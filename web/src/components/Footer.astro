@@ -3,93 +3,22 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <footer class="site-footer" aria-labelledby="footer-brand">
-  <div class="footer-inner">
-    <p id="footer-brand" class="footer-brand">CausaGanha</p>
-    <nav class="footer-links" aria-label="Links do rodapé">
-      <a href={BASE + 'publicacoes'} class="footer-link">Publicações</a>
-      <a href={BASE + 'sobre'} class="footer-link">Metodologia</a>
-      <a
-        href="https://github.com/franklinbaldo/causaganha"
-        class="footer-link footer-link-external"
-        target="_blank"
-        rel="noopener noreferrer"
-        aria-label="GitHub (abre em nova aba)"
-      >
-        GitHub
-        <svg class="external-icon" aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
-        </svg>
-      </a>
-      <a href={BASE + 'dados'} class="footer-link">Documentação</a>
-    </nav>
-    <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Inspirado no modernismo brasileiro</p>
-  </div>
+  <p id="footer-brand" class="footer-brand">CausaGanha</p>
+  <nav aria-label="Links do rodapé" class="footer-nav">
+    <a href={BASE + 'publicacoes'}>Publicações</a>
+    <a href={BASE + 'sobre'}>Metodologia</a>
+    <a
+      href="https://github.com/franklinbaldo/causaganha"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="GitHub (abre em nova aba)"
+    >
+      GitHub
+      <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
+      </svg>
+    </a>
+    <a href={BASE + 'dados'}>Documentação</a>
+  </nav>
+  <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Inspirado no modernismo brasileiro</p>
 </footer>
-
-<style>
-  .site-footer {
-    background: var(--color-base-200);
-    color: var(--color-base-content);
-    margin-top: var(--space-20, 5rem);
-    padding: var(--space-10, 2.5rem) var(--space-4);
-  }
-
-  .footer-inner {
-    max-width: 72rem;
-    margin: 0 auto;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: var(--space-4);
-    text-align: center;
-  }
-
-  .footer-brand {
-    font-family: var(--font-serif);
-    font-size: var(--font-size-lg);
-    font-weight: 400;
-    letter-spacing: 0;
-    margin: 0;
-  }
-
-  .footer-links {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: center;
-    gap: var(--space-4);
-  }
-
-  .footer-link {
-    text-decoration: none;
-    color: var(--color-content-secondary);
-    font-size: var(--font-size-sm);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    font-weight: 500;
-  }
-
-  .footer-link:hover,
-  .footer-link:focus-visible {
-    color: var(--color-primary);
-    text-decoration: underline;
-  }
-
-  .footer-link-external {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-  }
-
-  .external-icon {
-    flex-shrink: 0;
-    opacity: 0.7;
-  }
-
-  .footer-tagline {
-    font-size: var(--font-size-xs);
-    color: var(--color-content-tertiary);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0;
-  }
-</style>

@@ -2,7 +2,6 @@
 ---
 
 <button
-  id="theme-toggle"
   class="theme-toggle-btn"
   type="button"
   aria-label="Alternar tema"
@@ -17,83 +16,34 @@
 </button>
 
 <script>
-  function setupThemeToggle() {
-    const btn = document.getElementById('theme-toggle');
-    if (!btn) return;
-    if (btn.dataset.bound === '1') return;
-    btn.dataset.bound = '1';
+  // Bind all .theme-toggle-btn instances on the page (desktop + mobile nav
+  // both render a copy, so we query all of them rather than using getElementById).
+  function setupThemeToggles() {
+    document.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn:not([data-bound])').forEach(btn => {
+      btn.dataset.bound = '1';
 
-    function syncLabel() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'causaganhadark';
-      btn!.setAttribute('aria-label', isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro');
-    }
+      function isDark(): boolean {
+        return document.documentElement.getAttribute('data-theme') === 'dark';
+      }
 
-    syncLabel();
+      function syncLabel() {
+        btn.setAttribute('aria-label', isDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+      }
 
-    btn.addEventListener('click', () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'causaganhadark';
-      const nextDark = !isDark;
-      document.documentElement.setAttribute('data-theme', nextDark ? 'causaganhadark' : 'causaganha');
-      localStorage.setItem('causaganha-theme', nextDark ? 'dark' : 'light');
       syncLabel();
+
+      btn.addEventListener('click', () => {
+        const next = !isDark();
+        document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
+        localStorage.setItem('causaganha-theme', next ? 'dark' : 'light');
+        // Sync labels on all instances after any toggle
+        document.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn').forEach(b => {
+          b.setAttribute('aria-label', next ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+        });
+      });
     });
   }
 
-  setupThemeToggle();
-  document.addEventListener('astro:after-swap', setupThemeToggle);
+  setupThemeToggles();
+  document.addEventListener('astro:after-swap', setupThemeToggles);
 </script>
-
-<style>
-  .theme-toggle-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 2rem;
-    height: 2rem;
-    padding: 0.25rem;
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-    border-radius: var(--radius-btn);
-    cursor: pointer;
-    transition: all var(--transition-base);
-    border: 1px solid transparent;
-    background: transparent;
-    color: inherit;
-  }
-
-  .theme-toggle-btn:hover {
-    background: var(--color-base-200);
-  }
-
-  .theme-toggle-btn:focus-visible {
-    background: var(--color-base-200);
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  /* Icon visibility is driven by [data-theme] (set by the inline head script
-     before paint), so the correct icon shows on first render — no FOUC. */
-  .theme-toggle-btn .icon-sun {
-    display: none;
-  }
-
-  .theme-toggle-btn .icon-moon {
-    display: inline;
-  }
-
-  :root[data-theme='causaganhadark'] .theme-toggle-btn .icon-sun {
-    display: inline;
-  }
-
-  :root[data-theme='causaganhadark'] .theme-toggle-btn .icon-moon {
-    display: none;
-  }
-
-  /* WCAG 2.5.5 — 44×44 minimum hit area on touch devices. */
-  @media (pointer: coarse) {
-    .theme-toggle-btn {
-      width: 2.75rem;
-      height: 2.75rem;
-    }
-  }
-</style>

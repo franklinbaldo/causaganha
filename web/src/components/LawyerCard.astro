@@ -12,47 +12,14 @@ const { index } = Astro.props;
 const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}advogados/${index.tribunal.toLowerCase()}`;
 ---
 
-<article class="card">
-  <div class="card-body">
-    <h3 class="card-title">{index.tribunal}</h3>
-    <p class="description">Base disponível para exploração de OABs neste tribunal</p>
-    <ul class="details">
-      <li><strong>Dias com dados:</strong> {index.daysWithData.toLocaleString('pt-BR')} de {index.daysTotal.toLocaleString('pt-BR')}</li>
-      <li><strong>Cobertura:</strong> {index.dataRatePct.toFixed(1)}%</li>
-    </ul>
-    <div class="card-actions">
-      <a href={href} class="btn">Ver guia do tribunal</a>
-    </div>
-  </div>
+<article>
+  <h3>{index.tribunal}</h3>
+  <p class="description">Base disponível para exploração de OABs neste tribunal</p>
+  <ul class="details">
+    <li><strong>Dias com dados:</strong> {index.daysWithData.toLocaleString('pt-BR')} de {index.daysTotal.toLocaleString('pt-BR')}</li>
+    <li><strong>Cobertura:</strong> {index.dataRatePct.toFixed(1)}%</li>
+  </ul>
+  <footer>
+    <a href={href} role="button" class="secondary">Ver guia do tribunal</a>
+  </footer>
 </article>
-
-<style>
-
-  .card-title {
-    font-size: 1.125rem;
-    font-weight: 600;
-    margin: 0;
-  }
-
-  .description {
-    font-size: var(--font-size-sm);
-    opacity: 0.7;
-    margin: 0;
-  }
-
-  .details {
-    font-size: var(--font-size-sm);
-    list-style: none;
-    padding: 0;
-    margin: 0.5rem 0 0 0;
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .card-actions {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: 1rem;
-  }
-</style>

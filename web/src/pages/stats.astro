@@ -57,342 +57,88 @@ const base = import.meta.env.BASE_URL;
     ]} />
 
     <!-- Coverage Overview -->
-    <div class="card section-card">
-      <div class="card-body">
-        <div class="card-header">
-          <strong>Resumo de Cobertura</strong>
-          <small class="muted">Últimos 30 dias</small>
-        </div>
-        <div class="coverage-grid">
-          <figure>
-            <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
-            <figcaption>Média de Coleta</figcaption>
-            <small class="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
-          </figure>
-          <figure>
-            <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
-            <figcaption>Melhor Dia</figcaption>
-            <small class="muted">{bestDay ?? '--'}</small>
-          </figure>
-          <figure>
-            <div class="stat-value color-error">{worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
-            <figcaption>Pior Dia</figcaption>
-            <small class="muted">{worstDay ?? '--'}</small>
-          </figure>
-        </div>
+    <article class="section-card">
+      <header>
+        <strong>Resumo de Cobertura</strong>
+        <small class="muted">Últimos 30 dias</small>
+      </header>
+      <div class="coverage-grid">
+        <figure>
+          <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
+          <figcaption>Média de Coleta</figcaption>
+          <small class="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
+        </figure>
+        <figure>
+          <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+          <figcaption>Melhor Dia</figcaption>
+          <small class="muted">{bestDay ?? '--'}</small>
+        </figure>
+        <figure>
+          <div class="stat-value color-error">{worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+          <figcaption>Pior Dia</figcaption>
+          <small class="muted">{worstDay ?? '--'}</small>
+        </figure>
       </div>
-    </div>
+    </article>
 
     <!-- Court Rankings -->
     <div class="rankings-grid">
-      <div class="card">
-        <div class="card-body">
-          <div class="card-section-header">
-            <strong>Top 5 Mais Confiáveis</strong>
-          </div>
-          {top5.length > 0 ? (
-            <div class="table-responsive">
-              <table class="ranking-table">
-                <thead class="sr-only">
-                  <tr>
-                    <th scope="col">Posição</th>
-                    <th scope="col">Tribunal</th>
-                    <th scope="col">Taxa de cobertura</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {top5.map((c, i) => (
-                    <tr>
-                      <td><span class="rank-num">{i + 1}</span></td>
-                      <td><strong>{c.court}</strong></td>
-                      <td class="cell-success cell-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p class="empty-text">Sem dados suficientes</p>
-          )}
-        </div>
-      </div>
+      <article>
+        <strong>Top 5 Mais Confiáveis</strong>
+        {top5.length > 0 ? (
+          <ol class="ranking-list">
+            {top5.map(c => (
+              <li class="ranking-item">
+                <span class="ranking-court">{c.court}</span>
+                <mark data-tone="success">{(c.rate * 100).toFixed(1)}%</mark>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p class="empty-text">Sem dados suficientes</p>
+        )}
+      </article>
 
-      <div class="card">
-        <div class="card-body">
-          <div class="card-section-header">
-            <strong>Top 5 Mais Falhas</strong>
-          </div>
-          {bottom5.length > 0 ? (
-            <div class="table-responsive">
-              <table class="ranking-table">
-                <thead class="sr-only">
-                  <tr>
-                    <th scope="col">Posição</th>
-                    <th scope="col">Tribunal</th>
-                    <th scope="col">Taxa de cobertura</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {bottom5.map((c, i) => (
-                    <tr>
-                      <td><span class="rank-num">{i + 1}</span></td>
-                      <td><strong>{c.court}</strong></td>
-                      <td class="cell-error cell-right"><strong>{(c.rate * 100).toFixed(1)}%</strong></td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : (
-            <p class="empty-text">Sem dados suficientes</p>
-          )}
-        </div>
-      </div>
+      <article>
+        <strong>Top 5 Mais Falhas</strong>
+        {bottom5.length > 0 ? (
+          <ol class="ranking-list">
+            {bottom5.map(c => (
+              <li class="ranking-item">
+                <span class="ranking-court">{c.court}</span>
+                <mark data-tone="error">{(c.rate * 100).toFixed(1)}%</mark>
+              </li>
+            ))}
+          </ol>
+        ) : (
+          <p class="empty-text">Sem dados suficientes</p>
+        )}
+      </article>
     </div>
 
     <!-- Weekly Pattern -->
-    <div class="card section-card-bottom">
-      <div class="card-body">
-        <div class="card-section-header weekly-header">
-          <h3 class="weekly-title">Padrão Semanal</h3>
-          <p class="weekly-subtitle">Média de cobertura por dia da semana</p>
-        </div>
-        <div class="weekly-grid">
-          {displayWeekly.map(w => {
-            if (!w) return null;
-            const isLowest = lowestDay && w.day_idx === lowestDay.day_idx;
-            const avgPct = (w.avg / totalTribunals) * 100;
-            return (
-              <div class="weekly-card">
-                <div class="weekly-card-body">
-                  <span class="day-name">{w.name.slice(0, 3)}</span>
-                  <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
-                    {avgPct.toFixed(0)}%
-                  </div>
-                  <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
-                  {isLowest && (
-                    <div class="badge-wrapper"><span class="badge-error">Menor</span></div>
-                  )}
-                </div>
+    <article class="section-card-bottom">
+      <header class="weekly-header">
+        <h3 class="weekly-title">Padrão Semanal</h3>
+        <p class="weekly-subtitle">Média de cobertura por dia da semana</p>
+      </header>
+      <div class="weekly-grid">
+        {displayWeekly.map(w => {
+          if (!w) return null;
+          const isLowest = lowestDay && w.day_idx === lowestDay.day_idx;
+          const avgPct = (w.avg / totalTribunals) * 100;
+          return (
+            <div class="weekly-card">
+              <span class="day-name">{w.name.slice(0, 3)}</span>
+              <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
+                {avgPct.toFixed(0)}%
               </div>
-            );
-          })}
-        </div>
+              <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
+              {isLowest && <mark data-tone="error">Menor</mark>}
+            </div>
+          );
+        })}
       </div>
-    </div>
+    </article>
   </div>
 </Layout>
-
-<style>
-
-  .section-card {
-    margin-bottom: var(--space-lg);
-  }
-
-  .section-card-bottom {
-    margin-bottom: var(--space-xl);
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    border-bottom: 1px solid var(--color-base-300);
-    padding-bottom: 0.75rem;
-  }
-
-  .card-section-header {
-    border-bottom: 1px solid var(--color-base-300);
-    padding-bottom: 0.75rem;
-  }
-
-  .muted {
-    opacity: 0.5;
-  }
-
-  .coverage-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: var(--space-lg);
-    text-align: center;
-    padding: var(--space-md) 0;
-  }
-
-  .coverage-grid figure {
-    margin: 0;
-    padding: var(--space-lg) var(--space-sm);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .coverage-grid figcaption {
-    font-size: var(--font-size-sm);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-top: 1rem;
-    opacity: 0.8;
-  }
-
-  .coverage-grid small {
-    display: block;
-    margin-top: 0.5rem;
-    opacity: 0.6;
-    font-size: var(--font-size-sm);
-  }
-
-  .stat-unit {
-    font-size: 0.5em;
-    font-weight: 500;
-  }
-
-  .stat-fraction {
-    font-size: 0.5em;
-    font-weight: 400;
-    opacity: 0.5;
-  }
-
-  .color-success {
-    color: var(--color-success);
-  }
-
-  .color-error {
-    color: var(--color-error);
-  }
-
-  .rankings-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-md);
-    margin-bottom: var(--space-lg);
-  }
-
-  .ranking-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-sm);
-  }
-
-  .ranking-table tr:nth-child(even) {
-    background: var(--color-base-200);
-  }
-
-  .ranking-table td {
-    padding: 0.5rem 0.75rem;
-  }
-
-  .rank-num {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 1.5rem;
-    height: 1.5rem;
-    border-radius: 9999px;
-    background: var(--color-surface-overlay);
-    color: var(--color-content-secondary);
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-  }
-
-  .cell-success {
-    color: var(--color-success);
-  }
-
-  .cell-error {
-    color: var(--color-error);
-  }
-
-  .cell-right {
-    text-align: right;
-  }
-
-  .empty-text {
-    text-align: center;
-    opacity: 0.5;
-    padding: var(--space-sm) 0;
-  }
-
-  .weekly-header {
-    margin-bottom: var(--space-sm);
-  }
-
-  .weekly-title {
-    font-size: var(--font-size-xl);
-    font-weight: 700;
-    margin-bottom: 0;
-  }
-
-  .weekly-subtitle {
-    font-size: var(--font-size-sm);
-    opacity: 0.6;
-    margin-bottom: 0;
-  }
-
-  .weekly-grid {
-    display: grid;
-    grid-template-columns: repeat(1, 1fr);
-    gap: var(--space-sm);
-    text-align: center;
-  }
-
-  .weekly-card {
-    background: var(--color-base-200);
-    border-radius: var(--radius-box);
-    padding: var(--space-md) var(--space-sm);
-  }
-
-  .weekly-card-body {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: var(--space-sm);
-  }
-
-  .weekly-grid .stat-value {
-    font-size: var(--font-size-xl);
-    margin: var(--space-xs) 0;
-  }
-
-  .day-name {
-    font-size: var(--font-size-sm);
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    opacity: 0.7;
-  }
-
-  .badge-wrapper {
-    margin-top: 0.25rem;
-  }
-
-  @media (max-width: 768px) {
-    .coverage-grid {
-      grid-template-columns: 1fr;
-      gap: var(--space-md);
-    }
-  }
-
-  @media (min-width: 480px) {
-    .weekly-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 768px) {
-    .rankings-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-
-    .weekly-grid {
-      grid-template-columns: repeat(4, 1fr);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .weekly-grid {
-      grid-template-columns: repeat(7, 1fr);
-    }
-  }
-</style>

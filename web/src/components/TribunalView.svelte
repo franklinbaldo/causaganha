@@ -2,6 +2,7 @@
   import { TRIBUNAL_GROUPS } from '../lib/tribunais';
   import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
   import QueryProvider from './QueryProvider.svelte';
+  import TribunalCard from './TribunalCard.svelte';
 
   let {
     initialPipeline,
@@ -51,11 +52,6 @@
       .filter(group => group.tribunals.length > 0)
   );
 
-  function formatDate(iso: string): string {
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  }
-
   function getTribunalStats(t: string) {
     let totalZips = 0;
     let latestDate: string | null = null;
@@ -74,10 +70,9 @@
 <QueryProvider>
 <div>
   <!-- Archive Progress -->
-  <div class="card card-lg"><div class="card-body">
-    <header class="section-header">
-      <div class="header-row">
-        <h2 class="section-title">Progresso do Arquivo</h2>
+  <article>
+    <header>
+      <h2>Progresso do Arquivo</h2>
         {#if latestDate}
           <span class="meta-text">
             Última coleta: {latestDate}
@@ -86,7 +81,6 @@
             {/if}
           </span>
         {/if}
-      </div>
     </header>
 
     <!-- Quick Stats -->
@@ -108,18 +102,18 @@
         <p class="stat-title">Itens no IA</p>
       </div>
     </div>
-  </div></div>
+  </article>
 
   <!-- Progress by Year -->
   {#if Object.keys(snapshotByYear).length > 0}
-    <div class="card card-lg"><div class="card-body">
-      <header class="section-header header-row">
+    <article>
+      <header>
         <strong>ZIPs por Ano</strong>
         <small class="meta-text">Internet Archive</small>
       </header>
-      <div class="auto-grid">
+      <div class="tribunals-grid">
         {#each Object.entries(snapshotByYear).sort(([a], [b]) => b.localeCompare(a)) as [year, d]}
-          <div class="card card-compact"><div class="card-body-sm">
+          <article class="year-card">
             <div class="year-row">
               <strong class="small-text">{year}</strong>
               <span class="mono-value">{(d as any).zip_count.toLocaleString('pt-BR')}</span>
@@ -127,13 +121,13 @@
             <small class="meta-text">
               {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
             </small>
-          </div></div>
+          </article>
         {/each}
       </div>
-    </div></div>
+    </article>
   {:else if progressByYear && Object.keys(progressByYear).length > 0}
-    <div class="card card-lg"><div class="card-body">
-      <header class="section-header">
+    <article>
+      <header>
         <strong>Progresso por Ano</strong>
       </header>
       <div>
@@ -153,7 +147,7 @@
           </div>
         {/each}
       </div>
-    </div></div>
+    </article>
   {/if}
 
   <!-- Tribunal Filter -->
@@ -175,7 +169,7 @@
         aria-label="Filtrar tribunais por sigla ou nome"
       />
       {#if query}
-        <button type="button" class="badge badge-info badge-sm clear-btn" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
+        <button type="button" class="clear-btn outline secondary" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
       {/if}
     </label>
   </div>
@@ -193,34 +187,16 @@
           <h3 class="group-title">{group.name}</h3>
           <small class="meta-text">{group.tribunals.length} tribunais</small>
         </div>
-        <div class="auto-grid">
+        <div class="tribunals-grid">
           {#each group.tribunals as t}
             {@const stats = getTribunalStats(t)}
-            <a
+            <TribunalCard
+              tribunal={t}
               href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
-              class="tribunal-link"
-            >
-              <div class="card tribunal-card" class:offline={!stats.hasData}>
-                <div class="card-body-sm">
-                  <div class="tribunal-card-header">
-                    <strong class="small-text">{t}</strong>
-                    <span class={stats.hasData ? "badge badge-success badge-sm" : "badge badge-error badge-sm"}>
-                      {stats.hasData ? "Online" : "Offline"}
-                    </span>
-                  </div>
-                  <div class="tribunal-card-meta">
-                    {#if stats.hasData}
-                      {stats.totalZips.toLocaleString('pt-BR')} publicações
-                    {:else}
-                      Sem dados processados
-                    {/if}
-                    {#if stats.latestDate}
-                      <span class="latest-date">Última: {formatDate(stats.latestDate)}</span>
-                    {/if}
-                  </div>
-                </div>
-              </div>
-            </a>
+              hasData={stats.hasData}
+              totalZips={stats.totalZips}
+              latestDate={stats.latestDate}
+            />
           {/each}
         </div>
       </section>
@@ -228,260 +204,3 @@
   {/if}
 </div>
 </QueryProvider>
-
-<style>
-
-  /* Cards */
-
-  /* Section headers */
-
-  .header-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  /* Stats */
-  .stats {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-    width: 100%;
-    margin-bottom: 1.5rem;
-  }
-
-  @media (min-width: 1024px) {
-    .stats {
-      flex-direction: row;
-    }
-  }
-
-  .stat {
-    padding: 1rem 1.5rem;
-    flex: 1;
-    text-align: center;
-  }
-
-  .stat-value {
-    font-size: var(--font-size-2xl, 1.5rem);
-    font-weight: 700;
-  }
-
-  .stat-title {
-    margin-top: 0.5rem;
-    opacity: 0.6;
-    font-size: var(--font-size-sm);
-  }
-
-  .value-info {
-    color: var(--color-info);
-  }
-
-  .value-warning {
-    color: var(--color-warning);
-  }
-
-  .value-success {
-    color: var(--color-success);
-  }
-
-  .value-primary {
-    color: var(--color-primary);
-  }
-
-  .unit-suffix {
-    font-size: 0.4em;
-    font-weight: 500;
-    margin-left: 0.15em;
-  }
-
-  .fraction-suffix {
-    font-size: 0.4em;
-    font-weight: 400;
-    margin-left: 0.15em;
-    opacity: 0.5;
-    color: var(--color-base-content);
-  }
-
-  /* Auto grid */
-  .auto-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-    gap: 1rem;
-  }
-
-  /* Year rows */
-  .year-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    margin-bottom: 0.5rem;
-  }
-
-  .mono-value {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
-    font-weight: 700;
-  }
-
-  .mono-value-semibold {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-sm);
-    font-weight: 600;
-  }
-
-  /* Progress bars */
-  .progress-bar {
-    width: 100%;
-    height: 0.5rem;
-    appearance: none;
-    border-radius: var(--radius-full);
-  }
-
-  .progress-bar::-webkit-progress-bar {
-    background: var(--color-base-300);
-    border-radius: var(--radius-full);
-  }
-
-  .progress-primary::-webkit-progress-value {
-    background: var(--color-primary);
-    border-radius: var(--radius-full);
-  }
-
-  .year-progress-block {
-    margin-bottom: 1.5rem;
-  }
-
-  .progress-details {
-    opacity: 0.5;
-    font-size: var(--font-size-xs);
-    display: flex;
-    gap: 1rem;
-    margin-top: 0.5rem;
-  }
-
-  /* Filter section */
-  .filter-section {
-    margin-bottom: 1.5rem;
-    margin-top: 2.5rem;
-  }
-
-  .filter-label {
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    opacity: 0.7;
-    margin-bottom: 0.5rem;
-    display: block;
-  }
-
-  .search-input-wrapper {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    max-width: 32rem;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-field);
-    padding: 0.5rem 0.75rem;
-    background: var(--color-base-100);
-  }
-
-  .search-icon {
-    opacity: 0.5;
-    flex-shrink: 0;
-  }
-
-  .search-input {
-    flex: 1;
-    border: none;
-    outline: none;
-    background: transparent;
-    font-size: var(--font-size-sm);
-    min-width: 0;
-  }
-
-  /* Badges */
-  .clear-btn {
-    appearance: none;
-    border: 0;
-    cursor: pointer;
-    font: inherit;
-  }
-  .clear-btn:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-
-  /* Empty state */
-  .empty-state {
-    text-align: center;
-    padding: 2rem;
-    opacity: 0.6;
-  }
-
-  .empty-state svg {
-    width: 3rem;
-    height: 3rem;
-    margin-bottom: 1rem;
-  }
-
-  /* Group sections */
-  .group-section {
-    margin-bottom: 4rem;
-  }
-
-  .group-header {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--color-base-300);
-  }
-
-  .group-title {
-    font-size: var(--font-size-xl, 1.25rem);
-    margin-bottom: 0.25rem;
-  }
-
-  /* Tribunal cards */
-  .tribunal-link {
-    display: block;
-    height: 100%;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .tribunal-link:hover .tribunal-card {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-md);
-  }
-
-  .tribunal-card {
-    height: 100%;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-  }
-
-  .tribunal-card.offline {
-    opacity: 0.6;
-  }
-
-  .tribunal-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .tribunal-card-meta {
-    font-size: var(--font-size-xs);
-    opacity: 0.7;
-  }
-
-  .latest-date {
-    display: block;
-    margin-top: 0.25rem;
-    opacity: 0.7;
-  }
-</style>

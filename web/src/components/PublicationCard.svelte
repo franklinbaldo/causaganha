@@ -301,12 +301,12 @@
 
 {#snippet sourceBadge()}
   {#if source}
-    <span
-      class="badge {source === 'djen' ? 'badge-info' : 'badge-warning'}"
+    <mark
+      data-tone={source === 'djen' ? 'info' : 'warning'}
       title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}
     >
       Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
-    </span>
+    </mark>
   {/if}
 {/snippet}
 
@@ -320,8 +320,8 @@
 {#if compact}
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
-  <div
-    class="card publication-card compact-card"
+  <article
+    class="publication-card compact-card"
     class:expandable={!!onExpand}
     id={`pub-${seq}`}
     role={onExpand ? "button" : undefined}
@@ -337,13 +337,13 @@
       }
     }}
   >
-    <div class="card-body compact-body">
+    <div class="compact-body">
       <header class="card-header">
         <div class="header-left-stack">
           <div class="header-meta">
             <span class="seq-number">#{seq}</span>
             {#if pub.tipoComunicacao}
-              <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+              <mark class="publication-badge">{pub.tipoComunicacao}</mark>
             {/if}
             {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
@@ -359,14 +359,14 @@
         </div>
         <div class="header-actions">
           {#if pub.link}
-            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer" role="button">
               {@render openExternalIcon()}
               Inteiro teor
             </a>
           {/if}
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="outline secondary"
             onclick={(e: MouseEvent) => handleShare(e, "compact")}
             title="Copiar link"
           >
@@ -406,20 +406,20 @@
       {#if parties.length > 0}
         <div class="tags-row">
           {#each parties.slice(0, 4) as party}
-            <span class="badge name-pill">{party}</span>
+            <mark class="name-pill">{party}</mark>
           {/each}
         </div>
       {/if}
     </div>
-  </div>
+  </article>
 {:else if isReaderMode}
-  <div class="card publication-card reader-mode" id={`pub-${seq}`}>
-    <div class="card-body reader-body">
+  <article class="publication-card reader-mode" id={`pub-${seq}`}>
+    <div class="reader-body">
       <header class="card-header">
         <div class="header-left-stack">
           <div class="header-meta">
             <span class="seq-number seq-bold">#{seq}</span>
-            <span class="badge publication-badge">Modo Leitura</span>
+            <mark class="publication-badge">Modo Leitura</mark>
             {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
           </div>
@@ -433,21 +433,21 @@
         <div class="header-actions" aria-label="Ações de navegação e leitura">
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="outline secondary"
             onclick={() => (isReaderMode = false)}
             title="Sair do Modo Leitura"
           >
             Voltar
           </button>
           {#if pub.link}
-            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
               {@render openExternalIcon()}
               Inteiro teor
             </a>
           {/if}
           <button
             type="button"
-            class="btn btn-outline-secondary"
+            class="outline secondary"
             onclick={(e: MouseEvent) => handleShare(e, "reader")}
             title="Copiar link"
           >
@@ -486,12 +486,12 @@
             <div class="sidebar-tags">
               {#if parties.length > 0}
                 {#each parties as party}
-                  <span class="badge name-pill">{party}</span>
+                  <mark class="name-pill">{party}</mark>
                 {/each}
               {/if}
               {#if lawyers.length > 0}
                 {#each lawyers as lawyer}
-                  <span class="badge lawyer-pill">{lawyer}</span>
+                  <mark class="lawyer-pill">{lawyer}</mark>
                 {/each}
               {/if}
             </div>
@@ -521,16 +521,16 @@
         </div>
       </div>
     </div>
-  </div>
+  </article>
 {:else}
-  <div class="card publication-card featured-card" id={`pub-${seq}`}>
-    <div class="card-body featured-body">
+  <article class="publication-card featured-card" id={`pub-${seq}`}>
+    <div class="featured-body">
       <header class="card-header">
         <div class="header-left-stack">
           <div class="header-meta">
             <span class="seq-number seq-bold">#{seq}</span>
             {#if pub.tipoComunicacao}
-              <span class="badge publication-badge">{pub.tipoComunicacao}</span>
+              <mark class="publication-badge">{pub.tipoComunicacao}</mark>
             {/if}
             {@render sourceBadge()}
             <small class="date-label">{dateStr}</small>
@@ -547,7 +547,7 @@
           {#if onCollapse}
             <button
               type="button"
-              class="btn btn-outline-secondary"
+              class="outline secondary"
               onclick={onCollapse}
               title="Fechar detalhes"
             >
@@ -556,14 +556,14 @@
           {/if}
           <button
             type="button"
-            class="btn btn-outline-primary"
+            class="outline"
             onclick={() => (isReaderMode = true)}
             title="Abrir Modo Leitura"
           >
             Modo Leitura
           </button>
           {#if pub.link}
-            <a class="btn btn-outline-secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
               {@render openExternalIcon()}
               Inteiro teor
             </a>
@@ -572,7 +572,7 @@
             {#if onNavigate}
               <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="outline secondary"
                 onclick={() => onNavigate(seq - 1)}
                 disabled={seq <= 1}
               >
@@ -580,7 +580,7 @@
               </button>
               <button
                 type="button"
-                class="btn btn-outline-secondary"
+                class="outline secondary"
                 onclick={() => onNavigate(seq + 1)}
                 disabled={totalSeq != null && seq >= totalSeq}
               >
@@ -589,7 +589,7 @@
             {/if}
             <button
               type="button"
-              class="btn btn-outline-secondary"
+              class="outline secondary"
               onclick={(e: MouseEvent) => handleShare(e, "main")}
               title="Copiar link"
             >
@@ -647,7 +647,7 @@
               <strong class="sidebar-title">Destinatários</strong>
               <div class="sidebar-tags">
                 {#each parties as party}
-                  <span class="badge name-pill">{party}</span>
+                  <mark class="name-pill">{party}</mark>
                 {/each}
               </div>
             </div>
@@ -658,7 +658,7 @@
               <strong class="sidebar-title">Advogados</strong>
               <div class="sidebar-tags">
                 {#each lawyers as lawyer}
-                  <span class="badge lawyer-pill">{lawyer}</span>
+                  <mark class="lawyer-pill">{lawyer}</mark>
                 {/each}
               </div>
             </div>
@@ -666,407 +666,5 @@
         </aside>
       </div>
     </div>
-  </div>
+  </article>
 {/if}
-
-<style>
-  .publication-card {
-    overflow: hidden;
-    background:
-      radial-gradient(circle at top left, rgba(180, 83, 9, 0.08), transparent 26rem),
-      linear-gradient(180deg, var(--color-surface-raised), transparent 12rem),
-      var(--color-base-100);
-  }
-
-  .compact-card {
-    margin-bottom: 1rem;
-  }
-
-  .expandable {
-    cursor: pointer;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-  }
-
-  .expandable:hover {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-md);
-  }
-
-  .compact-body {
-    padding: 1.25rem;
-  }
-
-  .card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    flex-wrap: wrap;
-    gap: 1rem;
-    border-bottom: 1px solid var(--color-base-300);
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-  }
-
-  .header-left-stack {
-    display: flex;
-    flex-direction: column;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-
-  .header-meta,
-  .header-actions,
-  .nav-actions,
-  .meta-chip-row,
-  .tags-row,
-  .sidebar-tags,
-  .summary-bar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-
-  .header-meta {
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .header-actions {
-    justify-content: flex-end;
-  }
-
-  .nav-actions {
-    align-items: center;
-  }
-
-  .seq-number {
-    font-family: var(--font-mono);
-    font-size: var(--font-size-xs);
-    opacity: 0.5;
-  }
-
-  .seq-bold {
-    font-weight: 700;
-  }
-
-  .publication-badge {
-    background: var(--color-primary);
-    color: var(--color-primary-content);
-  }
-
-  .date-label {
-    opacity: 0.6;
-    font-size: var(--font-size-xs);
-  }
-
-  .process-number {
-    color: var(--color-accent);
-    font-weight: 700;
-    font-family: var(--font-mono);
-    letter-spacing: -0.03em;
-  }
-
-  .process-link {
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    text-decoration: underline;
-    text-decoration-color: transparent;
-    text-underline-offset: 0.15em;
-    transition: text-decoration-color var(--transition-base), color var(--transition-base);
-  }
-
-  .process-link:hover {
-    color: var(--color-primary);
-    text-decoration-color: var(--color-primary);
-  }
-
-  .process-number-lg {
-    font-size: 1.125rem;
-  }
-
-  .process-number-xl {
-    font-size: 1.5rem;
-    margin: 0;
-  }
-
-  .featured-process {
-    margin-bottom: 0;
-  }
-
-  .btn-outline-primary {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.5rem 1rem;
-    font-size: var(--font-size-xs);
-    border: 1px solid var(--color-primary);
-    border-radius: var(--radius-btn);
-    background: transparent;
-    color: var(--color-primary);
-    cursor: pointer;
-    transition: var(--transition-base);
-    min-height: 1.5rem;
-    min-width: 1.5rem;
-  }
-
-  .btn-outline-primary:hover {
-    background: var(--color-primary);
-    color: var(--color-base-100);
-  }
-
-  .meta-chip-row {
-    margin-bottom: 1rem;
-  }
-
-  .meta-chip-row-spacious {
-    margin-bottom: 1.5rem;
-  }
-
-  .meta-chip {
-    display: inline-flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 7rem;
-    padding: 0.65rem 0.8rem;
-    border: 1px solid var(--color-base-300);
-    border-radius: 0.85rem;
-    background: var(--color-surface);
-    backdrop-filter: blur(6px);
-  }
-
-  .meta-chip small {
-    font-size: 0.65rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.55;
-  }
-
-  .meta-chip strong {
-    font-size: var(--font-size-sm);
-    line-height: 1.2;
-    color: var(--color-primary);
-  }
-
-  .meta-chip.accent {
-    border-color: color-mix(in srgb, var(--color-accent) 30%, transparent);
-    background: color-mix(in srgb, var(--color-accent) 8%, transparent);
-  }
-
-  .meta-chip.success {
-    border-color: color-mix(in srgb, var(--color-success) 25%, transparent);
-    background: color-mix(in srgb, var(--color-success) 8%, transparent);
-  }
-
-  .meta-chip.warning {
-    border-color: color-mix(in srgb, var(--color-warning) 25%, transparent);
-    background: color-mix(in srgb, var(--color-warning) 8%, transparent);
-  }
-
-  .meta-chip.danger {
-    border-color: color-mix(in srgb, var(--color-error) 25%, transparent);
-    background: color-mix(in srgb, var(--color-error) 8%, transparent);
-  }
-
-  .orgao-name,
-  .orgao-name-reader,
-  .orgao-name-block {
-    display: block;
-    color: var(--color-primary);
-  }
-
-  .orgao-name {
-    font-size: var(--font-size-xs);
-    font-weight: 600;
-    margin-bottom: 0.9rem;
-  }
-
-  .orgao-name-reader,
-  .orgao-name-block {
-    opacity: 0.6;
-    font-size: var(--font-size-sm);
-  }
-
-  .lead-text {
-    font-size: var(--font-size-md);
-    line-height: 1.8;
-    color: var(--color-primary);
-    margin-bottom: 1rem;
-  }
-
-  .text-preview {
-    font-size: var(--font-size-sm);
-    opacity: 0.78;
-    line-height: 1.7;
-  }
-
-  .text-section {
-    display: grid;
-    gap: 0.85rem;
-    border-top: 1px solid var(--color-base-300);
-    padding-top: 1.2rem;
-  }
-
-  .summary-bar {
-    margin: 1rem 0 0.75rem;
-    font-size: var(--font-size-xs);
-    color: var(--color-content-secondary);
-  }
-
-  .story-grid,
-  .reader-layout {
-    display: grid;
-    gap: 1.25rem;
-    grid-template-columns: minmax(0, 1.65fr) minmax(18rem, 1fr);
-  }
-
-  .lead-panel,
-  .detail-panel,
-  .sidebar-panel {
-    border: 1px solid var(--color-base-300);
-    border-radius: 1rem;
-    background: var(--color-surface);
-    backdrop-filter: blur(6px);
-    padding: 1rem;
-  }
-
-  .detail-panel,
-  .reader-sidebar {
-    display: grid;
-    gap: 1rem;
-    align-content: start;
-  }
-
-  .sidebar-title {
-    display: block;
-    margin-bottom: 0.75rem;
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.55;
-  }
-
-  .identity-list {
-    display: grid;
-    gap: 0.75rem;
-  }
-
-  .identity-row {
-    display: grid;
-    gap: 0.15rem;
-  }
-
-  .identity-row dt {
-    font-size: 0.7rem;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    opacity: 0.5;
-  }
-
-  .identity-row dd {
-    margin: 0;
-    font-size: var(--font-size-sm);
-    word-break: break-word;
-  }
-
-  .name-pill,
-  .lawyer-pill {
-    padding: 0.35rem 0.6rem;
-    border: 1px solid var(--color-base-300);
-    background: var(--color-base-200);
-    color: var(--color-primary);
-  }
-
-  .lawyer-pill {
-    background: rgba(180, 83, 9, 0.1);
-    border-color: rgba(180, 83, 9, 0.22);
-  }
-
-  .reader-content {
-    min-width: 0;
-  }
-
-  .reader-text {
-    padding: 0.75rem 0;
-  }
-
-  .html-content {
-    font-size: var(--font-size-sm);
-    line-height: 1.8;
-    color: var(--color-primary);
-  }
-
-  .html-content :global(p) {
-    margin: 0 0 1rem;
-  }
-
-  .html-content :global(br) {
-    line-height: 2;
-  }
-
-  .html-content :global(strong),
-  .html-content :global(b) {
-    font-weight: 700;
-  }
-
-  .html-content :global(ul),
-  .html-content :global(ol) {
-    margin: 0 0 1rem 1.25rem;
-  }
-
-  .html-content :global(li) {
-    margin-bottom: 0.35rem;
-  }
-
-  .html-content :global(a) {
-    color: var(--color-accent);
-    text-decoration: underline;
-  }
-
-  .html-content-reader {
-    font-size: 1.08rem;
-  }
-
-  .html-content-featured {
-    border-top: 1px solid var(--color-base-300);
-    padding-top: 1.2rem;
-  }
-
-  .reader-paragraph {
-    font-size: 1.08rem;
-    color: var(--color-primary);
-    line-height: 2;
-    margin-bottom: 1.5rem;
-  }
-
-  @media (max-width: 960px) {
-    .story-grid,
-    .reader-layout {
-      grid-template-columns: 1fr;
-    }
-  }
-
-  @media (max-width: 720px) {
-    .header-actions {
-      width: 100%;
-      justify-content: flex-start;
-    }
-
-    .meta-chip {
-      min-width: calc(50% - 0.25rem);
-    }
-  }
-
-  @media (max-width: 540px) {
-    .meta-chip {
-      min-width: 100%;
-    }
-
-    .reader-body,
-    .featured-body,
-    .compact-body {
-      padding: 1rem;
-    }
-  }
-</style>

@@ -80,103 +80,59 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 {#if !expanded}
   <button
     type="button"
-    class="btn btn-expand"
+    class="expand-btn"
     onclick={() => (expanded = true)}>
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="btn-icon">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z" />
       <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6M12 9v6" />
     </svg>
     Acesso aos dados (DuckDB / Parquet)
   </button>
 {:else}
-  <div class="card"><div class="card-body">
+  <article>
     <header>
       <h4>Acesso aos Dados</h4>
-      <button
-        type="button"
-        class="btn btn-outline"
-        onclick={() => (expanded = false)}>
-        Fechar
-      </button>
+      <button type="button" class="outline secondary" onclick={() => (expanded = false)}>Fechar</button>
     </header>
 
-    <!-- DuckDB catalog query -->
     <section>
-      <div>
+      <div class="section-header">
         <span>Consulta via Catálogo (DuckDB)</span>
-        <button
-          type="button"
-          class="btn btn-outline"
-          onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
+        <button type="button" class="outline secondary" onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
           {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
         </button>
       </div>
-      <pre>{catalogQuery}</pre>
+      <pre><code>{catalogQuery}</code></pre>
     </section>
 
-    <!-- Parquet files -->
     {#if loading}
-      <p role="status" aria-live="polite" aria-busy="true">Carregando arquivos...</p>
+      <p aria-live="polite" aria-busy="true">Carregando arquivos...</p>
     {/if}
 
     {#if parquetFiles.length > 0}
       <section>
-        <strong>
-          Arquivos Parquet ({parquetFiles.length})
-        </strong>
-        <div>
+        <strong>Arquivos Parquet ({parquetFiles.length})</strong>
+        <ul class="file-list">
           {#each parquetFiles as f (f.name)}
-            <div>
-              <div>
-                <a
-                  href={f.url} target="_blank"
-                  rel="noopener noreferrer"
-                  class="file-link">
-                  {f.name}
-                </a>
+            <li>
+              <div class="file-row">
+                <a href={f.url} target="_blank" rel="noopener noreferrer">{f.name}</a>
                 <small>{formatSize(f.size)}</small>
               </div>
-              <div>
-                <code>
-                  {duckdbQuery(f.name).substring(0, 80)}...
-                </code>
-                <button
-                  type="button"
-                  class="btn btn-outline"
-                  onclick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
+              <div class="query-row">
+                <code>{duckdbQuery(f.name).substring(0, 80)}…</code>
+                <button type="button" class="outline secondary" onclick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
                   {copied === f.name ? 'Copiado!' : 'SQL'}
                 </button>
               </div>
-            </div>
+            </li>
           {/each}
-        </div>
+        </ul>
       </section>
     {/if}
 
     {#if !loading && parquetFiles.length === 0}
       <p>Nenhum arquivo Parquet encontrado neste item.</p>
     {/if}
-  </div></div>
+  </article>
 {/if}
-
-<style>
-
-  .btn-expand {
-    width: 100%;
-    background: var(--color-secondary, var(--color-primary));
-    color: var(--color-secondary-content, var(--color-primary-content));
-  }
-
-  .btn-expand:hover {
-    opacity: 0.9;
-  }
-
-  .btn-icon {
-    width: 1.25rem;
-    height: 1.25rem;
-  }
-
-  .file-link {
-    color: var(--color-accent);
-  }
-</style>
