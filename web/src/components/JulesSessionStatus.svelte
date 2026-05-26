@@ -114,38 +114,3 @@
     </div>
   {/if}
 </article>
-
-<style>
-  .jules-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: none;
-    padding: 0;
-    margin-bottom: 1rem;
-  }
-
-  .jules-header h3 { margin: 0; }
-
-  .error-alert {
-    padding: 0.75rem;
-    border-radius: var(--pico-border-radius);
-    background: color-mix(in srgb, var(--color-error) 12%, transparent);
-    border: 1px solid var(--color-error);
-    color: var(--color-error);
-  }
-
-  .empty { opacity: 0.6; text-align: center; }
-
-  .table-wrap { overflow-x: auto; }
-
-  .id-cell { font-size: var(--font-size-xs); }
-
-  .title-cell {
-    max-width: 16rem;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-</style>

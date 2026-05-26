@@ -120,33 +120,3 @@ const sorted = $derived.by(() => {
     </tbody>
   </table>
 </div>
-
-<style>
-  .table-responsive {
-    overflow-x: auto;
-  }
-
-  .sortable-th {
-    cursor: pointer;
-    user-select: none;
-  }
-
-  .sortable-th:hover {
-    color: var(--color-primary);
-  }
-
-  .progress-bar-track {
-    width: 100%;
-    height: 0.5rem;
-    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
-    border-radius: var(--radius-full);
-    overflow: hidden;
-  }
-
-  .progress-bar-fill {
-    height: 100%;
-    border-radius: var(--radius-full);
-    transition: width 0.3s ease;
-    background: var(--color-primary);
-  }
-</style>

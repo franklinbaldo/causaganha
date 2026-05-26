@@ -113,27 +113,3 @@
     {/key}
   {/if}
 </article>
-
-<style>
-  .loading-msg { padding: 1rem 0; opacity: 0.6; font-size: var(--font-size-sm); }
-  .text-error  { color: var(--color-error); }
-  .empty-msg   { padding: 1rem 0; opacity: 0.5; text-align: center; }
-
-  .data-table {
-    white-space: nowrap;
-  }
-  .hoverable-row:hover { background: var(--color-base-200, rgba(0,0,0,0.05)); }
-
-  .progress-bar-track {
-    width: 100%; height: 0.5rem;
-    background: var(--color-base-200, rgba(0,0,0,0.05));
-    border-radius: var(--radius-full);
-    overflow: hidden;
-  }
-  .progress-bar-fill {
-    height: 100%;
-    border-radius: var(--radius-full);
-    transition: width 0.3s ease;
-    background: var(--color-primary);
-  }
-</style>

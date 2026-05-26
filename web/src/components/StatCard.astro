@@ -14,29 +14,3 @@ const { title, value, subtitle, tone = 'default' } = Astro.props;
   <strong class="value" data-tone={tone}>{value}</strong>
   {subtitle && <small class="subtitle">{subtitle}</small>}
 </article>
-
-<style>
-  article {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .label {
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    opacity: 0.6;
-  }
-
-  .value {
-    font-size: 1.5rem;
-  }
-
-  [data-tone='success'] { color: var(--color-success); }
-  [data-tone='warning'] { color: var(--color-warning); }
-  [data-tone='info']    { color: var(--color-info); }
-
-  .subtitle {
-    opacity: 0.6;
-  }
-</style>

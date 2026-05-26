@@ -41,39 +41,3 @@ const breadcrumbList = {
 </nav>
 
 <script is:inline type="application/ld+json" set:html={JSON.stringify(breadcrumbList)} />
-
-<style>
-  .breadcrumbs {
-    font-size: var(--font-size-sm);
-    margin-bottom: 1rem;
-  }
-
-  .breadcrumbs ul {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-  }
-
-  .breadcrumbs li + li::before {
-    content: "/";
-    opacity: 0.5;
-    margin-right: 0.5rem;
-  }
-
-  .breadcrumbs a {
-    color: var(--color-primary);
-    text-decoration: none;
-    transition: var(--transition-base);
-  }
-
-  .breadcrumbs a:hover {
-    text-decoration: underline;
-  }
-
-  .current {
-    font-weight: 500;
-  }
-</style>

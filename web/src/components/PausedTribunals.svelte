@@ -74,37 +74,3 @@
     </div>
   {/if}
 </article>
-
-<style>
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: none;
-    padding: 0;
-    margin-bottom: 1rem;
-  }
-
-  h2 {
-    margin: 0;
-  }
-
-  .table-wrap {
-    overflow-x: auto;
-  }
-
-  .error-msg {
-    color: var(--color-error);
-    font-size: var(--font-size-sm);
-  }
-
-  mark.tone-warning {
-    background: color-mix(in srgb, var(--color-warning) 20%, transparent);
-    color: var(--color-warning);
-  }
-
-  mark.tone-error {
-    background: color-mix(in srgb, var(--color-error) 20%, transparent);
-    color: var(--color-error);
-  }
-</style>

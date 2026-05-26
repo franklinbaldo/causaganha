@@ -88,24 +88,3 @@ const missing = $derived(results.filter((r: TribunalMetadata) => r.percentage ==
   <!-- Table -->
   <CoverageTable {results} {expectedDays} {year} {loading} />
 </div>
-
-<style>
-  .year-btn {
-    display: inline-flex;
-    align-items: center;
-    padding: 0.375rem 0.75rem;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-btn);
-    background: transparent;
-    color: var(--color-base-content);
-    cursor: pointer;
-    transition: var(--transition-base);
-    font-size: var(--font-size-sm);
-  }
-
-  .year-btn-active {
-    background: var(--color-primary);
-    color: var(--color-base-100);
-    border-color: var(--color-primary);
-  }
-</style>

@@ -66,30 +66,3 @@
     </div>
   {/if}
 </article>
-
-<style>
-  header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    flex-wrap: wrap;
-    background: none;
-    padding: 0;
-    margin-bottom: 1rem;
-  }
-
-  h2 { margin: 0; }
-
-  .table-wrap { overflow-x: auto; }
-
-  .progress-cell {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 10rem;
-  }
-
-  .progress-cell progress { flex: 1; }
-
-</style>

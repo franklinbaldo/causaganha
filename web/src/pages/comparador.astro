@@ -53,28 +53,3 @@ const tribunais = Array.from(grouped.values()).sort((a, b) => {
     </section>
   </div>
 </Layout>
-
-<style>
-  .section-wrapper {
-    margin-top: var(--space-md);
-    margin-bottom: var(--space-md);
-  }
-
-  .compare-grid {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: var(--space-sm);
-  }
-
-  @media (min-width: 768px) {
-    .compare-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
-  }
-
-  @media (min-width: 1024px) {
-    .compare-grid {
-      grid-template-columns: repeat(3, 1fr);
-    }
-  }
-</style>

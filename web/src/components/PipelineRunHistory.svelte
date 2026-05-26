@@ -88,7 +88,3 @@
     </div>
   {/if}
 </article>
-
-<style>
-  .table-wrap { overflow-x: auto; }
-</style>

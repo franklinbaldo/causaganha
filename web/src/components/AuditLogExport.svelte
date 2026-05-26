@@ -122,32 +122,3 @@
     {/if}
   {/if}
 </article>
-
-<style>
-  .subtitle {
-    opacity: 0.7;
-    font-size: var(--pico-font-size, 0.875rem);
-  }
-
-  .date-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 1rem;
-    align-items: flex-end;
-  }
-
-  .date-row label {
-    display: flex;
-    flex-direction: column;
-    gap: 0.25rem;
-  }
-
-  .alert-error {
-    color: var(--color-error);
-    border: 1px solid var(--color-error);
-    background: color-mix(in srgb, var(--color-error) 12%, transparent);
-    padding: 0.75rem;
-    border-radius: var(--pico-border-radius);
-    margin-top: 0.5rem;
-  }
-</style>

@@ -162,31 +162,3 @@
     </div>
   </article>
 {/if}
-
-<style>
-  .widget-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    background: none;
-    padding: 0;
-    margin-bottom: 1rem;
-  }
-
-  .stats-row {
-    display: flex;
-    gap: 2rem;
-  }
-
-  .stats-row div {
-    display: flex;
-    flex-direction: column;
-    gap: 0.2rem;
-  }
-
-  .stats-row strong {
-    font-size: 1.5rem;
-  }
-</style>
-
-
