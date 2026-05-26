@@ -73,7 +73,7 @@ jobs:
 
       - name: Run djen-backup
         run: |
-          WORKERS="${{ github.event.inputs.workers || '4' }}"
+          WORKERS="${{ github.event.inputs.workers || '8' }}"
           DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
           TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
           START_DATE="${{ github.event.inputs.start_date || '2020-01-01' }}"
