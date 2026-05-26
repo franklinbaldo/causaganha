@@ -298,11 +298,11 @@
           <small class="meta-text" data-tone="muted">{itemFileCount} arquivos</small>
         {/if}
       </div>
-      <nav aria-label="Ações do arquivo">
+      <div aria-label="Ações do arquivo">
         {@render DateShareButton()}
         <a href={zipUrl} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
         <a href={`https://archive.org/details/${itemId}`} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
-      </nav>
+      </div>
     </header>
     <div>
       {#if zipAddedDate}
