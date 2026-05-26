@@ -37,7 +37,7 @@
           <li>
             <span>{tribunal}</span>
             <progress value={count} max={rankedTribunals()[0]?.count || 1} aria-label="{tribunal}: {count} dias omitidos"></progress>
-            <kbd>{count}</kbd>
+            <data value={count}>{count}</data>
           </li>
         {/each}
       </ol>

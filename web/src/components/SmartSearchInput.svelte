@@ -46,12 +46,11 @@
       enterkeyhint="search"
       aria-label="Buscar publicações"
     />
-    <kbd>Ctrl</kbd>
-    <kbd>K</kbd>
     {#if value}
       <button type="reset" class="secondary outline" onclick={() => (value = '')} aria-label="Limpar busca">×</button>
     {/if}
   </label>
+  <span class="search-shortcut-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
   {#if hint}
     <small data-kind={kind} role="status" aria-live="polite">{hint}</small>
   {/if}
