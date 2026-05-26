@@ -161,9 +161,9 @@
   <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
   <ul class="auto-grid-sm" aria-label="Legenda">
-    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#1A6B3C;vertical-align:middle"></small> Parquet</li>
-    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#C5972C;vertical-align:middle"></small> ZIP apenas</li>
-    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#E0DDD4;vertical-align:middle"></small> Sem dados</li>
+    <li><span class="legend-dot cell-parquet" aria-hidden="true"></span> Parquet</li>
+    <li><span class="legend-dot cell-zip" aria-hidden="true"></span> ZIP apenas</li>
+    <li><span class="legend-dot cell-empty" aria-hidden="true"></span> Sem dados</li>
   </ul>
 
   {#if status === 'loading-db' || status === 'loading-data'}

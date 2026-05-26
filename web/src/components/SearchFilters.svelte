@@ -146,8 +146,8 @@
       />
     </label>
 
-    <div>
-      <small>Meio</small>
+    <fieldset>
+      <legend>Meio</legend>
       <label>
         <input
           type="radio"
@@ -172,10 +172,10 @@
           onchange={() => (filters = { ...filters, meio: 'E' })}
         /> Edital
       </label>
-    </div>
+    </fieldset>
 
-    <div>
-      <small>Itens por página</small>
+    <fieldset>
+      <legend>Itens por página</legend>
       {#each [5, 30, 100] as size (size)}
         <label>
           <input
@@ -186,7 +186,7 @@
           /> {size}
         </label>
       {/each}
-    </div>
+    </fieldset>
   </div>
 
   <div>

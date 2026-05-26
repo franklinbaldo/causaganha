@@ -88,9 +88,9 @@
   <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
   <ul class="auto-grid-sm" aria-label="Legenda">
-    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#1A6B3C;vertical-align:middle"></small> &lt; 5s</li>
-    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#C5972C;vertical-align:middle"></small> 5–20s</li>
-    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#C53030;vertical-align:middle"></small> &gt; 20s</li>
+    <li><span class="legend-dot cell-success" aria-hidden="true"></span> &lt; 5s</li>
+    <li><span class="legend-dot cell-warning" aria-hidden="true"></span> 5–20s</li>
+    <li><span class="legend-dot cell-error" aria-hidden="true"></span> &gt; 20s</li>
   </ul>
 
   {#if loading}

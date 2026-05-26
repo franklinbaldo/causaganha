@@ -443,6 +443,49 @@ table tbody tr:hover {
 .bar-warning { background: #C5972C; }
 .bar-danger { background: #C53030; }
 
+/* Latency/parquet heatmap cell states */
+.heatmap-cell { display: inline-block; width: 100%; height: 100%; border-radius: 2px; }
+.cell-success  { background: #1A6B3C; }
+.cell-warning  { background: #C5972C; }
+.cell-error    { background: #C53030; }
+.cell-parquet  { background: #1A6B3C; }
+.cell-zip      { background: #C5972C; }
+.cell-empty    { background: #E0DDD4; }
+[data-theme="dark"] .cell-success  { background: #2D7A4A; }
+[data-theme="dark"] .cell-warning  { background: #C5972C; }
+[data-theme="dark"] .cell-error    { background: #C53030; }
+[data-theme="dark"] .cell-parquet  { background: #2D7A4A; }
+[data-theme="dark"] .cell-zip      { background: #C5972C; }
+[data-theme="dark"] .cell-empty    { background: #2A2E2B; }
+
+/* Legend dot — pairs with a cell-* class for color */
+.legend-dot {
+  display: inline-block;
+  width: .75rem;
+  height: .75rem;
+  border-radius: 2px;
+  vertical-align: middle;
+  flex-shrink: 0;
+}
+
+/* Inline SVG icon — inherits font-size, aligns to text baseline */
+.icon-inline {
+  width: 1em;
+  height: 1em;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+/* Search keyboard shortcut hint — visual only, hidden from assistive tech */
+.search-shortcut-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  opacity: .55;
+  pointer-events: none;
+  user-select: none;
+}
+
 /* ═══════════════════════════════════════════
    Animations — only functional spinner kept
    ═══════════════════════════════════════════ */
