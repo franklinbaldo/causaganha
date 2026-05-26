@@ -2,6 +2,7 @@
   import { TRIBUNAL_GROUPS } from '../lib/tribunais';
   import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
   import QueryProvider from './QueryProvider.svelte';
+  import TribunalCard from './TribunalCard.svelte';
 
   let {
     initialPipeline,
@@ -50,11 +51,6 @@
       }))
       .filter(group => group.tribunals.length > 0)
   );
-
-  function formatDate(iso: string): string {
-    const [y, m, d] = iso.split('-');
-    return `${d}/${m}/${y}`;
-  }
 
   function getTribunalStats(t: string) {
     let totalZips = 0;
@@ -194,29 +190,13 @@
         <div class="tribunals-grid">
           {#each group.tribunals as t}
             {@const stats = getTribunalStats(t)}
-            <a
+            <TribunalCard
+              tribunal={t}
               href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
-              class="tribunal-link"
-            >
-            <article class="tribunal-card" class:offline={!stats.hasData}>
-                <div class="tribunal-card-header">
-                  <strong class="small-text">{t}</strong>
-                  <mark data-tone={stats.hasData ? 'success' : 'error'}>
-                    {stats.hasData ? "Online" : "Offline"}
-                  </mark>
-                </div>
-                <div class="tribunal-card-meta">
-                  {#if stats.hasData}
-                    {stats.totalZips.toLocaleString('pt-BR')} publicações
-                  {:else}
-                    Sem dados processados
-                  {/if}
-                  {#if stats.latestDate}
-                    <span class="latest-date">Última: {formatDate(stats.latestDate)}</span>
-                  {/if}
-                </div>
-              </article>
-            </a>
+              hasData={stats.hasData}
+              totalZips={stats.totalZips}
+              latestDate={stats.latestDate}
+            />
           {/each}
         </div>
       </section>
@@ -434,43 +414,4 @@
     margin-bottom: 0.25rem;
   }
 
-  /* Tribunal cards */
-  .tribunal-link {
-    display: block;
-    height: 100%;
-    text-decoration: none;
-    color: inherit;
-  }
-
-  .tribunal-link:hover .tribunal-card {
-    border-color: var(--color-accent);
-    box-shadow: var(--shadow-md);
-  }
-
-  .tribunal-card {
-    height: 100%;
-    transition: border-color var(--transition-base), box-shadow var(--transition-base);
-  }
-
-  .tribunal-card.offline {
-    opacity: 0.6;
-  }
-
-  .tribunal-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.5rem;
-  }
-
-  .tribunal-card-meta {
-    font-size: var(--font-size-xs);
-    opacity: 0.7;
-  }
-
-  .latest-date {
-    display: block;
-    margin-top: 0.25rem;
-    opacity: 0.7;
-  }
 </style>

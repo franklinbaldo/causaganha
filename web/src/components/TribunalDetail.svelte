@@ -8,6 +8,7 @@
   import { calculateVelocityAndRegression } from '../lib/velocityCalc';
   import DateDetail from './DateDetail.svelte';
   import DataAccessPanel from './DataAccessPanel.svelte';
+  import TribunalStatsBar from './TribunalStatsBar.svelte';
 
   interface HashState {
     date: string | null;
@@ -302,31 +303,17 @@
       </div>
     </div>
 
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-title">Progresso da Coleta</div>
-        <div class="stat-value value-primary">{completionPct}%</div>
-        <div class="stat-desc">
-          <progress class="progress-bar progress-primary" value={Math.round(syncedPct)} max="100"></progress>
-          <div class="progress-legend">
-            <span>{selectedCoverage.size} itens sincronizados</span>
-            <span>{absentCount} dias ausentes</span>
-          </div>
-        </div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-title">Status</div>
-        <div class={`stat-value ${statusColor}`}>{completionStatusText}</div>
-        <div class="stat-desc">{etaText}</div>
-      </div>
-
-      <div class="stat">
-        <div class="stat-title">Dias Faltantes</div>
-        <div class="stat-value">{actualMissingDays}</div>
-        <div class="stat-desc">A partir de {genesisDate || "Desconhecida"}</div>
-      </div>
-    </div>
+    <TribunalStatsBar
+      {completionPct}
+      {syncedPct}
+      coverageSize={selectedCoverage.size}
+      {absentCount}
+      {statusColor}
+      {completionStatusText}
+      {etaText}
+      {actualMissingDays}
+      {genesisDate}
+    />
 
     <div class="tabs" role="tablist">
       <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Calendário" id="tab-calendario" checked />
@@ -560,83 +547,6 @@
     font-weight: 500;
   }
 
-  /* Stats */
-  .stats {
-    display: flex;
-    flex-direction: column;
-    border: 1px solid var(--color-base-300);
-    border-radius: var(--radius-box);
-    box-shadow: var(--shadow-sm);
-    overflow: hidden;
-    width: 100%;
-    margin-bottom: 2rem;
-  }
-
-  @media (min-width: 768px) {
-    .stats {
-      flex-direction: row;
-    }
-  }
-
-  .stat {
-    padding: 1rem 1.5rem;
-    flex: 1;
-  }
-
-  .stat-title {
-    opacity: 0.6;
-    font-size: var(--font-size-sm);
-  }
-
-  .stat-value {
-    font-size: var(--font-size-2xl, 1.5rem);
-    font-weight: 700;
-  }
-
-  .stat-desc {
-    margin-top: 0.25rem;
-    font-size: var(--font-size-sm);
-    opacity: 0.7;
-  }
-
-  .value-primary {
-    color: var(--color-primary);
-  }
-
-  .value-success {
-    color: var(--color-success);
-  }
-
-  .value-warning {
-    color: var(--color-warning);
-  }
-
-  /* Progress bars */
-  .progress-bar {
-    width: 100%;
-    height: 0.5rem;
-    appearance: none;
-    border-radius: var(--radius-full);
-  }
-
-  .progress-bar::-webkit-progress-bar {
-    background: var(--color-base-300);
-    border-radius: var(--radius-full);
-  }
-
-  .progress-primary::-webkit-progress-value {
-    background: var(--color-primary);
-    border-radius: var(--radius-full);
-  }
-
-  .progress-legend {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 0.25rem;
-    font-size: var(--font-size-xs);
-    opacity: 0.6;
-  }
-
   /* Tabs */
   .tabs {
     margin-bottom: 2rem;
@@ -727,6 +637,10 @@
 
   .field-value {
     font-size: var(--font-size-sm);
+  }
+
+  .value-primary {
+    color: var(--color-primary);
   }
 
   /* Data access wrapper */
