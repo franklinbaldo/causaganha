@@ -23,7 +23,7 @@ All frontend decisions must serve the principles in [`DESIGN.md`](DESIGN.md). Re
 |---|---|
 | Meta-framework | Astro 5 |
 | Component framework | Svelte 5 |
-| Styling | Vanilla CSS with design tokens |
+| Styling | Pico CSS (semantic baseline) + Vanilla CSS with design tokens |
 | Async state / data fetching | TanStack Query (`@tanstack/svelte-query@^6`) |
 | Local state | Svelte 5 runes (`$state`, `$derived`) |
 | Cross-island shared state | Svelte stores (`writable`) |
@@ -321,6 +321,81 @@ Design token CSS variables (defined in `web/src/index.css`) are available everyw
 
 ---
 
+## Pico CSS — Semantic HTML as the First Styling Layer
+
+Pico CSS is the visual baseline. It styles **native HTML elements directly** — no framework classes required for the common cases. The workflow is:
+
+1. Write semantically correct HTML.
+2. Pico provides the visual styling for free.
+3. Add custom classes only for what Pico cannot express idiomatically.
+
+This means **element choice is a styling decision.** Picking the wrong element defeats Pico's mapping and often breaks accessibility at the same time.
+
+### Semantic patterns Pico expects
+
+| Pattern | Correct | Wrong |
+|---|---|---|
+| Grouped radio / checkbox inputs | `<fieldset><legend>Label</legend>` | `<div><small>Label</small>` |
+| Search input wrapper | `<search>` | `<div class="search-wrapper">` |
+| Card container | `<article>` with `<header>` / `<footer>` | `<div class="card">` |
+| Highlighted / status badge | `<mark data-tone="warning">` | `<span class="badge warning">` |
+| Supporting metadata | `<small>` (within flow) | Used as group label substitute |
+| Inline aria-busy loading hint | `<p aria-busy="true">` | `<div class="spinner">` |
+
+### Elements used for semantic meaning only
+
+These elements carry meaning beyond their visual appearance. Pico styles them, but **use them only when their meaning applies.**
+
+| Element | Correct use | Wrong use |
+|---|---|---|
+| `<kbd>` | Keyboard input the user types (`Ctrl+K`) | Numeric badges, counts, visual chips |
+| `<nav>` | Site navigation landmarks (main menu, breadcrumb, pagination) | Groups of action buttons (download, share, view) |
+| `<data value="...">` | Machine-readable numeric or structured value alongside human text | Visual number display with no machine-readable need |
+| `<small>` | Fine print, metadata captions, supporting context | Substitute for `<legend>` inside a `<fieldset>` |
+
+#### Why `<nav>` is not for action groups
+
+`<nav>` creates a landmark region that screen readers list alongside `<main>`, `<header>`, and `<footer>`. A cluster of action buttons (e.g. "Baixar ZIP / Compartilhar / Ver no IA") is not a navigation landmark — it is a toolbar or a button group. Use `<div aria-label="...">` or, if the keyboard interaction warrants it, `<div role="toolbar" aria-label="...">`.
+
+#### Why `<kbd>` is not for visual badges
+
+`<kbd>` tells assistive technology that the enclosed text represents a key the user should press. A screen reader navigating a ranking list will announce `<kbd>42</kbd>` as "press 42" — which is wrong. Use `<data value={n}>{n}</data>` for structured numeric output, or a plain `<span>` with a visual class.
+
+#### Why `<fieldset>` + `<legend>` for radio / checkbox groups
+
+Pico CSS styles `<fieldset>` as a clean grouped block and `<legend>` as the group's visible label. Using `<div>` + `<small>` loses the semantic grouping, breaks screen-reader announcement of which radio group is active, and foregoes Pico's default styling at the same time.
+
+### Keyboard shortcut hints inside form labels
+
+Do not put `<kbd>` elements inside a `<label>` — they become part of the accessible name of the associated input. A screen reader will announce "Buscar publicações Control K" as the field name. Keep `<kbd>` hints outside the `<label>`, use `aria-hidden="true"` on their wrapper, and position them visually with CSS:
+
+```html
+<!-- Correct -->
+<search>
+  <label>
+    <input type="search" aria-label="Buscar publicações" />
+  </label>
+  <span class="search-shortcut-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+</search>
+
+<!-- Wrong — "Buscar publicações Control K" becomes the field's accessible name -->
+<label>
+  <input type="search" aria-label="Buscar publicações" />
+  <kbd>Ctrl</kbd><kbd>K</kbd>
+</label>
+```
+
+### Anti-patterns — Pico CSS
+
+- **Do not** use `<kbd>` as a badge or counter. Use `<data value={n}>{n}</data>` or a `<span>`.
+- **Do not** use `<div>` + `<small>` to label radio or checkbox groups. Use `<fieldset>` + `<legend>`.
+- **Do not** use `<nav>` for action button clusters. `<nav>` is a landmark — reserve it for navigation.
+- **Do not** put `<kbd>` hints inside `<label>` elements. They pollute the accessible name of the input.
+- **Do not** write `style="background: #1A6B3C; display: inline-block; ..."` for things that should be CSS classes. Inline colors ignore `[data-theme="dark"]` and can't be overridden by the design token system.
+- **Do not** invent custom button classes for what Pico already expresses: use `.secondary`, `.outline`, `.secondary.outline` before adding a new class.
+
+---
+
 ## Vanilla CSS and Design Tokens
 
 All global design tokens are in `web/src/index.css`. Every token is a CSS custom property on `:root`.
@@ -372,10 +447,11 @@ Use a mobile-first approach. Write the default styles for small screens and add 
 
 ### Anti-patterns — CSS
 
-- **Do not** write inline `style="..."` with hardcoded values. Use tokens via CSS classes or CSS variables.
+- **Do not** write inline `style="..."` with hardcoded values. Use tokens via CSS classes or CSS variables. Inline colors are invisible to `[data-theme="dark"]` and cannot be overridden.
 - **Do not** use `!important`. If specificity is a problem, restructure the selectors.
 - **Do not** add new one-off color values. Extend the token set in `index.css` if a new semantic color is needed.
 - **Do not** duplicate token values by copy-pasting hex codes. Always reference the variable.
+- **Do not** write CSS utility classes for visual states that Pico already handles via element/attribute selectors. Check Pico's documentation before adding a class. See the [Pico CSS section](#pico-css--semantic-html-as-the-first-styling-layer) for canonical idioms.
 
 ---
 
