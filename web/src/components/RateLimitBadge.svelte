@@ -20,10 +20,12 @@
   });
 </script>
 
-<div class="rate-limit-badge {tone}" title="Janela de rate limit da API do DJEN. Ao zerar, aguarde 1 minuto.">
-  <span class="dot" aria-hidden="true"></span>
-  <span class="label">{label}</span>
+<small
+  data-tone={tone === 'ok' ? 'success' : tone === 'danger' ? 'error' : tone === 'warning' ? 'warning' : 'muted'}
+  title="Janela de rate limit da API do DJEN. Ao zerar, aguarde 1 minuto."
+>
+  · {label}
   {#if usedFallback}
-    <span class="fallback-tag" title="Resposta vinda do proxy de fallback">proxy</span>
+    <small data-tone="muted" title="Resposta vinda do proxy de fallback">proxy</small>
   {/if}
-</div>
+</small>

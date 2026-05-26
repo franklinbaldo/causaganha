@@ -143,52 +143,49 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
 
 <div>
   <!-- Status -->
-  <div class="status-section">
+  <div>
     {#if dbStatus === 'loading'}
-      <div class="status-loading">
-        <span class="spinner"></span>
-        <small>Carregando DuckDB-WASM...</small>
-      </div>
+      <p aria-busy="true">Carregando DuckDB-WASM...</p>
     {/if}
     {#if dbStatus === 'ready'}
-      <small class="status-ready">
+      <small>
         DuckDB pronto — consulte arquivos Parquet diretamente do Internet Archive
       </small>
     {/if}
     {#if dbStatus === 'error'}
-      <div class="status-error-card">
-        <p class="status-error-msg">{error ?? 'Falha ao inicializar DuckDB-WASM.'}</p>
-        <p class="status-error-hint">
+      <article role="alert" data-tone="error">
+        <p>{error ?? 'Falha ao inicializar DuckDB-WASM.'}</p>
+        <p>
           Tente recarregar a página. Se o problema persistir, verifique se seu navegador
           suporta WebAssembly e se extensões de bloqueio não estão impedindo Workers externos.
         </p>
-        <button class="retry-btn" onclick={() => { error = null; init(); }}>
+        <button class="secondary outline" onclick={() => { error = null; init(); }}>
           Tentar novamente
         </button>
-      </div>
+      </article>
     {/if}
   </div>
 
   <!-- Starter cards -->
-  <div class="starter-cards" aria-label="Consultas de exemplo">
+  <div class="auto-grid" aria-label="Consultas de exemplo">
     {#each QUERY_TEMPLATES.slice(0, 3) as tmpl}
       <button
-        class="starter-card"
+        class="outline"
         onclick={() => { sql = tmpl.sql; result = null; error = null; }}
         disabled={dbStatus !== 'ready'}
       >
-        <span class="starter-card-label">{tmpl.label}</span>
-        <span class="starter-card-hint" aria-hidden="true">Clique para carregar →</span>
+        <strong>{tmpl.label}</strong>
+        <small aria-hidden="true">Clique para carregar →</small>
       </button>
     {/each}
   </div>
   <!-- Additional templates -->
-  <details class="templates-more">
-    <summary class="templates-more-summary">Ver mais consultas de exemplo</summary>
-    <div class="templates-list">
+  <details>
+    <summary>Ver mais consultas de exemplo</summary>
+    <div>
       {#each QUERY_TEMPLATES.slice(3) as tmpl}
         <button
-          class="template-btn"
+          class="secondary"
           onclick={() => { sql = tmpl.sql; result = null; error = null; }}
           disabled={dbStatus !== 'ready'}
         >
@@ -201,7 +198,6 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
   <!-- SQL editor -->
   <textarea
     bind:this={textareaEl}
-    class="sql-editor"
     bind:value={sql}
     onkeydown={handleKeyDown}
     rows="10"
@@ -211,7 +207,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
   ></textarea>
 
   <!-- Action bar -->
-  <div class="action-bar">
+  <div>
     <button
       onclick={runQuery}
       disabled={dbStatus !== 'ready' || loading || !sql.trim()}
@@ -223,7 +219,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
       <button class="outline secondary" onclick={exportCsv}>
         Exportar CSV
       </button>
-      <small class="result-meta">
+      <small class="meta-text">
         {result.rowCount.toLocaleString('pt-BR')} linha{result.rowCount !== 1 ? 's' : ''} em {result.duration.toLocaleString('pt-BR')}ms
       </small>
     {/if}
@@ -231,38 +227,19 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
 
   <!-- Error -->
   {#if error}
-    <div class="error-card"><div class="error-card-body">
-      <pre class="error-pre">{error}</pre>
-    </div></div>
+    <article role="alert" data-tone="error">
+      <pre><code>{error}</code></pre>
+    </article>
   {/if}
 
   <!-- Results table -->
   {#if loading && !result}
-    <div class="table-responsive">
-      <table class="data-table">
-        <thead>
-          <tr>
-            <th><div class="skeleton skeleton--w20"></div></th>
-            <th><div class="skeleton skeleton--w32"></div></th>
-            <th><div class="skeleton skeleton--w24"></div></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each [1, 2, 3, 4, 5] as i}
-            <tr>
-              <td><div class="skeleton skeleton--w24 skeleton--dim"></div></td>
-              <td><div class="skeleton skeleton--w48 skeleton--dim"></div></td>
-              <td><div class="skeleton skeleton--w16 skeleton--dim"></div></td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+    <p aria-busy="true">Carregando...</p>
   {/if}
 
   {#if result && result.rows.length > 0}
     <div class="table-responsive">
-      <table class="data-table data-table--pinned">
+      <table class="data-table">
         <thead>
           <tr>
             {#each result.columns as col}
@@ -272,11 +249,11 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
         </thead>
         <tbody>
           {#each result.rows.slice(0, 500) as row, i}
-            <tr class="data-row">
+            <tr>
               {#each row as cell, j}
-                <td class="data-cell">
+                <td>
                   {#if cell === null || cell === undefined}
-                    <em class="null-value">NULL</em>
+                    <small data-tone="muted">NULL</small>
                   {:else}
                     {String(cell)}
                   {/if}
@@ -287,7 +264,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
         </tbody>
       </table>
       {#if result.rows.length > 500}
-        <small class="truncation-notice">
+        <small class="meta-text">
           Mostrando 500 de {result.rowCount.toLocaleString('pt-BR')} linhas. Use LIMIT na query para controlar.
         </small>
       {/if}
@@ -295,7 +272,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
   {/if}
 
   {#if result && result.rows.length === 0}
-    <p class="empty-result">
+    <p class="meta-text">
       Nenhum resultado retornado.
     </p>
   {/if}

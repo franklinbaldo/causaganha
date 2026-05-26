@@ -58,94 +58,95 @@
 </script>
 
 <article>
-  <div class="status-layout" role="status" aria-live="polite">
-    <!-- Left: status & stats -->
-    <div class="status-left">
-      <div class="status-indicator">
+  <header role="status" aria-live="polite">
+    {#if stats}
+      <span data-tone={isSuccess ? 'success' : 'error'} aria-hidden="true">
+        {#if isSuccess}
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
+          </svg>
+        {:else}
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+          </svg>
+        {/if}
+      </span>
+    {/if}
+    <hgroup>
+      <h2>
         {#if stats}
-          <div class="icon-circle" data-tone={isSuccess ? 'success' : 'error'}>
-            {#if isSuccess}
-              <svg class="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>
-              </svg>
-            {:else}
-              <svg class="icon" aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-              </svg>
-            {/if}
-          </div>
+          {isSuccess ? 'Pipeline operacional' : 'Falha no pipeline'}
+        {:else}
+          Carregando...
         {/if}
-        <div class="status-text">
-          <strong>
-            {#if stats}
-              {isSuccess ? 'Pipeline operacional' : 'Falha no pipeline'}
-            {:else}
-              Carregando...
-            {/if}
-          </strong>
-          {#if stats?.timestamp}
-            <small>Última execução: {new Date(stats.timestamp).toLocaleString('pt-BR')}</small>
-          {/if}
-          <small>
-            {#if stats}
-              {isSuccess ? 'Sistema operacional' : 'Falha detectada no sistema'}
-            {:else}
-              Carregando status do sistema
-            {/if}
-          </small>
-        </div>
-      </div>
-
-      <div class="stat-pills">
-        {#if health != null}
-          <span class="stat-pill">
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-              <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
-            </svg>
-            Health:
-            <strong data-tone={health >= 70 ? 'success' : health >= 40 ? 'warning' : 'error'}
-              aria-label={`Saúde: ${health}% — ${health >= 70 ? 'Saudável' : health >= 40 ? 'Atenção' : 'Crítico'}`}>
-              {health}% {health >= 70 ? 'Saudável' : health >= 40 ? 'Atenção' : 'Crítico'}
-            </strong>
-          </span>
+      </h2>
+      <p>
+        {#if stats?.timestamp}
+          Última execução: {new Date(stats.timestamp).toLocaleString('pt-BR')}
+        {:else if stats}
+          {isSuccess ? 'Sistema operacional' : 'Falha detectada no sistema'}
+        {:else}
+          Carregando status do sistema
         {/if}
-        {#if filesToday != null}
-          <span class="stat-pill">
-            {isDataStale ? dataDate : 'Hoje'}:
-            <strong data-tone={isDataStale ? 'warning' : undefined}>{filesToday}/91</strong>
-            {#if isDataStale}
-              <small data-tone="warning" title="A coleta parece estar parada — sem novos dados desde esta data">desatualizado</small>
-            {/if}
-          </span>
-        {/if}
-        {#if stats?.duration_seconds != null}
-          <span class="stat-pill">
-            <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
-              <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
-            </svg>
-            {stats.duration_seconds}s
-          </span>
-        {/if}
-      </div>
-    </div>
-
-    <!-- Right: countdown -->
+      </p>
+    </hgroup>
     {#if stats?.timestamp}
-      <div class="countdown-block">
+      <div>
         <small>Próxima execução</small>
-        <kbd class="countdown-value">{countdown}</kbd>
+        <kbd>{countdown}</kbd>
       </div>
     {/if}
-  </div>
+  </header>
+
+  <dl class="auto-grid-sm">
+    {#if health != null}
+      <div>
+        <dt>
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>
+          </svg>
+          Health
+        </dt>
+        <dd>
+          <strong data-tone={health >= 70 ? 'success' : health >= 40 ? 'warning' : 'error'}
+            aria-label={`Saúde: ${health}% — ${health >= 70 ? 'Saudável' : health >= 40 ? 'Atenção' : 'Crítico'}`}>
+            {health}% {health >= 70 ? 'Saudável' : health >= 40 ? 'Atenção' : 'Crítico'}
+          </strong>
+        </dd>
+      </div>
+    {/if}
+    {#if filesToday != null}
+      <div>
+        <dt>{isDataStale ? dataDate : 'Hoje'}</dt>
+        <dd>
+          <strong data-tone={isDataStale ? 'warning' : undefined}>{filesToday}/91</strong>
+          {#if isDataStale}
+            <small data-tone="warning" title="A coleta parece estar parada — sem novos dados desde esta data">desatualizado</small>
+          {/if}
+        </dd>
+      </div>
+    {/if}
+    {#if stats?.duration_seconds != null}
+      <div>
+        <dt>
+          <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+            <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
+          </svg>
+          Duração
+        </dt>
+        <dd>{stats.duration_seconds}s</dd>
+      </div>
+    {/if}
+  </dl>
 
   <!-- Expandable pipeline steps using native <details> -->
   {#if stats?.steps}
-    <details class="steps-details">
+    <details>
       <summary>Etapas do pipeline</summary>
-      <div class="steps-list">
+      <div class="auto-grid">
         {#each Object.entries(stats.steps) as [stepName, stepData]}
           {@const isOk = (stepData.success !== 0 && stepData.failed === 0) || stepData.success === true}
-          <article class="step-item">
+          <article>
             <header>
               <span>{stepName.replace(/_/g, ' ')}</span>
               <mark data-tone={isOk ? 'success' : 'error'}>{isOk ? 'OK' : 'Erro'}</mark>
@@ -153,7 +154,7 @@
             <dl>
               {#each Object.entries(stepData) as [k, v]}
                 {#if k !== 'success'}
-                  <div class="dl-row">
+                  <div>
                     <dt>{k.replace(/_/g, ' ')}</dt>
                     <dd>{v}</dd>
                   </div>
@@ -168,7 +169,7 @@
 
   <!-- IA Task Status -->
   {#if cacheToday?.ia_tasks?.pending_count > 0}
-    <aside role="alert" class="ia-alert">
+    <aside role="alert" class="alert" data-level="info">
       <svg aria-hidden="true" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
         <circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>
       </svg>
@@ -186,4 +187,3 @@
     </a>
   </footer>
 </article>
-</QueryProvider>

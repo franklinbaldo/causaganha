@@ -64,19 +64,19 @@
 </script>
 
 <QueryProvider>
-  <div class="active-pipeline-widget">
+  <div>
     {#if error}
-      <span class="status-text muted">Falha ao carregar status</span>
+      <small data-tone="muted">Falha ao carregar status</small>
     {:else if isPipelineActive}
-      <div class="live-indicator">
-        <span class="cg-pulse dot-pulse"></span>
-        <strong class="status-text live">Ao Vivo</strong>
-      </div>
+      <span data-tone="success">
+        <span class="cg-pulse" aria-hidden="true"></span>
+        <strong>Ao Vivo</strong>
+      </span>
       {#if activeTribunal}
-        <mark class="tribunal-badge">{activeTribunal}</mark>
+        <small>{activeTribunal}</small>
       {/if}
     {:else}
-      <span class="status-text muted">Sistema Ocioso</span>
+      <small data-tone="muted">Sistema Ocioso</small>
     {/if}
   </div>
 </QueryProvider>

@@ -107,17 +107,17 @@
       <LiveStatusWidget />
     </div>
 
-    <div class="stats-grid">
+    <div class="auto-grid">
       <article>
         <small>Taxa de sucesso de upload</small>
-        <div class={successRate >= 90 ? 'value-success' : 'value-error'}>
+        <div data-tone={successRate >= 90 ? 'success' : 'error'}>
           {successRate.toFixed(1)}%
         </div>
       </article>
 
       <article>
         <small>Dias de backlog pendente</small>
-        <div class="value-accent">
+        <div>
           {backlogDays}
         </div>
       </article>
@@ -138,7 +138,7 @@
       {/if}
     </article>
 
-    <div class="stats-grid">
+    <div class="auto-grid">
       <article>
         <h3>Distribuição por nota</h3>
         <div bind:this={pieEl}></div>
@@ -146,7 +146,7 @@
 
       <article>
         <h3>5 tribunais mais lentos</h3>
-        <ul class="slowest-list">
+        <ol>
           {#each slowestTribunals as t, idx}
             <li>
               <span>{idx + 1}. {t.tribunal}</span>
@@ -156,7 +156,7 @@
           {#if slowestTribunals.length === 0}
             <li>Todos os tribunais estão atualizados!</li>
           {/if}
-        </ul>
+        </ol>
       </article>
     </div>
 

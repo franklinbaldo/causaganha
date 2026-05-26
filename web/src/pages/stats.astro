@@ -57,85 +57,85 @@ const base = import.meta.env.BASE_URL;
     ]} />
 
     <!-- Coverage Overview -->
-    <article class="section-card">
+    <article>
       <header>
         <strong>Resumo de Cobertura</strong>
-        <small class="muted">Últimos 30 dias</small>
+        <small data-tone="muted">Últimos 30 dias</small>
       </header>
-      <div class="coverage-grid">
+      <div class="auto-grid">
         <figure>
-          <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-unit">%</small></div>
+          <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-label">%</small></div>
           <figcaption>Média de Coleta</figcaption>
-          <small class="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
+          <small data-tone="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
         </figure>
         <figure>
-          <div class="stat-value color-success">{bestCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+          <div class="stat-value" data-tone="success">{bestCount}<small class="stat-label"> / {totalTribunals}</small></div>
           <figcaption>Melhor Dia</figcaption>
-          <small class="muted">{bestDay ?? '--'}</small>
+          <small data-tone="muted">{bestDay ?? '--'}</small>
         </figure>
         <figure>
-          <div class="stat-value color-error">{worstCount}<small class="stat-fraction"> / {totalTribunals}</small></div>
+          <div class="stat-value" data-tone="error">{worstCount}<small class="stat-label"> / {totalTribunals}</small></div>
           <figcaption>Pior Dia</figcaption>
-          <small class="muted">{worstDay ?? '--'}</small>
+          <small data-tone="muted">{worstDay ?? '--'}</small>
         </figure>
       </div>
     </article>
 
     <!-- Court Rankings -->
-    <div class="rankings-grid">
+    <div class="auto-grid">
       <article>
-        <strong>Top 5 Mais Confiáveis</strong>
+        <header><strong>Top 5 Mais Confiáveis</strong></header>
         {top5.length > 0 ? (
-          <ol class="ranking-list">
+          <ol>
             {top5.map(c => (
-              <li class="ranking-item">
-                <span class="ranking-court">{c.court}</span>
+              <li>
+                <strong>{c.court}</strong>
                 <mark data-tone="success">{(c.rate * 100).toFixed(1)}%</mark>
               </li>
             ))}
           </ol>
         ) : (
-          <p class="empty-text">Sem dados suficientes</p>
+          <p class="meta-text">Sem dados suficientes</p>
         )}
       </article>
 
       <article>
-        <strong>Top 5 Mais Falhas</strong>
+        <header><strong>Top 5 Mais Falhas</strong></header>
         {bottom5.length > 0 ? (
-          <ol class="ranking-list">
+          <ol>
             {bottom5.map(c => (
-              <li class="ranking-item">
-                <span class="ranking-court">{c.court}</span>
+              <li>
+                <strong>{c.court}</strong>
                 <mark data-tone="error">{(c.rate * 100).toFixed(1)}%</mark>
               </li>
             ))}
           </ol>
         ) : (
-          <p class="empty-text">Sem dados suficientes</p>
+          <p class="meta-text">Sem dados suficientes</p>
         )}
       </article>
     </div>
 
     <!-- Weekly Pattern -->
-    <article class="section-card-bottom">
-      <header class="weekly-header">
-        <h3 class="weekly-title">Padrão Semanal</h3>
-        <p class="weekly-subtitle">Média de cobertura por dia da semana</p>
+    <article>
+      <header>
+        <h3>Padrão Semanal</h3>
+        <p><small>Média de cobertura por dia da semana</small></p>
       </header>
-      <div class="weekly-grid">
+      <div class="auto-grid">
         {displayWeekly.map(w => {
           if (!w) return null;
           const isLowest = lowestDay && w.day_idx === lowestDay.day_idx;
           const avgPct = (w.avg / totalTribunals) * 100;
           return (
-            <div class="weekly-card">
-              <span class="day-name">{w.name.slice(0, 3)}</span>
-              <div class={`stat-value ${isLowest ? 'color-error' : ''}`}>
+            <article>
+              <header><strong>{w.name.slice(0, 3)}</strong></header>
+              <div class="stat-value" data-tone={isLowest ? 'error' : undefined}>
                 {avgPct.toFixed(0)}%
               </div>
-              <small class="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
+              <small data-tone="muted">{w.avg.toFixed(1)} / {totalTribunals}</small>
               {isLowest && <mark data-tone="error">Menor</mark>}
-            </div>
+            </article>
           );
         })}
       </div>

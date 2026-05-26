@@ -95,7 +95,7 @@
 {:else if error}
   <aside role="alert" class="alert">Erro ao carregar manifesto: {error}</aside>
 {:else if data}
-  <div class="totals-grid">
+  <div class="auto-grid">
     <article>
       <small>Total</small>
       <strong>{data.totals.total.toLocaleString('pt-BR')}</strong>
@@ -113,7 +113,7 @@
     </article>
     <article>
       <small>Ausente</small>
-      <strong class="muted">{data.totals.absent.toLocaleString('pt-BR')}</strong>
+      <strong data-tone="muted">{data.totals.absent.toLocaleString('pt-BR')}</strong>
       <small>sem publicação</small>
     </article>
     <article>
@@ -123,13 +123,13 @@
     </article>
   </div>
 
-  <small class="updated-at">Atualizado: {new Date(data.generated_at).toLocaleString('pt-BR')}</small>
+  <small class="meta-text">Atualizado: {new Date(data.generated_at).toLocaleString('pt-BR')}</small>
 
-  <nav class="tab-nav" aria-label="Visualização">
+  <nav aria-label="Visualização">
     <button type="button" aria-pressed={view === 'tribunals'} onclick={() => view = 'tribunals'}>
       Por Tribunal ({data.tribunals.length})
     </button>
-    <button type="button" aria-pressed={view === 'years'} onclick={() => view = 'years'}>
+    <button type="button" class="secondary" aria-pressed={view === 'years'} onclick={() => view = 'years'}>
       Por Ano ({data.years.length})
     </button>
   </nav>
@@ -139,19 +139,19 @@
       <table>
         <thead>
           <tr>
-            <th><button type="button" class="sort-btn" onclick={() => sortBy('tribunal')}>
+            <th><button type="button" class="outline" onclick={() => sortBy('tribunal')}>
               Tribunal {sortKey === 'tribunal' ? (sortAsc ? '▲' : '▼') : ''}
             </button></th>
-            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('uploaded')}>
+            <th><button type="button" class="outline" onclick={() => sortBy('uploaded')}>
               No IA {sortKey === 'uploaded' ? (sortAsc ? '▲' : '▼') : ''}
             </button></th>
-            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('absent')}>
+            <th><button type="button" class="outline" onclick={() => sortBy('absent')}>
               Ausente {sortKey === 'absent' ? (sortAsc ? '▲' : '▼') : ''}
             </button></th>
-            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('unknown')}>
+            <th><button type="button" class="outline" onclick={() => sortBy('unknown')}>
               ? {sortKey === 'unknown' ? (sortAsc ? '▲' : '▼') : ''}
             </button></th>
-            <th class="num"><button type="button" class="sort-btn" onclick={() => sortBy('coverage_pct')}>
+            <th><button type="button" class="outline" onclick={() => sortBy('coverage_pct')}>
               Cobertura {sortKey === 'coverage_pct' ? (sortAsc ? '▲' : '▼') : ''}
             </button></th>
             <th>Período</th>
@@ -161,19 +161,19 @@
           {#each sortedTribunals as t}
             <tr>
               <td><strong>{t.tribunal}</strong></td>
-              <td class="num mono">{t.uploaded}</td>
-              <td class="num mono muted">{t.absent}</td>
-              <td class="num mono" data-tone={t.unknown ? 'error' : undefined}>{t.unknown || ''}</td>
-              <td class="num">
+              <td><code>{t.uploaded}</code></td>
+              <td data-tone="muted"><code>{t.absent}</code></td>
+              <td data-tone={t.unknown ? 'error' : undefined}><code>{t.unknown || ''}</code></td>
+              <td>
                 <progress value={t.coverage_pct} max="100" data-tone={coverageTone(t.coverage_pct)}
                   aria-label="{t.tribunal}: {t.coverage_pct}%"></progress>
                 <span data-tone={coverageTone(t.coverage_pct)}>{t.coverage_pct}%</span>
               </td>
-              <td class="period">
+              <td>
                 {#if t.earliest_upload}
-                  {t.earliest_upload} → {t.latest_upload}
+                  <small>{t.earliest_upload} → {t.latest_upload}</small>
                 {:else}
-                  <span class="muted">—</span>
+                  <span data-tone="muted">—</span>
                 {/if}
               </td>
             </tr>
@@ -187,22 +187,22 @@
         <thead>
           <tr>
             <th>Ano</th>
-            <th class="num">No IA</th>
-            <th class="num">Ausente</th>
-            <th class="num">Desconhecido</th>
-            <th class="num">Total</th>
-            <th class="num">Cobertura</th>
+            <th>No IA</th>
+            <th>Ausente</th>
+            <th>Desconhecido</th>
+            <th>Total</th>
+            <th>Cobertura</th>
           </tr>
         </thead>
         <tbody>
           {#each data.years as y}
             <tr>
               <td><strong>{y.year}</strong></td>
-              <td class="num mono" data-tone="success">{y.uploaded.toLocaleString('pt-BR')}</td>
-              <td class="num mono muted">{y.absent.toLocaleString('pt-BR')}</td>
-              <td class="num mono" data-tone="error">{y.unknown.toLocaleString('pt-BR')}</td>
-              <td class="num mono">{y.total.toLocaleString('pt-BR')}</td>
-              <td class="num">
+              <td data-tone="success"><code>{y.uploaded.toLocaleString('pt-BR')}</code></td>
+              <td data-tone="muted"><code>{y.absent.toLocaleString('pt-BR')}</code></td>
+              <td data-tone="error"><code>{y.unknown.toLocaleString('pt-BR')}</code></td>
+              <td><code>{y.total.toLocaleString('pt-BR')}</code></td>
+              <td>
                 <progress value={y.coverage_pct} max="100" data-tone={coverageTone(y.coverage_pct)}
                   aria-label="{y.year}: {y.coverage_pct}%"></progress>
                 <span data-tone={coverageTone(y.coverage_pct)}>{y.coverage_pct}%</span>

@@ -31,9 +31,9 @@ const queries = [
   <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Consultas' }]} />
 
-    <p class="intro-text">Copie e adapte os blocos abaixo no <a class="link" href={BASE + 'explorador'}>Explorador de Dados</a>.</p>
+    <p>Copie e adapte os blocos abaixo no <a href={BASE + 'explorador'}>Explorador de Dados</a>.</p>
 
-    <section class="queries-grid">
+    <section class="auto-grid">
       {queries.map((query) => <QueryCard {...query} />)}
     </section>
   </div>

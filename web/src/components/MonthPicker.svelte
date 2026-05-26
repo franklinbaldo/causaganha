@@ -70,30 +70,31 @@
   }
 </script>
 
-<div class="mp-wrapper">
+<div>
   <!-- Year wheel -->
-  <div class="mp-year-nav">
-    <button class="mp-arrow" onclick={prevYear} disabled={selectedYear <= minYear} aria-label="Ano anterior">&#8592;</button>
-    <span class="mp-year">{selectedYear}</span>
-    <button class="mp-arrow" onclick={nextYear} disabled={selectedYear >= maxYear} aria-label="Próximo ano">&#8594;</button>
-    <button class="mp-today" onclick={goToToday} aria-label="Ir para o mês atual">Hoje</button>
+  <div>
+    <button class="outline" onclick={prevYear} disabled={selectedYear <= minYear} aria-label="Ano anterior">&#8592;</button>
+    <strong>{selectedYear}</strong>
+    <button class="outline" onclick={nextYear} disabled={selectedYear >= maxYear} aria-label="Próximo ano">&#8594;</button>
+    <button class="secondary outline" onclick={goToToday} aria-label="Ir para o mês atual">Hoje</button>
   </div>
 
   <!-- Month grid -->
-  <div class="mp-grid" role="listbox" aria-label="Selecionar mês">
+  <div class="auto-grid-sm" role="listbox" aria-label="Selecionar mês">
     {#each monthRow as { name, mo, pct }}
       {@const isSelected = mo === selectedMonth}
       <button
-        class="mp-month {badgeClass(pct)} {isSelected ? 'mp-selected' : ''}"
+        class="{isSelected ? '' : 'outline'} {badgeClass(pct)}"
         onclick={() => selectMonth(mo, pct)}
         disabled={pct < 0}
         role="option"
         aria-selected={isSelected}
         title="{pct >= 0 ? Math.round(pct * 100) + '%' : 'sem dados'}"
+        data-tone={isSelected ? 'info' : undefined}
       >
-        <span class="mp-name">{name}</span>
+        {name}
         {#if pct >= 0}
-          <div class="mp-bar"><div class="mp-bar-fill" style="width:{Math.round(pct * 100)}%"></div></div>
+          <progress value={Math.round(pct * 100)} max="100"></progress>
         {/if}
       </button>
     {/each}

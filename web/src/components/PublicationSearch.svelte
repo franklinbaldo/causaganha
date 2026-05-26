@@ -259,23 +259,23 @@
   });
 </script>
 
-<section class="search-root" aria-labelledby="publication-search-heading">
-  <h2 id="publication-search-heading" class="visually-hidden">Busca de publicações</h2>
+<section aria-labelledby="publication-search-heading">
+  <h2 id="publication-search-heading" class="sr-only">Busca de publicações</h2>
 
   <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} bind:inputRef={searchInputRef} />
   {#if !rawInput}
-    <div class="example-chips">
-      <span class="chips-label">Experimente:</span>
-      <button type="button" class="hint-chip" onclick={() => (rawInput = 'OAB SP 12345')}>OAB SP 12345</button>
-      <button type="button" class="hint-chip" onclick={() => (rawInput = 'TJSP')}>TJSP</button>
-      <button type="button" class="hint-chip" onclick={() => (rawInput = 'mandado de segurança')}>mandado de segurança</button>
+    <div>
+      <small>Experimente:</small>
+      <button type="button" class="secondary outline" onclick={() => (rawInput = 'OAB SP 12345')}>OAB SP 12345</button>
+      <button type="button" class="secondary outline" onclick={() => (rawInput = 'TJSP')}>TJSP</button>
+      <button type="button" class="secondary outline" onclick={() => (rawInput = 'mandado de segurança')}>mandado de segurança</button>
     </div>
   {/if}
 
-  <div class="search-toolbar">
+  <div>
     <button
       type="button"
-      class="toggle-btn"
+      class="secondary outline"
       aria-expanded={showFilters}
       aria-controls="search-filters-panel"
       onclick={() => (showFilters = !showFilters)}
@@ -284,13 +284,12 @@
     </button>
     <button
       type="button"
-      class="submit-btn"
       disabled={!canSubmit}
       aria-busy={status === 'loading'}
       onclick={handleSubmit}
     >
       {#if status === 'loading'}
-        <span class="submit-spinner" aria-hidden="true"></span>
+        <span aria-busy="true" aria-hidden="true"></span>
         Buscando…
       {:else if cooldownRemaining > 0}
         Aguarde {cooldownRemaining}s
@@ -298,7 +297,6 @@
         Buscar
       {/if}
     </button>
-    <div class="toolbar-spacer"></div>
     <RateLimitBadge limit={rateLimit.limit} remaining={rateLimit.remaining} {usedFallback} />
   </div>
 
@@ -308,59 +306,53 @@
     </div>
   {/if}
 
-  <div class="status-region" aria-live="polite" aria-busy={status === 'loading'}>
+  <div role="status" aria-live="polite" aria-busy={status === 'loading'}>
     {#if status === 'loading'}
-      <ul class="skeleton-list" aria-hidden="true">
-        {#each Array.from({ length: 5 }) as _, i (i)}
-          <li class="skeleton-card">
-            <div class="skeleton-line w-60"></div>
-            <div class="skeleton-line w-80"></div>
-            <div class="skeleton-line w-40"></div>
-          </li>
-        {/each}
-      </ul>
+      <p aria-busy="true">Buscando publicações…</p>
     {:else if status === 'validation'}
-      <div class="banner info">
+      <div class="alert" data-level="info">
         <strong>Informe um critério de busca.</strong>
         <p>{errorMsg}</p>
       </div>
     {:else if status === 'ratelimited'}
-      <div class="banner warning">
+      <div class="alert" data-level="warning">
         <strong>Limite de requisições atingido.</strong>
         <p>A API do DJEN controla a taxa por IP. Tente novamente em <b>{cooldownRemaining}s</b>.</p>
       </div>
     {:else if status === 'error'}
-      <div class="banner danger">
+      <div class="alert" data-level="error">
         <strong>Não foi possível buscar.</strong>
         <p>{errorMsg}</p>
         <button type="button" onclick={handleSubmit}>Tentar novamente</button>
       </div>
     {:else if status === 'empty'}
-      <div class="banner muted">
+      <p class="meta-text" data-tone="muted">
         <strong>Nenhum resultado.</strong>
-        <p>Ajuste os filtros ou amplie o período.</p>
-      </div>
+        Ajuste os filtros ou amplie o período.
+      </p>
     {:else if status === 'success'}
       {@const perPage = filters.itensPorPagina ?? 30}
       {@const currentPage = filters.pagina ?? 1}
       {@const totalPages = Math.max(1, Math.ceil(totalCount / perPage))}
-      <div class="results-header" id={resultsHeadingId}>
-        <span class="result-count">{totalCount.toLocaleString('pt-BR')} resultado(s)</span>
-        <div class="pagination">
+      <header id={resultsHeadingId}>
+        <small class="meta-text">{totalCount.toLocaleString('pt-BR')} resultado(s)</small>
+        <div>
           <button
             type="button"
+            class="secondary outline"
             disabled={currentPage <= 1}
             onclick={() => handlePageChange(-1)}
           >‹ Anterior</button>
           <span>Página {currentPage} de {totalPages.toLocaleString('pt-BR')}</span>
           <button
             type="button"
+            class="secondary outline"
             disabled={currentPage >= totalPages || results.length < perPage}
             onclick={() => handlePageChange(1)}
           >Próxima ›</button>
         </div>
-      </div>
-      <ul class="result-list" aria-label="Resultados da busca">
+      </header>
+      <ul aria-label="Resultados da busca">
         {#each results as pub, i (pub.hash ?? pub.numeroComunicacao ?? i)}
           <li>
             <PublicationCard
@@ -379,9 +371,7 @@
         {/each}
       </ul>
     {:else}
-      <div class="banner muted idle">
-        <p>Comece digitando um número de OAB, um processo CNJ ou um termo livre para buscar ao vivo no DJEN.</p>
-      </div>
+      <p class="meta-text" data-tone="muted">Comece digitando um número de OAB, um processo CNJ ou um termo livre para buscar ao vivo no DJEN.</p>
     {/if}
   </div>
 </section>

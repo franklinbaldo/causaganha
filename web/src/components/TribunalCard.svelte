@@ -19,23 +19,25 @@
   }
 </script>
 
-<a {href} class="tribunal-link">
-  <article class="tribunal-card" class:offline={!hasData}>
-    <div class="tribunal-card-header">
+<article class:offline={!hasData}>
+  <header>
+    <a {href}>
       <strong class="small-text">{tribunal}</strong>
-      <mark data-tone={hasData ? 'success' : 'error'}>
-        {hasData ? "Online" : "Offline"}
-      </mark>
-    </div>
-    <div class="tribunal-card-meta">
+    </a>
+    <mark data-tone={hasData ? 'success' : 'error'}>
+      {hasData ? "Online" : "Offline"}
+    </mark>
+  </header>
+  <footer>
+    <small>
       {#if hasData}
         {totalZips.toLocaleString('pt-BR')} publicações
       {:else}
         Sem dados processados
       {/if}
       {#if latestDate}
-        <span class="latest-date">Última: {formatDate(latestDate)}</span>
+        · <time datetime={latestDate}>Última: {formatDate(latestDate)}</time>
       {/if}
-    </div>
-  </article>
-</a>
+    </small>
+  </footer>
+</article>

@@ -84,24 +84,24 @@
     </header>
 
     <!-- Quick Stats -->
-    <div class="stats">
-      <div class="stat">
-        <div class="stat-value value-info">{totalZips.toLocaleString('pt-BR')}</div>
-        <p class="stat-title">ZIPs no IA</p>
+    <dl class="auto-grid-sm">
+      <div>
+        <dt class="stat-label">ZIPs no IA</dt>
+        <dd class="stat-value">{totalZips.toLocaleString('pt-BR')}</dd>
       </div>
-      <div class="stat">
-        <div class="stat-value value-warning">{totalGB.toFixed(1)}<small class="unit-suffix">GB</small></div>
-        <p class="stat-title">Volume</p>
+      <div>
+        <dt class="stat-label">Volume</dt>
+        <dd class="stat-value">{totalGB.toFixed(1)}<small>GB</small></dd>
       </div>
-      <div class="stat">
-        <div class="stat-value value-success">{tribunalsWithData}<small class="fraction-suffix">/ {snap?.tribunals_total || 96}</small></div>
-        <p class="stat-title">Tribunais</p>
+      <div>
+        <dt class="stat-label">Tribunais</dt>
+        <dd class="stat-value">{tribunalsWithData}<small>/ {snap?.tribunals_total || 96}</small></dd>
       </div>
-      <div class="stat">
-        <div class="stat-value value-primary">{snap?.total_items || 0}</div>
-        <p class="stat-title">Itens no IA</p>
+      <div>
+        <dt class="stat-label">Itens no IA</dt>
+        <dd class="stat-value">{snap?.total_items || 0}</dd>
       </div>
-    </div>
+    </dl>
   </article>
 
   <!-- Progress by Year -->
@@ -111,13 +111,13 @@
         <strong>ZIPs por Ano</strong>
         <small class="meta-text">Internet Archive</small>
       </header>
-      <div class="tribunals-grid">
+      <div class="auto-grid-sm">
         {#each Object.entries(snapshotByYear).sort(([a], [b]) => b.localeCompare(a)) as [year, d]}
-          <article class="year-card">
-            <div class="year-row">
+          <article>
+            <header>
               <strong class="small-text">{year}</strong>
-              <span class="mono-value">{(d as any).zip_count.toLocaleString('pt-BR')}</span>
-            </div>
+              <code>{(d as any).zip_count.toLocaleString('pt-BR')}</code>
+            </header>
             <small class="meta-text">
               {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
             </small>
@@ -130,36 +130,33 @@
       <header>
         <strong>Progresso por Ano</strong>
       </header>
-      <div>
+      <div class="auto-grid-sm">
         {#each Object.entries(progressByYear).sort(([a], [b]) => b.localeCompare(a)) as [year, d]}
           {@const pct = (d as any).pct || 0}
-          <div class="year-progress-block">
-            <div class="year-row">
+          <article>
+            <header>
               <strong class="small-text">{year}</strong>
-              <span class="mono-value-semibold">{pct.toFixed(1)}%</span>
-            </div>
-            <progress class="progress-bar progress-primary" value={Math.round(Math.min(100, pct))} max="100" aria-label={`Progresso de coleta para o ano ${year}`}></progress>
-            <div class="progress-details">
+              <strong>{pct.toFixed(1)}%</strong>
+            </header>
+            <progress value={Math.round(Math.min(100, pct))} max="100" aria-label={`Progresso de coleta para o ano ${year}`}></progress>
+            <small>
               <span>{(d as any).zips || 0} ZIPs</span>
-              <span>{(d as any).days_consolidated || 0} consolidados</span>
-              <span>{(d as any).unique_days || 0} / {(d as any).weekdays || 0} dias</span>
-            </div>
-          </div>
+              · <span>{(d as any).days_consolidated || 0} consolidados</span>
+              · <span>{(d as any).unique_days || 0} / {(d as any).weekdays || 0} dias</span>
+            </small>
+          </article>
         {/each}
       </div>
     </article>
   {/if}
 
   <!-- Tribunal Filter -->
-  <div class="filter-section">
-    <label for="tribunal-filter" class="filter-label">
-      Filtrar tribunais
-    </label>
-    <label class="search-input-wrapper">
-      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" class="search-icon"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
+  <search>
+    <label for="tribunal-filter">Filtrar tribunais</label>
+    <div>
+      <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
       <input
         id="tribunal-filter" type="search"
-        class="search-input"
         value={query}
         oninput={(event) => query = (event.target as HTMLInputElement).value}
         onkeydown={(event) => {
@@ -169,10 +166,10 @@
         aria-label="Filtrar tribunais por sigla ou nome"
       />
       {#if query}
-        <button type="button" class="clear-btn outline secondary" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
+        <button type="button" class="secondary outline" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
       {/if}
-    </label>
-  </div>
+    </div>
+  </search>
 
   <!-- Tribunal Groups -->
   {#if filteredGroups.length === 0}
@@ -182,12 +179,12 @@
     </div>
   {:else}
     {#each filteredGroups as group}
-      <section class="group-section">
-        <div class="group-header">
-          <h3 class="group-title">{group.name}</h3>
+      <section>
+        <header>
+          <h3>{group.name}</h3>
           <small class="meta-text">{group.tribunals.length} tribunais</small>
-        </div>
-        <div class="tribunals-grid">
+        </header>
+        <div class="auto-grid">
           {#each group.tribunals as t}
             {@const stats = getTribunalStats(t)}
             <TribunalCard

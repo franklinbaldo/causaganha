@@ -11,21 +11,21 @@
   let { selectedYear, minYear, maxYear, onprev, onnext, ontoday }: HeatmapYearNavProps = $props();
 </script>
 
-<div class="year-nav">
+<div>
   <button
-    class="year-arrow"
+    class="outline"
     onclick={onprev}
     disabled={selectedYear <= minYear}
     aria-label="Ano anterior"
   >&#8592;</button>
-  <span class="year-label">{selectedYear}</span>
+  <strong>{selectedYear}</strong>
   <button
-    class="year-arrow"
+    class="outline"
     onclick={onnext}
     disabled={selectedYear >= maxYear}
     aria-label="Próximo ano"
   >&#8594;</button>
-  <button class="today-btn" onclick={ontoday} aria-label="Ir para o mês atual">
+  <button class="secondary outline" onclick={ontoday} aria-label="Ir para o mês atual">
     Hoje
   </button>
 </div>

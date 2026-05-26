@@ -72,7 +72,7 @@
 </script>
 
 <article>
-  <header class="jules-header">
+  <header>
     <h3>Jules Sessions</h3>
     <button type="button" class="outline secondary" onclick={fetchSessions} disabled={loading || !apiKey} aria-label="Atualizar">
       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
@@ -82,11 +82,11 @@
   </header>
 
   {#if error}
-    <aside role="alert" class="error-alert">{error}</aside>
+    <aside role="alert" class="alert" data-level="error">{error}</aside>
   {:else if loading}
     <p aria-busy="true">Carregando sessões...</p>
   {:else if sessions.length === 0}
-    <p class="empty">No active sessions found.</p>
+    <p class="meta-text">No active sessions found.</p>
   {:else}
     <div class="table-wrap">
       <table>
@@ -101,8 +101,8 @@
         <tbody>
           {#each sessions as session}
             <tr>
-              <td><kbd class="id-cell">{session.name ? session.name.split('/').pop() : 'Unknown'}</kbd></td>
-              <td class="title-cell" title={session.title}>{session.title || 'Untitled'}</td>
+              <td><kbd>{session.name ? session.name.split('/').pop() : 'Unknown'}</kbd></td>
+              <td title={session.title}>{session.title || 'Untitled'}</td>
               <td>
                 <mark data-tone={stateTone(session.state)}>{session.state || 'UNKNOWN'}</mark>
               </td>

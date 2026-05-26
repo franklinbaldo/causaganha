@@ -20,7 +20,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       { label: 'SQL' }
     ]} />
 
-    <section class="intro-section">
+    <section class="container">
       <p>
         Execute consultas SQL diretamente nos arquivos Parquet hospedados no
         <a href="https://archive.org/details/causaganha-dashboard" target="_blank" rel="noopener noreferrer">Internet Archive</a>
@@ -28,11 +28,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         O <strong>DuckDB-WASM</strong> roda inteiramente no seu navegador — nenhum dado é enviado para servidores externos.
       </p>
 
-      <details class="schema-details">
-        <summary class="schema-summary">Tabelas disponíveis</summary>
-        <div class="schema-content">
-          <div class="table-responsive">
-            <table class="schema-table">
+      <details>
+        <summary>Tabelas disponíveis</summary>
+        <div class="table-responsive">
+            <table class="data-table">
               <thead>
                 <tr>
                   <th>Tabela</th>
@@ -93,15 +92,14 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
                 </tr>
               </tbody>
             </table>
-          </div>
         </div>
       </details>
     </section>
 
     <DuckDBExplorer client:only="svelte" />
 
-    <footer class="page-footer">
-      <small class="muted">
+    <footer>
+      <small data-tone="muted">
         Dados do DJEN arquivados no Internet Archive.
         O DuckDB-WASM executa no navegador — seus dados não saem do seu dispositivo.
       </small>

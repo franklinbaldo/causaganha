@@ -213,7 +213,7 @@
 {#if invalidRange}
   <div>Invalid date range.</div>
 {:else}
-  <div class="heatmap-wrapper">
+  <div>
 
     <!-- ── Year wheel ──────────────────────────────────────── -->
     <HeatmapYearNav
@@ -234,57 +234,57 @@
 
     <!-- ── Single-month calendar ───────────────────────────── -->
     {#key `${selectedYear}-${selectedMonth}`}
-    <div class="month-card" transition:fade={{ duration: 120 }}>
-      <h5 class="month-title">{selectedMonthCalendar.label}</h5>
-      <table
-        class="calendar-table"
-        role="grid"
-        aria-label="Calendário de cobertura — {selectedMonthCalendar.label} — {tribunalName}"
-        tabindex="0"
-        onkeydown={handleGridKeyDown}
-        onfocus={() => { if (!focusedCell) focusedCell = allDays[allDays.length - 1]; }}
-        onblur={() => { focusedCell = null; hoveredCell = null; }}
-      >
-        <thead>
-          <tr>
-            {#each weekdayHeaders as d}
-              <th class="weekday-header">{d}</th>
-            {/each}
-          </tr>
-        </thead>
-        <tbody>
-          {#each selectedMonthCalendar.weeks as week, wi}
+    <article transition:fade={{ duration: 120 }}>
+      <h4>{selectedMonthCalendar.label}</h4>
+      <div class="table-wrap">
+        <table
+          role="grid"
+          aria-label="Calendário de cobertura — {selectedMonthCalendar.label} — {tribunalName}"
+          tabindex="0"
+          onkeydown={handleGridKeyDown}
+          onfocus={() => { if (!focusedCell) focusedCell = allDays[allDays.length - 1]; }}
+          onblur={() => { focusedCell = null; hoveredCell = null; }}
+        >
+          <thead>
             <tr>
-              {#each week as day, di}
-                <td
-                  id={day ? `cell-${day}` : undefined}
-                  role="gridcell"
-                  class="day-cell {day ? `day-cell--active ${getCellColor(day)} ${day && getCellStatus(day) === 'collected' && baseUrl ? 'day-cell--clickable' : 'day-cell--default'}` : ''}"
-                  aria-label={getAriaLabel(day)}
-                  aria-selected={focusedCell === day}
-                  onmouseenter={(e: any) => handleCellInteraction(e, day, 'enter')}
-                  onmousemove={(e: any)  => handleCellInteraction(e, day, 'move')}
-                  onmouseleave={(e: any) => handleCellInteraction(e, day, 'leave')}
-                  ontouchstart={(e: any) => handleCellInteraction(e, day, 'touch')}
-                  onclick={(e: any) => { handleCellInteraction(e, day, 'click'); focusedCell = day; }}
-                >
-                  {day ? new Date(day + 'T00:00:00Z').getUTCDate() : ''}
-                </td>
+              {#each weekdayHeaders as d}
+                <th>{d}</th>
               {/each}
             </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {#each selectedMonthCalendar.weeks as week, wi}
+              <tr>
+                {#each week as day, di}
+                  <td
+                    id={day ? `cell-${day}` : undefined}
+                    role="gridcell"
+                    class={day ? getCellColor(day) : ''}
+                    aria-label={getAriaLabel(day)}
+                    aria-selected={focusedCell === day}
+                    onmouseenter={(e: any) => handleCellInteraction(e, day, 'enter')}
+                    onmousemove={(e: any)  => handleCellInteraction(e, day, 'move')}
+                    onmouseleave={(e: any) => handleCellInteraction(e, day, 'leave')}
+                    ontouchstart={(e: any) => handleCellInteraction(e, day, 'touch')}
+                    onclick={(e: any) => { handleCellInteraction(e, day, 'click'); focusedCell = day; }}
+                  >
+                    {day ? new Date(day + 'T00:00:00Z').getUTCDate() : ''}
+                  </td>
+                {/each}
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </article>
     {/key}
 
     <!-- ── Legend ──────────────────────────────────────────── -->
     <HeatmapLegend coveredDays={coveredDays} totalDays={totalDays} />
 
     {#if velocityMetrics?.hasEnoughHistory}
-      <div class="velocity-section">
-        <VelocityTimeline metrics={velocityMetrics} />
-      </div>
+      <hr>
+      <VelocityTimeline metrics={velocityMetrics} />
     {/if}
 
     {#if hoveredCell}

@@ -80,7 +80,7 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
 {#if !expanded}
   <button
     type="button"
-    class="expand-btn"
+    class="outline"
     onclick={() => (expanded = true)}>
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="20" height="20" aria-hidden="true">
       <path stroke-linecap="round" stroke-linejoin="round" d="M4 7v10c0 2 1 3 3 3h10c2 0 3-1 3-3V7c0-2-1-3-3-3H7C5 4 4 5 4 7z" />
@@ -96,12 +96,10 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     </header>
 
     <section>
-      <div class="section-header">
-        <span>Consulta via Catálogo (DuckDB)</span>
-        <button type="button" class="outline secondary" onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
-          {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
-        </button>
-      </div>
+      <h5>Consulta via Catálogo (DuckDB)</h5>
+      <button type="button" class="outline secondary" onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
+        {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
+      </button>
       <pre><code>{catalogQuery}</code></pre>
     </section>
 
@@ -112,19 +110,15 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     {#if parquetFiles.length > 0}
       <section>
         <strong>Arquivos Parquet ({parquetFiles.length})</strong>
-        <ul class="file-list">
+        <ul>
           {#each parquetFiles as f (f.name)}
             <li>
-              <div class="file-row">
-                <a href={f.url} target="_blank" rel="noopener noreferrer">{f.name}</a>
-                <small>{formatSize(f.size)}</small>
-              </div>
-              <div class="query-row">
-                <code>{duckdbQuery(f.name).substring(0, 80)}…</code>
-                <button type="button" class="outline secondary" onclick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
-                  {copied === f.name ? 'Copiado!' : 'SQL'}
-                </button>
-              </div>
+              <a href={f.url} target="_blank" rel="noopener noreferrer">{f.name}</a>
+              <small>{formatSize(f.size)}</small>
+              <code>{duckdbQuery(f.name).substring(0, 80)}…</code>
+              <button type="button" class="outline secondary" onclick={() => copyToClipboard(duckdbQuery(f.name), f.name)}>
+                {copied === f.name ? 'Copiado!' : 'SQL'}
+              </button>
             </li>
           {/each}
         </ul>

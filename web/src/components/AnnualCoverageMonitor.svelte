@@ -52,7 +52,7 @@ const missing = $derived(results.filter((r: TribunalMetadata) => r.percentage ==
             type="button"
             onclick={() => { year = y; }}
             aria-pressed={year === y}
-            class={year === y ? "year-btn year-btn-active" : "year-btn"}>
+            class={year === y ? "" : "outline"}>
             {y}
           </button>
         {/each}

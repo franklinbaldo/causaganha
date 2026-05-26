@@ -24,12 +24,12 @@
   }
 </script>
 
-<div class="month-picker" role="listbox" aria-label="Selecionar mês">
+<div class="auto-grid-sm" role="listbox" aria-label="Selecionar mês">
   {#each monthCoverage as mc}
     {@const isSelected = mc.mo === selectedMonth}
     {@const isDisabled = mc.pct < 0}
     <button
-      class="month-btn {monthBadgeClass(mc.pct)} {isSelected ? 'month-selected' : ''}"
+      class="{isSelected ? '' : 'outline'} {monthBadgeClass(mc.pct)}"
       onclick={() => onselect(mc.mo)}
       disabled={isDisabled}
       role="option"
@@ -37,11 +37,9 @@
       aria-label="{mc.name}: {mc.pct >= 0 ? Math.round(mc.pct * 100) + '% coletado' : 'fora do intervalo'}"
       title="{mc.collected}/{mc.total} dias coletados"
     >
-      <span class="month-name">{mc.name}</span>
+      {mc.name}
       {#if mc.pct >= 0 && mc.total > 0}
-        <div class="month-progress">
-          <div class="month-progress-fill" style="width:{Math.round(mc.pct * 100)}%"></div>
-        </div>
+        <progress value={Math.round(mc.pct * 100)} max="100"></progress>
       {/if}
     </button>
   {/each}

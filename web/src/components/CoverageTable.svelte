@@ -49,17 +49,17 @@ const sorted = $derived.by(() => {
   <table class="data-table">
     <thead>
       <tr>
-        <th class="sortable-th" onclick={() => handleSort('tribunal')}>
+        <th role="button" onclick={() => handleSort('tribunal')}>
           Tribunal{sortIcon('tribunal')}
         </th>
-        <th class="sortable-th" onclick={() => handleSort('fileCount')}>
+        <th role="button" onclick={() => handleSort('fileCount')}>
           ZIPs{sortIcon('fileCount')}
         </th>
         <th>Esperado</th>
-        <th class="sortable-th" onclick={() => handleSort('downloads')}>
+        <th role="button" onclick={() => handleSort('downloads')}>
           Downloads{sortIcon('downloads')}
         </th>
-        <th class="sortable-th" onclick={() => handleSort('percentage')}>
+        <th role="button" onclick={() => handleSort('percentage')}>
           Cobertura{sortIcon('percentage')}
         </th>
         <th>Progresso</th>
@@ -94,19 +94,11 @@ const sorted = $derived.by(() => {
             {/if}
           </td>
           <td>
-            <div
-              class="progress-bar-track"
-              role="progressbar"
-              aria-valuenow={Math.min(100, r.percentage)}
-              aria-valuemin={0}
-              aria-valuemax={100}
+            <progress
+              value={Math.min(100, r.percentage)}
+              max="100"
               aria-label="{r.tribunal}: {r.percentage.toFixed(1)}% cobertura"
-            >
-              <div
-                class={`progress-bar-fill ${colors.bg || ''}`}
-                style="width: {Math.min(100, r.percentage)}%"
-              ></div>
-            </div>
+            ></progress>
           </td>
         </tr>
       {/each}

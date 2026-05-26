@@ -87,29 +87,25 @@
 
   <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
-  <ul class="legend">
-    <li><span class="swatch cell-success"></span> &lt; 5s</li>
-    <li><span class="swatch cell-warning"></span> 5–20s</li>
-    <li><span class="swatch cell-error"></span> &gt; 20s</li>
+  <ul class="auto-grid-sm" aria-label="Legenda">
+    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#1A6B3C;vertical-align:middle"></small> &lt; 5s</li>
+    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#C5972C;vertical-align:middle"></small> 5–20s</li>
+    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#C53030;vertical-align:middle"></small> &gt; 20s</li>
   </ul>
 
   {#if loading}
-    <div class="loading-wrap" aria-busy="true">
-      <progress></progress>
-    </div>
+    <p aria-busy="true"><progress></progress></p>
   {:else if error}
     <mark data-tone="error">Erro ao carregar dados: {error}</mark>
   {:else}
     {#key `${selectedYear}-${selectedMonth}`}
       <div class="table-wrap" transition:fade={{ duration: fadeDuration }}>
-        <table class="heatmap-table">
+        <table>
           <thead>
             <tr>
-              <th class="col-date">Data</th>
+              <th>Data</th>
               {#each TRIBUNALS as tribunal}
-                <th class="col-tribunal" title={tribunal}>
-                  <div class="th-label">{tribunal}</div>
-                </th>
+                <th title={tribunal}>{tribunal}</th>
               {/each}
             </tr>
           </thead>
@@ -120,7 +116,7 @@
               {@const coletados = dayData?.tribunais_coletados || []}
               {@const ausentes  = dayData?.tribunais_ausentes  || []}
               <tr>
-                <td class="col-date cell-date-label">
+                <td>
                   {dateStr.replace('djen-', '')}
                 </td>
                 {#each TRIBUNALS as tribunal}
@@ -128,7 +124,7 @@
                   {@const isAusente  = ausentes.includes(tribunal)}
                   {@const status  = isColetado ? 'coletado' : isAusente ? 'ausente' : 'pendente'}
                   {@const latency = latencies[tribunal] ?? null}
-                  <td class="cell-pad">
+                  <td>
                     <CellTooltip
                       date={dateStr.replace('djen-', '')}
                       tribunal={tribunal}
@@ -149,7 +145,7 @@
             {/each}
             {#if displayDates.length === 0}
               <tr>
-                <td colspan={TRIBUNALS.length + 1} class="empty-row">
+                <td colspan={TRIBUNALS.length + 1} class="empty-state">
                   Sem dados para este mês.
                 </td>
               </tr>

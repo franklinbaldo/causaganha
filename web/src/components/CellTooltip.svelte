@@ -61,30 +61,29 @@
 </script>
 
 {#if cellData && position}
-  <div
+  <article
     bind:this={tooltipEl}
     role="tooltip"
-    class="tooltip-container"
-    style="top: {style.top}px; left: {style.left}px; opacity: {style.opacity};"
+    style="position:fixed; top: {style.top}px; left: {style.left}px; opacity: {style.opacity};"
   >
-    <div class="tooltip-header">
+    <header>
       {cellData.date}
-    </div>
+    </header>
     <div class={statusClass || undefined}>
       {statusText}
     </div>
 
     {#if cellData.uploadedAt}
-      <div class="tooltip-meta">
-        <span>Uploaded:</span>{' '}
-        <span>{new Date(cellData.uploadedAt).toLocaleString('pt-BR')}</span>
-      </div>
+      <footer>
+        <small><span>Uploaded:</span>{' '}<span>{new Date(cellData.uploadedAt).toLocaleString('pt-BR')}</span></small>
+        {#if cellData.sizeMb}
+          <small><span>Size:</span>{' '}<span>{cellData.sizeMb.toFixed(2)} MB</span></small>
+        {/if}
+      </footer>
+    {:else if cellData.sizeMb}
+      <footer>
+        <small><span>Size:</span>{' '}<span>{cellData.sizeMb.toFixed(2)} MB</span></small>
+      </footer>
     {/if}
-    {#if cellData.sizeMb}
-      <div class="tooltip-meta-inline">
-        <span>Size:</span>{' '}
-        <span>{cellData.sizeMb.toFixed(2)} MB</span>
-      </div>
-    {/if}
-  </div>
+  </article>
 {/if}

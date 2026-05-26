@@ -227,7 +227,7 @@
 
 <QueryProvider>
 {#if !hashReady && typeof window !== 'undefined'}
-  <div class="loading-container"><span class="spinner"></span></div>
+  <p aria-busy="true">Carregando...</p>
 {:else}
   <div>
     {#if hasFeaturedPub && activeDate}
@@ -249,57 +249,54 @@
       </div>
     </div>
 
-    <div class="title-section">
-      <div class="title-main">
-        <h1 class="tribunal-title">{selectedTribunal}</h1>
-        {#if qualityScore}
-          <mark
-            data-tone={qualityTone}
-            class="quality-badge"
-            title={`Completude: ${qualityScore.completeness}%\nRecência: ${qualityScore.recency}%\nConsistência: ${qualityScore.consistency}%`}
-          >
-            Qualidade: {qualityScore.grade}
-          </mark>
-        {/if}
+    <hgroup>
+      <h1>{selectedTribunal}</h1>
+      {#if qualityScore}
+        <mark
+          data-tone={qualityTone}
+          title={`Completude: ${qualityScore.completeness}%\nRecência: ${qualityScore.recency}%\nConsistência: ${qualityScore.consistency}%`}
+        >
+          Qualidade: {qualityScore.grade}
+        </mark>
+      {/if}
+    </hgroup>
+    <div>
+      <div class="tribunal-switcher">
+        <label for="tribunal-select">Trocar tribunal</label>
+        <select
+          id="tribunal-select"
+          value={selectedTribunal}
+          onchange={handleTribunalChange}
+          class="tribunal-select-title"
+        >
+          {#each TRIBUNAL_GROUPS as group}
+            <optgroup label={group.name}>
+              {#each group.tribunals as t}
+                <option value={t}>{t}</option>
+              {/each}
+            </optgroup>
+          {/each}
+        </select>
       </div>
-      <div class="title-actions">
-        <div class="tribunal-switcher">
-          <label for="tribunal-select" class="switcher-label">Trocar tribunal</label>
-          <select
-            id="tribunal-select"
-            value={selectedTribunal}
-            onchange={handleTribunalChange}
-            class="tribunal-select-title"
-          >
-            {#each TRIBUNAL_GROUPS as group}
-              <optgroup label={group.name}>
-                {#each group.tribunals as t}
-                  <option value={t}>{t}</option>
-                {/each}
-              </optgroup>
-            {/each}
-          </select>
-        </div>
-        <div class="toolbar-actions">
-          <button
-            class="outline secondary action-btn"
-            onclick={exportCsv}
-            title="Exportar CSV de Cobertura"
-            aria-label="Exportar CSV"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-            Exportar CSV
-          </button>
-          <button
-            class="outline secondary action-btn"
-            onclick={shareLink}
-            title="Copiar Link"
-            aria-label="Compartilhar Link"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-            {shareLinkCopied ? 'Copiado!' : 'Compartilhar Link'}
-          </button>
-        </div>
+      <div class="toolbar-actions">
+        <button
+          class="outline secondary"
+          onclick={exportCsv}
+          title="Exportar CSV de Cobertura"
+          aria-label="Exportar CSV"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+          Exportar CSV
+        </button>
+        <button
+          class="outline secondary"
+          onclick={shareLink}
+          title="Copiar Link"
+          aria-label="Compartilhar Link"
+        >
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
+          {shareLinkCopied ? 'Copiado!' : 'Compartilhar Link'}
+        </button>
       </div>
     </div>
 
@@ -315,75 +312,63 @@
       {genesisDate}
     />
 
-    <div class="tabs" role="tablist">
-      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Calendário" id="tab-calendario" checked />
-      <label for="tab-calendario" class="tab-label">Calendário</label>
-      <div role="tabpanel" class="tab-content">
-        <Heatmap
-          globalStartDateStr={targetRange.start}
-          globalEndDateStr={targetRange.end}
-          tribunalStartDateStr={tribunalStartDate}
-          coverageSet={selectedCoverage}
-          tribunalName={selectedTribunal}
-          baseUrl={baseUrl}
-          velocityMetrics={{
-            ...velocityMetrics,
-            absentSet: absentSet
-          }}
-        />
-      </div>
+    <details open>
+      <summary>Calendário</summary>
+      <Heatmap
+        globalStartDateStr={targetRange.start}
+        globalEndDateStr={targetRange.end}
+        tribunalStartDateStr={tribunalStartDate}
+        coverageSet={selectedCoverage}
+        tribunalName={selectedTribunal}
+        baseUrl={baseUrl}
+        velocityMetrics={{
+          ...velocityMetrics,
+          absentSet: absentSet
+        }}
+      />
+    </details>
 
-      <input type="radio" name="tribunal_tabs" role="tab" class="tab-input" aria-label="Estatísticas & Arquivo" id="tab-stats" />
-      <label for="tab-stats" class="tab-label">Estatísticas & Arquivo</label>
-      <div role="tabpanel" class="tab-content">
-        <div class="two-col-grid">
-          <div>
-            <h3 class="subsection-title">Informações do Pipeline</h3>
-            <div class="info-stack">
-              <div>
-                <small class="field-label">Data inicial do tribunal</small>
-                <strong class="field-value">{genesisDate || "Desconhecida"}</strong>
-              </div>
+    <details>
+      <summary>Estatísticas &amp; Arquivo</summary>
+      <div class="two-col-grid">
+        <div>
+          <h4>Informações do Pipeline</h4>
+          <dl>
+            <dt>Data inicial do tribunal</dt>
+            <dd><strong>{genesisDate || "Desconhecida"}</strong></dd>
 
-              {#if cursorDate && !isStopped}
-                <div>
-                  <small class="field-label">Cursor de varredura atual</small>
-                  <strong class="field-value value-primary">{cursorDate}</strong>
-                </div>
-              {/if}
+            {#if cursorDate && !isStopped}
+              <dt>Cursor de varredura atual</dt>
+              <dd><strong class="value-primary">{cursorDate}</strong></dd>
+            {/if}
+          </dl>
 
-              {#if isStopped}
-                <p><mark data-tone="error">Pipeline interrompido (60 dias sem publicações identificadas).</mark></p>
-              {/if}
-            </div>
-          </div>
+          {#if isStopped}
+            <p><mark data-tone="error">Pipeline interrompido (60 dias sem publicações identificadas).</mark></p>
+          {/if}
+        </div>
 
-          <div>
-            <h3 class="subsection-title">Internet Archive</h3>
-            <div class="ia-stack">
-              <a
-                href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                role="button"
-                class="outline secondary action-btn"
-              >
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-                </svg>
-                Ver coleção de {iaYear} no IA
-              </a>
-              <div class="data-access-wrapper">
-                <DataAccessPanel
-                  tribunalCode={selectedTribunal}
-                  year={iaYear}
-                />
-              </div>
-            </div>
-          </div>
+        <div>
+          <h4>Internet Archive</h4>
+          <a
+            href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            role="button"
+            class="outline secondary"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+            </svg>
+            Ver coleção de {iaYear} no IA
+          </a>
+          <DataAccessPanel
+            tribunalCode={selectedTribunal}
+            year={iaYear}
+          />
         </div>
       </div>
-    </div>
+    </details>
 
     {#if activeDate && !hasFeaturedPub}
       <DateDetail

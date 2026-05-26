@@ -96,8 +96,8 @@
     const isMerged = prInfo.merged;
     const isClosed = prInfo.state === 'closed';
 
-    if (isMerged) return { status: 'Mesclado', description: 'Este PR já foi mesclado.', color: 'status-success' };
-    if (isClosed) return { status: 'Fechado', description: 'Este PR foi fechado sem ser mesclado.', color: 'status-error' };
+    if (isMerged) return { status: 'Mesclado', description: 'Este PR já foi mesclado.', color: 'success' };
+    if (isClosed) return { status: 'Fechado', description: 'Este PR foi fechado sem ser mesclado.', color: 'error' };
 
     const pendingChecks = checkRuns.filter(c => c.status !== 'completed');
     const failedChecks = checkRuns.filter(c => c.status === 'completed' && c.conclusion !== 'success' && c.conclusion !== 'neutral' && c.conclusion !== 'skipped');
@@ -106,11 +106,11 @@
 
     let status = 'Pronto para merge';
     let description = 'Todas as verificações passaram. O PR está pronto para ser mesclado.';
-    let color = 'status-success';
+    let color = 'success';
 
     if (failedChecks.length > 0) {
       status = 'Bloqueado';
-      color = 'status-error';
+      color = 'error';
       if (blockedByKilo) {
         description = `${failedChecks.length > 1 ? 'CI e Kilo falharam' : 'CI verde, Kilo ACTION_REQUIRED'} → merge bloqueado por revisão externa.`;
       } else {
@@ -118,7 +118,7 @@
       }
     } else if (pendingChecks.length > 0) {
       status = 'Pendente';
-      color = 'status-accent';
+      color = 'info';
       description = `${pendingChecks.length} verificação(ões) em andamento.`;
     }
 
