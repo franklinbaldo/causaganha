@@ -183,12 +183,12 @@
   let iaYear = $derived(activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear());
 
   let qualityScore = $derived(qualityScores[selectedTribunal]);
-  let qualityBadgeClass = $derived.by(() => {
+  let qualityTone = $derived.by(() => {
     if (!qualityScore) return '';
-    if (qualityScore.grade === 'A') return 'badge-success';
-    if (qualityScore.grade === 'B') return 'badge-accent';
-    if (qualityScore.grade === 'C') return 'badge-warning';
-    return 'badge-error';
+    if (qualityScore.grade === 'A') return 'success';
+    if (qualityScore.grade === 'B') return 'info';
+    if (qualityScore.grade === 'C') return 'warning';
+    return 'error';
   });
 
   function exportCsv() {
@@ -252,12 +252,13 @@
       <div class="title-main">
         <h1 class="tribunal-title">{selectedTribunal}</h1>
         {#if qualityScore}
-          <span
-            class={`badge quality-badge ${qualityBadgeClass}`}
+          <mark
+            data-tone={qualityTone}
+            class="quality-badge"
             title={`Completude: ${qualityScore.completeness}%\nRecência: ${qualityScore.recency}%\nConsistência: ${qualityScore.consistency}%`}
           >
             Qualidade: {qualityScore.grade}
-          </span>
+          </mark>
         {/if}
       </div>
       <div class="title-actions">
@@ -280,7 +281,7 @@
         </div>
         <div class="toolbar-actions">
           <button
-            class="btn btn-sm btn-ghost"
+            class="outline secondary action-btn"
             onclick={exportCsv}
             title="Exportar CSV de Cobertura"
             aria-label="Exportar CSV"
@@ -289,7 +290,7 @@
             Exportar CSV
           </button>
           <button
-            class="btn btn-sm btn-ghost"
+            class="outline secondary action-btn"
             onclick={shareLink}
             title="Copiar Link"
             aria-label="Compartilhar Link"
@@ -365,9 +366,7 @@
               {/if}
 
               {#if isStopped}
-                <div class="alert alert-error">
-                  <span>Pipeline interrompido (60 dias sem publicações identificadas).</span>
-                </div>
+                <p><mark data-tone="error">Pipeline interrompido (60 dias sem publicações identificadas).</mark></p>
               {/if}
             </div>
           </div>
@@ -379,7 +378,8 @@
                 href={`https://archive.org/details/djen-${selectedTribunal.toLowerCase()}-${iaYear}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                class="btn btn-outline btn-sm"
+                role="button"
+                class="outline secondary action-btn"
               >
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="icon-sm">
                   <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
@@ -421,8 +421,8 @@
     display: inline-block;
     width: 2rem;
     height: 2rem;
-    border: 2px solid var(--color-base-300);
-    border-top-color: var(--color-primary);
+    border: 2px solid var(--pico-muted-border-color);
+    border-top-color: var(--pico-primary);
     border-radius: 50%;
     animation: spin 0.6s linear infinite;
   }
@@ -512,19 +512,13 @@
 
   /* Buttons */
 
-  .btn-sm {
-    padding: 0.25rem 0.5rem;
+  /* Compact action buttons (CSV export, share, IA link) */
+  .action-btn {
+    padding: 0.25rem 0.625rem;
     font-size: var(--font-size-xs);
-  }
-
-  .btn-ghost {
-    background: transparent;
-    border-color: transparent;
-    color: inherit;
-  }
-
-  .btn-ghost:hover {
-    background: var(--color-base-200, rgba(0, 0, 0, 0.05));
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
   }
 
   /* Title section */
@@ -555,15 +549,15 @@
     font-weight: 700;
   }
 
-  /* Badges */
+  /* Quality badge (mark element) */
 
   .quality-badge {
+    display: inline-block;
     margin-top: 0.5rem;
-  }
-
-  .badge-accent {
-    background: var(--color-accent);
-    color: var(--color-accent-content, #fff);
+    padding: 0.125rem 0.5rem;
+    border-radius: var(--radius-full);
+    font-size: var(--font-size-xs);
+    font-weight: 500;
   }
 
   /* Stats */
@@ -740,20 +734,6 @@
     background: var(--color-base-200);
     padding: 1rem;
     border-radius: var(--radius-box);
-  }
-
-  /* Alert */
-  .alert {
-    padding: 1rem;
-    border-radius: var(--radius-box);
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-
-  .alert-error {
-    background: var(--color-error);
-    color: var(--color-error-content, #fff);
   }
 
   .icon-sm {

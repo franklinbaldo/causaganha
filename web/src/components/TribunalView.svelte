@@ -74,10 +74,9 @@
 <QueryProvider>
 <div>
   <!-- Archive Progress -->
-  <div class="card card-lg"><div class="card-body">
-    <header class="section-header">
-      <div class="header-row">
-        <h2 class="section-title">Progresso do Arquivo</h2>
+  <article>
+    <header>
+      <h2>Progresso do Arquivo</h2>
         {#if latestDate}
           <span class="meta-text">
             Última coleta: {latestDate}
@@ -86,7 +85,6 @@
             {/if}
           </span>
         {/if}
-      </div>
     </header>
 
     <!-- Quick Stats -->
@@ -108,18 +106,18 @@
         <p class="stat-title">Itens no IA</p>
       </div>
     </div>
-  </div></div>
+  </article>
 
   <!-- Progress by Year -->
   {#if Object.keys(snapshotByYear).length > 0}
-    <div class="card card-lg"><div class="card-body">
-      <header class="section-header header-row">
+    <article>
+      <header>
         <strong>ZIPs por Ano</strong>
         <small class="meta-text">Internet Archive</small>
       </header>
-      <div class="auto-grid">
+      <div class="tribunals-grid">
         {#each Object.entries(snapshotByYear).sort(([a], [b]) => b.localeCompare(a)) as [year, d]}
-          <div class="card card-compact"><div class="card-body-sm">
+          <article class="year-card">
             <div class="year-row">
               <strong class="small-text">{year}</strong>
               <span class="mono-value">{(d as any).zip_count.toLocaleString('pt-BR')}</span>
@@ -127,13 +125,13 @@
             <small class="meta-text">
               {(d as any).tribunals_with_data} / {(d as any).tribunals_total} tribunais
             </small>
-          </div></div>
+          </article>
         {/each}
       </div>
-    </div></div>
+    </article>
   {:else if progressByYear && Object.keys(progressByYear).length > 0}
-    <div class="card card-lg"><div class="card-body">
-      <header class="section-header">
+    <article>
+      <header>
         <strong>Progresso por Ano</strong>
       </header>
       <div>
@@ -153,7 +151,7 @@
           </div>
         {/each}
       </div>
-    </div></div>
+    </article>
   {/if}
 
   <!-- Tribunal Filter -->
@@ -175,7 +173,7 @@
         aria-label="Filtrar tribunais por sigla ou nome"
       />
       {#if query}
-        <button type="button" class="badge badge-info badge-sm clear-btn" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
+        <button type="button" class="clear-btn outline secondary" onclick={() => query = ''} aria-label="Limpar filtro">Limpar</button>
       {/if}
     </label>
   </div>
@@ -193,33 +191,31 @@
           <h3 class="group-title">{group.name}</h3>
           <small class="meta-text">{group.tribunals.length} tribunais</small>
         </div>
-        <div class="auto-grid">
+        <div class="tribunals-grid">
           {#each group.tribunals as t}
             {@const stats = getTribunalStats(t)}
             <a
               href={`${baseUrl}publicacoes/${t.toLowerCase()}`}
               class="tribunal-link"
             >
-              <div class="card tribunal-card" class:offline={!stats.hasData}>
-                <div class="card-body-sm">
-                  <div class="tribunal-card-header">
-                    <strong class="small-text">{t}</strong>
-                    <span class={stats.hasData ? "badge badge-success badge-sm" : "badge badge-error badge-sm"}>
-                      {stats.hasData ? "Online" : "Offline"}
-                    </span>
-                  </div>
-                  <div class="tribunal-card-meta">
-                    {#if stats.hasData}
-                      {stats.totalZips.toLocaleString('pt-BR')} publicações
-                    {:else}
-                      Sem dados processados
-                    {/if}
-                    {#if stats.latestDate}
-                      <span class="latest-date">Última: {formatDate(stats.latestDate)}</span>
-                    {/if}
-                  </div>
+            <article class="tribunal-card" class:offline={!stats.hasData}>
+                <div class="tribunal-card-header">
+                  <strong class="small-text">{t}</strong>
+                  <mark data-tone={stats.hasData ? 'success' : 'error'}>
+                    {stats.hasData ? "Online" : "Offline"}
+                  </mark>
                 </div>
-              </div>
+                <div class="tribunal-card-meta">
+                  {#if stats.hasData}
+                    {stats.totalZips.toLocaleString('pt-BR')} publicações
+                  {:else}
+                    Sem dados processados
+                  {/if}
+                  {#if stats.latestDate}
+                    <span class="latest-date">Última: {formatDate(stats.latestDate)}</span>
+                  {/if}
+                </div>
+              </article>
             </a>
           {/each}
         </div>
@@ -230,17 +226,16 @@
 </QueryProvider>
 
 <style>
-
-  /* Cards */
-
-  /* Section headers */
-
-  .header-row {
+  article > header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
     gap: 0.5rem;
+  }
+
+  .year-card {
+    padding: var(--pico-card-sectioning-background-color, 1rem);
   }
 
   /* Stats */
@@ -308,10 +303,10 @@
     color: var(--color-base-content);
   }
 
-  /* Auto grid */
-  .auto-grid {
+  /* Tribunal card grid */
+  .tribunals-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 10rem), 1fr));
     gap: 1rem;
   }
 
@@ -404,16 +399,10 @@
     min-width: 0;
   }
 
-  /* Badges */
+  /* Clear filter button */
   .clear-btn {
-    appearance: none;
-    border: 0;
-    cursor: pointer;
-    font: inherit;
-  }
-  .clear-btn:focus-visible {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
+    padding: 0.25rem 0.75rem;
+    font-size: var(--font-size-xs);
   }
 
   /* Empty state */

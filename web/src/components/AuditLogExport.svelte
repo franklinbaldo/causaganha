@@ -92,40 +92,62 @@
   }
 </script>
 
-<div class="card bg-base-100 shadow-sm border border-base-300">
-  <div class="card-body p-6">
-    <h2 class="card-title text-xl mb-4">Export Audit Log (CSV)</h2>
-    <p class="text-sm opacity-70 mb-4">
-      Export pipeline history directly from the catalog's manifest.parquet.
-    </p>
+<article>
+  <h2>Export Audit Log (CSV)</h2>
+  <p class="subtitle">
+    Export pipeline history directly from the catalog's manifest.parquet.
+  </p>
 
-    {#if status === 'loading-db'}
-      <div class="alert alert-info">Carregando engine DuckDB...</div>
-    {:else if status === 'error'}
-      <div class="alert alert-error">Erro ao carregar DuckDB: {errorMsg}</div>
-    {:else if status === 'ready'}
-      <div class="flex flex-col md:flex-row gap-4 mb-4 items-end">
-        <div class="form-control">
-          <label class="label"><span class="label-text">Data Inicial</span></label>
-          <input type="date" bind:value={startDate} class="input input-bordered" />
-        </div>
-        <div class="form-control">
-          <label class="label"><span class="label-text">Data Final</span></label>
-          <input type="date" bind:value={endDate} class="input input-bordered" />
-        </div>
-        <button
-          class="btn btn-primary"
-          onclick={exportAuditLog}
-          disabled={loading}
-          aria-busy={loading}
-        >
-          {loading ? 'Exportando...' : 'Exportar CSV'}
-        </button>
-      </div>
+  {#if status === 'loading-db'}
+    <p aria-live="polite" aria-busy="true">Carregando engine DuckDB...</p>
+  {:else if status === 'error'}
+    <aside role="alert" class="alert-error">Erro ao carregar DuckDB: {errorMsg}</aside>
+  {:else if status === 'ready'}
+    <div class="date-row">
+      <label>
+        Data Inicial
+        <input type="date" bind:value={startDate} />
+      </label>
+      <label>
+        Data Final
+        <input type="date" bind:value={endDate} />
+      </label>
+      <button onclick={exportAuditLog} disabled={loading} aria-busy={loading}>
+        {loading ? 'Exportando...' : 'Exportar CSV'}
+      </button>
+    </div>
 
-      {#if errorMsg}
-        <div class="alert alert-error mt-4">{errorMsg}</div>
-      {/if}
+    {#if errorMsg}
+      <aside role="alert" class="alert-error">{errorMsg}</aside>
     {/if}
-  </div>
-</div>
+  {/if}
+</article>
+
+<style>
+  .subtitle {
+    opacity: 0.7;
+    font-size: var(--pico-font-size, 0.875rem);
+  }
+
+  .date-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: flex-end;
+  }
+
+  .date-row label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .alert-error {
+    color: var(--color-error);
+    border: 1px solid var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    padding: 0.75rem;
+    border-radius: var(--pico-border-radius);
+    margin-top: 0.5rem;
+  }
+</style>

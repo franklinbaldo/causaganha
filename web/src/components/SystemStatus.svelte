@@ -293,15 +293,6 @@
     text-transform: capitalize;
   }
 
-  mark[data-tone='success'] {
-    background: color-mix(in srgb, var(--color-success) 15%, transparent);
-    color: var(--color-success);
-  }
-  mark[data-tone='error'] {
-    background: color-mix(in srgb, var(--color-error) 15%, transparent);
-    color: var(--color-error);
-  }
-
   dl { margin: 0; }
 
   .dl-row {

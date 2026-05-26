@@ -213,7 +213,6 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
   <!-- Action bar -->
   <div class="action-bar">
     <button
-      class="btn"
       onclick={runQuery}
       disabled={dbStatus !== 'ready' || loading || !sql.trim()}
       aria-busy={loading}
@@ -221,7 +220,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
       {loading ? 'Executando...' : 'Executar (Ctrl+Enter)'}
     </button>
     {#if result}
-      <button class="btn btn-outline" onclick={exportCsv}>
+      <button class="outline secondary" onclick={exportCsv}>
         Exportar CSV
       </button>
       <small class="result-meta">
@@ -513,17 +512,6 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     margin-bottom: 2.5rem;
     align-items: center;
     margin-top: 0.75rem;
-  }
-
-  .btn-outline {
-    background: transparent;
-    border-color: var(--color-primary);
-    color: var(--color-primary);
-  }
-
-  .btn-outline:hover {
-    background: var(--color-primary);
-    color: var(--color-primary-content);
   }
 
   .result-meta {

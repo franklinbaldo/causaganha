@@ -754,8 +754,6 @@
     color: var(--color-primary-content);
   }
 
-  mark[data-tone='info']    { background: color-mix(in srgb, var(--color-info)    20%, transparent); color: var(--color-info); }
-  mark[data-tone='warning'] { background: color-mix(in srgb, var(--color-warning) 20%, transparent); color: var(--color-warning); }
 
   .date-label {
     opacity: 0.6;

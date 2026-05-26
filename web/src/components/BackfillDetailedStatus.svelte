@@ -92,7 +92,4 @@
 
   .progress-cell progress { flex: 1; }
 
-  mark[data-tone='success'] { background: color-mix(in srgb, var(--color-success) 20%, transparent); color: var(--color-success); }
-  mark[data-tone='warning'] { background: color-mix(in srgb, var(--color-warning) 20%, transparent); color: var(--color-warning); }
-  mark[data-tone='error']   { background: color-mix(in srgb, var(--color-error)   20%, transparent); color: var(--color-error); }
 </style>

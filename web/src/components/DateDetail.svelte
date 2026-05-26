@@ -251,7 +251,7 @@
   <button
     type="button"
     onclick={handleShareClick}
-    class="btn btn-outline-secondary"
+    class="outline secondary"
   >
     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
       <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
@@ -275,7 +275,7 @@
       />
       <button
         type="button"
-        class="btn"
+        class="secondary outline"
         onclick={handleDismissFeatured}
       >
         Ver todas as publicações
@@ -284,14 +284,13 @@
   {/if}
 
   <!-- Date header -->
-  <div class="card">
-    <div class="card-body">
-      <header class="header-row">
-        <div class="header-info">
-          <h3 class="date-title">{dateStr}</h3>
-          {#if zipSize != null}
-            <span class="badge-accent">{formatSize(zipSize)}</span>
-          {/if}
+  <article>
+    <header class="header-row">
+      <div class="header-info">
+        <h3 class="date-title">{dateStr}</h3>
+        {#if zipSize != null}
+          <mark class="badge-accent">{formatSize(zipSize)}</mark>
+        {/if}
           {#if totalPages > 0}
             <span class="meta-dim">{totalPages} pág.</span>
           {/if}
@@ -301,8 +300,8 @@
         </div>
         <div class="header-actions" aria-label="Ações do arquivo">
           {@render DateShareButton()}
-          <a href={zipUrl} class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
-          <a href={`https://archive.org/details/${itemId}`} class="btn btn-outline-secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
+          <a href={zipUrl} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
+          <a href={`https://archive.org/details/${itemId}`} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
         </div>
       </header>
       <div class="meta-row">
@@ -317,15 +316,14 @@
           </span>
         {/if}
       </div>
-    </div>
-  </div>
+  </article>
 
   {#if loading}
-    <div class="loading-center"><span class="spinner spinner--lg"></span></div>
+    <p aria-busy="true">Carregando publicações...</p>
   {/if}
 
   {#if error}
-    <div class="card"><div class="card-body error-text">Erro: {error}</div></div>
+    <aside role="alert" class="error-text">Erro: {error}</aside>
   {/if}
 
   {#if publications.length > 0 && !featuredPub}
@@ -348,7 +346,7 @@
 
   {#if currentPage < totalPages && !loading}
     <div class="load-more-row">
-      <button type="button" onclick={handleLoadMore} disabled={loadingMore} class="btn btn-secondary" aria-busy={loadingMore}>
+      <button type="button" onclick={handleLoadMore} disabled={loadingMore} class="secondary" aria-busy={loadingMore}>
         {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
       </button>
     </div>
@@ -361,13 +359,13 @@
   {/if}
 
   {#if !loading && publications.length === 0 && !error}
-    <div class="card"><div class="card-body empty-text">Nenhuma publicação encontrada.</div></div>
+    <p class="empty-text">Nenhuma publicação encontrada.</p>
   {/if}
 </div>
 
 <style>
 
-  .header-row {
+  article > header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -415,41 +413,18 @@
     margin-top: 1rem;
   }
 
-  .loading-center {
-    display: flex;
-    justify-content: center;
-    padding: 2rem;
-  }
-
-  .spinner {
-    border: 2px solid var(--color-base-300);
-    border-top-color: var(--color-primary);
-    border-radius: 50%;
-    animation: spin 0.6s linear infinite;
-  }
-
-  .spinner--lg {
-    width: 2rem;
-    height: 2rem;
-  }
-
-  @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  .error-text {
+  aside.error-text {
     color: var(--color-error);
-    text-align: center;
+    border: 1px solid var(--color-error);
+    background: color-mix(in srgb, var(--color-error) 12%, transparent);
+    padding: 0.75rem;
+    border-radius: var(--pico-border-radius);
+    margin-block: 1rem;
   }
 
   .empty-text {
     text-align: center;
     opacity: 0.5;
-  }
-
-  .btn-secondary {
-    background: var(--color-secondary);
-    color: var(--color-secondary-content);
   }
 
   .load-more-row {

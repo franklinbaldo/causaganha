@@ -134,10 +134,10 @@
     return 'missing';
   }
 
-  function getCellColor(s: string) {
-    if (s === 'parquet') return 'bg-success';
-    if (s === 'zip')     return 'bg-info';
-    return 'bg-base-200';
+  function getCellClass(s: string) {
+    if (s === 'parquet') return 'cell-parquet';
+    if (s === 'zip')     return 'cell-zip';
+    return 'cell-empty';
   }
 
   // Svelte transitions are JS-driven, so the global CSS reduced-motion rule
@@ -147,92 +147,211 @@
   const fadeDuration = prefersReducedMotion ? 0 : 120;
 </script>
 
-<div class="card bg-base-100 shadow-xl border border-base-200">
-  <div class="card-body p-4 md:p-6">
-    <div class="mb-4">
-      <h2 class="card-title text-xl flex items-center gap-2">
-        <svg xmlns="http://www.w3.org/2000/svg" class="text-primary" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-        </svg>
-        Densidade de Parquet
-      </h2>
-      <p class="text-sm text-base-content/70">Conversão de ZIPs para Parquet por tribunal.</p>
+<article>
+  <header>
+    <h2>
+      <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke="currentColor" aria-hidden="true">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+      </svg>
+      Densidade de Parquet
+    </h2>
+    <p>Conversão de ZIPs para Parquet por tribunal.</p>
+  </header>
+
+  <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
+
+  <ul class="legend">
+    <li><span class="swatch cell-parquet"></span> Parquet</li>
+    <li><span class="swatch cell-zip"></span> ZIP apenas</li>
+    <li><span class="swatch cell-empty"></span> Sem dados</li>
+  </ul>
+
+  {#if status === 'loading-db' || status === 'loading-data'}
+    <div class="loading-wrap" aria-busy="true">
+      <progress></progress>
+      <small>
+        {status === 'loading-db' ? 'Carregando DuckDB…' : 'Consultando catálogo…'}
+      </small>
     </div>
-
-    <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
-
-    <div class="flex gap-4 text-xs font-medium mt-4 mb-2">
-      <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-success inline-block"></span> Parquet</div>
-      <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-info inline-block"></span> ZIP apenas</div>
-      <div class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-base-200 inline-block"></span> Sem dados</div>
-    </div>
-
-    {#if status === 'loading-db' || status === 'loading-data'}
-      <div class="flex justify-center items-center py-12">
-        <span class="loading loading-spinner loading-lg text-primary" aria-busy="true"></span>
-        <span class="ml-2 text-sm opacity-70">
-          {status === 'loading-db' ? 'Carregando DuckDB...' : 'Consultando catálogo...'}
-        </span>
-      </div>
-    {:else if status === 'error'}
-      <div class="alert alert-error shadow-sm my-4">
-        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        <span>Erro: {errorMsg}</span>
-      </div>
-    {:else}
-      {#key `${selectedYear}-${selectedMonth}`}
-        <div class="overflow-x-auto w-full pb-4" transition:fade={{ duration: fadeDuration }}>
-          <table class="table table-xs w-full min-w-max">
-            <thead>
+  {:else if status === 'error'}
+    <mark data-tone="error">Erro: {errorMsg}</mark>
+  {:else}
+    {#key `${selectedYear}-${selectedMonth}`}
+      <div class="table-wrap" transition:fade={{ duration: fadeDuration }}>
+        <table class="heatmap-table">
+          <thead>
+            <tr>
+              <th class="col-date">Data</th>
+              {#each tribunals as tribunal}
+                <th class="col-tribunal" title={tribunal}>
+                  <div class="th-label">{tribunal}</div>
+                </th>
+              {/each}
+            </tr>
+          </thead>
+          <tbody>
+            {#each displayDates as dateStr}
               <tr>
-                <th class="sticky left-0 bg-base-100 z-10 opacity-70 w-24">Data</th>
+                <td class="col-date cell-date-label">{dateStr}</td>
                 {#each tribunals as tribunal}
-                  <th class="font-mono text-center text-[10px] w-6 p-0 opacity-70" title={tribunal}>
-                    <div class="-rotate-45 translate-y-2 translate-x-1 w-6">{tribunal}</div>
-                  </th>
+                  {@const cellStatus = getCellStatus(dateStr, tribunal)}
+                  <td class="cell-pad">
+                    <CellTooltip
+                      cellData={{
+                        date: dateStr,
+                        status: cellStatus === 'parquet' ? 'Parquet' : cellStatus === 'zip' ? 'ZIP apenas' : 'missing',
+                        uploadedAt: null,
+                        sizeMb: null,
+                      }}
+                      position={{ x: 0, y: 0 }}
+                    >
+                      <div
+                        class="heatmap-cell {getCellClass(cellStatus)}"
+                        role="button"
+                        tabindex="0"
+                        aria-label="{tribunal} em {dateStr}: {cellStatus}"
+                      ></div>
+                    </CellTooltip>
+                  </td>
                 {/each}
               </tr>
-            </thead>
-            <tbody>
-              {#each displayDates as dateStr}
-                <tr>
-                  <td class="sticky left-0 bg-base-100 z-10 font-mono text-[10px] whitespace-nowrap">{dateStr}</td>
-                  {#each tribunals as tribunal}
-                    {@const cellStatus = getCellStatus(dateStr, tribunal)}
-                    <td class="p-0.5 min-w-[24px]">
-                      <CellTooltip
-                        cellData={{
-                          date: dateStr,
-                          status: cellStatus === 'parquet' ? 'Parquet' : cellStatus === 'zip' ? 'ZIP apenas' : 'missing',
-                          uploadedAt: null,
-                          sizeMb: null,
-                        }}
-                        position={{ x: 0, y: 0 }}
-                      >
-                        <div
-                          class="w-6 h-6 rounded-sm mx-auto transition-all duration-200 hover:ring-2 hover:ring-primary/50 hover:scale-110 cursor-pointer {getCellColor(cellStatus)}"
-                          role="button"
-                          tabindex="0"
-                          aria-label="{tribunal} em {dateStr}: {cellStatus}"
-                        ></div>
-                      </CellTooltip>
-                    </td>
-                  {/each}
-                </tr>
-              {/each}
-              {#if displayDates.length === 0}
-                <tr>
-                  <td colspan={tribunals.length + 1} class="text-center py-4 opacity-50 text-sm">
-                    Sem dados para este mês.
-                  </td>
-                </tr>
-              {/if}
-            </tbody>
-          </table>
-        </div>
-      {/key}
-    {/if}
-  </div>
-</div>
+            {/each}
+            {#if displayDates.length === 0}
+              <tr>
+                <td colspan={tribunals.length + 1} class="empty-row">
+                  Sem dados para este mês.
+                </td>
+              </tr>
+            {/if}
+          </tbody>
+        </table>
+      </div>
+    {/key}
+  {/if}
+</article>
+
+<style>
+  h2 {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.25rem;
+    margin: 0;
+  }
+
+  h2 svg {
+    flex-shrink: 0;
+    color: var(--pico-primary);
+  }
+
+  header p {
+    margin: 0.25rem 0 0;
+    font-size: 0.875rem;
+    color: var(--pico-muted-color);
+  }
+
+  /* Legend */
+  .legend {
+    display: flex;
+    gap: 1rem;
+    list-style: none;
+    padding: 0;
+    margin: 1rem 0 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+  }
+
+  .legend li {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+  }
+
+  .swatch {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+  }
+
+  /* Loading */
+  .loading-wrap {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 3rem 0;
+  }
+
+  .loading-wrap progress {
+    width: 8rem;
+  }
+
+  /* Table */
+  .heatmap-table {
+    width: 100%;
+    min-width: max-content;
+    border-collapse: collapse;
+    font-size: 0.625rem;
+  }
+
+  .col-date {
+    position: sticky;
+    left: 0;
+    background: var(--pico-card-background-color);
+    z-index: 10;
+    width: 6rem;
+    opacity: 0.7;
+  }
+
+  .col-tribunal {
+    font-family: monospace;
+    text-align: center;
+    width: 1.5rem;
+    padding: 0;
+    opacity: 0.7;
+  }
+
+  .th-label {
+    transform: rotate(-45deg) translateY(0.5rem) translateX(0.25rem);
+    width: 1.5rem;
+    display: block;
+  }
+
+  .cell-date-label {
+    font-family: monospace;
+    white-space: nowrap;
+    font-size: 0.625rem;
+  }
+
+  .cell-pad {
+    padding: 0.125rem;
+    min-width: 1.5rem;
+  }
+
+  /* Heatmap cells */
+  .heatmap-cell {
+    width: 1.5rem;
+    height: 1.5rem;
+    border-radius: 2px;
+    margin: 0 auto;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+  }
+
+  .heatmap-cell:hover {
+    transform: scale(1.1);
+    box-shadow: 0 0 0 2px var(--pico-primary);
+  }
+
+  .cell-empty   { background: var(--pico-muted-border-color); }
+  .cell-parquet { background: var(--pico-color-green-500, #22c55e); }
+  .cell-zip     { background: var(--pico-color-cyan-500, #06b6d4); }
+
+  .empty-row {
+    text-align: center;
+    padding: 1rem;
+    opacity: 0.5;
+    font-size: 0.875rem;
+  }
+</style>

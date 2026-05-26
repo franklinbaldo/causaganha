@@ -100,7 +100,7 @@
 </script>
 
 {#if !perfMetrics || !qualityScores}
-  <div>Carregando dados de desempenho...</div>
+  <p aria-live="polite" aria-busy="true">Carregando dados de desempenho...</p>
 {:else}
   <div>
     <div>
@@ -108,68 +108,56 @@
     </div>
 
     <div class="stats-grid">
-      <div class="card">
-        <div class="card-body">
-          <small>Taxa de sucesso de upload</small>
-          <div class={successRate >= 90 ? 'value-success' : 'value-error'}>
-            {successRate.toFixed(1)}%
-          </div>
+      <article>
+        <small>Taxa de sucesso de upload</small>
+        <div class={successRate >= 90 ? 'value-success' : 'value-error'}>
+          {successRate.toFixed(1)}%
         </div>
-      </div>
+      </article>
 
-      <div class="card">
-        <div class="card-body">
-          <small>Dias de backlog pendente</small>
-          <div class="value-accent">
-            {backlogDays}
-          </div>
+      <article>
+        <small>Dias de backlog pendente</small>
+        <div class="value-accent">
+          {backlogDays}
         </div>
-      </div>
+      </article>
 
-      <div class="card">
-        <div class="card-body">
-          <small>Tribunais ativos</small>
-          <div>
-            {activeTribunals}
-          </div>
+      <article>
+        <small>Tribunais ativos</small>
+        <div>
+          {activeTribunals}
         </div>
-      </div>
+      </article>
     </div>
 
-    <div class="card">
-      <div class="card-body">
-        <h3>Tendência de latência de coleta (7 dias)</h3>
-        <div bind:this={chartEl}></div>
-        {#if latencies.length === 0}
-          <div>Sem dados de latência disponíveis.</div>
-        {/if}
-      </div>
-    </div>
+    <article>
+      <h3>Tendência de latência de coleta (7 dias)</h3>
+      <div bind:this={chartEl}></div>
+      {#if latencies.length === 0}
+        <p>Sem dados de latência disponíveis.</p>
+      {/if}
+    </article>
 
     <div class="stats-grid">
-      <div class="card">
-        <div class="card-body">
-          <h3>Distribuição por nota</h3>
-          <div bind:this={pieEl}></div>
-        </div>
-      </div>
+      <article>
+        <h3>Distribuição por nota</h3>
+        <div bind:this={pieEl}></div>
+      </article>
 
-      <div class="card">
-        <div class="card-body">
-          <h3>5 tribunais mais lentos</h3>
-          <ul class="slowest-list">
-            {#each slowestTribunals as t, idx}
-              <li>
-                <span>{idx + 1}. {t.tribunal}</span>
-                <span>velocidade {t.velocity_14d.toFixed(1)} (14d)</span>
-              </li>
-            {/each}
-            {#if slowestTribunals.length === 0}
-              <li>Todos os tribunais estão atualizados!</li>
-            {/if}
-          </ul>
-        </div>
-      </div>
+      <article>
+        <h3>5 tribunais mais lentos</h3>
+        <ul class="slowest-list">
+          {#each slowestTribunals as t, idx}
+            <li>
+              <span>{idx + 1}. {t.tribunal}</span>
+              <span>velocidade {t.velocity_14d.toFixed(1)} (14d)</span>
+            </li>
+          {/each}
+          {#if slowestTribunals.length === 0}
+            <li>Todos os tribunais estão atualizados!</li>
+          {/if}
+        </ul>
+      </article>
     </div>
 
     <div>
