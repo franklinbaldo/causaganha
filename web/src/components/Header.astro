@@ -67,7 +67,7 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
         ))}
         <li>
           <details class="dropdown nav-dropdown">
-            <summary class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
+            <summary aria-haspopup="true" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
             <ul>
               {ferramentasLinks.map(link => (
                 <li>
@@ -169,8 +169,8 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
         </li>
         <li class="title-li">
           <div class="title-group">
-            <span class="page-title"><slot name="title">{title}</slot></span>
-            {subtitle && <span class="page-subtitle">{subtitle}</span>}
+            <h1 class="page-title"><slot name="title">{title}</slot></h1>
+            {subtitle && <p class="page-subtitle">{subtitle}</p>}
             <slot name="subtitle" />
           </div>
         </li>
@@ -188,7 +188,7 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
         ))}
         <li>
           <details class="dropdown nav-dropdown">
-            <summary class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
+            <summary aria-haspopup="true" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
             <ul>
               {ferramentasLinks.map(link => (
                 <li>
@@ -296,9 +296,12 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     border-bottom: 1px solid var(--color-base-300);
   }
 
-  /* Override Pico nav padding to keep it compact */
+  /* Use Pico's own spacing variable to suppress block padding on the header */
+  .site-header {
+    --pico-block-spacing-vertical: 0;
+  }
+
   .site-header nav {
-    padding-block: 0;
     min-height: 4rem;
     align-items: center;
   }
@@ -356,24 +359,25 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
     text-decoration: none;
   }
 
-  /* Desktop nav */
-  .desktop-nav {
-    display: none !important;
+  /* Desktop/mobile nav visibility — higher specificity beats Pico's nav ul rule */
+  .site-header nav > ul.desktop-nav {
+    display: none;
+    margin-right: 0;
   }
 
-  .mobile-nav {
-    display: flex !important;
+  .site-header nav > ul.mobile-nav {
+    display: flex;
     align-items: center;
     margin-right: 0;
   }
 
   @media (min-width: 1024px) {
-    .desktop-nav {
-      display: flex !important;
+    .site-header nav > ul.desktop-nav {
+      display: flex;
     }
 
-    .mobile-nav {
-      display: none !important;
+    .site-header nav > ul.mobile-nav {
+      display: none;
     }
   }
 

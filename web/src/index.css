@@ -16,11 +16,10 @@
   --font-serif: 'DM Serif Display', 'Georgia', serif;
   --font-mono: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Override Pico font stacks */
   --pico-font-family-sans-serif: 'Inter', system-ui, -apple-system, sans-serif;
   --pico-font-family-monospace: 'JetBrains Mono', ui-monospace, monospace;
 
-  /* Pico primary = brand green */
+  /* ── Pico primary = brand green ── */
   --pico-primary: #1A6B3C;
   --pico-primary-background: #1A6B3C;
   --pico-primary-border: #1A6B3C;
@@ -32,7 +31,7 @@
   --pico-primary-focus: rgba(26, 107, 60, 0.25);
   --pico-primary-inverse: #FAFAF5;
 
-  /* Pico secondary = muted gray */
+  /* ── Pico secondary = muted gray ── */
   --pico-secondary: #5C5C52;
   --pico-secondary-background: #5C5C52;
   --pico-secondary-border: #5C5C52;
@@ -43,23 +42,23 @@
   --pico-secondary-focus: rgba(92, 92, 82, 0.25);
   --pico-secondary-inverse: #FAFAF5;
 
-  /* Page surface */
+  /* ── Page surface ── */
   --pico-background-color: #FAFAF5;
   --pico-color: #1C1C1C;
   --pico-muted-color: #8A8A7E;
   --pico-muted-border-color: #E0DDD4;
 
-  /* Cards */
+  /* ── Cards ── */
   --pico-card-background-color: #ffffff;
   --pico-card-border-color: #E0DDD4;
   --pico-card-box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --pico-card-sectioning-background-color: #F2EFE8;
 
-  /* Border & radius */
+  /* ── Border & radius ── */
   --pico-border-radius: 0.75rem;
   --pico-border-color: #E0DDD4;
 
-  /* Forms */
+  /* ── Forms ── */
   --pico-form-element-background-color: #ffffff;
   --pico-form-element-border-color: #E0DDD4;
   --pico-form-element-color: #1C1C1C;
@@ -67,23 +66,29 @@
   --pico-form-element-focus-color: rgba(26, 107, 60, 0.25);
   --pico-form-element-placeholder-color: #8A8A7E;
 
-  /* Headings */
+  /* ── Headings (use base content color, fonts applied below) ── */
   --pico-h1-color: #1C1C1C;
   --pico-h2-color: #1C1C1C;
   --pico-h3-color: #1C1C1C;
   --pico-h4-color: #1C1C1C;
 
-  /* Code */
+  /* ── Code ── */
   --pico-code-background-color: #F2EFE8;
   --pico-code-color: #5C5C52;
 
-  /* Nav */
+  /* ── Nav spacing ── */
   --pico-nav-element-spacing-vertical: 0.5rem;
   --pico-nav-element-spacing-horizontal: 0.25rem;
   --pico-nav-link-spacing-vertical: 0.375rem;
   --pico-nav-link-spacing-horizontal: 0.625rem;
 
-  /* ── Our semantic tokens (used throughout components) ── */
+  /* ══════════════════════════════════════════
+     Semantic tokens — alias Pico vars where there is a
+     direct equivalence so values stay in sync automatically.
+     Tokens with no Pico equivalent keep their own values.
+     ══════════════════════════════════════════ */
+
+  /* Typography scale */
   --font-size-xs: 0.75rem;
   --font-size-sm: 0.875rem;
   --font-size-base: 1rem;
@@ -94,6 +99,7 @@
   --font-size-3xl: 2.441rem;
   --font-size-4xl: 3.052rem;
 
+  /* Spacing scale */
   --space-xs: 0.5rem;
   --space-sm: 1rem;
   --space-md: 1.5rem;
@@ -110,28 +116,40 @@
   --space-10: 2.5rem;
   --space-20: 5rem;
 
+  /* Radii */
   --radius-sm: 0.375rem;
-  --radius-box: 0.75rem;
+  --radius-box: var(--pico-border-radius);
   --radius-btn: 2rem;
   --radius-field: 2rem;
   --radius-full: 9999px;
 
+  /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
   --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
 
+  /* Transitions */
   --transition-base: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-slow: 400ms cubic-bezier(0.25, 0.1, 0.25, 1);
 
+  /* ── Colors: aliased to Pico where direct equivalent exists ── */
+  --color-primary:         var(--pico-primary);
+  --color-primary-hover:   var(--pico-primary-hover);
+  --color-primary-content: var(--pico-primary-inverse);
+  --color-secondary:         var(--pico-secondary);
+  --color-secondary-content: var(--pico-secondary-inverse);
+  --color-content:           var(--pico-color);
+  --color-content-secondary: var(--pico-secondary);
+  --color-content-tertiary:  var(--pico-muted-color);
+  --color-bg:      var(--pico-background-color);
+  --color-surface: var(--pico-card-background-color);
+  --color-border:  var(--pico-muted-border-color);
+
+  /* ── Colors: no direct Pico equivalent — own values ── */
   --color-base-100: #FAFAF5;
   --color-base-200: #F2EFE8;
   --color-base-300: #E0DDD4;
   --color-base-content: #1C1C1C;
-  --color-primary: #1A6B3C;
-  --color-primary-hover: #155731;
-  --color-primary-content: #FAFAF5;
-  --color-secondary: #5C5C52;
-  --color-secondary-content: #FAFAF5;
   --color-accent: #C5972C;
   --color-accent-content: #FAFAF5;
   --color-neutral: #1C1C1C;
@@ -144,15 +162,9 @@
   --color-warning-content: #ffffff;
   --color-error: #C53030;
   --color-error-content: #ffffff;
-  --color-bg: #FAFAF5;
-  --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
   --color-surface-overlay: #F2EFE8;
-  --color-border: #E0DDD4;
   --color-border-muted: #F2EFE8;
-  --color-content: #1C1C1C;
-  --color-content-secondary: #5C5C52;
-  --color-content-tertiary: #8A8A7E;
   --accent-gold: #C5972C;
   --accent-gold-hover: #A67D1E;
   --color-scrollbar: rgba(140, 138, 126, 0.3);
@@ -164,7 +176,7 @@
    ═══════════════════════════════════════════ */
 
 [data-theme="dark"] {
-  /* Pico overrides */
+  /* ── Pico overrides ── */
   --pico-primary: #3DA568;
   --pico-primary-background: #3DA568;
   --pico-primary-border: #3DA568;
@@ -172,7 +184,6 @@
   --pico-primary-hover: #2F8552;
   --pico-primary-hover-background: #2F8552;
   --pico-primary-hover-border: #2F8552;
-  --pico-primary-hover-underline: rgba(47, 133, 82, 0.5);
   --pico-primary-focus: rgba(61, 165, 104, 0.25);
   --pico-primary-inverse: #0F1A14;
 
@@ -206,16 +217,11 @@
   --pico-code-background-color: #1A2E1F;
   --pico-code-color: #A8A89E;
 
-  /* Our semantic tokens */
+  /* ── Tokens with no Pico equivalent ── */
   --color-base-100: #0F1A14;
   --color-base-200: #1A2E1F;
   --color-base-300: #2A3E2F;
   --color-base-content: #F2EFE8;
-  --color-primary: #3DA568;
-  --color-primary-hover: #2F8552;
-  --color-primary-content: #0F1A14;
-  --color-secondary: #A8A89E;
-  --color-secondary-content: #0F1A14;
   --color-accent: #D4A843;
   --color-accent-content: #0F1A14;
   --color-neutral: #F2EFE8;
@@ -228,15 +234,9 @@
   --color-warning-content: #0F1A14;
   --color-error: #E05555;
   --color-error-content: #0F1A14;
-  --color-bg: #0F1A14;
-  --color-surface: #1A2E1F;
   --color-surface-raised: #2A3E2F;
   --color-surface-overlay: #3A4E3F;
-  --color-border: #3A4E3F;
   --color-border-muted: #2A3E2F;
-  --color-content: #F2EFE8;
-  --color-content-secondary: #A8A89E;
-  --color-content-tertiary: #6E6E64;
   --accent-gold: #D4A843;
   --accent-gold-hover: #E0B850;
   --color-scrollbar: rgba(110, 110, 100, 0.3);
@@ -257,12 +257,12 @@ body > footer {
   padding-block: 0;
 }
 
-/* Pico adds margin-bottom to sections — suppress it inside main */
+/* Pico adds margin-bottom to sections — suppress inside main */
 main > section {
   margin-bottom: 0;
 }
 
-/* DM Serif Display for h1 and h2 */
+/* DM Serif Display for editorial headings */
 h1, h2 {
   font-family: var(--font-serif);
   font-weight: 400;
@@ -502,21 +502,10 @@ code, kbd {
   box-shadow: var(--shadow-sm);
 }
 
-.card-lg {
-  margin-bottom: 4rem;
-}
-
-.card-compact {
-  margin-bottom: 0;
-}
-
-.card-body {
-  padding: 1.5rem;
-}
-
-.card-body-sm {
-  padding: 1rem;
-}
+.card-lg { margin-bottom: 4rem; }
+.card-compact { margin-bottom: 0; }
+.card-body { padding: 1.5rem; }
+.card-body-sm { padding: 1rem; }
 
 /* Typography Utilities */
 .small-text { font-size: var(--font-size-sm); }
@@ -574,7 +563,7 @@ code, kbd {
   color: var(--color-error-content, #fff);
 }
 
-/* Buttons — override Pico's defaults with our pill style */
+/* Buttons — pill style on top of Pico's base */
 .btn {
   display: inline-flex;
   align-items: center;
@@ -597,10 +586,7 @@ code, kbd {
   color: var(--color-primary-content);
 }
 
-.btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-primary {
   background: var(--color-primary);
@@ -619,9 +605,7 @@ code, kbd {
   color: inherit;
 }
 
-.btn-outline:hover:not(:disabled) {
-  background: var(--color-base-200);
-}
+.btn-outline:hover:not(:disabled) { background: var(--color-base-200); }
 
 .btn-outline-secondary {
   background: transparent;

@@ -23,16 +23,23 @@
     if (btn.dataset.bound === '1') return;
     btn.dataset.bound = '1';
 
+    function systemPrefersDark(): boolean {
+      return window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
+    }
+
+    function currentlyDark(): boolean {
+      const theme = document.documentElement.getAttribute('data-theme');
+      return theme === 'dark' || (theme === 'auto' && systemPrefersDark());
+    }
+
     function syncLabel() {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      btn!.setAttribute('aria-label', isDark ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+      btn!.setAttribute('aria-label', currentlyDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro');
     }
 
     syncLabel();
 
     btn.addEventListener('click', () => {
-      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
-      const nextDark = !isDark;
+      const nextDark = !currentlyDark();
       document.documentElement.setAttribute('data-theme', nextDark ? 'dark' : 'light');
       localStorage.setItem('causaganha-theme', nextDark ? 'dark' : 'light');
       syncLabel();
@@ -71,22 +78,19 @@
     outline-offset: 2px;
   }
 
-  /* Icon visibility is driven by [data-theme] (set by the inline head script
-     before paint), so the correct icon shows on first render — no FOUC. */
-  .theme-toggle-btn .icon-sun {
-    display: none;
-  }
+  /* Icon visibility driven by [data-theme] — no FOUC since the inline
+     head script sets data-theme before first paint. */
+  .theme-toggle-btn .icon-sun  { display: none; }
+  .theme-toggle-btn .icon-moon { display: inline; }
 
-  .theme-toggle-btn .icon-moon {
-    display: inline;
-  }
+  /* Explicit dark theme */
+  :root[data-theme='dark'] .theme-toggle-btn .icon-sun  { display: inline; }
+  :root[data-theme='dark'] .theme-toggle-btn .icon-moon { display: none; }
 
-  :root[data-theme='dark'] .theme-toggle-btn .icon-sun {
-    display: inline;
-  }
-
-  :root[data-theme='dark'] .theme-toggle-btn .icon-moon {
-    display: none;
+  /* Auto mode: follow system preference via CSS — no JS needed */
+  @media (prefers-color-scheme: dark) {
+    :root[data-theme='auto'] .theme-toggle-btn .icon-sun  { display: inline; }
+    :root[data-theme='auto'] .theme-toggle-btn .icon-moon { display: none; }
   }
 
   /* WCAG 2.5.5 — 44×44 minimum hit area on touch devices. */
