@@ -262,27 +262,6 @@ function sortIcon(field: string): string {
     overflow-x: auto;
   }
 
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--font-size-sm);
-  }
-
-  .data-table th,
-  .data-table td {
-    padding: 0.5rem 0.75rem;
-    text-align: left;
-  }
-
-  .data-table thead th {
-    font-weight: 600;
-    border-bottom: 1px solid var(--color-base-300);
-  }
-
-  .data-table tbody tr:nth-child(even) {
-    background: var(--color-base-200, rgba(0, 0, 0, 0.03));
-  }
-
   .sortable-th {
     cursor: pointer;
     user-select: none;

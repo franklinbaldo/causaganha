@@ -40,20 +40,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
     <!-- CSS-only mode switch — same radio-tab pattern as TribunalDetail.svelte -->
     <div class="mode-tabs">
-      <input type="radio" id="mode-live" name="pub_mode" class="mode-tab-input" checked />
-      <label for="mode-live" class="mode-tab-label" role="tab" aria-controls="panel-mode-live" aria-selected="true">
-        Ao vivo
-        <span class="mode-tab-desc">API pública do DJEN</span>
-      </label>
-      <div id="panel-mode-live" role="tabpanel" aria-labelledby="mode-live" class="mode-tab-content live-search-section">
-        <p class="section-description">
-          Pesquise publicações diretamente na API pública do CNJ por OAB, número de processo, parte, advogado ou texto livre.
-        </p>
-        <PublicationSearch client:visible />
-      </div>
-
-      <input type="radio" id="mode-arquivo" name="pub_mode" class="mode-tab-input" />
-      <label for="mode-arquivo" class="mode-tab-label" role="tab" aria-controls="panel-mode-arquivo" aria-selected="false">
+      <input type="radio" id="mode-arquivo" name="pub_mode" class="mode-tab-input" checked />
+      <label for="mode-arquivo" class="mode-tab-label" role="tab" aria-controls="panel-mode-arquivo" aria-selected="true">
         Arquivo
         <span class="mode-tab-desc">Internet Archive</span>
       </label>
@@ -76,6 +64,18 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           </p>
           <IASearchBar client:visible />
         </section>
+      </div>
+
+      <input type="radio" id="mode-live" name="pub_mode" class="mode-tab-input" />
+      <label for="mode-live" class="mode-tab-label" role="tab" aria-controls="panel-mode-live" aria-selected="false">
+        Ao vivo
+        <span class="mode-tab-desc">API pública do DJEN</span>
+      </label>
+      <div id="panel-mode-live" role="tabpanel" aria-labelledby="mode-live" class="mode-tab-content live-search-section">
+        <p class="section-description">
+          Pesquise publicações diretamente na API pública do CNJ por OAB, número de processo, parte, advogado ou texto livre.
+        </p>
+        <PublicationSearch client:visible />
       </div>
     </div>
 
@@ -103,8 +103,8 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   }
 
   function setupModeTabs() {
-    if (window.location.hash === '#arquivo') {
-      const input = document.getElementById('mode-arquivo') as HTMLInputElement | null;
+    if (window.location.hash === '#ao-vivo') {
+      const input = document.getElementById('mode-live') as HTMLInputElement | null;
       if (input) input.checked = true;
     }
     syncAriaSelected();
@@ -198,8 +198,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   }
 
   /* Show the tab panel that immediately follows its checked input + label */
-  #mode-live:checked + .mode-tab-label + .mode-tab-content,
-  #mode-arquivo:checked + .mode-tab-label + .mode-tab-content {
+  .mode-tab-input:checked + .mode-tab-label + .mode-tab-content {
     display: block;
   }
 

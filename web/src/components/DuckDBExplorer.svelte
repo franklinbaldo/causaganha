@@ -497,7 +497,6 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     min-height: 160px;
     background: var(--color-base-100);
     color: var(--color-base-content);
-    box-sizing: border-box;
   }
 
   @media (min-width: 768px) {
@@ -540,22 +539,6 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
 
   .table-responsive {
     overflow-x: auto;
-  }
-
-  .data-table {
-    width: 100%;
-    border-collapse: collapse;
-  }
-
-  .data-table th,
-  .data-table td {
-    padding: 0.375rem 0.5rem;
-    text-align: left;
-    font-size: var(--font-size-sm);
-  }
-
-  .data-table tbody tr:nth-child(even) {
-    background: var(--color-base-200);
   }
 
   .data-table--pinned thead {
