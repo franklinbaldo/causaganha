@@ -29,7 +29,7 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 <Layout title="Changelog — CausaGanha" description="Atualizações de produto e status do projeto CausaGanha.">
   <Header variant="page" title="Changelog" subtitle="Evolução do dashboard e do pipeline" backHref={BASE} backLabel="Início" tile="changelog" />
 
-  <div class="page-container">
+  <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Changelog' }]} />
 
     <section class="entries-section">
@@ -51,12 +51,6 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
 </Layout>
 
 <style>
-  .page-container {
-    max-width: 1280px;
-    margin-inline: auto;
-    padding-inline: 1rem;
-  }
-
   .entries-section {
     display: flex;
     flex-direction: column;

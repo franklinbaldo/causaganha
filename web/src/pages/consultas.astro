@@ -28,7 +28,7 @@ const queries = [
 <Layout title="Consultas SQL — CausaGanha" description="Consultas prontas para acelerar o uso do Explorador DuckDB.">
   <Header variant="page" title="Consultas Prontas" subtitle="Exemplos SQL para usar no explorador" backHref={BASE + 'explorador'} backLabel="Explorador" tile="consultas" />
 
-  <div class="page-container">
+  <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Consultas' }]} />
 
     <p class="intro-text">Copie e adapte os blocos abaixo no <a class="link" href={BASE + 'explorador'}>Explorador de Dados</a>.</p>
@@ -40,12 +40,6 @@ const queries = [
 </Layout>
 
 <style>
-  .page-container {
-    max-width: 1280px;
-    margin-inline: auto;
-    padding-inline: 1rem;
-  }
-
   .intro-text {
     margin-block: 1.5rem;
     opacity: 0.8;

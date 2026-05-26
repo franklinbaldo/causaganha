@@ -18,7 +18,7 @@ const dictionary = [
 <Layout title="Dicionário de Dados — CausaGanha" description="Glossário de campos e tabelas do dataset jurídico aberto em Parquet — comunicações, advogados, processos e classificações do DJEN.">
   <Header variant="page" title="Dicionário de Dados" subtitle="Campos principais do catálogo Parquet" backHref={BASE + 'dados'} backLabel="Dados" tile="dicionario" />
 
-  <div class="page-container">
+  <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Dicionário de Dados' }]} />
 
     <p class="intro-text">Use este dicionário como referência rápida. Para uma visão completa de schemas, consulte também a página de <a class="link" href={BASE + 'dados'}>Dados Abertos</a>.</p>
@@ -49,12 +49,6 @@ const dictionary = [
 </Layout>
 
 <style>
-  .page-container {
-    max-width: 1280px;
-    margin-inline: auto;
-    padding-inline: 1rem;
-  }
-
   .intro-text {
     margin-block: 1.5rem;
     opacity: 0.8;

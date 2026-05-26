@@ -7,17 +7,7 @@ import ManifestStatus from '../../components/ManifestStatus.svelte';
 <Layout title="Backfill — Admin — CausaGanha" description="Progresso de backfill e cobertura histórica do pipeline.">
   <Header variant="page" title="Manifest Status" subtitle="Cobertura do backup por tribunal e ano" />
 
-  <div class="page-container">
+  <div class="container">
     <ManifestStatus client:load />
   </div>
 </Layout>
-
-<style>
-  .page-container {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
-  }
-</style>

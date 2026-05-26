@@ -15,7 +15,7 @@ const avg = entries.length ? entries.reduce((sum, item) => sum + item.score, 0) 
 <Layout title="Data Quality — Admin — CausaGanha" description="Painel de qualidade por tribunal.">
   <Header variant="page" title="Data Quality" subtitle="Score de qualidade por tribunal" />
 
-  <div class="page-container">
+  <div class="container">
     <section class="stats-row">
       <StatCard title="Tribunais avaliados" value={entries.length} />
       <StatCard title="Score médio" value={avg.toFixed(2)} tone="info" />
@@ -38,14 +38,6 @@ const avg = entries.length ? entries.reduce((sum, item) => sum + item.score, 0) 
 </Layout>
 
 <style>
-  .page-container {
-    max-width: 1280px;
-    margin-left: auto;
-    margin-right: auto;
-    padding-left: var(--space-md);
-    padding-right: var(--space-md);
-  }
-
   .stats-row {
     display: grid;
     grid-template-columns: 1fr;
