@@ -32,47 +32,20 @@
         <small>Dias úteis perdidos (sem .zip ou .absent)</small>
       </div>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Tribunal</th>
-              <th>Dias Omitidos</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each rankedTribunals() as {tribunal, count}, i}
-              <tr>
-                <td><small>{i + 1}</small></td>
-                <td>{tribunal}</td>
-                <td><kbd>{count}</kbd></td>
-                <td>
-                  <progress
-                    value={count}
-                    max={rankedTribunals()[0]?.count || 1}
-                    aria-label="{tribunal}: {count} dias omitidos"
-                  ></progress>
-                </td>
-              </tr>
-            {/each}
-          </tbody>
-        </table>
-      </div>
+      <ol class="omission-list">
+        {#each rankedTribunals() as {tribunal, count}}
+          <li class="omission-item">
+            <span class="omission-name">{tribunal}</span>
+            <progress value={count} max={rankedTribunals()[0]?.count || 1} aria-label="{tribunal}: {count} dias omitidos"></progress>
+            <kbd class="omission-count">{count}</kbd>
+          </li>
+        {/each}
+      </ol>
     </div>
   {/if}
 </article>
 
 <style>
-  header {
-    background: none;
-    padding: 0;
-    margin-bottom: 1rem;
-  }
-
-  h2 { margin: 0; }
-
   .layout {
     display: grid;
     grid-template-columns: 1fr 2fr;
@@ -100,9 +73,30 @@
     color: var(--color-error);
   }
 
-  .table-wrap {
+  .omission-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
     max-height: 400px;
     overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
+
+  .omission-item {
+    display: grid;
+    grid-template-columns: 5rem 1fr auto;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: var(--font-size-sm);
+  }
+
+  .omission-name { font-weight: 600; }
+
+  .omission-count {
+    font-size: var(--font-size-xs);
+    white-space: nowrap;
   }
 
   progress {

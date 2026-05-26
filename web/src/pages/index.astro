@@ -342,19 +342,14 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       <div class="proof-result">
         <h3 class="proof-result-title">Top 5 tribunais por movimento</h3>
         {topTribunais.length > 0 ? (
-          <table class="proof-table">
-            <thead>
-              <tr><th scope="col">Tribunal</th><th scope="col">{topTribunaisHeader}</th></tr>
-            </thead>
-            <tbody>
-              {topTribunais.map(row => (
-                <tr>
-                  <td><a href={BASE + 'publicacoes/' + row.tribunal.toLowerCase()}>{row.tribunal}</a></td>
-                  <td class="proof-num">{formatNumber(row.lotes)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <dl class="proof-list">
+            {topTribunais.map(row => (
+              <>
+                <dt><a href={BASE + 'publicacoes/' + row.tribunal.toLowerCase()}>{row.tribunal}</a></dt>
+                <dd>{formatNumber(row.lotes)}</dd>
+              </>
+            ))}
+          </dl>
         ) : (
           <p class="proof-empty">Snapshot indisponível — disponível na próxima geração.</p>
         )}
@@ -1015,34 +1010,30 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     margin: 0 0 var(--space-sm);
   }
 
-  .proof-table {
-    width: 100%;
-    border-collapse: collapse;
+  .proof-list {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 0;
     font-size: var(--font-size-sm);
+    margin: 0;
   }
 
-  .proof-table th,
-  .proof-table td {
-    text-align: left;
-    padding: 0.5rem 0.25rem;
+  .proof-list dt,
+  .proof-list dd {
+    padding: 0.4rem 0.25rem;
     border-bottom: 1px solid var(--color-border);
+    margin: 0;
   }
 
-  .proof-table th {
-    font-size: var(--font-size-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    color: var(--color-content-tertiary);
+  .proof-list dd {
+    font-family: var(--font-mono);
+    text-align: right;
     font-weight: 600;
   }
 
-  .proof-table tr:last-child td {
+  .proof-list dt:last-of-type,
+  .proof-list dd:last-of-type {
     border-bottom: none;
-  }
-
-  .proof-num {
-    font-family: var(--font-mono);
-    text-align: right;
   }
 
   .proof-empty {
