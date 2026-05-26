@@ -55,7 +55,7 @@
               </td>
               <td><small>{t.genesis_date}</small></td>
               <td><kbd>{t.cursor_date || 'N/A'}</kbd></td>
-              <td class="progress-cell">
+              <td>
                 <progress value={t.completion_pct} max="100" aria-label="{t.tribunal}: {t.completion_pct}%"></progress>
                 <small>{t.completion_pct}%</small>
               </td>

@@ -14,8 +14,8 @@ const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}advogados/${index.
 
 <article>
   <h3>{index.tribunal}</h3>
-  <p class="description">Base disponível para exploração de OABs neste tribunal</p>
-  <ul class="details">
+  <p>Base disponível para exploração de OABs neste tribunal</p>
+  <ul>
     <li><strong>Dias com dados:</strong> {index.daysWithData.toLocaleString('pt-BR')} de {index.daysTotal.toLocaleString('pt-BR')}</li>
     <li><strong>Cobertura:</strong> {index.dataRatePct.toFixed(1)}%</li>
   </ul>

@@ -96,8 +96,8 @@
     const isMerged = prInfo.merged;
     const isClosed = prInfo.state === 'closed';
 
-    if (isMerged) return { status: 'Mesclado', description: 'Este PR já foi mesclado.', color: 'status-success' };
-    if (isClosed) return { status: 'Fechado', description: 'Este PR foi fechado sem ser mesclado.', color: 'status-error' };
+    if (isMerged) return { status: 'Mesclado', description: 'Este PR já foi mesclado.', color: 'success' };
+    if (isClosed) return { status: 'Fechado', description: 'Este PR foi fechado sem ser mesclado.', color: 'error' };
 
     const pendingChecks = checkRuns.filter(c => c.status !== 'completed');
     const failedChecks = checkRuns.filter(c => c.status === 'completed' && c.conclusion !== 'success' && c.conclusion !== 'neutral' && c.conclusion !== 'skipped');
@@ -106,11 +106,11 @@
 
     let status = 'Pronto para merge';
     let description = 'Todas as verificações passaram. O PR está pronto para ser mesclado.';
-    let color = 'status-success';
+    let color = 'success';
 
     if (failedChecks.length > 0) {
       status = 'Bloqueado';
-      color = 'status-error';
+      color = 'error';
       if (blockedByKilo) {
         description = `${failedChecks.length > 1 ? 'CI e Kilo falharam' : 'CI verde, Kilo ACTION_REQUIRED'} → merge bloqueado por revisão externa.`;
       } else {
@@ -118,7 +118,7 @@
       }
     } else if (pendingChecks.length > 0) {
       status = 'Pendente';
-      color = 'status-accent';
+      color = 'info';
       description = `${pendingChecks.length} verificação(ões) em andamento.`;
     }
 
@@ -145,7 +145,7 @@
   </form>
 
   {#if error}
-    <aside role="alert" class="status-error">{error}</aside>
+    <aside role="alert" class="alert" data-level="error">{error}</aside>
   {/if}
 
   {#if prData && summary}
@@ -154,7 +154,7 @@
         <div>
           <div>
             <h3>PR #{prData.prInfo.number}: {prData.prInfo.title}</h3>
-            <mark class={summary.color}>
+            <mark data-tone={summary.color}>
               {summary.status}
             </mark>
           </div>
@@ -163,7 +163,7 @@
           {#if summary.blockedByKilo}
             <div>
               <strong>Bloqueio: </strong>
-              <a href={summary.blockedByKilo.html_url} target="_blank" rel="noopener noreferrer" class="link-accent">
+              <a href={summary.blockedByKilo.html_url} target="_blank" rel="noopener noreferrer">
                 {summary.blockedByKilo.name}
               </a>
             </div>
@@ -171,14 +171,14 @@
         </div>
       </div>
 
-      <div class="checks-grid">
+      <div class="auto-grid">
         <div>
           <h4>Verificações concluídas</h4>
           <ul>
             {#each completedChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <mark class={c.conclusion === 'success' ? 'status-success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? undefined : 'status-error')}>
+                <mark data-tone={c.conclusion === 'success' ? 'success' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? 'muted' : 'error')}>
                   {c.conclusion === 'success' ? '✓' : (c.conclusion === 'skipped' || c.conclusion === 'neutral' ? '-' : '✗')} {c.conclusion}
                 </mark>
               </li>
@@ -195,7 +195,7 @@
             {#each pendingChecks as c (c.id)}
               <li>
                 <span title={c.name}>{c.name}</span>
-                <mark class="status-accent">Em andamento...</mark>
+                <mark data-tone="info">Em andamento...</mark>
               </li>
             {/each}
             {#if pendingChecks.length === 0}

@@ -123,14 +123,13 @@
   });
 </script>
 
-<div class="search-container">
-  <div class="search-stack">
-    <label class="search-input-wrapper">
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="search-icon"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
+<section>
+  <search>
+    <label>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" /></svg>
       <input
         id="ia-search-input"
         bind:this={inputRef}
-        class="search-input"
         type="search"
         value={query}
         oninput={(e) => query = (e.target as HTMLInputElement).value}
@@ -140,15 +139,15 @@
         enterkeyhint="search"
       />
       {#if shortcutEnabled}
-        <kbd class="kbd-tag">Ctrl</kbd>
-        <kbd class="kbd-tag">K</kbd>
+        <kbd>Ctrl</kbd>
+        <kbd>K</kbd>
       {/if}
     </label>
 
-    <div class="suggestions-row">
-      <span class="suggestions-label">Sugestões:</span>
+    <div>
+      <small>Sugestões:</small>
       {#each suggestions as tag}
-        <button type="button" class="suggestion-badge"
+        <button type="button" class="secondary outline"
             onclick={() => {
               query = tag;
               if (suggestionTimeoutId) clearTimeout(suggestionTimeoutId);
@@ -164,17 +163,16 @@
         type="button"
         bind:this={searchSubmitBtn}
         id="search-submit-btn"
-        class="search-btn"
         onclick={handleSearch}
         disabled={loading || !query.trim()}
         aria-busy={loading}>
         {#if loading}Buscando...{:else}Buscar{/if}
       </button>
     </div>
-  </div>
+  </search>
 
   {#if loading}
-    <div class="table-responsive loading-overlay">
+    <div class="table-responsive" aria-busy="true">
       <p role="status" class="sr-only">Carregando resultados da busca…</p>
       <table class="data-table" aria-hidden="true">
         <thead>
@@ -184,13 +182,8 @@
         </thead>
         <tbody>
           {#each [1, 2, 3] as i}
-            <tr class="skeleton-row">
-              <td><div class="skeleton-block skeleton-w16"></div></td>
-              <td><div class="skeleton-block skeleton-w12"></div></td>
-              <td><div class="skeleton-block skeleton-w8"></div></td>
-              <td><div class="skeleton-block skeleton-w16"></div></td>
-              <td><div class="skeleton-block skeleton-w10"></div></td>
-              <td><div class="skeleton-block skeleton-w20"></div></td>
+            <tr>
+              <td colspan="6"><p aria-busy="true"></p></td>
             </tr>
           {/each}
         </tbody>
@@ -220,22 +213,23 @@
             {#each results as r}
               {@const isLarge = r.item_size > 1024 * 1024 * 1000}
               <tr>
-                <td class="cell-bold">{r.tribunal}</td>
-                <td class="cell-bold">{r.year}</td>
+                <td><strong>{r.tribunal}</strong></td>
+                <td><strong>{r.year}</strong></td>
                 <td>{r.files_count}</td>
                 <td>
-                  <span class={`size-badge ${isLarge ? 'size-badge-warning' : 'size-badge-ghost'}`}>
-                    {formatBytes(r.item_size)}
-                  </span>
+                  {#if isLarge}
+                    <mark data-tone="warning">{formatBytes(r.item_size)}</mark>
+                  {:else}
+                    <small>{formatBytes(r.item_size)}</small>
+                  {/if}
                 </td>
                 <td>{r.downloads > 0 ? r.downloads.toLocaleString('pt-BR') : '-'}</td>
                 <td>
                   <a
                     href={`https://archive.org/details/${r.identifier}`}
                     target="_blank"
-                    rel="noopener noreferrer"
-                    class="action-link">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" class="action-icon">
+                    rel="noopener noreferrer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" aria-hidden="true">
                       <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 0 0 3 8.25v10.5A2.25 2.25 0 0 0 5.25 21h10.5A2.25 2.25 0 0 0 18 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" />
                     </svg>
                     Ver no IA
@@ -249,4 +243,4 @@
       <small>{results.length} resultados</small>
     </div>
   {/if}
-</div>
+</section>

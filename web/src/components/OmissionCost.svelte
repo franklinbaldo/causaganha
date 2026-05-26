@@ -25,19 +25,19 @@
   {#if !omissionStats}
     <p aria-busy="true">Carregando dados...</p>
   {:else}
-    <div class="layout">
-      <div class="global-stat">
+    <div class="auto-grid">
+      <div>
         <small>Global Omission Cost</small>
-        <strong class="cost">{globalOmissionCost}</strong>
+        <strong class="stat-value">{globalOmissionCost}</strong>
         <small>Dias úteis perdidos (sem .zip ou .absent)</small>
       </div>
 
-      <ol class="omission-list">
+      <ol>
         {#each rankedTribunals() as {tribunal, count}}
-          <li class="omission-item">
-            <span class="omission-name">{tribunal}</span>
+          <li>
+            <span>{tribunal}</span>
             <progress value={count} max={rankedTribunals()[0]?.count || 1} aria-label="{tribunal}: {count} dias omitidos"></progress>
-            <kbd class="omission-count">{count}</kbd>
+            <kbd>{count}</kbd>
           </li>
         {/each}
       </ol>

@@ -30,9 +30,9 @@
   }
 </script>
 
-<div class="smart-input">
-  <label class="input-wrapper">
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" class="search-icon" aria-hidden="true">
+<search>
+  <label>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
       <path fill-rule="evenodd" d="M9.965 11.026a5 5 0 1 1 1.06-1.06l2.755 2.754a.75.75 0 1 1-1.06 1.06l-2.755-2.754ZM10.5 7a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0Z" clip-rule="evenodd" />
     </svg>
     <input
@@ -46,18 +46,13 @@
       enterkeyhint="search"
       aria-label="Buscar publicações"
     />
-    <kbd class="kbd-tag">Ctrl</kbd>
-    <kbd class="kbd-tag">K</kbd>
+    <kbd>Ctrl</kbd>
+    <kbd>K</kbd>
     {#if value}
-      <button type="button" class="clear-btn" onclick={() => (value = '')} aria-label="Limpar busca">×</button>
+      <button type="reset" class="secondary outline" onclick={() => (value = '')} aria-label="Limpar busca">×</button>
     {/if}
   </label>
   {#if hint}
-    <div class="hint" data-kind={kind} role="status" aria-live="polite">
-      <span class="hint-icon" aria-hidden="true">
-        {#if kind === 'oab'}⚖️{:else if kind === 'processo'}📋{:else}🔍{/if}
-      </span>
-      {hint}
-    </div>
+    <small data-kind={kind} role="status" aria-live="polite">{hint}</small>
   {/if}
-</div>
+</search>

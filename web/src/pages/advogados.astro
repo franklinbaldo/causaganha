@@ -29,21 +29,19 @@ const avgCoverage = tribunalStats.length
   <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Advogados' }]} />
 
-    <div class="alert-wrapper">
-      <AlertBanner
+    <AlertBanner
         level="info"
         title="Ranking de atividade disponível; ranking de qualidade em validação"
         message="Um ranking descritivo por volume de atuação (quem aparece em mais comunicações) está publicado na home. O ranking de qualidade (vitórias/derrotas via OpenSkill) permanece em validação até o classificador atingir a meta de precisão."
       />
-    </div>
 
-    <section class="stats-grid">
+    <section class="auto-grid">
       <StatCard title="Tribunais exibidos" value={tribunalStats.length} subtitle="Com melhor cobertura recente" />
       <StatCard title="Cobertura média" value={`${avgCoverage.toFixed(1)}%`} subtitle="Dias com dados / dias totais" tone="info" />
       <StatCard title="Fonte" value="Backfill snapshot" subtitle="Mesmo snapshot usado no dashboard" />
     </section>
 
-    <section class="cards-grid">
+    <section class="auto-grid">
       {tribunalStats.map((index: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard index={index} />)}
     </section>
   </div>

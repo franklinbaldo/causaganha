@@ -16,14 +16,14 @@ const avg = entries.length ? entries.reduce((sum, item) => sum + item.score, 0) 
   <Header variant="page" title="Data Quality" subtitle="Score de qualidade por tribunal" />
 
   <div class="container">
-    <section class="stats-row">
+    <section class="auto-grid-sm">
       <StatCard title="Tribunais avaliados" value={entries.length} />
       <StatCard title="Score médio" value={avg.toFixed(2)} tone="info" />
       <StatCard title="Faixa esperada" value="0.00 - 1.00" subtitle="Quanto maior, melhor" />
     </section>
 
     {entries.length > 0 ? (
-      <dl class="quality-list">
+      <dl>
         {entries.map((entry) => (
           <>
             <dt>{entry.tribunal}</dt>

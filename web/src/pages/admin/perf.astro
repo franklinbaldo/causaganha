@@ -44,21 +44,19 @@ const qualityScores = readJson<Record<string, QualityScore>>('tribunal_quality_s
   <div class="container">
     <PerfDashboard client:visible perfMetrics={perfMetrics} qualityScores={qualityScores} />
 
-    <div role="tablist" class="tabs tabs-bordered w-full sm:w-auto overflow-x-auto mb-4">
-      <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Mapa de cobertura" checked="checked" />
-      <div role="tabpanel" class="tab-content pt-4">
-        <TribunalCoverageHeatmap client:visible />
-      </div>
+    <details open>
+      <summary>Mapa de cobertura</summary>
+      <TribunalCoverageHeatmap client:visible />
+    </details>
 
-      <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Mapa de latência" />
-      <div role="tabpanel" class="tab-content pt-4">
-        <LatencyHeatmap client:visible />
-      </div>
+    <details>
+      <summary>Mapa de latência</summary>
+      <LatencyHeatmap client:visible />
+    </details>
 
-      <input type="radio" name="heatmap_tabs" role="tab" class="tab min-w-max" aria-label="Densidade Parquet" />
-      <div role="tabpanel" class="tab-content pt-4">
-        <ParquetDensityHeatmap client:only="svelte" />
-      </div>
-    </div>
+    <details>
+      <summary>Densidade Parquet</summary>
+      <ParquetDensityHeatmap client:only="svelte" />
+    </details>
   </div>
 </Layout>

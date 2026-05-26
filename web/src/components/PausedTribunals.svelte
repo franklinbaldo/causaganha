@@ -54,14 +54,14 @@
               <td><strong>{t.tribunal}</strong></td>
               <td>
                 {#if t.state === 'Paused'}
-                  <mark class="tone-warning">Pausado</mark>
+                  <mark data-tone="warning">Pausado</mark>
                 {:else if t.state === 'Stopped'}
-                  <mark class="tone-error">Parado</mark>
+                  <mark data-tone="error">Parado</mark>
                 {:else}
                   <mark>{t.state}</mark>
                 {/if}
               </td>
-              <td class="error-msg">{getErrorMessage(t.last_result)}</td>
+              <td>{getErrorMessage(t.last_result)}</td>
               <td>
                 {t.last_hit_date || 'Desconhecido'}
                 <br><small>({getDaysSinceDate(t.last_hit_date)})</small>

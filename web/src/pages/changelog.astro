@@ -32,10 +32,10 @@ const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
   <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Changelog' }]} />
 
-    <section class="entries-section">
+    <section>
       {entries.map((entry) => (
         <article>
-          <small class="entry-date">
+          <small>
             <time datetime={entry.date}>
               {dateFormatter.format(new Date(entry.date + 'T00:00:00Z'))}
             </time>

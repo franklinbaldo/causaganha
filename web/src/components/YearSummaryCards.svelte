@@ -16,10 +16,10 @@ const cards = [
 ];
 </script>
 
-<div class="summary-grid">
+<div class="auto-grid">
   {#each cards as card}
-    <article class="summary-card">
-      <strong class="summary-value">{card.value}</strong>
+    <article>
+      <strong class="stat-value">{card.value}</strong>
       <small>{card.label}</small>
     </article>
   {/each}

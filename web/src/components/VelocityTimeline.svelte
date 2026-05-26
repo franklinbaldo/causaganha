@@ -39,37 +39,36 @@
 
 {#if show}
   <div aria-label="Velocidade de Coleta nas Últimas 12 Semanas">
-    <div class="velocity-header">
+    <div>
       <div>
-        <h4 class="velocity-title">Velocidade de Coleta</h4>
-        <p class="velocity-subtitle">Taxa de coleta das últimas 12 semanas</p>
+        <h4>Velocidade de Coleta</h4>
+        <small>Taxa de coleta das últimas 12 semanas</small>
       </div>
-      <div class="velocity-stats">
-        <div class="velocity-current">{currentVelocity.toFixed(1)} dias/sem (média)</div>
-        <div class="{trendColor} velocity-trend">
+      <div class="auto-grid-sm">
+        <strong class="stat-value">{currentVelocity.toFixed(1)} dias/sem (média)</strong>
+        <span data-tone={trendColor === 'trend-success' ? 'success' : trendColor === 'trend-error' ? 'error' : 'muted'}>
           {trend > 0 ? '+' : ''}{trend.toFixed(0)}% vs média ({trendText})
-        </div>
+        </span>
       </div>
     </div>
 
-    <div role="list" class="bar-chart">
+    <div role="list">
       {#each weeklyData as week, idx}
         {@const heightPct = Math.max(5, (week.collected / maxCollected) * 100)}
         <div
           role="listitem"
-          class="bar-slot"
           title="{week.collected} dias coletados (Semana {12 - week.weekOffset})"
           aria-label="{week.collected} dias coletados na semana {12 - week.weekOffset}">
           <div
-            class="{getBarColor(week.collected)} bar-fill"
+            class={getBarColor(week.collected)}
             style="height: {heightPct}%"></div>
         </div>
       {/each}
     </div>
 
-    <div class="bar-labels">
-      <span>12 semanas atrás</span>
-      <span>Atual</span>
+    <div>
+      <small>12 semanas atrás</small>
+      <small>Atual</small>
     </div>
   </div>
 {/if}

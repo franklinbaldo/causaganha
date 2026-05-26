@@ -160,42 +160,40 @@
 
   <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
-  <ul class="legend">
-    <li><span class="swatch cell-parquet"></span> Parquet</li>
-    <li><span class="swatch cell-zip"></span> ZIP apenas</li>
-    <li><span class="swatch cell-empty"></span> Sem dados</li>
+  <ul class="auto-grid-sm" aria-label="Legenda">
+    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#1A6B3C;vertical-align:middle"></small> Parquet</li>
+    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#C5972C;vertical-align:middle"></small> ZIP apenas</li>
+    <li><small style="display:inline-block;width:.75rem;height:.75rem;background:#E0DDD4;vertical-align:middle"></small> Sem dados</li>
   </ul>
 
   {#if status === 'loading-db' || status === 'loading-data'}
-    <div class="loading-wrap" aria-busy="true">
+    <p aria-busy="true">
       <progress></progress>
       <small>
         {status === 'loading-db' ? 'Carregando DuckDB…' : 'Consultando catálogo…'}
       </small>
-    </div>
+    </p>
   {:else if status === 'error'}
     <mark data-tone="error">Erro: {errorMsg}</mark>
   {:else}
     {#key `${selectedYear}-${selectedMonth}`}
       <div class="table-wrap" transition:fade={{ duration: fadeDuration }}>
-        <table class="heatmap-table">
+        <table>
           <thead>
             <tr>
-              <th class="col-date">Data</th>
+              <th>Data</th>
               {#each tribunals as tribunal}
-                <th class="col-tribunal" title={tribunal}>
-                  <div class="th-label">{tribunal}</div>
-                </th>
+                <th title={tribunal}>{tribunal}</th>
               {/each}
             </tr>
           </thead>
           <tbody>
             {#each displayDates as dateStr}
               <tr>
-                <td class="col-date cell-date-label">{dateStr}</td>
+                <td>{dateStr}</td>
                 {#each tribunals as tribunal}
                   {@const cellStatus = getCellStatus(dateStr, tribunal)}
-                  <td class="cell-pad">
+                  <td>
                     <CellTooltip
                       cellData={{
                         date: dateStr,
@@ -218,7 +216,7 @@
             {/each}
             {#if displayDates.length === 0}
               <tr>
-                <td colspan={tribunals.length + 1} class="empty-row">
+                <td colspan={tribunals.length + 1} class="empty-state">
                   Sem dados para este mês.
                 </td>
               </tr>

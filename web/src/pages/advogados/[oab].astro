@@ -54,7 +54,7 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
 
     {tribunal ? (
       <>
-        <section class="stats-grid">
+        <section class="auto-grid">
           <StatCard title="Tribunal" value={tribunal.tribunal} />
           <StatCard title="Cobertura" value={`${tribunal.dataRatePct.toFixed(1)}%`} tone="info" />
           <StatCard title="Dias com dados" value={`${tribunal.daysWithData} / ${tribunal.daysTotal}`} />
@@ -62,8 +62,8 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
 
         <article>
           <h2>Consulta SQL sugerida</h2>
-          <p class="card-hint">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
-          <pre class="code-block"><code>{query}</code></pre>
+          <p class="meta-text">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
+          <pre><code>{query}</code></pre>
           <footer>
             <a href={BASE + 'explorador'} role="button">Abrir Explorador</a>
           </footer>

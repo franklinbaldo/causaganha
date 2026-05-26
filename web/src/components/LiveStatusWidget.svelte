@@ -135,9 +135,9 @@
   </article>
 {:else}
   <article>
-    <header class="widget-header">
+    <header>
       {#if isActuallyRunning}
-        <span class="cg-pulse"></span>
+        <span class="cg-pulse" aria-hidden="true"></span>
       {/if}
       <hgroup>
         <h2>
@@ -150,7 +150,7 @@
       </hgroup>
     </header>
 
-    <div class="stats-row">
+    <div class="auto-grid-sm">
       <div>
         <small>ZIPs Enviados</small>
         <strong>{data.zips_uploaded ?? '—'}</strong>

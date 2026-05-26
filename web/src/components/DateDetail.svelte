@@ -285,37 +285,37 @@
 
   <!-- Date header -->
   <article>
-    <header class="header-row">
-      <div class="header-info">
-        <h3 class="date-title">{dateStr}</h3>
+    <header>
+      <div>
+        <h3>{dateStr}</h3>
         {#if zipSize != null}
-          <mark class="badge-accent">{formatSize(zipSize)}</mark>
+          <mark>{formatSize(zipSize)}</mark>
         {/if}
-          {#if totalPages > 0}
-            <span class="meta-dim">{totalPages} pág.</span>
-          {/if}
-          {#if itemFileCount != null}
-            <span class="meta-dim">{itemFileCount} arquivos</span>
-          {/if}
-        </div>
-        <div class="header-actions" aria-label="Ações do arquivo">
-          {@render DateShareButton()}
-          <a href={zipUrl} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
-          <a href={`https://archive.org/details/${itemId}`} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
-        </div>
-      </header>
-      <div class="meta-row">
-        {#if zipAddedDate}
-          <span title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
-            Arquivado {formatRelativeTime(zipAddedDate)}
-          </span>
+        {#if totalPages > 0}
+          <small class="meta-text" data-tone="muted">{totalPages} pág.</small>
         {/if}
-        {#if zipMd5}
-          <span title={`MD5: ${zipMd5}`}>
-            MD5: {zipMd5.substring(0, 8)}...
-          </span>
+        {#if itemFileCount != null}
+          <small class="meta-text" data-tone="muted">{itemFileCount} arquivos</small>
         {/if}
       </div>
+      <div aria-label="Ações do arquivo">
+        {@render DateShareButton()}
+        <a href={zipUrl} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Baixar ZIP</a>
+        <a href={`https://archive.org/details/${itemId}`} role="button" class="outline secondary" target="_blank" rel="noopener noreferrer">Ver no IA</a>
+      </div>
+    </header>
+    <div>
+      {#if zipAddedDate}
+        <small title={`Arquivado em ${new Date(zipAddedDate).toLocaleString('pt-BR')}`}>
+          Arquivado {formatRelativeTime(zipAddedDate)}
+        </small>
+      {/if}
+      {#if zipMd5}
+        <small title={`MD5: ${zipMd5}`}>
+          MD5: {zipMd5.substring(0, 8)}...
+        </small>
+      {/if}
+    </div>
   </article>
 
   {#if loading}
@@ -323,7 +323,7 @@
   {/if}
 
   {#if error}
-    <aside role="alert" class="error-text">Erro: {error}</aside>
+    <aside role="alert" class="alert" data-level="error">Erro: {error}</aside>
   {/if}
 
   {#if publications.length > 0 && !featuredPub}
@@ -345,7 +345,7 @@
   {/if}
 
   {#if currentPage < totalPages && !loading}
-    <div class="load-more-row">
+    <div>
       <button type="button" onclick={handleLoadMore} disabled={loadingMore} class="secondary" aria-busy={loadingMore}>
         {loadingMore ? 'Carregando...' : `Página ${currentPage + 1} de ${totalPages}`}
       </button>
@@ -353,12 +353,10 @@
   {/if}
 
   {#if currentPage >= totalPages && publications.length > 0 && !loading && !featuredPub}
-    <div class="end-summary">
-      {publications.length.toLocaleString('pt-BR')} publicações
-    </div>
+    <p class="meta-text">{publications.length.toLocaleString('pt-BR')} publicações</p>
   {/if}
 
   {#if !loading && publications.length === 0 && !error}
-    <p class="empty-text">Nenhuma publicação encontrada.</p>
+    <p class="empty-state">Nenhuma publicação encontrada.</p>
   {/if}
 </div>

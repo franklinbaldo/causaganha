@@ -25,7 +25,7 @@
   function parseText(text: string | undefined | null): string[] {
     if (!text) return [];
     const markers =
-      /(?=(?:Processo\s*:|Classe\s*:|INTIMA(?:\u00c7\u00c3O|CAO)|CITA(?:\u00c7\u00c3O|CAO)|DESPACHO|DECIS(?:\u00c3O|AO)|SENTEN(?:\u00c7A|CA)|EDITAL|Designada\s+AUDI(?:\u00caNCIA|ENCIA)|DATA\s+E\s+HORA))/gi;
+      /(?=(?:Processo\s*:|Classe\s*:|INTIMA(?:ÇÃO|CAO)|CITA(?:ÇÃO|CAO)|DESPACHO|DECIS(?:ÃO|AO)|SENTEN(?:ÇA|CA)|EDITAL|Designada\s+AUDI(?:ÊNCIA|ENCIA)|DATA\s+E\s+HORA))/gi;
     const parts = text
       .split(markers)
       .map((part) => part.trim())
@@ -321,7 +321,6 @@
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <article
-    class="publication-card compact-card"
     class:expandable={!!onExpand}
     id={`pub-${seq}`}
     role={onExpand ? "button" : undefined}
@@ -337,334 +336,320 @@
       }
     }}
   >
-    <div class="compact-body">
-      <header class="card-header">
-        <div class="header-left-stack">
-          <div class="header-meta">
-            <span class="seq-number">#{seq}</span>
-            {#if pub.tipoComunicacao}
-              <mark class="publication-badge">{pub.tipoComunicacao}</mark>
-            {/if}
-            {@render sourceBadge()}
-            <small class="date-label">{dateStr}</small>
-          </div>
-          {#if processNumber}
-            <button
-              type="button"
-              class="process-number process-number-lg process-link"
-              onclick={(e: MouseEvent) => { e.stopPropagation(); onExpand?.(); }}
-              title="Abrir detalhes da publicação"
-            >{processNumber}</button>
-          {/if}
-        </div>
-        <div class="header-actions">
-          {#if pub.link}
-            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer" role="button">
-              {@render openExternalIcon()}
-              Inteiro teor
-            </a>
-          {/if}
-          <button
-            type="button"
-            class="outline secondary"
-            onclick={(e: MouseEvent) => handleShare(e, "compact")}
-            title="Copiar link"
-          >
-            {@render shareIcon()}
-            {activeCopied === "compact" ? "Copiado!" : "Link"}
-          </button>
-        </div>
-      </header>
-
-      {#if metaChips.length > 0}
-        <div class="meta-chip-row">
-          {#each metaChips as meta}
-            {@render chip(meta)}
-          {/each}
-        </div>
+    <header>
+      <span class="seq-number">#{seq}</span>
+      {#if pub.tipoComunicacao}
+        <mark class="publication-badge">{pub.tipoComunicacao}</mark>
       {/if}
-
-      {#if pub.nomeOrgao}
-        <small class="orgao-name">{pub.nomeOrgao}</small>
+      {@render sourceBadge()}
+      <small><time>{dateStr}</time></small>
+      {#if processNumber}
+        <button
+          type="button"
+          class="process-number process-number-lg process-link"
+          onclick={(e: MouseEvent) => { e.stopPropagation(); onExpand?.(); }}
+          title="Abrir detalhes da publicação"
+        >{processNumber}</button>
       {/if}
+    </header>
 
-      {#if pub.textoRender?.kind === "html" && htmlTeaser}
-        <p class="text-preview">{htmlTeaser}</p>
-      {:else if teaser}
-        <p class="text-preview">{teaser}</p>
-      {/if}
-
-      <div class="summary-bar">
-        {#if parties.length > 0}
-          <span>{parties.length} parte{parties.length > 1 ? "s" : ""}</span>
-        {/if}
-        {#if lawyers.length > 0}
-          <span>{lawyers.length} advogado{lawyers.length > 1 ? "s" : ""}</span>
-        {/if}
+    {#if metaChips.length > 0}
+      <div class="meta-chip-row">
+        {#each metaChips as meta}
+          {@render chip(meta)}
+        {/each}
       </div>
+    {/if}
 
+    {#if pub.nomeOrgao}
+      <small class="orgao-name">{pub.nomeOrgao}</small>
+    {/if}
+
+    {#if pub.textoRender?.kind === "html" && htmlTeaser}
+      <p class="text-preview">{htmlTeaser}</p>
+    {:else if teaser}
+      <p class="text-preview">{teaser}</p>
+    {/if}
+
+    <div class="summary-bar">
       {#if parties.length > 0}
-        <div class="tags-row">
-          {#each parties.slice(0, 4) as party}
-            <mark class="name-pill">{party}</mark>
-          {/each}
-        </div>
+        <span>{parties.length} parte{parties.length > 1 ? "s" : ""}</span>
+      {/if}
+      {#if lawyers.length > 0}
+        <span>{lawyers.length} advogado{lawyers.length > 1 ? "s" : ""}</span>
       {/if}
     </div>
+
+    {#if parties.length > 0}
+      <div class="tags-row">
+        {#each parties.slice(0, 4) as party}
+          <mark class="name-pill">{party}</mark>
+        {/each}
+      </div>
+    {/if}
+
+    <footer>
+      {#if pub.link}
+        <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer" role="button">
+          {@render openExternalIcon()}
+          Inteiro teor
+        </a>
+      {/if}
+      <button
+        type="button"
+        class="outline secondary"
+        onclick={(e: MouseEvent) => handleShare(e, "compact")}
+        title="Copiar link"
+      >
+        {@render shareIcon()}
+        {activeCopied === "compact" ? "Copiado!" : "Link"}
+      </button>
+    </footer>
   </article>
 {:else if isReaderMode}
-  <article class="publication-card reader-mode" id={`pub-${seq}`}>
-    <div class="reader-body">
-      <header class="card-header">
-        <div class="header-left-stack">
-          <div class="header-meta">
-            <span class="seq-number seq-bold">#{seq}</span>
-            <mark class="publication-badge">Modo Leitura</mark>
-            {@render sourceBadge()}
-            <small class="date-label">{dateStr}</small>
-          </div>
-          {#if processNumber}
-            <h2 class="process-number process-number-xl">{processNumber}</h2>
-          {/if}
-          {#if pub.nomeOrgao}
-            <p class="orgao-name-reader">{pub.nomeOrgao}</p>
-          {/if}
-        </div>
-        <div class="header-actions" aria-label="Ações de navegação e leitura">
-          <button
-            type="button"
-            class="outline secondary"
-            onclick={() => (isReaderMode = false)}
-            title="Sair do Modo Leitura"
-          >
-            Voltar
-          </button>
-          {#if pub.link}
-            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
-              {@render openExternalIcon()}
-              Inteiro teor
-            </a>
-          {/if}
-          <button
-            type="button"
-            class="outline secondary"
-            onclick={(e: MouseEvent) => handleShare(e, "reader")}
-            title="Copiar link"
-          >
-            {@render shareIcon()}
-            {activeCopied === "reader" ? "Copiado!" : "Compartilhar"}
-          </button>
-        </div>
-      </header>
-
-      {#if metaChips.length > 0}
-        <div class="meta-chip-row meta-chip-row-spacious">
-          {#each metaChips as meta}
-            {@render chip(meta)}
-          {/each}
-        </div>
+  <article class="reader-mode" id={`pub-${seq}`}>
+    <header>
+      <div>
+        <span class="seq-number seq-bold">#{seq}</span>
+        <mark class="publication-badge">Modo Leitura</mark>
+        {@render sourceBadge()}
+        <small><time>{dateStr}</time></small>
+      </div>
+      {#if processNumber}
+        <h2 class="process-number process-number-xl">{processNumber}</h2>
       {/if}
+      {#if pub.nomeOrgao}
+        <p class="orgao-name-reader">{pub.nomeOrgao}</p>
+      {/if}
+      <div aria-label="Ações de navegação e leitura">
+        <button
+          type="button"
+          class="outline secondary"
+          onclick={() => (isReaderMode = false)}
+          title="Sair do Modo Leitura"
+        >
+          Voltar
+        </button>
+        {#if pub.link}
+          <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            {@render openExternalIcon()}
+            Inteiro teor
+          </a>
+        {/if}
+        <button
+          type="button"
+          class="outline secondary"
+          onclick={(e: MouseEvent) => handleShare(e, "reader")}
+          title="Copiar link"
+        >
+          {@render shareIcon()}
+          {activeCopied === "reader" ? "Copiado!" : "Compartilhar"}
+        </button>
+      </div>
+    </header>
 
-      <div class="reader-layout">
-        <aside class="reader-sidebar">
-          {#if identityRows.length > 0}
-            <div class="sidebar-panel">
-              <strong class="sidebar-title">Metadados</strong>
-              <dl class="identity-list">
-                {#each identityRows as item}
-                  <div class="identity-row">
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
-                  </div>
-                {/each}
-              </dl>
-            </div>
-          {/if}
+    {#if metaChips.length > 0}
+      <div class="meta-chip-row meta-chip-row-spacious">
+        {#each metaChips as meta}
+          {@render chip(meta)}
+        {/each}
+      </div>
+    {/if}
 
+    <div class="reader-layout">
+      <aside class="reader-sidebar">
+        {#if identityRows.length > 0}
           <div class="sidebar-panel">
-            <strong class="sidebar-title">Envolvidos</strong>
-            <div class="sidebar-tags">
-              {#if parties.length > 0}
-                {#each parties as party}
-                  <mark class="name-pill">{party}</mark>
-                {/each}
-              {/if}
-              {#if lawyers.length > 0}
-                {#each lawyers as lawyer}
-                  <mark class="lawyer-pill">{lawyer}</mark>
-                {/each}
-              {/if}
-            </div>
-          </div>
-        </aside>
-
-        <div class="reader-content">
-          {#if pub.textoRender?.kind === "html"}
-            <div class="html-content html-content-reader">
-              {@html pub.textoRender.content}
-            </div>
-          {:else if textParts.length > 0}
-            <div class="reader-text">
-              {#each textParts as part}
-                <p class="reader-paragraph">
-                  {#each highlightText(part, terms) as segment}
-                    {#if segment.type}
-                      <mark class={segment.type === "party" ? "entity-party" : "entity-lawyer"}>{segment.token}</mark>
-                    {:else}
-                      {segment.token}
-                    {/if}
-                  {/each}
-                </p>
+            <strong class="sidebar-title">Metadados</strong>
+            <dl>
+              {#each identityRows as item}
+                <div>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
               {/each}
-            </div>
-          {/if}
+            </dl>
+          </div>
+        {/if}
+
+        <div class="sidebar-panel">
+          <strong class="sidebar-title">Envolvidos</strong>
+          <div class="sidebar-tags">
+            {#if parties.length > 0}
+              {#each parties as party}
+                <mark class="name-pill">{party}</mark>
+              {/each}
+            {/if}
+            {#if lawyers.length > 0}
+              {#each lawyers as lawyer}
+                <mark data-tone="info">{lawyer}</mark>
+              {/each}
+            {/if}
+          </div>
         </div>
+      </aside>
+
+      <div class="reader-content">
+        {#if pub.textoRender?.kind === "html"}
+          <div>
+            {@html pub.textoRender.content}
+          </div>
+        {:else if textParts.length > 0}
+          <div class="reader-text">
+            {#each textParts as part}
+              <p class="reader-paragraph">
+                {#each highlightText(part, terms) as segment}
+                  {#if segment.type}
+                    <mark class={segment.type === "party" ? "entity-party" : "entity-lawyer"}>{segment.token}</mark>
+                  {:else}
+                    {segment.token}
+                  {/if}
+                {/each}
+              </p>
+            {/each}
+          </div>
+        {/if}
       </div>
     </div>
   </article>
 {:else}
-  <article class="publication-card featured-card" id={`pub-${seq}`}>
-    <div class="featured-body">
-      <header class="card-header">
-        <div class="header-left-stack">
-          <div class="header-meta">
-            <span class="seq-number seq-bold">#{seq}</span>
-            {#if pub.tipoComunicacao}
-              <mark class="publication-badge">{pub.tipoComunicacao}</mark>
-            {/if}
-            {@render sourceBadge()}
-            <small class="date-label">{dateStr}</small>
-          </div>
-          {#if processNumber}
-            <div class="process-number process-number-lg featured-process">{processNumber}</div>
-          {/if}
-          {#if pub.nomeOrgao}
-            <small class="orgao-name-block">{pub.nomeOrgao}</small>
-          {/if}
-        </div>
-
-        <div class="header-actions" aria-label="Ações de navegação e leitura">
-          {#if onCollapse}
+  <article id={`pub-${seq}`}>
+    <header>
+      <div>
+        <span class="seq-number seq-bold">#{seq}</span>
+        {#if pub.tipoComunicacao}
+          <mark class="publication-badge">{pub.tipoComunicacao}</mark>
+        {/if}
+        {@render sourceBadge()}
+        <small><time>{dateStr}</time></small>
+      </div>
+      {#if processNumber}
+        <strong class="process-number process-number-lg">{processNumber}</strong>
+      {/if}
+      {#if pub.nomeOrgao}
+        <small class="orgao-name-block">{pub.nomeOrgao}</small>
+      {/if}
+      <div aria-label="Ações de navegação e leitura">
+        {#if onCollapse}
+          <button
+            type="button"
+            class="outline secondary"
+            onclick={onCollapse}
+            title="Fechar detalhes"
+          >
+            Fechar
+          </button>
+        {/if}
+        <button
+          type="button"
+          class="outline"
+          onclick={() => (isReaderMode = true)}
+          title="Abrir Modo Leitura"
+        >
+          Modo Leitura
+        </button>
+        {#if pub.link}
+          <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
+            {@render openExternalIcon()}
+            Inteiro teor
+          </a>
+        {/if}
+        <div class="nav-actions" aria-label="Ações de navegação">
+          {#if onNavigate}
             <button
               type="button"
               class="outline secondary"
-              onclick={onCollapse}
-              title="Fechar detalhes"
+              onclick={() => onNavigate(seq - 1)}
+              disabled={seq <= 1}
             >
-              Fechar
+              Anterior
+            </button>
+            <button
+              type="button"
+              class="outline secondary"
+              onclick={() => onNavigate(seq + 1)}
+              disabled={totalSeq != null && seq >= totalSeq}
+            >
+              Próxima
             </button>
           {/if}
           <button
             type="button"
-            class="outline"
-            onclick={() => (isReaderMode = true)}
-            title="Abrir Modo Leitura"
+            class="outline secondary"
+            onclick={(e: MouseEvent) => handleShare(e, "main")}
+            title="Copiar link"
           >
-            Modo Leitura
+            {@render shareIcon()}
+            {activeCopied === "main" ? "Copiado!" : "Compartilhar"}
           </button>
-          {#if pub.link}
-            <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer">
-              {@render openExternalIcon()}
-              Inteiro teor
-            </a>
-          {/if}
-          <div class="nav-actions" aria-label="Ações de navegação">
-            {#if onNavigate}
-              <button
-                type="button"
-                class="outline secondary"
-                onclick={() => onNavigate(seq - 1)}
-                disabled={seq <= 1}
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                class="outline secondary"
-                onclick={() => onNavigate(seq + 1)}
-                disabled={totalSeq != null && seq >= totalSeq}
-              >
-                Próxima
-              </button>
-            {/if}
-            <button
-              type="button"
-              class="outline secondary"
-              onclick={(e: MouseEvent) => handleShare(e, "main")}
-              title="Copiar link"
-            >
-              {@render shareIcon()}
-              {activeCopied === "main" ? "Copiado!" : "Compartilhar"}
-            </button>
+        </div>
+      </div>
+    </header>
+
+    {#if metaChips.length > 0}
+      <div class="meta-chip-row meta-chip-row-spacious">
+        {#each metaChips as meta}
+          {@render chip(meta)}
+        {/each}
+      </div>
+    {/if}
+
+    <div class="story-grid">
+      <section>
+        {#if teaser}
+          <p>{teaser}</p>
+        {/if}
+
+        {#if pub.textoRender?.kind === "html"}
+          <div>
+            {@html pub.textoRender.content}
           </div>
-        </div>
-      </header>
+        {:else if textParts.length > 0}
+          <div class="text-section">
+            {#each textParts.slice(0, 3) as part}
+              <p class="text-preview">{part}</p>
+            {/each}
+          </div>
+        {/if}
+      </section>
 
-      {#if metaChips.length > 0}
-        <div class="meta-chip-row meta-chip-row-spacious">
-          {#each metaChips as meta}
-            {@render chip(meta)}
-          {/each}
-        </div>
-      {/if}
+      <aside class="detail-panel">
+        {#if identityRows.length > 0}
+          <div class="sidebar-panel">
+            <strong class="sidebar-title">Identificação</strong>
+            <dl>
+              {#each identityRows as item}
+                <div>
+                  <dt>{item.label}</dt>
+                  <dd>{item.value}</dd>
+                </div>
+              {/each}
+            </dl>
+          </div>
+        {/if}
 
-      <div class="story-grid">
-        <section class="lead-panel">
-          {#if teaser}
-            <p class="lead-text">{teaser}</p>
-          {/if}
-
-          {#if pub.textoRender?.kind === "html"}
-            <div class="html-content html-content-featured">
-              {@html pub.textoRender.content}
-            </div>
-          {:else if textParts.length > 0}
-            <div class="text-section">
-              {#each textParts.slice(0, 3) as part}
-                <p class="text-preview">{part}</p>
+        {#if parties.length > 0}
+          <div class="sidebar-panel">
+            <strong class="sidebar-title">Destinatários</strong>
+            <div class="sidebar-tags">
+              {#each parties as party}
+                <mark class="name-pill">{party}</mark>
               {/each}
             </div>
-          {/if}
-        </section>
+          </div>
+        {/if}
 
-        <aside class="detail-panel">
-          {#if identityRows.length > 0}
-            <div class="sidebar-panel">
-              <strong class="sidebar-title">Identificação</strong>
-              <dl class="identity-list">
-                {#each identityRows as item}
-                  <div class="identity-row">
-                    <dt>{item.label}</dt>
-                    <dd>{item.value}</dd>
-                  </div>
-                {/each}
-              </dl>
+        {#if lawyers.length > 0}
+          <div class="sidebar-panel">
+            <strong class="sidebar-title">Advogados</strong>
+            <div class="sidebar-tags">
+              {#each lawyers as lawyer}
+                <mark data-tone="info">{lawyer}</mark>
+              {/each}
             </div>
-          {/if}
-
-          {#if parties.length > 0}
-            <div class="sidebar-panel">
-              <strong class="sidebar-title">Destinatários</strong>
-              <div class="sidebar-tags">
-                {#each parties as party}
-                  <mark class="name-pill">{party}</mark>
-                {/each}
-              </div>
-            </div>
-          {/if}
-
-          {#if lawyers.length > 0}
-            <div class="sidebar-panel">
-              <strong class="sidebar-title">Advogados</strong>
-              <div class="sidebar-tags">
-                {#each lawyers as lawyer}
-                  <mark class="lawyer-pill">{lawyer}</mark>
-                {/each}
-              </div>
-            </div>
-          {/if}
-        </aside>
-      </div>
+          </div>
+        {/if}
+      </aside>
     </div>
   </article>
 {/if}

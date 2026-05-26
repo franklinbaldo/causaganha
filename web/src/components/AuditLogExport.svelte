@@ -101,9 +101,9 @@
   {#if status === 'loading-db'}
     <p aria-live="polite" aria-busy="true">Carregando engine DuckDB...</p>
   {:else if status === 'error'}
-    <aside role="alert" class="alert-error">Erro ao carregar DuckDB: {errorMsg}</aside>
+    <aside role="alert" class="alert" data-level="error">Erro ao carregar DuckDB: {errorMsg}</aside>
   {:else if status === 'ready'}
-    <div class="date-row">
+    <fieldset role="group">
       <label>
         Data Inicial
         <input type="date" bind:value={startDate} />
@@ -115,10 +115,10 @@
       <button onclick={exportAuditLog} disabled={loading} aria-busy={loading}>
         {loading ? 'Exportando...' : 'Exportar CSV'}
       </button>
-    </div>
+    </fieldset>
 
     {#if errorMsg}
-      <aside role="alert" class="alert-error">{errorMsg}</aside>
+      <aside role="alert" class="alert" data-level="error">{errorMsg}</aside>
     {/if}
   {/if}
 </article>

@@ -53,10 +53,10 @@
   }
 </script>
 
-<div class="filters-panel">
-  <div class="filter-grid">
-    <label class="field">
-      <span>Tribunal</span>
+<fieldset>
+  <div class="auto-grid-sm">
+    <label>
+      Tribunal
       <select
         value={filters.siglaTribunal ?? ''}
         onchange={(e) => (filters = { ...filters, siglaTribunal: (e.currentTarget.value || undefined) })}
@@ -72,8 +72,8 @@
       </select>
     </label>
 
-    <label class="field">
-      <span>OAB — número</span>
+    <label>
+      OAB — número
       <input
         type="text"
         inputmode="numeric"
@@ -85,8 +85,8 @@
       />
     </label>
 
-    <label class="field">
-      <span>OAB — UF</span>
+    <label>
+      OAB — UF
       <input
         type="text"
         autocapitalize="characters"
@@ -98,8 +98,8 @@
       />
     </label>
 
-    <label class="field">
-      <span>Nome do advogado</span>
+    <label>
+      Nome do advogado
       <input
         type="text"
         autocomplete="off"
@@ -109,8 +109,8 @@
       />
     </label>
 
-    <label class="field">
-      <span>Nome da parte</span>
+    <label>
+      Nome da parte
       <input
         type="text"
         autocomplete="off"
@@ -120,8 +120,8 @@
       />
     </label>
 
-    <label class="field">
-      <span>Data início</span>
+    <label>
+      Data início
       <input
         type="date"
         value={filters.dataDisponibilizacaoInicio ?? ''}
@@ -133,8 +133,8 @@
       />
     </label>
 
-    <label class="field">
-      <span>Data fim</span>
+    <label>
+      Data fim
       <input
         type="date"
         value={filters.dataDisponibilizacaoFim ?? ''}
@@ -146,60 +146,56 @@
       />
     </label>
 
-    <div class="field">
-      <span>Meio</span>
-      <div class="radio-row">
-        <label>
-          <input
-            type="radio"
-            name="meio"
-            checked={filters.meio == null}
-            onchange={() => (filters = { ...filters, meio: undefined })}
-          /> Todos
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="meio"
-            checked={filters.meio === 'D'}
-            onchange={() => (filters = { ...filters, meio: 'D' })}
-          /> Diário
-        </label>
-        <label>
-          <input
-            type="radio"
-            name="meio"
-            checked={filters.meio === 'E'}
-            onchange={() => (filters = { ...filters, meio: 'E' })}
-          /> Edital
-        </label>
-      </div>
+    <div>
+      <small>Meio</small>
+      <label>
+        <input
+          type="radio"
+          name="meio"
+          checked={filters.meio == null}
+          onchange={() => (filters = { ...filters, meio: undefined })}
+        /> Todos
+      </label>
+      <label>
+        <input
+          type="radio"
+          name="meio"
+          checked={filters.meio === 'D'}
+          onchange={() => (filters = { ...filters, meio: 'D' })}
+        /> Diário
+      </label>
+      <label>
+        <input
+          type="radio"
+          name="meio"
+          checked={filters.meio === 'E'}
+          onchange={() => (filters = { ...filters, meio: 'E' })}
+        /> Edital
+      </label>
     </div>
 
-    <div class="field">
-      <span>Itens por página</span>
-      <div class="radio-row">
-        {#each [5, 30, 100] as size (size)}
-          <label>
-            <input
-              type="radio"
-              name="itensPorPagina"
-              checked={(filters.itensPorPagina ?? 30) === size}
-              onchange={() => (filters = { ...filters, itensPorPagina: size, pagina: 1 })}
-            /> {size}
-          </label>
-        {/each}
-      </div>
+    <div>
+      <small>Itens por página</small>
+      {#each [5, 30, 100] as size (size)}
+        <label>
+          <input
+            type="radio"
+            name="itensPorPagina"
+            checked={(filters.itensPorPagina ?? 30) === size}
+            onchange={() => (filters = { ...filters, itensPorPagina: size, pagina: 1 })}
+          /> {size}
+        </label>
+      {/each}
     </div>
   </div>
 
-  <div class="presets-row">
-    <span class="presets-label">Período:</span>
+  <div>
+    <small>Período:</small>
     <button type="button" onclick={() => setDatePreset('today')}>Hoje</button>
     <button type="button" onclick={() => setDatePreset('7d')}>7 dias</button>
     <button type="button" onclick={() => setDatePreset('30d')}>30 dias</button>
     <button type="button" onclick={() => setDatePreset('month')}>Este mês</button>
-    <button type="button" class="ghost" onclick={clearDates}>Limpar datas</button>
-    <button type="button" class="ghost danger" onclick={clearAll}>Limpar tudo</button>
+    <button type="button" class="outline" onclick={clearDates}>Limpar datas</button>
+    <button type="button" class="outline" data-tone="error" onclick={clearAll}>Limpar tudo</button>
   </div>
-</div>
+</fieldset>

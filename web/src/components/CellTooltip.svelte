@@ -11,14 +11,14 @@
     position: { x: number; y: number };
   }
 
-  const STATUS_MAP: Record<string, { text: string; className: string }> = {
-    collected: { text: '\u2705 Collected & Uploaded', className: 'status-success' },
-    missing: { text: '\u274C Missing', className: 'status-error' },
-    partial: { text: '\u26A0\uFE0F Partial', className: 'status-warning' },
-    outside: { text: 'Outside active range', className: '' },
+  const STATUS_MAP: Record<string, { text: string; tone: string }> = {
+    collected: { text: '\u2705 Collected & Uploaded', tone: 'success' },
+    missing: { text: '\u274C Missing', tone: 'error' },
+    partial: { text: '\u26A0\uFE0F Partial', tone: 'warning' },
+    outside: { text: 'Outside active range', tone: '' },
   };
 
-  const DEFAULT_STATUS = { text: '', className: '' };
+  const DEFAULT_STATUS = { text: '', tone: '' };
 
   let { cellData, position }: CellTooltipProps = $props();
 
@@ -27,7 +27,7 @@
 
   const mapped = $derived(STATUS_MAP[cellData.status] ?? { ...DEFAULT_STATUS, text: cellData.status });
   const statusText = $derived(mapped.text);
-  const statusClass = $derived(mapped.className);
+  const statusTone = $derived(mapped.tone);
 
   $effect(() => {
     // Track dependencies
@@ -61,30 +61,29 @@
 </script>
 
 {#if cellData && position}
-  <div
+  <article
     bind:this={tooltipEl}
     role="tooltip"
-    class="tooltip-container"
-    style="top: {style.top}px; left: {style.left}px; opacity: {style.opacity};"
+    style="position:fixed; top: {style.top}px; left: {style.left}px; opacity: {style.opacity};"
   >
-    <div class="tooltip-header">
+    <header>
       {cellData.date}
-    </div>
-    <div class={statusClass || undefined}>
+    </header>
+    <div data-tone={statusTone || undefined}>
       {statusText}
     </div>
 
     {#if cellData.uploadedAt}
-      <div class="tooltip-meta">
-        <span>Uploaded:</span>{' '}
-        <span>{new Date(cellData.uploadedAt).toLocaleString('pt-BR')}</span>
-      </div>
+      <footer>
+        <small><span>Uploaded:</span>{' '}<span>{new Date(cellData.uploadedAt).toLocaleString('pt-BR')}</span></small>
+        {#if cellData.sizeMb}
+          <small><span>Size:</span>{' '}<span>{cellData.sizeMb.toFixed(2)} MB</span></small>
+        {/if}
+      </footer>
+    {:else if cellData.sizeMb}
+      <footer>
+        <small><span>Size:</span>{' '}<span>{cellData.sizeMb.toFixed(2)} MB</span></small>
+      </footer>
     {/if}
-    {#if cellData.sizeMb}
-      <div class="tooltip-meta-inline">
-        <span>Size:</span>{' '}
-        <span>{cellData.sizeMb.toFixed(2)} MB</span>
-      </div>
-    {/if}
-  </div>
+  </article>
 {/if}

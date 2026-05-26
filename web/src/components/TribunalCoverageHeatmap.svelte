@@ -53,9 +53,9 @@
   <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
   {#if loading}
-    <p class="loading-msg" role="status" aria-live="polite" aria-busy="true">Carregando dados de cobertura...</p>
+    <p role="status" aria-live="polite" aria-busy="true" data-tone="info">Carregando dados de cobertura...</p>
   {:else if error}
-    <p class="text-error">Erro: {error}</p>
+    <p data-tone="error">Erro: {error}</p>
   {:else}
     {#key `${selectedYear}-${selectedMonth}`}
       <div transition:fade={{ duration: 120 }}>
@@ -81,30 +81,22 @@
                 {@const colorClasses = getCoverageColorClass(pct)}
                 {@const textClass = colorClasses.split(' ')[0]}
                 {@const bgClass = colorClasses.split(' ')[1]}
-                <tr class="hoverable-row">
+                <tr>
                   <td>{displayDate}</td>
                   <td>{tribunalCount}</td>
                   <td>{absentCount}</td>
                   <td class={total === 0 ? undefined : textClass}>{pct.toFixed(1)}%</td>
                   <td>
-                    <div
-                      class="progress-bar-track"
-                      role="progressbar"
-                      aria-valuenow={Math.min(100, pct)}
-                      aria-valuemin={0}
-                      aria-valuemax={100}
+                    <progress
+                      value={Math.min(100, pct)}
+                      max="100"
                       aria-label="{displayDate}: {pct.toFixed(1)}% cobertura"
-                    >
-                      <div
-                        class="progress-bar-fill {total === 0 ? '' : bgClass}"
-                        style="width:{Math.min(100, pct)}%"
-                      ></div>
-                    </div>
+                    ></progress>
                   </td>
                 </tr>
               {/each}
               {#if displayDates.length === 0}
-                <tr><td colspan="5" class="empty-msg">Sem dados para este mês.</td></tr>
+                <tr><td colspan="5" class="empty-state">Sem dados para este mês.</td></tr>
               {/if}
             </tbody>
           </table>
