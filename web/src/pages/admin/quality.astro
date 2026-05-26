@@ -2,7 +2,7 @@
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
 import StatCard from '../../components/StatCard.astro';
-import EmptyState from '../../components/EmptyState.astro';
+import EmptyState from '../../components/EmptyState.svelte';
 import { readJson } from '../../lib/readJson';
 
 const qualityScores = readJson<Record<string, number>>('tribunal_quality_scores.json') ?? {};
