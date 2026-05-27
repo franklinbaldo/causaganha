@@ -44,6 +44,15 @@ embeddings = [
 ]
 
 [dependency-groups]
+classify = [
+    # Local embedding model (EmbeddingGemma-300M, e5-small, etc.)
+    "sentence-transformers>=3.0.0",
+    # ML classifiers trained on top of embeddings
+    "scikit-learn>=1.5.0",
+    "joblib>=1.4.0",
+    # LLM abstraction layer (fallback + sampling)
+    "litellm>=1.40.0",
+]
 dev = [
     "pre-commit>=4.2.0",
     "pytest>=8.4.1",

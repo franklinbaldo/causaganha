@@ -154,6 +154,23 @@ def run_migrations(con: Backend | None = None, *, dry_run: bool = False) -> list
         con = get_connection()
 
     ensure_migration_table(con)
+    
+    # If schema_migrations is empty but we have ratings_history, the DB was
+    # initialized from schema.sql which already includes all migration tables.
+    if not dry_run:
+        tables = con.list_tables()
+        applied = get_applied_migrations(con)
+        if not applied and "ratings_history" in tables:
+            logger.info(
+                "db_initialized_from_schema_sql_marking_all_migrations_applied",
+                total=len(MIGRATIONS),
+            )
+            for migration in MIGRATIONS:
+                con.con.execute(
+                    "INSERT INTO schema_migrations (version, name) VALUES (?, ?)",
+                    [migration["version"], migration["name"]],
+                )
+
     applied = get_applied_migrations(con)
 
     applied_names = []

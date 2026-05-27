@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 import tempfile
+import threading
 import time
 import traceback
 import unicodedata
@@ -1492,6 +1493,9 @@ def find_next_unconsolidated(
     return None
 
 
+_duckdb_export_lock = threading.Lock()
+
+
 def _export_table_sync(
     table_name: str,
     con: ibis.BaseBackend,
@@ -1502,16 +1506,17 @@ def _export_table_sync(
     Returns (output_path, size_mb, row_count) or None when table is empty.
     Intended to be called via asyncio.to_thread so it doesn't block the loop.
     """
-    t = con.table(table_name)
-    count = t.count().to_pandas()
-    if count == 0:
-        return None
-    output_path = output_dir / f"{table_name}.parquet"
-    con.raw_sql(
-        f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
-    )
-    size_mb = output_path.stat().st_size / (1024 * 1024)
-    return output_path, size_mb, int(count)
+    with _duckdb_export_lock:
+        t = con.table(table_name)
+        count = t.count().to_pandas()
+        if count == 0:
+            return None
+        output_path = output_dir / f"{table_name}.parquet"
+        con.raw_sql(
+            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+        )
+        size_mb = output_path.stat().st_size / (1024 * 1024)
+        return output_path, size_mb, int(count)
 
 
 async def _export_and_upload_table(

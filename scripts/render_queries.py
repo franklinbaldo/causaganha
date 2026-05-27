@@ -124,6 +124,20 @@ def render_all() -> int:
         f"CREATE VIEW manifest AS SELECT * FROM read_csv_auto('{manifest_path}', header=true)"
     )
 
+    ratings_path = Path(__file__).parent.parent / "data" / "test_parquets" / "lawyer_ratings.parquet"
+    if ratings_path.exists():
+        print(f"Using local lawyer_ratings: {ratings_path}")
+        con.execute(
+            f"CREATE VIEW lawyer_ratings AS SELECT * FROM read_parquet('{ratings_path}')"
+        )
+
+    ratings_history_path = Path(__file__).parent.parent / "data" / "test_parquets" / "ratings_history.parquet"
+    if ratings_history_path.exists():
+        print(f"Using local ratings_history: {ratings_history_path}")
+        con.execute(
+            f"CREATE VIEW ratings_history AS SELECT * FROM read_parquet('{ratings_history_path}')"
+        )
+
     count = 0
     for qmd in qmds:
         print(f"\n→ {qmd.name}")
