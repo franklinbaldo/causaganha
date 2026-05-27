@@ -39,6 +39,10 @@ DEFAULT_ANCHOR_PATH = Path("data/anchor_set.parquet")
 # Number of pending anchors to accumulate before flushing to parquet
 _FLUSH_THRESHOLD = 10
 
+# Defaults exposed so callers can reference them without instantiating the class
+DEFAULT_MAX_ANCHORS_PER_CLASS = 1000
+DEFAULT_NEAR_DUPLICATE_SIM = 0.95
+
 # Columns expected in anchor_set.parquet
 ANCHOR_SCHEMA = {
     "numero_processo": str,
@@ -72,11 +76,15 @@ class AnchorClassifier:
         anchor_path: Path | str = DEFAULT_ANCHOR_PATH,
         k: int = 7,
         min_sim: float = 0.60,
+        max_anchors_per_class: int = DEFAULT_MAX_ANCHORS_PER_CLASS,
+        near_duplicate_sim: float = DEFAULT_NEAR_DUPLICATE_SIM,
     ) -> None:
         """Initialize classifier with anchor set path and k-NN parameters."""
         self.anchor_path = Path(anchor_path)
         self.k = k
         self.min_sim = min_sim
+        self.max_anchors_per_class = max_anchors_per_class
+        self.near_duplicate_sim = near_duplicate_sim
 
         self._embeddings: np.ndarray | None = None   # (N, D) float32
         self._labels: list[str] | None = None         # len N
@@ -288,6 +296,34 @@ class AnchorClassifier:
         if numero_processo in self._loaded_processes:
             logger.debug("anchor_rejected_duplicate", numero_processo=numero_processo)
             return False
+
+        if self._loaded and self._labels is not None and self._embeddings is not None:
+            # Reject if this class is already at the per-class cap
+            class_count = self._labels.count(outcome)
+            if class_count >= self.max_anchors_per_class:
+                logger.debug(
+                    "anchor_rejected_class_cap",
+                    outcome=outcome,
+                    count=class_count,
+                    cap=self.max_anchors_per_class,
+                )
+                return False
+
+            # Reject near-duplicates: if closest same-class anchor exceeds
+            # near_duplicate_sim the region is already well-covered
+            same_class_idx = [i for i, lb in enumerate(self._labels) if lb == outcome]
+            if same_class_idx:
+                same_embs = self._embeddings[same_class_idx]
+                q = embedding / (np.linalg.norm(embedding) + 1e-9)
+                max_sim = float((same_embs @ q).max())
+                if max_sim >= self.near_duplicate_sim:
+                    logger.debug(
+                        "anchor_rejected_near_duplicate",
+                        outcome=outcome,
+                        max_sim=round(max_sim, 3),
+                        threshold=self.near_duplicate_sim,
+                    )
+                    return False
 
         # Add to in-memory arrays
         if self._loaded and self._embeddings is not None:
