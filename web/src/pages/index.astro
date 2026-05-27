@@ -1,456 +1,205 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import GitHubIcon from '../components/icons/GitHubIcon.astro';
-import Header from '../components/Header.astro';
-import TribunalCoverageGrid from '../components/TribunalCoverageGrid.astro';
-import WorkflowStatusBadge from '../components/WorkflowStatusBadge.astro';
-import DataSourceIndicator from '../components/DataSourceIndicator.astro';
-import QueryCard from '../components/QueryCard.astro';
-import { readJson, type HomepageWidgets } from '../lib/readJson';
-import { formatNumber, HOW_IT_WORKS_CARDS, AUDIENCE_CARDS, QUICK_ACCESS_CARDS } from '../lib/homepage-content';
+import TribunalCalendar from '../components/TribunalCalendar.svelte';
+import { readJson } from '../lib/readJson';
 
 const iaSnapshot = readJson<any>('ia-snapshot.json');
-const backfill = readJson<any>('cache/backfill.json');
-const widgets = readJson<HomepageWidgets>('cache/homepage-widgets.json');
+const snap = iaSnapshot?.summary ?? {};
+const totalZips = snap.total_zips ?? 0;
+const totalTribunals = snap.tribunals_total ?? 95;
 
-const activitySummary = widgets?.activity_summary ?? null;
-const topAdvogados = widgets?.top_advogados_atividade ?? [];
-const topTribunaisLive = widgets?.top_tribunais_30d ?? [];
-
-const activityPeriodoLabel = activitySummary?.periodo
-  ? (() => {
-      const [y, m] = activitySummary.periodo.split('-').map(Number);
-      if (!y || !m) return activitySummary.periodo;
-      const d = new Date(Date.UTC(y, m - 1, 1));
-      return d.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric', timeZone: 'UTC' });
-    })()
-  : null;
-
-const snap = iaSnapshot?.summary || {};
-const totalZips = snap.total_zips || 0;
-const totalTribunals = snap.tribunals_total || 96;
-const tribunalsWithData = snap.tribunals_with_data || 0;
-const totalGB = snap.total_size_gb || 0;
-const latestCollectionDate = snap.latest_collection_date;
-const snapshotGeneratedAt = iaSnapshot?.generated_at;
-
-// Volume: render GB up to 999, switch to TB above that. total_size_gb is always in GB.
-// Show "–" when zero to avoid displaying "0.0 GB" which looks broken rather than empty.
-const volumeValue = totalGB === 0 ? '–' : totalGB >= 1000 ? (totalGB / 1000).toFixed(1) : totalGB.toFixed(1);
-const volumeUnit = totalGB === 0 ? '' : totalGB >= 1000 ? 'TB' : 'GB';
-
-// "Última coleta" — short date in Brazilian Portuguese, falls back to "–" when missing.
-const latestCollectionLabel = latestCollectionDate
-  ? new Date(latestCollectionDate).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' })
-  : '–';
-
-// Provenance caption for the stats row.
-const snapshotGeneratedLabel = snapshotGeneratedAt
-  ? new Date(snapshotGeneratedAt).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-  : null;
-
-const tribunalStats: { tribunal: string; data_rate_pct: number }[] =
-  (backfill?.tribunal_stats || []).map((t: any) => ({
-    tribunal: t.tribunal as string,
-    data_rate_pct: Number(t.data_rate_pct ?? 0),
-  }));
-
-// Top 5 tribunais por movimento — prefer the daily-generated widget (real
-// communications in the last 30 days). Falls back to ZIP-lot counts when the
-// widget JSON isn't available yet, so the page still renders during setup.
-let topTribunais: { tribunal: string; lotes: number; label: string }[] = [];
-if (topTribunaisLive.length > 0) {
-  topTribunais = topTribunaisLive.map(row => ({
-    tribunal: row.tribunal,
-    lotes: row.comunicacoes,
-    label: 'Comunicações (30d)',
-  }));
-} else {
-  const tribunalVolume = new Map<string, number>();
-  if (iaSnapshot?.items) {
-    for (const item of Object.values<any>(iaSnapshot.items)) {
-      if (!item?.tribunal) continue;
-      tribunalVolume.set(item.tribunal, (tribunalVolume.get(item.tribunal) ?? 0) + (item.zip_count ?? 0));
-    }
-  }
-  topTribunais = Array.from(tribunalVolume.entries())
-    .map(([tribunal, lotes]) => ({ tribunal, lotes, label: 'Lotes' }))
-    .sort((a, b) => b.lotes - a.lotes)
-    .slice(0, 5);
-}
-const topTribunaisHeader = topTribunais[0]?.label ?? 'Lotes';
-
-const PROOF_QUERY_SQL = `SELECT nome_orgao, COUNT(*) as total
-FROM read_parquet('https://archive.org/download/djen-tjro-2026/comunicacoes.parquet')
-GROUP BY nome_orgao
-ORDER BY total DESC
-LIMIT 5`;
-
-function formatPctLabel(pct: number | undefined): string {
-  if (typeof pct !== 'number' || Number.isNaN(pct)) return '–';
-  return `${Math.round(pct * 100)}%`;
+function fmt(n: number): string {
+  return n.toLocaleString('pt-BR');
 }
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
-  title="CausaGanha — Dados do Judiciário Brasileiro"
-  description="Coletamos e arquivamos dados públicos do Diário de Justiça Eletrônico Nacional de todos os tribunais do Brasil. Dados abertos, gratuitos, para sempre."
+  title="CausaGanha — um arquivo público do judiciário brasileiro"
+  description="O CausaGanha preserva, no Internet Archive, as publicações diárias do DJEN — diários, acórdãos, intimações e editais de 95 tribunais brasileiros."
   fullWidth={true}
   showNetworkBanner={false}
 >
-  <Header variant="home" />
-
-  <!-- ── HERO ── -->
-  <section class="hero">
-    <div class="hero-content">
-      <p class="hero-eyebrow">Arquivo público do Judiciário Nacional</p>
-      <h1 class="hero-h1">Dados do judiciário <em>brasileiro,</em> abertos para todos.</h1>
-
-      <!-- Search form -->
-      <form class="search-form" id="home-search-form" action={BASE + 'publicacoes'} method="get">
-        <div class="search-input-wrapper">
-          <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-          </svg>
+  <!-- Hero -->
+  <header class="hero" aria-labelledby="hero-title">
+    <div class="hero__inner">
+      <div class="hero__tiles" aria-hidden="true" id="hero-tiles"></div>
+      <span class="kicker">§ Busca pública · sem cadastro · sem rate-limit</span>
+      <h1 class="mega" id="hero-title">Procure<br/>no <em>DJEN.</em></h1>
+      <p class="hero__lede">
+        {fmt(totalZips)} documentos preservados desde 2018, vindos de {totalTribunals} tribunais brasileiros.
+        Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte —
+        ou pesquise por palavra-chave.
+      </p>
+      <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search">
+        <fieldset role="group">
           <input
-            id="home-search-input"
+            class="input hero__search-input"
             name="texto"
             type="search"
-            class="search-input"
-            placeholder="Busque por processo, tribunal ou palavra-chave..."
-            aria-label="Busque por processo, tribunal ou palavra-chave"
+            placeholder="0001234-56.2024.8.26.0100  ·  OAB/SP 245.812  ·  texto livre"
             autocomplete="off"
-            autocorrect="off"
-            spellcheck="false"
-            enterkeyhint="search"
+            aria-label="Buscar no DJEN"
           />
-          <button type="submit" class="search-submit" aria-label="Buscar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-              <path d="M5 12h14M12 5l7 7-7 7"/>
-            </svg>
-          </button>
-        </div>
+          <button class="btn btn--accent" type="submit">Buscar →</button>
+        </fieldset>
       </form>
-
-      <!-- Search hint chips — clickable examples that pre-fill the search input. -->
-      <div class="search-hints" role="group" aria-label="Exemplos de busca">
-        <span class="search-hints-label">Exemplos:</span>
-        {['OAB SP 12345', 'TJSP mandado de segurança', 'TRF3 2026', 'STJ 2025'].map(hint => (
-          <button
-            type="button"
-            class="search-hint-chip"
-            data-hint={hint}
-            aria-label={`Buscar por ${hint}`}
-          >{hint}</button>
-        ))}
+      <div class="hero__chips" aria-label="Exemplos de busca">
+        <button class="search-hint" data-q="0001234-56.2024.8.26.0100" type="button">
+          <span class="hero__chip-k">CNJ</span> <b>0001234-56.2024.8.26.0100</b>
+        </button>
+        <button class="search-hint" data-q="OAB/SP 245.812" type="button">
+          <span class="hero__chip-k">OAB</span> <b>OAB/SP 245.812</b>
+        </button>
+        <button class="search-hint" data-q="Banco Itaú" type="button">
+          <span class="hero__chip-k">parte</span> <b>Banco Itaú</b>
+        </button>
+        <button class="search-hint" data-q="previdenciário" type="button">
+          <span class="hero__chip-k">tema</span> <b>previdenciário</b>
+        </button>
       </div>
+      <dl class="hero__meta">
+        <div><dt class="k">Preservados</dt><dd class="v">{fmt(totalZips)}</dd></div>
+        <div><dt class="k">Tribunais</dt><dd class="v">{totalTribunals}</dd></div>
+        <div><dt class="k">Espelho público</dt><dd class="v">archive.org</dd></div>
+        <div><dt class="k">Desde</dt><dd class="v">mar 2018</dd></div>
+      </dl>
+    </div>
+  </header>
 
-      <!-- Task-first entry points: three blunt actions someone can take right now. -->
-      <ul class="quick-access" aria-label="Ações rápidas">
-        {QUICK_ACCESS_CARDS.map(card => (
-          <li>
-            <a href={BASE + card.href} class="quick-access-item">
-              <span class="quick-access-icon" aria-hidden="true">{card.icon}</span>
-              <span class="quick-access-body">
-                <span class="quick-access-title">{card.title}</span>
-                <span class="quick-access-desc">{card.description}</span>
-              </span>
-              <span class="quick-access-cta" aria-hidden="true">
-                {card.cta}
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-              </span>
-            </a>
-          </li>
-        ))}
-      </ul>
+  <!-- §01 KPI Stats -->
+  <section aria-labelledby="kpi-h">
+    <div class="wrap wrap--wide">
+      <div class="sec-head">
+        <span class="sec-num">§01 — Estado da coleta</span>
+        <h2 id="kpi-h">Quatro números, <em>um arquivo.</em></h2>
+        <p class="lede">A coleta roda 24/7. Métricas atualizadas a cada 10 minutos a partir do manifesto canônico em <code>archive.org/download/causaganha-dashboard</code>.</p>
+      </div>
+      <div class="grid-4">
+        <article class="card">
+          <div class="kicker">Acumulado</div>
+          <div class="stat__n stat__n--azul">{fmt(totalZips)}</div>
+          <div class="stat__label">Pares (tribunal × dia) no manifesto</div>
+          <div class="stat__sub">desde 01 de março de 2018</div>
+        </article>
+        <article class="card card--azul">
+          <div class="kicker">No arquivo</div>
+          <div class="stat__n" style="color: var(--ocre);">{fmt(totalZips)}</div>
+          <div class="stat__label">ZIPs no Internet Archive</div>
+          <div class="stat__sub" style="color: rgba(255,255,255,0.6);">{totalTribunals} tribunais</div>
+        </article>
+        <article class="card">
+          <div class="kicker">Hoje</div>
+          <div class="stat__n stat__n--accent">—<span class="unit">novos</span></div>
+          <div class="stat__label">Uploads recentes</div>
+        </article>
+        <article class="card card--sunken">
+          <div class="kicker">Lacunas</div>
+          <div class="stat__n stat__n--ocre">—</div>
+          <div class="stat__label">Pendentes + ausentes + desconhecidos</div>
+          <div class="stat__sub">em backfill</div>
+        </article>
+      </div>
     </div>
   </section>
 
-  <!-- ── STATS ROW ── -->
-  <section class="section-container">
-    {snapshotGeneratedLabel && (
-      <p class="stats-provenance">
-        Dados do snapshot de {snapshotGeneratedLabel} · fonte: Internet Archive
-      </p>
-    )}
-    <div class="stats-row">
-      <figure>
-        <span class="stats-label">Lotes arquivados</span>
-        <div class="stats-value">{formatNumber(totalZips)}<small class="stats-unit">lotes</small></div>
-      </figure>
-      <figure>
-        <span class="stats-label">Tribunais mapeados</span>
-        <div class="stats-value">{tribunalsWithData}<small class="stats-unit">fontes</small></div>
-      </figure>
-      <figure>
-        <span class="stats-label">Volume arquivado</span>
-        <div class="stats-value">{volumeValue}<small class="stats-unit">{volumeUnit}</small></div>
-      </figure>
-      <figure>
-        <span class="stats-label">Última coleta</span>
-        <div class="stats-value">{latestCollectionLabel}</div>
-      </figure>
-    </div>
-  </section>
-
-  <!-- ── ACTIVITY STRIP: movimento do último mês fechado ── -->
-  <section class="section-container activity-strip-section">
-    {activitySummary && activitySummary.intimacoes ? (
-      <div class="activity-metrics">
-        <span class="activity-period-label">Movimento em {activityPeriodoLabel ?? activitySummary.periodo}</span>
-        <div class="activity-metrics-grid">
-          <div class="activity-metric">
-            <span class="activity-metric-label">Intimações</span>
-            <span class="activity-metric-value">{formatNumber(activitySummary.intimacoes)}</span>
-          </div>
-          <div class="activity-metric">
-            <span class="activity-metric-label">OABs únicas</span>
-            <span class="activity-metric-value">{formatNumber(activitySummary.oabs_unicas ?? 0)}</span>
-          </div>
-          <div class="activity-metric">
-            <span class="activity-metric-label">Processos</span>
-            <span class="activity-metric-value">{formatNumber(activitySummary.processos ?? 0)}</span>
-          </div>
-          <div class="activity-metric">
-            <span class="activity-metric-label">Tribunais ativos</span>
-            <span class="activity-metric-value">{formatNumber(activitySummary.tribunais ?? 0)}</span>
-          </div>
-        </div>
-      </div>
-    ) : (
-      <p class="activity-strip activity-strip--empty">
-        Dados de atividade mensal disponíveis após a próxima geração do painel.
-      </p>
-    )}
-  </section>
-
-  <!-- ── TRUST STRIP: live status + freshness + gaps ── -->
-  <section class="section-container trust-strip-section">
-    <div class="trust-strip">
-      <WorkflowStatusBadge />
-      <DataSourceIndicator />
-      <small class="trust-fact">
-        Próxima coleta: diária ·
-        <span title="Tribunais sem nenhuma publicação arquivada na série histórica.">
-          Tribunais com lacunas:
-          <strong>{Math.max(0, totalTribunals - tribunalsWithData)}</strong>
-          de {totalTribunals}
-        </span>
-      </small>
-    </div>
-  </section>
-
-  <!-- ── COVERAGE MAP / MALHA ── -->
-  <section class="section-container">
-    <div class="malha-grid">
-      <div class="malha-visual">
-        <TribunalCoverageGrid
-          tribunalStats={tribunalStats}
-          totalTribunals={totalTribunals}
-          statsHref={BASE + 'stats'}
-        />
-      </div>
-      <div class="malha-text">
-        <h2 class="malha-title">Uma malha de dados que cobre o território nacional.</h2>
-        <p class="malha-desc">
-          Mapeamos cada tribunal, da instância federal às comarcas estaduais,
-          transformando o caos burocrático em estruturas de dados consumíveis e transparentes.
+  <!-- §02 Tribunal Calendar -->
+  <section aria-labelledby="cal-h" style="background: var(--papel-20); border-top: 1.5px solid var(--concreto-90);">
+    <div class="wrap wrap--wide">
+      <div class="sec-head">
+        <span class="sec-num">§02 — Calendário</span>
+        <h2 id="cal-h">Doze meses, <em>um tribunal.</em></h2>
+        <p class="lede">
+          Escolha um tribunal. Cada quadradinho é um dia: cobalto se o diário daquele dia
+          está no arquivo, ocre se parcial, vermelho se houve erro, vazio se ausente.
         </p>
-        <a href={BASE + 'stats'} class="cta-link">
-          Explorar mapa judicial
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        </a>
+      </div>
+      <TribunalCalendar client:load />
+      <div style="margin-top: var(--s-5); padding: var(--s-3) var(--s-4); background: var(--papel-00); border: 1px solid var(--border); display: flex; gap: var(--s-5); flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--t-micro); color: var(--fg-muted); align-items: center;">
+        <span><i style="display:inline-block; width:11px; height:11px; background:var(--azul); margin-right:6px; vertical-align:-1px;"></i>arquivado</span>
+        <span><i style="display:inline-block; width:11px; height:11px; background:var(--ocre); margin-right:6px; vertical-align:-1px;"></i>parcial</span>
+        <span><i style="display:inline-block; width:11px; height:11px; background:var(--papel-20); border: 1px solid var(--border); margin-right:6px; vertical-align:-1px;"></i>ausente</span>
+        <span><i style="display:inline-block; width:11px; height:11px; background:var(--vermelho); margin-right:6px; vertical-align:-1px;"></i>erro</span>
+        <span style="margin-left:auto;"><i style="display:inline-block; width:11px; height:11px; background:transparent; box-shadow: inset 0 0 0 2px var(--vermelho); margin-right:6px; vertical-align:-1px;"></i>hoje</span>
       </div>
     </div>
   </section>
 
-  {topAdvogados.length > 0 && (
-    <!-- ── TOP ADVOGADOS POR ATIVIDADE (nominal, descritivo) ── -->
-    <section class="section-container">
-      <h2 class="section-heading">Advogados mais ativos em {widgets?.year ?? new Date().getFullYear()}.</h2>
-      <p class="activity-disclaimer">
-        Ranking <strong>descritivo</strong> por volume de atuação. <em>Não</em> é medida de qualidade ou resultado —
-        um advogado aparece no topo simplesmente por atuar em mais processos.
-        Metodologia em <a href={BASE + 'sobre'}>/sobre</a>.
-      </p>
-      <div class="table-wrap">
-        <table class="lawyers-table">
-          <thead>
-            <tr>
-              <th scope="col" class="rank-col">#</th>
-              <th scope="col">OAB</th>
-              <th scope="col">Nome</th>
-              <th scope="col" class="num-col">Comunicações</th>
-              <th scope="col">Tribunal principal</th>
-              <th scope="col" class="num-col">% Autor</th>
-            </tr>
-          </thead>
-          <tbody>
-            {topAdvogados.map((adv, i) => (
-              <tr>
-                <td class="rank-col">{i + 1}</td>
-                <td class="mono">
-                  <a href={`${BASE}publicacoes?ufOab=${encodeURIComponent(adv.uf)}&numeroOab=${encodeURIComponent(adv.oab)}`}>
-                    {adv.oab}/{adv.uf}
-                  </a>
-                </td>
-                <td>{adv.nome ?? '—'}</td>
-                <td class="num-col mono">{formatNumber(adv.comunicacoes)}</td>
-                <td class="mono">{adv.tribunal_principal ?? '—'}</td>
-                <td class="num-col mono">{formatPctLabel(adv.polos?.A)}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+  <!-- §03 Why -->
+  <section aria-labelledby="why-h">
+    <div class="wrap wrap--wide">
+      <div class="sec-head">
+        <span class="sec-num">§03 — Por que arquivar</span>
+        <h2 id="why-h">Três razões para que <em>nada se perca.</em></h2>
       </div>
-      <p class="activity-footnote">
-        Atualizado diariamente · filtro mínimo de 10 comunicações ·
-        <a href={BASE + 'advogados'}>mais em /advogados</a>
-      </p>
-    </section>
-  )}
-
-  <!-- ── PARA QUEM ── -->
-  <section class="section-alt">
-    <div class="section-container">
-      <h2 class="section-heading">Para quem construímos?</h2>
-      <div class="audience-grid">
-        {AUDIENCE_CARDS.map(card => (
-          <div class="audience-card">
-            <span class="audience-icon" aria-hidden="true">{card.icon}</span>
-            <h3 class="audience-title">{card.title}</h3>
-            <p class="audience-desc">{card.description}</p>
-          </div>
-        ))}
+      <div class="grid-3">
+        <article class="card">
+          <div class="kicker">01 · Memória</div>
+          <h3>O efêmero tem peso jurídico.</h3>
+          <p>O DJEN publica diariamente atos com efeito de citação: prazos correm a partir dessas publicações. Quando o portal de um tribunal cai ou muda de URL, processos podem perder rastreabilidade. O Internet Archive guarda a versão imutável.</p>
+        </article>
+        <article class="card">
+          <div class="kicker">02 · Acesso</div>
+          <h3>Pesquisa pública,<br/><em>sem cadastro.</em></h3>
+          <p>Jornalistas, pesquisadores, advogados e cidadãos podem ler, baixar e citar qualquer publicação sem login, sem CAPTCHA, sem rate-limit. Os ZIPs originais e os derivados em Parquet ficam acessíveis via DuckDB direto no navegador.</p>
+        </article>
+        <article class="card">
+          <div class="kicker">03 · Auditoria</div>
+          <h3>O estado da coleta é o produto.</h3>
+          <p>Não escondemos as lacunas. O manifesto exibe explicitamente o que falta — quais tribunais responderam <code>404</code>, quais retornaram <code>403</code> sob rate-limit, quais nunca foram tentados. Auditável por qualquer pessoa.</p>
+        </article>
       </div>
-    </div>
-  </section>
-
-  <!-- ── PROOF: example query + real top-5 + caveats ── -->
-  <section class="section-container">
-    <h2 class="section-heading">Exemplo concreto.</h2>
-    <div class="proof-grid">
-      <div class="proof-query">
-        <QueryCard
-          title="Comunicações por tribunal (últimos 30 dias)"
-          description="Roda direto no navegador via DuckDB WASM, sem servidor. Copie, ajuste, execute em /explorador."
-          sql={PROOF_QUERY_SQL}
-        />
-      </div>
-      <div class="proof-result">
-        <h3 class="proof-result-title">Top 5 tribunais por movimento</h3>
-        {topTribunais.length > 0 ? (
-          <dl class="proof-list">
-            {topTribunais.map(row => (
-              <>
-                <dt><a href={BASE + 'publicacoes/' + row.tribunal.toLowerCase()}>{row.tribunal}</a></dt>
-                <dd>{formatNumber(row.lotes)}</dd>
-              </>
-            ))}
-          </dl>
-        ) : (
-          <p class="proof-empty">Snapshot indisponível — disponível na próxima geração.</p>
-        )}
-      </div>
-    </div>
-    <p class="proof-caveat">
-      <strong>O que não está incluído:</strong> apêndices, audiências sigilosas e tribunais militares.
-      Cobertura completa em <a href={BASE + 'stats'}>Mapa judicial →</a>.
-    </p>
-  </section>
-
-  <!-- ── HOW IT WORKS ── -->
-  <section class="section-container">
-    <h2 class="section-heading how-heading">Como o dado chega até você.</h2>
-    <div class="steps-grid">
-      {HOW_IT_WORKS_CARDS.map(step => (
-        <div class="step-card">
-          <span class="step-number">{step.icon}</span>
-          <h3 class="step-title">{step.title}</h3>
-          <p class="step-desc">{step.description}</p>
-        </div>
-      ))}
-    </div>
-  </section>
-
-  <!-- ── GREEN CTA BANNER ── -->
-  <section class="cta-banner">
-    <div class="cta-inner">
-      <div class="cta-text">
-        <h2 class="cta-title">100% Aberto e Gratuito. Sempre.</h2>
-        <p class="cta-desc">
-          Acreditamos que a transparência é o pilar da democracia.
-          Nosso código é aberto e nossos dados são seus.
-        </p>
-        <div class="cta-actions">
-          <a href="https://github.com/franklinbaldo/causaganha" target="_blank" rel="noopener noreferrer" class="btn-outline-light">
-            <GitHubIcon /> Contribuir no GitHub
-          </a>
-          <a href={BASE + 'dados'} class="btn-outline-light">
-            Ler documentação
-          </a>
-        </div>
-      </div>
-      <div class="cta-deco" aria-hidden="true">
-        <svg viewBox="0 0 200 200" width="200" height="200" fill="none">
-          <circle cx="100" cy="100" r="90" stroke="rgba(255,255,255,0.15)" stroke-width="2"/>
-          <path d="M100 20 C140 60, 160 100, 100 180 C40 100, 60 60, 100 20Z" fill="rgba(255,255,255,0.08)"/>
-        </svg>
-      </div>
+      <blockquote class="pull" style="margin-top: var(--s-8);">
+        Um arquivo público não é apenas armazenamento — é uma <em>promessa</em> de
+        que o que foi dito em juízo continua dito, no mesmo lugar, com a mesma
+        forma, daqui a dez ou cinquenta anos.
+      </blockquote>
     </div>
   </section>
 </Layout>
 
-<!-- Search: parse OAB/processo/texto and redirect with correct params -->
 <script>
-  const OAB_RE = /^\s*(?:OAB\s*[\/\-]?\s*)?([A-Za-z]{2})\s*[-\/ ]?\s*(\d{3,6})\s*$/;
-  const CNJ_MASKED_RE = /^\s*\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}\s*$/;
-  const CNJ_BARE_RE = /^\s*\d{20}\s*$/;
-
-  function setupSearchHandlers() {
-    const form = document.getElementById('home-search-form') as HTMLFormElement | null;
-    const input = document.getElementById('home-search-input') as HTMLInputElement | null;
-    if (!form || !input) return;
-
-    form.addEventListener('submit', (e) => {
-      e.preventDefault();
-      const raw = input.value.trim();
-      if (!raw) return;
-
-      const base = form.action.replace(/\/$/, '');
-      const params = new URLSearchParams();
-
-      const oabMatch = raw.match(OAB_RE);
-      if (oabMatch) {
-        params.set('ufOab', oabMatch[1].toUpperCase());
-        params.set('numeroOab', oabMatch[2]);
-      } else if (CNJ_MASKED_RE.test(raw) || CNJ_BARE_RE.test(raw)) {
-        params.set('numeroProcesso', raw.replace(/\D/g, ''));
+  // Hero tiles — Bulcão-inspired ornament
+  function mulberry32(seed: number) {
+    return function() {
+      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
+      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+  function heroTiles(rows: number = 6, cols: number = 8) {
+    const rng = mulberry32(20260526);
+    const colors = ["var(--vermelho)","var(--azul)","var(--ocre)","var(--papel-20)","var(--papel-30)","var(--concreto-90)","var(--verde)"];
+    let html = '';
+    for (let i = 0; i < rows * cols; i++) {
+      const c = colors[Math.floor(rng() * colors.length)];
+      const shape = rng();
+      if (shape < 0.5) {
+        html += `<div style="background: ${c};"></div>`;
+      } else if (shape < 0.7) {
+        const c2 = colors[Math.floor(rng() * colors.length)];
+        html += `<div style="background: linear-gradient(135deg, ${c} 49.5%, ${c2} 50%);"></div>`;
+      } else if (shape < 0.85) {
+        const c2 = colors[Math.floor(rng() * colors.length)];
+        html += `<div style="background: ${c2}; position:relative;"><svg viewBox="0 0 10 10" style="position:absolute; inset:0; width:100%; height:100%;" preserveAspectRatio="none"><path d="M0,10 A10,10 0 0 1 10,0 L10,10 Z" fill="${c}"/></svg></div>`;
       } else {
-        params.set('texto', raw);
+        const c2 = colors[Math.floor(rng() * colors.length)];
+        html += `<div style="background: ${c2}; position:relative;"><svg viewBox="0 0 10 10" style="position:absolute; inset:0; width:100%; height:100%;"><circle cx="5" cy="5" r="3.5" fill="${c}"/></svg></div>`;
       }
-
-      window.location.href = `${base}?${params.toString()}`;
-    });
+    }
+    return html;
   }
+  const tiles = document.getElementById('hero-tiles');
+  if (tiles) tiles.innerHTML = heroTiles(6, 8);
 
-  setupSearchHandlers();
-  document.addEventListener('astro:after-swap', setupSearchHandlers);
-
-  function setupHintChips() {
-    const input = document.getElementById('home-search-input') as HTMLInputElement | null;
-    const form = document.getElementById('home-search-form') as HTMLFormElement | null;
-    if (!input || !form) return;
-    document.querySelectorAll<HTMLButtonElement>('.search-hint-chip').forEach(chip => {
-      chip.addEventListener('click', () => {
-        input.value = chip.dataset.hint ?? '';
-        form.requestSubmit();
-      });
+  // Search chips fill input
+  const form = document.querySelector('.hero__search') as HTMLFormElement | null;
+  const input = form?.querySelector('input') as HTMLInputElement | null;
+  document.querySelectorAll<HTMLButtonElement>('.hero__chips .search-hint').forEach(chip => {
+    chip.addEventListener('click', () => {
+      if (input) { input.value = chip.dataset.q ?? ''; input.focus(); }
     });
-  }
-
-  setupHintChips();
-  document.addEventListener('astro:after-swap', setupHintChips);
+  });
 </script>
