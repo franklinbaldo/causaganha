@@ -19,6 +19,7 @@ import concurrent.futures
 import re
 import unicodedata
 from functools import cached_property
+from typing import Self
 
 import structlog
 
@@ -78,8 +79,16 @@ class DispositivoExtractor:
             lambda: self.extract(text),
         )
 
+    def __enter__(self) -> Self:
+        """Support use as a context manager."""
+        return self
+
+    def __exit__(self, *_: object) -> None:
+        """Shutdown thread pool on context manager exit."""
+        self._executor.shutdown(wait=True)
+
     def __del__(self) -> None:
-        """Shutdown thread pool on garbage collection."""
+        """Best-effort cleanup if context manager wasn't used."""
         if hasattr(self, "_executor"):
             self._executor.shutdown(wait=False)
 
