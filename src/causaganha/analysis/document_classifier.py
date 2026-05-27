@@ -8,6 +8,7 @@ Classifies decision texts into:
 import re
 from typing import TypedDict
 
+
 class ClassificationResult(TypedDict):
     document_type: str
     procedural_class: str
@@ -19,7 +20,7 @@ class DocumentClassifier:
 
     def __init__(self) -> None:
         # Pre-compile regex patterns for efficiency
-        
+
         # Document Type Rules
         self.doc_rules = {
             "acórdão": [
@@ -71,7 +72,7 @@ class DocumentClassifier:
                 re.compile(r"remetam-se os autos", re.IGNORECASE),
             ],
         }
-        
+
         # Procedural Class Rules
         self.class_rules = {
             "cumprimento de sentença": [
@@ -138,7 +139,7 @@ class DocumentClassifier:
             }
 
         matched_keywords: list[str] = []
-        
+
         # 1. Document Type Classification
         doc_scores: dict[str, int] = {}
         for doc_type, patterns in self.doc_rules.items():
@@ -160,7 +161,7 @@ class DocumentClassifier:
             # Let's find the max score
             max_score = max(doc_scores.values())
             best_types = [dt for dt, score in doc_scores.items() if score == max_score]
-            
+
             # Tie breaking priority
             priority = ["acórdão", "decisão monocrática", "sentença", "decisão interlocutória", "despacho"]
             document_type = "outro"

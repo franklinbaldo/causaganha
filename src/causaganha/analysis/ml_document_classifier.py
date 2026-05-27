@@ -8,9 +8,12 @@ decision embeddings to classify:
 """
 
 from __future__ import annotations
+
 from pathlib import Path
+
 import numpy as np
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -24,7 +27,10 @@ MIN_SAMPLES_PER_CLASS = 5
 def _build_classifiers() -> list[tuple[str, object]]:
     """Build the standard list of classifiers."""
     from sklearn.calibration import CalibratedClassifierCV  # noqa: PLC0415
-    from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier  # noqa: PLC0415
+    from sklearn.ensemble import (  # noqa: PLC0415
+        HistGradientBoostingClassifier,
+        RandomForestClassifier,
+    )
     from sklearn.linear_model import LogisticRegression  # noqa: PLC0415
     from sklearn.neural_network import MLPClassifier  # noqa: PLC0415
     from sklearn.svm import LinearSVC  # noqa: PLC0415
@@ -109,9 +115,10 @@ class MLDocumentEnsemble:
         Returns:
             Dict with per-classifier cross-validation F1 macro scores.
         """
+        from collections import Counter  # noqa: PLC0415
+
         from sklearn.model_selection import cross_val_score  # noqa: PLC0415
         from sklearn.preprocessing import LabelEncoder  # noqa: PLC0415
-        from collections import Counter  # noqa: PLC0415
 
         y_raw = df[self.target_col].tolist()
         x_mat = embeddings.copy()
@@ -120,7 +127,7 @@ class MLDocumentEnsemble:
         counts = Counter(y_raw)
         valid_classes = {cls for cls, cnt in counts.items() if cnt >= MIN_SAMPLES_PER_CLASS}
         valid_mask = [label in valid_classes for label in y_raw]
-        
+
         x_mat = x_mat[valid_mask]
         y_raw = [y for y, m in zip(y_raw, valid_mask, strict=True) if m]
 
@@ -153,7 +160,7 @@ class MLDocumentEnsemble:
                 clf.fit(x_mat, y)
                 n_cv = min(5, *[counts[c] for c in valid_classes])
                 n_cv = max(2, n_cv) # ensure at least 2 folds
-                
+
                 scores = cross_val_score(
                     clf, x_mat, y, cv=n_cv, scoring="f1_macro"
                 )
@@ -223,17 +230,17 @@ class MLDocumentEnsemble:
 
         # Average probabilities
         avg_proba = np.mean(all_probas, axis=0)
-        
+
         # Build distribution dict
         dist = {}
         for i, cls_label in enumerate(self._classes):
             dist[cls_label] = float(avg_proba[i])
-            
+
         # Normalize
         total = sum(dist.values())
         if total > 0:
             dist = {k: v / total for k, v in dist.items()}
-            
+
         return dist
 
     def predict(self, embedding: np.ndarray) -> str:
@@ -251,7 +258,7 @@ class MLDocumentEnsemble:
     def save(self) -> None:
         """Save the trained ensemble to joblib."""
         import joblib  # noqa: PLC0415
-        
+
         self.ensemble_path.parent.mkdir(parents=True, exist_ok=True)
         payload = {
             "target_col": self.target_col,
@@ -267,7 +274,7 @@ class MLDocumentEnsemble:
     def load(cls, path: Path | str) -> MLDocumentEnsemble:
         """Load a trained ensemble from joblib."""
         import joblib  # noqa: PLC0415
-        
+
         load_path = Path(path)
         if not load_path.exists():
             msg = f"Ensemble file not found at {load_path}"
