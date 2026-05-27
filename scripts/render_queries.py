@@ -158,7 +158,11 @@ def render_all() -> int:
         output_path = PUBLIC_DIR / output.lstrip("/")
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = run_query(con, sql, fmt)
+        try:
+            data = run_query(con, sql, fmt)
+        except duckdb.CatalogException as exc:
+            print(f"  SKIP: missing table/view — {exc}", file=sys.stderr)
+            continue
         output_path.write_text(
             json.dumps(data, indent=2, default=json_default),
             encoding="utf-8",

@@ -168,7 +168,7 @@ class EmbeddingEnsemble:
             FileNotFoundError: If anchor parquet does not exist.
             ValueError: If training data is insufficient.
         """
-        import pandas as pd  # noqa: PLC0415
+        import ibis  # noqa: PLC0415
         from sklearn.model_selection import cross_val_score  # noqa: PLC0415
         from sklearn.preprocessing import LabelEncoder  # noqa: PLC0415
 
@@ -177,12 +177,12 @@ class EmbeddingEnsemble:
             msg = f"Anchor set not found at {path}. Run scripts/build_anchor_set.py first."
             raise FileNotFoundError(msg)
 
-        df = pd.read_parquet(path)
-        logger.info("training_ensemble", n_samples=len(df), path=str(path))
+        table = ibis.read_parquet(path)
+        logger.info("training_ensemble", n_samples=table.count().execute(), path=str(path))
 
         # Parse embeddings
-        x_mat = self._parse_embeddings(df)  # (N, D)
-        y_raw = df["outcome"].tolist()
+        x_mat = self._parse_embeddings(table)  # (N, D)
+        y_raw = table["outcome"].execute().tolist()
 
         # Filter out "unknown" labels (not useful for training)
         valid_mask = [label in OUTCOME_KEYS and label != "unknown" for label in y_raw]
@@ -448,10 +448,11 @@ class EmbeddingEnsemble:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _parse_embeddings(df: object) -> np.ndarray:
-        """Parse embedding column from parquet DataFrame to float32 matrix."""
+    def _parse_embeddings(table: object) -> np.ndarray:
+        """Parse embedding column from ibis table to float32 matrix."""
         rows = []
-        for val in df["embedding"]:  # type: ignore[union-attr]
+        # .execute() returns a Series; iterating yields raw Python bytes/lists
+        for val in table["embedding"].execute():  # type: ignore[union-attr]
             if isinstance(val, bytes):
                 rows.append(np.frombuffer(val, dtype=np.float32))
             else:

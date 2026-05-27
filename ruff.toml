@@ -123,6 +123,12 @@ ignore = [
     "PD004",            # .notna preferred over .notnull — ibis uses .notnull(); not pandas
 ]
 
+# ── sklearn training scripts: pandas required as sklearn input format ──────
+# Migrate to ibis/pyarrow → numpy when sklearn adds Arrow support.
+"scripts/classify_documents.py" = ["TID251"]
+"scripts/train_ml_document_classifier.py" = ["TID251"]
+"scripts/train_ml_from_parquets.py" = ["TID251"]
+
 # ── Experiments ────────────────────────────────────────────────────────────
 # Research/exploratory notebooks — not production code; all rules relaxed.
 "experiments/**/*.py" = ["ALL"]
@@ -137,6 +143,11 @@ convention = "google"
 known-first-party = ["causaganha", "djen_backup"]
 force-single-line = false
 lines-after-imports = 2
+
+[lint.flake8-tidy-imports.banned-api]
+"pandas" = {msg = "Use ibis instead of pandas. pandas is banned from this repo."}
+"pandas.core" = {msg = "Use ibis instead of pandas. pandas is banned from this repo."}
+"pandas.DataFrame" = {msg = "Use ibis instead of pandas. pandas is banned from this repo."}
 
 [lint.flake8-quotes]
 inline-quotes = "double"

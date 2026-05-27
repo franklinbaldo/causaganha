@@ -38,8 +38,6 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
-
 
 # Disable strict decimal traps that cause crashes in ibis/sqlglot
 # See: https://github.com/ibis-project/ibis/issues/9638 (similar)
@@ -318,25 +316,24 @@ def fetch_consolidation_candidates(
     # 1a. In-memory manifest (already fetched)
     if manifest is not None:
         logger.info("fetching_consolidation_candidates_from_memory", records=len(manifest))
-        con = duckdb.connect()
         try:
             df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
-            pd.DataFrame(df_data)
-            query = """
-                SELECT date
-                FROM df
-                GROUP BY date
-                HAVING SUM(CASE WHEN file_type='zip' THEN 1 ELSE 0 END) > 0
-                   AND SUM(CASE WHEN file_type='parquet' THEN 1 ELSE 0 END) = 0
-                ORDER BY date DESC
-            """
-            result = con.execute(query).fetchall()
-            return [str(r[0]) for r in result]
+            t = ibis.memtable(df_data, columns=["date", "file_type"])
+            agg = t.group_by("date").agg(
+                has_zip=(t["file_type"] == "zip").sum(),
+                has_parquet=(t["file_type"] == "parquet").sum(),
+            )
+            result = (
+                agg.filter((agg["has_zip"] > 0) & (agg["has_parquet"] == 0))
+                .order_by(agg["date"].desc())
+                .select("date")
+                .execute()["date"]
+                .tolist()
+            )
+            return [str(d) for d in result]
         except Exception as e:
             logger.warning("fetch_candidates_failed_memory", error=str(e))
             return []
-        finally:
-            con.close()
 
     # 1b. Download manifest.parquet from IA and query it
     manifest_url = "https://archive.org/download/causaganha-catalog/manifest.parquet"
@@ -1510,7 +1507,7 @@ def _export_table_sync(
     """
     with _duckdb_export_lock:
         t = con.table(table_name)
-        count = t.count().to_pandas()
+        count = t.count().execute()
         if count == 0:
             return None
         output_path = output_dir / f"{table_name}.parquet"

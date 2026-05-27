@@ -20,7 +20,6 @@ The anchor set grows automatically when:
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 import structlog
@@ -31,9 +30,6 @@ from causaganha.analysis.bayesian_fusion import (
     normalize,
 )
 
-
-if TYPE_CHECKING:
-    import pandas as pd
 
 logger = structlog.get_logger()
 
@@ -102,7 +98,7 @@ class AnchorClassifier:
         Raises:
             FileNotFoundError: If the parquet file does not exist.
         """
-        import pandas as pd  # noqa: PLC0415
+        import ibis  # noqa: PLC0415
 
         if self._loaded:
             return
@@ -114,24 +110,28 @@ class AnchorClassifier:
             )
             raise FileNotFoundError(msg)
 
-        df = pd.read_parquet(self.anchor_path)
+        table = ibis.read_parquet(self.anchor_path)
+        counts = (
+            table.group_by("outcome")
+            .agg(n=table["outcome"].count())
+            .execute()
+        )
         logger.info(
             "anchor_set_loaded",
             path=str(self.anchor_path),
-            n_anchors=len(df),
-            outcomes=df["outcome"].value_counts().to_dict(),
+            n_anchors=table.count().execute(),
+            outcomes=dict(zip(counts["outcome"], counts["n"], strict=True)),
         )
 
         # Parse embeddings from stored format (bytes → float32 ndarray)
-        embeddings = self._parse_embeddings(df)
-        self._embeddings = embeddings                         # (N, D)
-        self._labels = df["outcome"].tolist()
-        self._confidences = df["confidence"].tolist()
-        self._loaded_processes = set(df["numero_processo"].tolist())
+        self._embeddings = self._parse_embeddings(table)      # (N, D)
+        self._labels = table["outcome"].execute().tolist()
+        self._confidences = table["confidence"].execute().tolist()
+        self._loaded_processes = set(table["numero_processo"].execute().tolist())
         self._loaded = True
 
     @staticmethod
-    def _parse_embeddings(df: pd.DataFrame) -> np.ndarray:
+    def _parse_embeddings(table: object) -> np.ndarray:
         """Convert embedding column to a float32 matrix.
 
         Supports embeddings stored as:
@@ -141,13 +141,13 @@ class AnchorClassifier:
         import io  # noqa: PLC0415
 
         rows = []
-        for val in df["embedding"]:
+        # table["embedding"].execute() returns a Series; iterating yields raw Python values
+        for val in table["embedding"].execute():  # type: ignore[index]
             if isinstance(val, bytes):
                 rows.append(np.frombuffer(val, dtype=np.float32))
             elif isinstance(val, (list, np.ndarray)):
                 rows.append(np.array(val, dtype=np.float32))
             else:
-                # Try to deserialize from numpy save format
                 buf = io.BytesIO(val)
                 rows.append(np.load(buf))
 
@@ -333,25 +333,26 @@ class AnchorClassifier:
         if not self._pending_anchors:
             return 0
 
-        import pandas as pd  # noqa: PLC0415
+        import ibis  # noqa: PLC0415
 
         pending = self._pending_anchors
         self._pending_anchors = []
 
-        new_rows = pd.DataFrame(pending)
+        new_table = ibis.memtable(pending)
 
         if self.anchor_path.exists():
-            existing = pd.read_parquet(self.anchor_path)
+            existing = ibis.read_parquet(self.anchor_path)
             # Deduplicate: drop existing rows for any case number being re-added
-            new_ids = set(new_rows["numero_processo"])
-            existing = existing[~existing["numero_processo"].isin(new_ids)]
-            combined = pd.concat([existing, new_rows], ignore_index=True)
+            new_ids = new_table["numero_processo"].execute().tolist()
+            existing = existing.filter(~existing["numero_processo"].isin(new_ids))
+            combined = existing.union(new_table)
         else:
             self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
-            combined = new_rows
+            combined = new_table
 
-        combined.to_parquet(self.anchor_path, index=False)
-        logger.info("anchor_set_flushed", n_written=len(pending), total=len(combined))
+        combined.to_parquet(str(self.anchor_path))
+        n_total = combined.count().execute()
+        logger.info("anchor_set_flushed", n_written=len(pending), total=n_total)
         return len(pending)
 
     @property

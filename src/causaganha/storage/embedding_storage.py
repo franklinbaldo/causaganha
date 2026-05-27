@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
+import ibis
 import structlog
 from ibis.backends.duckdb import Backend
 
@@ -180,23 +180,12 @@ class EmbeddingStorage:
             "created_at": [datetime.now(UTC)] * num_chunks,
         }
 
-        embeddings_frame = pd.DataFrame(data)
-
-        # Bulk insert using DuckDB's efficient INSERT from DataFrame
-        # Native FLOAT[] arrays are 2-5x faster than JSON
-
-        # Delete existing embeddings for this text
+        # Delete existing embeddings for this text, then bulk-insert via ibis memtable
         self.con.con.execute(
             f"DELETE FROM {table_name} WHERE texto_id = ?",
             [texto_id],
         )
-
-        # Register DataFrame and insert
-        self.con.con.register("temp_embeddings", embeddings_frame)
-        self.con.con.execute(
-            f"INSERT INTO {table_name} SELECT * FROM temp_embeddings",
-        )
-        self.con.con.unregister("temp_embeddings")
+        self.con.insert(table_name, ibis.memtable(data))
 
         logger.info(
             "embeddings_batch_saved",
@@ -424,18 +413,16 @@ class EmbeddingStorage:
         # Fetch results
         rows = result.fetchall()
 
-        # Convert to list of dicts
-        similar_texts = []
-        for row in rows:
-            similar_texts.append(
-                {
-                    "texto_id": row[0],
-                    "chunk_index": row[1],
-                    "similarity": float(row[2]),
-                    "text_preview": row[3],
-                    "created_at": row[4],
-                },
-            )
+        similar_texts = [
+            {
+                "texto_id": row[0],
+                "chunk_index": row[1],
+                "similarity": float(row[2]),
+                "text_preview": row[3],
+                "created_at": row[4],
+            }
+            for row in rows
+        ]
 
         logger.info(
             "similarity_search_complete",
