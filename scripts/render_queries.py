@@ -48,6 +48,11 @@ PUBLIC_DIR = Path(__file__).parent.parent / "web" / "public"
 MANIFEST_CSV_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
 LOCAL_MANIFEST = Path(__file__).parent.parent / "data" / "sync-manifest.csv"
 
+# Local dev/CI fallback: exported parquet snapshots from the ratings pipeline.
+# Views are only registered when the files exist, so production runs that
+# lack them will skip gracefully (those queries will fail with a missing-view error).
+DEV_RATINGS_DIR = Path(__file__).parent.parent / "data" / "parquets"
+
 SQL_FENCE_RE = re.compile(
     r"```\s*\{\s*sql[^}]*\}\s*\n(.*?)\n```",
     re.DOTALL,
@@ -124,14 +129,14 @@ def render_all() -> int:
         f"CREATE VIEW manifest AS SELECT * FROM read_csv_auto('{manifest_path}', header=true)"
     )
 
-    ratings_path = Path(__file__).parent.parent / "data" / "test_parquets" / "lawyer_ratings.parquet"
+    ratings_path = DEV_RATINGS_DIR / "lawyer_ratings.parquet"
     if ratings_path.exists():
         print(f"Using local lawyer_ratings: {ratings_path}")
         con.execute(
             f"CREATE VIEW lawyer_ratings AS SELECT * FROM read_parquet('{ratings_path}')"
         )
 
-    ratings_history_path = Path(__file__).parent.parent / "data" / "test_parquets" / "ratings_history.parquet"
+    ratings_history_path = DEV_RATINGS_DIR / "ratings_history.parquet"
     if ratings_history_path.exists():
         print(f"Using local ratings_history: {ratings_history_path}")
         con.execute(

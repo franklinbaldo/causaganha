@@ -20,10 +20,16 @@ from __future__ import annotations
 import asyncio
 import concurrent.futures
 from functools import cached_property
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import numpy as np
 import structlog
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+    from sentence_transformers import SentenceTransformer
 
 
 logger = structlog.get_logger()
@@ -75,6 +81,7 @@ class LocalEmbedder:
         truncate_dim: int | None = DEFAULT_DIMENSION,
         thread_workers: int = 2,
     ) -> None:
+        """Initialize embedder with model and thread pool settings."""
         self.model_name = model_name
         self.cache_dir = str(cache_dir) if cache_dir else None
         self.truncate_dim = truncate_dim
@@ -89,7 +96,7 @@ class LocalEmbedder:
         )
 
     @cached_property
-    def _model(self):  # type: ignore[return]
+    def _model(self) -> SentenceTransformer:
         """Lazily load the SentenceTransformer model on first use."""
         try:
             from sentence_transformers import SentenceTransformer  # noqa: PLC0415
@@ -115,7 +122,7 @@ class LocalEmbedder:
         )
         return model
 
-    def _apply_prefix(self, texts: list[str], is_query: bool) -> list[str]:
+    def _apply_prefix(self, texts: list[str], *, is_query: bool) -> list[str]:
         """Apply instruction prefix based on model and task type."""
         if self.model_name == EMBEDDING_GEMMA_MODEL:
             # EmbeddingGemma uses a query-side prefix only
@@ -134,6 +141,7 @@ class LocalEmbedder:
     def embed(
         self,
         texts: list[str],
+        *,
         is_query: bool = False,
         batch_size: int = 32,
         normalize: bool = True,
@@ -163,6 +171,7 @@ class LocalEmbedder:
     async def aembed(
         self,
         texts: list[str],
+        *,
         is_query: bool = False,
         batch_size: int = 32,
         normalize: bool = True,
@@ -181,13 +190,15 @@ class LocalEmbedder:
         Returns:
             NumPy array of shape (len(texts), embedding_dim).
         """
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             self._executor,
-            lambda: self.embed(texts, is_query=is_query, batch_size=batch_size, normalize=normalize),
+            lambda: self.embed(
+                texts, is_query=is_query, batch_size=batch_size, normalize=normalize
+            ),
         )
 
-    def embed_single(self, text: str, is_query: bool = False) -> np.ndarray:
+    def embed_single(self, text: str, *, is_query: bool = False) -> np.ndarray:
         """Convenience wrapper for embedding a single text.
 
         Args:
@@ -199,7 +210,7 @@ class LocalEmbedder:
         """
         return self.embed([text], is_query=is_query)[0]
 
-    async def aembed_single(self, text: str, is_query: bool = False) -> np.ndarray:
+    async def aembed_single(self, text: str, *, is_query: bool = False) -> np.ndarray:
         """Async version of ``embed_single``."""
         result = await self.aembed([text], is_query=is_query)
         return result[0]
@@ -213,7 +224,5 @@ class LocalEmbedder:
 
     def __del__(self) -> None:
         """Cleanup thread pool on garbage collection."""
-        try:
+        if hasattr(self, "_executor"):
             self._executor.shutdown(wait=False)
-        except Exception:  # noqa: BLE001
-            pass

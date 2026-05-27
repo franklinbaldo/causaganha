@@ -26,9 +26,7 @@ GitHub Actions: train weekly or on anchor set updates (via workflow_dispatch).
 
 from __future__ import annotations
 
-import io
 from pathlib import Path
-from typing import TYPE_CHECKING
 
 import numpy as np
 import structlog
@@ -39,9 +37,6 @@ from causaganha.analysis.bayesian_fusion import (
     normalize,
 )
 
-
-if TYPE_CHECKING:
-    pass
 
 logger = structlog.get_logger()
 
@@ -71,7 +66,6 @@ def _build_classifiers() -> list[tuple[str, object]]:
             LogisticRegression(
                 C=1.0,
                 max_iter=1000,
-                multi_class="multinomial",
                 solver="lbfgs",
                 class_weight="balanced",
                 random_state=42,
@@ -150,6 +144,7 @@ class EmbeddingEnsemble:
         ensemble_path: Path | str = DEFAULT_ENSEMBLE_PATH,
         anchor_path: Path | str = DEFAULT_ANCHOR_PATH,
     ) -> None:
+        """Initialize ensemble with optional custom paths."""
         self.ensemble_path = Path(ensemble_path)
         self.anchor_path = Path(anchor_path)
         self._classifiers: list[tuple[str, object]] = []
@@ -186,17 +181,17 @@ class EmbeddingEnsemble:
         logger.info("training_ensemble", n_samples=len(df), path=str(path))
 
         # Parse embeddings
-        X = self._parse_embeddings(df)  # (N, D)
+        x_mat = self._parse_embeddings(df)  # (N, D)
         y_raw = df["outcome"].tolist()
 
         # Filter out "unknown" labels (not useful for training)
         valid_mask = [label in OUTCOME_KEYS and label != "unknown" for label in y_raw]
-        X = X[valid_mask]
+        x_mat = x_mat[valid_mask]
         y_raw = [y for y, m in zip(y_raw, valid_mask, strict=True) if m]
 
-        if len(X) < MIN_SAMPLES_PER_CLASS * 3:
+        if len(x_mat) < MIN_SAMPLES_PER_CLASS * 3:
             msg = (
-                f"Insufficient training data: {len(X)} samples after filtering. "
+                f"Insufficient training data: {len(x_mat)} samples after filtering. "
                 f"Need at least {MIN_SAMPLES_PER_CLASS * 3}. "
                 "Run scripts/build_anchor_set.py to generate more labeled data."
             )
@@ -207,14 +202,14 @@ class EmbeddingEnsemble:
         counts = Counter(y_raw)
         valid_classes = {cls for cls, cnt in counts.items() if cnt >= MIN_SAMPLES_PER_CLASS}
         final_mask = [label in valid_classes for label in y_raw]
-        X = X[final_mask]
+        x_mat = x_mat[final_mask]
         y_raw = [y for y, m in zip(y_raw, final_mask, strict=True) if m]
 
         logger.info(
             "training_data_prepared",
-            n_samples=len(X),
+            n_samples=len(x_mat),
             classes=dict(Counter(y_raw)),
-            embedding_dim=X.shape[1],
+            embedding_dim=x_mat.shape[1],
         )
 
         # Encode labels
@@ -231,8 +226,11 @@ class EmbeddingEnsemble:
         for name, clf in classifiers:
             try:
                 logger.info("training_classifier", name=name)
-                clf.fit(X, y)
-                scores = cross_val_score(clf, X, y, cv=min(5, min(counts.values())), scoring="f1_macro")
+                clf.fit(x_mat, y)
+                n_cv = min(5, *counts.values())
+                scores = cross_val_score(
+                    clf, x_mat, y, cv=n_cv, scoring="f1_macro"
+                )
                 cv_results[name] = {
                     "cv_f1_macro_mean": round(float(scores.mean()), 3),
                     "cv_f1_macro_std": round(float(scores.std()), 3),
@@ -244,8 +242,8 @@ class EmbeddingEnsemble:
                     cv_f1_std=cv_results[name]["cv_f1_macro_std"],
                 )
                 trained.append((name, clf))
-            except Exception:
-                logger.exception("classifier_training_failed", name=name)
+            except (ValueError, RuntimeError) as exc:
+                logger.warning("classifier_training_failed", name=name, error=str(exc))
 
         self._classifiers = trained
         self._is_trained = True
@@ -292,8 +290,8 @@ class EmbeddingEnsemble:
             try:
                 proba = clf.predict_proba(x)[0]  # shape: (n_classes,)
                 all_probas.append(proba)
-            except Exception:
-                logger.warning("classifier_predict_failed", name=name)
+            except (ValueError, AttributeError) as exc:
+                logger.warning("classifier_predict_failed", name=name, error=str(exc))
 
         if not all_probas:
             from causaganha.analysis.bayesian_fusion import uniform_prior  # noqa: PLC0415
@@ -303,7 +301,7 @@ class EmbeddingEnsemble:
         avg_proba = np.mean(all_probas, axis=0)  # (n_classes,)
 
         # Map classifier classes back to OUTCOME_KEYS
-        dist: dict[str, float] = {k: 0.0 for k in OUTCOME_KEYS}
+        dist: dict[str, float] = dict.fromkeys(OUTCOME_KEYS, 0.0)
         for i, cls_label in enumerate(self._classes):
             if cls_label in dist:
                 dist[cls_label] = float(avg_proba[i])
@@ -350,8 +348,8 @@ class EmbeddingEnsemble:
                 all_probas.append(proba)
                 top_class_idx = int(np.argmax(proba))
                 individual_tops.append(self._classes[top_class_idx])
-            except Exception:
-                logger.warning("classifier_predict_failed", name=name)
+            except (ValueError, AttributeError) as exc:
+                logger.warning("classifier_predict_failed", name=name, error=str(exc))
 
         if not all_probas:
             from causaganha.analysis.bayesian_fusion import uniform_prior  # noqa: PLC0415
@@ -365,7 +363,7 @@ class EmbeddingEnsemble:
 
         # Build averaged distribution
         avg_proba = np.mean(all_probas, axis=0)
-        dist: dict[str, float] = {k: 0.0 for k in OUTCOME_KEYS}
+        dist: dict[str, float] = dict.fromkeys(OUTCOME_KEYS, 0.0)
         for i, cls_label in enumerate(self._classes):
             if cls_label in dist:
                 dist[cls_label] = float(avg_proba[i])
@@ -399,12 +397,13 @@ class EmbeddingEnsemble:
             "classifiers": self._classifiers,
             "classes": self._classes,
             "is_trained": self._is_trained,
+            "label_encoder": getattr(self, "_label_encoder", None),
         }
         joblib.dump(payload, save_path)
         logger.info("ensemble_saved", path=str(save_path), n_classifiers=len(self._classifiers))
 
     @classmethod
-    def load(cls, path: Path | str = DEFAULT_ENSEMBLE_PATH) -> "EmbeddingEnsemble":
+    def load(cls, path: Path | str = DEFAULT_ENSEMBLE_PATH) -> EmbeddingEnsemble:
         """Load a previously trained ensemble from disk.
 
         Args:
@@ -431,6 +430,8 @@ class EmbeddingEnsemble:
         instance._classifiers = payload["classifiers"]
         instance._classes = payload["classes"]
         instance._is_trained = payload["is_trained"]
+        if payload.get("label_encoder") is not None:
+            instance._label_encoder = payload["label_encoder"]
 
         logger.info(
             "ensemble_loaded",
@@ -445,10 +446,8 @@ class EmbeddingEnsemble:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _parse_embeddings(df: "object") -> np.ndarray:
+    def _parse_embeddings(df: object) -> np.ndarray:
         """Parse embedding column from parquet DataFrame to float32 matrix."""
-        import pandas as pd  # noqa: PLC0415
-
         rows = []
         for val in df["embedding"]:  # type: ignore[union-attr]
             if isinstance(val, bytes):

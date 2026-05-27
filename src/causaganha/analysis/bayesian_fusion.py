@@ -28,8 +28,10 @@ OUTCOME_KEYS: list[str] = [
     "unknown",
 ]
 
+WinnerPolo = Literal["A", "P", "draw", "unknown"]
+
 # Maps outcome to which polo wins
-OUTCOME_TO_POLO: dict[str, str] = {
+OUTCOME_TO_POLO: dict[str, WinnerPolo] = {
     "procedente": "A",            # Polo Ativo (autor) ganha
     "parcialmente procedente": "A",  # Polo Ativo ganha parcialmente
     "improcedente": "P",          # Polo Passivo (réu) ganha
@@ -51,7 +53,7 @@ def uniform_prior() -> OutcomeDistribution:
     are available.
     """
     p = 1.0 / len(OUTCOME_KEYS)
-    return {k: p for k in OUTCOME_KEYS}
+    return dict.fromkeys(OUTCOME_KEYS, p)
 
 
 def normalize(dist: OutcomeDistribution) -> OutcomeDistribution:
@@ -87,7 +89,7 @@ def fuse(
 
     Args:
         sources: List of (distribution, weight) tuples. Weight is
-            typically the classifier's confidence score (0.0–1.0).
+            typically the classifier's confidence score (0.0-1.0).
             An empty list returns the prior.
         prior: Starting distribution. Defaults to uniform_prior().
 
@@ -136,7 +138,7 @@ def fuse(
 def get_winner_polo(
     distribution: OutcomeDistribution,
     min_confidence: float = 0.50,
-) -> Literal["A", "P", "draw", "unknown"]:
+) -> WinnerPolo:
     """Map a posterior distribution to a winning polo.
 
     Args:
@@ -172,7 +174,7 @@ def get_winner_polo(
         polo=polo,
         confidence=round(best_prob, 3),
     )
-    return polo  # type: ignore[return-value]
+    return polo
 
 
 def posterior_confidence(distribution: OutcomeDistribution) -> float:
@@ -185,7 +187,7 @@ def posterior_confidence(distribution: OutcomeDistribution) -> float:
         distribution: Posterior outcome distribution.
 
     Returns:
-        Maximum probability (0.0–1.0).
+        Maximum probability (0.0-1.0).
     """
     if not distribution:
         return 0.0
@@ -224,7 +226,7 @@ def heuristic_distribution(outcome: str, confidence: float) -> OutcomeDistributi
 
     Args:
         outcome: The matched outcome string (must be in OUTCOME_KEYS).
-        confidence: Confidence score (0.0–1.0).
+        confidence: Confidence score (0.0-1.0).
 
     Returns:
         OutcomeDistribution with ``confidence`` on the matched outcome
@@ -237,6 +239,6 @@ def heuristic_distribution(outcome: str, confidence: float) -> OutcomeDistributi
     remaining = max(1.0 - confidence, _EPS)
     other_p = remaining / len(other_keys)
 
-    dist: OutcomeDistribution = {k: other_p for k in other_keys}
+    dist: OutcomeDistribution = dict.fromkeys(other_keys, other_p)
     dist[outcome] = confidence
     return dist

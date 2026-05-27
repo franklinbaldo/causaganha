@@ -22,6 +22,6 @@ SELECT
   ROUND(100.0 * win_rate, 1) AS win_rate
 FROM lawyer_ratings
 WHERE tribunal = 'TJRO'
-  AND total_cases >= 1
+  AND total_cases >= 20
 ORDER BY rating DESC;
 ```

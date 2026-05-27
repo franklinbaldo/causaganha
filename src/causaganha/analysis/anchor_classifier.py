@@ -40,6 +40,9 @@ logger = structlog.get_logger()
 # Default location of the anchor set relative to project root
 DEFAULT_ANCHOR_PATH = Path("data/anchor_set.parquet")
 
+# Number of pending anchors to accumulate before flushing to parquet
+_FLUSH_THRESHOLD = 10
+
 # Columns expected in anchor_set.parquet
 ANCHOR_SCHEMA = {
     "numero_processo": str,
@@ -74,6 +77,7 @@ class AnchorClassifier:
         k: int = 7,
         min_sim: float = 0.60,
     ) -> None:
+        """Initialize classifier with anchor set path and k-NN parameters."""
         self.anchor_path = Path(anchor_path)
         self.k = k
         self.min_sim = min_sim
@@ -81,6 +85,8 @@ class AnchorClassifier:
         self._embeddings: np.ndarray | None = None   # (N, D) float32
         self._labels: list[str] | None = None         # len N
         self._confidences: list[float] | None = None  # len N
+        self._loaded_processes: set[str] = set()      # for in-memory dedup
+        self._pending_anchors: list[dict] = []        # batched before flush
         self._loaded = False
 
     # ------------------------------------------------------------------
@@ -121,10 +127,11 @@ class AnchorClassifier:
         self._embeddings = embeddings                         # (N, D)
         self._labels = df["outcome"].tolist()
         self._confidences = df["confidence"].tolist()
+        self._loaded_processes = set(df["numero_processo"].tolist())
         self._loaded = True
 
     @staticmethod
-    def _parse_embeddings(df: "pd.DataFrame") -> np.ndarray:
+    def _parse_embeddings(df: pd.DataFrame) -> np.ndarray:
         """Convert embedding column to a float32 matrix.
 
         Supports embeddings stored as:
@@ -167,9 +174,9 @@ class AnchorClassifier:
         if not self._loaded:
             self.load()
 
-        assert self._embeddings is not None
-        assert self._labels is not None
-        assert self._confidences is not None
+        if self._embeddings is None or self._labels is None or self._confidences is None:
+            msg = "Anchor set failed to load — embeddings/labels/confidences are None."
+            raise RuntimeError(msg)
 
         # Cosine similarities via matrix multiply (embeddings already L2-normed)
         q = query_embedding / (np.linalg.norm(query_embedding) + 1e-9)
@@ -194,8 +201,8 @@ class AnchorClassifier:
         valid_idx = top_idx[valid_mask]
         valid_sims = top_sims[valid_mask]
 
-        # Weighted vote: weight = similarity × anchor_confidence
-        vote_weights: dict[str, float] = {k: 0.0 for k in OUTCOME_KEYS}
+        # Weighted vote: weight = similarity * anchor_confidence
+        vote_weights: dict[str, float] = dict.fromkeys(OUTCOME_KEYS, 0.0)
         for idx, sim in zip(valid_idx, valid_sims, strict=True):
             label = self._labels[idx]
             anchor_conf = self._confidences[idx]
@@ -218,7 +225,7 @@ class AnchorClassifier:
         """Async wrapper for classify() — runs in thread pool."""
         import asyncio  # noqa: PLC0415
 
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         return await loop.run_in_executor(None, self.classify, query_embedding)
 
     # ------------------------------------------------------------------
@@ -272,6 +279,11 @@ class AnchorClassifier:
             )
             return False
 
+        # Skip if already in-memory (dedup by case number)
+        if numero_processo in self._loaded_processes:
+            logger.debug("anchor_rejected_duplicate", numero_processo=numero_processo)
+            return False
+
         # Add to in-memory arrays
         if self._loaded and self._embeddings is not None:
             self._embeddings = np.vstack([
@@ -282,16 +294,20 @@ class AnchorClassifier:
             self._labels.append(outcome)
             self._confidences = self._confidences or []
             self._confidences.append(confidence)
+            self._loaded_processes.add(numero_processo)
 
-        # Persist to parquet
-        self._append_to_parquet(
-            numero_processo=numero_processo,
-            texto_truncado=texto_truncado,
-            embedding=embedding,
-            outcome=outcome,
-            confidence=confidence,
-            annotation_src=annotation_src,
-        )
+        # Queue for batched parquet write
+        self._pending_anchors.append({
+            "numero_processo": numero_processo,
+            "texto_truncado": texto_truncado,
+            "embedding": embedding.astype(np.float32).tobytes(),
+            "outcome": outcome,
+            "confidence": confidence,
+            "annotation_src": annotation_src,
+        })
+
+        if len(self._pending_anchors) >= _FLUSH_THRESHOLD:
+            self.flush()
 
         logger.info(
             "anchor_added",
@@ -302,39 +318,38 @@ class AnchorClassifier:
         )
         return True
 
-    def _append_to_parquet(
-        self,
-        numero_processo: str,
-        texto_truncado: str,
-        embedding: np.ndarray,
-        outcome: str,
-        confidence: float,
-        annotation_src: str,
-    ) -> None:
-        """Append a single row to the anchor parquet file."""
+    def flush(self) -> int:
+        """Write all pending anchors to the parquet file.
+
+        Called automatically when the pending queue reaches _FLUSH_THRESHOLD.
+        Call explicitly before process exit to ensure all anchors are saved.
+
+        Returns:
+            Number of anchors written.
+        """
+        if not self._pending_anchors:
+            return 0
+
         import pandas as pd  # noqa: PLC0415
 
-        new_row = pd.DataFrame([{
-            "numero_processo": numero_processo,
-            "texto_truncado": texto_truncado,
-            "outcome": outcome,
-            "confidence": confidence,
-            "annotation_src": annotation_src,
-            "embedding": embedding.astype(np.float32).tobytes(),
-        }])
+        pending = self._pending_anchors
+        self._pending_anchors = []
+
+        new_rows = pd.DataFrame(pending)
 
         if self.anchor_path.exists():
             existing = pd.read_parquet(self.anchor_path)
-            # Deduplicate by numero_processo
-            existing = existing[
-                existing["numero_processo"] != numero_processo
-            ]
-            combined = pd.concat([existing, new_row], ignore_index=True)
+            # Deduplicate: drop existing rows for any case number being re-added
+            new_ids = set(new_rows["numero_processo"])
+            existing = existing[~existing["numero_processo"].isin(new_ids)]
+            combined = pd.concat([existing, new_rows], ignore_index=True)
         else:
             self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
-            combined = new_row
+            combined = new_rows
 
         combined.to_parquet(self.anchor_path, index=False)
+        logger.info("anchor_set_flushed", n_written=len(pending), total=len(combined))
+        return len(pending)
 
     @property
     def n_anchors(self) -> int:
