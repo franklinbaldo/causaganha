@@ -1782,9 +1782,10 @@ def consolidate_tribunal_year(
 
         async def _run_upload_phase() -> None:
             async with create_upload_client(ia_auth or "") as client:
-                results = await asyncio.gather(
-                    *[
-                        _export_and_upload_table(
+                results = []
+                for table_name in TABLES:
+                    try:
+                        res = await _export_and_upload_table(
                             table_name,
                             con,
                             output_dir,
@@ -1794,10 +1795,9 @@ def consolidate_tribunal_year(
                             dry_run=dry_run,
                             circuit_breaker=ia_circuit_breaker,
                         )
-                        for table_name in TABLES
-                    ],
-                    return_exceptions=True,
-                )
+                        results.append(res)
+                    except Exception as exc:
+                        results.append(exc)
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):
                         logger.exception(
@@ -1967,12 +1967,12 @@ def consolidate_date(
         ia_circuit_breaker = CircuitBreaker(threshold=5)
 
         async def _run_upload_phase() -> None:
-            """Phase 3+4: parallel Parquet export/upload then marker upload."""
+            """Phase 3+4: sequential Parquet export/upload then marker upload."""
             async with create_upload_client(ia_auth or "") as client:
-                # Parallel export + upload with asyncio.gather
-                results = await asyncio.gather(
-                    *[
-                        _export_and_upload_table(
+                results = []
+                for table_name in TABLES:
+                    try:
+                        res = await _export_and_upload_table(
                             table_name,
                             con,
                             output_dir,
@@ -1982,10 +1982,9 @@ def consolidate_date(
                             dry_run=dry_run,
                             circuit_breaker=ia_circuit_breaker,
                         )
-                        for table_name in TABLES
-                    ],
-                    return_exceptions=True,
-                )
+                        results.append(res)
+                    except Exception as exc:
+                        results.append(exc)
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):
                         logger.exception("table_export_error", table=table_name, error=str(result))
