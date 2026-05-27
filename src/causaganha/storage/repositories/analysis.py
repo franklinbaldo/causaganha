@@ -39,9 +39,10 @@ def store_analysis(
             decision_type, outcome, judge_name,
             decision_reasoning, confidence_score,
             analysis_method, rag_confidence, rag_votes_json,
-            model_used, model_provider
+            model_used, model_provider,
+            recorrente_polo, dispositivo_text
         ) VALUES (
-            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+            ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
         )
         ON CONFLICT (intimation_id) DO UPDATE SET
             winner_lawyer_oab = EXCLUDED.winner_lawyer_oab,
@@ -50,7 +51,9 @@ def store_analysis(
             analysis_method = EXCLUDED.analysis_method,
             rag_confidence = EXCLUDED.rag_confidence,
             rag_votes_json = EXCLUDED.rag_votes_json,
-            model_used = EXCLUDED.model_used
+            model_used = EXCLUDED.model_used,
+            recorrente_polo = EXCLUDED.recorrente_polo,
+            dispositivo_text = EXCLUDED.dispositivo_text
         """,
         [
             intimation_id,
@@ -70,6 +73,8 @@ def store_analysis(
             rag_votes_json,
             model_used,
             model_provider,
+            analysis.recorrente_polo,
+            analysis.dispositivo_text,
         ],
     )
 
@@ -77,7 +82,17 @@ def store_analysis(
 # Outcomes that actually produce a winner/loser and therefore can update
 # OpenSkill ratings. "unknown" and non-ratable outcomes are excluded so the
 # rating isn't polluted by cases the classifier couldn't resolve.
-RATABLE_OUTCOMES = ("procedente", "parcialmente procedente", "improcedente", "acordo")
+# Appeal outcomes (provido/não provido) are included; recurso_resolver.py
+# resolves the actual winner from recorrente_polo before calling OpenSkill.
+RATABLE_OUTCOMES = (
+    "procedente",
+    "parcialmente procedente",
+    "improcedente",
+    "acordo",
+    "provido",
+    "não provido",
+    "parcialmente provido",
+)
 
 # Decision types that we do NOT feed into the rating system. Interim orders
 # (decisões interlocutórias) are procedural and rarely mark a definitive

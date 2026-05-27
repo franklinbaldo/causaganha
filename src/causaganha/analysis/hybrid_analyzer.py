@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 import structlog
 
 from causaganha.analysis.benchmark_store import BenchmarkStore
+from causaganha.analysis.dispositivo_extractor import extract_dispositivo
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 from causaganha.analysis.llm_analyzer import LLMAnalyzer
 from causaganha.analysis.models import DecisionAnalysis
@@ -116,8 +117,21 @@ class HybridAnalyzer:
                 confidence=kw_confidence,
             )
 
+        # Extract the operative section (dispositivo) to reduce token cost
+        # and improve accuracy. Falls back to the full text if not found.
+        dispositivo = extract_dispositivo(text)
+        effective_text = dispositivo if dispositivo is not None else text
+
+        logger.debug(
+            "dispositivo_extraction",
+            intimation_id=intimation_id,
+            found=dispositivo is not None,
+            effective_len=len(effective_text),
+        )
+
+        # Step 1: Try RAG analysis (cheap)
         try:
-            rag_result = await self.rag.analyze_text(text, intimation_id)
+            rag_result = await self.rag.analyze_text(effective_text, intimation_id)
 
             logger.info(
                 "rag_analysis_complete",
@@ -130,6 +144,7 @@ class HybridAnalyzer:
             if rag_result.rag_confidence and rag_result.rag_confidence >= self.threshold:
                 # High confidence RAG result - use it
                 rag_result.analysis_method = "rag"
+                rag_result.dispositivo_text = dispositivo
 
                 logger.info(
                     "hybrid_using_rag",
@@ -140,7 +155,7 @@ class HybridAnalyzer:
 
                 return rag_result
 
-            # Step 3: Low confidence - use LLM fallback (analyzing same text)
+            # Step 3: Low confidence - use LLM fallback (on dispositivo only)
             logger.info(
                 "hybrid_triggering_llm_fallback",
                 intimation_id=intimation_id,
@@ -149,12 +164,13 @@ class HybridAnalyzer:
             )
 
             try:
-                llm_result, model_used = await self.llm.analyze_text(text, intimation_id)
+                llm_result, model_used = await self.llm.analyze_text(effective_text, intimation_id)
 
                 # Preserve RAG information in the result
                 llm_result.analysis_method = "hybrid"
                 llm_result.rag_confidence = rag_result.rag_confidence
                 llm_result.rag_votes = rag_result.rag_votes
+                llm_result.dispositivo_text = dispositivo
 
                 self.benchmark.record(
                     text=text,
@@ -191,10 +207,14 @@ class HybridAnalyzer:
                 error=str(e),
             )
 
-            # RAG failed — try LLM directly
-            logger.info("hybrid_using_llm_due_to_rag_failure", intimation_id=intimation_id)
-            llm_result, model_used = await self.llm.analyze_text(text, intimation_id)
+            # RAG failed — try LLM with effective_text (dispositivo or full)
+            logger.info(
+                "hybrid_using_llm_due_to_rag_failure",
+                intimation_id=intimation_id,
+            )
+            llm_result, model_used = await self.llm.analyze_text(effective_text, intimation_id)
             llm_result.analysis_method = "hybrid"
+            llm_result.dispositivo_text = dispositivo
             self.benchmark.record(
                 text=text,
                 outcome=llm_result.outcome,

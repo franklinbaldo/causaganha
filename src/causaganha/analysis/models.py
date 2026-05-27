@@ -16,6 +16,13 @@ class Outcome(StrEnum):
     EXTINTO_SEM_MERITO = "extinto sem mérito"
     UNKNOWN = "unknown"  # Fallback
 
+    # Appeal (recurso) outcomes — used in acórdãos from TRF/TJ/STJ/STF
+    PROVIDO = "provido"
+    NAO_PROVIDO = "não provido"
+    PARCIALMENTE_PROVIDO = "parcialmente provido"
+    NAO_CONHECIDO = "não conhecido"
+    PREJUDICADO = "prejudicado"
+
 
 class DecisionType(StrEnum):
     """Types of judicial decisions."""
@@ -211,6 +218,16 @@ class DecisionAnalysis(BaseModel):
     rag_votes: dict[str, int] | None = Field(
         default=None,
         description="Vote distribution from k-NN (if RAG was used)",
+    )
+
+    # Appeal-specific fields
+    recorrente_polo: str | None = Field(
+        default=None,
+        description="Which polo filed the appeal: 'A' (autor) or 'P' (réu)",
+    )
+    dispositivo_text: str | None = Field(
+        default=None,
+        description="Extracted operative section (dispositivo) of the decision",
     )
 
     @field_validator("decision_type", "outcome", mode="before")
