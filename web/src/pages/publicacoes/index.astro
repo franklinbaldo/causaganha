@@ -1,118 +1,45 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import Header from '../../components/Header.astro';
-import Breadcrumbs from '../../components/Breadcrumbs.astro';
-import DatabaseIcon from '../../components/icons/DatabaseIcon.astro';
-import TribunalView from '../../components/TribunalView.svelte';
-import IASearchBar from '../../components/IASearchBar.svelte';
 import PublicationSearch from '../../components/PublicationSearch.svelte';
-import { loadBuildTimeData } from '../../lib/buildTimeData';
+import { readJson } from '../../lib/readJson';
 
-const data = loadBuildTimeData();
-const iaSnapshot = data.iaSnapshot;
+const iaSnapshot = readJson<any>('ia-snapshot.json');
+const snap = iaSnapshot?.summary ?? {};
+const totalZips: number = snap.total_zips ?? 0;
+const totalTribunals: number = snap.tribunals_with_data ?? snap.tribunals_total ?? 95;
 
-const snap = iaSnapshot?.summary;
-const latestDateRaw = snap?.latest_collection_date;
-const latestDate = latestDateRaw
-  ? new Date(latestDateRaw).toLocaleDateString('pt-BR', { day: '2-digit', month: 'short', year: 'numeric' })
-  : '–';
-const snapshotTime = iaSnapshot?.generated_at;
+function fmt(n: number): string {
+  return n.toLocaleString('pt-BR');
+}
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
   title="Publicações — CausaGanha"
-  description="Publicações judiciais brasileiras arquivadas no Internet Archive."
+  description="Busca direta nas publicações do DJEN arquivadas no Internet Archive. Cole um processo CNJ, OAB, nome de parte ou texto livre."
+  fullWidth={true}
+  showNetworkBanner={false}
 >
-  <Header variant="page" title="CausaGanha" tile="publicacoes">
-    <DatabaseIcon slot="icon" />
-    <p slot="subtitle" class="header-subtitle">
-      {snap ? `${(snap.total_zips ?? 0).toLocaleString('pt-BR')} ZIPs · ${snap.tribunals_with_data ?? 0} tribunais · última coleta: ${latestDate}` : 'Snapshot indisponível'}
-    </p>
-  </Header>
 
-  <div class="container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Publicações' }
-    ]} />
-
-    <!-- CSS-only mode switch — same radio-tab pattern as TribunalDetail.svelte -->
-    <div class="mode-tabs">
-      <input type="radio" id="mode-arquivo" name="pub_mode" class="mode-tab-input" checked />
-      <label for="mode-arquivo" class="mode-tab-label" role="tab" aria-controls="panel-mode-arquivo" aria-selected="true">
-        Arquivo
-        <span class="mode-tab-desc">Internet Archive</span>
-      </label>
-      <div id="panel-mode-arquivo" role="tabpanel" aria-labelledby="mode-arquivo" class="mode-tab-content archive-section">
-        <div class="overview-card">
-          <h2 class="overview-title">Visão Geral do Arquivo</h2>
-          <TribunalView
-            client:visible
-            initialPipeline={data?.cacheData?.today?.pipeline}
-            initialProgressByYear={data?.progressByYear}
-            initialVolume={data?.volume}
-            initialIaSnapshot={data?.iaSnapshot}
-          />
-        </div>
-
-        <section class="explorer-section">
-          <h3 class="explorer-heading">Buscar ZIPs por tribunal ou ano</h3>
-          <p class="explorer-description">
-            Busque diretamente nos buckets do Internet Archive por tribunal ou ano.
-          </p>
-          <IASearchBar client:visible />
-        </section>
-      </div>
-
-      <input type="radio" id="mode-live" name="pub_mode" class="mode-tab-input" />
-      <label for="mode-live" class="mode-tab-label" role="tab" aria-controls="panel-mode-live" aria-selected="false">
-        Ao vivo
-        <span class="mode-tab-desc">API pública do DJEN</span>
-      </label>
-      <div id="panel-mode-live" role="tabpanel" aria-labelledby="mode-live" class="mode-tab-content live-search-section">
-        <p class="section-description">
-          Pesquise publicações diretamente na API pública do CNJ por OAB, número de processo, parte, advogado ou texto livre.
-        </p>
-        <PublicationSearch client:visible />
-      </div>
+  <!-- ═══════════ PAGE HEAD ═══════════ -->
+  <section class="page-head" aria-label="Publicações">
+    <div class="wrap wrap--wide">
+      <span class="kicker">§ Publicações · arquivo de busca</span>
+      <h1>Procurar uma <em>intimação,</em><br/>uma sentença, um edital.</h1>
+      <p class="lede">
+        Busca direta nas publicações do DJEN arquivadas no Internet Archive.
+        {totalZips > 0 ? fmt(totalZips) + ' documentos' : 'Documentos'} de {totalTribunals} tribunais desde 2018.
+        Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte, ou texto livre.
+      </p>
     </div>
+  </section>
 
-    <footer class="page-footer">
-      <small class="footer-text">Dados do DJEN arquivados no Internet Archive.
-        {snapshotTime && <span> Instantâneo: {new Date(snapshotTime).toLocaleString('pt-BR', { timeZone: 'UTC', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })} UTC</span>}
-      </small>
-    </footer>
-  </div>
+  <!-- ═══════════ SEARCH ═══════════ -->
+  <section style="padding: var(--s-7) 0 var(--s-9);">
+    <div class="wrap wrap--wide">
+      <PublicationSearch client:load />
+    </div>
+  </section>
+
 </Layout>
-
-<script>
-  // Activate the "arquivo" tab when navigating with #arquivo hash, and keep
-  // aria-selected in sync with the underlying radio inputs so screen readers
-  // announce the current tab correctly.
-  function syncAriaSelected() {
-    const inputs = ['mode-live', 'mode-arquivo'];
-    for (const id of inputs) {
-      const input = document.getElementById(id) as HTMLInputElement | null;
-      const label = document.querySelector(`label[for="${id}"]`);
-      if (input && label) {
-        label.setAttribute('aria-selected', input.checked ? 'true' : 'false');
-      }
-    }
-  }
-
-  function setupModeTabs() {
-    if (window.location.hash === '#ao-vivo') {
-      const input = document.getElementById('mode-live') as HTMLInputElement | null;
-      if (input) input.checked = true;
-    }
-    syncAriaSelected();
-    for (const id of ['mode-live', 'mode-arquivo']) {
-      const input = document.getElementById(id);
-      if (input) input.addEventListener('change', syncAriaSelected);
-    }
-  }
-  setupModeTabs();
-  document.addEventListener('astro:after-swap', setupModeTabs);
-</script>
