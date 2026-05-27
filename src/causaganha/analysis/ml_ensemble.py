@@ -204,6 +204,8 @@ class EmbeddingEnsemble:
         final_mask = [label in valid_classes for label in y_raw]
         x_mat = x_mat[final_mask]
         y_raw = [y for y, m in zip(y_raw, final_mask, strict=True) if m]
+        # Recompute counts on the filtered set so n_cv reflects actual class sizes
+        counts = Counter(y_raw)
 
         logger.info(
             "training_data_prepared",

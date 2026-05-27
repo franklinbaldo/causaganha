@@ -12,13 +12,14 @@ Measures:
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import json
 import os
@@ -270,10 +271,7 @@ def analyze_results(metrics: list[StepMetrics]) -> None:
 def main() -> int:
     """Run full pipeline with performance measurement."""
     # Check credentials
-    missing = []
-    for key in ["IAS3_ACCESS_KEY", "IAS3_SECRET_KEY"]:
-        if not os.getenv(key):
-            missing.append(key)
+    missing = [key for key in ["IAS3_ACCESS_KEY", "IAS3_SECRET_KEY"] if not os.getenv(key)]
 
     if missing:
         logger.error("Missing credentials", missing_keys=missing)

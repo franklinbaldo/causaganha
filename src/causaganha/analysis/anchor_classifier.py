@@ -294,7 +294,10 @@ class AnchorClassifier:
             self._labels.append(outcome)
             self._confidences = self._confidences or []
             self._confidences.append(confidence)
-            self._loaded_processes.add(numero_processo)
+
+        # Track regardless of load state — prevents same-session duplicates
+        # even when the anchor set hasn't been loaded yet (e.g. bootstrap runs)
+        self._loaded_processes.add(numero_processo)
 
         # Queue for batched parquet write
         self._pending_anchors.append({

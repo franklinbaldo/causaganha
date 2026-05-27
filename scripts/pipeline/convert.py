@@ -76,14 +76,14 @@ def get_unconverted_zips() -> list[dict]:
                 )
                 if list_result.returncode == 0:
                     for filename in list_result.stdout.splitlines():
-                        filename = filename.strip()
-                        if filename.endswith(".zip"):
+                        fname = filename.strip()
+                        if fname.endswith(".zip"):
                             # djen-2026-01-27-TJSP.zip
-                            zips[filename] = item_id
-                        elif filename.endswith(".parquet"):
+                            zips[fname] = item_id
+                        elif fname.endswith(".parquet"):
                             # djen-2026-01-27-TJSP-comunicacoes.parquet
                             # Extract base: djen-2026-01-27-TJSP
-                            base = "-".join(filename.replace(".parquet", "").split("-")[:-1])
+                            base = "-".join(fname.replace(".parquet", "").split("-")[:-1])
                             parquets.add(base + ".zip")
             except subprocess.TimeoutExpired:
                 continue
@@ -165,28 +165,28 @@ def convert_to_parquet(records: list[dict], output_dir: Path, base_name: str) ->
         )
 
         # Extract lawyers
-        for adv in record.get("advogados", []) or []:
-            if isinstance(adv, dict):
-                advogados.append(
-                    {
-                        "comunicacao_id": record.get("id"),
-                        "nome": adv.get("nome"),
-                        "oab": get_field(adv, FIELD_NUMERO_OAB),
-                        "uf_oab": get_field(adv, FIELD_UF_OAB),
-                    },
-                )
+        advogados.extend(
+            {
+                "comunicacao_id": record.get("id"),
+                "nome": adv.get("nome"),
+                "oab": get_field(adv, FIELD_NUMERO_OAB),
+                "uf_oab": get_field(adv, FIELD_UF_OAB),
+            }
+            for adv in record.get("advogados", []) or []
+            if isinstance(adv, dict)
+        )
 
         # Extract parties
-        for parte in record.get("partes", []) or []:
-            if isinstance(parte, dict):
-                partes.append(
-                    {
-                        "comunicacao_id": record.get("id"),
-                        "nome": parte.get("nome"),
-                        "tipo": parte.get("tipo"),
-                        "polo": parte.get("polo"),
-                    },
-                )
+        partes.extend(
+            {
+                "comunicacao_id": record.get("id"),
+                "nome": parte.get("nome"),
+                "tipo": parte.get("tipo"),
+                "polo": parte.get("polo"),
+            }
+            for parte in record.get("partes", []) or []
+            if isinstance(parte, dict)
+        )
 
     # Write Parquet files using DuckDB
     con = duckdb.connect()
@@ -270,8 +270,8 @@ def convert_data(target_date: str | None = None, max_items: int = 20) -> dict:
 
         logger.info("converting", zip=zip_name, item_id=item_id)
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmpdir = Path(tmpdir)
+        with tempfile.TemporaryDirectory() as tmpdir_str:
+            tmpdir = Path(tmpdir_str)
             zip_path = tmpdir / zip_name
 
             # Download ZIP

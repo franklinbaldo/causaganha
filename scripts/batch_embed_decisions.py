@@ -3,13 +3,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import json
 import os
@@ -27,10 +28,13 @@ from rich.table import Table
 console = Console()
 
 
-CHUNK_INSTRUCTION = """Analise esta parte de uma decisão judicial brasileira e determine qual polo venceu:
-- Polo Ativo (autor/requerente/exequente)
-- Polo Passivo (réu/requerido/executado)
-Considere termos como: procedente, improcedente, julgo, condeno, defiro, indefiro, provimento, negado."""
+CHUNK_INSTRUCTION = (
+    "Analise esta parte de uma decisão judicial brasileira e determine qual polo venceu:\n"
+    "- Polo Ativo (autor/requerente/exequente)\n"
+    "- Polo Passivo (réu/requerido/executado)\n"
+    "Considere termos como: procedente, improcedente, julgo, condeno, defiro, indefiro,"
+    " provimento, negado."
+)
 
 
 def chunk_text_with_prefix(text: str, chunk_size: int = 500, overlap: int = 100) -> list[str]:
@@ -301,8 +305,9 @@ def main() -> None:
                                 },
                             )
 
+            n = len(embeddings_by_id)
             console.print(
-                f"[green]✓ Processados embeddings para {len(embeddings_by_id):,} decisões[/green]\n",
+                f"[green]✓ Processados embeddings para {n:,} decisões[/green]\n",
             )
 
             # Salvar embeddings estruturados

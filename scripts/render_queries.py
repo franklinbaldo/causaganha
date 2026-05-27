@@ -22,15 +22,16 @@ Data sources available in SQL:
 
 from __future__ import annotations
 
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import json
 import re
@@ -93,7 +94,7 @@ def ensure_manifest() -> Path:
     return LOCAL_MANIFEST
 
 
-def run_query(con: duckdb.DuckDBPyConnection, sql: str, fmt: str) -> Any:
+def run_query(con: duckdb.DuckDBPyConnection, sql: str, fmt: str) -> object:
     """Execute SQL and return serializable data in the requested format."""
     rows = con.execute(sql).fetchall()
     columns = [d[0] for d in con.description]
@@ -108,7 +109,7 @@ def run_query(con: duckdb.DuckDBPyConnection, sql: str, fmt: str) -> Any:
     return [dict(zip(columns, row, strict=False)) for row in rows]
 
 
-def json_default(obj: Any) -> str:
+def json_default(obj: object) -> str:
     """Serialize non-JSON types (date, datetime) as ISO strings."""
     if hasattr(obj, "isoformat"):
         return obj.isoformat()
@@ -163,7 +164,8 @@ def render_all() -> int:
             encoding="utf-8",
         )
         print(
-            f"  → {output_path.relative_to(PUBLIC_DIR.parent.parent)} ({output_path.stat().st_size:,} bytes)"
+            f"  → {output_path.relative_to(PUBLIC_DIR.parent.parent)}"
+            f" ({output_path.stat().st_size:,} bytes)"
         )
         count += 1
 

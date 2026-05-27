@@ -3,13 +3,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 from datetime import UTC, datetime, timedelta
 
@@ -42,7 +43,8 @@ def create_sample_data() -> None:
                     '{tribunal}',
                     'Intimacao',
                     '1ª Vara Cível',
-                    'Fica V. Sa. intimado para tomar ciência da sentença proferida nos autos. Advogado autor venceu.',
+                    'Fica V. Sa. intimado para tomar ciência da sentença proferida nos autos.'
+                    ' Advogado autor venceu.',
                     'https://example.com/doc/{intimation_id}',
                     'Sentença',
                     'Procedimento Comum Cível',

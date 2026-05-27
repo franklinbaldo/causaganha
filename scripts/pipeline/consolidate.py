@@ -132,10 +132,10 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
     by_date: dict[str, list[dict[str, Any]]] = {}
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("tribunal"):
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("tribunal"):
                 continue
-            parts = line.split(",")
+            parts = stripped_line.split(",")
             if len(parts) < 3:
                 continue
             tribunal = parts[0].upper()
@@ -321,7 +321,7 @@ def fetch_consolidation_candidates(
         con = duckdb.connect()
         try:
             df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
-            df = pd.DataFrame(df_data)  # noqa: F841
+            pd.DataFrame(df_data)
             query = """
                 SELECT date
                 FROM df
@@ -385,6 +385,7 @@ class CheckpointManager:
     """Manages local checkpoint state for backfill progress."""
 
     def __init__(self, filepath: Path) -> None:
+        """Initialize with checkpoint file path."""
         self.filepath = filepath
 
     def load(self) -> str | None:
@@ -504,16 +505,16 @@ def list_zips_for_date(
     if sync_manifest is not None:
         entries = sync_manifest.get(date, [])
         present_count = len(entries)  # includes both uploaded ZIPs and confirmed-absent
-        for e in entries:
-            if not e["absent"]:
-                zips.append(
-                    {
-                        "filename": e["filename"],
-                        "tribunal": e["tribunal"],
-                        "item_id": e["item_id"],
-                        "size": 0,
-                    }
-                )
+        zips.extend(
+            {
+                "filename": e["filename"],
+                "tribunal": e["tribunal"],
+                "item_id": e["item_id"],
+                "size": 0,
+            }
+            for e in entries
+            if not e["absent"]
+        )
         logger.info("zips_from_sync_manifest", date=date, zips=len(zips), present=present_count)
         return zips, present_count
 
@@ -1300,9 +1301,10 @@ def _needs_consolidation(
             target_d = date.fromisoformat(date_str)
 
             for trib in TRIBUNAIS:
-                if trib not in present_tribunais:
-                    if not _is_tribunal_stopped(trib, target_d, manifest, ctx=ctx):
-                        return False
+                if trib not in present_tribunais and not _is_tribunal_stopped(
+                    trib, target_d, manifest, ctx=ctx
+                ):
+                    return False
             return True
 
         return True

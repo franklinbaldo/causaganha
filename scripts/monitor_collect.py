@@ -1,17 +1,16 @@
+#!/usr/bin/env python3
 from __future__ import annotations
 
-
-#!/usr/bin/env python3
-
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 MAX_RECENT_RUNS = 3
 
@@ -80,7 +79,8 @@ def get_run_summary(run_id: int) -> dict[str, int]:
         "api",
         f"repos/{REPO}/actions/runs/{run_id}/jobs",
         "--jq",
-        "[.jobs[] | {name: .name, conclusion: .conclusion, steps: [.steps[] | {name: .name, conclusion: .conclusion}]}]",
+        "[.jobs[] | {name: .name, conclusion: .conclusion,"
+        " steps: [.steps[] | {name: .name, conclusion: .conclusion}]}]",
     )
     # We can't easily get step outputs from the API, so just use conclusion
     return {}
@@ -160,11 +160,11 @@ def main() -> int:
     analysis = analyze_runs(runs)
 
     if analysis["issues"]:
-        for issue in analysis["issues"]:
+        for _issue in analysis["issues"]:
             pass
 
     if analysis["recommendations"]:
-        for rec in analysis["recommendations"]:
+        for _rec in analysis["recommendations"]:
             pass
 
     action_needed = analysis["status"] in ("stalled", "degraded")
@@ -183,12 +183,10 @@ def main() -> int:
             f.write(f"| Consecutive failures | {analysis['consecutive_failures']} |\n")
             if analysis["issues"]:
                 f.write("\n### Issues\n")
-                for issue in analysis["issues"]:
-                    f.write(f"- {issue}\n")
+                f.writelines(f"- {issue}\n" for issue in analysis["issues"])
             if analysis["recommendations"]:
                 f.write("\n### Recommendations\n")
-                for rec in analysis["recommendations"]:
-                    f.write(f"- {rec}\n")
+                f.writelines(f"- {rec}\n" for rec in analysis["recommendations"])
 
     return 1 if action_needed else 0
 

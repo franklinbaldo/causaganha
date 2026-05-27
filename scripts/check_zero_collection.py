@@ -2,16 +2,23 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import sys
 from datetime import datetime, timedelta, timezone
+
+
+try:
+    import holidays
+except ImportError:
+    holidays = None  # type: ignore[assignment]
 
 
 def main():
@@ -29,10 +36,7 @@ def main():
         print(f"Collected {uploaded} ZIPs. Health OK.")
         sys.exit(0)
 
-    # UPLOADED == 0
-    try:
-        import holidays
-    except ImportError:
+    if holidays is None:
         print("holidays package not found.")
         sys.exit(2)
 

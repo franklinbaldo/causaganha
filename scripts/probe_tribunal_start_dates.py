@@ -2,13 +2,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 EARLIEST_TRIBUNAL_YEAR = 1990
 HTTP_429_TOO_MANY_REQUESTS = 429
@@ -181,7 +182,8 @@ async def find_start_date(client: httpx.AsyncClient, tribunal: str) -> str | Non
             hi_date = mid_date
 
     # The exact right edge of the void is `hi_date`.
-    # Since `confirm_void(hi_date)` returned False, it means either `hi_date` OR `hi_date - 60` has data.
+    # Since `confirm_void(hi_date)` returned False, it means either `hi_date` OR
+    # `hi_date - 60` has data.
     # To find the EXACT start date, we scan forward starting from `hi_date - 60` up to `hi_date`.
     logger.info(
         "[%s] Void right edge found at %s. Scanning forward to find exact start date...",

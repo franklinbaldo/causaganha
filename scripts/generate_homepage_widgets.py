@@ -24,15 +24,16 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import argparse
 import json
@@ -139,7 +140,7 @@ def _activity_summary(
     con: duckdb.DuckDBPyConnection,
     com_urls: list[str],
     adv_urls: list[str],
-    year: int,
+    _year: int,
 ) -> dict[str, Any]:
     """Widget 1: last closed month summary (intimations, OABs, processes, tribunals)."""
     if not com_urls or not adv_urls:

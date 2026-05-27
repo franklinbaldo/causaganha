@@ -119,6 +119,8 @@ ignore = [
     "S101",             # assert (used as contract in scripts)
     "BLE001",           # blind Exception catch (pragmatic in one-shot scripts; src/** stays strict)
     "TRY300",           # try/else restructure (style, scripts don't benefit much)
+    "S311",             # pseudo-random (diagnostic sampling, not crypto)
+    "PD004",            # .notna preferred over .notnull — ibis uses .notnull(); not pandas
 ]
 
 # ── Experiments ────────────────────────────────────────────────────────────
