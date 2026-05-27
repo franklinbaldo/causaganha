@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from sentence_transformers import SentenceTransformer
 
 
+
 logger = structlog.get_logger()
 
 # Primary model: EmbeddingGemma-300M (Google, Sept 2025)
