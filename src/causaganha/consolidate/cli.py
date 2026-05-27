@@ -141,9 +141,10 @@ async def _consolidate_zips(
         breaker = CircuitBreaker(threshold=5)
 
         async with create_upload_client(ia_auth) as client:
-            results = await asyncio.gather(
-                *[
-                    export_and_upload_table(
+            results = []
+            for table_name in TABLES:
+                try:
+                    res = await export_and_upload_table(
                         table_name,
                         con,
                         output_dir,
@@ -153,10 +154,9 @@ async def _consolidate_zips(
                         dry_run=dry_run,
                         circuit_breaker=breaker,
                     )
-                    for table_name in TABLES
-                ],
-                return_exceptions=True,
-            )
+                    results.append(res)
+                except Exception as exc:
+                    results.append(exc)
             for table_name, result in zip(TABLES, results, strict=True):
                 if isinstance(result, Exception):
                     log.exception(
