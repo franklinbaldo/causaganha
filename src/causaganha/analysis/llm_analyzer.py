@@ -330,17 +330,6 @@ def _build_analysis(parsed: dict[str, Any], intimation_id: int) -> DecisionAnaly
     )
 
 
-def smart_truncate(text: str, max_chars: int = 4000) -> str:
-    """Truncate text by keeping the beginning (metadata) and end (dispositivo)."""
-    if len(text) <= max_chars:
-        return text
-    first_part_len = int(max_chars * 0.35)
-    last_part_len = max_chars - first_part_len - 100
-    if last_part_len <= 0:
-        return text[:max_chars]
-    return text[:first_part_len] + "\n\n[...] [TEXT TRUNCATED TO SAVE TOKENS] [...]\n\n" + text[-last_part_len:]
-
-
 class LLMAnalyzer:
     """Judicial decision analyzer backed by LiteLLM.
 
@@ -370,7 +359,7 @@ class LLMAnalyzer:
 
         messages = [
             {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": _USER_TEMPLATE.format(text=smart_truncate(text, max_chars=4000))},
+            {"role": "user", "content": _USER_TEMPLATE.format(text=text)},
         ]
 
         last_exc: Exception | None = None
@@ -425,7 +414,7 @@ class LLMAnalyzer:
         Args:
             items: List of (intimation_id, text) tuples. Should already be
                    shuffled by the caller to avoid ordering bias.
-            max_chars_per_doc: Maximum characters per document (truncates longer texts).
+            max_chars_per_doc: Maximum characters per document (ignored).
 
         Returns:
             Dict mapping intimation_id -> (DecisionAnalysis, model_used).
@@ -445,7 +434,7 @@ class LLMAnalyzer:
             key = str(int_id)
             id_map[key] = int_id
             header = _BATCH_DOC_SEPARATOR.format(doc_id=key)
-            doc_blocks.append(f"{header}{smart_truncate(text, max_chars=max_chars_per_doc)}")
+            doc_blocks.append(f"{header}{text}")
 
         documents = "\n".join(doc_blocks)
         user_content = _BATCH_USER_TEMPLATE.format(n=len(items), documents=documents)
