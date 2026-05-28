@@ -1,4 +1,4 @@
-"""Ensemble of scikit-learn classifiers to predict document type and procedural class from embeddings.
+"""Ensemble of scikit-learn classifiers to predict document type and procedural class.
 
 Similar to ml_ensemble.py, this uses a combination of scikit-learn models
 (Logistic Regression, Random Forest, Gradient Boosting, SVM, MLP) trained on top of
@@ -105,7 +105,7 @@ class MLDocumentEnsemble:
         self._classes: list[str] = []
         self._is_trained = False
 
-    def train(self, df: pd.DataFrame, embeddings: np.ndarray) -> dict:
+    def train(self, df: object, embeddings: np.ndarray) -> dict:
         """Train all classifiers on the provided dataframe and embeddings matrix.
 
         Args:
@@ -130,6 +130,8 @@ class MLDocumentEnsemble:
 
         x_mat = x_mat[valid_mask]
         y_raw = [y for y, m in zip(y_raw, valid_mask, strict=True) if m]
+        # Recompute counts on filtered set so n_cv reflects actual class sizes
+        counts = Counter(y_raw)
 
         logger.info(
             "training_document_ensemble_start",
