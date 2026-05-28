@@ -121,13 +121,7 @@ class LocalEmbedder:
         return model
 
     def _apply_prefix(self, texts: list[str], *, is_query: bool) -> list[str]:
-        """Apply instruction prefix based on model and task type."""
-        if self.model_name == EMBEDDING_GEMMA_MODEL:
-            # EmbeddingGemma uses a query-side prefix only
-            if is_query:
-                return [EMBEDDING_GEMMA_QUERY_PREFIX + t for t in texts]
-            return texts  # passage side: no prefix
-
+        """Apply instruction prefix for models that require manual prepending (e.g. E5)."""
         if self.model_name == E5_SMALL_MODEL:
             # E5 uses distinct prefixes for query and passage
             prefix = E5_SMALL_QUERY_PREFIX if is_query else E5_SMALL_PASSAGE_PREFIX
@@ -157,13 +151,19 @@ class LocalEmbedder:
         Returns:
             NumPy array of shape (len(texts), embedding_dim).
         """
-        prefixed = self._apply_prefix(texts, is_query=is_query)
-        embeddings = self._model.encode(
-            prefixed,
-            batch_size=batch_size,
-            normalize_embeddings=normalize,
-            show_progress_bar=False,
-        )
+        encode_kwargs: dict = {
+            "batch_size": batch_size,
+            "normalize_embeddings": normalize,
+            "show_progress_bar": False,
+        }
+        if self.model_name == EMBEDDING_GEMMA_MODEL:
+            # Use the model's configured prompt names rather than a hardcoded string
+            if is_query:
+                encode_kwargs["prompt_name"] = "query"
+            embeddings = self._model.encode(texts, **encode_kwargs)
+        else:
+            prefixed = self._apply_prefix(texts, is_query=is_query)
+            embeddings = self._model.encode(prefixed, **encode_kwargs)
         return np.array(embeddings, dtype=np.float32)
 
     async def aembed(

@@ -124,8 +124,22 @@ def main() -> int:
     texts = [str(row.texto) for row in final_df.itertuples(index=False)]
 
     logger.info("computing_embeddings_for_texts", total=len(texts))
-    # Run embedding in batches
-    embeddings = embedder.embed(texts, is_query=False, batch_size=32, normalize=True)
+    # Chunk long texts and mean-pool chunk embeddings to stay within model context window
+    chunk_lists = [chunk_text(t) or [t] for t in texts]
+    flat_chunks = [c for chunks in chunk_lists for c in chunks]
+    flat_embs = embedder.embed(flat_chunks, is_query=False, batch_size=32, normalize=True)
+    doc_embeddings = []
+    offset = 0
+    for chunks in chunk_lists:
+        n = len(chunks)
+        chunk_embs = flat_embs[offset : offset + n]
+        doc_emb = chunk_embs.mean(axis=0)
+        norm = np.linalg.norm(doc_emb)
+        if norm > 0:
+            doc_emb = doc_emb / norm
+        doc_embeddings.append(doc_emb)
+        offset += n
+    embeddings = np.array(doc_embeddings, dtype=np.float32)
     logger.info("embeddings_computed", shape=embeddings.shape)
 
     # Step 4: Construct anchor_set.parquet

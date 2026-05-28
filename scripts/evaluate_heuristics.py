@@ -17,6 +17,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import duckdb
+import numpy as np
 from rich.console import Console
 from rich.table import Table
 
@@ -126,15 +127,24 @@ async def evaluate_ml_ensemble(
         # Initialize local embedder
         embedder = LocalEmbedder(model_name="google/embeddinggemma-300m", truncate_dim=None)
 
-        # Batch embed texts
+        # Batch embed texts, chunking long documents and mean-pooling chunk embeddings
         texts = [row[7] for row in gold_data]
         console.print(f"Gerando embeddings locais para {len(texts)} textos...")
-        embeddings = embedder.embed(
-            texts,
-            is_query=False,
-            batch_size=32,
-            normalize=True,
-        )
+        chunk_lists = [chunk_text(t) or [t] for t in texts]
+        flat_chunks = [c for chunks in chunk_lists for c in chunks]
+        flat_embs = embedder.embed(flat_chunks, is_query=False, batch_size=32, normalize=True)
+        doc_embeddings = []
+        offset = 0
+        for chunks in chunk_lists:
+            n = len(chunks)
+            chunk_embs = flat_embs[offset : offset + n]
+            doc_emb = chunk_embs.mean(axis=0)
+            norm = np.linalg.norm(doc_emb)
+            if norm > 0:
+                doc_emb = doc_emb / norm
+            doc_embeddings.append(doc_emb)
+            offset += n
+        embeddings = np.array(doc_embeddings, dtype=np.float32)
 
         y_true = [row[1] for row in gold_data]
         y_pred = []
