@@ -62,8 +62,8 @@ _OUTCOME_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         (re.compile(r"\bacolho\s+integralmente\b", re.IGNORECASE), 0.88),
         (re.compile(r"\bprocedente\s+(?:a\s+)?(?:ação|pedido|pretensão)\b", re.IGNORECASE), 0.86),
         (re.compile(r"\bcondeno\s+o\s+r[eé]u\b", re.IGNORECASE), 0.82),
-        (re.compile(r"\bdefiro\s+o\s+pedido\b", re.IGNORECASE), 0.80),
-        (re.compile(r"\bacolho\s+o\s+pedido\b", re.IGNORECASE), 0.80),
+        (re.compile(r"\bdefiro\s+o\s+pedido\b", re.IGNORECASE), 0.60),
+        (re.compile(r"\bacolho\s+o\s+pedido\b", re.IGNORECASE), 0.60),
         # Appeal-specific (conjugated + infinitive): ambiguous without polarity context
         (re.compile(r"\bdou\s+(?:integral\s+)?provimento\b", re.IGNORECASE), 0.62),
         (re.compile(r"\bdar\s+(?:integral\s+)?provimento\b", re.IGNORECASE), 0.62),
@@ -88,9 +88,9 @@ _OUTCOME_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         # Conjugated and infinitive forms for appeals
         (re.compile(r"\bdou\s+parcial\s+provimento\b", re.IGNORECASE), 0.86),
         (re.compile(r"\bdar\s+parcial\s+provimento\b", re.IGNORECASE), 0.86),
-        (re.compile(r"\bdefiro\s+(?:em\s+)?parte\b", re.IGNORECASE), 0.82),
-        (re.compile(r"\bacolho\s+(?:em\s+)?parte\b", re.IGNORECASE), 0.82),
-        (re.compile(r"\bdefiro\s+parcialmente\b", re.IGNORECASE), 0.82),
+        (re.compile(r"\bdefiro\s+(?:em\s+)?parte\b", re.IGNORECASE), 0.60),
+        (re.compile(r"\bacolho\s+(?:em\s+)?parte\b", re.IGNORECASE), 0.60),
+        (re.compile(r"\bdefiro\s+parcialmente\b", re.IGNORECASE), 0.60),
     ],
     "acordo": [
         (re.compile(r"\bhomologo\s+por\s+senten[çc]a\s+o\s+acordo\b", re.IGNORECASE), 0.95),
@@ -101,7 +101,7 @@ _OUTCOME_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         (re.compile(
             r"\bconcilia[çc][ãa]o\s+(?:entre\s+as\s+partes|realizada|homologada)\b",
             re.IGNORECASE,
-        ), 0.88),
+        ), 0.60),
         (re.compile(r"\bas\s+partes\s+transigiram\b", re.IGNORECASE), 0.90),
         (re.compile(r"\bas\s+partes\s+chegaram\s+a\s+acordo\b", re.IGNORECASE), 0.88),
         (re.compile(r"\bhomologo\s+o\s+acordo\s+firmado\b", re.IGNORECASE), 0.93),
@@ -116,15 +116,17 @@ _OUTCOME_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         (re.compile(r"\bcar[êe]ncia\s+de\s+a[çc][ãa]o\b", re.IGNORECASE), 0.87),
         (re.compile(r"\bfalta\s+de\s+interesse\s+de\s+agir\b", re.IGNORECASE), 0.87),
         (re.compile(r"\bilegitimidade\s+(?:ativa|passiva|de\s+parte)\b", re.IGNORECASE), 0.82),
+        (re.compile(r"\bnão\s+conheço\s+do\b", re.IGNORECASE), 0.85),
     ],
     "unknown": [
-        (re.compile(r"\bcite-se\b", re.IGNORECASE), 0.75),
-        (re.compile(r"\bintime-se\b", re.IGNORECASE), 0.75),
-        (re.compile(r"\bmanifeste-se\b", re.IGNORECASE), 0.72),
+        (re.compile(r"\bcite-se\b", re.IGNORECASE), 0.80),
+        (re.compile(r"\bintime-se\b", re.IGNORECASE), 0.80),
+        (re.compile(r"\bmanifeste-se\b", re.IGNORECASE), 0.75),
         (re.compile(r"\baguarde-se\b", re.IGNORECASE), 0.72),
         (re.compile(r"\babr[ao]\s+(?:-?se\s+)?vista\b", re.IGNORECASE), 0.72),
-        (re.compile(r"\bdecis[ãa]o\s+interlocut[oó]ria\b", re.IGNORECASE), 0.78),
-        (re.compile(r"\bdespacho\b", re.IGNORECASE), 0.65),
+        (re.compile(r"\bdecis[ãa]o\s+interlocut[oó]ria\b", re.IGNORECASE), 0.85),
+        (re.compile(r"\bdespacho\b", re.IGNORECASE), 0.70),
+        (re.compile(r"\bdetermino\s+a\s+intimação\b", re.IGNORECASE), 0.75),
     ],
 }
 

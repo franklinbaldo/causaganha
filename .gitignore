@@ -7,10 +7,7 @@ uv.lock
 # Data files
 data/*
 data/*.duckdb
-
-# Keep benchmark files in git
-!data/benchmark/
-!data/benchmark/**
+data/benchmark/
 
 
 
