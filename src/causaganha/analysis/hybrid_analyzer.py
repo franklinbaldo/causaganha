@@ -6,6 +6,7 @@ from causaganha.analysis.analyzer import DecisionAnalyzer
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 from causaganha.analysis.models import DecisionAnalysis
 from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.text_utils import strip_html
 
 
 logger = structlog.get_logger()
@@ -68,6 +69,9 @@ class HybridAnalyzer:
         Returns:
             DecisionAnalysis with best available result.
         """
+        # Strip HTML tags before any classifier sees the text
+        text = strip_html(text)
+
         logger.info(
             "hybrid_analysis_start",
             intimation_id=intimation_id,
