@@ -86,11 +86,21 @@ def main() -> int:
 
     console.print("\n[bold cyan]🔄 Atualização Diária do Benchmark (Rotina Claude)[/bold cyan]\n")
 
+    # Load environment variables from .env files
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+        load_dotenv(Path(__file__).resolve().parents[1] / ".env")
+        load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+    except ImportError:
+        pass
+
     api_key = (
         os.getenv("GEMINI_API_KEY")
         or os.getenv("GOOGLE_API_KEY")
-        or os.getenv("OPENROUTER_API_KEY")
     )
+    if "OPENROUTER_API_KEY" in os.environ:
+        del os.environ["OPENROUTER_API_KEY"]
     use_mock = args.mock or not api_key
 
     if not api_key:
@@ -100,7 +110,7 @@ def main() -> int:
             )
         else:
             console.print(
-                "[red]Erro: Nenhuma chave de API configurada (GEMINI_API_KEY, GOOGLE_API_KEY ou OPENROUTER_API_KEY).[/red]"  # noqa: E501
+                "[red]Erro: Nenhuma chave de API configurada (GEMINI_API_KEY ou GOOGLE_API_KEY).[/red]"  # noqa: E501
             )
             console.print("[yellow]Para executar testes locais, utilize --mock.[/yellow]")
             return 1
@@ -121,7 +131,10 @@ def main() -> int:
         conn.close()
         return 1
 
-    # Get already labeled IDs
+    # Get already labeled IDs/hashes
+    existing_uuids = {
+        r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()
+    }
     existing_ids = {
         r[0] for r in conn.execute("SELECT intimation_id FROM gold_benchmark").fetchall()
     }
@@ -129,16 +142,17 @@ def main() -> int:
     # Fetch new candidate decisions
     candidates = conn.execute(
         """
-        SELECT id, texto
+        SELECT hash, id, texto
         FROM intimations
         WHERE sigla_tribunal = ?
           AND texto IS NOT NULL
+          AND hash IS NOT NULL
           AND LENGTH(texto) BETWEEN 500 AND 8000
     """,
         (args.court,),
     ).fetchall()
 
-    new_candidates = [c for c in candidates if c[0] not in existing_ids]
+    new_candidates = [c for c in candidates if c[0] not in existing_uuids and c[1] not in existing_ids]
     if not new_candidates:
         console.print(
             "[green]✓ Não há novas decisões para rotular. Benchmark está 100% atualizado![/green]"
@@ -153,12 +167,12 @@ def main() -> int:
     hard_cases = []
     normal_cases = []
 
-    for int_id, text in new_candidates:
+    for text_uuid, int_id, text in new_candidates:
         outcome, confidence = kc.classify(text)
         if outcome == "unknown" or confidence < 0.80:
-            hard_cases.append((int_id, text, outcome, confidence))
+            hard_cases.append((text_uuid, int_id, text, outcome, confidence))
         else:
-            normal_cases.append((int_id, text, outcome, confidence))
+            normal_cases.append((text_uuid, int_id, text, outcome, confidence))
 
     console.print(
         f"  Casos difíceis (heurística desconhecida ou <80% confiança): {len(hard_cases)}"
@@ -182,11 +196,11 @@ def main() -> int:
     )
 
     # Run LLM labeling
-    analyzer = LLMAnalyzer()
+    analyzer = LLMAnalyzer(models=LLMAnalyzer.models_from_env())
     gold_records = []
 
     async def process_all():
-        for int_id, text, heur_outcome, heur_conf in track(
+        for text_uuid, int_id, text, heur_outcome, heur_conf in track(
             selected_for_labeling, description="Processando"
         ):
             try:
@@ -197,7 +211,7 @@ def main() -> int:
                     use_mock=use_mock,
                     keyword_outcome=heur_outcome,
                 )
-                gold_records.append((int_id, analysis, text, model_used))
+                gold_records.append((text_uuid, int_id, analysis, text, model_used))
                 console.print(
                     f"  [cyan]ID {int_id}[/cyan]: LLM={analysis.outcome} | Heurística={heur_outcome} (conf: {heur_conf:.2f})"  # noqa: E501
                 )
@@ -213,17 +227,21 @@ def main() -> int:
 
     # Insert into gold_benchmark
     inserted_count = 0
-    for int_id, analysis, text, model_used in gold_records:
+    for text_uuid, int_id, analysis, text, model_used in gold_records:
         try:
             conn.execute(
                 """
                 INSERT OR REPLACE INTO gold_benchmark (
-                    intimation_id, outcome, decision_type, plaintiff_won,
+                    text_uuid, intimation_id, outcome, decision_type, plaintiff_won,
                     confidence_score, summary, decision_reasoning,
-                    texto, court, llm_model, validated_at, is_human_verified
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    texto, court, llm_model, validated_at, is_human_verified,
+                    fase_processual, classe_processual, assunto_principal,
+                    valor_causa, valor_condenacao,
+                    proposed_regex, judge_name, keywords, legal_bases, precedents
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
                 (
+                    text_uuid,
                     int_id,
                     analysis.outcome,
                     analysis.decision_type,
@@ -236,6 +254,16 @@ def main() -> int:
                     model_used,
                     datetime.now(UTC),
                     False,
+                    analysis.fase_processual,
+                    analysis.classe_processual,
+                    analysis.assunto_principal,
+                    analysis.valor_causa,
+                    analysis.valor_condenacao,
+                    analysis.proposed_regex,
+                    analysis.judge_name,
+                    analysis.keywords,
+                    analysis.legal_bases,
+                    analysis.precedents,
                 ),
             )
             inserted_count += 1
@@ -256,6 +284,57 @@ def main() -> int:
     console.print(
         f"[green]✓ Benchmark atualizado e exportado para {parquet_path} ({len(gold_df)} registros no total).[/green]\n"  # noqa: E501
     )
+
+    # Export each decision as a .md file with frontmatter metadata
+    console.print("[yellow]Exportando decisões para arquivos Markdown (.md)...[/yellow]")
+    import yaml
+    import numpy as np
+
+    md_dir = Path("data/benchmark/decisions")
+    md_dir.mkdir(parents=True, exist_ok=True)
+
+    # Clean existing .md files
+    for existing_md in md_dir.glob("*.md"):
+        existing_md.unlink()
+
+    for row in gold_df.to_dict(orient="records"):
+        text_uuid = row["text_uuid"]
+        int_id = row["intimation_id"]
+        court = row["court"]
+        texto = row.pop("texto", "")
+        
+        val_date_str = "2026-05-27"
+        if isinstance(row.get("validated_at"), datetime):
+            val_date_str = row["validated_at"].strftime("%Y-%m-%d")
+            row["validated_at"] = row["validated_at"].isoformat()
+        else:
+            try:
+                dt = datetime.fromisoformat(str(row.get("validated_at")))
+                val_date_str = dt.strftime("%Y-%m-%d")
+            except ValueError:
+                pass
+        
+        row["schema_version"] = "1.2.0"
+        
+        # Clean numpy types
+        for k, v in list(row.items()):
+            if isinstance(v, np.ndarray):
+                row[k] = v.tolist()
+            elif isinstance(v, float) and np.isnan(v):
+                row[k] = None
+            elif isinstance(v, list):
+                row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
+            elif isinstance(v, dict):
+                row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
+        
+        frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
+        md_filename = f"{court}-{val_date_str}-{int_id}.md"
+        md_content = f"---\n{frontmatter}\n---\n\n{texto}\n"
+        md_path = md_dir / md_filename
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(md_content)
+
+    console.print(f"[green]✓ {len(gold_df)} arquivos .md atualizados com sucesso em {md_dir}.[/green]\n")
 
     conn.close()
     return 0
