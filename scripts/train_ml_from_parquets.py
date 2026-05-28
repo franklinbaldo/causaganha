@@ -4,8 +4,8 @@
 import sys
 from pathlib import Path
 
+import ibis
 import numpy as np
-import pandas as pd
 import structlog
 
 from causaganha.analysis.anchor_classifier import AnchorClassifier
@@ -23,6 +23,7 @@ OUTCOME_MAPPING = {
     "PARTIAL": "parcialmente procedente",
     "SETTLEMENT": "acordo",
 }
+
 
 def main() -> int:
     logger.info("starting_ml_training_pipeline")
@@ -42,43 +43,45 @@ def main() -> int:
             logger.error("parquet_file_missing", path=str(f))
             return 1
 
-    # Step 1: Load parquet files
+    # Step 1: Load parquet files using Ibis
     logger.info("loading_parquets")
-    classif_df = pd.read_parquet(classif_file)
-    textos_df = pd.read_parquet(textos_file)
-    comunic_df = pd.read_parquet(comunic_file)
-
-    logger.info(
-        "parquets_loaded",
-        classifications=len(classif_df),
-        texts=len(textos_df),
-        intimations=len(comunic_df)
-    )
+    classif_t = ibis.read_parquet(classif_file)
+    textos_t = ibis.read_parquet(textos_file)
+    comunic_t = ibis.read_parquet(comunic_file)
 
     # Step 2: Merge data
     # We want: numero_processo (from comunicacoes), texto (from textos),
     # outcome & confidence (from classificacoes)
     logger.info("merging_data")
 
+    # Deduplicate communications by texto_id to avoid duplicated records
+    comunic_unique = comunic_t.select("texto_id", "numero_processo").distinct(on="texto_id")
+
     # Join classifications with texts on id
-    merged_df = classif_df.merge(textos_df, left_on="texto_id", right_on="id")
+    merged_t = classif_t.join(textos_t, classif_t.texto_id == textos_t.id)
 
     # Join with process numbers from communications
-    # Deduplicate communications by texto_id to avoid duplicated records
-    comunic_unique = comunic_df.drop_duplicates(subset=["texto_id"])[
-        ["texto_id", "numero_processo"]
-    ]
-    final_df = merged_df.merge(comunic_unique, on="texto_id", how="left")
+    final_t = merged_t.join(comunic_unique, "texto_id", how="left")
 
     # Drop rows without process number or text
-    final_df = final_df.dropna(subset=["numero_processo", "texto"])
+    final_t = final_t.filter(final_t.numero_processo.notnull() & final_t.texto.notnull())
 
     # Map outcomes to canonical Portuguese ones
-    final_df["mapped_outcome"] = final_df["outcome"].map(OUTCOME_MAPPING)
+    mapped_outcome = ibis.cases(
+        (final_t.outcome == "WIN", "procedente"),
+        (final_t.outcome == "LOSS", "improcedente"),
+        (final_t.outcome == "PARTIAL", "parcialmente procedente"),
+        (final_t.outcome == "SETTLEMENT", "acordo"),
+        else_=ibis.null(),
+    )
+    final_t = final_t.mutate(mapped_outcome=mapped_outcome)
 
     # Drop rows with unmapped or unknown outcomes
-    final_df = final_df.dropna(subset=["mapped_outcome"])
-    final_df = final_df[final_df["mapped_outcome"] != "unknown"]
+    final_t = final_t.filter(
+        final_t.mapped_outcome.notnull() & (final_t.mapped_outcome != "unknown")
+    )
+
+    final_df = final_t.execute()
 
     logger.info("data_merged_and_filtered", final_count=len(final_df))
     if len(final_df) == 0:
@@ -99,27 +102,34 @@ def main() -> int:
     # Step 4: Construct anchor_set.parquet
     logger.info("building_anchor_set")
     anchor_rows = []
-    for idx, (_, row) in enumerate(final_df.iterrows()):
-        texto = str(row["texto"])
+    for idx, row in enumerate(final_df.itertuples(index=False)):
+        texto = str(row.texto)
         texto_truncado = texto[:1000]
 
         # Save embedding as float32 bytes for storage efficiency,
         # matching AnchorClassifier.add_anchor
         emb_bytes = embeddings[idx].astype(np.float32).tobytes()
 
-        anchor_rows.append({
-            "numero_processo": str(row["numero_processo"]),
-            "texto_truncado": texto_truncado,
-            "outcome": str(row["mapped_outcome"]),
-            "confidence": float(row.get("confidence", 1.0)),
-            "annotation_src": "auto",
-            "embedding": emb_bytes
-        })
+        # Handle confidence column check safely (since it might or might not exist
+        # depending on the schema)
+        confidence = float(getattr(row, "confidence", 1.0))
 
-    anchor_df = pd.DataFrame(anchor_rows)
+        anchor_rows.append(
+            {
+                "numero_processo": str(row.numero_processo),
+                "texto_truncado": texto_truncado,
+                "outcome": str(row.mapped_outcome),
+                "confidence": confidence,
+                "annotation_src": "auto",
+                "embedding": emb_bytes,
+            }
+        )
+
+    # Save to parquet using Ibis memtable instead of PyArrow
+    anchor_table = ibis.memtable(anchor_rows)
     anchor_path.parent.mkdir(parents=True, exist_ok=True)
-    anchor_df.to_parquet(anchor_path, index=False)
-    logger.info("anchor_set_saved", path=str(anchor_path), rows=len(anchor_df))
+    anchor_table.to_parquet(anchor_path)
+    logger.info("anchor_set_saved", path=str(anchor_path), rows=len(anchor_rows))
 
     # Step 5: Train EmbeddingEnsemble
     logger.info("training_ml_ensemble")
@@ -150,14 +160,15 @@ def main() -> int:
 
     logger.info(
         "verification_successful",
-        sample_processo=anchor_df.iloc[0]["numero_processo"],
-        sample_true_outcome=anchor_df.iloc[0]["outcome"],
+        sample_processo=anchor_rows[0]["numero_processo"],
+        sample_true_outcome=anchor_rows[0]["outcome"],
         ensemble_prediction=ens_pred,
-        knn_prediction=clf_pred
+        knn_prediction=clf_pred,
     )
 
     logger.info("ml_training_pipeline_completed_successfully")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())

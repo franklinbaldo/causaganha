@@ -4,7 +4,7 @@
 import sys
 from pathlib import Path
 
-import pandas as pd
+import ibis
 import structlog
 
 from causaganha.analysis.local_embedder import LocalEmbedder
@@ -17,6 +17,7 @@ from causaganha.analysis.ml_document_classifier import (
 
 # Initialize logger
 logger = structlog.get_logger()
+
 
 def main() -> int:
     logger.info("starting_ml_document_classifier_training_pipeline")
@@ -40,19 +41,23 @@ def main() -> int:
 
     # Step 1: Load parquet files
     logger.info("loading_parquets")
-    classif_df = pd.read_parquet(classif_docs_file)
-    textos_df = pd.read_parquet(textos_file)
-
-    logger.info(
-        "parquets_loaded",
-        classifications=len(classif_df),
-        texts=len(textos_df)
-    )
+    classif_t = ibis.read_parquet(classif_docs_file)
+    textos_t = ibis.read_parquet(textos_file)
 
     # Step 2: Merge data
     logger.info("merging_data")
-    merged_df = classif_df.merge(textos_df, on="id")
-    merged_df = merged_df.dropna(subset=["texto"])
+    merged_t = (
+        classif_t.join(textos_t, classif_t.id == textos_t.id)
+        .select(
+            classif_t.id,
+            classif_t.document_type,
+            classif_t.procedural_class,
+            textos_t.texto,
+        )
+        .filter(textos_t.texto.notnull())
+    )
+
+    merged_df = merged_t.execute()
 
     logger.info("data_merged", final_count=len(merged_df))
     if len(merged_df) == 0:
@@ -102,11 +107,12 @@ def main() -> int:
         sample_true_doc_type=merged_df.iloc[0]["document_type"],
         sample_true_proc_class=merged_df.iloc[0]["procedural_class"],
         ensemble_doc_type_prediction=pred_doc,
-        ensemble_proc_class_prediction=pred_proc
+        ensemble_proc_class_prediction=pred_proc,
     )
 
     logger.info("ml_document_classifier_training_pipeline_completed_successfully")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
