@@ -85,27 +85,33 @@ def show_confusion_matrix(y_true: list[str], y_pred: list[str], labels: list[str
     console.print(table)
 
 
+def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 300) -> list[str]:
+    """Split text into overlapping chunks of a fixed character size."""
+    if not text or not text.strip():
+        return []
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start = end - overlap
+        if start >= len(text) - overlap:
+            break
+    return chunks
+
+
 async def evaluate_ml_ensemble(
     gold_data: list[tuple],
     labels: list[str],
 ) -> None:
     """Load ML ensemble, embed benchmark texts, and evaluate."""
-    import os  # noqa: PLC0415
-
-    from causaganha.analysis.embedding_service import EmbeddingService  # noqa: PLC0415
+    from causaganha.analysis.local_embedder import LocalEmbedder  # noqa: PLC0415
     from causaganha.analysis.ml_ensemble import EmbeddingEnsemble  # noqa: PLC0415
 
     ensemble_path = Path("data/ml_ensemble.joblib")
     if not ensemble_path.exists():
         console.print(
             "[yellow]Aviso: Modelo de Machine Learning (data/ml_ensemble.joblib) não encontrado. Pulando avaliação do ML.[/yellow]"  # noqa: E501
-        )
-        return
-
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
-    if not api_key:
-        console.print(
-            "[yellow]Aviso: GEMINI_API_KEY não configurada. Pulando avaliação de ML por falta de embeddings.[/yellow]"  # noqa: E501
         )
         return
 
@@ -117,16 +123,17 @@ async def evaluate_ml_ensemble(
         # Load model
         ensemble = EmbeddingEnsemble.load(ensemble_path)
 
-        # Initialize embedding service
-        emb_service = await EmbeddingService.create()
+        # Initialize local embedder
+        embedder = LocalEmbedder(model_name="google/embeddinggemma-300m", truncate_dim=None)
 
         # Batch embed texts
         texts = [row[7] for row in gold_data]
-        console.print(f"Gerando embeddings para {len(texts)} textos...")
-        embeddings = await emb_service.embed_batch(
+        console.print(f"Gerando embeddings locais para {len(texts)} textos...")
+        embeddings = embedder.embed(
             texts,
-            task_type="RETRIEVAL_DOCUMENT",
-            add_prefix=True,
+            is_query=False,
+            batch_size=32,
+            normalize=True,
         )
 
         y_true = [row[1] for row in gold_data]

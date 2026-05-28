@@ -1,7 +1,7 @@
 """Local embedding provider using sentence-transformers.
 
 Runs entirely on CPU with no API calls, suitable for GitHub Actions
-and local development. Default model: google/gemma-embedding-300m
+and local development. Default model: google/embeddinggemma-300m
 
 The EmbeddingGemma-300M model features:
 - 308M parameters, < 200MB RAM when quantized
@@ -36,10 +36,8 @@ logger = structlog.get_logger()
 
 # Primary model: EmbeddingGemma-300M (Google, Sept 2025)
 # Instruction prefix for retrieval tasks (query side only)
-EMBEDDING_GEMMA_MODEL = "google/gemma-embedding-300m"
-EMBEDDING_GEMMA_QUERY_PREFIX = (
-    "Represent this sentence for searching relevant passages: "
-)
+EMBEDDING_GEMMA_MODEL = "google/embeddinggemma-300m"
+EMBEDDING_GEMMA_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
 # Fallback: multilingual-e5-small (118M, instruction-tuned)
 E5_SMALL_MODEL = "intfloat/multilingual-e5-small"

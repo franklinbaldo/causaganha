@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run DocumentClassifier on the consolidated parquet texts and display statistics."""
 
+import argparse
 import sys
 from collections import Counter, defaultdict
 from pathlib import Path
@@ -17,6 +18,15 @@ console = Console()
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Classify documents and stages.")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit the number of decisions to classify (for testing/sampling).",
+    )
+    args = parser.parse_args()
+
     console.print("\n[bold cyan]📋 Classificação de Documentos e Fases Processuais[/bold cyan]\n")
 
     textos_file = Path("data/test_parquets/textos.parquet")
@@ -51,6 +61,8 @@ def main() -> int:
         ready_t = textos_t.mutate(numero_processo=ibis.literal("Sem Processo"))
 
     ready_t = ready_t.filter(ready_t.texto.notnull())
+    if args.limit is not None:
+        ready_t = ready_t.limit(args.limit)
     ready_df = ready_t.execute()
 
     console.print(f"[green]✓ Carregados {len(ready_df):,} textos de decisões.[/green]\n")
