@@ -327,8 +327,18 @@ def _build_analysis(parsed: dict[str, Any], intimation_id: int) -> DecisionAnaly
         judge_name=parsed.get("judge_name"),
         keywords=parsed.get("keywords") or [],
         legal_bases=parsed.get("legal_bases") or [],
-        precedents=parsed.get("precedents") or {},
     )
+
+
+def smart_truncate(text: str, max_chars: int = 4000) -> str:
+    """Truncate text by keeping the beginning (metadata) and end (dispositivo)."""
+    if len(text) <= max_chars:
+        return text
+    first_part_len = int(max_chars * 0.35)
+    last_part_len = max_chars - first_part_len - 100
+    if last_part_len <= 0:
+        return text[:max_chars]
+    return text[:first_part_len] + "\n\n[...] [TEXT TRUNCATED TO SAVE TOKENS] [...]\n\n" + text[-last_part_len:]
 
 
 class LLMAnalyzer:
@@ -360,7 +370,7 @@ class LLMAnalyzer:
 
         messages = [
             {"role": "system", "content": _SYSTEM_PROMPT},
-            {"role": "user", "content": _USER_TEMPLATE.format(text=text[:4000])},
+            {"role": "user", "content": _USER_TEMPLATE.format(text=smart_truncate(text, max_chars=4000))},
         ]
 
         last_exc: Exception | None = None
@@ -435,7 +445,7 @@ class LLMAnalyzer:
             key = str(int_id)
             id_map[key] = int_id
             header = _BATCH_DOC_SEPARATOR.format(doc_id=key)
-            doc_blocks.append(f"{header}{text[:max_chars_per_doc]}")
+            doc_blocks.append(f"{header}{smart_truncate(text, max_chars=max_chars_per_doc)}")
 
         documents = "\n".join(doc_blocks)
         user_content = _BATCH_USER_TEMPLATE.format(n=len(items), documents=documents)
