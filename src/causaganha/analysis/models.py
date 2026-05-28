@@ -157,6 +157,49 @@ class DecisionAnalysis(BaseModel):
         description="Method used: 'llm', 'rag', 'hybrid', or 'rag_low_confidence'",
     )
 
+    # ---------------------------------------------------------------------------
+    # Rich extraction fields (LLM only, optional)
+    # ---------------------------------------------------------------------------
+
+    fase_processual: str | None = Field(
+        default=None,
+        description="Fase do processo: 'conhecimento', 'execução', 'recursal', 'cautelar'",
+    )
+    classe_processual: str | None = Field(
+        default=None,
+        description="Classe da ação: e.g. 'Procedimento Comum Cível', 'Juizado Especial', "
+        "'Execução de Título Extrajudicial', 'Apelação Cível'",
+    )
+    assunto_principal: str | None = Field(
+        default=None,
+        description="Assunto jurídico principal: e.g. 'danos morais', 'cobrança', "
+        "'rescisão contratual', 'alimentos'",
+    )
+    valor_causa: float | None = Field(
+        default=None,
+        description="Valor da causa em reais (float), se mencionado",
+    )
+    valor_condenacao: float | None = Field(
+        default=None,
+        description="Valor da condenação em reais (float), se mencionado no dispositivo",
+    )
+    proposed_regex: str | None = Field(
+        default=None,
+        description="Padrão regex Python (raw string) que identificaria decisões similares",
+    )
+    keywords: list[str] = Field(
+        default_factory=list,
+        description="Palavras-chave que melhor representam o conteúdo da decisão",
+    )
+    legal_bases: list[str] = Field(
+        default_factory=list,
+        description="Normas, artigos, súmulas e temas repetitivos mencionados no texto",
+    )
+    precedents: dict[str, str] = Field(
+        default_factory=dict,
+        description="Precedentes citados mapeados para 'confirmado', 'distinto' ou 'ultrapassado'",
+    )
+
     # RAG-specific tracking
     rag_confidence: float | None = Field(
         default=None,

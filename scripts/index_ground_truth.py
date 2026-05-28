@@ -103,7 +103,7 @@ def main() -> None:
     if not ground_truth:
         console.print(
             "[red]Erro: Nenhum dado em ground_truth."
-            " Execute prepare_ground_truth.py primeiro[/red]",
+            " Execute build_gold_benchmark.py primeiro[/red]",
         )
         return
 

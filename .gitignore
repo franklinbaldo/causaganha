@@ -8,6 +8,10 @@ uv.lock
 data/*
 data/*.duckdb
 
+# Keep benchmark files in git
+!data/benchmark/
+!data/benchmark/**
+
 
 
 # Processing artifacts
