@@ -21,6 +21,8 @@ from pathlib import Path
 
 import duckdb
 import ibis
+import numpy as np
+import yaml
 from rich.console import Console
 from rich.progress import track
 from rich.table import Table
@@ -35,7 +37,9 @@ console = Console()
 DEFAULT_BATCH_SIZE = 20  # ~20x throughput vs single calls (1 RPD per batch)
 
 
-def mock_analysis(intimation_id: int, text: str, keyword_outcome: str) -> tuple[DecisionAnalysis, str]:
+def mock_analysis(
+    intimation_id: int, text: str, keyword_outcome: str
+) -> tuple[DecisionAnalysis, str]:
     """Return a deterministic mock label based on keyword heuristic."""
     outcome = keyword_outcome if keyword_outcome != "unknown" else "improcedente"
     dec_type = "sentença"
@@ -89,36 +93,33 @@ def main() -> int:
 
     # Load environment variables from .env file
     try:
-        from dotenv import load_dotenv
-        # Try current dir and parent directories
+        from dotenv import load_dotenv  # noqa: PLC0415
+
         load_dotenv()
         load_dotenv(Path(__file__).resolve().parents[1] / ".env")
         load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     except ImportError:
         # Fallback to manual parsing if python-dotenv is not installed
-        for p in [Path("."), Path(".."), Path(__file__).resolve().parents[1], Path(__file__).resolve().parents[2]]:
+        search_paths = [
+            Path(),
+            Path(".."),
+            Path(__file__).resolve().parents[1],
+            Path(__file__).resolve().parents[2],
+        ]
+        for p in search_paths:
             env_file = p / ".env"
             if env_file.exists():
-                with open(env_file, encoding="utf-8") as f:
-                    for line in f:
-                        line = line.strip()
-                        if line and not line.startswith("#"):
-                            # Handle export GEMINI_API_KEY="..." or GEMINI_API_KEY="..."
-                            if line.startswith("export "):
-                                line = line[7:]
-                            if "=" in line:
-                                k, v = line.split("=", 1)
-                                k = k.strip()
-                                v = v.strip().strip('"').strip("'")
-                                os.environ[k] = v
+                for raw_line in env_file.read_text(encoding="utf-8").splitlines():
+                    line = raw_line.strip()
+                    if not line or line.startswith("#"):
+                        continue
+                    line = line.removeprefix("export ")
+                    if "=" in line:
+                        k, v = line.split("=", 1)
+                        os.environ[k.strip()] = v.strip().strip('"').strip("'")
 
     # Check API key
-    api_key = (
-        os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-    )
-    if "OPENROUTER_API_KEY" in os.environ:
-        del os.environ["OPENROUTER_API_KEY"]
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     use_mock = args.mock or not api_key
 
     if not api_key:
@@ -128,7 +129,8 @@ def main() -> int:
             )
         else:
             console.print(
-                "[red]Erro: Nenhuma chave de API configurada (GEMINI_API_KEY, GOOGLE_API_KEY ou OPENROUTER_API_KEY).[/red]"  # noqa: E501
+                "[red]Erro: Nenhuma chave de API configurada "
+                "(GEMINI_API_KEY ou GOOGLE_API_KEY).[/red]"
             )
             console.print(
                 "[yellow]Para testar localmente sem custos, use o parâmetro --mock.[/yellow]"
@@ -177,9 +179,7 @@ def main() -> int:
     """)
 
     # Get already indexed UUIDs in gold_benchmark to avoid re-labeling
-    existing_uuids = {
-        r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()
-    }
+    existing_uuids = {r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()}
     console.print(f"[blue]Benchmark atual possui {len(existing_uuids)} decisões anotadas.[/blue]\n")
 
     # Fetch candidates from intimations (fetching hash as the text_uuid)
@@ -267,10 +267,7 @@ def main() -> int:
         random.shuffle(shuffled)
 
         # Split into batches
-        batches = [
-            shuffled[i : i + batch_size]
-            for i in range(0, len(shuffled), batch_size)
-        ]
+        batches = [shuffled[i : i + batch_size] for i in range(0, len(shuffled), batch_size)]
         n_batches = len(batches)
         console.print(
             f"  [dim]Batch size: {batch_size} | "
@@ -294,10 +291,10 @@ def main() -> int:
                             analysis, model_used = results[int_id]
                             gold_records.append((text_uuid, int_id, analysis, text, model_used))
                         else:
-                            console.print(f"[yellow]  Sem resultado para ID {int_id} no batch[/yellow]")
+                            console.print(f"[yellow]  Sem resultado para ID {int_id}[/yellow]")
                 except Exception as e:
                     console.print(f"[red]  Falha no batch: {e}[/red]")
-                
+
                 # Sleep to avoid hitting Gemini's strict 15 RPM (requests per minute) rate limit
                 await asyncio.sleep(5)
 
@@ -372,8 +369,7 @@ def main() -> int:
 
     # Export each decision as a .md file with frontmatter metadata
     console.print("\n[yellow]Exportando decisões para arquivos Markdown (.md)...[/yellow]")
-    import yaml
-    
+
     # Ensure markdown output directory exists in the workspace
     md_dir = Path("data/benchmark/decisions")
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -383,28 +379,24 @@ def main() -> int:
         existing_md.unlink()
 
     for row in gold_df.to_dict(orient="records"):
-        text_uuid = row["text_uuid"]
         int_id = row["intimation_id"]
         court = row["court"]
         texto = row.pop("texto", "")
         # Convert timestamp to string
-        val_date_str = ""
         if isinstance(row.get("validated_at"), datetime):
             val_date_str = row["validated_at"].strftime("%Y-%m-%d")
             row["validated_at"] = row["validated_at"].isoformat()
         else:
             try:
-                # parsed from ISO-8601 string if it comes as string
                 dt = datetime.fromisoformat(str(row.get("validated_at")))
                 val_date_str = dt.strftime("%Y-%m-%d")
             except ValueError:
-                val_date_str = "2026-05-27"
-        
+                val_date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+
         # Add schema version for dataset versioning tracking
         row["schema_version"] = "1.2.0"
-        
+
         # Clean numpy/pandas data types so they serialize cleanly to standard YAML
-        import numpy as np
         for k, v in list(row.items()):
             if isinstance(v, np.ndarray):
                 row[k] = v.tolist()
@@ -413,19 +405,20 @@ def main() -> int:
             elif isinstance(v, list):
                 row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
             elif isinstance(v, dict):
-                row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
-        
+                row[k] = {
+                    str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv)
+                    for dk, dv in v.items()
+                }
+
         # Build YAML frontmatter
         frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
-        
-        # filename format: court-date-intimation_id.md
-        md_filename = f"{court}-{val_date_str}-{int_id}.md"
-        md_content = f"---\n{frontmatter}\n---\n\n{texto}\n"
-        md_path = md_dir / md_filename
-        with open(md_path, "w", encoding="utf-8") as f:
-            f.write(md_content)
 
-    console.print(f"[green]✓ {len(gold_df)} arquivos .md criados com sucesso em {md_dir}.[/green]\n")
+        # filename format: court-date-intimation_id.md
+        md_path = md_dir / f"{court}-{val_date_str}-{int_id}.md"
+        md_path.write_text(f"---\n{frontmatter}\n---\n\n{texto}\n", encoding="utf-8")
+
+    console.print(f"[green]✓ {len(gold_df)} arquivos .md criados com sucesso em {md_dir}.[/green]")
+    console.print()
 
     # Show final distribution stats
     stats = conn.execute("""

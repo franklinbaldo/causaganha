@@ -168,12 +168,12 @@ class DecisionAnalysis(BaseModel):
     classe_processual: str | None = Field(
         default=None,
         description="Classe da ação: e.g. 'Procedimento Comum Cível', 'Juizado Especial', "
-                    "'Execução de Título Extrajudicial', 'Apelação Cível'",
+        "'Execução de Título Extrajudicial', 'Apelação Cível'",
     )
     assunto_principal: str | None = Field(
         default=None,
         description="Assunto jurídico principal: e.g. 'danos morais', 'cobrança', "
-                    "'rescisão contratual', 'alimentos'",
+        "'rescisão contratual', 'alimentos'",
     )
     valor_causa: float | None = Field(
         default=None,
@@ -189,15 +189,15 @@ class DecisionAnalysis(BaseModel):
     )
     keywords: list[str] = Field(
         default_factory=list,
-        description="Lista de palavras-chave extraídas do texto que melhor representam seu conteúdo",
+        description="Palavras-chave que melhor representam o conteúdo da decisão",
     )
     legal_bases: list[str] = Field(
         default_factory=list,
-        description="Lista exaustiva de normas, artigos, súmulas e temas repetitivos expressamente mencionados no texto",
+        description="Normas, artigos, súmulas e temas repetitivos mencionados no texto",
     )
     precedents: dict[str, str] = Field(
         default_factory=dict,
-        description="Mapeamento de precedentes citados (ex: tema repetitivo, IRDR) para sua categoria ('confirmado', 'distinto', 'ultrapassado')",
+        description="Precedentes citados mapeados para 'confirmado', 'distinto' ou 'ultrapassado'",
     )
 
     # RAG-specific tracking

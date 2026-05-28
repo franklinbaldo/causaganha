@@ -19,6 +19,8 @@ from pathlib import Path
 
 import duckdb
 import ibis
+import numpy as np
+import yaml
 from rich.console import Console
 from rich.progress import track
 
@@ -88,19 +90,15 @@ def main() -> int:
 
     # Load environment variables from .env files
     try:
-        from dotenv import load_dotenv
+        from dotenv import load_dotenv  # noqa: PLC0415
+
         load_dotenv()
         load_dotenv(Path(__file__).resolve().parents[1] / ".env")
         load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     except ImportError:
         pass
 
-    api_key = (
-        os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-    )
-    if "OPENROUTER_API_KEY" in os.environ:
-        del os.environ["OPENROUTER_API_KEY"]
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     use_mock = args.mock or not api_key
 
     if not api_key:
@@ -132,9 +130,7 @@ def main() -> int:
         return 1
 
     # Get already labeled IDs/hashes
-    existing_uuids = {
-        r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()
-    }
+    existing_uuids = {r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()}
     existing_ids = {
         r[0] for r in conn.execute("SELECT intimation_id FROM gold_benchmark").fetchall()
     }
@@ -152,7 +148,9 @@ def main() -> int:
         (args.court,),
     ).fetchall()
 
-    new_candidates = [c for c in candidates if c[0] not in existing_uuids and c[1] not in existing_ids]
+    new_candidates = [
+        c for c in candidates if c[0] not in existing_uuids and c[1] not in existing_ids
+    ]
     if not new_candidates:
         console.print(
             "[green]✓ Não há novas decisões para rotular. Benchmark está 100% atualizado![/green]"
@@ -287,8 +285,6 @@ def main() -> int:
 
     # Export each decision as a .md file with frontmatter metadata
     console.print("[yellow]Exportando decisões para arquivos Markdown (.md)...[/yellow]")
-    import yaml
-    import numpy as np
 
     md_dir = Path("data/benchmark/decisions")
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -298,12 +294,10 @@ def main() -> int:
         existing_md.unlink()
 
     for row in gold_df.to_dict(orient="records"):
-        text_uuid = row["text_uuid"]
         int_id = row["intimation_id"]
         court = row["court"]
         texto = row.pop("texto", "")
-        
-        val_date_str = "2026-05-27"
+
         if isinstance(row.get("validated_at"), datetime):
             val_date_str = row["validated_at"].strftime("%Y-%m-%d")
             row["validated_at"] = row["validated_at"].isoformat()
@@ -312,10 +306,10 @@ def main() -> int:
                 dt = datetime.fromisoformat(str(row.get("validated_at")))
                 val_date_str = dt.strftime("%Y-%m-%d")
             except ValueError:
-                pass
-        
+                val_date_str = datetime.now(UTC).strftime("%Y-%m-%d")
+
         row["schema_version"] = "1.2.0"
-        
+
         # Clean numpy types
         for k, v in list(row.items()):
             if isinstance(v, np.ndarray):
@@ -325,16 +319,18 @@ def main() -> int:
             elif isinstance(v, list):
                 row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
             elif isinstance(v, dict):
-                row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
-        
-        frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
-        md_filename = f"{court}-{val_date_str}-{int_id}.md"
-        md_content = f"---\n{frontmatter}\n---\n\n{texto}\n"
-        md_path = md_dir / md_filename
-        with open(md_path, "w", encoding="utf-8") as f:
-            f.write(md_content)
+                row[k] = {
+                    str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv)
+                    for dk, dv in v.items()
+                }
 
-    console.print(f"[green]✓ {len(gold_df)} arquivos .md atualizados com sucesso em {md_dir}.[/green]\n")
+        frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
+        md_path = md_dir / f"{court}-{val_date_str}-{int_id}.md"
+        md_path.write_text(f"---\n{frontmatter}\n---\n\n{texto}\n", encoding="utf-8")
+
+    n_md = len(gold_df)
+    console.print(f"[green]✓ {n_md} arquivos .md atualizados com sucesso em {md_dir}.[/green]")
+    console.print()
 
     conn.close()
     return 0

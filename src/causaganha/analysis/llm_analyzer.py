@@ -124,12 +124,12 @@ Respond with ONLY valid JSON (no markdown fences):
   "assunto_principal": "<main legal subject, e.g. 'danos morais', 'cobrança', 'alimentos'>",
   "valor_causa": <float in reais or null>,
   "valor_condenacao": <float in reais or null if no monetary award>,
-  "proposed_regex": "<Python regex (re.IGNORECASE) for the KEY PHRASE not yet covered by heuristics>",
+  "proposed_regex": "<Python re.IGNORECASE pattern for a KNOWN GAP or null>",
   "judge_name": "<full judge name or null>",
-  "keywords": ["<list of 3-7 words representing content, e.g. 'danos morais', 'inscrição indevida', 'telefonia'>"],
-  "legal_bases": ["<list of explicit laws, articles, themes, súmulas, e.g. 'art. 186 CC', 'Súmula 385 STJ', 'Art. 485, V, CPC'>"],
+  "keywords": ["<3-7 words, e.g. 'danos morais', 'inscrição indevida'>"],
+  "legal_bases": ["<e.g. 'art. 186 CC', 'Súmula 385 STJ', 'Art. 485 V CPC'>"],
   "precedents": {
-    "<CNJ/Precedent Number, e.g. 'Tema 971 STJ' or 'Súmula 381 STJ'>": "<confirmado|distinto|ultrapassado>"
+    "<e.g. 'Tema 971 STJ' or 'Súmula 381 STJ'>": "<confirmado|distinto|ultrapassado>"
   },
   "summary": "<one sentence>",
   "decision_reasoning": "<1-2 sentences on legal basis>"
@@ -227,10 +227,10 @@ For each document ID, respond with ONLY valid JSON (no markdown fences):
     "valor_condenacao": <float in reais or null>,
     "proposed_regex": "<Python regex filling a KNOWN GAP, or null if covered by existing patterns>",
     "judge_name": "<full name or null>",
-    "keywords": ["<3-7 words representing content, e.g. 'seguro', 'inadimplemento', 'indenização'>"],
-    "legal_bases": ["<explicit laws, articles, súmulas, e.g. 'art. 300 CPC', 'Art. 927 CC'>"],
+    "keywords": ["<3-7 words, e.g. 'seguro', 'inadimplemento', 'indenização'>"],
+    "legal_bases": ["<e.g. 'art. 300 CPC', 'Art. 927 CC'>"],
     "precedents": {
-      "<CNJ/Precedent Number, e.g. 'Tema 971 STJ' or 'Súmula 381 STJ'>": "<confirmado|distinto|ultrapassado>"
+      "<e.g. 'Tema 971 STJ' or 'Súmula 381 STJ'>": "<confirmado|distinto|ultrapassado>"
     },
     "summary": "<one sentence>",
     "decision_reasoning": "<1-2 sentences>"
@@ -288,6 +288,34 @@ def _parse_response(content: str) -> dict[str, Any]:
     return json.loads(content)
 
 
+def _parse_batch_results(
+    batch_parsed: dict[str, Any],
+    id_map: dict[str, int],
+    model: str,
+    batch_size: int,
+) -> dict[int, tuple[DecisionAnalysis, str]]:
+    """Convert raw LLM batch JSON into per-id DecisionAnalysis results."""
+    results: dict[int, tuple[DecisionAnalysis, str]] = {}
+    for key, val in batch_parsed.items():
+        int_id = id_map.get(key)
+        if int_id is None:
+            logger.warning("llm_batch_unknown_key", key=key)
+            continue
+        try:
+            analysis = _build_analysis(val, int_id)
+            results[int_id] = (analysis, model)
+        except (ValueError, KeyError, TypeError) as exc:
+            logger.warning("llm_batch_item_parse_error", intimation_id=int_id, error=str(exc))
+    logger.info(
+        "llm_batch_complete",
+        model=model,
+        batch_size=batch_size,
+        parsed=len(results),
+        missing=batch_size - len(results),
+    )
+    return results
+
+
 def _build_analysis(parsed: dict[str, Any], intimation_id: int) -> DecisionAnalysis:
     """Build a DecisionAnalysis from a parsed LLM response dict."""
     # Normalize to lowercase: LLMs sometimes return 'UNKNOWN', 'Procedente', etc.
@@ -295,7 +323,7 @@ def _build_analysis(parsed: dict[str, Any], intimation_id: int) -> DecisionAnaly
     decision_type = str(parsed.get("decision_type", "unknown")).lower().strip()
 
     # Parse monetary values robustly (may come as string "R$ 5.000,00" or float 5000.0)
-    def _parse_money(val: Any) -> float | None:
+    def _parse_money(val: str | float | None) -> float | None:
         if val is None:
             return None
         if isinstance(val, (int, float)):
@@ -327,6 +355,7 @@ def _build_analysis(parsed: dict[str, Any], intimation_id: int) -> DecisionAnaly
         judge_name=parsed.get("judge_name"),
         keywords=parsed.get("keywords") or [],
         legal_bases=parsed.get("legal_bases") or [],
+        precedents=parsed.get("precedents") or {},
     )
 
 
@@ -376,7 +405,8 @@ class LLMAnalyzer:
                 parsed = _parse_response(content)
                 analysis = _build_analysis(parsed, intimation_id or 0)
             except (ValueError, KeyError, json.JSONDecodeError) as exc:
-                logger.warning("llm_parse_error", model=model, error=str(exc), raw_content=content[:1000] if 'content' in locals() else None)
+                raw = content[:1000] if "content" in locals() else None
+                logger.warning("llm_parse_error", model=model, error=str(exc), raw_content=raw)
                 last_exc = exc
                 continue
             except Exception as exc:
@@ -403,18 +433,37 @@ class LLMAnalyzer:
         msg = f"All LLM models failed. Last error: {last_exc}"
         raise RuntimeError(msg)
 
+    async def _call_batch_once(
+        self,
+        model: str,
+        messages: list[dict[str, str]],
+        max_output_tokens: int,
+        api_key: str | None,
+    ) -> dict[str, Any]:
+        """Make one litellm batch completion call, returning parsed JSON."""
+        import litellm  # noqa: PLC0415
+
+        kwargs: dict[str, Any] = {
+            "model": model,
+            "messages": messages,
+            "temperature": 0.1,
+            "max_tokens": max_output_tokens,
+        }
+        if api_key:
+            kwargs["api_key"] = api_key
+        response = await litellm.acompletion(**kwargs)
+        content = response.choices[0].message.content or ""
+        return _parse_response(content)
+
     async def analyze_batch(
         self,
         items: list[tuple[int, str]],
-        *,
-        max_chars_per_doc: int = 3000,
     ) -> dict[int, tuple[DecisionAnalysis, str]]:
         """Analyze a batch of decisions in a single API call.
 
         Args:
             items: List of (intimation_id, text) tuples. Should already be
                    shuffled by the caller to avoid ordering bias.
-            max_chars_per_doc: Maximum characters per document (ignored).
 
         Returns:
             Dict mapping intimation_id -> (DecisionAnalysis, model_used).
@@ -425,44 +474,31 @@ class LLMAnalyzer:
             Single calls: 1 000 decisions/day.
             Batch of 20: 20 000 decisions/day — 20x throughput.
         """
-        import litellm  # noqa: PLC0415
-
         # Build the multi-document prompt
         doc_blocks = []
         id_map: dict[str, int] = {}  # str(id) -> intimation_id
         for int_id, text in items:
             key = str(int_id)
             id_map[key] = int_id
-            header = _BATCH_DOC_SEPARATOR.format(doc_id=key)
-            doc_blocks.append(f"{header}{text}")
+            doc_blocks.append(f"{_BATCH_DOC_SEPARATOR.format(doc_id=key)}{text}")
 
-        documents = "\n".join(doc_blocks)
-        user_content = _BATCH_USER_TEMPLATE.format(n=len(items), documents=documents)
-
-        # Reserve tokens: enriched schema ~600 tokens/doc (dispositivo_snippet +
-        # proposed_regex + judge_name + summary + reasoning are verbose)
-        # Gemini 2.5 Flash-Lite supports up to 8192 output tokens.
+        user_content = _BATCH_USER_TEMPLATE.format(n=len(items), documents="\n".join(doc_blocks))
+        # ~600 output tokens/doc; Gemini 2.5 Flash-Lite caps at 8192
         max_output_tokens = min(8192, 600 * len(items) + 1024)
-
         messages = [
             {"role": "system", "content": _BATCH_SYSTEM_PROMPT},
             {"role": "user", "content": user_content},
         ]
 
-        # Gather Gemini keys for rotation
-        gemini_keys = []
+        # Gather Gemini keys for rotation (GEMINI_API_KEYS is comma-separated)
         raw_keys = os.environ.get("GEMINI_API_KEYS") or os.environ.get("GEMINI_API_KEY")
-        if raw_keys:
-            gemini_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
-        if not gemini_keys:
-            gemini_keys = [None] # fallback to litellm default / system env
+        gemini_keys: list[str | None] = (
+            [k.strip() for k in raw_keys.split(",") if k.strip()] if raw_keys else [None]
+        )
 
         last_exc: Exception | None = None
         for model in self.models:
-            is_gemini = model.startswith("gemini/")
-            # Rotate keys for Gemini models
-            api_keys_to_try = gemini_keys if is_gemini else [None]
-            
+            api_keys_to_try = gemini_keys if model.startswith("gemini/") else [None]
             for api_key in api_keys_to_try:
                 try:
                     logger.debug(
@@ -471,73 +507,31 @@ class LLMAnalyzer:
                         batch_size=len(items),
                         using_key=f"{api_key[:8]}..." if api_key else "default",
                     )
-                    
-                    # Set temporary API key if rotating
-                    if api_key:
-                        os.environ["GEMINI_API_KEY"] = api_key
-                        os.environ["GOOGLE_API_KEY"] = api_key
-                        
-                    response = await litellm.acompletion(
-                        model=model,
-                        messages=messages,
-                        temperature=0.1,
-                        max_tokens=max_output_tokens,
+                    batch_parsed = await self._call_batch_once(
+                        model, messages, max_output_tokens, api_key
                     )
-                    content = response.choices[0].message.content or ""
-                    batch_parsed = _parse_response(content)
                 except (ValueError, KeyError, json.JSONDecodeError) as exc:
                     logger.warning("llm_batch_parse_error", model=model, error=str(exc))
                     last_exc = exc
-                    # Don't try other keys for formatting errors, go to next model/next step
-                    break
+                    break  # formatting error — try next model, not next key
                 except Exception as exc:
-                    if _is_retryable(exc) or "quota" in str(exc).lower() or "limit" in str(exc).lower():
-                        logger.warning(
-                            "llm_batch_model_unavailable_or_quota",
-                            model=model,
-                            error=str(exc)[:120],
-                        )
-                        last_exc = exc
-                        # Try next key or fallback
-                        continue
-                    # AuthenticationError (401) means key missing/invalid for THIS
-                    # provider — skip to next key or model
                     exc_str = str(exc).lower()
-                    if "authentication" in exc_str or "401" in exc_str or "missing" in exc_str:
-                        logger.warning(
-                            "llm_batch_auth_error",
-                            model=model,
-                            error=str(exc)[:120],
-                        )
+                    is_soft = (
+                        _is_retryable(exc)
+                        or "quota" in exc_str
+                        or "limit" in exc_str
+                        or "authentication" in exc_str
+                        or "401" in exc_str
+                        or "missing" in exc_str
+                    )
+                    if is_soft:
+                        logger.warning("llm_batch_model_error", model=model, error=str(exc)[:120])
                         last_exc = exc
-                        continue
+                        continue  # try next key or next model
                     logger.exception("llm_batch_failed", model=model)
                     raise
                 else:
-                    # Parse individual results
-                    results: dict[int, tuple[DecisionAnalysis, str]] = {}
-                    for key, val in batch_parsed.items():
-                        int_id = id_map.get(key)
-                        if int_id is None:
-                            logger.warning("llm_batch_unknown_key", key=key)
-                            continue
-                        try:
-                            analysis = _build_analysis(val, int_id)
-                            results[int_id] = (analysis, model)
-                        except (ValueError, KeyError, TypeError) as exc:
-                            logger.warning(
-                                "llm_batch_item_parse_error",
-                                intimation_id=int_id,
-                                error=str(exc),
-                            )
-                    logger.info(
-                        "llm_batch_complete",
-                        model=model,
-                        batch_size=len(items),
-                        parsed=len(results),
-                        missing=len(items) - len(results),
-                    )
-                    return results
+                    return _parse_batch_results(batch_parsed, id_map, model, len(items))
 
         msg = f"All LLM models failed for batch. Last error: {last_exc}"
         raise RuntimeError(msg)
@@ -548,14 +542,18 @@ class LLMAnalyzer:
         available: list[str] = []
         if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
             # gemini-2.0-flash retired March/2026; use 2.5 series
-            available.extend([
-                "gemini/gemini-2.5-flash-lite",  # 1 000 RPD free — most generous
-                "gemini/gemini-2.5-flash",        # 250 RPD free
-            ])
+            available.extend(
+                [
+                    "gemini/gemini-2.5-flash-lite",  # 1 000 RPD free — most generous
+                    "gemini/gemini-2.5-flash",  # 250 RPD free
+                ]
+            )
         if os.environ.get("OPENROUTER_API_KEY"):
-            available.extend([
-                "openrouter/moonshotai/kimi-k2.6:free",
-                "openrouter/google/gemma-4-31b-it:free",
-                "openrouter/meta-llama/llama-3.3-70b-instruct:free",
-            ])
+            available.extend(
+                [
+                    "openrouter/moonshotai/kimi-k2.6:free",
+                    "openrouter/google/gemma-4-31b-it:free",
+                    "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+                ]
+            )
         return available or DEFAULT_MODELS
