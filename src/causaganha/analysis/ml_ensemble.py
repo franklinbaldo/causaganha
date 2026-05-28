@@ -177,12 +177,12 @@ class EmbeddingEnsemble:
             msg = f"Anchor set not found at {path}. Run scripts/build_anchor_set.py first."
             raise FileNotFoundError(msg)
 
-        table = ibis.read_parquet(path)
-        logger.info("training_ensemble", n_samples=table.count().execute(), path=str(path))
+        # Single materialization: one DuckDB pass for all training columns
+        df = ibis.read_parquet(path).select("outcome", "embedding").execute()
+        logger.info("training_ensemble", n_samples=len(df), path=str(path))
 
-        # Parse embeddings
-        x_mat = self._parse_embeddings(table)  # (N, D)
-        y_raw = table["outcome"].execute().tolist()
+        x_mat = self._parse_embeddings(df["embedding"])
+        y_raw = df["outcome"].tolist()
 
         # Filter out "unknown" labels (not useful for training)
         valid_mask = [label in OUTCOME_KEYS and label != "unknown" for label in y_raw]
@@ -448,16 +448,17 @@ class EmbeddingEnsemble:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def _parse_embeddings(table: object) -> np.ndarray:
-        """Parse embedding column from ibis table to float32 matrix."""
-        rows = []
-        # .execute() returns a Series; iterating yields raw Python bytes/lists
-        for val in table["embedding"].execute():  # type: ignore[union-attr]
-            if isinstance(val, bytes):
-                rows.append(np.frombuffer(val, dtype=np.float32))
-            else:
-                rows.append(np.array(val, dtype=np.float32))
-        return np.stack(rows, axis=0)
+    def _parse_embeddings(col: object) -> np.ndarray:
+        """Parse embedding column (pandas Series) to float32 matrix."""
+        first = col.iloc[0] if len(col) else None  # type: ignore[union-attr]
+
+        # Fast path: bytes stored via numpy tobytes() — single frombuffer, no loop
+        if isinstance(first, bytes):
+            dim = len(first) // 4
+            return np.frombuffer(b"".join(col), dtype=np.float32).reshape(-1, dim)  # type: ignore[arg-type]
+
+        # Slow path: list[float] format
+        return np.stack([np.array(v, dtype=np.float32) for v in col], axis=0)  # type: ignore[union-attr]
 
     @property
     def is_trained(self) -> bool:

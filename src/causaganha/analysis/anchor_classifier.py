@@ -110,47 +110,52 @@ class AnchorClassifier:
             )
             raise FileNotFoundError(msg)
 
-        table = ibis.read_parquet(self.anchor_path)
-        counts = (
-            table.group_by("outcome")
-            .agg(n=table["outcome"].count())
+        # Single materialization: one DuckDB pass over the parquet for all columns
+        df = (
+            ibis.read_parquet(self.anchor_path)
+            .select("outcome", "confidence", "numero_processo", "embedding")
             .execute()
         )
+
+        outcome_counts = df["outcome"].value_counts().to_dict()
         logger.info(
             "anchor_set_loaded",
             path=str(self.anchor_path),
-            n_anchors=table.count().execute(),
-            outcomes=dict(zip(counts["outcome"], counts["n"], strict=True)),
+            n_anchors=len(df),
+            outcomes=outcome_counts,
         )
 
-        # Parse embeddings from stored format (bytes → float32 ndarray)
-        self._embeddings = self._parse_embeddings(table)      # (N, D)
-        self._labels = table["outcome"].execute().tolist()
-        self._confidences = table["confidence"].execute().tolist()
-        self._loaded_processes = set(table["numero_processo"].execute().tolist())
+        self._embeddings = self._parse_embeddings(df["embedding"])
+        self._labels = df["outcome"].tolist()
+        self._confidences = df["confidence"].tolist()
+        self._loaded_processes = set(df["numero_processo"].tolist())
         self._loaded = True
 
     @staticmethod
-    def _parse_embeddings(table: object) -> np.ndarray:
+    def _parse_embeddings(col: object) -> np.ndarray:
         """Convert embedding column to a float32 matrix.
 
         Supports embeddings stored as:
         - ``bytes`` (raw float32 binary from numpy tobytes())
         - ``list[float]`` (JSON-serializable format)
         """
-        import io  # noqa: PLC0415
+        first = col.iloc[0] if len(col) else None
 
+        # Fast path: all bytes — single frombuffer on concatenated bytes (no Python loop)
+        if isinstance(first, bytes):
+            dim = len(first) // 4  # float32 = 4 bytes per element
+            flat = np.frombuffer(b"".join(col), dtype=np.float32)
+            return flat.reshape(-1, dim)
+
+        # Slow path: mixed or list[float] format — iterate per-row
+        import io  # noqa: PLC0415
         rows = []
-        # table["embedding"].execute() returns a Series; iterating yields raw Python values
-        for val in table["embedding"].execute():  # type: ignore[index]
-            if isinstance(val, bytes):
-                rows.append(np.frombuffer(val, dtype=np.float32))
-            elif isinstance(val, (list, np.ndarray)):
+        for val in col:
+            if isinstance(val, (list, np.ndarray)):
                 rows.append(np.array(val, dtype=np.float32))
             else:
                 buf = io.BytesIO(val)
                 rows.append(np.load(buf))
-
         return np.stack(rows, axis=0)  # (N, D)
 
     # ------------------------------------------------------------------
@@ -342,16 +347,20 @@ class AnchorClassifier:
 
         if self.anchor_path.exists():
             existing = ibis.read_parquet(self.anchor_path)
-            # Deduplicate: drop existing rows for any case number being re-added
-            new_ids = new_table["numero_processo"].execute().tolist()
-            existing = existing.filter(~existing["numero_processo"].isin(new_ids))
-            combined = existing.union(new_table)
+            # Build the full expression lazily; new_ids are small (≤ _FLUSH_THRESHOLD)
+            new_ids = [row["numero_processo"] for row in pending]
+            combined = (
+                existing.filter(~existing["numero_processo"].isin(new_ids))
+                .union(new_table)
+            )
         else:
             self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
             combined = new_table
 
-        combined.to_parquet(str(self.anchor_path))
-        n_total = combined.count().execute()
+        # Single materialization: execute once, derive count, write from memory
+        combined_df = combined.execute()
+        n_total = len(combined_df)
+        ibis.memtable(combined_df).to_parquet(str(self.anchor_path))
         logger.info("anchor_set_flushed", n_written=len(pending), total=n_total)
         return len(pending)
 
