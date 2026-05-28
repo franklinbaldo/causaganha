@@ -74,7 +74,7 @@ ignore = [
 # and magic-value comparisons are normal in test code.
 "tests/**/*.py" = [
     "S101",             # assert
-    "D100", "D103", "D104", "D205",  # missing docstrings
+    "D100", "D101", "D102", "D103", "D104", "D205",  # missing docstrings
     "ANN001", "ANN201", "ANN202", "ANN401",  # missing type annotations
     "PLR2004",          # magic value comparison
     "ARG001",           # unused function argument (fixtures pass unused args)
