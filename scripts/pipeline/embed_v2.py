@@ -93,10 +93,9 @@ def _download_parquet(url: str, timeout: int = 120) -> str | None:
         with httpx.Client(timeout=timeout) as client:
             response = client.get(url)
             if response.status_code == HTTP_200_OK:
-                tmp = tempfile.NamedTemporaryFile(suffix=".parquet", delete=False)
-                tmp.write(response.content)
-                tmp.close()
-                return tmp.name
+                with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
+                    tmp.write(response.content)
+                    return tmp.name
             return None
     except Exception:
         return None
@@ -145,7 +144,7 @@ def fetch_texts_from_ia(con: ibis.BaseBackend, date: str, tribunal: str) -> ibis
     else:
         return result
     finally:
-        os.unlink(path)
+        Path(path).unlink()
 
 
 def fetch_existing_embedding_ids(con: ibis.BaseBackend, date: str, tribunal: str) -> set[str]:
@@ -170,7 +169,7 @@ def fetch_existing_embedding_ids(con: ibis.BaseBackend, date: str, tribunal: str
         logger.info("embeddings_check_failed", date=date, tribunal=tribunal, error=str(e))
         return set()
     finally:
-        os.unlink(path)
+        Path(path).unlink()
 
 
 def _compute_md5(data: bytes) -> str:
@@ -197,7 +196,7 @@ def upload_embeddings_to_ia(
         with Path(tmp_path).open("rb") as f:
             parquet_bytes = f.read()
     finally:
-        os.unlink(tmp_path)
+        Path(tmp_path).unlink()
 
     md5_hash = _compute_md5(parquet_bytes)
 
@@ -284,10 +283,10 @@ def generate_embeddings_for_date(
         # Stream batches directly from ibis for API calls
         result_ids = []
         result_embeddings = []
-        batch_num = 0
 
-        for batch in texts.select("id", "texto").to_pyarrow_batches(chunk_size=BATCH_SIZE):
-            batch_num += 1
+        for batch_num, batch in enumerate(
+            texts.select("id", "texto").to_pyarrow_batches(chunk_size=BATCH_SIZE), start=1
+        ):
             batch_texts = [t[:8000] for t in batch.column("texto").to_pylist()]
 
             try:

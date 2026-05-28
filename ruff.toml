@@ -74,7 +74,7 @@ ignore = [
 # and magic-value comparisons are normal in test code.
 "tests/**/*.py" = [
     "S101",             # assert
-    "D100", "D103", "D104", "D205",  # missing docstrings
+    "D100", "D101", "D102", "D103", "D104", "D205",  # missing docstrings
     "ANN001", "ANN201", "ANN202", "ANN401",  # missing type annotations
     "PLR2004",          # magic value comparison
     "ARG001",           # unused function argument (fixtures pass unused args)
@@ -119,6 +119,8 @@ ignore = [
     "S101",             # assert (used as contract in scripts)
     "BLE001",           # blind Exception catch (pragmatic in one-shot scripts; src/** stays strict)
     "TRY300",           # try/else restructure (style, scripts don't benefit much)
+    "S311",             # pseudo-random (diagnostic sampling, not crypto)
+    "PD004",            # .notna preferred over .notnull — ibis uses .notnull(); not pandas
 ]
 
 # ── Experiments ────────────────────────────────────────────────────────────
@@ -135,6 +137,11 @@ convention = "google"
 known-first-party = ["causaganha", "djen_backup"]
 force-single-line = false
 lines-after-imports = 2
+
+[lint.flake8-tidy-imports.banned-api]
+"pandas" = {msg = "Use ibis instead of pandas. pandas is banned from this repo."}
+"pandas.core" = {msg = "Use ibis instead of pandas. pandas is banned from this repo."}
+"pandas.DataFrame" = {msg = "Use ibis instead of pandas. pandas is banned from this repo."}
 
 [lint.flake8-quotes]
 inline-quotes = "double"

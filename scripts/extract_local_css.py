@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Extract <style> blocks from all .astro/.svelte files and move them to index.css.
+"""Extract <style> blocks from all .astro/.svelte files and move them to index.css.
 
 Usage: python scripts/extract_local_css.py [--dry-run]
 """
@@ -10,6 +9,7 @@ import re
 import sys
 from pathlib import Path
 
+
 DRY_RUN = "--dry-run" in sys.argv
 
 WEB_SRC = Path(__file__).parent.parent / "web" / "src"
@@ -17,7 +17,7 @@ INDEX_CSS = WEB_SRC / "index.css"
 
 # Matches <style> or <style lang="ts"> etc. but NOT <style is:global>
 STYLE_RE = re.compile(
-    r'\n?<style(?![^>]*\bis:global\b)[^>]*>(.*?)</style>',
+    r"\n?<style(?![^>]*\bis:global\b)[^>]*>(.*?)</style>",
     re.DOTALL,
 )
 

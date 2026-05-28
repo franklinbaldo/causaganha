@@ -1,10 +1,20 @@
-"""Hybrid analyzer combining RAG and LLM for optimal cost/accuracy."""
+"""Hybrid analyzer combining keyword, RAG, and LLM for optimal cost/accuracy."""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
 
 import structlog
 
-from causaganha.analysis.analyzer import DecisionAnalyzer
+from causaganha.analysis.benchmark_store import BenchmarkStore
+from causaganha.analysis.keyword_classifier import KeywordClassifier
+from causaganha.analysis.llm_analyzer import LLMAnalyzer
 from causaganha.analysis.models import DecisionAnalysis
-from causaganha.analysis.rag_analyzer import RAGAnalyzer
+from causaganha.analysis.text_utils import strip_html
+
+
+if TYPE_CHECKING:
+    from causaganha.analysis.rag_analyzer import RAGAnalyzer
 
 
 logger = structlog.get_logger()
@@ -12,26 +22,42 @@ logger = structlog.get_logger()
 # Default confidence threshold for RAG vs LLM fallback
 DEFAULT_CONFIDENCE_THRESHOLD = 0.70
 
+# Keyword confidence above this → skip RAG and LLM entirely
+_KEYWORD_HIGH_CONFIDENCE = 0.85
+
 
 class HybridAnalyzer:
-    """Hybrid analyzer using RAG first with LLM fallback for low confidence."""
+    """Three-layer analyzer: keyword → RAG → LLM.
+
+    Layer 0 (KeywordClassifier): zero-cost regex, ~0ms. Returns immediately
+    when confidence ≥ 0.85 — no API calls made.
+    Layer 1 (RAGAnalyzer): embedding-based similarity, ~$0.000004/decision.
+    Layer 2 (LLMAnalyzer): LiteLLM multi-provider, only when layers 0+1 fail.
+               Every LLM call is recorded to the benchmark dataset.
+    """
 
     def __init__(
         self,
         rag_analyzer: RAGAnalyzer,
-        llm_analyzer: DecisionAnalyzer,
+        llm_analyzer: LLMAnalyzer | None = None,
         confidence_threshold: float = DEFAULT_CONFIDENCE_THRESHOLD,
+        keyword_classifier: KeywordClassifier | None = None,
+        benchmark_store: BenchmarkStore | None = None,
     ) -> None:
         """Initialize hybrid analyzer.
 
         Args:
             rag_analyzer: RAG analyzer instance.
-            llm_analyzer: LLM analyzer instance.
+            llm_analyzer: LiteLLM analyzer (created with default models if None).
             confidence_threshold: Minimum confidence for RAG. Below this triggers LLM.
+            keyword_classifier: Optional keyword classifier (created if not provided).
+            benchmark_store: Where to record LLM-classified decisions for benchmarking.
         """
         self.rag = rag_analyzer
-        self.llm = llm_analyzer
+        self.llm = llm_analyzer or LLMAnalyzer()
         self.threshold = confidence_threshold
+        self.keyword = keyword_classifier or KeywordClassifier()
+        self.benchmark = benchmark_store or BenchmarkStore()
 
         logger.info(
             "hybrid_analyzer_initialized",
@@ -55,12 +81,41 @@ class HybridAnalyzer:
         Returns:
             DecisionAnalysis with best available result.
         """
+        # Strip HTML tags before any classifier sees the text
+        text = strip_html(text)
+
         logger.info(
             "hybrid_analysis_start",
             intimation_id=intimation_id,
         )
 
-        # Step 1: Try RAG analysis (cheap)
+        # Layer 0: zero-cost keyword classifier
+        kw_outcome, kw_confidence = self.keyword.classify(text)
+        if kw_confidence >= _KEYWORD_HIGH_CONFIDENCE:
+            logger.info(
+                "hybrid_keyword_high_confidence",
+                intimation_id=intimation_id,
+                outcome=kw_outcome,
+                confidence=kw_confidence,
+            )
+            return DecisionAnalysis(
+                intimation_id=intimation_id or 0,
+                decision_type="keyword_classified",
+                outcome=kw_outcome,
+                plaintiff_won=kw_outcome in ("procedente", "parcialmente procedente"),
+                confidence_score=kw_confidence,
+                summary=f"Keyword classifier: {kw_outcome} (confidence {kw_confidence:.2f})",
+                analysis_method="keyword",
+            )
+
+        if kw_confidence > 0:
+            logger.debug(
+                "hybrid_keyword_low_confidence",
+                intimation_id=intimation_id,
+                outcome=kw_outcome,
+                confidence=kw_confidence,
+            )
+
         try:
             rag_result = await self.rag.analyze_text(text, intimation_id)
 
@@ -94,19 +149,28 @@ class HybridAnalyzer:
             )
 
             try:
-                # Use texto for LLM analysis (no PDF needed!)
-                llm_result = await self.llm.analyze_text(text, intimation_id)
+                llm_result, model_used = await self.llm.analyze_text(text, intimation_id)
 
                 # Preserve RAG information in the result
                 llm_result.analysis_method = "hybrid"
                 llm_result.rag_confidence = rag_result.rag_confidence
                 llm_result.rag_votes = rag_result.rag_votes
 
+                self.benchmark.record(
+                    text=text,
+                    outcome=llm_result.outcome,
+                    confidence=llm_result.confidence_score,
+                    model=model_used,
+                    keyword_conf=kw_confidence,
+                    intimation_id=intimation_id or 0,
+                    analysis_method="hybrid",
+                )
                 logger.info(
                     "hybrid_llm_fallback_success",
                     intimation_id=intimation_id,
                     llm_confidence=llm_result.confidence_score,
                     rag_confidence=rag_result.rag_confidence,
+                    model=model_used,
                 )
             except Exception as e:
                 logger.exception(
@@ -127,14 +191,19 @@ class HybridAnalyzer:
                 error=str(e),
             )
 
-            # RAG failed - try LLM with same text
-            logger.info(
-                "hybrid_using_llm_due_to_rag_failure",
-                intimation_id=intimation_id,
-            )
-
-            llm_result = await self.llm.analyze_text(text, intimation_id)
+            # RAG failed — try LLM directly
+            logger.info("hybrid_using_llm_due_to_rag_failure", intimation_id=intimation_id)
+            llm_result, model_used = await self.llm.analyze_text(text, intimation_id)
             llm_result.analysis_method = "hybrid"
+            self.benchmark.record(
+                text=text,
+                outcome=llm_result.outcome,
+                confidence=llm_result.confidence_score,
+                model=model_used,
+                keyword_conf=kw_confidence,
+                intimation_id=intimation_id or 0,
+                analysis_method="hybrid",
+            )
             return llm_result
 
     async def analyze_batch(

@@ -106,12 +106,13 @@ class GroundTruthManager:
             return {"synced": 0, "status": "no_data"}
 
         # 2. Get already synced IDs to avoid duplicates
-        existing_ids = set()
+        existing_ids: set[int] = set()
         if self.vector_store.table_exists(self.table_name):
-            table = self.vector_store.get_table(self.table_name)
-            existing_records = table.to_pandas()
-            if not existing_records.empty and "intimation_id" in existing_records.columns:
-                existing_ids = set(existing_records["intimation_id"].tolist())
+            lance_tbl = self.vector_store.get_table(self.table_name).to_lance()
+            # Column projection: read only intimation_id — skips embedding vectors
+            if "intimation_id" in lance_tbl.schema.names:
+                id_col = lance_tbl.scanner(columns=["intimation_id"]).to_table()
+                existing_ids = set(id_col.column("intimation_id").to_pylist())
 
         # 3. Filter new records
         new_records = [r for r in records if r[0] not in existing_ids]

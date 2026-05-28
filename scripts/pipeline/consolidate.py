@@ -25,6 +25,7 @@ import json
 import os
 import shutil
 import tempfile
+import threading
 import time
 import traceback
 import unicodedata
@@ -36,8 +37,6 @@ from dataclasses import field as dataclass_field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
-
-import pandas as pd
 
 
 # Disable strict decimal traps that cause crashes in ibis/sqlglot
@@ -131,10 +130,10 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
     by_date: dict[str, list[dict[str, Any]]] = {}
     try:
         for line in path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("tribunal"):
+            stripped_line = line.strip()
+            if not stripped_line or stripped_line.startswith("tribunal"):
                 continue
-            parts = line.split(",")
+            parts = stripped_line.split(",")
             if len(parts) < 3:
                 continue
             tribunal = parts[0].upper()
@@ -317,25 +316,24 @@ def fetch_consolidation_candidates(
     # 1a. In-memory manifest (already fetched)
     if manifest is not None:
         logger.info("fetching_consolidation_candidates_from_memory", records=len(manifest))
-        con = duckdb.connect()
         try:
             df_data = [{"date": m["date"], "file_type": m["file_type"]} for m in manifest]
-            df = pd.DataFrame(df_data)  # noqa: F841
-            query = """
-                SELECT date
-                FROM df
-                GROUP BY date
-                HAVING SUM(CASE WHEN file_type='zip' THEN 1 ELSE 0 END) > 0
-                   AND SUM(CASE WHEN file_type='parquet' THEN 1 ELSE 0 END) = 0
-                ORDER BY date DESC
-            """
-            result = con.execute(query).fetchall()
-            return [str(r[0]) for r in result]
+            t = ibis.memtable(df_data, columns=["date", "file_type"])
+            agg = t.group_by("date").agg(
+                has_zip=(t["file_type"] == "zip").sum(),
+                has_parquet=(t["file_type"] == "parquet").sum(),
+            )
+            result = (
+                agg.filter((agg["has_zip"] > 0) & (agg["has_parquet"] == 0))
+                .order_by(agg["date"].desc())
+                .select("date")
+                .execute()["date"]
+                .tolist()
+            )
+            return [str(d) for d in result]
         except Exception as e:
             logger.warning("fetch_candidates_failed_memory", error=str(e))
             return []
-        finally:
-            con.close()
 
     # 1b. Download manifest.parquet from IA and query it
     manifest_url = "https://archive.org/download/causaganha-catalog/manifest.parquet"
@@ -384,6 +382,7 @@ class CheckpointManager:
     """Manages local checkpoint state for backfill progress."""
 
     def __init__(self, filepath: Path) -> None:
+        """Initialize with checkpoint file path."""
         self.filepath = filepath
 
     def load(self) -> str | None:
@@ -503,16 +502,16 @@ def list_zips_for_date(
     if sync_manifest is not None:
         entries = sync_manifest.get(date, [])
         present_count = len(entries)  # includes both uploaded ZIPs and confirmed-absent
-        for e in entries:
-            if not e["absent"]:
-                zips.append(
-                    {
-                        "filename": e["filename"],
-                        "tribunal": e["tribunal"],
-                        "item_id": e["item_id"],
-                        "size": 0,
-                    }
-                )
+        zips.extend(
+            {
+                "filename": e["filename"],
+                "tribunal": e["tribunal"],
+                "item_id": e["item_id"],
+                "size": 0,
+            }
+            for e in entries
+            if not e["absent"]
+        )
         logger.info("zips_from_sync_manifest", date=date, zips=len(zips), present=present_count)
         return zips, present_count
 
@@ -1299,9 +1298,10 @@ def _needs_consolidation(
             target_d = date.fromisoformat(date_str)
 
             for trib in TRIBUNAIS:
-                if trib not in present_tribunais:
-                    if not _is_tribunal_stopped(trib, target_d, manifest, ctx=ctx):
-                        return False
+                if trib not in present_tribunais and not _is_tribunal_stopped(
+                    trib, target_d, manifest, ctx=ctx
+                ):
+                    return False
             return True
 
         return True
@@ -1492,6 +1492,9 @@ def find_next_unconsolidated(
     return None
 
 
+_duckdb_export_lock = threading.Lock()
+
+
 def _export_table_sync(
     table_name: str,
     con: ibis.BaseBackend,
@@ -1502,16 +1505,17 @@ def _export_table_sync(
     Returns (output_path, size_mb, row_count) or None when table is empty.
     Intended to be called via asyncio.to_thread so it doesn't block the loop.
     """
-    t = con.table(table_name)
-    count = t.count().to_pandas()
-    if count == 0:
-        return None
-    output_path = output_dir / f"{table_name}.parquet"
-    con.raw_sql(
-        f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
-    )
-    size_mb = output_path.stat().st_size / (1024 * 1024)
-    return output_path, size_mb, int(count)
+    with _duckdb_export_lock:
+        t = con.table(table_name)
+        count = t.count().execute()
+        if count == 0:
+            return None
+        output_path = output_dir / f"{table_name}.parquet"
+        con.raw_sql(
+            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+        )
+        size_mb = output_path.stat().st_size / (1024 * 1024)
+        return output_path, size_mb, int(count)
 
 
 async def _export_and_upload_table(

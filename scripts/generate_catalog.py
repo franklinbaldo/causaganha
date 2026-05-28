@@ -2,13 +2,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 SATURDAY_WEEKDAY = 5
 HTTP_200_OK = 200
@@ -139,11 +140,11 @@ def get_items_from_sync_manifest(
 
     item_ids: set[str] = set()
     try:
-        for line in manifest_path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("tribunal"):
+        for raw_line in manifest_path.read_text(encoding="utf-8").splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("tribunal"):
                 continue
-            parts = line.split(",")
+            parts = stripped.split(",")
             if len(parts) < 3:
                 continue
             tribunal = parts[0].lower()
@@ -297,11 +298,11 @@ def generate_collect_progress(
     uploaded_dates: set[str] = set()
     if sync_manifest_path.exists():
         try:
-            for line in sync_manifest_path.read_text(encoding="utf-8").splitlines():
-                line = line.strip()
-                if not line or line.startswith("tribunal"):
+            for raw_line in sync_manifest_path.read_text(encoding="utf-8").splitlines():
+                stripped = raw_line.strip()
+                if not stripped or stripped.startswith("tribunal"):
                     continue
-                parts = line.split(",")
+                parts = stripped.split(",")
                 if len(parts) >= 3 and parts[2] == "uploaded":
                     uploaded_dates.add(parts[1])
         except Exception as e:
@@ -472,7 +473,6 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
             return None
 
     elif filename.endswith(".parquet"):
-        # Expecting: TRIBUNAL-YYYY-MM-DD-table.parquet
         parts = filename.replace(".parquet", "").split("-")
 
         # Find table name
@@ -1035,10 +1035,13 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
             "-- Backfill progress",
             "CREATE OR REPLACE VIEW backfill_progress AS",
             "SELECT",
-            "    (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') as collected,",
+            "    (SELECT COUNT(DISTINCT date || tribunal) FROM manifest"
+            " WHERE file_type = 'zip') as collected,",
             "    (SELECT COUNT(*) FROM backfill_needed) as pending,",
-            "    ROUND(100.0 * (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') /",
-            "        ((SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') +",
+            "    ROUND(100.0 * (SELECT COUNT(DISTINCT date || tribunal) FROM manifest"
+            " WHERE file_type = 'zip') /",
+            "        ((SELECT COUNT(DISTINCT date || tribunal) FROM manifest"
+            " WHERE file_type = 'zip') +",
             "         (SELECT COUNT(*) FROM backfill_needed)), 2) as percent_complete;",
             "",
         ],
@@ -1050,7 +1053,7 @@ def generate_catalog_sql(manifest: list[dict]) -> str:
 def create_catalog_duckdb(
     manifest: list[dict],
     backfill: list[dict],
-    sql: str,
+    _sql: str,
     output_dir: Path,
 ) -> Path | None:
     """Create ready-to-use DuckDB file.
@@ -1147,13 +1150,17 @@ def create_catalog_duckdb(
         """)
 
         con.execute("DROP VIEW IF EXISTS backfill_progress;")
-        con.execute("""
+        _zip_count_sql = (
+            "SELECT COUNT(DISTINCT date || tribunal)"
+            " FROM manifest WHERE file_type = 'zip'"
+        )
+        con.execute(f"""
             CREATE VIEW backfill_progress AS
             SELECT
-                (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') as collected,
+                ({_zip_count_sql}) as collected,
                 (SELECT COUNT(*) FROM backfill_needed) as pending,
-                ROUND(100.0 * (SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') /
-                    NULLIF((SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip') +
+                ROUND(100.0 * ({_zip_count_sql}) /
+                    NULLIF(({_zip_count_sql}) +
                      (SELECT COUNT(*) FROM backfill_needed), 0), 2) as percent_complete
         """)
 

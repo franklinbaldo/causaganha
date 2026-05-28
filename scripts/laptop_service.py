@@ -1,12 +1,13 @@
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 MIN_ITERATION_SLEEP_SECONDS = 10
 
@@ -62,7 +63,7 @@ class GracefulShutdown:
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
 
-    def _handle_signal(self, signum, frame) -> None:
+    def _handle_signal(self, signum, _frame) -> None:
         logger.info("shutdown_signal_received", signal=signum)
         self.shutdown_requested = True
 

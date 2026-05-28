@@ -1,0 +1,27 @@
+---
+title: "Leaderboard de Advogados"
+description: "Ranking de advogados com base no sistema de pontuação OpenSkill."
+output: /data/lawyer_leaderboard.json
+format: array
+---
+
+Leaderboard dos advogados no tribunal com base no rating conservador (mu - 3 * sigma).
+Apenas advogados com 20 ou mais casos são incluídos para evitar volatilidade de histórico curto.
+
+```{sql}
+SELECT
+  lawyer_name,
+  oab_number,
+  oab_state,
+  ROUND(rating, 2) AS rating,
+  ROUND(mu, 2) AS mu,
+  ROUND(sigma, 2) AS sigma,
+  total_cases,
+  wins,
+  losses,
+  ROUND(100.0 * win_rate, 1) AS win_rate
+FROM lawyer_ratings
+WHERE tribunal = 'TJRO'
+  AND total_cases >= 20
+ORDER BY rating DESC;
+```

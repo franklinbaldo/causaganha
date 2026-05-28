@@ -17,22 +17,25 @@ Usage:
 
 from __future__ import annotations
 
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import argparse
+import csv
 import json
 import subprocess
 import urllib.request
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
+from io import StringIO
 from pathlib import Path
 from typing import Any
 
@@ -57,9 +60,6 @@ def fetch_summary() -> dict[str, Any]:
 
 def fetch_manifest_csv() -> list[dict[str, str]]:
     """Download full manifest CSV for date-level detail."""
-    import csv
-    from io import StringIO
-
     print(f"Fetching {MANIFEST_CSV_URL}...")
     with urllib.request.urlopen(MANIFEST_CSV_URL, timeout=120) as resp:
         text = resp.read().decode("utf-8")

@@ -22,15 +22,16 @@ Data sources available in SQL:
 
 from __future__ import annotations
 
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import json
 import re
@@ -47,6 +48,11 @@ QUERIES_DIR = Path(__file__).parent.parent / "web" / "src" / "queries"
 PUBLIC_DIR = Path(__file__).parent.parent / "web" / "public"
 MANIFEST_CSV_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
 LOCAL_MANIFEST = Path(__file__).parent.parent / "data" / "sync-manifest.csv"
+
+# Local dev/CI fallback: exported parquet snapshots from the ratings pipeline.
+# Views are only registered when the files exist, so production runs that
+# lack them will skip gracefully (those queries will fail with a missing-view error).
+DEV_RATINGS_DIR = Path(__file__).parent.parent / "data" / "parquets"
 
 SQL_FENCE_RE = re.compile(
     r"```\s*\{\s*sql[^}]*\}\s*\n(.*?)\n```",
@@ -88,7 +94,7 @@ def ensure_manifest() -> Path:
     return LOCAL_MANIFEST
 
 
-def run_query(con: duckdb.DuckDBPyConnection, sql: str, fmt: str) -> Any:
+def run_query(con: duckdb.DuckDBPyConnection, sql: str, fmt: str) -> object:
     """Execute SQL and return serializable data in the requested format."""
     rows = con.execute(sql).fetchall()
     columns = [d[0] for d in con.description]
@@ -103,7 +109,7 @@ def run_query(con: duckdb.DuckDBPyConnection, sql: str, fmt: str) -> Any:
     return [dict(zip(columns, row, strict=False)) for row in rows]
 
 
-def json_default(obj: Any) -> str:
+def json_default(obj: object) -> str:
     """Serialize non-JSON types (date, datetime) as ISO strings."""
     if hasattr(obj, "isoformat"):
         return obj.isoformat()
@@ -124,6 +130,20 @@ def render_all() -> int:
         f"CREATE VIEW manifest AS SELECT * FROM read_csv_auto('{manifest_path}', header=true)"
     )
 
+    ratings_path = DEV_RATINGS_DIR / "lawyer_ratings.parquet"
+    if ratings_path.exists():
+        print(f"Using local lawyer_ratings: {ratings_path}")
+        con.execute(
+            f"CREATE VIEW lawyer_ratings AS SELECT * FROM read_parquet('{ratings_path}')"
+        )
+
+    ratings_history_path = DEV_RATINGS_DIR / "ratings_history.parquet"
+    if ratings_history_path.exists():
+        print(f"Using local ratings_history: {ratings_history_path}")
+        con.execute(
+            f"CREATE VIEW ratings_history AS SELECT * FROM read_parquet('{ratings_history_path}')"
+        )
+
     count = 0
     for qmd in qmds:
         print(f"\n→ {qmd.name}")
@@ -138,13 +158,18 @@ def render_all() -> int:
         output_path = PUBLIC_DIR / output.lstrip("/")
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        data = run_query(con, sql, fmt)
+        try:
+            data = run_query(con, sql, fmt)
+        except duckdb.CatalogException as exc:
+            print(f"  SKIP: missing table/view — {exc}", file=sys.stderr)
+            continue
         output_path.write_text(
             json.dumps(data, indent=2, default=json_default),
             encoding="utf-8",
         )
         print(
-            f"  → {output_path.relative_to(PUBLIC_DIR.parent.parent)} ({output_path.stat().st_size:,} bytes)"
+            f"  → {output_path.relative_to(PUBLIC_DIR.parent.parent)}"
+            f" ({output_path.stat().st_size:,} bytes)"
         )
         count += 1
 

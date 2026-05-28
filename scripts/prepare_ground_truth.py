@@ -1,21 +1,19 @@
-
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import sys
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
-            stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
-
-from collections import Counter
-
-
 #!/usr/bin/env python3
 """Preparar ground truth de decisões validadas para RAG."""
 
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
+import sys
+
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
+
 import argparse
 import sys
+from collections import Counter
 
 import duckdb
 from rich.console import Console

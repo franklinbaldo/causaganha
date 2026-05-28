@@ -74,7 +74,8 @@ def parse_run_results(results_path: Path) -> None:
             if status in {"fail", "error"}:
                 message = result.get("message", "No failure/error message provided.")
                 # For test failures, unique_id is like test.my_project.not_null_my_model_id.hash
-                # We might want to extract the model it applies to if possible, or just log the test name.
+                # We might want to extract the model it applies to if possible, or just
+                # log the test name.
                 error_messages.append(
                     f"{status.upper()} in TEST {node_name}: {message}",
                 )
@@ -132,16 +133,19 @@ if __name__ == "__main__":
     parser.add_argument(
         "--dbt-project-dir",
         type=Path,
-        help="Path to the dbt project directory. If provided, run_results_path will be relative to this.",
+        help=(
+            "Path to the dbt project directory. If provided, run_results_path will be"
+            " relative to this."
+        ),
         default=Path("dbt"),  # Default dbt project directory
     )
 
     args = parser.parse_args()
 
     # Determine the correct path for run_results.json
-    # If run_results_path is absolute, use it. Otherwise, consider it relative to dbt_project_dir/target/
-    # The default nargs='?' for run_results_path means it might not be explicitly provided,
-    # so we construct it based on dbt_project_dir.
+    # If run_results_path is absolute, use it. Otherwise, consider it relative to
+    # dbt_project_dir/target/. The default nargs='?' for run_results_path means it
+    # might not be explicitly provided, so we construct it based on dbt_project_dir.
 
     effective_run_results_path: Path
     if args.run_results_path.is_absolute():

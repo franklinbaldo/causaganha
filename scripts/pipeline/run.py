@@ -130,7 +130,7 @@ def execute_step(name: str, cmd: list[str], cwd: str) -> StepResult:
         output_path.unlink()
 
     success = result.returncode == 0
-    for k, v in outputs.items():
+    for _k, _v in outputs.items():
         pass
 
     return StepResult(name=name, success=success, outputs=outputs, duration_seconds=duration)

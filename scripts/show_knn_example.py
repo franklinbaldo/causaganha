@@ -3,15 +3,17 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import os
+from typing import Any
 
 import duckdb
 import lancedb
@@ -24,18 +26,21 @@ from rich.table import Table
 console = Console()
 
 
-CHUNK_INSTRUCTION = """Analise esta parte de uma decisão judicial brasileira e determine qual polo venceu:
-- Polo Ativo (autor/requerente/exequente)
-- Polo Passivo (réu/requerido/executado)
-Considere termos como: procedente, improcedente, julgo, condeno, defiro, indefiro, provimento, negado."""
+CHUNK_INSTRUCTION = (
+    "Analise esta parte de uma decisão judicial brasileira e determine qual polo venceu:\n"
+    "- Polo Ativo (autor/requerente/exequente)\n"
+    "- Polo Passivo (réu/requerido/executado)\n"
+    "Considere termos como: procedente, improcedente, julgo, condeno, defiro, indefiro,"
+    " provimento, negado."
+)
 
 
-_genai_client = None
+_state: dict[str, Any] = {"genai_client": None}
 
 
 def get_embedding(text: str) -> list[float]:
     """Get embedding."""
-    result = _genai_client.models.embed_content(
+    result = _state["genai_client"].models.embed_content(
         model="models/text-embedding-004",
         contents=[text],
         config={"task_type": "RETRIEVAL_QUERY"},
@@ -53,8 +58,7 @@ def main() -> None:
         console.print("[red]Erro: GEMINI_API_KEY não configurada[/red]")
         return
 
-    global _genai_client  # noqa: PLW0603
-    _genai_client = genai.Client(api_key=api_key)
+    _state["genai_client"] = genai.Client(api_key=api_key)
 
     # Conectar bancos
     conn = duckdb.connect("data/causaganha.duckdb", read_only=True)
@@ -169,7 +173,8 @@ def main() -> None:
             "2. Buscamos as 5 decisões do ground truth com vetores MAIS SIMILARES\n"
             "3. Votamos pela maioria: o outcome mais comum entre os vizinhos\n"
             "4. A confiança é a % de vizinhos que concordam\n\n"
-            "[yellow]Hipótese:[/yellow] Decisões com texto similar tendem a ter resultado similar!\n\n"
+            "[yellow]Hipótese:[/yellow] Decisões com texto similar tendem a ter resultado"
+            " similar!\n\n"
             f"Neste exemplo: {votos[vencedor]}/{total_votos} vizinhos eram '{vencedor}', "
             f"então classificamos como '{vencedor}' com {confianca:.0%} de confiança.",
             title="💡 Explicação do k-NN",

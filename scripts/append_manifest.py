@@ -3,13 +3,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import json
 import os
@@ -65,11 +66,11 @@ def get_new_uploads() -> list[dict]:
     now_str = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
     try:
-        for line in SYNC_MANIFEST_PATH.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
-            if not line or line.startswith("tribunal"):
+        for raw_line in SYNC_MANIFEST_PATH.read_text(encoding="utf-8").splitlines():
+            stripped = raw_line.strip()
+            if not stripped or stripped.startswith("tribunal"):
                 continue
-            parts = line.split(",")
+            parts = stripped.split(",")
             if len(parts) < 3:
                 continue
             tribunal = parts[0].upper()

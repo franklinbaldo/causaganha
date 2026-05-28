@@ -3,13 +3,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import argparse
 import json
@@ -90,17 +91,20 @@ def main():
         if new_line_count < remote_line_count * 0.95:
             drop_pct = (1 - (new_line_count / remote_line_count)) * 100
             print(
-                f"Error: Significant data drop detected! Remote has {remote_line_count} lines, new has {new_line_count} lines ({drop_pct:.2f}% drop)."
+                f"Error: Significant data drop detected! Remote has {remote_line_count} lines,"
+                f" new has {new_line_count} lines ({drop_pct:.2f}% drop)."
             )
             print("To protect the catalog, upload has been aborted.")
             sys.exit(1)
         else:
             print(
-                f"Validation passed: New manifest has {new_line_count} lines (Remote has {remote_line_count} lines)."
+                f"Validation passed: New manifest has {new_line_count} lines"
+                f" (Remote has {remote_line_count} lines)."
             )
     else:
         print(
-            f"Validation passed: New manifest has {new_line_count} lines (Remote manifest not found or empty)."
+            f"Validation passed: New manifest has {new_line_count} lines"
+            " (Remote manifest not found or empty)."
         )
 
 

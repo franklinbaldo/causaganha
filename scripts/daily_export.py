@@ -14,13 +14,14 @@ Exit codes:
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import asyncio
 import sys
@@ -31,6 +32,7 @@ import structlog
 from causaganha.pipeline.export_orchestrator import ExportOrchestrator
 from causaganha.pipeline.ia_parquet_uploader import IAS3ParquetUploader
 from causaganha.pipeline.parquet_export import ExportConfig, ParquetExporter
+from causaganha.pipeline.repositories import DuckDBExportRepository
 from causaganha.storage.connection import get_connection
 
 
@@ -56,8 +58,6 @@ async def run_daily_export() -> int:
         logger.info("daily_export_starting")
 
         # Initialize components
-        from causaganha.pipeline.repositories import DuckDBExportRepository
-
         con = get_connection()
         repo = DuckDBExportRepository(con)
         exporter = ParquetExporter(con, ExportConfig())

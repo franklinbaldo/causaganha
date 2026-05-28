@@ -2,13 +2,14 @@
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 WARNING_FAILURE_RATE_PCT = 75.0
 CRITICAL_FAILURE_RATE_PCT = 90.0
@@ -56,7 +57,10 @@ def check_recent_exports(days: int = 1) -> dict:
             SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as successful,
             SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
             SUM(CASE WHEN status = 'pending' THEN 1 ELSE 0 END) as pending,
-            ROUND(100.0 * SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) / COUNT(*), 2) as success_rate,
+            ROUND(
+                100.0 * SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) / COUNT(*),
+                2
+            ) as success_rate,
             MAX(partition_date) as last_export_date
         FROM parquet_exports
         WHERE partition_date >= '{cutoff_date}'

@@ -13,15 +13,16 @@ the operator gets the report attached to a visible failure.
 
 from __future__ import annotations
 
+import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+
+
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        try:
+        with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-        except AttributeError:
-            pass
 
 import asyncio
 import csv
@@ -176,7 +177,7 @@ def _sample_by_category(rows: list[dict[str, str]]) -> dict[str, list[dict[str, 
         cat = _classify(r.get("djen_raw", ""))
         buckets[cat].append(r)
     sampled: dict[str, list[dict[str, str]]] = {}
-    rng = random.Random(0xC4)  # noqa: S311 — sampling for diagnostics, not crypto
+    rng = random.Random(0xC4)
     for cat, items in buckets.items():
         rng.shuffle(items)
         sampled[cat] = items[:SAMPLE_PER_CATEGORY]
