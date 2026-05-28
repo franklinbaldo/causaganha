@@ -119,7 +119,9 @@ def main() -> int:
                         os.environ[k.strip()] = v.strip().strip('"').strip("'")
 
     # Check API key
-    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    api_key = (
+        os.getenv("GEMINI_API_KEY") or os.getenv("GEMINI_API_KEYS") or os.getenv("GOOGLE_API_KEY")
+    )
     use_mock = args.mock or not api_key
 
     if not api_key:
