@@ -46,3 +46,11 @@ Para re-gerar ou adicionar novos registros ao benchmark amostral de ouro:
 uv run python scripts/build_gold_benchmark.py --limit 30 --court TJRO --batch-size 5
 ```
 Isso recalculará os arquivos Markdown na pasta `decisions/` e sincronizará o arquivo Parquet.
+
+## ⚠️ Observações sobre Auditoria e Próximos Passos
+
+1. **Sem Auditoria Humana**:
+   * O benchmark é **100% automatizado** via validação cruzada do LLM (através do Gemini/Claude). A flag `is_human_verified` será mantida como `false` permanentemente, pois a base atua como uma referência de ouro puramente gerada por máquina (machine-gold-standard).
+2. **Aprimoramento de Heurísticas**:
+   * Este benchmark deve ser usado diretamente para avaliar e aprimorar as expressões regulares em `KeywordClassifier`.
+   * Caso o refinamento de heurísticas com base nos resultados de divergência do benchmark encontre um gargalo intransponível, devemos avaliar a necessidade de **evoluir o schema de dados novamente** (para a versão `1.3.0` ou posterior) para capturar nuances adicionais das decisões jurídicas.
