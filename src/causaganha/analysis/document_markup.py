@@ -22,6 +22,7 @@ class DocumentMarkupService:
             task="token-classification",
             model=model_name,
             aggregation_strategy="simple",
+            trust_remote_code=True,
         )
         logger.info("document_markup_service_initialized", model=model_name)
 
