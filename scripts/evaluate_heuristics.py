@@ -215,7 +215,7 @@ def main() -> int:
 
     # Load gold benchmark data
     gold_data = conn.execute("""
-        SELECT intimation_id, outcome, decision_type, plaintiff_won,
+        SELECT intimation_id, lower(outcome) AS outcome, decision_type, plaintiff_won,
                confidence_score, summary, decision_reasoning, texto
         FROM gold_benchmark
         ORDER BY outcome, intimation_id
