@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 
-BRANCH = "feat/embedder-smart-truncate-and-privacy-dataset"
+BRANCH = "feat/embedder-smart-truncate-and-privacy-dataset-v2"
 
 nb = {
     "nbformat": 4,
