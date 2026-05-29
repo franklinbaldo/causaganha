@@ -256,8 +256,8 @@ class ApiEmbedder:
             "model": self._model,
             "input": texts,
         }
-        if self.truncate_dim:
-            payload["dimensions"] = self.truncate_dim
+        # No MRL `dimensions` param — pplx-embed doesn't support it;
+        # client-side truncation below handles truncate_dim instead.
 
         self._rate_limit()
         resp = httpx.post(
@@ -443,7 +443,7 @@ class ApiEmbedder:
         try:
             # Upload the JSONL file
             uploaded = self._genai_client.files.upload(
-                path=jsonl_path,
+                file=jsonl_path,
                 config=gtypes.UploadFileConfig(mime_type="application/jsonl"),
             )
         finally:
