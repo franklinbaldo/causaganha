@@ -26,18 +26,31 @@ OUTCOME_KEYS: list[str] = [
     "acordo",
     "extinto sem mérito",
     "unknown",
+    # Appeal (recurso) outcomes
+    "provido",
+    "não provido",
+    "parcialmente provido",
+    "não conhecido",
+    "prejudicado",
 ]
 
 WinnerPolo = Literal["A", "P", "draw", "unknown"]
 
-# Maps outcome to which polo wins
+# Maps outcome to which polo wins for first-instance decisions.
+# Appeal outcomes (provido/não provido) map to "unknown" here because
+# the actual winner depends on recorrente_polo — use recurso_resolver.py.
 OUTCOME_TO_POLO: dict[str, WinnerPolo] = {
-    "procedente": "A",            # Polo Ativo (autor) ganha
-    "parcialmente procedente": "A",  # Polo Ativo ganha parcialmente
-    "improcedente": "P",          # Polo Passivo (réu) ganha
-    "acordo": "draw",             # Nenhum perde — acordo mútuo
-    "extinto sem mérito": "unknown",  # Sem julgamento de mérito
+    "procedente": "A",
+    "parcialmente procedente": "A",
+    "improcedente": "P",
+    "acordo": "draw",
+    "extinto sem mérito": "unknown",
     "unknown": "unknown",
+    "provido": "unknown",
+    "não provido": "unknown",
+    "parcialmente provido": "unknown",
+    "não conhecido": "unknown",
+    "prejudicado": "unknown",
 }
 
 # Minimum probability to avoid log(0) issues

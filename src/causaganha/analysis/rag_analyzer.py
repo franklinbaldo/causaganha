@@ -90,6 +90,34 @@ OUTCOME_PHRASES = {
         "determino a citação",
         "apresente documentos",
     ],
+    # Appeal (recurso) outcomes — acórdãos from TRF/TJ/STJ/STF
+    "PROVIDO": [
+        "dá provimento ao recurso",
+        "dou provimento ao recurso",
+        "recurso provido",
+        "reforma-se a sentença",
+        "reformo a sentença",
+        "dou provimento",
+    ],
+    "NAO_PROVIDO": [
+        "nega provimento ao recurso",
+        "nego provimento ao recurso",
+        "recurso não provido",
+        "mantém-se a sentença",
+        "mantenho a sentença",
+        "nego provimento",
+    ],
+    "NAO_CONHECIDO": [
+        "não se conhece do recurso",
+        "recurso não conhecido",
+        "não conhecido o recurso",
+        "não conheço do recurso",
+    ],
+    "PREJUDICADO": [
+        "recurso prejudicado",
+        "julgado prejudicado",
+        "prejudicado o recurso",
+    ],
 }
 
 # Cost per decision using embeddings API

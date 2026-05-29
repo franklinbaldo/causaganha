@@ -120,6 +120,21 @@ MIGRATIONS = [
         """,
         "down": "DROP TABLE IF EXISTS classificacoes",
     },
+    # Migration 12: Add appeal fields to decision_analysis
+    {
+        "version": 12,
+        "name": "add_decision_analysis_appeal_fields",
+        "up": """
+            ALTER TABLE decision_analysis
+                ADD COLUMN IF NOT EXISTS recorrente_polo VARCHAR(1),
+                ADD COLUMN IF NOT EXISTS dispositivo_text TEXT
+        """,
+        "down": """
+            ALTER TABLE decision_analysis
+                DROP COLUMN IF EXISTS recorrente_polo,
+                DROP COLUMN IF EXISTS dispositivo_text
+        """,
+    },
 ]
 
 
@@ -161,7 +176,22 @@ def run_migrations(con: Backend | None = None, *, dry_run: bool = False) -> list
     if not dry_run:
         tables = con.list_tables()
         applied = get_applied_migrations(con)
-        if not applied and "ratings_history" in tables and "classificacoes" in tables:
+        # Check for tables created by the last two schema-init migrations
+        # plus at least one appeal field to confirm migration 12 is present.
+        has_appeal_col = "recorrente_polo" in {
+            row[0]
+            for row in con.con.execute(
+                "SELECT column_name FROM information_schema.columns "
+                "WHERE table_name='decision_analysis'"
+            ).fetchall()
+        }
+        schema_complete = (
+            not applied
+            and "ratings_history" in tables
+            and "classificacoes" in tables
+            and has_appeal_col
+        )
+        if schema_complete:
             logger.info(
                 "db_initialized_from_schema_sql_marking_all_migrations_applied",
                 total=len(MIGRATIONS),

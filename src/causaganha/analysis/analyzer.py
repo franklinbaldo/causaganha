@@ -45,21 +45,34 @@ class DecisionAnalyzer:
 
         ── OUTCOME ──────────────────────────────────────────────────────────────────
         Map the dispositivo (operative part) to ONE of:
-        • "procedente"            - claim granted in full -> plaintiff wins
-        • "parcialmente procedente" - claim partially granted -> plaintiff wins
-          (even partial victories count as wins for rating purposes)
-        • "improcedente"          - claim denied -> defendant wins
-        • "acordo"                - parties settled, judge homologated ("homologação de acordo", "transação") -> draw
-        • "extinto sem mérito"    - dismissed without prejudice (Art. 485 CPC) -> nobody wins
-        • "unknown"               - cannot determine from the text
 
-        Set plaintiff_won=True for "procedente" or "parcialmente procedente",
-        False otherwise. Keep outcome and plaintiff_won CONSISTENT.
+        First-instance (sentença):
+        • "procedente"              - claim granted in full -> plaintiff wins
+        • "parcialmente procedente" - claim partially granted -> plaintiff wins
+        • "improcedente"            - claim denied -> defendant wins
+        • "acordo"                  - parties settled ("homologação de acordo") -> draw
+        • "extinto sem mérito"      - dismissed without prejudice (Art. 485 CPC) -> nobody wins
+        • "unknown"                 - cannot determine from the text
+
+        Appeal (acórdão — use ONLY when decision_type="acórdão"):
+        • "provido"            - appeal granted ("dá provimento", "recurso provido")
+        • "não provido"        - appeal denied ("nega provimento", "recurso não provido")
+        • "parcialmente provido" - appeal partially granted ("parcialmente provido")
+        • "não conhecido"      - appeal inadmissible ("não conhecido", "não se conhece")
+        • "prejudicado"        - appeal mooted ("prejudicado")
+
+        Set plaintiff_won=True ONLY for "procedente" or "parcialmente procedente".
+        For appeal outcomes, set plaintiff_won=False (winner is resolved separately).
+        Keep outcome and plaintiff_won CONSISTENT.
 
         ── ACÓRDÃOS (APPEALS) ────────────────────────────────────────────────────
-        The outcome must reflect the FINAL result after the appeal, not the
-        first-instance outcome being reviewed. Look for "dá provimento",
-        "nega provimento", "reforma a sentença" in the dispositivo.
+        For acórdãos, use ONLY the appeal outcomes listed above (provido, não provido,
+        etc.) — never use "procedente"/"improcedente" for an appeal decision.
+
+        Also extract recorrente_polo: who filed the appeal?
+        • 'A' if the autor (plaintiff / polo ativo) filed the appeal
+        • 'P' if the réu (defendant / polo passivo) filed the appeal
+        • null if not identifiable from the text
 
         ── LAWYER / OAB EXTRACTION ──────────────────────────────────────────────
         OAB numbers appear as: "OAB/RO 5733", "OAB-SP 123456", "OAB nº 5733/RO".

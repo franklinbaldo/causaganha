@@ -121,7 +121,13 @@ class LocalEmbedder:
         return model
 
     def _apply_prefix(self, texts: list[str], *, is_query: bool) -> list[str]:
-        """Apply instruction prefix for models that require manual prepending (e.g. E5)."""
+        """Apply instruction prefix based on model and task type."""
+        if self.model_name == EMBEDDING_GEMMA_MODEL:
+            # EmbeddingGemma uses a query-side prefix only
+            if is_query:
+                return [EMBEDDING_GEMMA_QUERY_PREFIX + t for t in texts]
+            return texts  # passage side: no prefix
+
         if self.model_name == E5_SMALL_MODEL:
             # E5 uses distinct prefixes for query and passage
             prefix = E5_SMALL_QUERY_PREFIX if is_query else E5_SMALL_PASSAGE_PREFIX
