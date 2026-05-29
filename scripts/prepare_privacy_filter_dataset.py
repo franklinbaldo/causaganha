@@ -141,30 +141,47 @@ _OAB_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Name fragment: título-case or ALL-CAPS, with optional prepositions (da/de/dos)
+# Full name: title-case or ALL-CAPS words with optional prepositions (da/de/dos)
 _NAME_WORD = r"[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇa-záéíóúâêîôûãõç]+"
 _NAME_FULL = rf"{_NAME_WORD}(?:\s+(?:d[aeo]s?\s+)?{_NAME_WORD}){{1,5}}"
-# Terminators: end-of-line, comma, parenthesis, semicolon, CPF/CNPJ cue, ou nova palavra-chave
-_NAME_STOP = r"(?=\s*[,;\n(]|\s+CPF|\s+CNPJ|$)"
+# Abbreviated initials: "J. D. D. S." style (anonymized PII in parquet)
+_NAME_ABBREV = r"[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]\.(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]\.){1,6}"
+_NAME_ANY = rf"(?:{_NAME_FULL}|{_NAME_ABBREV})"
+# Terminators: comma, semicolon, newline, paren, CPF/CNPJ, hyphen-separator, LTDA/SA
+_NAME_STOP = r"(?=\s*[,;\n(]|\s+-|\s+LTDA|\s+S/A|\s+CPF|\s+CNPJ|$)"
 
-# Polo ativo — "Polo Ativo:", "AUTOR:", "Parte Autora:", "Requerente:", etc.
-# Does NOT match "ADVOGADOS DO AUTOR" (those go to nome_advogado).
+# Polo ativo — all procedural roles that map to the active party.
+# Excludes "ADVOGADOS DO …" prefixes (those go to nome_advogado).
 _PARTE_AUTOR_RE = re.compile(
     r"(?:Polo\s+Ativo|Parte\s+[Aa]utor[ae]?[Ss]?|"
-    r"[Aa]utor[ae]?[Ss]?|[Rr]equerentes?|[Ee]xequentes?|[Aa]pelantes?|"
-    r"[Rr]eclamantes?|[Ii]mpetrantes?|[Ee]mbargantes?|[Ii]ncidentantes?|"
-    r"[Pp]acientes?)\s*[:-]\s*"
-    rf"({_NAME_FULL}){_NAME_STOP}",
+    r"[Aa]utor[ae]?[Ss]?|"        # Autor / Autora / Autores / Autoras
+    r"[Rr]equerentes?|"            # Requerente(s)
+    r"[Ee]xequentes?|"             # Exequente(s)
+    r"[Aa]pelantes?|"              # Apelante(s)
+    r"[Aa]gravantes?|"             # Agravante(s)
+    r"[Ee]mbargantes?|"            # Embargante(s)
+    r"[Ii]mpetrantes?|"            # Impetrante(s)
+    r"[Rr]eclamantes?|"            # Reclamante(s)
+    r"[Ii]ncidentantes?|"          # Incidentante(s)
+    r"[Pp]acientes?)\s*[:-]\s*"    # Paciente(s)
+    rf"({_NAME_ANY}){_NAME_STOP}",
     re.IGNORECASE,
 )
 
-# Polo passivo — "Polo Passivo:", "REU:", "Parte Ré:", "Requerido:", etc.
+# Polo passivo — all procedural roles that map to the passive party.
 _PARTE_REU_RE = re.compile(
-    r"(?:Polo\s+Passivo|Parte\s+[Rr][eé][aA]?[sS]?|"
-    r"[Rr][eé][uU][aAsS]?|[Rr]equerid[oa][sS]?|[Ee]xecutad[oa][sS]?|"
-    r"[Aa]pelad[oa][sS]?|[Rr]eclamad[oa][sS]?|[Ii]mpetrad[oa][sS]?|"
-    r"[Ee]mbargad[oa][sS]?)\s*[:-]\s*"
-    rf"({_NAME_FULL}){_NAME_STOP}",
+    r"(?:Polo\s+Passivo|Parte\s+[Rr][eé][aA]?[sS]?|Parte\s+[Rr]equerid[oa][sS]?|"
+    r"[Rr][eé][uU][aAsS]?|"        # Réu / Ré / Réus / Reus / REU
+    r"[Rr]equerid[oa][sS]?|"       # Requerido(a)(s)
+    r"[Ee]xecutad[oa][sS]?|"       # Executado(a)(s)
+    r"[Aa]pelad[oa][sS]?|"         # Apelado(a)(s)
+    r"[Aa]gravad[oa][sS]?|"        # Agravado(a)(s)
+    r"[Ee]mbargad[oa][sS]?|"       # Embargado(a)(s)
+    r"[Ii]mpetrad[oa][sS]?|"       # Impetrado(a)(s)
+    r"[Rr]eclamad[oa][sS]?|"       # Reclamado(a)(s)
+    r"[Ii]nventariad[oa][sS]?|"    # Inventariado(a)(s)
+    r"[Ii]nventariantes?)\s*[:-]\s*"  # Inventariante(s) — can be either polo
+    rf"({_NAME_ANY}){_NAME_STOP}",
     re.IGNORECASE,
 )
 
@@ -186,7 +203,10 @@ _ADVOGADO_RE = re.compile(
     r"(?=\s*,?\s*OAB)",
 )
 _ADVOGADO_HEADER_RE = re.compile(
-    r"ADVOGAD[OS]+\s+D[AO]\s+\w+\s*[:-]\s*"
+    r"ADVOGAD[OSas]+\s+D[AOaoe][Ss]?\s+"
+    r"(?:AUTOR[AES]*|REU|R[EÉeé]U[AS]?|EXEQUENTES?|REQUERENTES?|"
+    r"REQUERID[OA]S?|EXECUTAD[OA]S?|APELAD[OA]S?|AGRAVAD[OA]S?|"
+    r"EMBARGAD[OA]S?|IMPETRAD[OA]S?|RECLAMAD[OA]S?)\s*[:-]\s*"
     rf"({_NAME_FULL}){_NAME_STOP}",
     re.IGNORECASE,
 )
