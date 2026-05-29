@@ -69,10 +69,12 @@ SPAN_CLASS_NAMES: list[str] = [
     "id_precedente",        # 17 — precedent identifier (Súmula X, Tema Y)
     "citacao_precedente",   # 18 — direct textual quote from a precedent
     "data",                 # 19 — date spans
+    "serventuario",         # 20 — court clerk / officer who signs instead of judge
+    "valor_monetario",      # 21 — monetary value in Brazilian Reais (R$)
 ]
 
 LABEL_SPACE = {
-    "category_version": "causaganha-v3",
+    "category_version": "causaganha-v4",
     "span_class_names": SPAN_CLASS_NAMES,
 }
 
@@ -194,6 +196,30 @@ _JUIZ_RE = re.compile(
     r"[Mm]agistrad[oa](?:\s+[Ss]ubstitut[oa])?|"
     r"[Dd]esembargador[ae]?(?:\s+[Rr]elator[ae]?)?|"
     r"[Dd]es\.\s*[Rr]elator[ae]?)\b",
+)
+
+# Serventuário: assina no lugar do juiz — mesmo padrão (nome antes do título)
+# Títulos: Escrivão/ã, Oficial de Justiça, Diretor/a de Secretaria/Cartório,
+#          Analista/Técnico/Assistente Judiciário, Secretário/a de Vara
+_SERVENTUARIO_RE = re.compile(
+    r"(?:[Dd]r[oa]?\.?\s+)?"
+    rf"({_NAME_FULL})[\s\n]+"
+    r"(?:[Ee]scriv[ãa][oe]?|"
+    r"[Oo]ficial\s+de\s+[Jj]usti[çc]a|"
+    r"[Dd]iretor[ae]?\s+de\s+(?:[Ss]ecretaria|[Cc]art[oó]rio)|"
+    r"[Cc]hefe\s+de\s+[Ss]ecretaria|"
+    r"[Ss]ecret[aá]ri[oa]\s+de\s+[Vv]ara|"
+    r"[Ss]ecret[aá]ri[oa]\s+[Jj]udici[aá]ri[oa]|"
+    r"[Aa]nalista\s+[Jj]udici[aá]ri[oa]|"
+    r"[Tt][eé]cnico\s+[Jj]udici[aá]ri[oa]|"
+    r"[Aa]ssistente\s+[Jj]udici[aá]ri[oa]|"
+    r"[Ss]erventu[aá]ri[oa])\b",
+)
+
+# Valor monetário em reais: R$ 1.234,56  ou  R$1.234,56  ou  R$ 1.234.567,89
+_VALOR_RE = re.compile(
+    r"R\$\s*\d{1,3}(?:\.\d{3})*,\d{2}"
+    r"|R\$\s*\d+,\d{2}",
 )
 
 # Advogados: (1) nome antes de OAB | (2) "ADVOGADOS DO AUTOR/RÉU: NOME"
@@ -319,6 +345,8 @@ def _segment(text: str) -> dict[str, list[list[int]]] | None:
     _collect(spans, "nome_juiz", _JUIZ_RE, text, group=1)
     _collect(spans, "nome_advogado", _ADVOGADO_RE, text, group=1)
     _collect(spans, "nome_advogado", _ADVOGADO_HEADER_RE, text, group=1)
+    _collect(spans, "serventuario", _SERVENTUARIO_RE, text, group=1)
+    _collect(spans, "valor_monetario", _VALOR_RE, text)
 
     return spans
 

@@ -60,6 +60,8 @@ SPAN_CLASS_NAMES = [
     "id_precedente",
     "citacao_precedente",
     "data",
+    "serventuario",
+    "valor_monetario",
 ]
 
 def _label_type(name: str) -> str:
