@@ -58,11 +58,14 @@ The engine periodically (every 10 min) uploads the manifest and a compact `manif
 |---|---|---|
 | [collect-zips.yml](.github/workflows/collect-zips.yml) | Every 20 min | Check DJEN + download + upload to IA |
 | [upload-backlog.yml](.github/workflows/upload-backlog.yml) | Every 15 min | Drain confirmed-available ZIPs (no DJEN checks) |
-| [collect-today.yml](.github/workflows/collect-today.yml) | Daily 06:00 UTC | Today's publications |
+| [render-manifest-parquet.yml](.github/workflows/render-manifest-parquet.yml) | Every 30 min | Snapshot the manifest to Parquet |
 | [consolidate-parquet.yml](.github/workflows/consolidate-parquet.yml) | Daily 07:00 UTC | Convert ZIPs → Parquet |
 | [update-catalog.yml](.github/workflows/update-catalog.yml) | After consolidate | Refresh catalog metadata |
-| [deploy-web.yml](.github/workflows/deploy-web.yml) | Push to `web/` | Build + deploy dashboard |
-| [test.yml](.github/workflows/test.yml) | PR / push | Lint, test, build |
+| [deploy-web.yml](.github/workflows/deploy-web.yml) | Push to `main` (`web/`) + after catalog | Build + deploy dashboard |
+| [drain-unknowns.yml](.github/workflows/drain-unknowns.yml) | Manual | Re-check `unknown` rows, push manifest to IA |
+| [backfill-probe.yml](.github/workflows/backfill-probe.yml) | Manual / push | Probe DJEN proxy + manifest drift |
+| [recover-manifest.yml](.github/workflows/recover-manifest.yml) | Manual | Restore the manifest from cache/artifact |
+| [test.yml](.github/workflows/test.yml) | PR / push | Lint, notebook sync, test, build |
 
 ## Gotchas
 
@@ -71,7 +74,7 @@ The engine periodically (every 10 min) uploads the manifest and a compact `manif
 
 ## Quick start
 
-Prerequisites: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), Node.js 20+
+Prerequisites: Python 3.12+, [`uv`](https://docs.astral.sh/uv/), Node.js 22+
 
 ```bash
 uv sync --dev
@@ -109,7 +112,7 @@ All modes persist the manifest to IA every 10 minutes. See `uv run djen-backup -
 
 ### `causaganha` — data pipeline CLI
 
-Available top-level commands include: `collect`, `analyze`, `score`, `db`, `export-parquet`, `backfill`, `archival`, `groundtruth`, `parquet`, `catalog`.
+Available top-level commands include: `collect`, `analyze`, `score`, `db`, `export-parquet`, `export-status`, `backfill`, `archival`, `groundtruth`, `parquet`, `catalog`.
 
 ```bash
 uv run causaganha --help
@@ -159,14 +162,17 @@ the source of truth). The committed `.ipynb` is an export produced by
 (`scripts/check_notebooks_synced.py`). Open the exported Jupyter notebooks
 directly in Google Colab:
 
-| Notebook | Open in Colab |
-|---|---|
-| **Decision segmenter** — fine-tune the 22-class judicial token classifier | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.ipynb) |
-| **ML document classifier** — train the outcome classifier on embeddings | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_ml_document_classifier.ipynb) |
-| **Cost estimate** — estimate embedding token costs from the corpus | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/cost_estimate.ipynb) |
+| Notebook | Open in Colab (`.ipynb`) | Open in marimo (`.py`) |
+|---|---|---|
+| **Decision segmenter** — fine-tune the 22-class judicial token classifier | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.py) |
+| **ML document classifier** — train the outcome classifier on embeddings | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_ml_document_classifier.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/train_ml_document_classifier.py) |
+| **Cost estimate** — estimate embedding token costs from the corpus | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/cost_estimate.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/cost_estimate.py) |
 
-To edit a notebook locally run `uv run marimo edit notebooks/<name>.py`, then
-regenerate its `.ipynb` with `uv run python scripts/check_notebooks_synced.py --fix`.
+The **marimo** links open the `.py` source directly in the
+[marimo](https://marimo.io) WASM playground (runs in-browser, straight from
+GitHub); the **Colab** links open the exported `.ipynb`. To edit a notebook
+locally run `uv run marimo edit notebooks/<name>.py`, then regenerate its
+`.ipynb` with `uv run python scripts/check_notebooks_synced.py --fix`.
 
 ## Repository structure
 
@@ -175,6 +181,7 @@ src/causaganha/          Python package
 src/djen_backup/         ZIP/backfill collection utilities
 web/                     Astro + Svelte frontend
 scripts/                 Operational and pipeline scripts
+notebooks/               marimo notebooks (*.py) + exported *.ipynb
 tests/                   Pytest and pytest-bdd suites
 .github/workflows/       CI/CD and data workflows
 ```
@@ -206,14 +213,13 @@ cd web && npm ci && npm run lint && npm test && npm run build
 
 Start from [.env.example](.env.example). Common variables include:
 
-- `GEMINI_API_KEY`
+- `GEMINI_API_KEY` — LLM analysis (`analyze`)
+- `JINA_API_KEY` — API embeddings (Jina provider)
+- `EMBEDDING_PROVIDER` / `EMBEDDING_PROVIDER_PRIORITY`
 - `IA_ACCESS_KEY` / `IA_SECRET_KEY`
-- `IAS3_ACCESS_KEY` / `IAS3_SECRET_KEY`
-- `DJEN_DIRECT_URL`
-- `DJEN_PROXY_URL`
-- `DJEN_USE_PROXY`
-- `ENABLED_TRIBUNALS`
-- `LOG_LEVEL`
+- `DJEN_DIRECT_URL` / `DJEN_PROXY_URL` / `DJEN_USE_PROXY`
+- `ENABLED_TRIBUNALS` / `DEFAULT_TRIBUNAL`
+- `LOG_LEVEL` / `LOG_FORMAT`
 
 ## Testing and CI
 
@@ -221,8 +227,9 @@ The main CI workflow is [test.yml](.github/workflows/test.yml). It currently run
 
 1. Python formatting and lint checks
 2. Dead code check with `vulture`
-3. Python tests
-4. Frontend lint, test, and build
+3. Notebook sync check (`scripts/check_notebooks_synced.py`)
+4. Python tests
+5. Frontend lint, test, and build
 
 ## Documentation
 
