@@ -40,7 +40,7 @@ import structlog
 
 logger = structlog.get_logger()
 
-Provider = Literal["gemini", "jina"]
+Provider = Literal["gemini", "jina", "openrouter"]
 
 # ---------------------------------------------------------------------------
 # Provider constants
@@ -64,6 +64,13 @@ JINA_RPM_LIMIT = 500          # free-tier RPM
 JINA_FREE_TOKEN_BUDGET = 10_000_000   # 10M tokens/month free tier
 JINA_TOKEN_WARN_THRESHOLD = 0.90      # warn at 90% consumed
 
+# OpenRouter embedding models (supports perplexity and llama-nemotron)
+OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/embeddings"
+OPENROUTER_DEFAULT_MODEL = "perplexity/pplx-embed-v1-0.6b"
+OPENROUTER_BATCH_SIZE = 128
+OPENROUTER_RPM_LIMIT = 1000
+
+
 
 class ApiEmbedder:
     """API-backed embedder — no GPU, no local model download.
@@ -84,6 +91,7 @@ class ApiEmbedder:
         truncate_dim: int | None = None,
         rpm_limit: int | None = None,
         token_budget: int = JINA_FREE_TOKEN_BUDGET,
+        model: str | None = None,
     ) -> None:
         self.provider = provider
         self.truncate_dim = truncate_dim
@@ -96,8 +104,8 @@ class ApiEmbedder:
             self._batch_size = GEMINI_BATCH_SIZE
             self._rpm_limit = rpm_limit or GEMINI_RPM_LIMIT
             self._embed_dim = truncate_dim or GEMINI_EMBED_DIM
-            self._token_budget: int | None = None
-            self._tokens_used: int = 0
+            self._token_budget = None
+            self._tokens_used = 0
             self._init_gemini()
 
         elif provider == "jina":
@@ -111,8 +119,27 @@ class ApiEmbedder:
             self._token_budget = token_budget
             self._tokens_used = 0
 
+        elif provider == "openrouter":
+            self._api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
+            if not self._api_key:
+                msg = "OPENROUTER_API_KEY not set. Get one at https://openrouter.ai/"
+                raise ValueError(msg)
+            self._model = model or OPENROUTER_DEFAULT_MODEL
+            self._batch_size = OPENROUTER_BATCH_SIZE
+            self._rpm_limit = rpm_limit or OPENROUTER_RPM_LIMIT
+            
+            # Select dimensions based on model choice
+            if "nemotron" in self._model:
+                default_dim = 2048
+            else:
+                default_dim = 1024
+                
+            self._embed_dim = truncate_dim or default_dim
+            self._token_budget = None
+            self._tokens_used = 0
+
         else:
-            msg = f"Unknown provider: {provider!r}. Choose 'gemini' or 'jina'."
+            msg = f"Unknown provider: {provider!r}. Choose 'gemini', 'jina', or 'openrouter'."
             raise ValueError(msg)
 
         self._request_times: list[float] = []
@@ -223,6 +250,43 @@ class ApiEmbedder:
 
         return np.array([d["embedding"] for d in data["data"]], dtype=np.float32)
 
+    def _embed_batch_openrouter(self, texts: list[str], *, is_query: bool) -> np.ndarray:
+        import httpx  # noqa: PLC0415
+
+        payload: dict = {
+            "model": self._model,
+            "input": texts,
+        }
+        if self.truncate_dim:
+            payload["dimensions"] = self.truncate_dim
+
+        self._rate_limit()
+        resp = httpx.post(
+            OPENROUTER_ENDPOINT,
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/franklinbaldo/causaganha",
+            },
+            json=payload,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        actual_tokens = data.get("usage", {}).get("total_tokens", 0)
+        self._tokens_used += actual_tokens
+        logger.debug(
+            "openrouter_tokens_used",
+            batch_tokens=actual_tokens,
+            total_tokens_used=self._tokens_used,
+        )
+
+        embeddings = np.array([d["embedding"] for d in data["data"]], dtype=np.float32)
+        if self.truncate_dim and embeddings.shape[1] > self.truncate_dim:
+            embeddings = embeddings[:, :self.truncate_dim]
+        return embeddings
+
     # ------------------------------------------------------------------
     # Public interface (matches LocalEmbedder)
     # ------------------------------------------------------------------
@@ -253,6 +317,8 @@ class ApiEmbedder:
         for chunk in chunks:
             if self.provider == "gemini":
                 emb = self._embed_batch_gemini(chunk, is_query=is_query)
+            elif self.provider == "openrouter":
+                emb = self._embed_batch_openrouter(chunk, is_query=is_query)
             else:
                 emb = self._embed_batch_jina(chunk, is_query=is_query)
             parts.append(emb)
