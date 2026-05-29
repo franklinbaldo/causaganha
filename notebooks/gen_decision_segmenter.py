@@ -81,7 +81,7 @@ cells = [
     md_cell(
         "# Train Decision Segmenter — CausaGanha\n\n"
         "Fine-tunes **`openai/privacy-filter`** (token classifier, Apache 2.0) to "
-        "**identify and segment** Brazilian judicial decisions with a rich 20-class taxonomy.\n\n"
+        "**identify and segment** Brazilian judicial decisions with a rich 22-class taxonomy.\n\n"
         "## Label taxonomy\n\n"
         "| Label | ID | Type |\n"
         "|---|---|---|\n"
@@ -100,7 +100,7 @@ cells = [
         "| Non-textual | `elem_nao_textual` | ✗ needs LLM pass |\n\n"
         "**Why `openai/privacy-filter` as base?**\n"
         "- Already a token classifier — we replace its 33-class PII head"
-        " with a fresh 20-class head.\n"
+        " with a fresh 22-class head.\n"
         "- 128K-token context window (handles complete judicial decisions in one pass).\n"
         "- Token-level labels give **exact character boundaries**, not just paragraph labels.\n"
         "- Apache 2.0 license; open weights; official `opf train` CLI for fine-tuning.\n\n"
@@ -111,7 +111,7 @@ cells = [
 
     code_cell(
         'REPO_URL  = "https://github.com/franklinbaldo/causaganha.git"\n'
-        'BRANCH    = "feat/embedder-smart-truncate-and-privacy-dataset-v2"\n'
+        'BRANCH    = "main"\n'
         'REPO_DIR  = "/content/causaganha"\n'
     ),
 
@@ -198,7 +198,7 @@ cells = [
         "                        uid = str(uuid.uuid5(NAMESPACE_DJEN, texto))\n"
         "                        rows.append({'id': uid, 'texto': texto})\n"
         "        return rows\n"
-        "    except Exception as e:\n"
+        "    except (urllib.error.URLError, zipfile.BadZipFile, OSError, ValueError) as e:\n"
         "        print(f'  WARN {zip_name}: {e}')\n"
         "        return []\n\n"
         "# Download & extract in parallel\n"
@@ -243,7 +243,7 @@ cells = [
         "_segment         = mod._segment\n\n"
         "ID2LABEL = {i: name for i, name in enumerate(SPAN_CLASS_NAMES)}\n"
         "LABEL2ID = {name: i for i, name in enumerate(SPAN_CLASS_NAMES)}\n"
-        "NUM_LABELS = len(SPAN_CLASS_NAMES)  # 20\n\n"
+        "NUM_LABELS = len(SPAN_CLASS_NAMES)  # 22\n\n"
         "t = ibis.read_parquet(Path(PARQUET_DIR) / 'textos.parquet')\n"
         "df = t.filter(t.texto.notnull()).execute()\n"
         "print(f'Loaded {len(df):,} documents')\n\n"
@@ -282,7 +282,7 @@ cells = [
     md_cell(
         "## 5. Tokenize + align labels to tokens\n\n"
         "`openai/privacy-filter` is already a token classifier — we load it "
-        "with `num_labels=20` replacing its 33-class PII head with a fresh 20-class head. "
+        "with `num_labels=22` replacing its 33-class PII head with a fresh 22-class head. "
         "(`ignore_mismatched_sizes=True` keeps all encoder weights.)\n\n"
         "Token labels are aligned from character spans via `return_offsets_mapping=True`. "
         "Special tokens (CLS/SEP) get label `-100` (ignored in loss).\n\n"
@@ -298,6 +298,15 @@ cells = [
         "    'sec_cabecalho', 'sec_relatorio', 'sec_fundamentacao',\n"
         "    'sec_dispositivo', 'sec_assinatura', 'elem_nao_textual',\n"
         "])\n\n"
+        "# Entity labels in ascending priority order (last written wins on overlap).\n"
+        "# More specific labels are written last so they overwrite broader ones.\n"
+        "_ENTITY_PRIORITY = [\n"
+        "    'classe_processual', 'data', 'valor_monetario',\n"
+        "    'citacao_precedente', 'id_lei', 'id_precedente',\n"
+        "    'parte_autor', 'parte_reu', 'parte_terceiro',\n"
+        "    'nome_advogado', 'nome_juiz', 'serventuario',\n"
+        "    'oab', 'processo_cnj', 'cpf_cnpj',\n"
+        "]\n\n"
         "def tokenize_and_label(example):\n"
         "    text  = example['text']\n"
         "    spans = example['spans']\n\n"
@@ -310,12 +319,14 @@ cells = [
         "        lid = LABEL2ID.get(label_name, 0)\n"
         "        for start, end in span_list:\n"
         "            char_labels[start:min(end, len(text))] = lid\n\n"
-        "    # Pass 2: entity labels (higher priority — overwrite sections)\n"
-        "    for label_name, span_list in spans.items():\n"
-        "        if label_name in _SECTION_LABELS:\n"
-        "            continue\n"
+        "    # Pass 2: entity labels in explicit priority order (more specific last).\n"
+        "    # Explicit order prevents non-determinism from dict insertion order.\n"
+        "    remaining = {k: v for k, v in spans.items() if k not in _SECTION_LABELS}\n"
+        "    ordered = [l for l in _ENTITY_PRIORITY if l in remaining]\n"
+        "    ordered += [l for l in remaining if l not in _ENTITY_PRIORITY]  # catch-all\n"
+        "    for label_name in ordered:\n"
         "        lid = LABEL2ID.get(label_name, 0)\n"
-        "        for start, end in span_list:\n"
+        "        for start, end in remaining[label_name]:\n"
         "            char_labels[start:min(end, len(text))] = lid\n\n"
         "    enc = tokenizer(\n"
         "        text,\n"

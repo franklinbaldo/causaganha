@@ -4,7 +4,7 @@
 Reads textos.parquet from data/test_parquets, applies heuristic segmentation to
 label each decision with structural spans, named entities, and legal references.
 
-Label taxonomy (19 categories + O background = 20 labels):
+Label taxonomy (21 categories + O background = 22 labels):
   Sections   : sec_cabecalho, sec_relatorio, sec_fundamentacao,
                 sec_dispositivo, sec_assinatura
   Non-text   : elem_nao_textual
@@ -383,6 +383,8 @@ def _segment(
 
 
 try:
+    import sys as _sys
+    _sys.path.insert(0, str(Path(__file__).parent))
     from fp_centroid_filter import FPCentroidFilter as _FPCentroidFilter
 except ImportError:
     _FPCentroidFilter = None  # type: ignore[assignment,misc]

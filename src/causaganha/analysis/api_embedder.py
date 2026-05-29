@@ -1,4 +1,4 @@
-"""API-based embedding provider using Jina AI or Gemini.
+"""API-based embedding provider: Jina AI, Gemini, or OpenRouter.
 
 Drops in as a replacement for LocalEmbedder — same interface, no GPU required.
 
@@ -31,12 +31,15 @@ Usage
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import os
 import time
+from pathlib import Path
 from typing import Literal
 
 import numpy as np
 import structlog
+
 
 logger = structlog.get_logger()
 
@@ -70,6 +73,7 @@ OPENROUTER_DEFAULT_MODEL = "perplexity/pplx-embed-v1-0.6b"
 OPENROUTER_BATCH_SIZE = 128
 OPENROUTER_RPM_LIMIT = 1000
 
+_RATE_LIMIT_WINDOW = 60.0  # sliding window in seconds for RPM enforcement
 
 
 class ApiEmbedder:
@@ -93,6 +97,7 @@ class ApiEmbedder:
         token_budget: int = JINA_FREE_TOKEN_BUDGET,
         model: str | None = None,
     ) -> None:
+        """Initialise the API embedder for the specified provider."""
         self.provider = provider
         self.truncate_dim = truncate_dim
 
@@ -127,13 +132,9 @@ class ApiEmbedder:
             self._model = model or OPENROUTER_DEFAULT_MODEL
             self._batch_size = OPENROUTER_BATCH_SIZE
             self._rpm_limit = rpm_limit or OPENROUTER_RPM_LIMIT
-            
+
             # Select dimensions based on model choice
-            if "nemotron" in self._model:
-                default_dim = 2048
-            else:
-                default_dim = 1024
-                
+            default_dim = 2048 if "nemotron" in self._model else 1024
             self._embed_dim = truncate_dim or default_dim
             self._token_budget = None
             self._tokens_used = 0
@@ -162,9 +163,9 @@ class ApiEmbedder:
     def _rate_limit(self) -> None:
         """Block until we are within the RPM limit (sliding 60-second window)."""
         now = time.monotonic()
-        self._request_times = [t for t in self._request_times if now - t < 60.0]
+        self._request_times = [t for t in self._request_times if now - t < _RATE_LIMIT_WINDOW]
         if len(self._request_times) >= self._rpm_limit:
-            sleep_for = 60.0 - (now - self._request_times[0]) + 0.1
+            sleep_for = _RATE_LIMIT_WINDOW - (now - self._request_times[0]) + 0.1
             if sleep_for > 0:
                 logger.debug("api_rate_limit_sleep", seconds=round(sleep_for, 2))
                 time.sleep(sleep_for)
@@ -250,7 +251,7 @@ class ApiEmbedder:
 
         return np.array([d["embedding"] for d in data["data"]], dtype=np.float32)
 
-    def _embed_batch_openrouter(self, texts: list[str], *, is_query: bool) -> np.ndarray:
+    def _embed_batch_openrouter(self, texts: list[str]) -> np.ndarray:
         import httpx  # noqa: PLC0415
 
         payload: dict = {
@@ -318,7 +319,7 @@ class ApiEmbedder:
             if self.provider == "gemini":
                 emb = self._embed_batch_gemini(chunk, is_query=is_query)
             elif self.provider == "openrouter":
-                emb = self._embed_batch_openrouter(chunk, is_query=is_query)
+                emb = self._embed_batch_openrouter(chunk)
             else:
                 emb = self._embed_batch_jina(chunk, is_query=is_query)
             parts.append(emb)
@@ -352,6 +353,7 @@ class ApiEmbedder:
 
     @property
     def embedding_dim(self) -> int:
+        """Return the embedding vector dimension."""
         return self._embed_dim
 
     @property
@@ -440,11 +442,15 @@ class ApiEmbedder:
             ),
         )
 
-        # Upload the JSONL file
-        uploaded = self._genai_client.files.upload(
-            path=jsonl_path,
-            config=gtypes.UploadFileConfig(mime_type="application/jsonl"),
-        )
+        try:
+            # Upload the JSONL file
+            uploaded = self._genai_client.files.upload(
+                path=jsonl_path,
+                config=gtypes.UploadFileConfig(mime_type="application/jsonl"),
+            )
+        finally:
+            with contextlib.suppress(FileNotFoundError):
+                Path(jsonl_path).unlink()  # noqa: ASYNC240
 
         # Submit batch job
         batch_job = self._genai_client.batches.create(
