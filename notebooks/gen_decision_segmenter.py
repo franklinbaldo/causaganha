@@ -56,7 +56,7 @@ cells = [
 
     code_cell(
         'REPO_URL  = "https://github.com/franklinbaldo/causaganha.git"\n'
-        'BRANCH    = "feat/embedder-smart-truncate-and-privacy-dataset"\n'
+        'BRANCH    = "feat/embedder-smart-truncate-and-privacy-dataset-v2"\n'
         'REPO_DIR  = "/content/causaganha"\n'
     ),
 
