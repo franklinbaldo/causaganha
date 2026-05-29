@@ -85,10 +85,13 @@ FP_CATALOG: dict[str, list[str]] = {
 
 # Cosine similarity threshold per label: spans above threshold are rejected.
 # Lower = more permissive (keeps more), higher = stricter (rejects more).
+# parte_reu/parte_autor set to 0.97 (effectively disabled) because their TP
+# and FP contexts are structurally too similar for a small multilingual model
+# to separate — use the rule-based ADVOGADO check in _segment() instead.
 _THRESHOLDS: dict[str, float] = {
     "id_precedente": 0.78,
-    "parte_reu": 0.75,
-    "parte_autor": 0.75,
+    "parte_reu": 0.97,
+    "parte_autor": 0.97,
 }
 
 _CONTEXT_CHARS = 100  # chars of context before/after span to embed

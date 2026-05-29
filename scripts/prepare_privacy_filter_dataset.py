@@ -365,11 +365,11 @@ def _segment(
     _collect(spans, "classe_processual", _CLASSE_PROCESSUAL_RE, text, end=fund_start)
     _collect(spans, "oab", _OAB_RE, text, end=assin_start)
 
-    # Parties: cabecalho + early relatorio only; filter ADVOGADO context
-    _collect(spans, "parte_autor", _PARTE_AUTOR_RE, text, group=1, end=fund_start,
-             fp_filter=fp_filter, fp_label="parte_autor")
-    _collect(spans, "parte_reu", _PARTE_REU_RE, text, group=1, end=fund_start,
-             fp_filter=fp_filter, fp_label="parte_reu")
+    # Parties: cabecalho + early relatorio only.
+    # Rule-based filter: skip spans where "ADVOGADO" precedes the keyword —
+    # those are lawyer names mislabeled as parties (embedding centroid cannot
+    # distinguish this case reliably due to structural similarity).
+    _collect_parties(spans, text, end=fund_start)
 
     # Lawyer names: before assinatura
     _collect(spans, "nome_advogado", _ADVOGADO_RE, text, group=1, end=assin_start)
@@ -425,6 +425,38 @@ def _collect(
     else:
         for s, e in candidates:
             spans.setdefault(label, []).append([s, e])
+
+
+# "ADVOGADO DO" or "ADVOGADOS DO" immediately before the matched role keyword.
+# Uses end-anchor ($) so it only fires when ADVOGADO DO is the last thing
+# before the keyword — avoids false rejection when a previous line had
+# "ADVOGADO DO AUTOR: nome\n" and the current line is "AUTOR: party".
+_ADVOGADO_IMMEDIATE = re.compile(r"ADVOGAD[OS]+\s+D[OA]\s+$", re.IGNORECASE)
+_ADVOGADO_LOOKBACK = 30  # chars before keyword start to examine
+
+
+def _collect_parties(
+    spans: dict[str, list[list[int]]],
+    text: str,
+    end: int,
+) -> None:
+    """Collect parte_autor and parte_reu with ADVOGADO-context filter.
+
+    Rejects spans where "ADVOGADO DO/S" ends immediately before the role
+    keyword: e.g. "ADVOGADO DO REQUERIDO: nome" → the name is the lawyer.
+    Does NOT reject when ADVOGADO appeared on a prior line.
+    """
+    for label, regex in (
+        ("parte_autor", _PARTE_AUTOR_RE),
+        ("parte_reu", _PARTE_REU_RE),
+    ):
+        for m in regex.finditer(text, 0, end):
+            preceding = text[max(0, m.start() - _ADVOGADO_LOOKBACK): m.start()]
+            if _ADVOGADO_IMMEDIATE.search(preceding):
+                continue
+            s, e = m.start(1), m.end(1)
+            if s < e:
+                spans.setdefault(label, []).append([s, e])
 
 
 # ---------------------------------------------------------------------------
