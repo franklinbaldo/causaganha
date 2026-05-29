@@ -136,11 +136,44 @@ _OAB_RE = re.compile(
     re.IGNORECASE,
 )
 
+# Name fragment: título-case or ALL-CAPS, with optional prepositions (da/de/dos)
+_NAME_WORD = r"[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇa-záéíóúâêîôûãõç]+"
+_NAME_FULL = rf"{_NAME_WORD}(?:\s+(?:d[aeo]s?\s+)?{_NAME_WORD}){{1,5}}"
+# Terminators: end-of-line, comma, parenthesis, semicolon, CPF/CNPJ cue, ou nova palavra-chave
+_NAME_STOP = r"(?=\s*[,;\n(]|\s+CPF|\s+CNPJ|$)"
+
+# Autor / polo ativo: "Autor:", "Requerente:", "Exequente:", "Apelante:", etc.
+_PARTE_AUTOR_RE = re.compile(
+    r"(?m)(?:^|(?<=\n))\s*"
+    r"(?:[Aa]utor[ae]?s?|[Rr]equerentes?|[Ee]xequentes?|[Aa]pelantes?|"
+    r"[Rr]eclamantes?|[Ii]mpetrantes?|[Ee]mbargantes?|[Ii]ncidentantes?|"
+    r"[Pp]acientes?)\s*[:-]\s*"
+    rf"({_NAME_FULL}){_NAME_STOP}",
+)
+
+# Réu / polo passivo: "Réu:", "Requerido:", "Executado:", "Apelado:", etc.
+_PARTE_REU_RE = re.compile(
+    r"(?m)(?:^|(?<=\n))\s*"
+    r"(?:[Rr][eé]u?[as]?s?|[Rr]equerid[oa]s?|[Ee]xecutad[oa]s?|[Aa]pelad[oa]s?|"
+    r"[Rr]eclamad[oa]s?|[Ii]mpetrad[oa]s?|[Ee]mbargad[oa]s?|"
+    r"[Cc]oacto[ar]es?|[Ii]nventariantes?)\s*[:-]\s*"
+    rf"({_NAME_FULL}){_NAME_STOP}",
+)
+
+# Juiz assina no final: nome antes do título (Juiz de Direito, Juíza Substituta, Des.)
+_JUIZ_RE = re.compile(
+    r"(?:[Dd]r[oa]?\.?\s+)?"
+    rf"({_NAME_FULL})\s*\n\s*"
+    r"(?:[Jj]u[ií][zs][ae]?(?:\s+de\s+[Dd]ireito)?|"
+    r"[Mm]agistrad[oa]|"
+    r"[Dd]es(?:embargador[ae]?)?\.?\s+[Rr]elator[ae]?|"
+    r"[Rr]elator[ae]?)",
+)
+
 # Lawyer name immediately before "OAB": "Dr. João da Silva, OAB/SP 12345"
-# Captures up to 5 words ending with comma/space before OAB
 _ADVOGADO_RE = re.compile(
     r"(?:[Dd]r[oa]?\.?\s+|[Aa]dv\.?\s+)?"
-    r"([A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][a-záéíóúâêîôûãõç]+(?:\s+(?:d[aeo]s?\s+)?[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][a-záéíóúâêîôûãõç]+){1,4})"
+    rf"({_NAME_FULL})"
     r"(?=\s*,?\s*OAB)",
 )
 
@@ -247,6 +280,9 @@ def _segment(text: str) -> dict[str, list[list[int]]] | None:
     _collect(spans, "id_lei", _LEI_RE, text)
     _collect(spans, "id_precedente", _PRECEDENTE_RE, text)
     _collect(spans, "classe_processual", _CLASSE_PROCESSUAL_RE, text)
+    _collect(spans, "parte_autor", _PARTE_AUTOR_RE, text, group=1)
+    _collect(spans, "parte_reu", _PARTE_REU_RE, text, group=1)
+    _collect(spans, "nome_juiz", _JUIZ_RE, text, group=1)
     _collect(spans, "nome_advogado", _ADVOGADO_RE, text, group=1)
 
     return spans
