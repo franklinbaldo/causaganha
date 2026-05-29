@@ -101,3 +101,47 @@ async def test_api_embedder_async_openrouter_concurrency() -> None:
         assert first_kwargs["json"]["input"] == ["text1", "text2"]
         _, last_kwargs = mock_post.call_args_list[2]
         assert last_kwargs["json"]["input"] == ["text5"]
+
+
+@pytest.mark.asyncio
+async def test_api_embedder_async_smart_truncate() -> None:
+    mock_post = AsyncMock(side_effect=mock_async_post_side_effect)
+
+    with patch("httpx.AsyncClient.post", mock_post):
+        embedder = ApiEmbedder(provider="openrouter", api_key="test_key_or")
+        # Generate a text exceeding SMART_TRUNCATE_CHARS (100,000)
+        long_text = "A" * 60_000 + "MIDDLE_MARKER" + "B" * 60_000
+        await embedder.aembed([long_text], normalize=False)
+
+        mock_post.assert_called_once()
+        _, kwargs = mock_post.call_args
+        sent_input = kwargs["json"]["input"][0]
+        # Verify that smart_truncate was applied (input is truncated and has the join marker)
+        assert "MIDDLE_MARKER" not in sent_input
+        assert "[...]" in sent_input
+        assert len(sent_input) == 100_000 + len("\n[...]\n")
+
+
+@pytest.mark.asyncio
+async def test_api_embedder_loop_affinity() -> None:
+    embedder = ApiEmbedder(provider="jina", api_key="test_key")
+
+    # Get loop in first run
+    lock1 = embedder._async_rate_limit_lock
+    budget_lock1 = embedder._async_budget_lock
+
+    assert lock1 is not None
+    assert budget_lock1 is not None
+
+    # In same loop, it should return same lock
+    assert embedder._async_rate_limit_lock is lock1
+    assert embedder._async_budget_lock is budget_lock1
+
+    # Mock a different event loop
+    mock_loop = MagicMock()
+    with patch("asyncio.get_running_loop", return_value=mock_loop):
+        lock2 = embedder._async_rate_limit_lock
+        budget_lock2 = embedder._async_budget_lock
+
+        assert lock2 is not lock1
+        assert budget_lock2 is not budget_lock1

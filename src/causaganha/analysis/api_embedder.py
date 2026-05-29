@@ -133,10 +133,23 @@ class ApiEmbedder:
 
     @property
     def _async_rate_limit_lock(self) -> asyncio.Lock:
-        """Lazily initialize the asyncio Lock to avoid event loop attachment issues."""
-        if not hasattr(self, "_rate_limit_lock_obj"):
+        """Lazily initialize/refresh the asyncio Lock bound to the current running event loop."""
+        loop = asyncio.get_running_loop()
+        cached_loop = getattr(self, "_rate_limit_loop_obj", None)
+        if not hasattr(self, "_rate_limit_lock_obj") or cached_loop is not loop:
             self._rate_limit_lock_obj = asyncio.Lock()
+            self._rate_limit_loop_obj = loop
         return self._rate_limit_lock_obj
+
+    @property
+    def _async_budget_lock(self) -> asyncio.Lock:
+        """Lazily initialize/refresh the asyncio Lock bound to the current running event loop."""
+        loop = asyncio.get_running_loop()
+        cached_loop = getattr(self, "_budget_loop_obj", None)
+        if not hasattr(self, "_budget_lock_obj") or cached_loop is not loop:
+            self._budget_lock_obj = asyncio.Lock()
+            self._budget_loop_obj = loop
+        return self._budget_lock_obj
 
     def _rate_limit(self) -> None:
         """Block until we are within the RPM limit (sliding 60-second window)."""
@@ -266,22 +279,25 @@ class ApiEmbedder:
         # Estimate token usage (Jina counts ~1 token ≈ 4 chars on average)
         estimated_tokens = sum(max(1, len(t) // 4) for t in texts)
         if self._token_budget is not None:
-            remaining = self._token_budget - self._tokens_used
-            if estimated_tokens > remaining:
-                msg = (
-                    f"Jina token budget exhausted: "
-                    f"{self._tokens_used:,}/{self._token_budget:,} used. "
-                    "Switch to provider='openrouter' or get a new Jina API key."
-                )
-                raise RuntimeError(msg)
-            usage_pct = (self._tokens_used + estimated_tokens) / self._token_budget
-            if usage_pct >= JINA_TOKEN_WARN_THRESHOLD:
-                logger.warning(
-                    "jina_token_budget_nearly_exhausted",
-                    tokens_used=self._tokens_used,
-                    budget=self._token_budget,
-                    pct=round(usage_pct * 100, 1),
-                )
+            async with self._async_budget_lock:
+                remaining = self._token_budget - self._tokens_used
+                if estimated_tokens > remaining:
+                    msg = (
+                        f"Jina token budget exhausted: "
+                        f"{self._tokens_used:,}/{self._token_budget:,} used. "
+                        "Switch to provider='openrouter' or get a new Jina API key."
+                    )
+                    raise RuntimeError(msg)
+                # Reserve the estimated tokens immediately to prevent race conditions
+                self._tokens_used += estimated_tokens
+                usage_pct = self._tokens_used / self._token_budget
+                if usage_pct >= JINA_TOKEN_WARN_THRESHOLD:
+                    logger.warning(
+                        "jina_token_budget_nearly_exhausted",
+                        tokens_used=self._tokens_used,
+                        budget=self._token_budget,
+                        pct=round(usage_pct * 100, 1),
+                    )
 
         task = "retrieval.query" if is_query else "retrieval.passage"
         payload: dict = {
@@ -294,21 +310,33 @@ class ApiEmbedder:
             payload["dimensions"] = self.truncate_dim
 
         await self._arate_limit()
-        resp = await client.post(
-            JINA_ENDPOINT,
-            headers={
-                "Authorization": f"Bearer {self._api_key}",
-                "Content-Type": "application/json",
-            },
-            json=payload,
-            timeout=60,
-        )
-        resp.raise_for_status()
-        data = resp.json()
 
-        # Track actual tokens reported by the API
-        actual_tokens = data.get("usage", {}).get("total_tokens", estimated_tokens)
-        self._tokens_used += actual_tokens
+        try:
+            resp = await client.post(
+                JINA_ENDPOINT,
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+                json=payload,
+                timeout=60,
+            )
+            resp.raise_for_status()
+            data = resp.json()
+            # Track actual tokens reported by the API
+            actual_tokens = data.get("usage", {}).get("total_tokens", estimated_tokens)
+            if self._token_budget is not None:
+                async with self._async_budget_lock:
+                    self._tokens_used = self._tokens_used - estimated_tokens + actual_tokens
+            else:
+                self._tokens_used += actual_tokens
+        except Exception:
+            # If the request fails, refund the reserved tokens
+            if self._token_budget is not None:
+                async with self._async_budget_lock:
+                    self._tokens_used -= estimated_tokens
+            raise
+
         logger.debug(
             "jina_tokens_used",
             batch_tokens=actual_tokens,
@@ -353,6 +381,21 @@ class ApiEmbedder:
             embeddings = embeddings[:, : self.truncate_dim]
         return embeddings
 
+    def _prepare_inputs(
+        self,
+        texts: list[str],
+        batch_size: int | None = None,
+    ) -> list[list[str]]:
+        """Guard against long documents via smart_truncate and split into batches."""
+        truncated = [smart_truncate(t) for t in texts]
+        bs = batch_size or self._batch_size
+        return [truncated[i : i + bs] for i in range(0, len(truncated), bs)]
+
+    def _normalize_embeddings(self, embeddings: np.ndarray) -> np.ndarray:
+        """L2-normalize embeddings."""
+        norms = np.linalg.norm(embeddings, axis=1, keepdims=True)
+        return embeddings / np.where(norms == 0, 1.0, norms)
+
     # ------------------------------------------------------------------
     # Public interface (matches LocalEmbedder)
     # ------------------------------------------------------------------
@@ -376,11 +419,7 @@ class ApiEmbedder:
         Returns:
             NumPy array of shape ``(len(texts), embed_dim)``.
         """
-        # Guard against documents exceeding the model context: keep head+tail,
-        # drop the middle (preserves parties/case number + dispositivo).
-        texts = [smart_truncate(t) for t in texts]
-        bs = batch_size or self._batch_size
-        chunks = [texts[i : i + bs] for i in range(0, len(texts), bs)]
+        chunks = self._prepare_inputs(texts, batch_size)
         parts: list[np.ndarray] = []
 
         for chunk in chunks:
@@ -392,8 +431,7 @@ class ApiEmbedder:
 
         result = np.vstack(parts)
         if normalize:
-            norms = np.linalg.norm(result, axis=1, keepdims=True)
-            result = result / np.where(norms == 0, 1.0, norms)
+            result = self._normalize_embeddings(result)
         return result
 
     async def aembed(
@@ -419,9 +457,7 @@ class ApiEmbedder:
         """
         import httpx  # noqa: PLC0415
 
-        bs = batch_size or self._batch_size
-        chunks = [texts[i : i + bs] for i in range(0, len(texts), bs)]
-
+        chunks = self._prepare_inputs(texts, batch_size)
         semaphore = asyncio.Semaphore(concurrency)
 
         async def worker(client: httpx.AsyncClient, chunk: list[str]) -> np.ndarray:
@@ -436,8 +472,7 @@ class ApiEmbedder:
 
         result = np.vstack(parts)
         if normalize:
-            norms = np.linalg.norm(result, axis=1, keepdims=True)
-            result = result / np.where(norms == 0, 1.0, norms)
+            result = self._normalize_embeddings(result)
         return result
 
     def embed_single(self, text: str, *, is_query: bool = False) -> np.ndarray:
