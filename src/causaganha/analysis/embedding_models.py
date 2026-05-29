@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from typing import Literal
 
 
-ProviderType = Literal["jina", "google"]
+ProviderType = Literal["jina"]
 
 
 @dataclass(frozen=True)
@@ -49,32 +49,20 @@ JINA_V4_1024 = EmbeddingModel(
     description="Jina v4 with 1024 dimensions (recommended for legal documents)",
 )
 
-# Google AI Models
-GOOGLE_GEMINI_768 = EmbeddingModel(
-    provider="google",
-    name="gemini-embedding-001",
-    dimension=768,
-    max_tokens=2048,  # 2K tokens (limitation for legal docs)
-    description="Google Gemini embedding (768D)",
-)
-
 # Default models for each provider
 DEFAULT_JINA_MODEL = JINA_V4_1024
-DEFAULT_GOOGLE_MODEL = GOOGLE_GEMINI_768
 
 
 def get_default_model(provider: ProviderType) -> EmbeddingModel:
     """Get the default model for a provider.
 
     Args:
-        provider: Provider name ('jina' or 'google')
+        provider: Provider name ('jina')
 
     Returns:
         Default EmbeddingModel for that provider
     """
     if provider == "jina":
         return DEFAULT_JINA_MODEL
-    if provider == "google":
-        return DEFAULT_GOOGLE_MODEL
     msg = f"Unknown provider: {provider}"
     raise ValueError(msg)

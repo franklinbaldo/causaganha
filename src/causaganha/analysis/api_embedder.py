@@ -43,20 +43,11 @@ import structlog
 
 logger = structlog.get_logger()
 
-Provider = Literal["gemini", "jina", "openrouter"]
+Provider = Literal["jina", "openrouter"]
 
 # ---------------------------------------------------------------------------
 # Provider constants
 # ---------------------------------------------------------------------------
-
-# Gemini embedding model (EmbeddingGemma-based, 8192-token context)
-GEMINI_MODEL = "models/gemini-embedding-exp-03-07"
-GEMINI_EMBED_DIM = 768  # default; also supports 1536 and 3072
-GEMINI_BATCH_SIZE = 100  # texts per batchEmbedContents request
-GEMINI_RPM_LIMIT = 1500  # free-tier requests-per-minute
-GEMINI_PRICE_PER_1M = 0.20  # USD, on-demand
-GEMINI_BATCH_PRICE_PER_1M = 0.10  # USD, Batch API (50 % discount)
-GEMINI_BATCH_MAX_INPUT_BYTES = 2 * 1024**3  # 2 GB per batch job
 
 # Jina jina-embeddings-v3 (multilingual, PT-BR native)
 JINA_MODEL = "jina-embeddings-v3"
@@ -80,10 +71,10 @@ class ApiEmbedder:
     """API-backed embedder — no GPU, no local model download.
 
     Args:
-        provider: ``"gemini"`` or ``"jina"``.
-        api_key: API key. Falls back to ``GEMINI_API_KEY`` / ``JINA_API_KEY``
+        provider: ``"jina"`` or ``"openrouter"``.
+        api_key: API key. Falls back to ``JINA_API_KEY`` / ``OPENROUTER_API_KEY``
             environment variables.
-        truncate_dim: Optional MRL truncation (Gemini supports 256/512/768).
+        truncate_dim: Optional MRL truncation.
             ``None`` keeps the full dimension.
         rpm_limit: Requests-per-minute cap. Defaults to the provider free tier.
     """
@@ -101,19 +92,7 @@ class ApiEmbedder:
         self.provider = provider
         self.truncate_dim = truncate_dim
 
-        if provider == "gemini":
-            self._api_key = api_key or os.environ.get("GEMINI_API_KEY", "")
-            if not self._api_key:
-                msg = "GEMINI_API_KEY not set. Get one at https://aistudio.google.com/app/apikey"
-                raise ValueError(msg)
-            self._batch_size = GEMINI_BATCH_SIZE
-            self._rpm_limit = rpm_limit or GEMINI_RPM_LIMIT
-            self._embed_dim = truncate_dim or GEMINI_EMBED_DIM
-            self._token_budget = None
-            self._tokens_used = 0
-            self._init_gemini()
-
-        elif provider == "jina":
+        if provider == "jina":
             self._api_key = api_key or os.environ.get("JINA_API_KEY", "")
             if not self._api_key:
                 msg = "JINA_API_KEY not set. Get one at https://jina.ai/?sui=apikey"
@@ -140,7 +119,7 @@ class ApiEmbedder:
             self._tokens_used = 0
 
         else:
-            msg = f"Unknown provider: {provider!r}. Choose 'gemini', 'jina', or 'openrouter'."
+            msg = f"Unknown provider: {provider!r}. Choose 'jina' or 'openrouter'."
             raise ValueError(msg)
 
         self._request_times: list[float] = []
@@ -151,14 +130,6 @@ class ApiEmbedder:
             rpm_limit=self._rpm_limit,
             token_budget=self._token_budget,
         )
-
-    def _init_gemini(self) -> None:
-        try:
-            from google import genai  # noqa: PLC0415
-        except ImportError as exc:
-            msg = "google-genai is required: uv add google-genai"
-            raise ImportError(msg) from exc
-        self._genai_client = genai.Client(api_key=self._api_key)
 
     def _rate_limit(self) -> None:
         """Block until we are within the RPM limit (sliding 60-second window)."""
@@ -174,22 +145,6 @@ class ApiEmbedder:
     # ------------------------------------------------------------------
     # Provider-specific batch embed
     # ------------------------------------------------------------------
-
-    def _embed_batch_gemini(self, texts: list[str], *, is_query: bool) -> np.ndarray:
-        from google.genai import types as gtypes  # noqa: PLC0415
-
-        task_type = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
-        config = gtypes.EmbedContentConfig(
-            task_type=task_type,
-            output_dimensionality=self.truncate_dim,  # None → full 768
-        )
-        self._rate_limit()
-        response = self._genai_client.models.embed_content(
-            model=GEMINI_MODEL,
-            contents=texts,
-            config=config,
-        )
-        return np.array([e.values for e in response.embeddings], dtype=np.float32)
 
     def _embed_batch_jina(self, texts: list[str], *, is_query: bool) -> np.ndarray:
         import httpx  # noqa: PLC0415
@@ -314,9 +269,7 @@ class ApiEmbedder:
         parts: list[np.ndarray] = []
 
         for chunk in chunks:
-            if self.provider == "gemini":
-                emb = self._embed_batch_gemini(chunk, is_query=is_query)
-            elif self.provider == "openrouter":
+            if self.provider == "openrouter":
                 emb = self._embed_batch_openrouter(chunk)
             else:
                 emb = self._embed_batch_jina(chunk, is_query=is_query)
@@ -366,125 +319,5 @@ class ApiEmbedder:
             return None
         return max(0, self._token_budget - self._tokens_used)
 
-    # ------------------------------------------------------------------
-    # Gemini Batch API (50 % cheaper, async, up to 2 GB per job)
-    # ------------------------------------------------------------------
 
-    async def embed_batch_async(
-        self,
-        texts: list[str],
-        *,
-        is_query: bool = False,
-        normalize: bool = True,
-        poll_interval: float = 10.0,
-    ) -> np.ndarray:
-        """Submit a Gemini Batch API job and wait for results.
 
-        Uses the asynchronous Batch API (50 % discount vs on-demand).
-        Ideal for large offline corpora — processes up to 2 GB per job.
-        Only available when ``provider="gemini"``.
-
-        Args:
-            texts: List of strings to embed.
-            is_query: True for query-side task type.
-            normalize: L2-normalize output embeddings.
-            poll_interval: Seconds between status checks while job runs.
-
-        Returns:
-            NumPy array of shape ``(len(texts), embed_dim)``.
-
-        Raises:
-            RuntimeError: If not using Gemini provider, or batch job fails.
-        """
-        if self.provider != "gemini":
-            msg = "embed_batch_async is only available for provider='gemini'."
-            raise RuntimeError(msg)
-
-        import json as _json  # noqa: PLC0415
-        import tempfile  # noqa: PLC0415
-
-        from google.genai import types as gtypes  # noqa: PLC0415
-
-        task_type = "RETRIEVAL_QUERY" if is_query else "RETRIEVAL_DOCUMENT"
-
-        # Build JSONL request file
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix=".jsonl", delete=False, encoding="utf-8"
-        ) as tmp:
-            for i, text in enumerate(texts):
-                record = {
-                    "key": str(i),
-                    "request": {
-                        "model": GEMINI_MODEL,
-                        "contents": [{"parts": [{"text": text}]}],
-                        "generationConfig": {
-                            "taskType": task_type,
-                            **(
-                                {"outputDimensionality": self.truncate_dim}
-                                if self.truncate_dim
-                                else {}
-                            ),
-                        },
-                    },
-                }
-                tmp.write(_json.dumps(record, ensure_ascii=False) + "\n")
-            jsonl_path = tmp.name
-
-        logger.info(
-            "gemini_batch_upload",
-            n_texts=len(texts),
-            jsonl_path=jsonl_path,
-            estimated_cost_usd=round(
-                sum(len(t) / 4 / 1_000_000 * GEMINI_BATCH_PRICE_PER_1M for t in texts),
-                4,
-            ),
-        )
-
-        try:
-            # Upload the JSONL file
-            uploaded = self._genai_client.files.upload(
-                file=jsonl_path,
-                config=gtypes.UploadFileConfig(mime_type="application/jsonl"),
-            )
-        finally:
-            with contextlib.suppress(FileNotFoundError):
-                Path(jsonl_path).unlink()  # noqa: ASYNC240
-
-        # Submit batch job
-        batch_job = self._genai_client.batches.create(
-            model=GEMINI_MODEL,
-            src=uploaded.name,
-            config=gtypes.CreateBatchJobConfig(
-                dest=f"batches/causaganha-embeddings-{int(time.time())}"
-            ),
-        )
-        logger.info("gemini_batch_submitted", job_name=batch_job.name)
-
-        # Poll until complete
-        while batch_job.state not in ("JOB_STATE_SUCCEEDED", "JOB_STATE_FAILED"):
-            await asyncio.sleep(poll_interval)
-            batch_job = self._genai_client.batches.get(name=batch_job.name)
-            logger.debug("gemini_batch_status", state=batch_job.state, name=batch_job.name)
-
-        if batch_job.state == "JOB_STATE_FAILED":
-            msg = f"Gemini Batch job failed: {batch_job.error}"
-            raise RuntimeError(msg)
-
-        # Collect results (ordered by key)
-        rows: dict[int, list[float]] = {}
-        for response in self._genai_client.batches.list_job_results(name=batch_job.name):
-            key = int(response.key)
-            embedding = response.response.embedding.values
-            rows[key] = embedding
-
-        result = np.array([rows[i] for i in range(len(texts))], dtype=np.float32)
-        if normalize:
-            norms = np.linalg.norm(result, axis=1, keepdims=True)
-            result = result / np.where(norms == 0, 1.0, norms)
-
-        logger.info(
-            "gemini_batch_complete",
-            shape=result.shape,
-            job_name=batch_job.name,
-        )
-        return result
