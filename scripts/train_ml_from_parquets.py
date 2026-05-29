@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Train ML models (MLEnsemble and AnchorClassifier) using consolidated parquet data."""
 
+import argparse
 import sys
 from pathlib import Path
 
@@ -25,7 +26,31 @@ OUTCOME_MAPPING = {
 }
 
 
+def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 300) -> list[str]:
+    """Split text into overlapping chunks of a fixed character size."""
+    if not text or not text.strip():
+        return []
+    chunks = []
+    start = 0
+    while start < len(text):
+        end = start + chunk_size
+        chunks.append(text[start:end])
+        start = end - overlap
+        if start >= len(text) - overlap:
+            break
+    return chunks
+
+
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Train outcome ML model from parquets.")
+    parser.add_argument(
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit the number of decisions to train on (for testing/sampling).",
+    )
+    args = parser.parse_args()
+
     logger.info("starting_ml_training_pipeline")
 
     # Paths
@@ -81,6 +106,9 @@ def main() -> int:
         final_t.mapped_outcome.notnull() & (final_t.mapped_outcome != "unknown")
     )
 
+    if args.limit is not None:
+        final_t = final_t.limit(args.limit)
+
     final_df = final_t.execute()
 
     logger.info("data_merged_and_filtered", final_count=len(final_df))
@@ -90,13 +118,28 @@ def main() -> int:
 
     # Step 3: Compute Embeddings using LocalEmbedder
     logger.info("initializing_local_embedder")
-    embedder = LocalEmbedder(model_name="intfloat/multilingual-e5-small", truncate_dim=None)
+    embedder = LocalEmbedder(model_name="google/embeddinggemma-300m", truncate_dim=None)
 
-    logger.info("computing_embeddings_for_texts", total=len(final_df))
-    texts = final_df["texto"].tolist()
+    logger.info("extracting_texts_for_embeddings", total=len(final_df))
+    texts = [str(row.texto) for row in final_df.itertuples(index=False)]
 
-    # Run embedding in batches
-    embeddings = embedder.embed(texts, is_query=False, batch_size=32, normalize=True)
+    logger.info("computing_embeddings_for_texts", total=len(texts))
+    # Chunk long texts and mean-pool chunk embeddings to stay within model context window
+    chunk_lists = [chunk_text(t) or [t] for t in texts]
+    flat_chunks = [c for chunks in chunk_lists for c in chunks]
+    flat_embs = embedder.embed(flat_chunks, is_query=False, batch_size=32, normalize=True)
+    doc_embeddings = []
+    offset = 0
+    for chunks in chunk_lists:
+        n = len(chunks)
+        chunk_embs = flat_embs[offset : offset + n]
+        doc_emb = chunk_embs.mean(axis=0)
+        norm = np.linalg.norm(doc_emb)
+        if norm > 0:
+            doc_emb = doc_emb / norm
+        doc_embeddings.append(doc_emb)
+        offset += n
+    embeddings = np.array(doc_embeddings, dtype=np.float32)
     logger.info("embeddings_computed", shape=embeddings.shape)
 
     # Step 4: Construct anchor_set.parquet
@@ -105,13 +148,7 @@ def main() -> int:
     for idx, row in enumerate(final_df.itertuples(index=False)):
         texto = str(row.texto)
         texto_truncado = texto[:1000]
-
-        # Save embedding as float32 bytes for storage efficiency,
-        # matching AnchorClassifier.add_anchor
         emb_bytes = embeddings[idx].astype(np.float32).tobytes()
-
-        # Handle confidence column check safely (since it might or might not exist
-        # depending on the schema)
         confidence = float(getattr(row, "confidence", 1.0))
 
         anchor_rows.append(
