@@ -24,6 +24,8 @@ from typing import TYPE_CHECKING
 import numpy as np
 import structlog
 
+from .text_truncate import smart_truncate
+
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -63,10 +65,6 @@ E5_SMALL_PASSAGE_PREFIX = "passage: "
 # ---------------------------------------------------------------------------
 # pplx-embed-v1 outputs fixed 1024 dims (no MRL). Set None to keep full dims.
 DEFAULT_DIMENSION: int | None = None
-
-# Smart truncation guard. pplx-embed has 32K token context ≈ 100K chars of
-# Portuguese legal text. Virtually no judicial intimação exceeds this.
-_SMART_TRUNCATE_CHARS = 100_000
 
 
 class LocalEmbedder:
@@ -147,19 +145,6 @@ class LocalEmbedder:
         )
         return model
 
-    @staticmethod
-    def _smart_truncate(text: str, max_chars: int = _SMART_TRUNCATE_CHARS) -> str:
-        """Keep first half + last half of text when it exceeds max_chars.
-
-        Safety net for extremely long texts. With pplx-embed's 32K context
-        (~100K chars) this virtually never triggers for judicial documents.
-        Preserves document head (parties, case number) and tail (dispositivo).
-        """
-        if len(text) <= max_chars:
-            return text
-        half = max_chars // 2
-        return text[:half] + "\n[...]\n" + text[-half:]
-
     def _apply_prefix(self, texts: list[str], *, is_query: bool) -> list[str]:
         """Apply instruction prefix for models that don't use prompt_name."""
         if self.model_name == E5_SMALL_MODEL:
@@ -191,7 +176,7 @@ class LocalEmbedder:
         Returns:
             NumPy array of shape (len(texts), embedding_dim).
         """
-        texts = [self._smart_truncate(t) for t in texts]
+        texts = [smart_truncate(t) for t in texts]
         encode_kwargs: dict = {
             "batch_size": batch_size,
             "normalize_embeddings": normalize,

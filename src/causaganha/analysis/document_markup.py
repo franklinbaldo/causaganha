@@ -41,9 +41,7 @@ class DocumentMarkupService:
         results = self.classifier(text)
 
         person_spans = [
-            (e["start"], e["end"])
-            for e in results
-            if e.get("entity_group") == "private_person"
+            (e["start"], e["end"]) for e in results if e.get("entity_group") == "private_person"
         ]
 
         if not person_spans:

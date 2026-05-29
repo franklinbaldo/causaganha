@@ -144,10 +144,8 @@ class FPCentroidFilter:
         """Return True if this span+context is too similar to the FP centroid."""
         if label not in self._centroids:
             return False
-        context = text[max(0, span_start - _CONTEXT_CHARS): span_end + _CONTEXT_CHARS]
-        emb: np.ndarray = self._get_model().encode(
-            [context], normalize_embeddings=True
-        )[0]
+        context = text[max(0, span_start - _CONTEXT_CHARS) : span_end + _CONTEXT_CHARS]
+        emb: np.ndarray = self._get_model().encode([context], normalize_embeddings=True)[0]
         sim = float(np.dot(emb, self._centroids[label]))
         return sim > self._thresholds[label]
 
@@ -160,10 +158,7 @@ class FPCentroidFilter:
         """Batch FP check -- embeds all context windows in one model call."""
         if label not in self._centroids or not spans:
             return [False] * len(spans)
-        contexts = [
-            text[max(0, s - _CONTEXT_CHARS): e + _CONTEXT_CHARS]
-            for s, e in spans
-        ]
+        contexts = [text[max(0, s - _CONTEXT_CHARS) : e + _CONTEXT_CHARS] for s, e in spans]
         embs: np.ndarray = self._get_model().encode(
             contexts, normalize_embeddings=True, show_progress_bar=False
         )

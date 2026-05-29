@@ -13,6 +13,11 @@ ignore = [
 
     # ── Development hygiene: TODOs are tracked in issues ──
     "FIX002",   # line-contains-todo
+
+    # ── pandas-vet is moot: pandas is banned repo-wide (see banned-api
+    # below). ibis uses `.notnull()`, which PD004 wrongly flags as a
+    # pandas idiom — drop the rule rather than ignore it per-file. ──
+    "PD004",    # .notna preferred over .notnull — ibis uses .notnull()
 ]
 
 [lint.per-file-ignores]
@@ -120,7 +125,6 @@ ignore = [
     "BLE001",           # blind Exception catch (pragmatic in one-shot scripts; src/** stays strict)
     "TRY300",           # try/else restructure (style, scripts don't benefit much)
     "S311",             # pseudo-random (diagnostic sampling, not crypto)
-    "PD004",            # .notna preferred over .notnull — ibis uses .notnull(); not pandas
 ]
 
 # ── Experiments ────────────────────────────────────────────────────────────

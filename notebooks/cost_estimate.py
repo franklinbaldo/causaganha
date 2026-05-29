@@ -3,17 +3,13 @@ import pandas as pd
 import statistics
 
 # Connect to local DB and query TJRO rows to calculate true average text length
-db = ibis.duckdb.connect('data/causaganha.duckdb')
-intim = db.table('intimations')
+db = ibis.duckdb.connect("data/causaganha.duckdb")
+intim = db.table("intimations")
 
-tjro_local = (
-    intim
-    .filter(intim.sigla_tribunal == 'TJRO')
-    .filter(intim.texto.notnull())
-)
+tjro_local = intim.filter(intim.sigla_tribunal == "TJRO").filter(intim.texto.notnull())
 
 sample = tjro_local.select(intim.texto).limit(500).execute()
-lengths = sample['texto'].str.len().tolist()
+lengths = sample["texto"].str.len().tolist()
 avg_chars = statistics.mean(lengths)
 avg_tokens = avg_chars / 4
 
@@ -21,15 +17,19 @@ avg_tokens = avg_chars / 4
 df_manifest = pd.read_csv("data/sync-manifest.csv")
 df_manifest["date"] = pd.to_datetime(df_manifest["date"])
 df_tjro_2025 = df_manifest[
-    (df_manifest["tribunal"] == "TJRO") & 
-    (df_manifest["date"].dt.year == 2025) & 
-    (df_manifest["ia_status"] == "uploaded")
+    (df_manifest["tribunal"] == "TJRO")
+    & (df_manifest["date"].dt.year == 2025)
+    & (df_manifest["ia_status"] == "uploaded")
 ]
 uploaded_days = len(df_tjro_2025)
 
 # Calculate typical daily volume of intimations for TJRO from local database
-daily_counts = tjro_local.group_by(tjro_local.data_disponibilizacao).aggregate(count=tjro_local.count()).execute()
-avg_rows_per_day = daily_counts['count'].mean()
+daily_counts = (
+    tjro_local.group_by(tjro_local.data_disponibilizacao)
+    .aggregate(count=tjro_local.count())
+    .execute()
+)
+avg_rows_per_day = daily_counts["count"].mean()
 
 # Extrapolate for full TJRO 2025 dataset
 total_docs_est = int(uploaded_days * avg_rows_per_day)
@@ -63,4 +63,3 @@ else:
     excess = tokens_m - 10
     print(f"  Exceeds monthly 10M free tier by {excess:.2f}M tokens.")
 print("===========================================================")
-
