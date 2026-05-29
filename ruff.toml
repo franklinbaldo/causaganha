@@ -4,6 +4,13 @@
 target-version = "py312"
 line-length = 100
 
+# marimo notebooks (notebooks/*.py) are authored in marimo's own cell format
+# and embed Colab-only snippets (userdata, try/except Exception). They are not
+# hand-maintained source and their committed .ipynb is verified separately by
+# scripts/check_notebooks_synced.py — so keep ruff (lint + format) out of them,
+# same as experiments/.
+extend-exclude = ["notebooks"]
+
 [lint]
 select = ["ALL"]
 ignore = [
