@@ -115,10 +115,16 @@ class LocalEmbedder:
             # trust_remote_code needed for some models (Jina, etc.)
             trust_remote_code=False,
         )
+        dim = (
+            model.get_embedding_dimension()
+            if hasattr(model, "get_embedding_dimension")
+            else model.get_sentence_embedding_dimension()
+        )
         logger.info(
             "local_model_loaded",
             model=self.model_name,
-            embedding_dim=model.get_sentence_embedding_dimension(),
+            embedding_dim=dim,
+            max_seq_length=model.max_seq_length,
         )
         return model
 
@@ -138,22 +144,26 @@ class LocalEmbedder:
         # Unknown model — no prefix
         return texts
 
-    def _smart_truncate(self, text: str, max_tokens: int = 2000) -> str:
-        """Truncate text by keeping the first max_tokens/2 and the last max_tokens/2 tokens."""
+    def _smart_truncate(self, text: str, max_tokens: int | None = None) -> str:
+        """Truncate text to fit within the model's max sequence length.
+
+        Keeps the first half and last half of tokens with a ``[...]`` separator,
+        preserving both the document header and the dispositivo at the tail.
+        Uses the model's ``max_seq_length`` by default (leaves a 48-token margin
+        for special tokens added by the tokenizer).
+        """
         if not text:
             return ""
-        # Access tokenizer from sentence_transformers model
         tokenizer = self._model.tokenizer
+        # Reserve room for BOS/EOS and any instruction prefix tokens.
+        if max_tokens is None:
+            max_tokens = max(1, self._model.max_seq_length - 48)
         tokens = tokenizer.encode(text, add_special_tokens=False)
         if len(tokens) <= max_tokens:
             return text
         half = max_tokens // 2
-        first_half_tokens = tokens[:half]
-        second_half_tokens = tokens[-half:]
-        
-        # Decode back to text
-        first_part = tokenizer.decode(first_half_tokens, clean_up_tokenization_spaces=False)
-        second_part = tokenizer.decode(second_half_tokens, clean_up_tokenization_spaces=False)
+        first_part = tokenizer.decode(tokens[:half], clean_up_tokenization_spaces=False)
+        second_part = tokenizer.decode(tokens[-half:], clean_up_tokenization_spaces=False)
         return f"{first_part}\n[...]\n{second_part}"
 
     def embed(
