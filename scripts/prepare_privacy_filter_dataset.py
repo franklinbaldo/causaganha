@@ -132,8 +132,14 @@ _ASSINATURA_RE = re.compile(
 # CNJ case number: NNNNNNN-NN.NNNN.N.NN.NNNN
 _PROCESSO_CNJ_RE = re.compile(r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}")
 
-# CPF: NNN.NNN.NNN-NN  or CNPJ: NN.NNN.NNN/NNNN-NN
-_CPF_CNPJ_RE = re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}")
+# CPF: NNN.NNN.NNN-NN or bare 11 digits after "CPF nº"
+# CNPJ: NN.NNN.NNN/NNNN-NN or bare 14 digits after "CNPJ nº"
+_CPF_CNPJ_RE = re.compile(
+    r"\d{3}\.\d{3}\.\d{3}-\d{2}"
+    r"|\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}"
+    r"|(?:CPF|CNPJ)\s*n[oº°]?\s*[\d./-]{9,19}",
+    re.IGNORECASE,
+)
 
 # OAB: OAB/SP 123.456 | OAB nº 123456/SP | OAB nº RO1586 (UF antes do número)
 _OAB_RE = re.compile(
@@ -145,12 +151,13 @@ _OAB_RE = re.compile(
 
 # Full name: title-case or ALL-CAPS words with optional prepositions (da/de/dos)
 _NAME_WORD = r"[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇa-záéíóúâêîôûãõç]+"
-_NAME_FULL = rf"{_NAME_WORD}(?:\s+(?:d[aeo]s?\s+)?{_NAME_WORD}){{1,5}}"
+_NAME_FULL = rf"{_NAME_WORD}(?:\s+(?:(?:d[aeo]s?|e)\s+)?{_NAME_WORD}){{1,5}}"
 # Abbreviated initials: "J. D. D. S." style (anonymized PII in parquet)
 _NAME_ABBREV = r"[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]\.(?:\s+[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ]\.){1,6}"
 _NAME_ANY = rf"(?:{_NAME_FULL}|{_NAME_ABBREV})"
-# Terminators: comma, semicolon, newline, paren, CPF/CNPJ, hyphen-separator, LTDA/SA
-_NAME_STOP = r"(?=\s*[,;\n(]|\s+-|\s+LTDA|\s+S/A|\s+CPF|\s+CNPJ|$)"
+# Terminators: comma, semicolon, colon, newline, paren, CPF/CNPJ, hyphen, LTDA/SA,
+# or field-label keywords (ADVOGADO, PROCURADORIA) that follow names in cabecalho.
+_NAME_STOP = r"(?=\s*[,;:\n(]|\s+-|\s+LTDA|\s+S/A|\s+CPF|\s+CNPJ|\s+ADVOGADO|\s+PROCURADORIA|$)"
 
 # Polo ativo — all procedural roles that map to the active party.
 # Excludes "ADVOGADOS DO …" prefixes (those go to nome_advogado).
@@ -165,7 +172,7 @@ _PARTE_AUTOR_RE = re.compile(
     r"[Ii]mpetrantes?|"            # Impetrante(s)
     r"[Rr]eclamantes?|"            # Reclamante(s)
     r"[Ii]ncidentantes?|"          # Incidentante(s)
-    r"[Pp]acientes?)\s*[:-]\s*"    # Paciente(s)
+    r"[Pp]acientes?)(?:\s*\([aosSAS]+\))?\s*[:-]\s*"    # Paciente(s) + optional (a)/(s) suffix
     rf"({_NAME_ANY}){_NAME_STOP}",
     re.IGNORECASE,
 )
@@ -182,7 +189,7 @@ _PARTE_REU_RE = re.compile(
     r"[Ii]mpetrad[oa][sS]?|"       # Impetrado(a)(s)
     r"[Rr]eclamad[oa][sS]?|"       # Reclamado(a)(s)
     r"[Ii]nventariad[oa][sS]?|"    # Inventariado(a)(s)
-    r"[Ii]nventariantes?)\s*[:-]\s*"  # Inventariante(s) — can be either polo
+    r"[Ii]nventariantes?)(?:\s*\([aosSAS]+\))?\s*[:-]\s*"  # optional (a)/(s) suffix
     rf"({_NAME_ANY}){_NAME_STOP}",
     re.IGNORECASE,
 )
@@ -196,6 +203,7 @@ _JUIZ_RE = re.compile(
     r"[Mm]agistrad[oa](?:\s+[Ss]ubstitut[oa])?|"
     r"[Dd]esembargador[ae]?(?:\s+[Rr]elator[ae]?)?|"
     r"[Dd]es\.\s*[Rr]elator[ae]?)\b",
+    re.IGNORECASE,
 )
 
 # Serventuário: assina no lugar do juiz — mesmo padrão (nome antes do título)
@@ -214,6 +222,7 @@ _SERVENTUARIO_RE = re.compile(
     r"[Tt][eé]cnico\s+[Jj]udici[aá]ri[oa]|"
     r"[Aa]ssistente\s+[Jj]udici[aá]ri[oa]|"
     r"[Ss]erventu[aá]ri[oa])\b",
+    re.IGNORECASE,
 )
 
 # Valor monetário em reais: R$ 1.234,56  ou  R$1.234,56  ou  R$ 1.234.567,89
@@ -254,12 +263,16 @@ _LEI_RE = re.compile(
     r"\b(?:CPC|CC|CDC|CLT|CF|CTN|CP|CPP|ECA|LRF|LINDB)\b",
 )
 
-# Precedent citations
+# Precedent citations: Súmula, Tema, REsp, HC, RE, etc.
 _PRECEDENTE_RE = re.compile(
     r"[Ss][úu]mula\s*(?:[Vv]inculante\s*)?(?:n[oºa°]?\s*)?\d+(?:\s+[A-Z]{2,4})?|"
     r"[Tt]ema\s*(?:[Rr]epetitivo\s*)?(?:n[oºa°]?\s*)?\d+(?:\s+[A-Z]{2,4})?|"
     r"[Pp]recedente\s+[Qq]ualificado\s+(?:n[oºa°]?\s*)?\d+|"
-    r"[Rr]epercuss[ãa]o\s+[Gg]eral\s+(?:n[oºa°]?\s*)?\d+",
+    r"[Rr]epercuss[ãa]o\s+[Gg]eral\s+(?:n[oºa°]?\s*)?\d+|"
+    # STJ/STF case identifiers: REsp 1234/SP, AREsp 1.234.456-MG, HC 123456 etc.
+    r"(?:REsp|AREsp|AgRg|AgInt|EREsp|HC|RO|MS|RE|ADI|ADPF|RTJ|RESP)"
+    r"\s*[-nº°]?\s*[\d.,]+(?:[/-][A-Z]{2})?",
+    re.IGNORECASE,
 )
 
 # Procedural class names
