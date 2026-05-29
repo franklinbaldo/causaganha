@@ -51,21 +51,21 @@ Provider = Literal["gemini", "jina", "openrouter"]
 
 # Gemini embedding model (EmbeddingGemma-based, 8192-token context)
 GEMINI_MODEL = "models/gemini-embedding-exp-03-07"
-GEMINI_EMBED_DIM = 768           # default; also supports 1536 and 3072
-GEMINI_BATCH_SIZE = 100          # texts per batchEmbedContents request
-GEMINI_RPM_LIMIT = 1500          # free-tier requests-per-minute
-GEMINI_PRICE_PER_1M = 0.20       # USD, on-demand
-GEMINI_BATCH_PRICE_PER_1M = 0.10 # USD, Batch API (50 % discount)
-GEMINI_BATCH_MAX_INPUT_BYTES = 2 * 1024 ** 3  # 2 GB per batch job
+GEMINI_EMBED_DIM = 768  # default; also supports 1536 and 3072
+GEMINI_BATCH_SIZE = 100  # texts per batchEmbedContents request
+GEMINI_RPM_LIMIT = 1500  # free-tier requests-per-minute
+GEMINI_PRICE_PER_1M = 0.20  # USD, on-demand
+GEMINI_BATCH_PRICE_PER_1M = 0.10  # USD, Batch API (50 % discount)
+GEMINI_BATCH_MAX_INPUT_BYTES = 2 * 1024**3  # 2 GB per batch job
 
 # Jina jina-embeddings-v3 (multilingual, PT-BR native)
 JINA_MODEL = "jina-embeddings-v3"
 JINA_EMBED_DIM = 1024
 JINA_BATCH_SIZE = 128
 JINA_ENDPOINT = "https://api.jina.ai/v1/embeddings"
-JINA_RPM_LIMIT = 500          # free-tier RPM
-JINA_FREE_TOKEN_BUDGET = 10_000_000   # 10M tokens/month free tier
-JINA_TOKEN_WARN_THRESHOLD = 0.90      # warn at 90% consumed
+JINA_RPM_LIMIT = 500  # free-tier RPM
+JINA_FREE_TOKEN_BUDGET = 10_000_000  # 10M tokens/month free tier
+JINA_TOKEN_WARN_THRESHOLD = 0.90  # warn at 90% consumed
 
 # OpenRouter embedding models (supports perplexity and llama-nemotron)
 OPENROUTER_ENDPOINT = "https://openrouter.ai/api/v1/embeddings"
@@ -189,9 +189,7 @@ class ApiEmbedder:
             contents=texts,
             config=config,
         )
-        return np.array(
-            [e.values for e in response.embeddings], dtype=np.float32
-        )
+        return np.array([e.values for e in response.embeddings], dtype=np.float32)
 
     def _embed_batch_jina(self, texts: list[str], *, is_query: bool) -> np.ndarray:
         import httpx  # noqa: PLC0415
@@ -285,7 +283,7 @@ class ApiEmbedder:
 
         embeddings = np.array([d["embedding"] for d in data["data"]], dtype=np.float32)
         if self.truncate_dim and embeddings.shape[1] > self.truncate_dim:
-            embeddings = embeddings[:, :self.truncate_dim]
+            embeddings = embeddings[:, : self.truncate_dim]
         return embeddings
 
     # ------------------------------------------------------------------
@@ -490,4 +488,3 @@ class ApiEmbedder:
             job_name=batch_job.name,
         )
         return result
-

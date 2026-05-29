@@ -64,13 +64,13 @@ SPAN_CLASS_NAMES = [
     "valor_monetario",
 ]
 
+
 def _label_type(name: str) -> str:
     return "section" if name.startswith("sec_") or name == "elem_nao_textual" else "entity"
 
 
 _LABEL_TABLE_ROWS = "\n".join(
-    f"| `{name}` | {i} | {_label_type(name)} |"
-    for i, name in enumerate(SPAN_CLASS_NAMES)
+    f"| `{name}` | {i} | {_label_type(name)} |" for i, name in enumerate(SPAN_CLASS_NAMES)
 )
 
 # ---------------------------------------------------------------------------
@@ -84,8 +84,7 @@ cells = [
         "**identify and segment** Brazilian judicial decisions with a rich 22-class taxonomy.\n\n"
         "## Label taxonomy\n\n"
         "| Label | ID | Type |\n"
-        "|---|---|---|\n"
-        + _LABEL_TABLE_ROWS + "\n\n"
+        "|---|---|---|\n" + _LABEL_TABLE_ROWS + "\n\n"
         "### Heuristic coverage in training data\n\n"
         "| Layer | Labels | Coverage |\n"
         "|---|---|---|\n"
@@ -106,15 +105,12 @@ cells = [
         "- Apache 2.0 license; open weights; official `opf train` CLI for fine-tuning.\n\n"
         "> **Runtime**: GPU (T4). Enable via Runtime → Change runtime type."
     ),
-
     md_cell("## 1. Setup — clone repo & install deps"),
-
     code_cell(
         'REPO_URL  = "https://github.com/franklinbaldo/causaganha.git"\n'
         'BRANCH    = "main"\n'
         'REPO_DIR  = "/content/causaganha"\n'
     ),
-
     code_cell(
         "import os\n"
         "if not os.path.exists(REPO_DIR):\n"
@@ -124,21 +120,17 @@ cells = [
         "os.chdir(REPO_DIR)\n"
         'print(f"Working directory: {os.getcwd()}")\n'
     ),
-
     code_cell(
         "!curl -LsSf https://astral.sh/uv/install.sh | sh\n"
         "import os\n"
         "os.environ['PATH'] = f\"/root/.local/bin:{os.environ['PATH']}\"\n"
         "!uv --version\n"
     ),
-
     code_cell(
         '!uv pip install --system -e ".[embeddings]" '
         "transformers accelerate datasets scikit-learn\n"
     ),
-
     md_cell("## 2. Build textos.parquet from TJRO 2025 ZIPs"),
-
     code_cell(
         "# --- Configuration ---\n"
         "N_ZIPS      = 50       # ZIPs to process (None = all 384, ~2.8 GB)\n"
@@ -148,7 +140,6 @@ cells = [
         'PARQUET_DIR  = f"{REPO_DIR}/data/test_parquets"\n'
         'PARQUET_PATH = f"{PARQUET_DIR}/textos.parquet"\n'
     ),
-
     code_cell(
         "import zipfile, json, io, uuid, os\n"
         "import urllib.request\n"
@@ -215,7 +206,6 @@ cells = [
         "df.to_parquet(PARQUET_PATH, index=False)\n"
         "print(f'Saved {len(df):,} unique texts → {PARQUET_PATH}')\n"
     ),
-
     md_cell(
         "## 3. Prepare labeled dataset\n\n"
         "Heuristic segmentation produces **silver labels**. "
@@ -224,7 +214,6 @@ cells = [
         "Party/judge names and direct precedent quotes require a future LLM annotation pass.\n\n"
         "Entity spans **overwrite** section spans when they overlap — entities are more specific."
     ),
-
     code_cell(
         "import sys, re, random, json\n"
         "import numpy as np\n"
@@ -263,9 +252,7 @@ cells = [
         "for lbl, cnt in sorted(cov.items(), key=lambda x: -x[1]):\n"
         "    print(f'  {lbl:<22} {cnt:>5}  ({cnt/len(records):.0%})')\n"
     ),
-
     md_cell("## 4. Build HuggingFace Dataset"),
-
     code_cell(
         "from datasets import Dataset\n\n"
         "random.seed(42)\n"
@@ -278,7 +265,6 @@ cells = [
         "raw_test  = Dataset.from_list(records[val_end:])\n\n"
         "print(f'Train: {len(raw_train):,}  Val: {len(raw_val):,}  Test: {len(raw_test):,}')\n"
     ),
-
     md_cell(
         "## 5. Tokenize + align labels to tokens\n\n"
         "`openai/privacy-filter` is already a token classifier — we load it "
@@ -289,7 +275,6 @@ cells = [
         "**Priority rule**: entity labels overwrite section labels when spans overlap — "
         "entities are more specific and the model benefits from the hierarchical signal."
     ),
-
     code_cell(
         "from transformers import AutoTokenizer\n\n"
         'MODEL_NAME = "openai/privacy-filter"\n'
@@ -355,9 +340,7 @@ cells = [
         "}\n"
         "print(f'  Label dist (first doc): {dist}')\n"
     ),
-
     md_cell("## 6. Fine-tune"),
-
     code_cell(
         "from transformers import (\n"
         "    AutoModelForTokenClassification,\n"
@@ -428,9 +411,7 @@ cells = [
         ")\n\n"
         "trainer.train()\n"
     ),
-
     md_cell("## 7. Evaluate on test set"),
-
     code_cell(
         "preds_out = trainer.predict(test_ds)\n"
         "preds  = np.argmax(preds_out.predictions, axis=-1)\n"
@@ -448,9 +429,7 @@ cells = [
         "    zero_division=0,\n"
         "))\n"
     ),
-
     md_cell("## 8. Save label_space.json + model"),
-
     code_cell(
         "import shutil, json\n"
         "from google.colab import files\n\n"
@@ -466,7 +445,6 @@ cells = [
         "files.download('/content/decision_segmenter.zip')\n"
         "print('Downloaded decision_segmenter.zip')\n"
     ),
-
     md_cell(
         "## 9. Use with `opf train` (alternative to HuggingFace Trainer)\n\n"
         "The JSONL files produced by `scripts/prepare_privacy_filter_dataset.py` "

@@ -50,28 +50,28 @@ logger = structlog.get_logger()
 # ---------------------------------------------------------------------------
 
 SPAN_CLASS_NAMES: list[str] = [
-    "O",                    # 0 — background / unlabeled
-    "sec_cabecalho",        # 1 — header block (tribunal, vara, parties list)
-    "sec_relatorio",        # 2 — Relatório (case history)
-    "sec_fundamentacao",    # 3 — Fundamentação (legal reasoning)
-    "sec_dispositivo",      # 4 — Dispositivo (operative ruling)
-    "sec_assinatura",       # 5 — Signature/closing block
-    "elem_nao_textual",     # 6 — non-textual elements (page numbers, repeated headers)
-    "parte_autor",          # 7 — plaintiff / polo ativo name
-    "parte_reu",            # 8 — defendant / polo passivo name
-    "parte_terceiro",       # 9 — third party / interested party
-    "nome_advogado",        # 10 — lawyer name
-    "oab",                  # 11 — OAB registration number
-    "nome_juiz",            # 12 — judge / magistrate name
-    "cpf_cnpj",             # 13 — CPF (individual) or CNPJ (company) tax ID
-    "processo_cnj",         # 14 — CNJ case number (NNNNNNN-NN.NNNN.N.NN.NNNN)
-    "classe_processual",    # 15 — procedural class (Apelação Cível, etc.)
-    "id_lei",               # 16 — law / statute reference (Art. X, Lei nº Y)
-    "id_precedente",        # 17 — precedent identifier (Súmula X, Tema Y)
-    "citacao_precedente",   # 18 — direct textual quote from a precedent
-    "data",                 # 19 — date spans
-    "serventuario",         # 20 — court clerk / officer who signs instead of judge
-    "valor_monetario",      # 21 — monetary value in Brazilian Reais (R$)
+    "O",  # 0 — background / unlabeled
+    "sec_cabecalho",  # 1 — header block (tribunal, vara, parties list)
+    "sec_relatorio",  # 2 — Relatório (case history)
+    "sec_fundamentacao",  # 3 — Fundamentação (legal reasoning)
+    "sec_dispositivo",  # 4 — Dispositivo (operative ruling)
+    "sec_assinatura",  # 5 — Signature/closing block
+    "elem_nao_textual",  # 6 — non-textual elements (page numbers, repeated headers)
+    "parte_autor",  # 7 — plaintiff / polo ativo name
+    "parte_reu",  # 8 — defendant / polo passivo name
+    "parte_terceiro",  # 9 — third party / interested party
+    "nome_advogado",  # 10 — lawyer name
+    "oab",  # 11 — OAB registration number
+    "nome_juiz",  # 12 — judge / magistrate name
+    "cpf_cnpj",  # 13 — CPF (individual) or CNPJ (company) tax ID
+    "processo_cnj",  # 14 — CNJ case number (NNNNNNN-NN.NNNN.N.NN.NNNN)
+    "classe_processual",  # 15 — procedural class (Apelação Cível, etc.)
+    "id_lei",  # 16 — law / statute reference (Art. X, Lei nº Y)
+    "id_precedente",  # 17 — precedent identifier (Súmula X, Tema Y)
+    "citacao_precedente",  # 18 — direct textual quote from a precedent
+    "data",  # 19 — date spans
+    "serventuario",  # 20 — court clerk / officer who signs instead of judge
+    "valor_monetario",  # 21 — monetary value in Brazilian Reais (R$)
 ]
 
 LABEL_SPACE = {
@@ -80,14 +80,16 @@ LABEL_SPACE = {
 }
 
 # Labels that are structural sections (filled first; overwritten by entity labels)
-_SECTION_LABELS: frozenset[str] = frozenset({
-    "sec_cabecalho",
-    "sec_relatorio",
-    "sec_fundamentacao",
-    "sec_dispositivo",
-    "sec_assinatura",
-    "elem_nao_textual",
-})
+_SECTION_LABELS: frozenset[str] = frozenset(
+    {
+        "sec_cabecalho",
+        "sec_relatorio",
+        "sec_fundamentacao",
+        "sec_dispositivo",
+        "sec_assinatura",
+        "elem_nao_textual",
+    }
+)
 
 # ---------------------------------------------------------------------------
 # Structural section markers
@@ -164,16 +166,16 @@ _NAME_STOP = r"(?=\s*[,;:\n(]|\s+-|\s+LTDA|\s+S/A|\s+CPF|\s+CNPJ|\s+ADVOGADO|\s+
 # Excludes "ADVOGADOS DO …" prefixes (those go to nome_advogado).
 _PARTE_AUTOR_RE = re.compile(
     r"(?:Polo\s+Ativo|Parte\s+[Aa]utor[ae]?[Ss]?|"
-    r"[Aa]utor[ae]?[Ss]?|"        # Autor / Autora / Autores / Autoras
-    r"[Rr]equerentes?|"            # Requerente(s)
-    r"[Ee]xequentes?|"             # Exequente(s)
-    r"[Aa]pelantes?|"              # Apelante(s)
-    r"[Aa]gravantes?|"             # Agravante(s)
-    r"[Ee]mbargantes?|"            # Embargante(s)
-    r"[Ii]mpetrantes?|"            # Impetrante(s)
-    r"[Rr]eclamantes?|"            # Reclamante(s)
-    r"[Ii]ncidentantes?|"          # Incidentante(s)
-    r"[Pp]acientes?)(?:\s*\([aosSAS]+\))?\s*[:-]\s*"    # Paciente(s) + optional (a)/(s) suffix
+    r"[Aa]utor[ae]?[Ss]?|"  # Autor / Autora / Autores / Autoras
+    r"[Rr]equerentes?|"  # Requerente(s)
+    r"[Ee]xequentes?|"  # Exequente(s)
+    r"[Aa]pelantes?|"  # Apelante(s)
+    r"[Aa]gravantes?|"  # Agravante(s)
+    r"[Ee]mbargantes?|"  # Embargante(s)
+    r"[Ii]mpetrantes?|"  # Impetrante(s)
+    r"[Rr]eclamantes?|"  # Reclamante(s)
+    r"[Ii]ncidentantes?|"  # Incidentante(s)
+    r"[Pp]acientes?)(?:\s*\([aosSAS]+\))?\s*[:-]\s*"  # Paciente(s) + optional (a)/(s) suffix
     rf"({_NAME_ANY}){_NAME_STOP}",
     re.IGNORECASE,
 )
@@ -181,15 +183,15 @@ _PARTE_AUTOR_RE = re.compile(
 # Polo passivo — all procedural roles that map to the passive party.
 _PARTE_REU_RE = re.compile(
     r"(?:Polo\s+Passivo|Parte\s+[Rr][eé][aA]?[sS]?|Parte\s+[Rr]equerid[oa][sS]?|"
-    r"[Rr][eé][uU][aAsS]?|"        # Réu / Ré / Réus / Reus / REU
-    r"[Rr]equerid[oa][sS]?|"       # Requerido(a)(s)
-    r"[Ee]xecutad[oa][sS]?|"       # Executado(a)(s)
-    r"[Aa]pelad[oa][sS]?|"         # Apelado(a)(s)
-    r"[Aa]gravad[oa][sS]?|"        # Agravado(a)(s)
-    r"[Ee]mbargad[oa][sS]?|"       # Embargado(a)(s)
-    r"[Ii]mpetrad[oa][sS]?|"       # Impetrado(a)(s)
-    r"[Rr]eclamad[oa][sS]?|"       # Reclamado(a)(s)
-    r"[Ii]nventariad[oa][sS]?|"    # Inventariado(a)(s)
+    r"[Rr][eé][uU][aAsS]?|"  # Réu / Ré / Réus / Reus / REU
+    r"[Rr]equerid[oa][sS]?|"  # Requerido(a)(s)
+    r"[Ee]xecutad[oa][sS]?|"  # Executado(a)(s)
+    r"[Aa]pelad[oa][sS]?|"  # Apelado(a)(s)
+    r"[Aa]gravad[oa][sS]?|"  # Agravado(a)(s)
+    r"[Ee]mbargad[oa][sS]?|"  # Embargado(a)(s)
+    r"[Ii]mpetrad[oa][sS]?|"  # Impetrado(a)(s)
+    r"[Rr]eclamad[oa][sS]?|"  # Reclamado(a)(s)
+    r"[Ii]nventariad[oa][sS]?|"  # Inventariado(a)(s)
     r"[Ii]nventariantes?)(?:\s*\([aosSAS]+\))?\s*[:-]\s*"  # optional (a)/(s) suffix
     rf"({_NAME_ANY}){_NAME_STOP}",
     re.IGNORECASE,
@@ -307,9 +309,8 @@ _CLASSE_PROCESSUAL_RE = re.compile(
 # Segmentation
 # ---------------------------------------------------------------------------
 
-def _segment(
-    text: str, fp_filter: object = None
-) -> dict[str, list[list[int]]] | None:
+
+def _segment(text: str, fp_filter: object = None) -> dict[str, list[list[int]]] | None:
     """Return character-level span dict for all detectable labels.
 
     Entity spans overwrite section spans when they overlap — entities are
@@ -360,8 +361,16 @@ def _segment(
     # Legal references: skip cabecalho (party lists, addresses) and assinatura
     body_start = cabecalho_end
     _collect(spans, "id_lei", _LEI_RE, text, start=body_start, end=assin_start)
-    _collect(spans, "id_precedente", _PRECEDENTE_RE, text, start=body_start, end=assin_start,
-             fp_filter=fp_filter, fp_label="id_precedente")
+    _collect(
+        spans,
+        "id_precedente",
+        _PRECEDENTE_RE,
+        text,
+        start=body_start,
+        end=assin_start,
+        fp_filter=fp_filter,
+        fp_label="id_precedente",
+    )
     _collect(spans, "classe_processual", _CLASSE_PROCESSUAL_RE, text, end=fund_start)
     _collect(spans, "oab", _OAB_RE, text, end=assin_start)
 
@@ -384,6 +393,7 @@ def _segment(
 
 try:
     import sys as _sys
+
     _sys.path.insert(0, str(Path(__file__).parent))
     from fp_centroid_filter import FPCentroidFilter as _FPCentroidFilter
 except ImportError:
@@ -453,7 +463,7 @@ def _collect_parties(
         ("parte_reu", _PARTE_REU_RE),
     ):
         for m in regex.finditer(text, 0, end):
-            preceding = text[max(0, m.start() - _ADVOGADO_LOOKBACK): m.start()]
+            preceding = text[max(0, m.start() - _ADVOGADO_LOOKBACK) : m.start()]
             if _ADVOGADO_IMMEDIATE.search(preceding):
                 continue
             s, e = m.start(1), m.end(1)
@@ -464,6 +474,7 @@ def _collect_parties(
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
+
 
 def main() -> int:
     logger.info("starting_dataset_preparation")
@@ -478,7 +489,7 @@ def main() -> int:
         nargs="?",
         const="auto",
         help="Enable embedding-based FP filter. Pass a .pkl path to load "
-             "precomputed centroids, or omit path to fit from the built-in catalog.",
+        "precomputed centroids, or omit path to fit from the built-in catalog.",
     )
     args = parser.parse_args()
 
@@ -537,7 +548,7 @@ def main() -> int:
         for label in rec["spans"]:
             label_coverage[label] = label_coverage.get(label, 0) + 1
     for label, count in sorted(label_coverage.items()):
-        logger.info("label_coverage", label=label, docs=count, pct=f"{count/len(records):.1%}")
+        logger.info("label_coverage", label=label, docs=count, pct=f"{count / len(records):.1%}")
 
     random.seed(42)
     random.shuffle(records)
