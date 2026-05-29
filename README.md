@@ -151,6 +151,23 @@ npm run build
 
 If you already use Bun locally, `bun install` and `bun run build` also work for development, but CI is currently based on `npm`.
 
+## Notebooks
+
+Notebooks are authored as [marimo](https://marimo.io) notebooks (`notebooks/*.py`,
+the source of truth). The committed `.ipynb` is an export produced by
+`marimo export ipynb` and kept in sync by CI
+(`scripts/check_notebooks_synced.py`). Open the exported Jupyter notebooks
+directly in Google Colab:
+
+| Notebook | Open in Colab |
+|---|---|
+| **Decision segmenter** — fine-tune the 22-class judicial token classifier | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.ipynb) |
+| **ML document classifier** — train the outcome classifier on embeddings | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_ml_document_classifier.ipynb) |
+| **Cost estimate** — estimate embedding token costs from the corpus | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/cost_estimate.ipynb) |
+
+To edit a notebook locally run `uv run marimo edit notebooks/<name>.py`, then
+regenerate its `.ipynb` with `uv run python scripts/check_notebooks_synced.py --fix`.
+
 ## Repository structure
 
 ```text

@@ -54,7 +54,7 @@ def _(mo):
 def _():
     # --- Config ---
     REPO_URL = "https://github.com/franklinbaldo/causaganha.git"
-    BRANCH = "feat/embedder-smart-truncate-and-privacy-dataset-v2"
+    BRANCH = "main"
     REPO_DIR = "/content/causaganha"
     return BRANCH, REPO_DIR, REPO_URL
 
