@@ -29,6 +29,7 @@ def _normalized(outcome: str) -> str:
     ("rag_key", "expected"),
     [
         ("NAO_PROVIDO", Outcome.NAO_PROVIDO.value),
+        ("PARCIALMENTE_PROVIDO", Outcome.PARCIALMENTE_PROVIDO.value),
         ("NAO_CONHECIDO", Outcome.NAO_CONHECIDO.value),
         ("PROVIDO", Outcome.PROVIDO.value),
         ("PREJUDICADO", Outcome.PREJUDICADO.value),
@@ -57,8 +58,9 @@ def test_nao_provido_inverts_polarity() -> None:
     assert resolve_winner_polo(outcome, recorrente_polo="P") == "A"
 
 
-def test_provido_keeps_appellant() -> None:
-    outcome = _normalized("PROVIDO")
+@pytest.mark.parametrize("rag_key", ["PROVIDO", "PARCIALMENTE_PROVIDO"])
+def test_provido_keeps_appellant(rag_key: str) -> None:
+    outcome = _normalized(rag_key)
     assert resolve_winner_polo(outcome, recorrente_polo="A") == "A"
     assert resolve_winner_polo(outcome, recorrente_polo="P") == "P"
 
