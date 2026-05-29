@@ -11,11 +11,11 @@ import uuid
 from pathlib import Path
 
 
-def cell_id() -> str:
+def cell_id() -> str:  # noqa: D103
     return uuid.uuid4().hex[:12]
 
 
-def code_cell(source: str) -> dict:
+def code_cell(source: str) -> dict:  # noqa: D103
     return {
         "cell_type": "code",
         "id": cell_id(),
@@ -26,7 +26,7 @@ def code_cell(source: str) -> dict:
     }
 
 
-def md_cell(source: str) -> dict:
+def md_cell(source: str) -> dict:  # noqa: D103
     return {
         "cell_type": "markdown",
         "id": cell_id(),
@@ -36,6 +36,42 @@ def md_cell(source: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# Label taxonomy — kept in sync with scripts/prepare_privacy_filter_dataset.py
+# ---------------------------------------------------------------------------
+
+SPAN_CLASS_NAMES = [
+    "O",
+    "sec_cabecalho",
+    "sec_relatorio",
+    "sec_fundamentacao",
+    "sec_dispositivo",
+    "sec_assinatura",
+    "elem_nao_textual",
+    "parte_autor",
+    "parte_reu",
+    "parte_terceiro",
+    "nome_advogado",
+    "oab",
+    "nome_juiz",
+    "cpf_cnpj",
+    "processo_cnj",
+    "classe_processual",
+    "id_lei",
+    "id_precedente",
+    "citacao_precedente",
+    "data",
+]
+
+def _label_type(name: str) -> str:
+    return "section" if name.startswith("sec_") or name == "elem_nao_textual" else "entity"
+
+
+_LABEL_TABLE_ROWS = "\n".join(
+    f"| `{name}` | {i} | {_label_type(name)} |"
+    for i, name in enumerate(SPAN_CLASS_NAMES)
+)
+
+# ---------------------------------------------------------------------------
 # Notebook cells
 # ---------------------------------------------------------------------------
 
@@ -43,20 +79,29 @@ cells = [
     md_cell(
         "# Train Decision Segmenter — CausaGanha\n\n"
         "Fine-tunes **`openai/privacy-filter`** (token classifier, Apache 2.0) to "
-        "**identify and segment** the three structural parts of a Brazilian judicial decision.\n\n"
-        "| Label | Section | Description |\n"
+        "**identify and segment** Brazilian judicial decisions with a rich 20-class taxonomy.\n\n"
+        "## Label taxonomy\n\n"
+        "| Label | ID | Type |\n"
         "|---|---|---|\n"
-        "| `RELATORIO` | Relatório | Case history and facts summary |\n"
-        "| `FUNDAMENTACAO` | Fundamentação | Legal reasoning |\n"
-        "| `DISPOSITIVO` | Dispositivo | Operative ruling (the actual decision) |\n\n"
+        + _LABEL_TABLE_ROWS + "\n\n"
+        "### Heuristic coverage in training data\n\n"
+        "| Layer | Labels | Coverage |\n"
+        "|---|---|---|\n"
+        "| Structural sections | `sec_*` | ✓ high (regex markers) |\n"
+        "| Legal identifiers | `processo_cnj`, `id_lei`, `id_precedente`, `classe_processual` |"
+        " ✓ high |\n"
+        "| PII / registration | `cpf_cnpj`, `oab` | ✓ high |\n"
+        "| Dates | `data` | ✓ high |\n"
+        "| Lawyer name | `nome_advogado` | ~ partial (adjacent-to-OAB) |\n"
+        "| Party / judge names | `parte_*`, `nome_juiz` | ✗ needs LLM pass |\n"
+        "| Direct quotes | `citacao_precedente` | ✗ needs LLM pass |\n"
+        "| Non-textual | `elem_nao_textual` | ✗ needs LLM pass |\n\n"
         "**Why `openai/privacy-filter` as base?**\n"
-        "- Already a token classifier — we just replace its 33-class PII head with a 3-class section head.\n"
+        "- Already a token classifier — we replace its 33-class PII head"
+        " with a fresh 20-class head.\n"
         "- 128K-token context window (handles complete judicial decisions in one pass).\n"
-        "- Token-level labels give **exact character boundaries** between sections, not just paragraph labels.\n"
-        "- Apache 2.0 license; open weights.\n\n"
-        "**Architecture note**: uses banded attention (128-token window per token). "
-        "That's fine here — section boundaries are marked by local phrases "
-        "(`ante o exposto`, `RELATÓRIO`, etc.), not global document context.\n\n"
+        "- Token-level labels give **exact character boundaries**, not just paragraph labels.\n"
+        "- Apache 2.0 license; open weights; official `opf train` CLI for fine-tuning.\n\n"
         "> **Runtime**: GPU (T4). Enable via Runtime → Change runtime type."
     ),
 
@@ -86,14 +131,15 @@ cells = [
     ),
 
     code_cell(
-        '!uv pip install --system -e ".[embeddings]" transformers accelerate datasets seqeval\n'
+        '!uv pip install --system -e ".[embeddings]" '
+        "transformers accelerate datasets scikit-learn\n"
     ),
 
     md_cell("## 2. Download data from Internet Archive"),
 
     code_cell(
         "import os, urllib.request\n\n"
-        "PARQUET_DIR = f\"{REPO_DIR}/data/test_parquets\"\n"
+        'PARQUET_DIR = f"{REPO_DIR}/data/test_parquets"\n'
         "os.makedirs(PARQUET_DIR, exist_ok=True)\n\n"
         "FILES = {\n"
         '    "textos.parquet": '
@@ -113,60 +159,50 @@ cells = [
 
     md_cell(
         "## 3. Prepare labeled dataset\n\n"
-        "Uses heuristic markers (`ante o exposto`, `fundamentação`, etc.) to "
-        "assign **character-level section spans** to each document. "
-        "These are silver labels — good enough to bootstrap a model that will "
-        "outperform the heuristic on unseen text, especially cases without explicit markers.\n\n"
-        "Each document becomes one training example with char-level spans. "
-        "Tokenization (next cell) aligns these spans to token-level labels."
+        "Heuristic segmentation produces **silver labels**. "
+        "Pattern-based labels (processo CNJ, CPF, lei, precedente, datas, OAB) are high-precision. "
+        "Section boundaries use textual markers (`ante o exposto`, `RELATÓRIO`, etc.). "
+        "Party/judge names and direct precedent quotes require a future LLM annotation pass.\n\n"
+        "Entity spans **overwrite** section spans when they overlap — entities are more specific."
     ),
 
     code_cell(
-        "import sys, re, random\n"
+        "import sys, re, random, json\n"
         "import numpy as np\n"
         "import ibis\n"
         "from pathlib import Path\n\n"
-        "sys.path.insert(0, f\"{REPO_DIR}/src\")\n\n"
-        "_DISPOSITIVO_RE = re.compile(\n"
-        "    r'(?:ante\\s+o\\s+exposto|posto\\s+isso|isso\\s+posto|'\n"
-        "    r'diante\\s+do\\s+exposto|pelo\\s+exposto|em\\s+face\\s+do\\s+exposto|'\n"
-        "    r'por\\s+tais\\s+fundamentos|nestes\\s+termos|em\\s+conclus[\\u00e3a]o|'\n"
-        "    r'pelo\\s+que\\s+exposto|em\\s+vista\\s+do\\s+exposto)',\n"
-        "    re.IGNORECASE,\n"
+        'sys.path.insert(0, f"{REPO_DIR}/src")\n\n'
+        "# Import label taxonomy and segmentation logic from the repo script\n"
+        "import importlib.util, types\n"
+        "spec = importlib.util.spec_from_file_location(\n"
+        "    'prepare_ds', f'{REPO_DIR}/scripts/prepare_privacy_filter_dataset.py'\n"
         ")\n"
-        "_FUNDAMENTACAO_RE = re.compile(\n"
-        "    r'(?:fundament[ao](?:\\u00e7\\u00e3o)?|m[\\u00e9e]rito|an[\\u00e1a]lise\\s+do\\s+pedido|'\n"
-        "    r'da\\s+an[\\u00e1a]lise|do\\s+m[\\u00e9e]rito|'\n"
-        "    r'fundamenta[\\u00e7c][\\u00e3a]o\\s+(?:jur[\\u00edi]dica|do\\s+ju[\\u00edi]zo))',\n"
-        "    re.IGNORECASE,\n"
-        ")\n\n"
-        "def segment_document(text):\n"
-        "    \"\"\"Return char-level span dict or None if dispositivo not found.\"\"\"\n"
-        "    disp_m = _DISPOSITIVO_RE.search(text)\n"
-        "    if not disp_m:\n"
-        "        return None\n"
-        "    disp_start = disp_m.start()\n"
-        "    pre = text[:disp_start]\n"
-        "    fund_m = _FUNDAMENTACAO_RE.search(pre)\n"
-        "    fund_start = fund_m.start() if fund_m else len(pre) // 2\n"
-        "    spans = {}\n"
-        "    if fund_start > 0:\n"
-        "        spans['relatorio'] = [[0, fund_start]]\n"
-        "    if disp_start > fund_start:\n"
-        "        spans['fundamentacao'] = [[fund_start, disp_start]]\n"
-        "    spans['dispositivo'] = [[disp_start, len(text)]]\n"
-        "    return spans\n\n"
+        "mod = importlib.util.module_from_spec(spec)\n"
+        "spec.loader.exec_module(mod)\n\n"
+        "SPAN_CLASS_NAMES = mod.SPAN_CLASS_NAMES\n"
+        "LABEL_SPACE      = mod.LABEL_SPACE\n"
+        "_segment         = mod._segment\n\n"
+        "ID2LABEL = {i: name for i, name in enumerate(SPAN_CLASS_NAMES)}\n"
+        "LABEL2ID = {name: i for i, name in enumerate(SPAN_CLASS_NAMES)}\n"
+        "NUM_LABELS = len(SPAN_CLASS_NAMES)  # 20\n\n"
         "t = ibis.read_parquet(Path(PARQUET_DIR) / 'textos.parquet')\n"
         "df = t.filter(t.texto.notnull()).execute()\n"
         "print(f'Loaded {len(df):,} documents')\n\n"
         "records, skipped = [], 0\n"
         "for _, row in df.iterrows():\n"
-        "    spans = segment_document(row['texto'])\n"
+        "    spans = _segment(row['texto'])\n"
         "    if spans is None:\n"
         "        skipped += 1\n"
         "        continue\n"
         "    records.append({'text': row['texto'], 'spans': spans})\n\n"
-        "print(f'Documents with spans: {len(records):,} (skipped {skipped} without dispositivo)')\n"
+        "print(f'Documents with spans: {len(records):,}  "
+        "(skipped {skipped} without dispositivo)')\n\n"
+        "# Label coverage report\n"
+        "from collections import Counter\n"
+        "cov = Counter(lbl for r in records for lbl in r['spans'])\n"
+        "print('\\nLabel coverage:')\n"
+        "for lbl, cnt in sorted(cov.items(), key=lambda x: -x[1]):\n"
+        "    print(f'  {lbl:<22} {cnt:>5}  ({cnt/len(records):.0%})')\n"
     ),
 
     md_cell("## 4. Build HuggingFace Dataset"),
@@ -187,25 +223,39 @@ cells = [
     md_cell(
         "## 5. Tokenize + align labels to tokens\n\n"
         "`openai/privacy-filter` is already a token classifier — we load it "
-        "with `num_labels=3` replacing its 33-class PII head with a fresh 3-class "
-        "section head. Token labels are aligned from the character spans using "
-        "`return_offsets_mapping=True`. Special tokens (CLS/SEP) get label `-100` "
-        "(ignored in loss)."
+        "with `num_labels=20` replacing its 33-class PII head with a fresh 20-class head. "
+        "(`ignore_mismatched_sizes=True` keeps all encoder weights.)\n\n"
+        "Token labels are aligned from character spans via `return_offsets_mapping=True`. "
+        "Special tokens (CLS/SEP) get label `-100` (ignored in loss).\n\n"
+        "**Priority rule**: entity labels overwrite section labels when spans overlap — "
+        "entities are more specific and the model benefits from the hierarchical signal."
     ),
 
     code_cell(
         "from transformers import AutoTokenizer\n\n"
         'MODEL_NAME = "openai/privacy-filter"\n'
         "tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)\n\n"
-        "ID2LABEL = {0: 'RELATORIO', 1: 'FUNDAMENTACAO', 2: 'DISPOSITIVO'}\n"
-        "LABEL2ID = {v: k for k, v in ID2LABEL.items()}\n\n"
+        "_SECTION_LABELS = frozenset([\n"
+        "    'sec_cabecalho', 'sec_relatorio', 'sec_fundamentacao',\n"
+        "    'sec_dispositivo', 'sec_assinatura', 'elem_nao_textual',\n"
+        "])\n\n"
         "def tokenize_and_label(example):\n"
         "    text  = example['text']\n"
         "    spans = example['spans']\n\n"
-        "    # Build char-level label array (default: RELATORIO=0)\n"
-        "    char_labels = np.zeros(len(text), dtype=np.int32)\n"
-        "    for section, span_list in spans.items():\n"
-        "        lid = LABEL2ID.get(section.upper(), 0)\n"
+        "    # Build char-level label array: default O=0\n"
+        "    char_labels = np.zeros(len(text), dtype=np.int32)\n\n"
+        "    # Pass 1: section labels (lower priority)\n"
+        "    for label_name, span_list in spans.items():\n"
+        "        if label_name not in _SECTION_LABELS:\n"
+        "            continue\n"
+        "        lid = LABEL2ID.get(label_name, 0)\n"
+        "        for start, end in span_list:\n"
+        "            char_labels[start:min(end, len(text))] = lid\n\n"
+        "    # Pass 2: entity labels (higher priority — overwrite sections)\n"
+        "    for label_name, span_list in spans.items():\n"
+        "        if label_name in _SECTION_LABELS:\n"
+        "            continue\n"
+        "        lid = LABEL2ID.get(label_name, 0)\n"
         "        for start, end in span_list:\n"
         "            char_labels[start:min(end, len(text))] = lid\n\n"
         "    enc = tokenizer(\n"
@@ -228,7 +278,12 @@ cells = [
         "test_ds  = raw_test.map(tokenize_and_label,  remove_columns=['text', 'spans'])\n\n"
         "print('Tokenization done.')\n"
         "print(f'  Example token count: {len(train_ds[0][\"input_ids\"])}')\n"
-        "print(f'  Label distribution in first doc:', {ID2LABEL[l]: train_ds[0][\"labels\"].count(l) for l in range(3)})\n"
+        "# Label distribution in first doc (exclude O and -100)\n"
+        "dist = {\n"
+        "    ID2LABEL[l]: train_ds[0]['labels'].count(l)\n"
+        "    for l in range(NUM_LABELS) if train_ds[0]['labels'].count(l) > 0\n"
+        "}\n"
+        "print(f'  Label dist (first doc): {dist}')\n"
     ),
 
     md_cell("## 6. Fine-tune"),
@@ -240,35 +295,41 @@ cells = [
         "    TrainingArguments,\n"
         "    Trainer,\n"
         ")\n"
-        "import numpy as np\n"
-        "from seqeval.metrics import classification_report as seq_report\n\n"
+        "from sklearn.metrics import classification_report\n\n"
         "model = AutoModelForTokenClassification.from_pretrained(\n"
         "    MODEL_NAME,\n"
-        "    num_labels=3,\n"
+        "    num_labels=NUM_LABELS,\n"
         "    id2label=ID2LABEL,\n"
         "    label2id=LABEL2ID,\n"
-        "    ignore_mismatched_sizes=True,  # replaces 33-class PII head with 3-class section head\n"
+        "    ignore_mismatched_sizes=True,  # replaces 33-class PII head\n"
+        "    trust_remote_code=True,\n"
         ")\n\n"
         "def compute_metrics(p):\n"
         "    logits, labels = p\n"
         "    preds = np.argmax(logits, axis=-1)\n"
-        "    true_seqs, pred_seqs = [], []\n"
+        "    y_true, y_pred = [], []\n"
         "    for pred_row, label_row in zip(preds, labels):\n"
-        "        true_seq, pred_seq = [], []\n"
         "        for p_id, l_id in zip(pred_row, label_row):\n"
         "            if l_id == -100:\n"
         "                continue\n"
-        "            true_seq.append(ID2LABEL[l_id])\n"
-        "            pred_seq.append(ID2LABEL[p_id])\n"
-        "        true_seqs.append(true_seq)\n"
-        "        pred_seqs.append(pred_seq)\n"
-        "    report = seq_report(true_seqs, pred_seqs, output_dict=True, zero_division=0)\n"
-        "    return {\n"
-        "        'macro_f1':           report.get('macro avg', {}).get('f1-score', 0),\n"
-        "        'f1_relatorio':       report.get('RELATORIO', {}).get('f1-score', 0),\n"
-        "        'f1_fundamentacao':   report.get('FUNDAMENTACAO', {}).get('f1-score', 0),\n"
-        "        'f1_dispositivo':     report.get('DISPOSITIVO', {}).get('f1-score', 0),\n"
-        "    }\n\n"
+        "            y_true.append(ID2LABEL[l_id])\n"
+        "            y_pred.append(ID2LABEL[p_id])\n"
+        "    report = classification_report(\n"
+        "        y_true, y_pred,\n"
+        "        labels=[n for n in SPAN_CLASS_NAMES if n != 'O'],\n"
+        "        output_dict=True, zero_division=0,\n"
+        "    )\n"
+        "    macro = report.get('macro avg', {})\n"
+        "    # Return per-class F1 for key labels\n"
+        "    result = {\n"
+        "        'macro_f1':          macro.get('f1-score', 0),\n"
+        "        'macro_precision':   macro.get('precision', 0),\n"
+        "        'macro_recall':      macro.get('recall', 0),\n"
+        "    }\n"
+        "    for lbl in ['sec_dispositivo', 'sec_fundamentacao', 'sec_relatorio',\n"
+        "                'processo_cnj', 'id_lei', 'id_precedente', 'data']:\n"
+        "        result[f'f1_{lbl}'] = report.get(lbl, {}).get('f1-score', 0)\n"
+        "    return result\n\n"
         "total_steps = (len(train_ds) // 16) * 3\n"
         "warmup_steps = max(50, total_steps // 10)\n\n"
         "training_args = TrainingArguments(\n"
@@ -304,31 +365,51 @@ cells = [
         "preds_out = trainer.predict(test_ds)\n"
         "preds  = np.argmax(preds_out.predictions, axis=-1)\n"
         "labels = preds_out.label_ids\n\n"
-        "true_seqs, pred_seqs = [], []\n"
+        "y_true, y_pred = [], []\n"
         "for pred_row, label_row in zip(preds, labels):\n"
-        "    t, p = [], []\n"
         "    for p_id, l_id in zip(pred_row, label_row):\n"
         "        if l_id == -100:\n"
         "            continue\n"
-        "        t.append(ID2LABEL[l_id])\n"
-        "        p.append(ID2LABEL[p_id])\n"
-        "    true_seqs.append(t)\n"
-        "    pred_seqs.append(p)\n\n"
-        "print(seq_report(true_seqs, pred_seqs, zero_division=0))\n"
+        "        y_true.append(ID2LABEL[l_id])\n"
+        "        y_pred.append(ID2LABEL[p_id])\n\n"
+        "print(classification_report(\n"
+        "    y_true, y_pred,\n"
+        "    labels=[n for n in SPAN_CLASS_NAMES if n != 'O'],\n"
+        "    zero_division=0,\n"
+        "))\n"
     ),
 
-    md_cell("## 8. Save & download model"),
+    md_cell("## 8. Save label_space.json + model"),
 
     code_cell(
-        "import shutil\n"
+        "import shutil, json\n"
         "from google.colab import files\n\n"
         'MODEL_OUT = "/content/decision_segmenter_best"\n'
         "trainer.save_model(MODEL_OUT)\n"
-        "tokenizer.save_pretrained(MODEL_OUT)\n"
-        'print(f"Model saved to {MODEL_OUT}")\n\n'
+        "tokenizer.save_pretrained(MODEL_OUT)\n\n"
+        "# Save label_space.json — required for opf eval / deployment\n"
+        "label_space_path = f'{MODEL_OUT}/label_space.json'\n"
+        "with open(label_space_path, 'w') as f:\n"
+        "    json.dump(LABEL_SPACE, f, indent=2, ensure_ascii=False)\n\n"
+        'print(f"Model + label_space.json saved to {MODEL_OUT}")\n\n'
         "shutil.make_archive('/content/decision_segmenter', 'zip', MODEL_OUT)\n"
         "files.download('/content/decision_segmenter.zip')\n"
         "print('Downloaded decision_segmenter.zip')\n"
+    ),
+
+    md_cell(
+        "## 9. Use with `opf train` (alternative to HuggingFace Trainer)\n\n"
+        "The JSONL files produced by `scripts/prepare_privacy_filter_dataset.py` "
+        "are also compatible with the official `opf` CLI:\n\n"
+        "```bash\n"
+        "pip install opf\n"
+        "opf train data/privacy_filter/train.jsonl \\\n"
+        "    --validation-dataset data/privacy_filter/validation.jsonl \\\n"
+        "    --label-space-json   data/privacy_filter/label_space.json \\\n"
+        "    --output-dir         checkpoints/decision_segmenter\n"
+        "```\n\n"
+        "The `opf` approach uses the model's own fine-tuning infrastructure "
+        "(gradient checkpointing, mixed precision) without any HuggingFace Trainer setup."
     ),
 ]
 
@@ -360,8 +441,8 @@ notebook = {
 
 output = Path(__file__).parent / "train_decision_segmenter.ipynb"
 output.write_text(json.dumps(notebook, indent=2, ensure_ascii=False), encoding="utf-8")
-print(f"Written: {output}")
-print(
+print(f"Written: {output}")  # noqa: T201
+print(  # noqa: T201
     "\nColab URL:\n"
     "https://colab.research.google.com/github/franklinbaldo/causaganha/blob/"
     "feat/embedder-smart-truncate-and-privacy-dataset-v2/notebooks/train_decision_segmenter.ipynb"
