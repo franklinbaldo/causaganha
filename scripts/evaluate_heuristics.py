@@ -221,8 +221,11 @@ async def evaluate_ml_ensemble(
         console.print()
         show_confusion_matrix(y_true, y_pred, labels)
 
-        # Invariant (winning polo) — gate + conditional.
-        gold_pairs = [(o, None) for o in y_true]
+        # Invariant (winning polo) — gate + conditional. Gold recorrente_polo
+        # (trailing column) preserves appeal polarity; the ensemble does not
+        # predict it, so predicted appeals resolve to unknown.
+        gold_polos = [row[8] for row in gold_data]
+        gold_pairs = list(zip(y_true, gold_polos, strict=True))
         pred_pairs = [(o, None) for o in y_pred]
         show_invariant_report(evaluate_invariant(gold_pairs, pred_pairs), "ML Ensemble")
 
@@ -258,10 +261,16 @@ def main() -> int:
         conn.close()
         return 1
 
-    # Load gold benchmark data
-    gold_data = conn.execute("""
+    # recorrente_polo exists from schema 1.3.0; older (1.2.0) rows lack it.
+    # Select it when present so appeal outcomes resolve to the correct winner;
+    # otherwise fall back to NULL (treated as first-instance by the resolver).
+    gold_cols = {r[1] for r in conn.execute("PRAGMA table_info('gold_benchmark')").fetchall()}
+    polo_select = "recorrente_polo" if "recorrente_polo" in gold_cols else "NULL AS recorrente_polo"
+
+    # Load gold benchmark data (recorrente_polo is the trailing column, index 8)
+    gold_data = conn.execute(f"""
         SELECT intimation_id, lower(outcome) AS outcome, decision_type, plaintiff_won,
-               confidence_score, summary, decision_reasoning, texto
+               confidence_score, summary, decision_reasoning, texto, {polo_select}
         FROM gold_benchmark
         ORDER BY outcome, intimation_id
     """).fetchall()
@@ -288,14 +297,16 @@ def main() -> int:
 
     y_true = []
     y_pred = []
+    gold_polos = []
     disagreements = []
 
     for row in gold_data:
-        int_id, gold_outcome, _, _, _, _, _, text = row
+        int_id, gold_outcome, _, _, _, _, _, text, gold_polo = row
         pred_outcome, pred_conf, dispositivo = kc.classify_with_dispositivo(text)
 
         y_true.append(gold_outcome)
         y_pred.append(pred_outcome)
+        gold_polos.append(gold_polo)
 
         if gold_outcome != pred_outcome:
             disagreements.append(
@@ -340,11 +351,12 @@ def main() -> int:
     show_confusion_matrix(y_true, y_pred, labels)
     console.print()
 
-    # Invariant (winning polo) — gate + conditional. The gold schema (<=1.3.0)
-    # carries recorrente_polo only for recursal cases; absent => None, which the
-    # resolver treats as a first-instance outcome. The keyword classifier does
-    # not predict recorrente_polo, so predicted appeals resolve to unknown.
-    gold_pairs = [(o, None) for o in y_true]
+    # Invariant (winning polo) — gate + conditional. Gold carries
+    # recorrente_polo for recursal cases (schema 1.3.0), so appeals resolve to
+    # the correct winner; absent => None (first-instance). The keyword
+    # classifier does not predict recorrente_polo, so predicted appeals resolve
+    # to unknown — honest, since it cannot infer who filed the appeal.
+    gold_pairs = list(zip(y_true, gold_polos, strict=True))
     pred_pairs = [(o, None) for o in y_pred]
     show_invariant_report(evaluate_invariant(gold_pairs, pred_pairs), "KeywordClassifier")
     console.print()

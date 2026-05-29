@@ -87,6 +87,19 @@ def test_conditional_ignores_gold_unknown() -> None:
     assert report.conditional.accuracy == 0.0
 
 
+def test_recursal_gold_with_polo_is_ratable() -> None:
+    # Regression: a recursal gold case carries recorrente_polo, so it must
+    # resolve to a real winner and be counted ratable — not gated out. If the
+    # polo were dropped (None), resolve_winner_polo would return unknown and
+    # the appeal would be wrongly excluded from the conditional score.
+    gold = [("não provido", "P")]  # réu appealed and lost -> autor (A) won
+    pred = [("procedente", None)]  # classifier predicts A
+    report = evaluate_invariant(gold, pred)
+    assert report.gate.support_ratable == 1
+    assert report.conditional.n_scored == 1
+    assert report.conditional.accuracy == 1.0  # both resolve to A
+
+
 def test_per_polo_breakdown() -> None:
     gold = [("procedente", None), ("procedente", None), ("improcedente", None)]
     pred = [("procedente", None), ("improcedente", None), ("improcedente", None)]
