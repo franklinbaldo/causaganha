@@ -9,6 +9,10 @@ data/*
 data/*.duckdb
 data/benchmark/
 
+# Keep benchmark files in git
+!data/benchmark/
+!data/benchmark/**
+
 
 
 # Processing artifacts
