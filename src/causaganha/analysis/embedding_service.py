@@ -32,7 +32,7 @@ class EmbeddingService:
     """Service for generating text embeddings with separated Provider and Model architecture.
 
     This service uses:
-    - Provider (EmbeddingProviderBase): API service (Jina AI, Google AI)
+    - Provider (EmbeddingProviderBase): API service (Jina AI)
     - Model (EmbeddingModel): Configuration (model name, dimension, token limits)
 
     Example:
@@ -92,9 +92,9 @@ class EmbeddingService:
         """Create an embedding service with automatic or manual provider selection.
 
         Args:
-            provider: Provider name ('auto', 'jina', or 'google'). Default: 'auto'.
+            provider: Provider name ('auto' or 'jina'). Default: 'auto'.
             model: EmbeddingModel to use. If None, uses provider's default model.
-            priority: Priority order for auto-selection. Default: ["jina", "google"]
+            priority: Priority order for auto-selection. Default: ["jina"]
             api_key: API key for the provider (ignored for 'auto').
 
         Returns:
@@ -118,7 +118,7 @@ class EmbeddingService:
             if selected_provider is None:
                 msg = (
                     "No valid embedding provider found. Please ensure at least one "
-                    "provider API key is set (GOOGLE_API_KEY or JINA_API_KEY) and valid."
+                    "provider API key is set (JINA_API_KEY) and valid."
                 )
                 raise RuntimeError(
                     msg,
@@ -258,8 +258,7 @@ class EmbeddingService:
         """Chunk text dynamically and generate embeddings for all chunks.
 
         Uses dynamic chunking based on the model's token limit. For Jina v4,
-        this allows up to 32K tokens per chunk. For Google Gemini, this limits
-        chunks to 2K tokens.
+        this allows up to 32K tokens per chunk.
 
         Args:
             text: Text to process.

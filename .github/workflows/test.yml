@@ -36,11 +36,17 @@ jobs:
         continue-on-error: true
       - name: Check dead code
         run: uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
+      - name: Check notebooks synced
+        # Notebooks are authored as marimo notebooks (notebooks/*.py); the
+        # committed *.ipynb must match `marimo export ipynb`. Fails if a
+        # generated Jupyter notebook is stale (regenerate with --fix).
+        run: uv run python scripts/check_notebooks_synced.py
       - name: Auto-fix linting issues
         if: failure() && github.event_name == 'pull_request' && endsWith(github.actor, '[bot]')
         run: |
           uvx ruff format . || true
           uvx ruff check --fix . || true
+          uv run python scripts/check_notebooks_synced.py --fix || true
           npx prettier --write . || true
 
           if [ -n "$(git status --porcelain)" ]; then

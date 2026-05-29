@@ -26,21 +26,6 @@ OUTCOME_MAPPING = {
 }
 
 
-def chunk_text(text: str, chunk_size: int = 1500, overlap: int = 300) -> list[str]:
-    """Split text into overlapping chunks of a fixed character size."""
-    if not text or not text.strip():
-        return []
-    chunks = []
-    start = 0
-    while start < len(text):
-        end = start + chunk_size
-        chunks.append(text[start:end])
-        start = end - overlap
-        if start >= len(text) - overlap:
-            break
-    return chunks
-
-
 def main() -> int:
     parser = argparse.ArgumentParser(description="Train outcome ML model from parquets.")
     parser.add_argument(
@@ -117,29 +102,15 @@ def main() -> int:
         return 1
 
     # Step 3: Compute Embeddings using LocalEmbedder
+    # pplx-embed-v1 has 32K token context — full documents embed in one pass, no chunking.
     logger.info("initializing_local_embedder")
-    embedder = LocalEmbedder(model_name="google/embeddinggemma-300m", truncate_dim=None)
+    embedder = LocalEmbedder()
 
     logger.info("extracting_texts_for_embeddings", total=len(final_df))
     texts = [str(row.texto) for row in final_df.itertuples(index=False)]
 
     logger.info("computing_embeddings_for_texts", total=len(texts))
-    # Chunk long texts and mean-pool chunk embeddings to stay within model context window
-    chunk_lists = [chunk_text(t) or [t] for t in texts]
-    flat_chunks = [c for chunks in chunk_lists for c in chunks]
-    flat_embs = embedder.embed(flat_chunks, is_query=False, batch_size=32, normalize=True)
-    doc_embeddings = []
-    offset = 0
-    for chunks in chunk_lists:
-        n = len(chunks)
-        chunk_embs = flat_embs[offset : offset + n]
-        doc_emb = chunk_embs.mean(axis=0)
-        norm = np.linalg.norm(doc_emb)
-        if norm > 0:
-            doc_emb = doc_emb / norm
-        doc_embeddings.append(doc_emb)
-        offset += n
-    embeddings = np.array(doc_embeddings, dtype=np.float32)
+    embeddings = embedder.embed(texts, is_query=False, batch_size=16, normalize=True)
     logger.info("embeddings_computed", shape=embeddings.shape)
 
     # Step 4: Construct anchor_set.parquet

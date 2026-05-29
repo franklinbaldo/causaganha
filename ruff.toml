@@ -4,6 +4,13 @@
 target-version = "py312"
 line-length = 100
 
+# marimo notebooks (notebooks/*.py) are authored in marimo's own cell format
+# and embed Colab-only snippets (userdata, try/except Exception). They are not
+# hand-maintained source and their committed .ipynb is verified separately by
+# scripts/check_notebooks_synced.py — so keep ruff (lint + format) out of them,
+# same as experiments/.
+extend-exclude = ["notebooks"]
+
 [lint]
 select = ["ALL"]
 ignore = [
@@ -13,6 +20,11 @@ ignore = [
 
     # ── Development hygiene: TODOs are tracked in issues ──
     "FIX002",   # line-contains-todo
+
+    # ── pandas-vet is moot: pandas is banned repo-wide (see banned-api
+    # below). ibis uses `.notnull()`, which PD004 wrongly flags as a
+    # pandas idiom — drop the rule rather than ignore it per-file. ──
+    "PD004",    # .notna preferred over .notnull — ibis uses .notnull()
 ]
 
 [lint.per-file-ignores]
@@ -120,7 +132,6 @@ ignore = [
     "BLE001",           # blind Exception catch (pragmatic in one-shot scripts; src/** stays strict)
     "TRY300",           # try/else restructure (style, scripts don't benefit much)
     "S311",             # pseudo-random (diagnostic sampling, not crypto)
-    "PD004",            # .notna preferred over .notnull — ibis uses .notnull(); not pandas
 ]
 
 # ── Experiments ────────────────────────────────────────────────────────────

@@ -66,7 +66,7 @@ def main() -> int:
 
     # Step 3: Compute Embeddings using LocalEmbedder
     logger.info("initializing_local_embedder")
-    embedder = LocalEmbedder(model_name="intfloat/multilingual-e5-small", truncate_dim=None)
+    embedder = LocalEmbedder()
 
     logger.info("computing_embeddings_for_texts", total=len(merged_df))
     texts = merged_df["texto"].tolist()

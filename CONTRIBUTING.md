@@ -44,12 +44,13 @@ npm run build
 
 ## Repository map
 
-- [src/causaganha](/Users/frank/workspace/causaganha/src/causaganha): main Python package
-- [src/djen_backup](/Users/frank/workspace/causaganha/src/djen_backup): ZIP and backfill utilities
-- [web](/Users/frank/workspace/causaganha/web): Astro + Svelte frontend
-- [scripts](/Users/frank/workspace/causaganha/scripts): operational scripts and pipeline helpers
-- [tests](/Users/frank/workspace/causaganha/tests): pytest and pytest-bdd suites
-- [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows): CI and production workflows
+- [src/causaganha](src/causaganha): main Python package
+- [src/djen_backup](src/djen_backup): ZIP and backfill utilities
+- [web](web): Astro + Svelte frontend
+- [scripts](scripts): operational scripts and pipeline helpers
+- [notebooks](notebooks): marimo notebooks (`*.py`) + exported `*.ipynb`
+- [tests](tests): pytest and pytest-bdd suites
+- [.github/workflows](.github/workflows): CI and production workflows
 
 ## Contribution rules
 
@@ -82,6 +83,8 @@ Before opening a PR:
 - make sure `ruff format --check` passes
 - make sure `ruff check` passes
 - make sure tests relevant to your change pass
+- if you touched a marimo notebook, regenerate its `.ipynb`
+  (`uv run python scripts/check_notebooks_synced.py --fix`)
 - make sure the frontend builds if you touched `web/`
 - update docs when commands, architecture, or behavior changed
 
@@ -97,7 +100,7 @@ Recommended PR checklist:
 
 If you change collection, consolidation, catalog, or deployment behavior:
 
-- inspect the corresponding workflow in [.github/workflows](/Users/frank/workspace/causaganha/.github/workflows)
+- inspect the corresponding workflow in [.github/workflows](.github/workflows)
 - verify the script or CLI entrypoint it invokes still matches
 - update root docs if operator-facing behavior changes
 

@@ -123,99 +123,6 @@ class EmbeddingProviderBase(ABC):
         return True
 
 
-class GoogleProvider(EmbeddingProviderBase):
-    """Google AI embedding provider (API service).
-
-    Supports models:
-    - gemini-embedding-001 (768D-3072D, 2K tokens)
-    - text-embedding-004 (deprecated)
-    """
-
-    def __init__(self, api_key: str | None = None) -> None:
-        """Initialize Google provider.
-
-        Args:
-            api_key: Google API key. If None, reads from GOOGLE_API_KEY env var.
-        """
-        super().__init__(
-            api_key=api_key,
-            api_key_env_var="GOOGLE_API_KEY",
-            base_url="https://generativelanguage.googleapis.com/v1beta",
-            provider_name="Google",
-        )
-
-    @retry(
-        stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
-        reraise=True,
-    )
-    async def embed_text(
-        self,
-        text: str,
-        model: EmbeddingModel,
-        task_type: TaskType = "RETRIEVAL_QUERY",
-    ) -> list[float]:
-        """Generate embedding using Google's API.
-
-        Args:
-            text: Text to embed.
-            model: EmbeddingModel configuration (must be a Google model).
-            task_type: Type of task (RETRIEVAL_QUERY or RETRIEVAL_DOCUMENT).
-
-        Returns:
-            Embedding vector with dimensions specified by model.
-
-        Raises:
-            ValueError: If model is not a Google model.
-            httpx.HTTPError: If the API request fails.
-        """
-        if model.provider != "google":
-            msg = f"GoogleProvider requires a Google model, got {model.provider}/{model.name}"
-            raise ValueError(
-                msg,
-            )
-
-        url = f"{self.base_url}/models/{model.name}:embedContent"
-        headers = {"Content-Type": "application/json"}
-        params = {"key": self.api_key}
-
-        payload = {
-            "content": {"parts": [{"text": text}]},
-            "taskType": task_type,
-        }
-
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            try:
-                response = await client.post(
-                    url,
-                    json=payload,
-                    headers=headers,
-                    params=params,
-                )
-                response.raise_for_status()
-
-                data = response.json()
-                embedding = data["embedding"]["values"]
-
-                logger.debug(
-                    "google_embedding_generated",
-                    text_length=len(text),
-                    embedding_dim=len(embedding),
-                    model=model.name,
-                    task_type=task_type,
-                )
-            except httpx.HTTPError as e:
-                logger.exception(
-                    "google_embedding_failed",
-                    error=str(e),
-                    text_length=len(text),
-                    model=model.name,
-                )
-                raise
-            else:
-                return embedding
-
-
 class JinaProvider(EmbeddingProviderBase):
     """Jina AI embedding provider (API service).
 
@@ -331,7 +238,7 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
     """Factory function to create an embedding provider.
 
     Args:
-        provider: Provider name ('google' or 'jina').
+        provider: Provider name ('jina').
         api_key: API key for the provider.
 
     Returns:
@@ -342,11 +249,9 @@ def create_provider(provider: str, api_key: str | None = None) -> EmbeddingProvi
     """
     provider = provider.lower()
 
-    if provider == "google":
-        return GoogleProvider(api_key=api_key)
     if provider == "jina":
         return JinaProvider(api_key=api_key)
-    msg = f"Unsupported embedding provider: {provider}. Supported providers: google, jina"
+    msg = f"Unsupported embedding provider: {provider}. Supported providers: jina"
     raise ValueError(
         msg,
     )
@@ -361,13 +266,13 @@ async def auto_select_provider(
     Returns the first provider that successfully validates.
 
     Args:
-        priority: List of provider names in priority order. Default: ["jina", "google"]
+        priority: List of provider names in priority order. Default: ["jina"]
 
     Returns:
         First successfully validated provider, or None if all fail.
     """
     if priority is None:
-        priority = ["jina", "google"]
+        priority = ["jina"]
 
     logger.info("auto_selecting_embedding_provider", priority=priority)
 
@@ -375,10 +280,7 @@ async def auto_select_provider(
         provider_name = name.lower()
 
         # Check if API key is available in environment
-        if provider_name == "google":
-            api_key = os.getenv("GOOGLE_API_KEY")
-            env_var = "GOOGLE_API_KEY"
-        elif provider_name == "jina":
+        if provider_name == "jina":
             api_key = os.getenv("JINA_API_KEY")
             env_var = "JINA_API_KEY"
         else:
