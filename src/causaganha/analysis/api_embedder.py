@@ -1,4 +1,4 @@
-"""API-based embedding provider: Jina AI, Gemini, or OpenRouter.
+"""API-based embedding provider: Jina AI or OpenRouter.
 
 Drops in as a replacement for LocalEmbedder — same interface, no GPU required.
 
@@ -6,11 +6,8 @@ Provider strategy (cheapest first)
 ----------------------------------
 1. **Jina AI** (default) — ``jina-embeddings-v3``, 10 M free tokens/month.
    Set ``JINA_API_KEY``. Hard stops at budget to avoid surprise charges.
-2. **Gemini on-demand** — ``gemini-embedding-exp-03-07``, $0.20/1M tokens.
-   Set ``GEMINI_API_KEY``. Good fallback once Jina budget is consumed.
-3. **Gemini Batch API** — same model but async JSONL job, **50 % discount**
-   (≈ $0.10/1M tokens). Best for large offline corpora (up to 2 GB per job).
-   Use :meth:`embed_batch_async` instead of :meth:`embed`.
+2. **OpenRouter** — ``perplexity/pplx-embed-v1-0.6b`` (default), MIT, 32K context.
+   Set ``OPENROUTER_API_KEY``. Good for large corpora without a token budget.
 
 Usage
 -----
@@ -19,22 +16,15 @@ Usage
     vecs = embedder.embed(["Julgo procedente."], is_query=True)
     print(embedder.token_budget_remaining)            # tokens left this month
 
-    # Gemini on-demand
-    embedder = ApiEmbedder(provider="gemini")         # reads GEMINI_API_KEY
-
-    # Gemini Batch (async, 50 % cheaper, up to 2 GB)
-    import asyncio
-    embedder = ApiEmbedder(provider="gemini")
-    result = asyncio.run(embedder.embed_batch_async(texts, jsonl_path="/tmp/job.jsonl"))
+    # OpenRouter
+    embedder = ApiEmbedder(provider="openrouter")     # reads OPENROUTER_API_KEY
 """
 
 from __future__ import annotations
 
 import asyncio
-import contextlib
 import os
 import time
-from pathlib import Path
 from typing import Literal
 
 import numpy as np
@@ -157,7 +147,7 @@ class ApiEmbedder:
                 msg = (
                     f"Jina token budget exhausted: "
                     f"{self._tokens_used:,}/{self._token_budget:,} used. "
-                    "Switch to provider='gemini' or get a new Jina API key."
+                    "Switch to provider='openrouter' or get a new Jina API key."
                 )
                 raise RuntimeError(msg)
             usage_pct = (self._tokens_used + estimated_tokens) / self._token_budget
@@ -318,6 +308,3 @@ class ApiEmbedder:
         if self._token_budget is None:
             return None
         return max(0, self._token_budget - self._tokens_used)
-
-
-
