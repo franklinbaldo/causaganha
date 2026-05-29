@@ -30,6 +30,8 @@ from typing import Literal
 import numpy as np
 import structlog
 
+from .text_truncate import smart_truncate
+
 
 logger = structlog.get_logger()
 
@@ -254,6 +256,9 @@ class ApiEmbedder:
         Returns:
             NumPy array of shape ``(len(texts), embed_dim)``.
         """
+        # Guard against documents exceeding the model context: keep head+tail,
+        # drop the middle (preserves parties/case number + dispositivo).
+        texts = [smart_truncate(t) for t in texts]
         bs = batch_size or self._batch_size
         chunks = [texts[i : i + bs] for i in range(0, len(texts), bs)]
         parts: list[np.ndarray] = []

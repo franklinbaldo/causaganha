@@ -122,6 +122,7 @@ class EmbeddingProviderBase(ABC):
             return False
         return True
 
+
 class JinaProvider(EmbeddingProviderBase):
     """Jina AI embedding provider (API service).
 
