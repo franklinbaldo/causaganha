@@ -39,6 +39,11 @@ logger = structlog.get_logger()
 EMBEDDING_GEMMA_MODEL = "google/embeddinggemma-300m"
 EMBEDDING_GEMMA_QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
 
+# Smart truncation: keep first half + last half of a long document.
+# EmbeddingGemma has a 2048-token context. At ~3.5 chars/token for Portuguese,
+# 6000 chars ≈ 1700 tokens, safely below the limit including the query prefix.
+_SMART_TRUNCATE_CHARS = 6000
+
 # Fallback: multilingual-e5-small (118M, instruction-tuned)
 E5_SMALL_MODEL = "intfloat/multilingual-e5-small"
 E5_SMALL_QUERY_PREFIX = "query: "
@@ -120,6 +125,18 @@ class LocalEmbedder:
         )
         return model
 
+    @staticmethod
+    def _smart_truncate(text: str, max_chars: int = _SMART_TRUNCATE_CHARS) -> str:
+        """Keep first half + last half of text when it exceeds max_chars.
+
+        Preserves document head (case number, parties) and tail (dispositivo),
+        which are the highest-signal regions for outcome classification.
+        """
+        if len(text) <= max_chars:
+            return text
+        half = max_chars // 2
+        return text[:half] + "\n[...]\n" + text[-half:]
+
     def _apply_prefix(self, texts: list[str], *, is_query: bool) -> list[str]:
         """Apply instruction prefix based on model and task type."""
         if self.model_name == EMBEDDING_GEMMA_MODEL:
@@ -157,6 +174,7 @@ class LocalEmbedder:
         Returns:
             NumPy array of shape (len(texts), embedding_dim).
         """
+        texts = [self._smart_truncate(t) for t in texts]
         encode_kwargs: dict = {
             "batch_size": batch_size,
             "normalize_embeddings": normalize,

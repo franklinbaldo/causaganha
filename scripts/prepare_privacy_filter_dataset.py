@@ -1,109 +1,154 @@
+#!/usr/bin/env python3
+"""Prepare span-extraction dataset for training a judicial decision segmenter.
+
+Reads textos.parquet from data/test_parquets, applies heuristic segmentation to
+label each decision's text with three structural spans:
+
+    relatorio     — case history / summary (beginning of decision)
+    fundamentacao — legal reasoning (middle)
+    dispositivo   — operative ruling (end, after ante-o-exposto markers)
+
+Outputs JSONL files (train / validation / test) compatible with HuggingFace
+token-classification fine-tuning, plus label_space.json.
+
+Usage:
+    uv run python scripts/prepare_privacy_filter_dataset.py
+"""
+
+from __future__ import annotations
+
 import json
-import os
 import random
-import shutil
-import sys
+import re
+from pathlib import Path
 
-import duckdb
-import httpx
-
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
-from src.causaganha.analysis.keyword_classifier import _DISPOSITIVO_MAX_CHARS, _DISPOSITIVO_RE
+import ibis
+import structlog
 
 
-def download_parquet():
-    # Because archive.org is returning 503, fallback to gold_benchmark.parquet if available in test data
-    target_path = "data/test_parquets/textos.parquet"
-    if os.path.exists(target_path):
-        print("Dataset already downloaded.")
-        return target_path
+logger = structlog.get_logger()
 
-    gold_path = "data/benchmark/gold_benchmark.parquet"
-    if os.path.exists(gold_path):
-        os.makedirs(os.path.dirname(target_path), exist_ok=True)
-        shutil.copy(gold_path, target_path)
-        print("Copied gold benchmark as fallback due to Internet Archive 503 error.")
-        return target_path
+# ---------------------------------------------------------------------------
+# Heuristic segmentation markers
+# ---------------------------------------------------------------------------
 
-    url = "https://archive.org/download/causaganha-embeddings/textos.parquet"
+_DISPOSITIVO_RE = re.compile(
+    r"(?:ante\s+o\s+exposto|posto\s+isso|isso\s+posto|"
+    r"diante\s+do\s+exposto|pelo\s+exposto|em\s+face\s+do\s+exposto|"
+    r"por\s+tais\s+fundamentos|nestes\s+termos|em\s+conclus[ãa]o|"
+    r"pelo\s+que\s+exposto|em\s+vista\s+do\s+exposto)",
+    re.IGNORECASE,
+)
 
-    print("Downloading benchmark dataset from Internet Archive...")
-    os.makedirs(os.path.dirname(target_path), exist_ok=True)
+_FUNDAMENTACAO_RE = re.compile(
+    r"(?:fundament[ao](?:ção)?|m[eé]rito|an[aá]lise\s+do\s+pedido|"
+    r"da\s+an[aá]lise|do\s+m[eé]rito|"
+    r"fundamenta[çc][aã]o\s+(?:jur[ií]dica|do\s+ju[ií]zo))",
+    re.IGNORECASE,
+)
 
-    try:
-        with httpx.stream("GET", url, follow_redirects=True) as r:
-            r.raise_for_status()
-            with open(target_path, "wb") as f:
-                f.writelines(r.iter_bytes())
 
-        print("Download completed.")
-    except Exception as e:
-        print(f"Failed to download from IA: {e}")
-        # fallback to gold_benchmark if download failed
-        if os.path.exists(gold_path):
-            shutil.copy(gold_path, target_path)
-            print("Copied gold benchmark as fallback due to Internet Archive error.")
+def _segment(text: str) -> dict[str, list[list[int]]] | None:
+    """Return character-level span dict for the three decision sections.
 
-    return target_path
+    Returns None if the dispositivo section cannot be located.
+    Spans: {label: [[start, end], ...]}
+    """
+    dispositivo_match = _DISPOSITIVO_RE.search(text)
+    if not dispositivo_match:
+        return None
 
-def process_data(parquet_path):
-    con = duckdb.connect()
-    # Ensure texto column exists
-    query = f"SELECT texto FROM '{parquet_path}' WHERE texto IS NOT NULL"
-    rows = con.execute(query).fetchall()
+    dispositivo_start = dispositivo_match.start()
 
-    dataset = []
+    # Search for fundamentação only in the pre-dispositivo portion
+    pre_disp = text[:dispositivo_start]
+    fund_match = _FUNDAMENTACAO_RE.search(pre_disp)
 
-    for row in rows:
-        text = row[0]
-        m = _DISPOSITIVO_RE.search(text)
-        if m:
-            start_idx = m.start()
-            end_idx = min(start_idx + _DISPOSITIVO_MAX_CHARS, len(text))
+    if fund_match:
+        fund_start = fund_match.start()
+        relatorio_end = fund_start
+    else:
+        # No explicit marker: treat first half as relatório
+        relatorio_end = len(pre_disp) // 2
+        fund_start = relatorio_end
 
-            sample = {
-                "text": text,
-                "spans": [{"start": start_idx, "end": end_idx, "label": "dispositivo"}]
-            }
-            dataset.append(sample)
+    spans: dict[str, list[list[int]]] = {}
+    if relatorio_end > 0:
+        spans["relatorio"] = [[0, relatorio_end]]
+    if dispositivo_start > fund_start:
+        spans["fundamentacao"] = [[fund_start, dispositivo_start]]
+    spans["dispositivo"] = [[dispositivo_start, len(text)]]
 
-    print(f"Found {len(dataset)} examples with 'dispositivo' out of {len(rows)} documents.")
+    return spans
 
-    # Shuffle and split
+
+def main() -> int:
+    logger.info("starting_dataset_preparation")
+
+    textos_file = Path("data/test_parquets/textos.parquet")
+    output_dir = Path("data/privacy_filter")
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    if not textos_file.exists():
+        logger.error("textos_parquet_missing", path=str(textos_file))
+        return 1
+
+    logger.info("loading_textos_parquet")
+    t = ibis.read_parquet(textos_file)
+    df = t.filter(t.texto.notnull()).execute()
+    logger.info("textos_loaded", count=len(df))
+
+    records: list[dict] = []
+    skipped = 0
+
+    for _, row in df.iterrows():
+        text: str = row["texto"]
+        spans = _segment(text)
+        if spans is None:
+            skipped += 1
+            continue
+        records.append({"text": text, "spans": spans})
+
+    logger.info("segmentation_complete", total=len(records), skipped=skipped)
+
+    if not records:
+        logger.error("no_records_to_write")
+        return 1
+
     random.seed(42)
-    random.shuffle(dataset)
+    random.shuffle(records)
 
-    n = len(dataset)
-    n_train = int(n * 0.8)
-    n_val = int(n * 0.1)
+    n = len(records)
+    train_end = int(n * 0.8)
+    val_end = train_end + int(n * 0.1)
 
-    train_data = dataset[:n_train]
-    val_data = dataset[n_train:n_train+n_val]
-    test_data = dataset[n_train+n_val:]
-
-    output_dir = "data/privacy_filter"
-    os.makedirs(output_dir, exist_ok=True)
-
-    def write_jsonl(filename, data):
-        with open(os.path.join(output_dir, filename), "w", encoding="utf-8") as f:
-            f.writelines(json.dumps(item, ensure_ascii=False) + "\n" for item in data)
-
-    write_jsonl("train.jsonl", train_data)
-    write_jsonl("validation.jsonl", val_data)
-    write_jsonl("test.jsonl", test_data)
-
-    print(f"Wrote {len(train_data)} train, {len(val_data)} validation, and {len(test_data)} test samples.")
-
-    # Write config
-    config = {
-        "category_version": "causaganha_v1",
-        "span_class_names": ["O", "dispositivo"]
+    splits = {
+        "train": records[:train_end],
+        "validation": records[train_end:val_end],
+        "test": records[val_end:],
     }
+    logger.info("splitting", **{k: len(v) for k, v in splits.items()})
 
-    with open(os.path.join(output_dir, "label_space.json"), "w", encoding="utf-8") as f:
-        json.dump(config, f, indent=2)
+    for name, data in splits.items():
+        path = output_dir / f"{name}.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            for r in data:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        logger.info("saved", file=str(path), count=len(data))
+
+    label_space = {
+        "category_version": "causaganha_v2",
+        "span_class_names": ["relatorio", "fundamentacao", "dispositivo"],
+    }
+    label_space_path = output_dir / "label_space.json"
+    label_space_path.write_text(
+        json.dumps(label_space, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    logger.info("label_space_saved", file=str(label_space_path))
+    return 0
+
 
 if __name__ == "__main__":
-    parquet_path = download_parquet()
-    process_data(parquet_path)
+    import sys
+
+    sys.exit(main())
