@@ -2,9 +2,9 @@
 """CI check: every marimo notebook has an up-to-date exported .ipynb.
 
 Notebooks in ``notebooks/`` are authored as marimo notebooks (``*.py``), and
-the committed ``*.ipynb`` is the artifact produced by::
-
-    marimo export ipynb <notebook>.py --sort top-down -o <notebook>.ipynb
+the committed ``*.ipynb`` is produced by ``marimo export ipynb`` followed by a
+small post-processing step (see ``export_ipynb``) that drops the standalone
+``import marimo as mo`` cell so the notebook runs in Colab.
 
 This check re-runs that export for every marimo notebook and fails if the
 committed ``.ipynb`` is missing or differs from a fresh export — i.e. the
@@ -23,6 +23,8 @@ import sys
 import tempfile
 from pathlib import Path
 
+import nbformat
+
 
 NOTEBOOK_DIR = Path(__file__).resolve().parent.parent / "notebooks"
 # Match how the committed .ipynb files are produced. Keep in sync with the
@@ -37,22 +39,45 @@ def is_marimo_notebook(path: Path) -> bool:
 
 
 def export_ipynb(notebook: Path, out: Path) -> None:
-    """Run ``marimo export ipynb`` for ``notebook`` into ``out``."""
-    subprocess.run(  # noqa: S603
-        [
-            "marimo",
-            "export",
-            "ipynb",
-            str(notebook),
-            "--sort",
-            EXPORT_SORT,
-            "-o",
-            str(out),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
+    """Export ``notebook`` to a Colab-runnable Jupyter notebook at ``out``.
+
+    Runs ``marimo export ipynb`` and then strips the standalone
+    ``import marimo as mo`` cell that marimo emits: ``mo.md(...)`` cells are
+    already exported as real markdown cells, so that import is dead code in
+    the .ipynb and would raise ``ModuleNotFoundError`` in Colab (where marimo
+    isn't installed). Both the check and the --fix paths go through here, so
+    the committed .ipynb stays byte-identical to this output.
+    """
+    with tempfile.NamedTemporaryFile(suffix=".ipynb", delete=False) as tmp:
+        raw = Path(tmp.name)
+    try:
+        subprocess.run(  # noqa: S603
+            [
+                "marimo",
+                "export",
+                "ipynb",
+                str(notebook),
+                "--sort",
+                EXPORT_SORT,
+                "-o",
+                str(raw),
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        nb = nbformat.read(raw, as_version=nbformat.NO_CONVERT)
+        nb.cells = [
+            c
+            for c in nb.cells
+            if not (
+                c.get("cell_type") == "code"
+                and c.get("source", "").strip() == "import marimo as mo"
+            )
+        ]
+        nbformat.write(nb, str(out))
+    finally:
+        raw.unlink(missing_ok=True)
 
 
 def main() -> int:
