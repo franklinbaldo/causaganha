@@ -91,10 +91,13 @@ _SECTION_LABELS: frozenset[str] = frozenset({
 # ---------------------------------------------------------------------------
 
 _DISPOSITIVO_RE = re.compile(
-    r"(?:ante\s+o\s+exposto|posto\s+isso|isso\s+posto|"
-    r"diante\s+do\s+exposto|pelo\s+exposto|em\s+face\s+do\s+exposto|"
-    r"por\s+tais\s+fundamentos|nestes\s+termos|em\s+conclus[ãa]o|"
-    r"pelo\s+que\s+exposto|em\s+vista\s+do\s+exposto)",
+    r"(?:ante\s+(?:todo\s+o|ao|o)\s+exposto|posto\s+isso|isso\s+posto|"
+    r"isto\s+posto|diante\s+do\s+exposto|pelo\s+exposto|"
+    r"em\s+face\s+do\s+exposto|por\s+tais\s+fundamentos|"
+    r"nestes\s+termos|em\s+conclus[ãa]o|pelo\s+que\s+exposto|"
+    r"em\s+vista\s+do\s+exposto|por\s+(?:todo\s+o\s+)?exposto|"
+    r"por\s+essas\s+raz[oõ]es|em\s+raz[aã]o\s+do\s+exposto|"
+    r"\bDECIDO\b)",
     re.IGNORECASE,
 )
 
@@ -130,9 +133,11 @@ _PROCESSO_CNJ_RE = re.compile(r"\d{7}-\d{2}\.\d{4}\.\d\.\d{2}\.\d{4}")
 # CPF: NNN.NNN.NNN-NN  or CNPJ: NN.NNN.NNN/NNNN-NN
 _CPF_CNPJ_RE = re.compile(r"\d{3}\.\d{3}\.\d{3}-\d{2}|\d{2}\.\d{3}\.\d{3}/\d{4}-\d{2}")
 
-# OAB: OAB/SP 123.456 or OAB nº 123456/SP
+# OAB: OAB/SP 123.456 | OAB nº 123456/SP | OAB nº RO1586 (UF antes do número)
 _OAB_RE = re.compile(
-    r"\bOAB\s*/\s*[A-Z]{2}\s*[\d.]+|\bOAB\s*n[oºa°]?\s*[\d.]+/[A-Z]{2}",
+    r"\bOAB\s*/\s*[A-Z]{2}\s*[\d.]+|"
+    r"\bOAB\s*n[oºa°]?\s*[\d.]+/[A-Z]{2}|"
+    r"\bOAB\s*n[oºa°]?\s*[A-Z]{2}\d+",
     re.IGNORECASE,
 )
 
@@ -142,39 +147,48 @@ _NAME_FULL = rf"{_NAME_WORD}(?:\s+(?:d[aeo]s?\s+)?{_NAME_WORD}){{1,5}}"
 # Terminators: end-of-line, comma, parenthesis, semicolon, CPF/CNPJ cue, ou nova palavra-chave
 _NAME_STOP = r"(?=\s*[,;\n(]|\s+CPF|\s+CNPJ|$)"
 
-# Autor / polo ativo: "Autor:", "Requerente:", "Exequente:", "Apelante:", etc.
+# Polo ativo — "Polo Ativo:", "AUTOR:", "Parte Autora:", "Requerente:", etc.
+# Does NOT match "ADVOGADOS DO AUTOR" (those go to nome_advogado).
 _PARTE_AUTOR_RE = re.compile(
-    r"(?m)(?:^|(?<=\n))\s*"
-    r"(?:[Aa]utor[ae]?s?|[Rr]equerentes?|[Ee]xequentes?|[Aa]pelantes?|"
+    r"(?:Polo\s+Ativo|Parte\s+[Aa]utor[ae]?[Ss]?|"
+    r"[Aa]utor[ae]?[Ss]?|[Rr]equerentes?|[Ee]xequentes?|[Aa]pelantes?|"
     r"[Rr]eclamantes?|[Ii]mpetrantes?|[Ee]mbargantes?|[Ii]ncidentantes?|"
     r"[Pp]acientes?)\s*[:-]\s*"
     rf"({_NAME_FULL}){_NAME_STOP}",
+    re.IGNORECASE,
 )
 
-# Réu / polo passivo: "Réu:", "Requerido:", "Executado:", "Apelado:", etc.
+# Polo passivo — "Polo Passivo:", "REU:", "Parte Ré:", "Requerido:", etc.
 _PARTE_REU_RE = re.compile(
-    r"(?m)(?:^|(?<=\n))\s*"
-    r"(?:[Rr][eé]u?[as]?s?|[Rr]equerid[oa]s?|[Ee]xecutad[oa]s?|[Aa]pelad[oa]s?|"
-    r"[Rr]eclamad[oa]s?|[Ii]mpetrad[oa]s?|[Ee]mbargad[oa]s?|"
-    r"[Cc]oacto[ar]es?|[Ii]nventariantes?)\s*[:-]\s*"
+    r"(?:Polo\s+Passivo|Parte\s+[Rr][eé][aA]?[sS]?|"
+    r"[Rr][eé][uU][aAsS]?|[Rr]equerid[oa][sS]?|[Ee]xecutad[oa][sS]?|"
+    r"[Aa]pelad[oa][sS]?|[Rr]eclamad[oa][sS]?|[Ii]mpetrad[oa][sS]?|"
+    r"[Ee]mbargad[oa][sS]?)\s*[:-]\s*"
     rf"({_NAME_FULL}){_NAME_STOP}",
+    re.IGNORECASE,
 )
 
-# Juiz assina no final: nome antes do título (Juiz de Direito, Juíza Substituta, Des.)
+# Juiz assina no final: nome ANTES do título, separados por espaço ou newline.
+# Ex: "Ana Lucia Mortari Juíza Substituta" ou "Hugo Hollanda Soares\nJuiz de Direito"
 _JUIZ_RE = re.compile(
     r"(?:[Dd]r[oa]?\.?\s+)?"
-    rf"({_NAME_FULL})\s*\n\s*"
-    r"(?:[Jj]u[ií][zs][ae]?(?:\s+de\s+[Dd]ireito)?|"
-    r"[Mm]agistrad[oa]|"
-    r"[Dd]es(?:embargador[ae]?)?\.?\s+[Rr]elator[ae]?|"
-    r"[Rr]elator[ae]?)",
+    rf"({_NAME_FULL})[\s\n]+"
+    r"(?:[Jj]u[ií][zs][ae]?(?:\([aA]\))?(?:\s+de\s+[Dd]ireito)?(?:\s+[Ss]ubstitut[oa])?|"
+    r"[Mm]agistrad[oa](?:\s+[Ss]ubstitut[oa])?|"
+    r"[Dd]esembargador[ae]?(?:\s+[Rr]elator[ae]?)?|"
+    r"[Dd]es\.\s*[Rr]elator[ae]?)\b",
 )
 
-# Lawyer name immediately before "OAB": "Dr. João da Silva, OAB/SP 12345"
+# Advogados: (1) nome antes de OAB | (2) "ADVOGADOS DO AUTOR/RÉU: NOME"
 _ADVOGADO_RE = re.compile(
     r"(?:[Dd]r[oa]?\.?\s+|[Aa]dv\.?\s+)?"
     rf"({_NAME_FULL})"
     r"(?=\s*,?\s*OAB)",
+)
+_ADVOGADO_HEADER_RE = re.compile(
+    r"ADVOGAD[OS]+\s+D[AO]\s+\w+\s*[:-]\s*"
+    rf"({_NAME_FULL}){_NAME_STOP}",
+    re.IGNORECASE,
 )
 
 # Dates: long form (15 de janeiro de 2024) or short form (15/01/2024)
@@ -284,6 +298,7 @@ def _segment(text: str) -> dict[str, list[list[int]]] | None:
     _collect(spans, "parte_reu", _PARTE_REU_RE, text, group=1)
     _collect(spans, "nome_juiz", _JUIZ_RE, text, group=1)
     _collect(spans, "nome_advogado", _ADVOGADO_RE, text, group=1)
+    _collect(spans, "nome_advogado", _ADVOGADO_HEADER_RE, text, group=1)
 
     return spans
 
