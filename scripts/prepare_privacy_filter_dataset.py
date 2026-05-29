@@ -33,6 +33,7 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import json
 import random
 import re
@@ -306,13 +307,17 @@ _CLASSE_PROCESSUAL_RE = re.compile(
 # Segmentation
 # ---------------------------------------------------------------------------
 
-def _segment(text: str) -> dict[str, list[list[int]]] | None:
+def _segment(
+    text: str, fp_filter: object = None
+) -> dict[str, list[list[int]]] | None:
     """Return character-level span dict for all detectable labels.
 
     Entity spans overwrite section spans when they overlap — entities are
     more specific and the model benefits from seeing both layers.
 
     Returns None if the dispositivo section cannot be located (required anchor).
+    ``fp_filter`` is an optional :class:`FPCentroidFilter` for embedding-based
+    FP rejection on ambiguous labels.
     """
     spans: dict[str, list[list[int]]] = {}
 
@@ -345,23 +350,42 @@ def _segment(text: str) -> dict[str, list[list[int]]] | None:
     if assin_start < len(text):
         spans["sec_assinatura"] = [[assin_start, len(text)]]
 
-    # --- Pattern-based entity labels ---
+    # --- Pattern-based entity labels (section-gated where possible) ---
+    # Unrestricted: these labels can appear anywhere in the document
     _collect(spans, "processo_cnj", _PROCESSO_CNJ_RE, text)
-    _collect(spans, "cpf_cnpj", _CPF_CNPJ_RE, text)
-    _collect(spans, "oab", _OAB_RE, text)
     _collect(spans, "data", _DATA_RE, text)
-    _collect(spans, "id_lei", _LEI_RE, text)
-    _collect(spans, "id_precedente", _PRECEDENTE_RE, text)
-    _collect(spans, "classe_processual", _CLASSE_PROCESSUAL_RE, text)
-    _collect(spans, "parte_autor", _PARTE_AUTOR_RE, text, group=1)
-    _collect(spans, "parte_reu", _PARTE_REU_RE, text, group=1)
-    _collect(spans, "nome_juiz", _JUIZ_RE, text, group=1)
-    _collect(spans, "nome_advogado", _ADVOGADO_RE, text, group=1)
-    _collect(spans, "nome_advogado", _ADVOGADO_HEADER_RE, text, group=1)
-    _collect(spans, "serventuario", _SERVENTUARIO_RE, text, group=1)
     _collect(spans, "valor_monetario", _VALOR_RE, text)
+    _collect(spans, "cpf_cnpj", _CPF_CNPJ_RE, text)
+
+    # Legal references: skip cabecalho (party lists, addresses) and assinatura
+    body_start = cabecalho_end
+    _collect(spans, "id_lei", _LEI_RE, text, start=body_start, end=assin_start)
+    _collect(spans, "id_precedente", _PRECEDENTE_RE, text, start=body_start, end=assin_start,
+             fp_filter=fp_filter, fp_label="id_precedente")
+    _collect(spans, "classe_processual", _CLASSE_PROCESSUAL_RE, text, end=fund_start)
+    _collect(spans, "oab", _OAB_RE, text, end=assin_start)
+
+    # Parties: cabecalho + early relatorio only; filter ADVOGADO context
+    _collect(spans, "parte_autor", _PARTE_AUTOR_RE, text, group=1, end=fund_start,
+             fp_filter=fp_filter, fp_label="parte_autor")
+    _collect(spans, "parte_reu", _PARTE_REU_RE, text, group=1, end=fund_start,
+             fp_filter=fp_filter, fp_label="parte_reu")
+
+    # Lawyer names: before assinatura
+    _collect(spans, "nome_advogado", _ADVOGADO_RE, text, group=1, end=assin_start)
+    _collect(spans, "nome_advogado", _ADVOGADO_HEADER_RE, text, group=1, end=assin_start)
+
+    # Judge / clerk: only after dispositivo (signature block)
+    _collect(spans, "nome_juiz", _JUIZ_RE, text, group=1, start=dispositivo_start)
+    _collect(spans, "serventuario", _SERVENTUARIO_RE, text, group=1, start=dispositivo_start)
 
     return spans
+
+
+try:
+    from fp_centroid_filter import FPCentroidFilter as _FPCentroidFilter
+except ImportError:
+    _FPCentroidFilter = None  # type: ignore[assignment,misc]
 
 
 def _collect(
@@ -370,11 +394,37 @@ def _collect(
     pattern: re.Pattern[str],
     text: str,
     group: int = 0,
+    *,
+    start: int = 0,
+    end: int | None = None,
+    fp_filter: object = None,
+    fp_label: str | None = None,
 ) -> None:
-    for m in pattern.finditer(text):
-        start, end = m.start(group), m.end(group)
-        if start < end:
-            spans.setdefault(label, []).append([start, end])
+    """Find pattern matches and append [start, end] spans.
+
+    ``start`` / ``end`` gate the search to a document sub-region.
+    ``fp_filter`` + ``fp_label`` enable embedding-based FP rejection:
+    spans whose context is too similar to the label's FP centroid are dropped.
+    """
+    if end is None:
+        end = len(text)
+    candidates: list[tuple[int, int]] = []
+    for m in pattern.finditer(text, start, end):
+        s, e = m.start(group), m.end(group)
+        if s < e:
+            candidates.append((s, e))
+
+    if not candidates:
+        return
+
+    if fp_filter is not None and fp_label:
+        keep = fp_filter.bulk_is_fp(fp_label, text, candidates)  # type: ignore[union-attr]
+        for (s, e), is_fp in zip(candidates, keep, strict=True):
+            if not is_fp:
+                spans.setdefault(label, []).append([s, e])
+    else:
+        for s, e in candidates:
+            spans.setdefault(label, []).append([s, e])
 
 
 # ---------------------------------------------------------------------------
@@ -384,8 +434,41 @@ def _collect(
 def main() -> int:
     logger.info("starting_dataset_preparation")
 
-    textos_file = Path("data/test_parquets/textos.parquet")
-    output_dir = Path("data/privacy_filter")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--parquet", default="data/test_parquets/textos.parquet")
+    parser.add_argument("--output", default="data/privacy_filter/train.jsonl")
+    parser.add_argument("--label-space", default="data/privacy_filter/label_space.json")
+    parser.add_argument(
+        "--fp-filter",
+        metavar="PATH",
+        nargs="?",
+        const="auto",
+        help="Enable embedding-based FP filter. Pass a .pkl path to load "
+             "precomputed centroids, or omit path to fit from the built-in catalog.",
+    )
+    args = parser.parse_args()
+
+    # Wire up the FP filter if requested
+    fp_filter = None
+    if args.fp_filter and _FPCentroidFilter is not None:
+        fp_filter = _FPCentroidFilter()
+        centroids_pkl = Path("data/privacy_filter/fp_centroids.pkl")
+        if args.fp_filter != "auto" and Path(args.fp_filter).exists():
+            logger.info("fp_filter_loading", path=args.fp_filter)
+            fp_filter.load(args.fp_filter)
+        elif centroids_pkl.exists():
+            logger.info("fp_filter_loading", path=str(centroids_pkl))
+            fp_filter.load(centroids_pkl)
+        else:
+            logger.info("fp_filter_fitting_from_catalog")
+            fp_filter.fit_from_catalog()
+            fp_filter.save(centroids_pkl)
+            logger.info("fp_filter_saved", path=str(centroids_pkl))
+    elif args.fp_filter:
+        logger.warning("fp_filter_unavailable", reason="fp_centroid_filter module not found")
+
+    textos_file = Path(args.parquet)
+    output_dir = Path(args.output).parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
     if not textos_file.exists():
@@ -402,7 +485,7 @@ def main() -> int:
 
     for _, row in df.iterrows():
         text: str = row["texto"]
-        spans = _segment(text)
+        spans = _segment(text, fp_filter=fp_filter)
         if spans is None:
             skipped += 1
             continue
@@ -436,14 +519,17 @@ def main() -> int:
     }
     logger.info("splitting", **{k: len(v) for k, v in splits.items()})
 
+    stem = Path(args.output).stem  # e.g. "train"
     for name, data in splits.items():
-        path = output_dir / f"{name}.jsonl"
+        fname = stem if name == "train" else name
+        path = output_dir / f"{fname}.jsonl"
         with path.open("w", encoding="utf-8") as f:
             for r in data:
                 f.write(json.dumps(r, ensure_ascii=False) + "\n")
         logger.info("saved", file=str(path), count=len(data))
 
-    label_space_path = output_dir / "label_space.json"
+    label_space_path = Path(args.label_space)
+    label_space_path.parent.mkdir(parents=True, exist_ok=True)
     label_space_path.write_text(
         json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
     )
