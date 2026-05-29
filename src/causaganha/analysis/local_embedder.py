@@ -36,7 +36,7 @@ logger = structlog.get_logger()
 
 # Primary model: EmbeddingGemma-300M (Google, Sept 2025)
 # Instruction prefix for retrieval tasks (query side only)
-EMBEDDING_GEMMA_MODEL = "google/gemma-embedding-300m"
+EMBEDDING_GEMMA_MODEL = "google/embeddinggemma-300m"
 EMBEDDING_GEMMA_QUERY_PREFIX = (
     "Represent this sentence for searching relevant passages: "
 )
@@ -138,6 +138,24 @@ class LocalEmbedder:
         # Unknown model — no prefix
         return texts
 
+    def _smart_truncate(self, text: str, max_tokens: int = 2000) -> str:
+        """Truncate text by keeping the first max_tokens/2 and the last max_tokens/2 tokens."""
+        if not text:
+            return ""
+        # Access tokenizer from sentence_transformers model
+        tokenizer = self._model.tokenizer
+        tokens = tokenizer.encode(text, add_special_tokens=False)
+        if len(tokens) <= max_tokens:
+            return text
+        half = max_tokens // 2
+        first_half_tokens = tokens[:half]
+        second_half_tokens = tokens[-half:]
+        
+        # Decode back to text
+        first_part = tokenizer.decode(first_half_tokens, clean_up_tokenization_spaces=False)
+        second_part = tokenizer.decode(second_half_tokens, clean_up_tokenization_spaces=False)
+        return f"{first_part}\n[...]\n{second_part}"
+
     def embed(
         self,
         texts: list[str],
@@ -159,7 +177,9 @@ class LocalEmbedder:
         Returns:
             NumPy array of shape (len(texts), embedding_dim).
         """
-        prefixed = self._apply_prefix(texts, is_query=is_query)
+        # Pre-process and truncate long texts
+        processed_texts = [self._smart_truncate(t) for t in texts]
+        prefixed = self._apply_prefix(processed_texts, is_query=is_query)
         embeddings = self._model.encode(
             prefixed,
             batch_size=batch_size,
