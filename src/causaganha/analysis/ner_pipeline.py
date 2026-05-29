@@ -146,8 +146,3 @@ class JudicialNER:
     def __exit__(self, *_: object) -> None:
         """Shutdown thread pool on context manager exit."""
         self._executor.shutdown(wait=True)
-
-    def __del__(self) -> None:
-        """Best-effort cleanup if context manager wasn't used."""
-        if hasattr(self, "_executor"):
-            self._executor.shutdown(wait=False)

@@ -87,11 +87,6 @@ class DispositivoExtractor:
         """Shutdown thread pool on context manager exit."""
         self._executor.shutdown(wait=True)
 
-    def __del__(self) -> None:
-        """Best-effort cleanup if context manager wasn't used."""
-        if hasattr(self, "_executor"):
-            self._executor.shutdown(wait=False)
-
 
 def extract_dispositivo(text: str, max_chars: int = 2000) -> str | None:
     """Return the operative section (dispositivo) of a judicial decision.
