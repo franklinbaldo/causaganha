@@ -2,8 +2,8 @@
 
 Drops in as a replacement for LocalEmbedder — same interface, no GPU required.
 
-Provider strategy (cheapest first)
-----------------------------------
+Provider strategy
+-----------------
 1. **Jina AI** (default) — ``jina-embeddings-v3``, 10 M free tokens/month.
    Set ``JINA_API_KEY``. Hard stops at budget to avoid surprise charges.
 2. **OpenRouter** — ``perplexity/pplx-embed-v1-0.6b`` (default), MIT, 32K context.
@@ -16,8 +16,12 @@ Usage
     vecs = embedder.embed(["Julgo procedente."], is_query=True)
     print(embedder.token_budget_remaining)            # tokens left this month
 
-    # OpenRouter
-    embedder = ApiEmbedder(provider="openrouter")     # reads OPENROUTER_API_KEY
+    # Async (concurrent batching client-side)
+    import asyncio
+    embedder = ApiEmbedder(provider="openrouter")
+    async def main():
+        vecs = await embedder.aembed(texts)
+    asyncio.run(main())
 """
 
 from __future__ import annotations
@@ -25,12 +29,16 @@ from __future__ import annotations
 import asyncio
 import os
 import time
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 import numpy as np
 import structlog
 
 from .text_truncate import smart_truncate
+
+
+if TYPE_CHECKING:
+    import httpx
 
 
 logger = structlog.get_logger()
@@ -123,6 +131,13 @@ class ApiEmbedder:
             token_budget=self._token_budget,
         )
 
+    @property
+    def _async_rate_limit_lock(self) -> asyncio.Lock:
+        """Lazily initialize the asyncio Lock to avoid event loop attachment issues."""
+        if not hasattr(self, "_rate_limit_lock_obj"):
+            self._rate_limit_lock_obj = asyncio.Lock()
+        return self._rate_limit_lock_obj
+
     def _rate_limit(self) -> None:
         """Block until we are within the RPM limit (sliding 60-second window)."""
         now = time.monotonic()
@@ -133,6 +148,18 @@ class ApiEmbedder:
                 logger.debug("api_rate_limit_sleep", seconds=round(sleep_for, 2))
                 time.sleep(sleep_for)
         self._request_times.append(time.monotonic())
+
+    async def _arate_limit(self) -> None:
+        """Block asynchronously until we are within the RPM limit (sliding 60-second window)."""
+        async with self._async_rate_limit_lock:
+            now = time.monotonic()
+            self._request_times = [t for t in self._request_times if now - t < _RATE_LIMIT_WINDOW]
+            if len(self._request_times) >= self._rpm_limit:
+                sleep_for = _RATE_LIMIT_WINDOW - (now - self._request_times[0]) + 0.1
+                if sleep_for > 0:
+                    logger.debug("api_rate_limit_sleep", seconds=round(sleep_for, 2))
+                    await asyncio.sleep(sleep_for)
+            self._request_times.append(time.monotonic())
 
     # ------------------------------------------------------------------
     # Provider-specific batch embed
@@ -233,6 +260,99 @@ class ApiEmbedder:
             embeddings = embeddings[:, : self.truncate_dim]
         return embeddings
 
+    async def _aembed_batch_jina(
+        self, client: httpx.AsyncClient, texts: list[str], *, is_query: bool
+    ) -> np.ndarray:
+        # Estimate token usage (Jina counts ~1 token ≈ 4 chars on average)
+        estimated_tokens = sum(max(1, len(t) // 4) for t in texts)
+        if self._token_budget is not None:
+            remaining = self._token_budget - self._tokens_used
+            if estimated_tokens > remaining:
+                msg = (
+                    f"Jina token budget exhausted: "
+                    f"{self._tokens_used:,}/{self._token_budget:,} used. "
+                    "Switch to provider='openrouter' or get a new Jina API key."
+                )
+                raise RuntimeError(msg)
+            usage_pct = (self._tokens_used + estimated_tokens) / self._token_budget
+            if usage_pct >= JINA_TOKEN_WARN_THRESHOLD:
+                logger.warning(
+                    "jina_token_budget_nearly_exhausted",
+                    tokens_used=self._tokens_used,
+                    budget=self._token_budget,
+                    pct=round(usage_pct * 100, 1),
+                )
+
+        task = "retrieval.query" if is_query else "retrieval.passage"
+        payload: dict = {
+            "model": JINA_MODEL,
+            "input": texts,
+            "task": task,
+            "late_chunking": False,
+        }
+        if self.truncate_dim:
+            payload["dimensions"] = self.truncate_dim
+
+        await self._arate_limit()
+        resp = await client.post(
+            JINA_ENDPOINT,
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        # Track actual tokens reported by the API
+        actual_tokens = data.get("usage", {}).get("total_tokens", estimated_tokens)
+        self._tokens_used += actual_tokens
+        logger.debug(
+            "jina_tokens_used",
+            batch_tokens=actual_tokens,
+            total_tokens_used=self._tokens_used,
+            budget=self._token_budget,
+        )
+
+        return np.array([d["embedding"] for d in data["data"]], dtype=np.float32)
+
+    async def _aembed_batch_openrouter(
+        self, client: httpx.AsyncClient, texts: list[str]
+    ) -> np.ndarray:
+        payload: dict = {
+            "model": self._model,
+            "input": texts,
+        }
+
+        await self._arate_limit()
+        resp = await client.post(
+            OPENROUTER_ENDPOINT,
+            headers={
+                "Authorization": f"Bearer {self._api_key}",
+                "Content-Type": "application/json",
+                "HTTP-Referer": "https://github.com/franklinbaldo/causaganha",
+            },
+            json=payload,
+            timeout=60,
+        )
+        resp.raise_for_status()
+        data = resp.json()
+
+        actual_tokens = data.get("usage", {}).get("total_tokens", 0)
+        self._tokens_used += actual_tokens
+        logger.debug(
+            "openrouter_tokens_used",
+            batch_tokens=actual_tokens,
+            total_tokens_used=self._tokens_used,
+        )
+
+        embeddings = np.array([d["embedding"] for d in data["data"]], dtype=np.float32)
+        if self.truncate_dim and embeddings.shape[1] > self.truncate_dim:
+            embeddings = embeddings[:, : self.truncate_dim]
+        return embeddings
+
     # ------------------------------------------------------------------
     # Public interface (matches LocalEmbedder)
     # ------------------------------------------------------------------
@@ -283,15 +403,42 @@ class ApiEmbedder:
         is_query: bool = False,
         batch_size: int | None = None,
         normalize: bool = True,
+        concurrency: int = 5,
     ) -> np.ndarray:
-        """Async wrapper — runs synchronous embed in a thread pool."""
-        loop = asyncio.get_running_loop()
-        return await loop.run_in_executor(
-            None,
-            lambda: self.embed(
-                texts, is_query=is_query, batch_size=batch_size, normalize=normalize
-            ),
-        )
+        """Embed texts asynchronously via API, batching and processing concurrently.
+
+        Args:
+            texts: List of strings to embed.
+            is_query: True for query-side task type.
+            batch_size: Override default provider batch size.
+            normalize: L2-normalize embeddings (recommended for cosine similarity).
+            concurrency: Max concurrent HTTP requests.
+
+        Returns:
+            NumPy array of shape ``(len(texts), embed_dim)``.
+        """
+        import httpx  # noqa: PLC0415
+
+        bs = batch_size or self._batch_size
+        chunks = [texts[i : i + bs] for i in range(0, len(texts), bs)]
+
+        semaphore = asyncio.Semaphore(concurrency)
+
+        async def worker(client: httpx.AsyncClient, chunk: list[str]) -> np.ndarray:
+            async with semaphore:
+                if self.provider == "openrouter":
+                    return await self._aembed_batch_openrouter(client, chunk)
+                return await self._aembed_batch_jina(client, chunk, is_query=is_query)
+
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            tasks = [worker(client, chunk) for chunk in chunks]
+            parts = await asyncio.gather(*tasks)
+
+        result = np.vstack(parts)
+        if normalize:
+            norms = np.linalg.norm(result, axis=1, keepdims=True)
+            result = result / np.where(norms == 0, 1.0, norms)
+        return result
 
     def embed_single(self, text: str, *, is_query: bool = False) -> np.ndarray:
         """Embed a single text string."""
