@@ -21,10 +21,50 @@ import numpy as np
 from rich.console import Console
 from rich.table import Table
 
+from causaganha.analysis.benchmark_metrics import InvariantReport, evaluate_invariant
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 
 
 console = Console()
+
+
+def show_invariant_report(report: InvariantReport, classifier_name: str) -> None:
+    """Render the gate + conditional decomposition of invariant-winner scoring.
+
+    The surface ``outcome`` label is posture-dependent; this scores the
+    invariant winning polo (A/P/draw) and separates the "is this ratable?"
+    gate from the "who won?" conditional so the ~40% procedural ``unknown``
+    mass cannot mask outcome performance.
+    """
+    g = report.gate
+    c = report.conditional
+    console.print(f"\n[bold cyan]⚖️  Invariante (Polo Vencedor) — {classifier_name}[/bold cyan]")
+    console.print(
+        f"[bold]Gate (decisão de mérito ratável?):[/bold] "
+        f"acc {g.accuracy * 100:.1f}% · P {g.precision:.2f} · R {g.recall:.2f} · "
+        f"F1 {g.f1:.2f} · suporte ratável {g.support_ratable}/{g.total}"
+    )
+    console.print(
+        f"[bold]Condicional (polo vencedor | ratável):[/bold] "
+        f"acc {c.accuracy * 100:.1f}% sobre {c.n_scored} casos\n"
+    )
+
+    table = Table(title=f"Invariante por Polo — {classifier_name}")
+    table.add_column("Polo", style="cyan")
+    table.add_column("Precisão", style="yellow", justify="right")
+    table.add_column("Recall", style="green", justify="right")
+    table.add_column("F1-Score", style="magenta", justify="right")
+    table.add_column("Suporte", justify="right")
+    for polo in ("A", "P", "draw"):
+        m = c.per_polo[polo]
+        table.add_row(
+            polo,
+            f"{m['precision']:.2f}",
+            f"{m['recall']:.2f}",
+            f"{m['f1']:.2f}",
+            str(m["support"]),
+        )
+    console.print(table)
 
 
 def compute_metrics(y_true: list[str], y_pred: list[str], labels: list[str]) -> dict:
@@ -181,6 +221,11 @@ async def evaluate_ml_ensemble(
         console.print()
         show_confusion_matrix(y_true, y_pred, labels)
 
+        # Invariant (winning polo) — gate + conditional.
+        gold_pairs = [(o, None) for o in y_true]
+        pred_pairs = [(o, None) for o in y_pred]
+        show_invariant_report(evaluate_invariant(gold_pairs, pred_pairs), "ML Ensemble")
+
     except Exception as e:
         console.print(f"[red]Erro na avaliação do ML: {e}[/red]")
 
@@ -293,6 +338,15 @@ def main() -> int:
 
     # Show confusion matrix
     show_confusion_matrix(y_true, y_pred, labels)
+    console.print()
+
+    # Invariant (winning polo) — gate + conditional. The gold schema (<=1.3.0)
+    # carries recorrente_polo only for recursal cases; absent => None, which the
+    # resolver treats as a first-instance outcome. The keyword classifier does
+    # not predict recorrente_polo, so predicted appeals resolve to unknown.
+    gold_pairs = [(o, None) for o in y_true]
+    pred_pairs = [(o, None) for o in y_pred]
+    show_invariant_report(evaluate_invariant(gold_pairs, pred_pairs), "KeywordClassifier")
     console.print()
 
     # Show disagreements
