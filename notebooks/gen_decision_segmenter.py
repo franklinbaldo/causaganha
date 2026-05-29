@@ -137,26 +137,83 @@ cells = [
         "transformers accelerate datasets scikit-learn\n"
     ),
 
-    md_cell("## 2. Download data from Internet Archive"),
+    md_cell("## 2. Build textos.parquet from TJRO 2025 ZIPs"),
 
     code_cell(
-        "import os, urllib.request\n\n"
-        'PARQUET_DIR = f"{REPO_DIR}/data/test_parquets"\n'
-        "os.makedirs(PARQUET_DIR, exist_ok=True)\n\n"
-        "FILES = {\n"
-        '    "textos.parquet": '
-        '"https://archive.org/download/causaganha-test-parquets/textos.parquet",\n'
-        "}\n\n"
-        "for fname, url in FILES.items():\n"
-        "    dest = os.path.join(PARQUET_DIR, fname)\n"
-        "    if os.path.exists(dest):\n"
-        '        print(f"  Already exists: {fname}")\n'
-        "        continue\n"
-        '    print(f"  Downloading {fname} ...")\n'
-        "    urllib.request.urlretrieve(url, dest)\n"
-        "    size = os.path.getsize(dest)\n"
-        '    print(f"  OK {fname} ({size:,} bytes)")\n\n'
-        "print('All files ready.')\n"
+        "# --- Configuration ---\n"
+        "N_ZIPS      = 50       # ZIPs to process (None = all 384, ~2.8 GB)\n"
+        "MIN_TEXT    = 200      # minimum text length (chars) to keep\n"
+        "MAX_WORKERS = 8        # parallel downloads\n"
+        "IA_ITEM     = 'djen-tjro-2025'\n"
+        'PARQUET_DIR  = f"{REPO_DIR}/data/test_parquets"\n'
+        'PARQUET_PATH = f"{PARQUET_DIR}/textos.parquet"\n'
+    ),
+
+    code_cell(
+        "import zipfile, json, io, uuid, os\n"
+        "import urllib.request\n"
+        "from concurrent.futures import ThreadPoolExecutor, as_completed\n"
+        "import pandas as pd\n\n"
+        "NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, 'djen.causaganha.org')\n\n"
+        "# List ZIPs from Internet Archive metadata\n"
+        "print('Listing ZIPs from Internet Archive...')\n"
+        "meta_url = f'https://archive.org/metadata/{IA_ITEM}/files'\n"
+        "with urllib.request.urlopen(meta_url) as r:\n"
+        "    ia_files = json.loads(r.read()).get('result', [])\n"
+        "zips = sorted(\n"
+        "    f['name'] for f in ia_files\n"
+        "    if f['name'].startswith('djen-') and f['name'].endswith('.zip')\n"
+        ")\n"
+        "if N_ZIPS:\n"
+        "    zips = zips[:N_ZIPS]\n"
+        "print(f'Processing {len(zips)} ZIPs...')\n\n"
+        "def _iter_records(data):\n"
+        "    if isinstance(data, list):\n"
+        "        return data\n"
+        "    if isinstance(data, dict):\n"
+        "        items = data.get('items')\n"
+        "        if isinstance(items, list):\n"
+        "            return items\n"
+        "        return [data]\n"
+        "    return []\n\n"
+        "def extract_texts(zip_name):\n"
+        "    url = f'https://archive.org/download/{IA_ITEM}/{zip_name}'\n"
+        "    try:\n"
+        "        with urllib.request.urlopen(url, timeout=120) as r:\n"
+        "            content = r.read()\n"
+        "        rows = []\n"
+        "        with zipfile.ZipFile(io.BytesIO(content)) as zf:\n"
+        "            for name in zf.namelist():\n"
+        "                if not name.endswith('.json'):\n"
+        "                    continue\n"
+        "                try:\n"
+        "                    data = json.loads(zf.read(name))\n"
+        "                except json.JSONDecodeError:\n"
+        "                    continue\n"
+        "                for rec in _iter_records(data):\n"
+        "                    if not isinstance(rec, dict):\n"
+        "                        continue\n"
+        "                    texto = (rec.get('texto') or '').strip()\n"
+        "                    if len(texto) >= MIN_TEXT:\n"
+        "                        uid = str(uuid.uuid5(NAMESPACE_DJEN, texto))\n"
+        "                        rows.append({'id': uid, 'texto': texto})\n"
+        "        return rows\n"
+        "    except Exception as e:\n"
+        "        print(f'  WARN {zip_name}: {e}')\n"
+        "        return []\n\n"
+        "# Download & extract in parallel\n"
+        "all_rows = []\n"
+        "os.makedirs(PARQUET_DIR, exist_ok=True)\n"
+        "with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:\n"
+        "    futures = {pool.submit(extract_texts, z): z for z in zips}\n"
+        "    for i, fut in enumerate(as_completed(futures), 1):\n"
+        "        all_rows.extend(fut.result())\n"
+        "        if i % 10 == 0 or i == len(zips):\n"
+        "            print(f'  {i}/{len(zips)} done — {len(all_rows):,} texts so far')\n\n"
+        "# Deduplicate & save\n"
+        "df = pd.DataFrame(all_rows).drop_duplicates('id').reset_index(drop=True)\n"
+        "df.to_parquet(PARQUET_PATH, index=False)\n"
+        "print(f'Saved {len(df):,} unique texts → {PARQUET_PATH}')\n"
     ),
 
     md_cell(
