@@ -301,12 +301,13 @@
 
 {#snippet sourceBadge()}
   {#if source}
-    <mark
+    <span
+      class="badge"
       data-tone={source === 'djen' ? 'info' : 'warning'}
       title={usedFallback ? 'Falha ao conectar no DJEN, usando arquivo IA' : ''}
     >
       Fonte: {source === 'djen' ? 'DJEN' : 'Arquivo IA'}
-    </mark>
+    </span>
   {/if}
 {/snippet}
 
@@ -339,7 +340,7 @@
     <header>
       <span class="seq-number">#{seq}</span>
       {#if pub.tipoComunicacao}
-        <mark class="publication-badge">{pub.tipoComunicacao}</mark>
+        <span class="badge publication-badge">{pub.tipoComunicacao}</span>
       {/if}
       {@render sourceBadge()}
       <small><time>{dateStr}</time></small>
@@ -383,7 +384,7 @@
     {#if parties.length > 0}
       <div class="tags-row">
         {#each parties.slice(0, 4) as party}
-          <mark class="name-pill">{party}</mark>
+          <span class="name-pill">{party}</span>
         {/each}
       </div>
     {/if}
@@ -411,7 +412,7 @@
     <header>
       <div>
         <span class="seq-number seq-bold">#{seq}</span>
-        <mark class="publication-badge">Modo Leitura</mark>
+        <span class="badge publication-badge">Modo Leitura</span>
         {@render sourceBadge()}
         <small><time>{dateStr}</time></small>
       </div>
@@ -477,12 +478,12 @@
           <div class="sidebar-tags">
             {#if parties.length > 0}
               {#each parties as party}
-                <mark class="name-pill">{party}</mark>
+                <span class="name-pill">{party}</span>
               {/each}
             {/if}
             {#if lawyers.length > 0}
               {#each lawyers as lawyer}
-                <mark data-tone="info">{lawyer}</mark>
+                <span class="name-pill" data-tone="info">{lawyer}</span>
               {/each}
             {/if}
           </div>
@@ -518,7 +519,7 @@
       <div>
         <span class="seq-number seq-bold">#{seq}</span>
         {#if pub.tipoComunicacao}
-          <mark class="publication-badge">{pub.tipoComunicacao}</mark>
+          <span class="badge publication-badge">{pub.tipoComunicacao}</span>
         {/if}
         {@render sourceBadge()}
         <small><time>{dateStr}</time></small>
@@ -633,7 +634,7 @@
             <strong class="sidebar-title">Destinatários</strong>
             <div class="sidebar-tags">
               {#each parties as party}
-                <mark class="name-pill">{party}</mark>
+                <span class="name-pill">{party}</span>
               {/each}
             </div>
           </div>
@@ -644,7 +645,7 @@
             <strong class="sidebar-title">Advogados</strong>
             <div class="sidebar-tags">
               {#each lawyers as lawyer}
-                <mark data-tone="info">{lawyer}</mark>
+                <span class="name-pill" data-tone="info">{lawyer}</span>
               {/each}
             </div>
           </div>
