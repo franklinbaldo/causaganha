@@ -38,6 +38,7 @@
     </svg>
     <input
       id="publication-smart-search"
+      data-global-search
       type="search"
       bind:this={inputRef}
       bind:value

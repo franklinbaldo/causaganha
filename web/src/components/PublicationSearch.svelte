@@ -240,12 +240,10 @@
   // Global keydown for Ctrl+K
   onMount(() => {
     function handleGlobalKeydown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        if (searchInputRef) {
-          searchInputRef.focus();
-        }
-      }
+      if (e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return;
+
+      e.preventDefault();
+      searchInputRef?.focus();
     }
     window.addEventListener('keydown', handleGlobalKeydown);
     return () => {

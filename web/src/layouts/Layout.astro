@@ -3,6 +3,7 @@ import '../index.css';
 import { ClientRouter } from 'astro:transitions';
 import Footer from '../components/Footer.astro';
 import NetworkStatusBanner from '../components/NetworkStatusBanner.astro';
+import CommandPalette from '../components/CommandPalette.astro';
 
 interface Props {
   title: string;
@@ -79,6 +80,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <main id="main-content" class:list={[{ container: !fullWidth }]}>
       <slot />
     </main>
+    <CommandPalette />
     <Footer />
   </body>
 </html>

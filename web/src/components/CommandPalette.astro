@@ -1,31 +1,48 @@
 ---
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 <dialog
   id="command-palette-dialog"
-  aria-labelledby="command-palette-title">
+  class="command-palette"
+  aria-labelledby="command-palette-title"
+  data-publicacoes-href={BASE + 'publicacoes'}>
   <article>
     <header>
-      <h3 id="command-palette-title">Atalhos de teclado</h3>
+      <h3 id="command-palette-title">Atalhos e comandos</h3>
       <form method="dialog">
         <button
           id="command-palette-close"
           class="outline"
           aria-label="Fechar diálogo">
-          ✕
+          Fechar
         </button>
       </form>
     </header>
 
     <dl>
       <div>
-        <dt>Abrir paleta de comandos / ajuda</dt>
+        <dt>Focar busca</dt>
         <dd>
           <kbd>Ctrl</kbd>
           +
           <kbd>K</kbd>
+        </dd>
+      </div>
+
+      <div>
+        <dt>Abrir atalhos e comandos</dt>
+        <dd>
+          <kbd>Ctrl</kbd>
+          +
+          <kbd>/</kbd>
           ou
           <kbd>?</kbd>
         </dd>
+      </div>
+
+      <div>
+        <dt>Ir para publicações</dt>
+        <dd><a href={BASE + 'publicacoes'}>Buscar no DJEN</a></dd>
       </div>
 
       <div>
@@ -50,40 +67,74 @@
     </dl>
 
     <footer>
-      <small>O modo de acessibilidade está sempre ativo. Use Tab para navegar pelos elementos interativos.</small>
+      <small>Use <kbd>Ctrl</kbd> + <kbd>K</kbd> apenas para busca. Use <kbd>Ctrl</kbd> + <kbd>/</kbd> ou <kbd>?</kbd> para ajuda e navegação.</small>
     </footer>
   </article>
 </dialog>
 
 <script>
   function setupCommandPalette() {
-    const dialog = document.getElementById('command-palette-dialog') as HTMLDialogElement;
+    const dialog = document.getElementById('command-palette-dialog') as HTMLDialogElement | null;
     const closeBtn = document.getElementById('command-palette-close');
 
-    if (!dialog) return;
+    if (!dialog || dialog.dataset.commandPaletteBound === 'true') return;
+    dialog.dataset.commandPaletteBound = 'true';
+
+    function isTypingInField() {
+      const active = document.activeElement as HTMLElement | null;
+      if (!active) return false;
+      return active.matches('input, textarea, select, [contenteditable="true"]');
+    }
+
+    function findSearchTarget() {
+      return document.querySelector<HTMLElement>([
+        '[data-global-search]',
+        '#publication-smart-search',
+        '#ia-search-input',
+        'form[role="search"] input[type="search"]',
+        'search input[type="search"]',
+        'input[type="search"]',
+      ].join(','));
+    }
+
+    function focusSearch() {
+      const target = findSearchTarget();
+      if (!target) {
+        window.location.href = dialog.dataset.publicacoesHref ?? '/publicacoes';
+        return;
+      }
+
+      if (dialog.open) dialog.close();
+      target.focus();
+      if (target instanceof HTMLInputElement) target.select();
+    }
 
     function handleKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
+      const key = e.key.toLowerCase();
+      const hasCommandModifier = e.ctrlKey || e.metaKey;
+
+      if (hasCommandModifier && key === 'k') {
         e.preventDefault();
-        const searchInput = document.getElementById('ia-search-input');
-        if (searchInput && document.activeElement !== searchInput) {
-          searchInput.focus();
-        } else {
-          toggleDialog();
-        }
-      } else if (e.key === '?' && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName ?? '')) {
+        focusSearch();
+        return;
+      }
+
+      if ((hasCommandModifier && e.key === '/') || (e.key === '?' && !isTypingInField())) {
         e.preventDefault();
         toggleDialog();
-      } else if (e.key === 'Escape' && dialog.open) {
+        return;
+      }
+
+      if (e.key === 'Escape' && dialog.open) {
         dialog.close();
       }
     }
 
     function toggleDialog() {
-      if (dialog.open) {
+      if (dialog?.open) {
         dialog.close();
       } else {
-        dialog.showModal();
+        dialog?.showModal();
       }
     }
 
@@ -96,6 +147,7 @@
     // Cleanup logic for View Transitions
     document.addEventListener('astro:before-swap', () => {
       document.removeEventListener('keydown', handleKeyDown);
+      delete dialog.dataset.commandPaletteBound;
     }, { once: true });
   }
 
