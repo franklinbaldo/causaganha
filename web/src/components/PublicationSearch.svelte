@@ -191,6 +191,13 @@
     searchQuery.data?.rateLimit ?? { limit: null, remaining: null, resetAt: null }
   );
   const usedFallback = $derived(searchQuery.data?.usedFallback ?? false);
+  const publicationHighlightTerms = $derived([
+    submittedQuery?.texto,
+    submittedQuery?.nomeParte,
+    submittedQuery?.nomeAdvogado,
+    submittedQuery?.numeroProcesso,
+    submittedQuery?.numeroOab,
+  ].filter((term): term is string => typeof term === 'string' && term.trim().length > 1));
 
   const status = $derived.by((): Status => {
     if (searchQuery.isFetching) return 'loading';
@@ -437,12 +444,10 @@
   // Global keydown for Ctrl+K
   onMount(() => {
     function handleGlobalKeydown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'k') {
-        e.preventDefault();
-        if (searchInputRef) {
-          searchInputRef.focus();
-        }
-      }
+      if (e.defaultPrevented || !(e.ctrlKey || e.metaKey) || e.key.toLowerCase() !== 'k') return;
+
+      e.preventDefault();
+      searchInputRef?.focus();
     }
     window.addEventListener('keydown', handleGlobalKeydown);
     return () => {
@@ -633,6 +638,7 @@
               totalSeq={results.length}
               source={usedFallback ? 'ia' : 'djen'}
               {usedFallback}
+              highlightTerms={publicationHighlightTerms}
               onExpand={() => (expandedSeq = i + 1)}
               onCollapse={() => (expandedSeq = null)}
               onNavigate={(newSeq) => (expandedSeq = newSeq)}

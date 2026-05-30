@@ -16,12 +16,20 @@
         const res = await fetch(IA_URL);
         if (res.ok) {
           const data = await res.json();
-          indicator!.innerHTML = `<span class="cg-pulse"></span> Live via Internet Archive (${data.generated_at?.slice(0, 16)})`;
+          const generatedAt = String(data.generated_at ?? '').slice(0, 16);
+          const pulse = document.createElement('span');
+          pulse.className = 'cg-pulse';
+
+          indicator.replaceChildren(
+            pulse,
+            document.createTextNode(` Live via Internet Archive (${generatedAt})`),
+          );
         } else {
-          indicator!.innerHTML = `Static fallback (IA HTTP ${res.status})`;
+          indicator.textContent = `Static fallback (IA HTTP ${res.status})`;
         }
-      } catch (err: any) {
-        indicator!.innerHTML = `Offline: ${err.message || String(err)}`;
+      } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
+        indicator.textContent = `Offline: ${message}`;
       }
     }
 
