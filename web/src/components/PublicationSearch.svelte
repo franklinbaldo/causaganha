@@ -281,12 +281,12 @@
   });
 </script>
 
-<section aria-labelledby="publication-search-heading">
+<section class="publication-search" aria-labelledby="publication-search-heading">
   <h2 id="publication-search-heading" class="sr-only">Busca de publicações</h2>
 
   <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} bind:inputRef={searchInputRef} />
   {#if !rawInput}
-    <div>
+    <div class="publication-search__examples">
       <small>Experimente:</small>
       <button type="button" class="secondary outline" onclick={() => (rawInput = 'OAB SP 12345')}>OAB SP 12345</button>
       <button type="button" class="secondary outline" onclick={() => (rawInput = 'TJSP')}>TJSP</button>
@@ -294,7 +294,7 @@
     </div>
   {/if}
 
-  <div>
+  <div class="publication-search__actions">
     <button
       type="button"
       class="secondary outline"
@@ -323,12 +323,12 @@
   </div>
 
   {#if showFilters}
-    <div id="search-filters-panel">
+    <div id="search-filters-panel" class="publication-search__filter-panel">
       <SearchFilters bind:filters />
     </div>
   {/if}
 
-  <div role="status" aria-live="polite" aria-busy={status === 'loading'}>
+  <div class="publication-search__status" role="status" aria-live="polite" aria-busy={status === 'loading'}>
     {#if status === 'loading'}
       <p aria-busy="true">Buscando publicações…</p>
     {:else if status === 'validation'}
@@ -356,9 +356,9 @@
       {@const perPage = filters.itensPorPagina ?? 30}
       {@const currentPage = filters.pagina ?? 1}
       {@const totalPages = Math.max(1, Math.ceil(totalCount / perPage))}
-      <header id={resultsHeadingId}>
+      <header id={resultsHeadingId} class="publication-search__results-header">
         <small class="meta-text">{totalCount.toLocaleString('pt-BR')} resultado(s)</small>
-        <div>
+        <div class="publication-search__pagination">
           <button
             type="button"
             class="secondary outline"
@@ -374,9 +374,9 @@
           >Próxima ›</button>
         </div>
       </header>
-      <ul aria-label="Resultados da busca">
+      <ul class="publication-search__results-list" aria-label="Resultados da busca" aria-busy={searchQuery.isFetching}>
         {#each results as pub, i (pub.hash ?? pub.numeroComunicacao ?? i)}
-          <li>
+          <li class="publication-search__result-item">
             <PublicationCard
               {pub}
               seq={i + 1}
