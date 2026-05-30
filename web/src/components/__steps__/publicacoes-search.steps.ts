@@ -53,6 +53,10 @@ async function typeAndSubmit(input: HTMLInputElement, value: string) {
   await fireEvent.keyDown(input, { key: 'Enter' });
 }
 
+async function waitForLocalPreparation() {
+  await new Promise((resolve) => setTimeout(resolve, 350));
+}
+
 describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) => {
   BeforeEachScenario(() => {
     cleanup();
@@ -77,6 +81,35 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
       expect(
         screen.getByText(/Comece digitando um número de OAB, um processo CNJ ou um termo livre/i),
       ).toBeTruthy();
+    });
+  });
+
+
+  Scenario('Typing prepares criteria without submitting to DJEN', ({ Given, When, Then, And }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 2 publications for the next request', () => {
+      fetchMock = mockFetchOnce(
+        { items: [samplePublication(1), samplePublication(2)], count: 2 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+    });
+
+    When('I type "OAB/SP 123456" without submitting', async () => {
+      render(PublicationSearch);
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      await fireEvent.input(input, { target: { value: 'OAB/SP 123456' } });
+      await waitForLocalPreparation();
+    });
+
+    Then('I should see the prepared OAB criteria "OAB/SP 123456"', () => {
+      expect(screen.getByText('Critério preparado')).toBeTruthy();
+      expect(screen.getByText('OAB/SP 123456')).toBeTruthy();
+      expect(screen.getByText(/Critério preparado, mas ainda não enviado/i)).toBeTruthy();
+    });
+
+    And('the DJEN API should not have been called', () => {
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 
@@ -105,6 +138,37 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
 
     And('I should see "OAB SP/123456 detectada" as the hint', () => {
       expect(screen.getByText(/OAB SP\/123456 detectada/)).toBeTruthy();
+    });
+  });
+
+
+  Scenario('User submits with the Buscar button', ({ Given, When, Then, And }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 1 publication for the next request', () => {
+      fetchMock = mockFetchOnce(
+        { items: [samplePublication(9)], count: 1 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '28' } },
+      );
+    });
+
+    When('I type "mandado de segurança" and click Buscar', async () => {
+      render(PublicationSearch);
+      const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+      await fireEvent.input(input, { target: { value: 'mandado de segurança' } });
+      await fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
+    });
+
+    Then('I should see 1 result card', async () => {
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+        expect(screen.getByText(/1 resultado/)).toBeTruthy();
+      });
+    });
+
+    And('the last DJEN query should include text "mandado de segurança"', () => {
+      const lastUrl = latestFetchUrl(fetchMock);
+      expect(lastUrl.searchParams.get('texto')).toBe('mandado de segurança');
     });
   });
 
@@ -154,14 +218,16 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
       await typeAndSubmit(input, 'contrato');
     });
 
-    Then('I should see a rate-limit banner with a countdown', async () => {
+    Then('I should see a DJEN rate-limit banner with a countdown and historical archive action', async () => {
       await waitFor(() => {
         expect(screen.getByText(/Limite de requisições atingido/i)).toBeTruthy();
+        expect(screen.getByText(/Origem: API DJEN online/i)).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Usar arquivo histórico/i })).toBeTruthy();
       });
     });
   });
 
-  Scenario('Search criteria changes reset pagination', ({ Given, When, Then }) => {
+  Scenario('Search criteria changes reset pagination only after explicit submit', ({ Given, When, Then }) => {
     let fetchMock: ReturnType<typeof vi.fn>;
 
     Given('the DJEN API returns 30 publications out of 60 for each request', () => {
@@ -172,7 +238,7 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
     });
 
     When(
-      'I search for "contrato", go to page 2, and replace the search with "mandado de segurança"',
+      'I search for "contrato", go to page 2, type "mandado de segurança", and click Buscar',
       async () => {
         render(PublicationSearch);
         const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
@@ -189,7 +255,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
           expect(screen.getByText(/Página 2 de 2/)).toBeTruthy();
         });
 
-        await typeAndSubmit(input, 'mandado de segurança');
+        await fireEvent.input(input, { target: { value: 'mandado de segurança' } });
+        expect(latestFetchUrl(fetchMock).searchParams.get('pagina')).toBe('2');
+        await fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
       },
     );
 
