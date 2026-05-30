@@ -79,4 +79,66 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
       expect(values).toContain('TRT1');
     });
   });
+
+  Scenario('Highlight tribunal coverage gap state', ({ Given, When, Then, And }) => {
+    Given('tribunal "STF" has 12 missing days and 4 absent days', () => {
+      props = makeProps('STF');
+      props.initialCoverage = { STF: ['2024-01-01', '2024-01-02'] };
+      props.initialEtas = {
+        STF: {
+          missing_days: 12,
+          absent_days_count: 4,
+          completion_pct: 14,
+          eta_days: 21,
+          genesis_date: '2024-01-01',
+        },
+      };
+      props.initialStartDates = { STF: '2024-01-01' };
+    });
+
+    When('the tribunal detail page loads', () => {
+      render(TribunalDetail, props);
+    });
+
+    Then('I should see a coverage gap attention card', () => {
+      expect(document.body.textContent).toContain('Lacuna de cobertura do tribunal');
+      expect(document.body.textContent).toContain('STF tem 12 dias sem publicação coletada');
+    });
+
+    And('I should see explanatory next action text', () => {
+      expect(document.body.textContent).toContain('Próxima ação: revisar o calendário');
+      expect(document.body.textContent).toContain('Possível causa: backfill pendente');
+    });
+  });
+
+  Scenario('Highlight tribunal anomaly state', ({ Given, When, Then, And }) => {
+    Given('tribunal "STJ" has low completion coverage', () => {
+      props = makeProps('STJ');
+      props.initialCoverage = { STJ: ['2024-01-01'] };
+      props.initialEtas = {
+        STJ: {
+          missing_days: 0,
+          absent_days_count: 0,
+          completion_pct: 20,
+          eta_days: null,
+          genesis_date: '2024-01-01',
+        },
+      };
+      props.initialStartDates = { STJ: '2024-01-01' };
+    });
+
+    When('the tribunal detail page loads', () => {
+      render(TribunalDetail, props);
+    });
+
+    Then('I should see an anomaly attention card', () => {
+      expect(document.body.textContent).toContain('Destaque de anomalia');
+    });
+
+    And('I should see the anomaly impact text', () => {
+      expect(document.body.textContent).toContain('Impacto: o tempo para concluir o histórico pode aumentar.');
+      expect(document.body.textContent).toContain('Próxima ação: comparar velocidade');
+    });
+  });
+
 });

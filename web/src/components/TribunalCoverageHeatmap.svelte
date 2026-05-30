@@ -2,6 +2,14 @@
   import { onMount } from 'svelte';
   import { fade } from 'svelte/transition';
   import { getCoverageColorClass } from '../lib/colorUtils';
+  import {
+    buildCatalogAttentionCards,
+    countCoverageFilters,
+    filterCoverageDays,
+    getDayStatusLabel,
+    summarizeCatalogDay,
+    type CoverageFilter,
+  } from '../lib/coverageInsights';
   import MonthPicker from './MonthPicker.svelte';
   import { completedItemsStore } from '../lib/completedItemsStore.svelte';
 
@@ -10,6 +18,8 @@
   const _now = new Date();
   let selectedYear  = $state(_now.getUTCFullYear());
   let selectedMonth = $state(_now.getUTCMonth());
+  let coverageFilter = $state<CoverageFilter>('all');
+  let expandedDate = $state<string | null>(null);
 
   const data    = $derived(completedItemsStore.data);
   const loading = $derived(completedItemsStore.loading);
@@ -37,18 +47,35 @@
   });
 
   // Days belonging to the selected month, sorted ascending
-  let displayDates = $derived.by(() => {
+  let monthDays = $derived.by(() => {
     if (!data) return [];
     const prefix = `djen-${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-`;
     return Object.keys(data)
       .filter(k => k.startsWith(prefix))
-      .sort((a, b) => a.localeCompare(b));
+      .sort((a, b) => a.localeCompare(b))
+      .map(key => summarizeCatalogDay(key, data[key]));
   });
 
+  let filterCounts = $derived(countCoverageFilters(monthDays));
+  let displayDates = $derived(filterCoverageDays(monthDays, coverageFilter));
+  let attentionCards = $derived(buildCatalogAttentionCards(monthDays));
+
+  function setFilter(filter: CoverageFilter) {
+    coverageFilter = filter;
+    expandedDate = null;
+  }
+
+  function toggleDate(date: string) {
+    expandedDate = expandedDate === date ? null : date;
+  }
 </script>
 
 <article>
   <h3>Cobertura do Catálogo</h3>
+  <p>
+    Acompanhe falhas por dia sem depender só da cor: cada linha mostra status textual,
+    contagens e uma lista dos tribunais ausentes quando houver lacuna.
+  </p>
 
   <MonthPicker bind:selectedYear bind:selectedMonth {monthSummaries} />
 
@@ -59,44 +86,100 @@
   {:else}
     {#key `${selectedYear}-${selectedMonth}`}
       <div transition:fade={{ duration: 120 }}>
+        <section class="auto-grid" aria-label="Cartões de atenção da cobertura">
+          {#each attentionCards as card}
+            <article class="attention-card" data-tone={card.tone}>
+              <header>
+                <strong><span aria-hidden="true">{card.icon}</span> {card.title}</strong>
+                <span class="badge" data-tone={card.tone}>{card.summary}</span>
+              </header>
+              <p>{card.impact}</p>
+              <p>{card.cause}</p>
+              <p><strong>{card.action}</strong></p>
+            </article>
+          {/each}
+        </section>
+
+        <fieldset class="filter-pills" aria-label="Filtro rápido de cobertura">
+          <legend>Filtrar dias</legend>
+          <button type="button" class:contrast={coverageFilter === 'all'} onclick={() => setFilter('all')}>
+            Todos ({filterCounts.all})
+          </button>
+          <button type="button" class:contrast={coverageFilter === 'failed'} onclick={() => setFilter('failed')}>
+            ⚠ Dias com falha ({filterCounts.failed})
+          </button>
+          <button type="button" class:contrast={coverageFilter === 'complete'} onclick={() => setFilter('complete')}>
+            ✓ Dias completos ({filterCounts.complete})
+          </button>
+          <button type="button" class:contrast={coverageFilter === 'no-data'} onclick={() => setFilter('no-data')}>
+            ○ Dias sem dados ({filterCounts.noData})
+          </button>
+        </fieldset>
+
         <div class="table-wrap">
           <table class="striped">
             <thead>
               <tr>
                 <th>Data</th>
+                <th>Status</th>
                 <th>ZIPs Coletados</th>
                 <th>Ausentes</th>
                 <th>Cobertura %</th>
                 <th>Barra</th>
+                <th>Drilldown</th>
               </tr>
             </thead>
             <tbody>
-              {#each displayDates as dateKey}
-                {@const item = data![dateKey]}
-                {@const tribunalCount = item.tribunal_count || 0}
-                {@const absentCount = item.absent_count || 0}
-                {@const total = tribunalCount + absentCount}
-                {@const pct = total > 0 ? Math.min(100, (tribunalCount / total) * 100) : 0}
-                {@const displayDate = dateKey.replace('djen-', '')}
-                {@const colorClasses = getCoverageColorClass(pct)}
+              {#each displayDates as day}
+                {@const colorClasses = getCoverageColorClass(day.pct)}
                 {@const textClass = colorClasses.split(' ')[0]}
-                {@const bgClass = colorClasses.split(' ')[1]}
                 <tr>
-                  <td>{displayDate}</td>
-                  <td>{tribunalCount}</td>
-                  <td>{absentCount}</td>
-                  <td class={total === 0 ? undefined : textClass}>{pct.toFixed(1)}%</td>
+                  <td>{day.date}</td>
+                  <td><span class="badge" data-tone={day.status === 'complete' ? 'success' : day.status === 'failed' ? 'warning' : 'info'}>{getDayStatusLabel(day)}</span></td>
+                  <td>{day.collected}</td>
+                  <td>{day.absent}</td>
+                  <td class={day.total === 0 ? undefined : textClass}>{day.pct.toFixed(1)}%</td>
                   <td>
                     <progress
-                      value={Math.min(100, pct)}
+                      value={Math.min(100, day.pct)}
                       max="100"
-                      aria-label="{displayDate}: {pct.toFixed(1)}% cobertura"
+                      aria-label="{day.date}: {day.pct.toFixed(1)}% cobertura; {day.absent} tribunais ausentes"
                     ></progress>
                   </td>
+                  <td>
+                    <button
+                      type="button"
+                      class="outline secondary"
+                      disabled={day.missingTribunals.length === 0}
+                      aria-expanded={expandedDate === day.date}
+                      onclick={() => toggleDate(day.date)}
+                    >
+                      Ver ausentes ({day.missingTribunals.length})
+                    </button>
+                  </td>
                 </tr>
+                {#if expandedDate === day.date}
+                  <tr>
+                    <td colspan="7">
+                      <div class="drilldown-panel">
+                        <strong>Tribunais ausentes em {day.date}</strong>
+                        {#if day.missingTribunals.length > 0}
+                          <p>Impacto: essas siglas podem não aparecer em buscas e agregações desta data.</p>
+                          <ul class="chip-list">
+                            {#each day.missingTribunals as tribunal}
+                              <li><span class="badge" data-tone="warning">⚠ {tribunal}</span></li>
+                            {/each}
+                          </ul>
+                        {:else}
+                          <p>Nenhum tribunal ausente registrado para esta data.</p>
+                        {/if}
+                      </div>
+                    </td>
+                  </tr>
+                {/if}
               {/each}
               {#if displayDates.length === 0}
-                <tr><td colspan="5" class="empty-state">Sem dados para este mês.</td></tr>
+                <tr><td colspan="7" class="empty-state">Sem dados para este filtro neste mês.</td></tr>
               {/if}
             </tbody>
           </table>

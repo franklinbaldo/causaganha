@@ -9,6 +9,7 @@
   import DateDetail from './DateDetail.svelte';
   import DataAccessPanel from './DataAccessPanel.svelte';
   import TribunalStatsBar from './TribunalStatsBar.svelte';
+  import { buildTribunalAttentionCards } from '../lib/coverageInsights';
 
   interface HashState {
     date: string | null;
@@ -179,6 +180,17 @@
   let syncedPct = $derived(totalForBar > 0 ? (selectedCoverage.size / totalForBar) * 100 : 0);
   let completionStatusText = $derived(isComplete ? "Concluído" : "Em andamento");
 
+  let tribunalAttentionCards = $derived(buildTribunalAttentionCards({
+    tribunal: selectedTribunal,
+    missingDays: actualMissingDays,
+    absentCount,
+    expectedDays,
+    coverageSize: selectedCoverage.size,
+    completionPct,
+    velocityRegressionPct: velocityMetrics?.regressionDrop,
+    isStopped,
+  }));
+
   let hasFeaturedPub = $derived(hashState.seq != null);
 
   let iaYear = $derived(activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear());
@@ -311,6 +323,22 @@
       {actualMissingDays}
       {genesisDate}
     />
+
+    {#if tribunalAttentionCards.length > 0}
+      <section class="auto-grid" aria-label="Atenção da cobertura do tribunal">
+        {#each tribunalAttentionCards as card}
+          <article class="attention-card" data-tone={card.tone}>
+            <header>
+              <strong><span aria-hidden="true">{card.icon}</span> {card.title}</strong>
+              <span class="badge" data-tone={card.tone}>{card.summary}</span>
+            </header>
+            <p>{card.impact}</p>
+            <p>{card.cause}</p>
+            <p><strong>{card.action}</strong></p>
+          </article>
+        {/each}
+      </section>
+    {/if}
 
     <details open>
       <summary>Calendário</summary>
