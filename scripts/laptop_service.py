@@ -1,27 +1,15 @@
 
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import contextlib
-import sys
+"""Continuous embedding service for running on a laptop / personal computer.
 
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
-MIN_ITERATION_SLEEP_SECONDS = 10
-
-"""Continuous embedding service for running on laptop/personal computer.
-
-This service runs 24/7 on your laptop and continuously processes unembedded decisions.
-Designed to be simple, reliable, and resource-efficient.
-
-Features:
-- Auto-restart on errors
-- Idle sleep when no work
-- Progress logging
-- Low resource usage
-- Simple setup
+Purpose:  Run a resilient 24/7 embedding worker on personal hardware.
+Problem:  Cloud embedding capacity is limited/costly; a laptop can drain the
+          unembedded backlog cheaply if it survives errors and idles politely.
+Strategy: Continuously process unembedded decisions with auto-restart on errors,
+          idle sleep when no work, and low resource use; installable as a systemd
+          service.
+Status:   ops/personal-infra service — sibling of continuous_embedding_service and
+          embedding_job. RFC: is this actually run, and should the three embedding
+          entrypoints be consolidated?
 
 Usage:
     # Run directly
@@ -35,6 +23,18 @@ Usage:
     # Check logs
     journalctl -u causaganha-embeddings -f
 """
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
+import sys
+
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
+
+MIN_ITERATION_SLEEP_SECONDS = 10
 
 import asyncio
 import os
