@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Analyze decisions using RAG k-NN classification (83.3% accuracy, $0.09/5794)."""
+"""Analyze decisions using RAG k-NN classification (83.3% accuracy, $0.09/5794).
+
+Purpose:  Classify decision outcomes by retrieving nearest labelled neighbours
+          (RAG / k-NN) from an embedding index.
+Problem:  Pure-LLM classification is costly; nearest-neighbour over a labelled index
+          reaches competitive accuracy at a fraction of the cost.
+Strategy: Chunk + embed each decision, query the LanceDB ground-truth index (built
+          by index_ground_truth), and vote over retrieved neighbours.
+Status:   experiment/analysis — the headline-best approach in the R&D track, but not
+          wired into production. RFC: promote this to the canonical classifier?
+"""
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib

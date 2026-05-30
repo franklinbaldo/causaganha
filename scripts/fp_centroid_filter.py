@@ -1,5 +1,14 @@
 """Embedding-based false positive filter for silver span labels.
 
+Purpose:  Reject false-positive span labels using embedding similarity to known FPs.
+Problem:  Rule-based span labelling accrues ever-growing negative lookaheads to
+          suppress recurring false positives — brittle and unmaintainable.
+Strategy: Precompute a centroid per label from confirmed-FP context windows; reject
+          candidate spans whose context embedding is too close to that centroid.
+Status:   research/heuristic — used by prepare_privacy_filter_dataset (segmenter
+          dataset track).
+
+
 For each label a centroid is precomputed from confirmed-FP context windows.
 During dataset preparation, candidate spans are rejected when their context
 embedding has cosine similarity > threshold to the label's FP centroid.

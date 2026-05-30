@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Classify decisions using pre-computed batch embeddings + k-NN (zero added cost).
+
+Purpose:  Predict outcomes by k-NN over embeddings already produced by the Batch
+          API run — no new embedding spend.
+Problem:  Re-embedding just to classify is wasteful when batch embeddings exist.
+Strategy: Load precomputed vectors, query the LanceDB ground-truth index, and vote
+          over nearest neighbours by cosine similarity.
+Status:   research/experiment — pairs with batch_embed_decisions + index_ground_truth
+          (experiments/ track). RFC: overlaps with analyze_with_rag — which is the
+          keeper?
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
@@ -13,8 +24,6 @@ for stream in (sys.stdout, sys.stderr):
 
 LOW_CONFIDENCE_THRESHOLD = 0.60
 HIGH_CONFIDENCE_THRESHOLD = 0.80
-
-"""Classify decisions using pre-computed batch embeddings + k-NN (zero additional cost)."""
 
 import json
 from collections import Counter

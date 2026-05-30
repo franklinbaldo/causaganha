@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Train ML models to predict document types and procedural classes from embeddings."""
+"""Train ML models to predict document types and procedural classes from embeddings.
+
+Purpose:  Train doc-type and procedural-class classifiers (MLDocumentEnsemble) on
+          embedded corpus text.
+Problem:  Rule-based document classification has gaps; a learned model over
+          embeddings should generalise better.
+Strategy: Read the parquet labels produced by classify_documents, embed texts with
+          LocalEmbedder, fit the ensemble, and persist models to disk.
+Status:   research/training — depends on classify_documents output; not in any
+          production workflow. RFC: is this model consumed anywhere downstream yet?
+"""
 
 import sys
 from pathlib import Path

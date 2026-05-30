@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Train ML models (MLEnsemble and AnchorClassifier) using consolidated parquet data."""
+"""Train ML models (MLEnsemble and AnchorClassifier) using consolidated parquet data.
+
+Purpose:  Train the outcome classifiers (EmbeddingEnsemble + AnchorClassifier) from
+          consolidated parquet decisions.
+Problem:  Outcome prediction needs a learned model over the labelled corpus, with
+          parquet labels mapped to canonical Portuguese outcomes.
+Strategy: Load parquet, map WIN/LOSS/PARTIAL/SETTLEMENT → canonical outcomes, embed
+          with LocalEmbedder, and fit the ensemble.
+Status:   research/training in the outcome-classification R&D track. RFC: still the
+          active training entrypoint, or superseded by the RAG/heuristic path?
+"""
 
 import argparse
 import sys

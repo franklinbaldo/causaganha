@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """Embedding generation job for high-throughput 24/7 processing or daily digest.
 
+Purpose:  Generate embeddings for decisions that don't have them yet.
+Problem:  Embedding the corpus needs both a steady daily trickle and bulk catch-up
+          runs, under time/concurrency limits.
+Strategy: Two modes — 'daily' (last N days) and 'continuous' (as many as fit in a
+          time budget) — with tunable concurrency.
+Status:   ops/embedding worker — standalone (no workflow reference found). RFC:
+          meant to be scheduled? Overlaps with continuous_embedding_service —
+          pick one.
+
+
 This script processes decisions that need embeddings. It can run in two modes:
 - 'daily': Processes decisions from the last N days (for daily digest).
 - 'continuous': Processes as many unembedded decisions as possible within a time limit.

@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Build gold-standard ground truth benchmark using LLM validation."""
+"""Build gold-standard ground truth benchmark using LLM validation.
+
+Purpose:  Construct the gold benchmark dataset used to evaluate all classifiers.
+Problem:  Without trusted labels we can't measure classifier quality, and manual
+          labelling at scale is infeasible.
+Strategy: Sample decisions, take keyword-heuristic priors, then validate/label with
+          the LLM in batches (~20x throughput vs single calls), with a deterministic
+          mock fallback for offline runs.
+Status:   research/data-build — produces the benchmark consumed by
+          evaluate_heuristics and daily_benchmark_update.
+"""
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib

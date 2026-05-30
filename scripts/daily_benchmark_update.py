@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Daily incremental ground truth benchmark updater."""
+"""Daily incremental ground truth benchmark updater.
+
+Purpose:  Incrementally extend the gold benchmark with newly arrived decisions.
+Problem:  The benchmark goes stale as new decisions land; rebuilding from scratch
+          is wasteful.
+Strategy: Label only new decisions (LLM, with keyword prior + mock fallback) and
+          append to the existing benchmark built by build_gold_benchmark.
+Status:   ops/research — named 'daily' but no scheduling workflow was found. RFC:
+          should this run on a cron/GitHub Actions schedule, or stay manual?
+"""
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib

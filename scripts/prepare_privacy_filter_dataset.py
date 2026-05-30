@@ -1,6 +1,18 @@
 #!/usr/bin/env python3
 """Prepare span-extraction dataset for training a judicial decision segmenter.
 
+Purpose:  Produce a labelled token-classification dataset to train a decision
+          segmenter / privacy filter.
+Problem:  Training a segmenter needs span labels (sections, parties, PII, legal
+          refs); hand-labelling is infeasible and pure regex misses many.
+Strategy: Apply heuristic segmentation (regex + patterns, OAB-adjacency for lawyer
+          names) to label spans, emitting a format compatible with both the
+          openai/privacy-filter CLI and HuggingFace Trainer.
+Status:   research/dataset-prep — feeds notebooks/train_decision_segmenter.py. RFC:
+          which labels still need an LLM/NER pass before this is trustworthy (see
+          coverage table below)?
+
+
 Reads textos.parquet from data/test_parquets, applies heuristic segmentation to
 label each decision with structural spans, named entities, and legal references.
 

@@ -1,5 +1,16 @@
 #!/usr/bin/env python3
-"""Process decisions using Google Batch API for embeddings (50% cost reduction)."""
+"""Process decisions using Google Batch API for embeddings (50% cost reduction).
+
+Purpose:  Embed many decisions cheaply via Google's asynchronous Batch API.
+Problem:  Synchronous embedding calls are expensive at corpus scale; we want the
+          ~50% batch discount for bulk backfills.
+Strategy: Chunk decision text with an instruction prefix, submit as a Batch job,
+          and persist the vectors (consumed by classify_from_batch_embeddings).
+Status:   research / experiment — part of the embeddings R&D track (experiments/),
+          not wired into a production workflow. RFC: is the Batch path still the
+          chosen embedding strategy vs the JINA continuous pipeline? Promote out of
+          scripts/ if yes; archive if no.
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows

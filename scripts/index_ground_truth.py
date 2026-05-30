@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Indexar ground truth no LanceDB com chunks prefixados."""
+"""Index ground-truth decisions into LanceDB with instruction-prefixed chunks.
+
+Purpose:  Build the LanceDB vector index of labelled decisions that the RAG/k-NN
+          classifiers retrieve from.
+Problem:  RAG classification needs a searchable embedding index of known-label
+          decisions, chunked consistently with query time.
+Strategy: Chunk each ground-truth decision with the same instruction prefix used at
+          query time, embed, and store in LanceDB.
+Status:   research/setup — prerequisite for analyze_with_rag and
+          classify_from_batch_embeddings (experiments/ track).
+"""
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
