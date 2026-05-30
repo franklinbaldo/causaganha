@@ -25,12 +25,12 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   <header class="hero" aria-labelledby="hero-title">
     <div class="hero__inner">
       <div class="hero__tiles" aria-hidden="true" id="hero-tiles"></div>
-      <span class="kicker">§ Busca pública · sem cadastro · sem rate-limit</span>
+      <span class="kicker">§ Busca pública · sem cadastro · cota DJEN transparente</span>
       <h1 class="mega" id="hero-title">Procure<br/>no <em>DJEN.</em></h1>
       <p class="hero__lede">
         {fmt(totalZips)} documentos preservados desde 2018, vindos de {totalTribunals} tribunais brasileiros.
         Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte —
-        ou pesquise por palavra-chave.
+        ou pesquise por palavra-chave. A consulta online respeita a cota pública da API DJEN; quando ela limitar requisições, você ainda pode recorrer ao arquivo histórico preservado.
       </p>
       <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search">
         <fieldset role="group">

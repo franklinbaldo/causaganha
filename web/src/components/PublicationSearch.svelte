@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte';
+  import { onMount } from 'svelte';
   import { createQuery, setQueryClientContext } from '@tanstack/svelte-query';
   import {
     searchDjenComunicacoes,
@@ -45,8 +45,9 @@
   let pendingPublicationTarget = $state<PublicationHashTarget | null>(null);
   let searchInputRef = $state<HTMLInputElement | null>(null);
 
-  // The query that was actually submitted (debounced or immediate on submit)
+  // The query that was actually submitted by Enter or the explicit Buscar button.
   let submittedQuery = $state<DjenComunicacaoQuery | null>(null);
+  let preparedInput = $state('');
 
   let cooldownUntil = $state<number | null>(null);
   let cooldownRemaining = $state(0);
@@ -111,7 +112,7 @@
     return chips;
   });
 
-  const smart = $derived(smartParseInput(rawInput));
+  const smart = $derived(smartParseInput(preparedInput));
   const effectiveQuery = $derived<DjenComunicacaoQuery>({ ...filters, ...smart.patch });
   const criteriaFilters = $derived({
     siglaTribunal: filters.siglaTribunal,
@@ -135,17 +136,8 @@
     'numeroProcesso',
   ] as const;
 
-  const hasIdentity = $derived(
-    identityKeys.some((k) => {
-      const v = effectiveQuery[k];
-      return typeof v === 'string' && v.trim().length > 0;
-    }) ||
-      (typeof effectiveQuery.itensPorPagina === 'number' &&
-        effectiveQuery.itensPorPagina > 0 &&
-        effectiveQuery.itensPorPagina <= 5),
-  );
-
   const resultsHeadingId = 'publication-search-results';
+  const historicalArchiveHref = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}dados`;
 
   function parsePublicationHash(hash: string): PublicationHashTarget | null {
     const value = hash.replace(/^#/, '');
@@ -183,7 +175,7 @@
   const searchQuery = createQuery(() => ({
     queryKey: QUERY_KEYS.djenSearch(submittedQuery as Record<string, unknown>),
     queryFn: ({ signal }) => searchDjenComunicacoes(submittedQuery!, { signal }),
-    enabled: submittedQuery !== null && hasIdentity && cooldownRemaining === 0,
+    enabled: submittedQuery !== null && queryHasIdentity(submittedQuery) && cooldownRemaining === 0,
     staleTime: 60_000,
     retry: (failureCount, error) => {
       if (error instanceof DjenRateLimitError) return false;
@@ -222,8 +214,13 @@
     return (err as Error).message || 'Erro desconhecido';
   });
 
-  const canSubmit = $derived(
-    status !== 'loading' && hasIdentity && cooldownRemaining === 0,
+  const hasPendingInput = $derived(
+    rawInput.trim().length >= 3 ||
+      hasAnyQueryValue({
+        ...filters,
+        itensPorPagina: undefined,
+        pagina: undefined,
+      }),
   );
 
   $effect(() => {
@@ -248,6 +245,21 @@
     }
   });
 
+  const canSubmit = $derived(
+    status !== 'loading' && hasPendingInput && cooldownRemaining === 0,
+  );
+
+  const preparedSummary = $derived.by(() => buildCriteriaSummary(effectiveQuery));
+  const submittedSummary = $derived.by(() =>
+    submittedQuery ? buildCriteriaSummary(submittedQuery) : null,
+  );
+  const hasPreparedCriteria = $derived(preparedSummary.some((item) => item.value !== '—' && item.value !== 'Todos'));
+  const isPreparedDifferent = $derived.by(() => {
+    if (!submittedQuery) return hasPreparedCriteria;
+    return JSON.stringify({ ...effectiveQuery, pagina: undefined }) !==
+      JSON.stringify({ ...submittedQuery, pagina: undefined });
+  });
+
   // Watch for rate-limit errors and start the cooldown timer
   $effect(() => {
     const err = searchQuery.error;
@@ -266,7 +278,7 @@
   });
 
   let cooldownInterval: ReturnType<typeof setInterval> | null = null;
-  let debounceId: ReturnType<typeof setTimeout> | null = null;
+  let validationDebounceId: ReturnType<typeof setTimeout> | null = null;
 
   function startCooldownTick() {
     stopCooldownTick();
@@ -295,13 +307,24 @@
     return () => stopCooldownTick();
   });
 
+  function queryHasIdentity(query: DjenComunicacaoQuery): boolean {
+    return identityKeys.some((k) => {
+      const v = query[k];
+      return typeof v === 'string' && v.trim().length > 0;
+    }) ||
+      (typeof query.itensPorPagina === 'number' &&
+        query.itensPorPagina > 0 &&
+        query.itensPorPagina <= 5);
+  }
+
   function submitSearch({
     page,
     resetPage = false,
-  }: { page?: number; resetPage?: boolean } = {}) {
-    if (cooldownRemaining > 0 || !hasIdentity) return;
-    const nextPage = page ?? (resetPage ? 1 : (effectiveQuery.pagina ?? 1));
-    const nextQuery = { ...effectiveQuery, pagina: nextPage };
+    query = effectiveQuery,
+  }: { page?: number; resetPage?: boolean; query?: DjenComunicacaoQuery } = {}) {
+    if (cooldownRemaining > 0 || !queryHasIdentity(query)) return;
+    const nextPage = page ?? (resetPage ? 1 : (query.pagina ?? 1));
+    const nextQuery = { ...query, pagina: nextPage };
 
     if (resetPage && filters.pagina !== nextPage) {
       filters = { ...filters, pagina: nextPage };
@@ -312,11 +335,15 @@
   }
 
   function handleSubmit() {
-    if (debounceId) {
-      clearTimeout(debounceId);
-      debounceId = null;
+    if (validationDebounceId) {
+      clearTimeout(validationDebounceId);
+      validationDebounceId = null;
     }
-    submitSearch({ resetPage: true });
+    preparedInput = rawInput;
+    submitSearch({
+      resetPage: true,
+      query: { ...filters, ...smartParseInput(rawInput).patch },
+    });
   }
 
   function handlePageChange(delta: number) {
@@ -351,30 +378,56 @@
     filters = { ...filters, ...patch };
   }
 
-  // Debounced reactive trigger for criteria changes. Pagination changes are handled separately.
+  function formatDate(value?: string): string {
+    if (!value) return '';
+    const [year, month, day] = value.split('-');
+    if (year && month && day) return `${day}/${month}/${year}`;
+    return value;
+  }
+
+  function buildCriteriaSummary(query: DjenComunicacaoQuery) {
+    const periodStart = formatDate(query.dataDisponibilizacaoInicio);
+    const periodEnd = formatDate(query.dataDisponibilizacaoFim);
+    const period = periodStart && periodEnd
+      ? `${periodStart} a ${periodEnd}`
+      : periodStart
+        ? `a partir de ${periodStart}`
+        : periodEnd
+          ? `até ${periodEnd}`
+          : '—';
+
+    const oab = query.numeroOab
+      ? [query.ufOab ? `OAB/${query.ufOab}` : 'OAB', query.numeroOab].join(' ')
+      : '—';
+
+    const textParts = [query.texto, query.nomeParte, query.nomeAdvogado]
+      .filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      .map((value) => value.trim());
+
+    return [
+      { label: 'Tribunal', value: query.siglaTribunal || 'Todos' },
+      { label: 'Período', value: period },
+      { label: 'OAB', value: oab },
+      { label: 'Processo', value: query.numeroProcesso || '—' },
+      { label: 'Texto / pessoa', value: textParts.length ? textParts.join(' · ') : '—' },
+    ];
+  }
+
+  // Debounce only the local preparation layer: validation, hints and smart parsing.
+  // Network requests are fired exclusively by Enter, the Buscar button or pagination.
   $effect(() => {
     const _input = rawInput;
     const _criteriaFilters = criteriaFilters;
     void _input;
     void _criteriaFilters;
 
-    if (debounceId) clearTimeout(debounceId);
-    debounceId = setTimeout(() => {
-      untrack(() => {
-        const trimmed = rawInput.trim();
-        const hasFilterValues = hasAnyQueryValue({
-          ...filters,
-          itensPorPagina: undefined,
-          pagina: undefined,
-        });
-        if (trimmed.length >= 3 || hasFilterValues) {
-          submitSearch({ resetPage: true });
-        }
-      });
-    }, 400);
+    if (validationDebounceId) clearTimeout(validationDebounceId);
+    validationDebounceId = setTimeout(() => {
+      preparedInput = rawInput;
+    }, 300);
 
     return () => {
-      if (debounceId) clearTimeout(debounceId);
+      if (validationDebounceId) clearTimeout(validationDebounceId);
     };
   });
 
@@ -419,14 +472,24 @@
     } else if (hydrated.numeroProcesso) {
       rawInput = hydrated.numeroProcesso;
     }
-    // debounced effect will fire the search
+    preparedInput = rawInput;
+    submitSearch({ resetPage: false });
   });
 </script>
 
 <section class="publication-search" aria-labelledby="publication-search-heading">
   <h2 id="publication-search-heading" class="sr-only">Busca de publicações</h2>
 
-  <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} bind:inputRef={searchInputRef} />
+  <SmartSearchInput
+    bind:value={rawInput}
+    hint={smart.label}
+    kind={smart.kind}
+    onsubmit={handleSubmit}
+    bind:inputRef={searchInputRef}
+    disabled={!canSubmit}
+    busy={status === 'loading'}
+    submitLabel={status === 'loading' ? 'Buscando…' : cooldownRemaining > 0 ? `Aguarde ${cooldownRemaining}s` : 'Buscar'}
+  />
 
   <section aria-label="Filtros ativos">
     <strong>Filtros ativos</strong>
@@ -471,23 +534,36 @@
     >
       {showFilters ? 'Ocultar filtros' : 'Filtros avançados'}
     </button>
-    <button
-      type="button"
-      disabled={!canSubmit}
-      aria-busy={status === 'loading'}
-      onclick={handleSubmit}
-    >
-      {#if status === 'loading'}
-        <span aria-busy="true" aria-hidden="true"></span>
-        Buscando…
-      {:else if cooldownRemaining > 0}
-        Aguarde {cooldownRemaining}s
-      {:else}
-        Buscar
-      {/if}
-    </button>
     <RateLimitBadge limit={rateLimit.limit} remaining={rateLimit.remaining} {usedFallback} />
   </div>
+
+
+
+  <section class="criteria-summary" aria-labelledby="criteria-summary-heading">
+    <div>
+      <strong id="criteria-summary-heading">Critério preparado</strong>
+      <p class="meta-text" data-tone="muted">
+        {#if hasPreparedCriteria}
+          Confira o que será enviado ao DJEN. A API só será chamada ao pressionar Enter ou Buscar.
+        {:else}
+          Digite uma OAB, processo CNJ, nome ou texto para preparar a busca antes de enviar.
+        {/if}
+      </p>
+    </div>
+    <dl>
+      {#each preparedSummary as item}
+        <div>
+          <dt>{item.label}</dt>
+          <dd>{item.value}</dd>
+        </div>
+      {/each}
+    </dl>
+    {#if submittedSummary && !isPreparedDifferent}
+      <small data-tone="muted">Este é o mesmo critério da última busca executada.</small>
+    {:else if hasPreparedCriteria}
+      <small data-tone="warning">Critério preparado, mas ainda não enviado.</small>
+    {/if}
+  </section>
 
   {#if showFilters}
     <div id="search-filters-panel" class="publication-search__filter-panel">
@@ -506,7 +582,9 @@
     {:else if status === 'ratelimited'}
       <div class="alert" data-level="warning">
         <strong>Limite de requisições atingido.</strong>
-        <p>A API do DJEN controla a taxa por IP. Tente novamente em <b>{cooldownRemaining}s</b>.</p>
+        <p>Origem: API DJEN online. A cota é controlada por IP pelo DJEN; tente novamente em <b>{cooldownRemaining}s</b>.</p>
+        <p>Alternativa: use o arquivo histórico preservado no Internet Archive, que não consome a cota da busca online.</p>
+        <a href={historicalArchiveHref} class="secondary outline" role="button">Usar arquivo histórico</a>
       </div>
     {:else if status === 'error'}
       <div class="alert" data-level="error">
@@ -560,7 +638,38 @@
         {/each}
       </ul>
     {:else}
-      <p class="meta-text" data-tone="muted">Comece digitando um número de OAB, um processo CNJ ou um termo livre para buscar ao vivo no DJEN.</p>
+      <p class="meta-text" data-tone="muted">Comece digitando um número de OAB, um processo CNJ ou um termo livre. A busca só será enviada ao DJEN quando você pressionar Enter ou Buscar.</p>
     {/if}
   </div>
 </section>
+
+
+<style>
+  .criteria-summary {
+    margin-block: 1rem;
+    padding: 1rem;
+    border: 1px solid var(--border, var(--concreto-90, #d8d8d8));
+    border-radius: var(--radius, 0.75rem);
+    background: var(--papel-20, rgba(0, 0, 0, 0.02));
+  }
+
+  .criteria-summary dl {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+
+  .criteria-summary dt {
+    font-size: 0.75rem;
+    color: var(--fg-muted, var(--color-content-tertiary));
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .criteria-summary dd {
+    margin: 0;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+  }
+</style>
