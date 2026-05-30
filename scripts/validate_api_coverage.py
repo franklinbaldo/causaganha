@@ -28,7 +28,7 @@ import structlog
 # Ensure src is in pythonpath
 sys.path.append(str(Path(__file__).parent.parent / "src"))
 
-from causaganha.integrations.pje.client import PJeAPIClient
+from causaganha.clients.pje import PJeAPIClient
 
 
 logger = structlog.get_logger()
