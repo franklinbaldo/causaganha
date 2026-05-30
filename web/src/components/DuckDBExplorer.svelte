@@ -3,58 +3,152 @@
   import { getDuckDB } from '../lib/duckdbSingleton';
 
   const IA_BASE = 'https://archive.org/download';
+  const CURRENT_YEAR = new Date().getUTCFullYear();
+  const DEFAULT_YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].filter((year) => year >= 2020);
 
-  // Per-(tribunal, year) IA items hold the consolidated parquets.
-  // Pick any tribunal/year — TJRO 2026 used here as a demo.
-  const ITEM = 'djen-tjro-2026';
-
-  const QUERY_TEMPLATES = [
+  const TABLES = [
     {
-      label: 'Comunicações por órgão (TJRO 2026)',
-      sql: `SELECT nome_orgao, COUNT(*) as total
-FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')
+      key: 'comunicacoes',
+      file: 'comunicacoes.parquet',
+      label: 'comunicações',
+      description: 'Intimações e comunicações judiciais publicadas no DJEN.',
+    },
+    {
+      key: 'advogados',
+      file: 'advogados.parquet',
+      label: 'advogados',
+      description: 'Advogados identificados nas comunicações, com OAB e UF quando disponíveis.',
+    },
+    {
+      key: 'vinculos',
+      file: 'comunicacao_advogados.parquet',
+      label: 'vínculos',
+      description: 'Relações entre comunicações, advogados, partes e representações.',
+    },
+    {
+      key: 'classificacoes',
+      file: 'classificacoes.parquet',
+      label: 'classificações',
+      description: 'Classificações de resultado e tipo de decisão geradas pelo pipeline.',
+    },
+  ];
+
+  const TEMPLATE_DEFINITIONS = [
+    {
+      label: 'Comunicações por órgão',
+      description: 'Conta as comunicações por órgão julgador no dataset selecionado.',
+      sql: (path) => `SELECT nome_orgao, COUNT(*) as total
+FROM read_parquet('${path('comunicacoes.parquet')}')
 GROUP BY nome_orgao
 ORDER BY total DESC
 LIMIT 20`,
     },
     {
-      label: 'Advogados mais ativos (TJRO 2026)',
-      sql: `SELECT nome, numero_oab, uf_oab, COUNT(*) as comunicacoes
-FROM read_parquet('${IA_BASE}/${ITEM}/advogados.parquet') a
-JOIN read_parquet('${IA_BASE}/${ITEM}/comunicacao_advogados.parquet') ca
+      label: 'Advogados mais ativos',
+      description: 'Cruza advogados com vínculos de comunicação para ranquear por volume.',
+      sql: (path) => `SELECT nome, numero_oab, uf_oab, COUNT(*) as comunicacoes
+FROM read_parquet('${path('advogados.parquet')}') a
+JOIN read_parquet('${path('comunicacao_advogados.parquet')}') ca
   ON a.id = ca.advogado_id
 GROUP BY nome, numero_oab, uf_oab
 ORDER BY comunicacoes DESC
 LIMIT 20`,
     },
     {
-      label: 'Classificações de resultado (keyword_v1)',
-      sql: `SELECT outcome, decision_type, COUNT(*) as total, ROUND(AVG(confidence), 2) as avg_confidence
-FROM read_parquet('${IA_BASE}/${ITEM}/classificacoes.parquet')
+      label: 'Classificações de resultado',
+      description: 'Agrupa resultados classificados e exibe confiança média.',
+      sql: (path) => `SELECT outcome, decision_type, COUNT(*) as total, ROUND(AVG(confidence), 2) as avg_confidence
+FROM read_parquet('${path('classificacoes.parquet')}')
 GROUP BY outcome, decision_type
 ORDER BY total DESC`,
     },
     {
-      label: 'Processos distintos (TJRO 2026)',
-      sql: `SELECT COUNT(DISTINCT numero_processo) as processos
-FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
+      label: 'Processos distintos',
+      description: 'Conta processos únicos nas comunicações.',
+      sql: (path) => `SELECT COUNT(DISTINCT numero_processo) as processos
+FROM read_parquet('${path('comunicacoes.parquet')}')`,
     },
     {
-      label: 'Schema das tabelas',
-      sql: `DESCRIBE SELECT * FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet') LIMIT 0`,
+      label: 'Schema de comunicações',
+      description: 'Inspeciona as colunas de comunicações sem carregar linhas.',
+      sql: (path) => `DESCRIBE SELECT * FROM read_parquet('${path('comunicacoes.parquet')}') LIMIT 0`,
     },
   ];
 
-  let sql = $state(QUERY_TEMPLATES[0].sql);
+  let { publicBase = '/' } = $props();
+
+  let sql = $state('');
   let result = $state(null);
   let error = $state(null);
   let loading = $state(false);
   let dbStatus = $state('loading');
+  let selectedTribunal = $state('');
+  let selectedYear = $state('');
+  let startDates = $state({});
+  let metadataError = $state(null);
+  let datasetStatus = $state('idle');
+  let datasetError = $state(null);
+  let datasetFiles = $state([]);
 
   let db = null;
   let conn = null;
   let textareaEl;
   let cancelled = false;
+  const datasetCache = new Map();
+
+  const normalizedBase = $derived(publicBase.replace(/\/?$/, '/'));
+  const tribunals = $derived(Object.keys(startDates).sort((a, b) => a.localeCompare(b, 'pt-BR')));
+  const hasDatasetSelection = $derived(Boolean(selectedTribunal && selectedYear));
+  const itemId = $derived(hasDatasetSelection ? `djen-${selectedTribunal.toLowerCase()}-${selectedYear}` : '');
+  const datasetBaseUrl = $derived(itemId ? `${IA_BASE}/${itemId}` : '');
+  const yearOptions = $derived(getYearOptions(selectedTribunal));
+  const availableFileNames = $derived(new Set(datasetFiles.map((file) => file.name)));
+  const tableList = $derived(TABLES.map((table) => ({
+    ...table,
+    available: datasetStatus === 'ready' ? availableFileNames.has(table.file) : null,
+  })));
+  const queryTemplates = $derived(hasDatasetSelection ? buildTemplates() : []);
+  const suggestedTribunals = $derived(tribunals.slice(0, 8).join(', '));
+  const suggestedYears = $derived(selectedTribunal ? getYearOptions(selectedTribunal).join(', ') : DEFAULT_YEARS.join(', '));
+
+  function getYearOptions(tribunal) {
+    const startDate = startDates[tribunal];
+    if (!startDate) return DEFAULT_YEARS;
+
+    const startYear = Number(String(startDate).slice(0, 4));
+    if (!Number.isFinite(startYear)) return DEFAULT_YEARS;
+
+    const years = [];
+    for (let year = CURRENT_YEAR; year >= startYear; year -= 1) {
+      years.push(year);
+    }
+    return years;
+  }
+
+  function parquetPath(fileName) {
+    return `${datasetBaseUrl}/${fileName}`;
+  }
+
+  function buildTemplates() {
+    return TEMPLATE_DEFINITIONS.map((template) => ({
+      ...template,
+      sql: template.sql(parquetPath),
+    }));
+  }
+
+  function applyTemplate(template) {
+    sql = template.sql;
+    result = null;
+    error = null;
+  }
+
+  function describeMissingDataset() {
+    const tribunalPart = selectedTribunal
+      ? `Para ${selectedTribunal}, tente um destes anos: ${suggestedYears}.`
+      : `Tribunais sugeridos: ${suggestedTribunals}.`;
+
+    return `Dataset ${itemId || '(sem seleção)'} não encontrado no Internet Archive. ${tribunalPart} Também é possível trocar o tribunal no seletor acima.`;
+  }
 
   async function init() {
     dbStatus = 'loading';
@@ -75,13 +169,96 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     }
   }
 
+  async function loadStartDates() {
+    try {
+      const response = await fetch(`${normalizedBase}tribunal_start_dates.json`);
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      startDates = await response.json();
+    } catch (err) {
+      metadataError = err instanceof Error ? err.message : String(err);
+      startDates = { TJRO: '2024-01-01', STJ: '2024-11-21', TST: '2024-06-11' };
+    }
+  }
+
   onMount(() => {
     init();
+    loadStartDates();
     return () => { cancelled = true; };
+  });
+
+  $effect(() => {
+    if (selectedTribunal && selectedYear && !yearOptions.includes(Number(selectedYear))) {
+      selectedYear = '';
+      sql = '';
+    }
+  });
+
+  $effect(() => {
+    if (!hasDatasetSelection) {
+      datasetStatus = 'idle';
+      datasetError = null;
+      datasetFiles = [];
+      return;
+    }
+
+    let active = true;
+
+    async function validateDataset() {
+      datasetStatus = 'checking';
+      datasetError = null;
+      datasetFiles = [];
+
+      if (datasetCache.has(itemId)) {
+        const cached = datasetCache.get(itemId);
+        if (!active) return;
+        datasetStatus = cached.status;
+        datasetFiles = cached.files;
+        datasetError = cached.error;
+        return;
+      }
+
+      try {
+        const response = await fetch(`https://archive.org/metadata/${itemId}/files`);
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const data = await response.json();
+        const files = (data?.result || data || [])
+          .filter((file) => file?.name?.endsWith('.parquet'))
+          .map((file) => ({ name: file.name, size: Number(file.size) || 0 }));
+
+        if (files.length === 0) throw new Error('Nenhum arquivo Parquet encontrado');
+
+        const value = { status: 'ready', files, error: null };
+        datasetCache.set(itemId, value);
+        if (!active) return;
+        datasetStatus = value.status;
+        datasetFiles = value.files;
+        datasetError = value.error;
+      } catch (err) {
+        const value = { status: 'missing', files: [], error: describeMissingDataset() };
+        datasetCache.set(itemId, value);
+        if (!active) return;
+        datasetStatus = value.status;
+        datasetFiles = value.files;
+        datasetError = value.error;
+      }
+    }
+
+    validateDataset();
+    return () => { active = false; };
   });
 
   async function runQuery() {
     if (!conn || !sql.trim()) return;
+
+    if (!hasDatasetSelection) {
+      error = 'Escolha um tribunal e ano para começar.';
+      return;
+    }
+
+    if (datasetStatus === 'missing') {
+      error = datasetError ?? describeMissingDataset();
+      return;
+    }
 
     loading = true;
     error = null;
@@ -106,7 +283,10 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
         duration,
       };
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      const message = err instanceof Error ? err.message : String(err);
+      error = message.includes(itemId) || message.includes('HTTP')
+        ? `${message}\n\n${describeMissingDataset()}`
+        : message;
     } finally {
       loading = false;
     }
@@ -135,7 +315,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'causaganha-query.csv';
+    a.download = `causaganha-${itemId || 'query'}.csv`;
     a.click();
     URL.revokeObjectURL(url);
   }
@@ -166,34 +346,109 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     {/if}
   </div>
 
-  <!-- Starter cards -->
-  <div class="auto-grid" aria-label="Consultas de exemplo">
-    {#each QUERY_TEMPLATES.slice(0, 3) as tmpl}
-      <button
-        class="outline"
-        onclick={() => { sql = tmpl.sql; result = null; error = null; }}
-        disabled={dbStatus !== 'ready'}
-      >
-        <strong>{tmpl.label}</strong>
-        <small aria-hidden="true">Clique para carregar →</small>
-      </button>
-    {/each}
-  </div>
-  <!-- Additional templates -->
-  <details>
-    <summary>Ver mais consultas de exemplo</summary>
-    <div>
-      {#each QUERY_TEMPLATES.slice(3) as tmpl}
+  <!-- Dataset selectors -->
+  <section aria-labelledby="dataset-selector-title">
+    <h3 id="dataset-selector-title">Escolha o dataset</h3>
+    <div class="grid">
+      <label>
+        Tribunal
+        <select bind:value={selectedTribunal} disabled={tribunals.length === 0} aria-label="Tribunal">
+          <option value="">Selecione um tribunal</option>
+          {#each tribunals as tribunal}
+            <option value={tribunal}>{tribunal}</option>
+          {/each}
+        </select>
+      </label>
+      <label>
+        Ano
+        <select bind:value={selectedYear} disabled={!selectedTribunal} aria-label="Ano">
+          <option value="">Selecione um ano</option>
+          {#each yearOptions as year}
+            <option value={String(year)}>{year}</option>
+          {/each}
+        </select>
+      </label>
+    </div>
+    {#if metadataError}
+      <small data-tone="muted">
+        Não foi possível carregar todos os metadados de início ({metadataError}); exibindo opções mínimas.
+      </small>
+    {/if}
+    {#if hasDatasetSelection}
+      <small class="meta-text">
+        Dataset selecionado: <code>{itemId}</code> · caminhos gerados em <code>{datasetBaseUrl}/&lt;tabela&gt;.parquet</code>
+      </small>
+    {/if}
+  </section>
+
+  {#if !hasDatasetSelection}
+    <article>
+      <h3>Escolha um tribunal e ano para começar</h3>
+      <p>
+        Depois da seleção, o explorador gera automaticamente os caminhos
+        <code>read_parquet(...)</code>, habilita templates parametrizados e valida se o item existe no Internet Archive.
+      </p>
+    </article>
+  {:else}
+    {#if datasetStatus === 'checking'}
+      <p aria-busy="true">Verificando dataset no Internet Archive...</p>
+    {/if}
+    {#if datasetStatus === 'missing'}
+      <article role="alert" data-tone="error">
+        <p>{datasetError}</p>
+      </article>
+    {/if}
+
+    <!-- Available tables -->
+    <section aria-labelledby="available-tables-title">
+      <h3 id="available-tables-title">Tabelas disponíveis</h3>
+      <div class="auto-grid">
+        {#each tableList as table}
+          <article>
+            <strong>{table.label}</strong>
+            <p>{table.description}</p>
+            <small>
+              <code>{table.file}</code>
+              {#if table.available === true}
+                · disponível
+              {:else if table.available === false}
+                · não encontrado neste dataset
+              {/if}
+            </small>
+          </article>
+        {/each}
+      </div>
+    </section>
+
+    <!-- Starter cards -->
+    <div class="auto-grid" aria-label="Consultas de exemplo">
+      {#each queryTemplates.slice(0, 3) as tmpl}
         <button
-          class="secondary"
-          onclick={() => { sql = tmpl.sql; result = null; error = null; }}
-          disabled={dbStatus !== 'ready'}
+          class="outline"
+          onclick={() => applyTemplate(tmpl)}
+          disabled={dbStatus !== 'ready' || datasetStatus !== 'ready'}
         >
-          {tmpl.label}
+          <strong>{tmpl.label}</strong>
+          <small>{tmpl.description}</small>
         </button>
       {/each}
     </div>
-  </details>
+    <!-- Additional templates -->
+    <details>
+      <summary>Ver mais consultas de exemplo</summary>
+      <div>
+        {#each queryTemplates.slice(3) as tmpl}
+          <button
+            class="secondary"
+            onclick={() => applyTemplate(tmpl)}
+            disabled={dbStatus !== 'ready' || datasetStatus !== 'ready'}
+          >
+            {tmpl.label}
+          </button>
+        {/each}
+      </div>
+    </details>
+  {/if}
 
   <!-- SQL editor -->
   <textarea
@@ -201,8 +456,8 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
     bind:value={sql}
     onkeydown={handleKeyDown}
     rows="10"
-    placeholder="SELECT * FROM read_parquet('https://archive.org/download/djen-tjro-2026/comunicacoes.parquet') LIMIT 10"
-    disabled={dbStatus !== 'ready'}
+    placeholder={hasDatasetSelection ? `SELECT * FROM read_parquet('${datasetBaseUrl}/comunicacoes.parquet') LIMIT 10` : 'Escolha um tribunal e ano para gerar os caminhos read_parquet(...)'}
+    disabled={dbStatus !== 'ready' || !hasDatasetSelection || datasetStatus !== 'ready'}
     aria-label="Editor SQL"
   ></textarea>
 
@@ -210,7 +465,7 @@ FROM read_parquet('${IA_BASE}/${ITEM}/comunicacoes.parquet')`,
   <div>
     <button
       onclick={runQuery}
-      disabled={dbStatus !== 'ready' || loading || !sql.trim()}
+      disabled={dbStatus !== 'ready' || loading || !sql.trim() || !hasDatasetSelection || datasetStatus !== 'ready'}
       aria-busy={loading}
     >
       {loading ? 'Executando...' : 'Executar (Ctrl+Enter)'}
