@@ -34,10 +34,15 @@
     | 'ratelimited'
     | 'validation';
 
+  type PublicationHashTarget =
+    | { kind: 'hash' | 'numeroComunicacao' | 'id'; value: string }
+    | { kind: 'seq'; value: number };
+
   let rawInput = $state('');
   let filters = $state<DjenComunicacaoQuery>({ itensPorPagina: 30, pagina: 1 });
   let showFilters = $state(false);
   let expandedSeq = $state<number | null>(null);
+  let pendingPublicationTarget = $state<PublicationHashTarget | null>(null);
   let searchInputRef = $state<HTMLInputElement | null>(null);
 
   // The query that was actually submitted (debounced or immediate on submit)
@@ -81,6 +86,35 @@
   );
 
   const resultsHeadingId = 'publication-search-results';
+
+  function parsePublicationHash(hash: string): PublicationHashTarget | null {
+    const value = hash.replace(/^#/, '');
+    if (!value) return null;
+
+    const pubMatch = value.match(/(?:^|\/)pub\/(hash|numeroComunicacao|id)\/([^/]+)/);
+    if (pubMatch) {
+      return {
+        kind: pubMatch[1] as 'hash' | 'numeroComunicacao' | 'id',
+        value: decodeURIComponent(pubMatch[2]),
+      };
+    }
+
+    const seqMatch = value.match(/(?:^|\/)seq\/(\d+)$/);
+    if (seqMatch) {
+      return { kind: 'seq', value: Number(seqMatch[1]) };
+    }
+
+    return null;
+  }
+
+  function publicationMatchesTarget(pub: DjenPublication, target: PublicationHashTarget): boolean {
+    if (target.kind === 'seq') return false;
+    if (target.kind === 'hash') return pub.hash === target.value;
+    if (target.kind === 'numeroComunicacao') {
+      return pub.numeroComunicacao != null && String(pub.numeroComunicacao) === target.value;
+    }
+    return pub.id != null && String(pub.id) === target.value;
+  }
 
   // TanStack Query for DJEN search.
   // - `signal` is injected by TanStack; changing `submittedQuery` (key) cancels the previous request.
@@ -131,6 +165,28 @@
   const canSubmit = $derived(
     status !== 'loading' && hasIdentity && cooldownRemaining === 0,
   );
+
+  $effect(() => {
+    const target = pendingPublicationTarget;
+    const _results = results;
+    void _results;
+
+    if (!target || !searchQuery.isSuccess) return;
+
+    if (target.kind === 'seq') {
+      if (target.value >= 1 && target.value <= results.length) {
+        expandedSeq = target.value;
+        pendingPublicationTarget = null;
+      }
+      return;
+    }
+
+    const index = results.findIndex((pub) => publicationMatchesTarget(pub, target));
+    if (index >= 0) {
+      expandedSeq = index + 1;
+      pendingPublicationTarget = null;
+    }
+  });
 
   // Watch for rate-limit errors and start the cooldown timer
   $effect(() => {
@@ -256,6 +312,7 @@
   // Hydrate from URL on mount
   onMount(() => {
     if (typeof window === 'undefined') return;
+    pendingPublicationTarget = parsePublicationHash(window.location.hash);
     const sp = new URLSearchParams(window.location.search);
     if ([...sp.keys()].length === 0) {
        // Focus input automatically if there are no search params
@@ -383,7 +440,7 @@
               dateStr={pub.data_disponibilizacao ?? ''}
               compact={expandedSeq !== i + 1}
               totalSeq={results.length}
-              source="djen"
+              source={usedFallback ? 'ia' : 'djen'}
               {usedFallback}
               onExpand={() => (expandedSeq = i + 1)}
               onCollapse={() => (expandedSeq = null)}

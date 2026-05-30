@@ -11,7 +11,7 @@ const PublicationSearch = PublicationSearchRaw as unknown as Parameters<typeof r
 
 const feature = await loadFeature('features/publicacoes-search.feature');
 
-function samplePublication(id: number) {
+function samplePublication(id: number, overrides: Record<string, unknown> = {}) {
   return {
     id,
     numeroComunicacao: id,
@@ -22,17 +22,34 @@ function samplePublication(id: number) {
     nomeOrgao: 'Vara X',
     destinatarios: [],
     destinatarioadvogados: [],
+    ...overrides,
   };
 }
 
+function responseWithJson(
+  body: unknown,
+  init: { status?: number; headers?: Record<string, string> } = {},
+) {
+  return new Response(JSON.stringify(body), {
+    status: init.status ?? 200,
+    headers: init.headers,
+  });
+}
+
 function mockFetchOnce(body: unknown, init: { status?: number; headers?: Record<string, string> } = {}) {
-  const fetchMock = vi.fn().mockImplementation(
-    async () =>
-      new Response(JSON.stringify(body), {
-        status: init.status ?? 200,
-        headers: init.headers,
-      }),
-  );
+  const fetchMock = vi.fn().mockImplementation(async () => responseWithJson(body, init));
+  global.fetch = fetchMock as unknown as typeof fetch;
+  return fetchMock;
+}
+
+function mockFetchFallbackOnce(
+  body: unknown,
+  init: { status?: number; headers?: Record<string, string> } = {},
+) {
+  const fetchMock = vi
+    .fn()
+    .mockRejectedValueOnce(new TypeError('Failed to fetch'))
+    .mockResolvedValueOnce(responseWithJson(body, init));
   global.fetch = fetchMock as unknown as typeof fetch;
   return fetchMock;
 }
@@ -51,6 +68,24 @@ function latestFetchUrl(fetchMock: ReturnType<typeof vi.fn>): URL {
 async function typeAndSubmit(input: HTMLInputElement, value: string) {
   await fireEvent.input(input, { target: { value } });
   await fireEvent.keyDown(input, { key: 'Enter' });
+}
+
+function enableClipboardCapture() {
+  const writeText = vi.fn().mockResolvedValue(undefined);
+  Object.defineProperty(navigator, 'clipboard', {
+    configurable: true,
+    value: { writeText },
+  });
+  return writeText;
+}
+
+async function searchWithTribunal(text: string, tribunal: string) {
+  render(PublicationSearch);
+  const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+  await fireEvent.click(screen.getByRole('button', { name: /Filtros avançados/ }));
+  const tribunalSelect = screen.getByRole('combobox') as HTMLSelectElement;
+  await fireEvent.change(tribunalSelect, { target: { value: tribunal } });
+  await typeAndSubmit(input, text);
 }
 
 describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) => {
@@ -242,4 +277,101 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
       expect(document.activeElement).toBe(input);
     });
   });
+
+  Scenario('Shared result link preserves search params and expands result', ({ Given, When, Then }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 2 publications with stable identifiers', () => {
+      fetchMock = mockFetchOnce(
+        {
+          items: [
+            samplePublication(1, { hash: 'hash-publicacao-1' }),
+            samplePublication(2, { hash: 'hash-publicacao-2' }),
+          ],
+          count: 2,
+        },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+    });
+
+    When(
+      'I open a shared result link for "contrato" with tribunal "TJSP" pointing to the second publication',
+      () => {
+        window.history.replaceState(
+          {},
+          '',
+          '/publicacoes?texto=contrato&siglaTribunal=TJSP#pub/hash/hash-publicacao-2',
+        );
+        render(PublicationSearch);
+      },
+    );
+
+    Then('the second publication should be expanded after results load', async () => {
+      await waitFor(() => {
+        expect(fetchMock).toHaveBeenCalled();
+        const lastUrl = latestFetchUrl(fetchMock);
+        expect(lastUrl.searchParams.get('texto')).toBe('contrato');
+        expect(lastUrl.searchParams.get('siglaTribunal')).toBe('TJSP');
+        expect(screen.getByRole('button', { name: 'Fechar' })).toBeTruthy();
+        expect(screen.getByText(/^hash-publicacao-/)).toBeTruthy();
+      });
+    });
+  });
+
+  Scenario('Copied result links preserve search params for DJEN and fallback IA', ({ Given, When, Then }) => {
+    let writeText: ReturnType<typeof vi.fn>;
+
+    Given('clipboard capture is enabled', () => {
+      writeText = enableClipboardCapture();
+    });
+
+    When('I copy a DJEN result link after searching "contrato" with tribunal "TJSP"', async () => {
+      mockFetchOnce(
+        { items: [samplePublication(101, { hash: 'hash-djen-101' })], count: 1 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+
+      await searchWithTribunal('contrato', 'TJSP');
+      await waitFor(() => expect(screen.getByText(/1 resultado/)).toBeTruthy());
+      await fireEvent.click(screen.getByRole('button', { name: 'Link' }));
+    });
+
+    Then('the copied DJEN link should include search params and a publication identifier', async () => {
+      await waitFor(() => expect(writeText).toHaveBeenCalled());
+      const copied = new URL(writeText.mock.calls.at(-1)?.[0] as string);
+      expect(copied.pathname).toBe('/');
+      expect(copied.searchParams.get('texto')).toBe('contrato');
+      expect(copied.searchParams.get('siglaTribunal')).toBe('TJSP');
+      expect(copied.hash).toBe('#pub/hash/hash-djen-101');
+    });
+
+    When('I copy a fallback IA result link after searching "contrato" with tribunal "TJSP"', async () => {
+      cleanup();
+      clearDjenSearchCache();
+      window.history.replaceState({}, '', '/');
+      writeText.mockClear();
+
+      mockFetchFallbackOnce(
+        { items: [samplePublication(202, { numeroComunicacao: 202 })], count: 1 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+
+      await searchWithTribunal('contrato', 'TJSP');
+      await waitFor(() => {
+        expect(screen.getByText(/1 resultado/)).toBeTruthy();
+        expect(screen.getByText('Fonte: Arquivo IA')).toBeTruthy();
+      });
+      await fireEvent.click(screen.getByRole('button', { name: 'Link' }));
+    });
+
+    Then('the copied fallback IA link should include search params and a publication identifier', async () => {
+      await waitFor(() => expect(writeText).toHaveBeenCalled());
+      const copied = new URL(writeText.mock.calls.at(-1)?.[0] as string);
+      expect(copied.pathname).toBe('/');
+      expect(copied.searchParams.get('texto')).toBe('contrato');
+      expect(copied.searchParams.get('siglaTribunal')).toBe('TJSP');
+      expect(copied.hash).toBe('#pub/numeroComunicacao/202');
+    });
+  });
+
 });

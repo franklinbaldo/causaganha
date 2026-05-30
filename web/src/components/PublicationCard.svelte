@@ -267,14 +267,38 @@
     }
   }
 
+  function publicationShareIdentity(): string | null {
+    if (pub.hash) return `pub/hash/${encodeURIComponent(pub.hash)}`;
+    if (pub.numeroComunicacao != null) {
+      return `pub/numeroComunicacao/${encodeURIComponent(String(pub.numeroComunicacao))}`;
+    }
+    if (pub.id != null) return `pub/id/${encodeURIComponent(String(pub.id))}`;
+    return null;
+  }
+
+  function publicationShareHash(): string {
+    const identity = publicationShareIdentity();
+
+    if (page && dateStr) {
+      let dateHash = `${dateStr}/pg/${page}`;
+      if (seq) dateHash += `/seq/${seq}`;
+      if (identity) dateHash += `/${identity}`;
+      return dateHash;
+    }
+
+    if (identity) return identity;
+
+    let fallbackHash = dateStr;
+    if (seq) fallbackHash += `/seq/${seq}`;
+    return fallbackHash;
+  }
+
   async function handleShare(e: MouseEvent, context: "main" | "reader" | "compact") {
     e.preventDefault();
     e.stopPropagation();
-    const base = window.location.pathname;
-    let hash = dateStr;
-    if (page) hash += `/${page}`;
-    if (seq) hash += `/${seq}`;
-    const url = `${window.location.origin}${base}#${hash}`;
+    const hash = publicationShareHash();
+    const pathAndSearch = `${window.location.pathname}${window.location.search}`;
+    const url = `${window.location.origin}${pathAndSearch}#${hash}`;
     const ok = await copyToClipboard(url);
     if (!ok) return;
     if (shareTimeoutId) clearTimeout(shareTimeoutId);

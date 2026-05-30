@@ -40,3 +40,16 @@ Feature: Live DJEN publication search
     Given the DJEN API returns 30 publications out of 60 for each request
     When I search for "contrato", go to page 2, and replace the search with "mandado de segurança"
     Then the last DJEN query should request page 1 for "mandado de segurança"
+
+
+  Scenario: Shared result link preserves search params and expands result
+    Given the DJEN API returns 2 publications with stable identifiers
+    When I open a shared result link for "contrato" with tribunal "TJSP" pointing to the second publication
+    Then the second publication should be expanded after results load
+
+  Scenario: Copied result links preserve search params for DJEN and fallback IA
+    Given clipboard capture is enabled
+    When I copy a DJEN result link after searching "contrato" with tribunal "TJSP"
+    Then the copied DJEN link should include search params and a publication identifier
+    When I copy a fallback IA result link after searching "contrato" with tribunal "TJSP"
+    Then the copied fallback IA link should include search params and a publication identifier
