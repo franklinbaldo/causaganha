@@ -99,6 +99,32 @@
     }
   }
 
+  function publicationShareIdentity(): string | null {
+    if (pub.hash) return `pub/hash/${encodeURIComponent(pub.hash)}`;
+    if (pub.numeroComunicacao != null) {
+      return `pub/numeroComunicacao/${encodeURIComponent(String(pub.numeroComunicacao))}`;
+    }
+    if (pub.id != null) return `pub/id/${encodeURIComponent(String(pub.id))}`;
+    return null;
+  }
+
+  function publicationShareHash(): string {
+    const identity = publicationShareIdentity();
+
+    if (page && dateStr) {
+      let dateHash = `${dateStr}/pg/${page}`;
+      if (seq) dateHash += `/seq/${seq}`;
+      if (identity) dateHash += `/${identity}`;
+      return dateHash;
+    }
+
+    if (identity) return identity;
+
+    let fallbackHash = dateStr;
+    if (seq) fallbackHash += `/seq/${seq}`;
+    return fallbackHash;
+  }
+
   async function handleShare(e: MouseEvent, context: PublicationActionContext) {
     e.preventDefault();
     e.stopPropagation();
