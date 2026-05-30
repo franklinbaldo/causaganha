@@ -124,42 +124,44 @@
 </script>
 
 <div class="cal-control">
-  <div class="cal-control__pick">
-    <span class="kicker" style="margin-bottom: 4px;">Tribunal</span>
-    <select class="select cal-control__select" bind:value={selectedTribunal}>
-      {#each TRIBUNAL_GROUPS as group}
-        <optgroup label={group.name}>
-          {#each group.tribunals as t}
-            <option value={t}>{t}{TRIBUNAL_NAMES[t] ? ' — ' + TRIBUNAL_NAMES[t] : ''}</option>
-          {/each}
-        </optgroup>
-      {/each}
-    </select>
+  <div class="cal-control__selectors">
+    <div class="cal-control__pick">
+      <label class="kicker" for="tribunal-calendar-tribunal" style="margin-bottom: 4px;">Tribunal</label>
+      <select id="tribunal-calendar-tribunal" class="select cal-control__select" bind:value={selectedTribunal}>
+        {#each TRIBUNAL_GROUPS as group}
+          <optgroup label={group.name}>
+            {#each group.tribunals as t}
+              <option value={t}>{t}{TRIBUNAL_NAMES[t] ? ' — ' + TRIBUNAL_NAMES[t] : ''}</option>
+            {/each}
+          </optgroup>
+        {/each}
+      </select>
+    </div>
+
+    <div class="cal-control__pick">
+      <label class="kicker" for="tribunal-calendar-year" style="margin-bottom: 4px;">Ano</label>
+      <select id="tribunal-calendar-year" class="select cal-control__select" bind:value={selectedYear}>
+        {#each Array.from({ length: currentYear - 2018 + 1 }, (_, i) => currentYear - i) as y}
+          <option value={y}>{y}</option>
+        {/each}
+      </select>
+    </div>
   </div>
 
-  <div class="cal-control__pick" style="max-width: 120px;">
-    <span class="kicker" style="margin-bottom: 4px;">Ano</span>
-    <select class="select cal-control__select" bind:value={selectedYear}>
-      {#each Array.from({ length: currentYear - 2018 + 1 }, (_, i) => currentYear - i) as y}
-        <option value={y}>{y}</option>
-      {/each}
-    </select>
-  </div>
-
-  <div class="cal-control__stats">
-    <div>
-      <div class="kicker" style="margin-bottom: 2px;">Cobertura</div>
-      <div class="cal-stat cal-stat--azul">{stats.pct.toFixed(1)}%</div>
+  <dl class="cal-control__stats" aria-label="Resumo de cobertura do calendário">
+    <div class="cal-control__stat">
+      <dt class="kicker">Cobertura</dt>
+      <dd class="cal-stat cal-stat--azul">{stats.pct.toFixed(1)}%</dd>
     </div>
-    <div>
-      <div class="kicker" style="margin-bottom: 2px;">Arquivados</div>
-      <div class="cal-stat">{stats.up.toLocaleString('pt-BR')}</div>
+    <div class="cal-control__stat">
+      <dt class="kicker">Arquivados</dt>
+      <dd class="cal-stat">{stats.up.toLocaleString('pt-BR')}</dd>
     </div>
-    <div>
-      <div class="kicker" style="margin-bottom: 2px;">Pendentes</div>
-      <div class="cal-stat cal-stat--ocre">{stats.pend.toLocaleString('pt-BR')}</div>
+    <div class="cal-control__stat">
+      <dt class="kicker">Pendentes</dt>
+      <dd class="cal-stat cal-stat--ocre">{stats.pend.toLocaleString('pt-BR')}</dd>
     </div>
-  </div>
+  </dl>
 
   <a class="btn btn--secondary btn--sm" href={detailHref}>Ver página →</a>
 </div>
