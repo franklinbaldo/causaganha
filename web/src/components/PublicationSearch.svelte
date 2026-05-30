@@ -48,6 +48,18 @@
 
   const smart = $derived(smartParseInput(rawInput));
   const effectiveQuery = $derived<DjenComunicacaoQuery>({ ...filters, ...smart.patch });
+  const criteriaFilters = $derived({
+    siglaTribunal: filters.siglaTribunal,
+    numeroOab: filters.numeroOab,
+    ufOab: filters.ufOab,
+    nomeAdvogado: filters.nomeAdvogado,
+    nomeParte: filters.nomeParte,
+    numeroProcesso: filters.numeroProcesso,
+    dataDisponibilizacaoInicio: filters.dataDisponibilizacaoInicio,
+    dataDisponibilizacaoFim: filters.dataDisponibilizacaoFim,
+    meio: filters.meio,
+    itensPorPagina: filters.itensPorPagina,
+  });
 
   const identityKeys = [
     'siglaTribunal',
@@ -167,9 +179,19 @@
     return () => stopCooldownTick();
   });
 
-  function submitSearch() {
+  function submitSearch({
+    page,
+    resetPage = false,
+  }: { page?: number; resetPage?: boolean } = {}) {
     if (cooldownRemaining > 0 || !hasIdentity) return;
-    submittedQuery = { ...effectiveQuery };
+    const nextPage = page ?? (resetPage ? 1 : (effectiveQuery.pagina ?? 1));
+    const nextQuery = { ...effectiveQuery, pagina: nextPage };
+
+    if (resetPage && filters.pagina !== nextPage) {
+      filters = { ...filters, pagina: nextPage };
+    }
+
+    submittedQuery = nextQuery;
     expandedSeq = null;
   }
 
@@ -178,22 +200,22 @@
       clearTimeout(debounceId);
       debounceId = null;
     }
-    submitSearch();
+    submitSearch({ resetPage: true });
   }
 
   function handlePageChange(delta: number) {
     const current = filters.pagina ?? 1;
     const next = Math.max(1, current + delta);
     filters = { ...filters, pagina: next };
-    submittedQuery = { ...effectiveQuery, pagina: next };
+    submitSearch({ page: next });
   }
 
-  // Debounced reactive trigger
+  // Debounced reactive trigger for criteria changes. Pagination changes are handled separately.
   $effect(() => {
     const _input = rawInput;
-    const _filters = filters;
+    const _criteriaFilters = criteriaFilters;
     void _input;
-    void _filters;
+    void _criteriaFilters;
 
     if (debounceId) clearTimeout(debounceId);
     debounceId = setTimeout(() => {
@@ -205,7 +227,7 @@
           pagina: undefined,
         });
         if (trimmed.length >= 3 || hasFilterValues) {
-          submitSearch();
+          submitSearch({ resetPage: true });
         }
       });
     }, 400);

@@ -37,6 +37,17 @@ function mockFetchOnce(body: unknown, init: { status?: number; headers?: Record<
   return fetchMock;
 }
 
+function fetchCallUrl(call: unknown[]): URL {
+  const [input] = call;
+  if (input instanceof Request) return new URL(input.url);
+  return new URL(String(input));
+}
+
+function latestFetchUrl(fetchMock: ReturnType<typeof vi.fn>): URL {
+  const calls = fetchMock.mock.calls;
+  return fetchCallUrl(calls[calls.length - 1] as unknown[]);
+}
+
 async function typeAndSubmit(input: HTMLInputElement, value: string) {
   await fireEvent.input(input, { target: { value } });
   await fireEvent.keyDown(input, { key: 'Enter' });
@@ -146,6 +157,47 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
     Then('I should see a rate-limit banner with a countdown', async () => {
       await waitFor(() => {
         expect(screen.getByText(/Limite de requisições atingido/i)).toBeTruthy();
+      });
+    });
+  });
+
+  Scenario('Search criteria changes reset pagination', ({ Given, When, Then }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 30 publications out of 60 for each request', () => {
+      fetchMock = mockFetchOnce(
+        { items: Array.from({ length: 30 }, (_, i) => samplePublication(i + 1)), count: 60 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+    });
+
+    When(
+      'I search for "contrato", go to page 2, and replace the search with "mandado de segurança"',
+      async () => {
+        render(PublicationSearch);
+        const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+
+        await typeAndSubmit(input, 'contrato');
+        await waitFor(() => {
+          expect(fetchMock).toHaveBeenCalled();
+          expect(screen.getByText(/Página 1 de 2/)).toBeTruthy();
+        });
+
+        await fireEvent.click(screen.getByRole('button', { name: /Próxima/ }));
+        await waitFor(() => {
+          expect(latestFetchUrl(fetchMock).searchParams.get('pagina')).toBe('2');
+          expect(screen.getByText(/Página 2 de 2/)).toBeTruthy();
+        });
+
+        await typeAndSubmit(input, 'mandado de segurança');
+      },
+    );
+
+    Then('the last DJEN query should request page 1 for "mandado de segurança"', async () => {
+      await waitFor(() => {
+        const lastUrl = latestFetchUrl(fetchMock);
+        expect(lastUrl.searchParams.get('texto')).toBe('mandado de segurança');
+        expect(lastUrl.searchParams.get('pagina')).toBe('1');
       });
     });
   });

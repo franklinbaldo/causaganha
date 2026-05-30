@@ -35,3 +35,8 @@ Feature: Live DJEN publication search
   Scenario: Input is auto-focused on load
     When the publication search loads with no URL params
     Then the search input should be focused
+
+  Scenario: Search criteria changes reset pagination
+    Given the DJEN API returns 30 publications out of 60 for each request
+    When I search for "contrato", go to page 2, and replace the search with "mandado de segurança"
+    Then the last DJEN query should request page 1 for "mandado de segurança"
