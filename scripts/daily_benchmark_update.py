@@ -296,8 +296,8 @@ def main() -> int:
 
     # Export each decision as a .md file with frontmatter metadata
     console.print("[yellow]Exportando decisões para arquivos Markdown (.md)...[/yellow]")
-    import yaml
     import numpy as np
+    import yaml
 
     md_dir = Path("data/benchmark/decisions")
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -311,7 +311,7 @@ def main() -> int:
         int_id = row["intimation_id"]
         court = row["court"]
         texto = row.pop("texto", "")
-        
+
         val_date_str = "2026-05-27"
         if isinstance(row.get("validated_at"), datetime):
             val_date_str = row["validated_at"].strftime("%Y-%m-%d")
@@ -322,9 +322,9 @@ def main() -> int:
                 val_date_str = dt.strftime("%Y-%m-%d")
             except ValueError:
                 pass
-        
+
         row["schema_version"] = "1.2.0"
-        
+
         # Clean numpy types
         for k, v in list(row.items()):
             if isinstance(v, np.ndarray):
@@ -335,7 +335,7 @@ def main() -> int:
                 row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
             elif isinstance(v, dict):
                 row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
-        
+
         frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
         md_filename = f"{court}-{val_date_str}-{int_id}.md"
         md_content = f"---\n{frontmatter}\n---\n\n{texto}\n"

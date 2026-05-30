@@ -106,7 +106,7 @@ def main() -> int:
         load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     except ImportError:
         # Fallback to manual parsing if python-dotenv is not installed
-        for p in [Path("."), Path(".."), Path(__file__).resolve().parents[1], Path(__file__).resolve().parents[2]]:
+        for p in [Path(), Path(".."), Path(__file__).resolve().parents[1], Path(__file__).resolve().parents[2]]:
             env_file = p / ".env"
             if env_file.exists():
                 with open(env_file, encoding="utf-8") as f:
@@ -114,8 +114,7 @@ def main() -> int:
                         line = line.strip()
                         if line and not line.startswith("#"):
                             # Handle export GEMINI_API_KEY="..." or GEMINI_API_KEY="..."
-                            if line.startswith("export "):
-                                line = line[7:]
+                            line = line.removeprefix("export ")
                             if "=" in line:
                                 k, v = line.split("=", 1)
                                 k = k.strip()
@@ -307,7 +306,7 @@ def main() -> int:
                             console.print(f"[yellow]  Sem resultado para ID {int_id} no batch[/yellow]")
                 except Exception as e:
                     console.print(f"[red]  Falha no batch: {e}[/red]")
-                
+
                 # Sleep to avoid hitting Gemini's strict 15 RPM (requests per minute) rate limit
                 await asyncio.sleep(5)
 
@@ -383,7 +382,7 @@ def main() -> int:
     # Export each decision as a .md file with frontmatter metadata
     console.print("\n[yellow]Exportando decisões para arquivos Markdown (.md)...[/yellow]")
     import yaml
-    
+
     # Ensure markdown output directory exists in the workspace
     md_dir = Path("data/benchmark/decisions")
     md_dir.mkdir(parents=True, exist_ok=True)
@@ -409,10 +408,10 @@ def main() -> int:
                 val_date_str = dt.strftime("%Y-%m-%d")
             except ValueError:
                 val_date_str = "2026-05-27"
-        
+
         # Add schema version for dataset versioning tracking
         row["schema_version"] = "1.2.0"
-        
+
         # Clean numpy/pandas data types so they serialize cleanly to standard YAML
         import numpy as np
         for k, v in list(row.items()):
@@ -424,10 +423,10 @@ def main() -> int:
                 row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
             elif isinstance(v, dict):
                 row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
-        
+
         # Build YAML frontmatter
         frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
-        
+
         # filename format: court-date-intimation_id.md
         md_filename = f"{court}-{val_date_str}-{int_id}.md"
         md_content = f"---\n{frontmatter}\n---\n\n{texto}\n"
