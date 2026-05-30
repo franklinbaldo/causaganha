@@ -105,6 +105,13 @@
     searchQuery.data?.rateLimit ?? { limit: null, remaining: null, resetAt: null }
   );
   const usedFallback = $derived(searchQuery.data?.usedFallback ?? false);
+  const publicationHighlightTerms = $derived([
+    submittedQuery?.texto,
+    submittedQuery?.nomeParte,
+    submittedQuery?.nomeAdvogado,
+    submittedQuery?.numeroProcesso,
+    submittedQuery?.numeroOab,
+  ].filter((term): term is string => typeof term === 'string' && term.trim().length > 1));
 
   const status = $derived.by((): Status => {
     if (searchQuery.isFetching) return 'loading';
@@ -385,6 +392,7 @@
               totalSeq={results.length}
               source="djen"
               {usedFallback}
+              highlightTerms={publicationHighlightTerms}
               onExpand={() => (expandedSeq = i + 1)}
               onCollapse={() => (expandedSeq = null)}
               onNavigate={(newSeq) => (expandedSeq = newSeq)}

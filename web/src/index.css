@@ -541,32 +541,48 @@ table tbody tr:hover {
 }
 
 /* ═══════════════════════════════════════════
-   Reader Mode Entity Highlights
+   Publication actions and highlights
    ═══════════════════════════════════════════ */
 
-.reader-mode .reader-text mark {
+.publication-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+}
+
+.highlighted-text mark {
   background-color: transparent;
   font-weight: 600;
   padding: 0 0.2rem;
   border-radius: 0.2rem;
 }
 
-.reader-mode .reader-text mark.entity-party {
+.highlighted-text mark.entity-party {
   background-color: color-mix(in srgb, var(--color-primary) 15%, transparent);
   color: var(--color-content);
 }
 
-.reader-mode .reader-text mark.entity-lawyer {
+.highlighted-text mark.entity-lawyer {
   background-color: color-mix(in srgb, var(--color-accent) 15%, transparent);
   color: var(--color-content);
 }
 
-[data-theme="dark"] .reader-mode .reader-text mark.entity-party {
+.highlighted-text mark.entity-search {
+  background-color: color-mix(in srgb, var(--color-warning) 24%, transparent);
+  color: var(--color-content);
+}
+
+[data-theme="dark"] .highlighted-text mark.entity-party {
   background-color: color-mix(in srgb, var(--color-primary) 20%, transparent);
 }
 
-[data-theme="dark"] .reader-mode .reader-text mark.entity-lawyer {
+[data-theme="dark"] .highlighted-text mark.entity-lawyer {
   background-color: color-mix(in srgb, var(--color-accent) 20%, transparent);
+}
+
+[data-theme="dark"] .highlighted-text mark.entity-search {
+  background-color: color-mix(in srgb, var(--color-warning) 30%, transparent);
 }
 
 /* ═══════════════════════════════════════════
