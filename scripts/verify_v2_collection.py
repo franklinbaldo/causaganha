@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Verify V2 Collection Pipeline.
 
+Purpose:  Exercise the V2 collection components end-to-end on a real tribunal.
+Problem:  We need a smoke test that the V2 collection path actually fetches metadata
+          and persists it, not just unit-level confidence.
+Strategy: Collect TJRO metadata via the V2 components and store it in DuckDB,
+          surfacing failures in the pipeline wiring.
+Status:   dev/smoke test — manual run (no workflow reference). RFC: still aligned
+          with the current V2 components, or stale scaffolding?
+
+
 Collects metadata from TJRO using V2 components and stores in DuckDB.
 """
 

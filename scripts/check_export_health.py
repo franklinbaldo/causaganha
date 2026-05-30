@@ -1,4 +1,21 @@
 #!/usr/bin/env python3
+"""Health check script for Parquet export system.
+
+Purpose:  Emit a single monitoring-friendly health signal for the Parquet export
+          system.
+Problem:  Monitors (Nagios/Prometheus) need an exit-code-driven status, not log
+          scraping, to alert on export failures or staleness.
+Strategy: Inspect recent export outcomes and map the failure rate to Nagios-style
+          exit codes (thresholds in WARNING/CRITICAL_FAILURE_RATE_PCT).
+Status:   ops/health check — built for monitoring integration; no workflow
+          reference found. RFC: is a monitor actually polling this?
+
+Exit codes:
+    0: OK - All exports successful
+    1: WARNING - Some exports failed (< 10% failure rate)
+    2: CRITICAL - Many exports failed (>= 10% failure rate) or no recent exports
+    3: UNKNOWN - Cannot determine status
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
@@ -13,18 +30,6 @@ for stream in (sys.stdout, sys.stderr):
 
 WARNING_FAILURE_RATE_PCT = 75.0
 CRITICAL_FAILURE_RATE_PCT = 90.0
-
-"""Health check script for Parquet export system.
-
-This script checks the health of the export system and returns
-appropriate exit codes for monitoring systems (Nagios, Prometheus, etc.).
-
-Exit codes:
-    0: OK - All exports successful
-    1: WARNING - Some exports failed (< 10% failure rate)
-    2: CRITICAL - Many exports failed (>= 10% failure rate) or no recent exports
-    3: UNKNOWN - Cannot determine status
-"""
 
 import sys
 from datetime import UTC, datetime, timedelta

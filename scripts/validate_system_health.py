@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """System Health Validation Script for CausaGanha V2.
 
+Purpose:  Smoke-check that the V2 database is reachable and structurally sound.
+Problem:  Silent DB/schema drift or missing tables lets downstream jobs fail
+          obscurely; we want one fast pre-flight signal.
+Strategy: Verify connectivity, schema presence, key-table row counts, and basic
+          referential integrity (orphaned records), reporting failures clearly.
+Status:   ops/health check — manual run (no workflow reference). RFC: wire into a
+          pre-deploy or scheduled health workflow?
+
+
 Checks:
 1. Database connectivity.
 2. Schema presence.

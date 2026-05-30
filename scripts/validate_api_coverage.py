@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Script to validate PJe API coverage across different Brazilian courts.
 
+Purpose:  Determine which Brazilian courts are reachable via the PJe API.
+Problem:  Court API availability is patchy and changes over time; we need to know
+          which siglas actually respond before relying on them.
+Strategy: Attempt a minimal intimation fetch (last 7 days, 1 item) per court via
+          PJeAPIClient and report OK/failure per sigla.
+Status:   ops/diagnostic — manual run (no workflow reference). Import + call were
+          repaired to the clients.pje client in #726.
+
+
 This script attempts to fetch intimations from a list of courts to determine
 which ones are accessible via the API.
 """

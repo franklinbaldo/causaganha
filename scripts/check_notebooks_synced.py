@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """CI check: every marimo notebook has an up-to-date exported .ipynb.
 
+Purpose:  Guarantee each marimo notebook's committed .ipynb export is current.
+Problem:  The committed .ipynb is generated from the marimo .py; if authors forget
+          to re-export, Colab users get a stale notebook.
+Strategy: Re-run the export (+ the mo-import-stripping post-process) for every
+          notebook and fail if the committed .ipynb is missing or differs; --fix
+          regenerates.
+Status:   production CI gate — runs in test.yml; documented in README/CONTRIBUTING.
+
+
 Notebooks in ``notebooks/`` are authored as marimo notebooks (``*.py``), and
 the committed ``*.ipynb`` is produced by ``marimo export ipynb`` followed by a
 small post-processing step (see ``export_ipynb``) that drops the standalone

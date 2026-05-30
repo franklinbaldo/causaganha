@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Check Internet Archive credentials for validity.
 
+Purpose:  Verify that the configured IA S3 credentials actually work.
+Problem:  Invalid IA keys cause uploads to fail late and confusingly; better to
+          fail fast with a clear signal.
+Strategy: Make a minimal IA S3 API request and exit 0 on success, 1 on invalid
+          keys (e.g. InvalidAccessKeyId).
+Status:   ops/preflight check — typically a guard before upload jobs.
+
+
 This script tests if IA_ACCESS_KEY and IA_SECRET_KEY secrets are valid
 by making a simple request to the IA S3 API. It exits with 0 on success,
 or 1 if the keys are invalid (e.g. InvalidAccessKeyId).
