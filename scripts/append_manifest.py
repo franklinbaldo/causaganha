@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Append new ZIP uploads to the append-only manifest.jsonl and upload to IA."""
+"""Append new ZIP uploads to the append-only manifest.jsonl and upload to IA.
+
+Purpose:  Record freshly uploaded DJEN ZIPs as entries in the append-only
+          manifest.jsonl artifact on Internet Archive.
+Problem:  Uploads happen incrementally and from multiple runs; we need a durable
+          log of what landed without rewriting (and risking clobbering) the whole
+          manifest on every upload.
+Strategy: Append new rows as JSONL lines and push to IA. Append-only keeps writes
+          cheap and concurrency-safe (no read-modify-write of the full file).
+Status:   production — invoked by the collect/backfill workflows.
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows

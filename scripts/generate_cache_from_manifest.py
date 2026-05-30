@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
 """Generate webapp cache JSONs from the sync-manifest.
 
-Reads `manifest-summary.json` from IA (produced by djen-backup engine)
-and generates the legacy cache files that the webapp still expects:
-- cache/backfill.json
-- cache/today.json
-- cache/meta.json
-- cache/calendar.json
-- cache/runs.json (empty, replaced by GitHub API calls at runtime)
-- ia-snapshot.json
+Purpose:  Produce the cache/*.json files the dashboard still reads from a single
+          manifest summary.
+Problem:  The webapp predates the .qmd query-contract pipeline and still expects a
+          fixed set of pre-baked cache JSONs (backfill/today/meta/calendar/...).
+Strategy: Read manifest-summary.json from IA (written by the djen-backup engine)
+          and emit those files (cache/backfill.json, today.json, meta.json,
+          calendar.json, runs.json [empty — runtime GitHub API], ia-snapshot.json),
+          optionally uploading with --upload.
+Status:   legacy / transitional — kept during the migration to the .qmd query
+          contracts (scripts/render_queries.py). RFC: which of these JSONs are
+          still consumed by the live frontend, and can this be retired once the
+          dashboard reads only rendered query outputs? Comments welcome before we
+          DRY/remove it.
 
 Usage:
     uv run python scripts/generate_cache_from_manifest.py

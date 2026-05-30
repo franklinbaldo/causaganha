@@ -1,20 +1,22 @@
 #!/usr/bin/env python3
-"""One-shot manifest reconciliation.
+"""One-shot manifest reconciliation against ground truth.
 
-Three corrections applied to the canonical sync-manifest.csv:
-
-1. **IA truth**: query metadata for every djen-{tribunal}-{year} item,
-   mark those dates as ia_status='uploaded'.
-2. **Reset legacy absents**: entries with djen_status='absent' but
-   djen_raw='' (absent marked before we tracked raw codes). Re-check
-   next run will re-classify them with a real raw code.
-3. **Upload reconciled manifest** back to IA.
+Purpose:  Correct drift in the canonical sync-manifest.csv against what actually
+          exists on Internet Archive, then re-upload it.
+Problem:  The manifest can diverge from reality: items uploaded out-of-band aren't
+          marked, and legacy rows were flagged absent before we recorded the raw
+          DJEN code, so "absent" can no longer be trusted for them.
+Strategy: Three corrections — (1) query IA metadata for every djen-{tribunal}-{year}
+          item and mark those dates ia_status='uploaded'; (2) reset legacy absents
+          (djen_status='absent' with empty djen_raw) so the next run re-classifies
+          them with a real code; (3) upload the reconciled manifest back to IA.
+          Trusting IA + raw codes over stale categories matches the "never trust
+          absent from old runs" rule.
+Status:   one-shot ops utility (manual run; requires IAS3_ACCESS_KEY/SECRET).
 
 Usage::
 
     uv run --env-file ~/workspace/.env python scripts/reconcile_manifest.py
-
-Requires IAS3_ACCESS_KEY + IAS3_SECRET_KEY for upload.
 """
 
 from __future__ import annotations

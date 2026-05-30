@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
-"""One-shot backfill — drain djen_raw="" rows by hitting the DJEN proxy live.
+"""Drain djen_raw="" (unknown) rows by hitting the DJEN proxy live.
 
-Bypasses ``collect-zips``' Phase 0 IA discovery and engine plumbing (which is
-currently breaching GHA's timeout, see PR #677) to push the unknown bucket
-forward. Pulls the canonical manifest from IA, classifies every unknown row
-in parallel against the DJEN proxy, then merges and uploads the result back
-to IA in one shot.
-
-Designed to be safe to re-run: it only writes ``djen_raw`` for rows where
-``djen_raw`` is currently empty, and ``upload_to_ia`` re-downloads-and-merges
-to avoid clobbering concurrent updates.
+Purpose:  Push the "unknown" bucket of the manifest forward by classifying rows
+          that have no recorded DJEN raw code yet.
+Problem:  The full collect-zips path (Phase 0 IA discovery + engine plumbing) was
+          breaching the GitHub Actions timeout (see PR #677), so unknowns piled up
+          and never got a real status.
+Strategy: Pull the canonical manifest from IA, classify every unknown row in
+          parallel directly against the DJEN proxy, then merge and upload once.
+          Safe to re-run: only writes djen_raw where it is currently empty, and
+          upload re-downloads-and-merges to avoid clobbering concurrent updates.
+Status:   ops workaround — runs via the drain-unknowns workflow while the engine
+          timeout is unresolved. RFC: fold back into the engine once #677 is fixed,
+          or keep as a deliberate lightweight side-channel? Comments welcome.
 """
 
 from __future__ import annotations
