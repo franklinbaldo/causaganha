@@ -237,6 +237,106 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
     });
   });
 
+
+  Scenario('Active filters are shown and can be removed outside advanced filters', ({ When, Then, And }) => {
+    When('I configure advanced filters and close the filters panel', async () => {
+      render(PublicationSearch);
+
+      await fireEvent.click(screen.getByRole('button', { name: /Filtros avançados/ }));
+      await fireEvent.change(screen.getByLabelText('Tribunal'), { target: { value: 'TJSP' } });
+      await fireEvent.input(screen.getByLabelText('Data início'), { target: { value: '2026-05-01' } });
+      await fireEvent.input(screen.getByLabelText('Data fim'), { target: { value: '2026-05-30' } });
+      await fireEvent.click(screen.getByText('Mais filtros'));
+      await fireEvent.input(screen.getByLabelText('OAB — número'), { target: { value: '123456' } });
+      await fireEvent.input(screen.getByLabelText('OAB — UF'), { target: { value: 'SP' } });
+      await fireEvent.input(screen.getByLabelText('Nome do advogado'), { target: { value: 'Maria Silva' } });
+      await fireEvent.input(screen.getByLabelText('Nome da parte'), { target: { value: 'Empresa XYZ' } });
+      await fireEvent.click(screen.getByRole('radio', { name: 'Edital' }));
+      await fireEvent.click(screen.getByRole('radio', { name: '100' }));
+      await fireEvent.click(screen.getByRole('button', { name: /Ocultar filtros/ }));
+    });
+
+    Then(
+      'I should see active chips for tribunal, period, OAB, UF, advogado, parte, meio and items per page',
+      () => {
+        expect(screen.getByRole('button', { name: /Remover filtro Tribunal: TJSP/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro Período: 01\/05\/2026 a 30\/05\/2026/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro OAB: 123456/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro UF: SP/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro Advogado: Maria Silva/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro Parte: Empresa XYZ/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro Meio: Edital/ })).toBeTruthy();
+        expect(screen.getByRole('button', { name: /Remover filtro Itens por página: 100/ })).toBeTruthy();
+      },
+    );
+
+    When('I remove the tribunal active filter chip', async () => {
+      await fireEvent.click(screen.getByRole('button', { name: /Remover filtro Tribunal: TJSP/ }));
+    });
+
+    Then('the filters panel should remain closed', () => {
+      expect(screen.queryByLabelText('Tribunal')).toBeNull();
+      expect(screen.getByRole('button', { name: /Filtros avançados/ })).toBeTruthy();
+    });
+
+    And('the tribunal active filter chip should be removed', () => {
+      expect(screen.queryByRole('button', { name: /Remover filtro Tribunal: TJSP/ })).toBeNull();
+    });
+  });
+
+  Scenario('Clearing all filters resets pagination and page size defaults', ({ Given, When, Then }) => {
+    let fetchMock: ReturnType<typeof vi.fn>;
+
+    Given('the DJEN API returns 30 publications out of 60 for each request', () => {
+      fetchMock = mockFetchOnce(
+        { items: Array.from({ length: 30 }, (_, i) => samplePublication(i + 1)), count: 60 },
+        { headers: { 'x-ratelimit-limit': '30', 'x-ratelimit-remaining': '29' } },
+      );
+    });
+
+    When(
+      'I search for "contrato", go to page 2, set 100 items per page, and clear all filters',
+      async () => {
+        render(PublicationSearch);
+        const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
+
+        await typeAndSubmit(input, 'contrato');
+        await waitFor(() => {
+          expect(fetchMock).toHaveBeenCalled();
+          expect(screen.getByText(/Página 1 de 2/)).toBeTruthy();
+        });
+
+        await fireEvent.click(screen.getByRole('button', { name: /Próxima/ }));
+        await waitFor(() => {
+          expect(latestFetchUrl(fetchMock).searchParams.get('pagina')).toBe('2');
+        });
+
+        await fireEvent.click(screen.getByRole('button', { name: /Filtros avançados/ }));
+        await fireEvent.click(screen.getByText('Mais filtros'));
+        await fireEvent.click(screen.getByRole('radio', { name: '100' }));
+        await waitFor(() => {
+          const lastUrl = latestFetchUrl(fetchMock);
+          expect(lastUrl.searchParams.get('pagina')).toBe('1');
+          expect(lastUrl.searchParams.get('itensPorPagina')).toBe('100');
+        });
+
+        await fireEvent.click(screen.getByRole('button', { name: /Limpar tudo/ }));
+      },
+    );
+
+    Then(
+      'active filters should be empty and the URL should request page 1 with 30 items per page',
+      async () => {
+        expect(screen.getByText(/Nenhum filtro ativo/)).toBeTruthy();
+        await waitFor(() => {
+          const currentUrl = new URL(window.location.href);
+          expect(currentUrl.searchParams.get('pagina')).toBe('1');
+          expect(currentUrl.searchParams.get('itensPorPagina')).toBe('30');
+        });
+      },
+    );
+  });
+
   Scenario('User uses Ctrl+K to focus search input', ({ When, Then }) => {
     When('I press Ctrl+K', () => {
       render(PublicationSearch);
