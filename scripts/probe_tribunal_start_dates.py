@@ -1,4 +1,15 @@
 #!/usr/bin/env python3
+"""Probe the true start date for each DJEN tribunal.
+
+Purpose:  Discover the earliest publication date for each DJEN tribunal.
+Problem:  Backfill needs per-tribunal start dates; probing blindly from 1990 wastes
+          requests, and holidays/weekends confound naive detection.
+Strategy: Exponential probe backwards in time per tribunal, then a lateral window
+          check requiring a 60-day gap to confirm the start, writing results to
+          web/public/tribunal_start_dates.json.
+Status:   ops/data-build — manual run, no workflow reference. RFC: re-run
+          periodically as tribunals join, or one-shot?
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
@@ -14,15 +25,6 @@ for stream in (sys.stdout, sys.stderr):
 EARLIEST_TRIBUNAL_YEAR = 1990
 HTTP_429_TOO_MANY_REQUESTS = 429
 HTTP_404_NOT_FOUND = 404
-
-"""Probe the true start date for each DJEN tribunal.
-
-Discovers when each of the 96 DJEN tribunals started publishing data using
-an exponential probe backwards in time, followed by a lateral window check
-to account for holidays and weekends (requiring a 60-day gap to confirm the start).
-
-Outputs to web/public/tribunal_start_dates.json.
-"""
 
 import argparse
 import asyncio

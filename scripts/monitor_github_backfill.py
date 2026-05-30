@@ -1,4 +1,13 @@
 #!/usr/bin/env python3
+"""Monitor GitHub Actions backfill progress.
+
+Purpose:  Watch GitHub Actions backfill progress and alert if it stalls.
+Problem:  Backfill runs unattended for long stretches; a silent stall wastes time.
+Strategy: Poll the Internet Archive catalog for progress and alert when it stops
+          advancing.
+Status:   ops/monitor — manual run, no workflow reference. RFC: still used, or
+          superseded by backfill_probe / the catalog progress JSON?
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
@@ -12,11 +21,6 @@ for stream in (sys.stdout, sys.stderr):
             stream.reconfigure(errors="replace")
 
 HTTP_200_OK = 200
-
-"""Monitor GitHub Actions backfill progress.
-
-Checks Internet Archive catalog for progress and alerts if stalled.
-"""
 
 import argparse
 import json

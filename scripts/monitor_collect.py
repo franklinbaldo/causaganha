@@ -1,4 +1,20 @@
 #!/usr/bin/env python3
+"""Monitor the collect-zips workflow and report on progress.
+
+Purpose:  Watch the collect-zips workflow and flag stalls / error spikes.
+Problem:  Long-running collection can silently stall or start erroring; we want an
+          automatable health signal with recommendations.
+Strategy: Inspect the last N collect-zips runs, compute upload rate, detect stalls
+          (0 uploads for K runs) and error spikes, and emit GitHub Actions outputs;
+          exit 1 to trigger adjustment.
+Status:   ops/monitor — designed to run inside a workflow but none references it
+          yet. RFC: wire into the collect-zips loop, or is this superseded?
+
+Exit codes:
+  0 — healthy
+  1 — stalled or too many errors (triggers adjustment)
+"""
+
 from __future__ import annotations
 
 import contextlib
@@ -13,19 +29,6 @@ for stream in (sys.stdout, sys.stderr):
             stream.reconfigure(errors="replace")
 
 MAX_RECENT_RUNS = 3
-
-"""Monitor the collect-zips workflow and report on progress.
-
-Checks the last N runs of collect-zips.yml and:
-  - Reports upload rate (ZIPs/run, ZIPs/hour)
-  - Detects stalls (0 uploads for K consecutive runs)
-  - Detects error spikes
-  - Outputs recommendations via GitHub Actions outputs
-
-Exit codes:
-  0 — healthy
-  1 — stalled or too many errors (triggers adjustment)
-"""
 
 import json
 import os

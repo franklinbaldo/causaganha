@@ -1,6 +1,15 @@
 #!/usr/bin/env python3
 """Stress test DJEN API to find rate limit threshold.
 
+Purpose:  Find the DJEN API's rate-limit threshold empirically.
+Problem:  We need to know where CloudFront/WAF starts returning 403 so engine
+          concurrency stays under it (403 must never be treated as absent).
+Strategy: Ramp concurrent requests against known-existing dates, report the
+          200/404/403/timeout/error distribution per level, and stop when the error
+          rate crosses a threshold (default 30%).
+Status:   dev/diagnostic — manual run, not in any workflow.
+
+
 Sends increasing levels of concurrent requests to DJEN and reports
 the response distribution (200 / 404 / 403 / timeout / error) at each
 level. Stops when the error rate crosses a configurable threshold
