@@ -136,7 +136,7 @@ nb = {
             "source": [
                 "## 4. 🔄 Convert Spans → BIO Token Labels\n",
                 "\n",
-                "Converts character-level `{\"text\": ..., \"spans\": {\"dispositivo\": [[start, end]]}}` "
+                "Converts character-level `{\"text\": ..., \"spans\": {\"sec_dispositivo\": [[start, end]]}}` "
                 "to token-level BIO NER format for BERT fine-tuning.\n",
             ],
         },
@@ -162,7 +162,7 @@ nb = {
                 "\n",
                 "def char_spans_to_bio(example):\n",
                 "    text = example['text']\n",
-                "    spans = example.get('spans', {}).get('dispositivo', [])\n",
+                "    spans = example.get('spans', {}).get('sec_dispositivo', [])\n",
                 "\n",
                 "    # Build a character-level label array\n",
                 "    char_labels = ['O'] * len(text)\n",
