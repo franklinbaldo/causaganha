@@ -24,6 +24,26 @@ class Outcome(StrEnum):
     PREJUDICADO = "prejudicado"
 
 
+# RAG's simplified English outcome keys that are preserved verbatim (used by
+# downstream plaintiff_won / benchmark logic).
+_RAG_SIMPLE_TERMS = frozenset({"WIN", "LOSS", "PARTIAL", "SETTLEMENT", "UNKNOWN"})
+
+# RAG emits appeal/extinction outcomes as uppercase underscored keys
+# (e.g. "NAO_PROVIDO"). Map them to the canonical Portuguese Outcome values so
+# they match the Outcome enum and the appeal vocabulary in recurso_resolver —
+# otherwise "NAO_PROVIDO" lowercases to "nao_provido", never matches
+# RECURSO_OUTCOMES ("não provido"), and the recurso polarity inversion is
+# silently skipped (winner resolves as "unknown").
+_RAG_OUTCOME_ALIASES = {
+    "PROVIDO": Outcome.PROVIDO.value,
+    "NAO_PROVIDO": Outcome.NAO_PROVIDO.value,
+    "PARCIALMENTE_PROVIDO": Outcome.PARCIALMENTE_PROVIDO.value,
+    "NAO_CONHECIDO": Outcome.NAO_CONHECIDO.value,
+    "PREJUDICADO": Outcome.PREJUDICADO.value,
+    "EXTINTO_SEM_MERITO": Outcome.EXTINTO_SEM_MERITO.value,
+}
+
+
 class DecisionType(StrEnum):
     """Types of judicial decisions."""
 
@@ -175,12 +195,12 @@ class DecisionAnalysis(BaseModel):
     classe_processual: str | None = Field(
         default=None,
         description="Classe da ação: e.g. 'Procedimento Comum Cível', 'Juizado Especial', "
-                    "'Execução de Título Extrajudicial', 'Apelação Cível'",
+        "'Execução de Título Extrajudicial', 'Apelação Cível'",
     )
     assunto_principal: str | None = Field(
         default=None,
         description="Assunto jurídico principal: e.g. 'danos morais', 'cobrança', "
-                    "'rescisão contratual', 'alimentos'",
+        "'rescisão contratual', 'alimentos'",
     )
     valor_causa: float | None = Field(
         default=None,
@@ -241,8 +261,14 @@ class DecisionAnalysis(BaseModel):
         v_upper = v_stripped.upper()
 
         # Preserve RAG's simplified English terms (uppercase)
-        if v_upper in ["WIN", "LOSS", "PARTIAL", "SETTLEMENT", "UNKNOWN"]:
+        if v_upper in _RAG_SIMPLE_TERMS:
             return v_upper
+
+        # Map RAG's appeal/extinction keys to canonical Portuguese Outcome
+        # values (e.g. "NAO_PROVIDO" -> "não provido") so recurso_resolver
+        # recognises them and applies polarity inversion.
+        if v_upper in _RAG_OUTCOME_ALIASES:
+            return _RAG_OUTCOME_ALIASES[v_upper]
 
         # Normalize LLM's Portuguese terms to lowercase
         return v_stripped.lower()
