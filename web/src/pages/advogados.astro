@@ -39,7 +39,7 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
     <section style="margin-top: 2rem;">
       <article>
         <header>
-          <h2 style="margin: 0; font-family: var(--font-serif); color: var(--color-primary);">Leaderboard de Qualidade (OpenSkill) — TJRO Sandbox</h2>
+          <h2 style="margin: 0;">Leaderboard de Qualidade (OpenSkill) — TJRO Sandbox</h2>
           <p class="meta-text" style="margin-top: 0.25rem;">
             Calculado sobre dados de 2026. Apenas advogados com 20+ casos participam para garantir significância estatística.
           </p>
@@ -96,7 +96,7 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
       </article>
     </section>
 
-    <h2 style="margin-top: 3rem; font-family: var(--font-serif); color: var(--color-primary);">Cobertura dos Tribunais</h2>
+    <h2 style="margin-top: 3rem;">Cobertura dos Tribunais</h2>
     <section class="auto-grid" style="margin-top: 1rem;">
       {tribunalStats.map((index: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard index={index} />)}
     </section>

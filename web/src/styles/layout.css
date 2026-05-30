@@ -373,7 +373,7 @@
 /* Dark mode pull quote */
 :root[data-theme="dark"] .pull { color: var(--fg-heading); border-left-color: var(--vermelho); }
 
-
+@media (max-width: 979px) {
   .hero__inner { padding: var(--s-6) var(--s-4) var(--s-5); }
   .hero h1.mega { font-size: clamp(48px, 12vw, 88px); }
   .hero__meta { grid-template-columns: 1fr 1fr; gap: var(--s-4); }

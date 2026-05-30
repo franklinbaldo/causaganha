@@ -42,7 +42,7 @@ const tribunais = Array.from(grouped.values()).sort((a, b) => {
   <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Comparador' }]} />
 
-    <section class="container">
+    <section>
       {tribunais.length > 0 ? (
         <div class="auto-grid">
           {tribunais.map((tribunal) => <TribunalCompareCard {...tribunal} />)}
