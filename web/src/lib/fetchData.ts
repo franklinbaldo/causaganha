@@ -183,7 +183,7 @@ export async function fetchWithRetry(
 async function safeFetch(url: string): Promise<any | null> {
   try {
     const res = await fetchWithRetry(url);
-    if (res && res.ok) return await res.json();
+    if (res?.ok) return await res.json();
   } catch (err: unknown) {
     console.error(`Failed to fetch ${url}:`, err);
   }
