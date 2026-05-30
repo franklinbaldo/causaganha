@@ -246,7 +246,10 @@
   });
 
   const canSubmit = $derived(
-    status !== 'loading' && hasPendingInput && cooldownRemaining === 0,
+    status !== 'loading' &&
+      hasPendingInput &&
+      queryHasIdentity(effectiveQuery) &&
+      cooldownRemaining === 0,
   );
 
   const preparedSummary = $derived.by(() => buildCriteriaSummary(effectiveQuery));
@@ -347,7 +350,7 @@
   }
 
   function handlePageChange(delta: number) {
-    const current = filters.pagina ?? 1;
+    const current = submittedQuery?.pagina ?? filters.pagina ?? 1;
     const next = Math.max(1, current + delta);
     filters = { ...filters, pagina: next };
     submitSearch({ page: next });
