@@ -28,75 +28,17 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         O <strong>DuckDB-WASM</strong> roda inteiramente no seu navegador — nenhum dado é enviado para servidores externos.
       </p>
 
-      <details>
-        <summary>Tabelas disponíveis</summary>
-        <div class="table-responsive">
-            <table class="striped">
-              <thead>
-                <tr>
-                  <th>Tabela</th>
-                  <th>Descrição</th>
-                  <th>Campos principais</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td><code>comunicacoes</code></td>
-                  <td>Intimações e comunicações judiciais</td>
-                  <td>id, tribunal, numero_processo, data_disponibilizacao, tipo_comunicacao</td>
-                </tr>
-                <tr>
-                  <td><code>advogados</code></td>
-                  <td>Advogados identificados por OAB</td>
-                  <td>id, nome, numero_oab, uf_oab, tribunal</td>
-                </tr>
-                <tr>
-                  <td><code>textos</code></td>
-                  <td>Conteúdo das comunicações (deduplicado)</td>
-                  <td>id, texto</td>
-                </tr>
-                <tr>
-                  <td><code>processos</code></td>
-                  <td>Índice de atividade por processo</td>
-                  <td>numero_processo, tribunal, data, comunicacao_id</td>
-                </tr>
-                <tr>
-                  <td><code>classificacoes</code></td>
-                  <td>Classificação de resultado (procedente/improcedente)</td>
-                  <td>texto_id, outcome, decision_type, confidence</td>
-                </tr>
-                <tr>
-                  <td><code>destinatarios</code></td>
-                  <td>Destinatários das comunicações</td>
-                  <td>comunicacao_id, nome, polo, parte_id</td>
-                </tr>
-                <tr>
-                  <td><code>representacoes</code></td>
-                  <td>Vínculos advogado-parte</td>
-                  <td>advogado_id, parte_id, polo</td>
-                </tr>
-                <tr>
-                  <td><code>partes</code></td>
-                  <td>Partes normalizadas</td>
-                  <td>id, nome_normalizado, nome_original</td>
-                </tr>
-                <tr>
-                  <td><code>comunicacao_advogados</code></td>
-                  <td>Vínculo comunicação-advogado</td>
-                  <td>comunicacao_id, advogado_id</td>
-                </tr>
-                <tr>
-                  <td><code>advogado_nomes</code></td>
-                  <td>Variações de nome por advogado</td>
-                  <td>advogado_id, nome, first_seen</td>
-                </tr>
-              </tbody>
-            </table>
-        </div>
-      </details>
+      <article>
+        <header><strong>Fluxo do explorador</strong></header>
+        <ul>
+          <li>Escolha um tribunal e ano antes de editar a consulta SQL.</li>
+          <li>Use os templates para gerar automaticamente caminhos <code>read_parquet(...)</code> no formato <code>djen-&lt;tribunal&gt;-&lt;ano&gt;</code>.</li>
+          <li>Consulte rapidamente as tabelas principais: comunicações, advogados, vínculos e classificações.</li>
+        </ul>
+      </article>
     </section>
 
-    <DuckDBExplorer client:only="svelte" />
+    <DuckDBExplorer client:only="svelte" publicBase={BASE} />
 
     <footer>
       <small data-tone="muted">
