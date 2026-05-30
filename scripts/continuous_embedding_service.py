@@ -1,15 +1,5 @@
 """Continuous embedding generation service for Cloud Run.
 
-Purpose:  Long-running worker that continuously embeds unembedded decisions.
-Problem:  The corpus needs steady embedding throughput without manual kicks; a 24/7
-          service drains the backlog over time.
-Strategy: Loop over unembedded decisions via EmbeddingPipeline (JINA v4) until
-          stopped; designed to deploy as a Cloud Run job.
-Status:   experimental long-running service — no deployment reference in-repo. RFC:
-          is the Cloud Run deployment live, and does it overlap with embedding_job's
-          'continuous' mode? Consolidate if so.
-
-
 This service runs 24/7 and continuously processes unembedded decisions.
 Designed for deployment on Google Cloud Run as a long-running job.
 

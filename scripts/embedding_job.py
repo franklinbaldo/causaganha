@@ -6,9 +6,10 @@ Problem:  Embedding the corpus needs both a steady daily trickle and bulk catch-
           runs, under time/concurrency limits.
 Strategy: Two modes — 'daily' (last N days) and 'continuous' (as many as fit in a
           time budget) — with tunable concurrency.
-Status:   ops/embedding worker — standalone (no workflow reference found). RFC:
-          meant to be scheduled? Overlaps with continuous_embedding_service —
-          pick one.
+Status:   ops/embedding worker — the single canonical embedding entrypoint
+          (daily + continuous modes). The former continuous_embedding_service and
+          laptop_service variants were consolidated into this CLI. RFC: wire the
+          'daily' mode into a scheduled workflow?
 
 
 This script processes decisions that need embeddings. It can run in two modes:
