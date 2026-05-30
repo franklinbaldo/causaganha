@@ -77,6 +77,7 @@ export async function fetchWithRetry(
   url: string,
   options: RequestInit = {},
   maxRetries: number = 5,
+  timeoutMs: number = 15000,
 ): Promise<Response | FallbackResponse> {
   let lastError: unknown;
   const isBrowser = typeof window !== 'undefined';
@@ -102,8 +103,46 @@ export async function fetchWithRetry(
   }
 
   for (let i = 0; i < maxRetries; i++) {
+    const attemptController = new AbortController();
+    let timeoutTimer: ReturnType<typeof setTimeout> | undefined;
+    let cleanupCombinedSignal = (): void => {};
+    let fetchOptions = options;
+    let retryDelay: number | undefined;
+
     try {
-      const response = await fetch(url, options);
+      timeoutTimer = setTimeout(() => {
+        attemptController.abort(new DOMException(`Fetch timed out after ${timeoutMs}ms`, 'TimeoutError'));
+      }, timeoutMs);
+
+      if (options.signal) {
+        const combinedController = new AbortController();
+        const abortCombined = (signal: AbortSignal): void => {
+          if (!combinedController.signal.aborted) {
+            combinedController.abort(signal.reason);
+          }
+        };
+        const abortFromOptions = (): void => abortCombined(options.signal as AbortSignal);
+        const abortFromTimeout = (): void => abortCombined(attemptController.signal);
+
+        options.signal.addEventListener('abort', abortFromOptions, { once: true });
+        attemptController.signal.addEventListener('abort', abortFromTimeout, { once: true });
+        cleanupCombinedSignal = (): void => {
+          options.signal?.removeEventListener('abort', abortFromOptions);
+          attemptController.signal.removeEventListener('abort', abortFromTimeout);
+        };
+
+        if (options.signal.aborted) {
+          abortCombined(options.signal);
+        } else if (attemptController.signal.aborted) {
+          abortCombined(attemptController.signal);
+        }
+
+        fetchOptions = { ...options, signal: combinedController.signal };
+      } else {
+        fetchOptions = { ...options, signal: attemptController.signal };
+      }
+
+      const response = await fetch(url, fetchOptions);
       if (!response.ok && response.status >= 500) {
         throw new Error(`HTTP Error: ${response.status}`);
       }
@@ -115,14 +154,20 @@ export async function fetchWithRetry(
     } catch (error) {
       lastError = error;
       if (i < maxRetries - 1) {
-        const delay = Math.min(1000 * Math.pow(3, i), 30000);
+        retryDelay = Math.min(1000 * Math.pow(3, i), 30000);
         if (isBrowser) {
           window.dispatchEvent(new CustomEvent('cg-network-retry', {
-            detail: { attempt: i + 1, maxRetries, delay }
+            detail: { attempt: i + 1, maxRetries, delay: retryDelay }
           }));
         }
-        await new Promise(r => setTimeout(r, delay));
       }
+    } finally {
+      if (timeoutTimer) clearTimeout(timeoutTimer);
+      cleanupCombinedSignal();
+    }
+
+    if (retryDelay !== undefined) {
+      await new Promise(r => setTimeout(r, retryDelay));
     }
   }
 
