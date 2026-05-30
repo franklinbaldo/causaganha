@@ -1,6 +1,14 @@
 #!/usr/bin/env python3
 """Daily Parquet export runner for scheduled execution.
 
+Purpose:  Export yesterday's analyzed decisions to Parquet and upload them to IA.
+Problem:  Analyzed decisions accumulate daily and need scheduled publishing with
+          clear success/failure signalling.
+Strategy: Export the previous day across tribunals, upload to IA, and return
+          granular exit codes (0 ok / 1 partial / 2 none / 3 config).
+Status:   ops runner — built for cron/systemd; no GitHub Actions workflow references
+          it. RFC: scheduled anywhere, or superseded by the engine's export path?
+
 This script is designed to be called by cron or systemd timer.
 It exports yesterday's analyzed decisions to Parquet format and
 uploads them to Internet Archive.

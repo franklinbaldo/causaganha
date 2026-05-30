@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Upload Parquet files to Internet Archive.
 
+Purpose:  Upload compressed Parquet artifacts to Internet Archive for archival.
+Problem:  Locally produced Parquet exports need durable, public, long-term storage.
+Strategy: Push the compressed embedding/consolidated Parquet files to IA.
+Status:   production — invoked by collect-zips.yml and consolidate-parquet.yml.
+
 Uploads compressed embedding Parquet files to IA for long-term archival.
 """
 

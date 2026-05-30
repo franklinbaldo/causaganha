@@ -1,3 +1,13 @@
+"""Vendor the PJe ComunicaAPI (DJEN) OpenAPI/Swagger spec into the repo.
+
+Purpose:  Keep a local, version-controlled copy of the PJe DJEN OpenAPI spec.
+Problem:  The upstream PJe host is frequently geo-blocked (HTTP 403), so depending
+          on it at build/runtime is unreliable.
+Strategy: Fetch the swagger YAML (or read a local --input-file) and write it to
+          openapi/; on 403 print actionable mirroring/manual-download guidance.
+Status:   dev/maintenance tool — run manually to refresh the vendored spec.
+"""
+
 from __future__ import annotations
 
 import contextlib

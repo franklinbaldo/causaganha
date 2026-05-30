@@ -1,6 +1,16 @@
 #!/usr/bin/env python3
 """Generate homepage widget data from consolidated Parquet lake on Internet Archive.
 
+Purpose:  Build the homepage widget JSON (activity summary, top tribunals, top
+          lawyers) the dashboard renders at build time.
+Problem:  The Astro homepage needs pre-aggregated stats from the Parquet lake; it
+          can't query IA itself at build time.
+Strategy: Read manifest.parquet to find remote comunicacoes/advogados parquet URLs,
+          aggregate the three widgets via DuckDB, and write one JSON; on any widget
+          failure emit an empty value so the page still renders.
+Status:   production — runs in deploy-web.yml; consumed by web/src/pages/index.astro.
+
+
 Reads `manifest.parquet` from the causaganha-catalog to discover the remote URLs
 of all `*-comunicacoes.parquet` and `*-advogados.parquet` files, then aggregates
 three widgets:
