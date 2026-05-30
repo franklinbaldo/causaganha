@@ -17,3 +17,15 @@ Feature: Tribunal Detail
     When the tribunal detail page loads
     Then the selector should contain "STJ" as an option
     And the selector should contain "TRT1" as an option
+
+  Scenario: Highlight tribunal coverage gap state
+    Given tribunal "STF" has 12 missing days and 4 absent days
+    When the tribunal detail page loads
+    Then I should see a coverage gap attention card
+    And I should see explanatory next action text
+
+  Scenario: Highlight tribunal anomaly state
+    Given tribunal "STJ" has low completion coverage
+    When the tribunal detail page loads
+    Then I should see an anomaly attention card
+    And I should see the anomaly impact text

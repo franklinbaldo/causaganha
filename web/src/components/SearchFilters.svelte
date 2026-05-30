@@ -7,6 +7,16 @@
   }
 
   let { filters = $bindable() }: Props = $props();
+  let showSecondaryFilters = $state(false);
+
+  type DatePreset = 'today' | '7d' | '30d' | 'month';
+
+  const DATE_PRESETS: Array<{ value: DatePreset; label: string }> = [
+    { value: 'today', label: 'Hoje' },
+    { value: '7d', label: 'Últimos 7 dias' },
+    { value: '30d', label: 'Últimos 30 dias' },
+    { value: 'month', label: 'Este mês' },
+  ];
 
   function formatLocalDate(d: Date): string {
     // Format as YYYY-MM-DD in the browser's local timezone so presets don't
@@ -17,14 +27,13 @@
     return `${year}-${month}-${day}`;
   }
 
-  function setDatePreset(preset: 'today' | '7d' | '30d' | 'month') {
+  function datePresetRange(preset: DatePreset) {
     const now = new Date();
     const today = formatLocalDate(now);
     const start = new Date(now);
 
     if (preset === 'today') {
-      filters = { ...filters, dataDisponibilizacaoInicio: today, dataDisponibilizacaoFim: today };
-      return;
+      return { start: today, end: today };
     }
     if (preset === '7d') {
       start.setDate(start.getDate() - 7);
@@ -33,23 +42,39 @@
     } else if (preset === 'month') {
       start.setDate(1);
     }
-    filters = {
-      ...filters,
-      dataDisponibilizacaoInicio: formatLocalDate(start),
-      dataDisponibilizacaoFim: today,
-    };
+
+    return { start: formatLocalDate(start), end: today };
+  }
+
+  function isDatePresetActive(preset: DatePreset) {
+    const range = datePresetRange(preset);
+    return (
+      filters.dataDisponibilizacaoInicio === range.start &&
+      filters.dataDisponibilizacaoFim === range.end
+    );
+  }
+
+  function updateFilters(patch: Partial<DjenComunicacaoQuery>) {
+    filters = { ...filters, ...patch, pagina: 1 };
+  }
+
+  function setDatePreset(preset: DatePreset) {
+    const range = datePresetRange(preset);
+    updateFilters({
+      dataDisponibilizacaoInicio: range.start,
+      dataDisponibilizacaoFim: range.end,
+    });
   }
 
   function clearDates() {
-    filters = {
-      ...filters,
+    updateFilters({
       dataDisponibilizacaoInicio: undefined,
       dataDisponibilizacaoFim: undefined,
-    };
+    });
   }
 
   function clearAll() {
-    filters = { itensPorPagina: filters.itensPorPagina, pagina: 1 };
+    filters = { itensPorPagina: 30, pagina: 1 };
   }
 </script>
 
@@ -59,7 +84,7 @@
       Tribunal
       <select
         value={filters.siglaTribunal ?? ''}
-        onchange={(e) => (filters = { ...filters, siglaTribunal: (e.currentTarget.value || undefined) })}
+        onchange={(e) => updateFilters({ siglaTribunal: e.currentTarget.value || undefined })}
       >
         <option value="">Todos</option>
         {#each TRIBUNAL_GROUPS as group (group.name)}
@@ -73,61 +98,12 @@
     </label>
 
     <label>
-      OAB — número
-      <input
-        type="text"
-        inputmode="numeric"
-        pattern="[0-9]*"
-        autocomplete="off"
-        placeholder="123456"
-        value={filters.numeroOab ?? ''}
-        oninput={(e) => (filters = { ...filters, numeroOab: e.currentTarget.value || undefined })}
-      />
-    </label>
-
-    <label>
-      OAB — UF
-      <input
-        type="text"
-        autocapitalize="characters"
-        autocomplete="off"
-        placeholder="SP"
-        maxlength="2"
-        value={filters.ufOab ?? ''}
-        oninput={(e) => (filters = { ...filters, ufOab: e.currentTarget.value.toUpperCase() || undefined })}
-      />
-    </label>
-
-    <label>
-      Nome do advogado
-      <input
-        type="text"
-        autocomplete="off"
-        placeholder="Ex.: João da Silva"
-        value={filters.nomeAdvogado ?? ''}
-        oninput={(e) => (filters = { ...filters, nomeAdvogado: e.currentTarget.value || undefined })}
-      />
-    </label>
-
-    <label>
-      Nome da parte
-      <input
-        type="text"
-        autocomplete="off"
-        placeholder="Ex.: Empresa XYZ LTDA"
-        value={filters.nomeParte ?? ''}
-        oninput={(e) => (filters = { ...filters, nomeParte: e.currentTarget.value || undefined })}
-      />
-    </label>
-
-    <label>
       Data início
       <input
         type="date"
         value={filters.dataDisponibilizacaoInicio ?? ''}
         oninput={(e) =>
-          (filters = {
-            ...filters,
+          updateFilters({
             dataDisponibilizacaoInicio: e.currentTarget.value || undefined,
           })}
       />
@@ -139,63 +115,124 @@
         type="date"
         value={filters.dataDisponibilizacaoFim ?? ''}
         oninput={(e) =>
-          (filters = {
-            ...filters,
+          updateFilters({
             dataDisponibilizacaoFim: e.currentTarget.value || undefined,
           })}
       />
     </label>
+  </div>
 
-    <fieldset class="publication-filters__choice-group">
-      <legend>Meio</legend>
-      <label>
-        <input
-          type="radio"
-          name="meio"
-          checked={filters.meio == null}
-          onchange={() => (filters = { ...filters, meio: undefined })}
-        /> Todos
-      </label>
-      <label>
-        <input
-          type="radio"
-          name="meio"
-          checked={filters.meio === 'D'}
-          onchange={() => (filters = { ...filters, meio: 'D' })}
-        /> Diário
-      </label>
-      <label>
-        <input
-          type="radio"
-          name="meio"
-          checked={filters.meio === 'E'}
-          onchange={() => (filters = { ...filters, meio: 'E' })}
-        /> Edital
-      </label>
-    </fieldset>
+  <div aria-label="Presets de período mais usados">
+    <small>Período:</small>
+    {#each DATE_PRESETS as preset (preset.value)}
+      <button
+        type="button"
+        class:contrast={isDatePresetActive(preset.value)}
+        class:secondary={!isDatePresetActive(preset.value)}
+        class:outline={!isDatePresetActive(preset.value)}
+        aria-pressed={isDatePresetActive(preset.value)}
+        onclick={() => setDatePreset(preset.value)}
+      >{preset.label}</button>
+    {/each}
+    <button type="button" class="outline" onclick={clearDates}>Limpar datas</button>
+  </div>
 
-    <fieldset class="publication-filters__choice-group">
-      <legend>Itens por página</legend>
-      {#each [5, 30, 100] as size (size)}
+  <details bind:open={showSecondaryFilters}>
+    <summary>Mais filtros</summary>
+    <div class="auto-grid-sm">
+      <label>
+        OAB — número
+        <input
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="off"
+          placeholder="123456"
+          value={filters.numeroOab ?? ''}
+          oninput={(e) => updateFilters({ numeroOab: e.currentTarget.value || undefined })}
+        />
+      </label>
+
+      <label>
+        OAB — UF
+        <input
+          type="text"
+          autocapitalize="characters"
+          autocomplete="off"
+          placeholder="SP"
+          maxlength="2"
+          value={filters.ufOab ?? ''}
+          oninput={(e) => updateFilters({ ufOab: e.currentTarget.value.toUpperCase() || undefined })}
+        />
+      </label>
+
+      <label>
+        Nome do advogado
+        <input
+          type="text"
+          autocomplete="off"
+          placeholder="Ex.: João da Silva"
+          value={filters.nomeAdvogado ?? ''}
+          oninput={(e) => updateFilters({ nomeAdvogado: e.currentTarget.value || undefined })}
+        />
+      </label>
+
+      <label>
+        Nome da parte
+        <input
+          type="text"
+          autocomplete="off"
+          placeholder="Ex.: Empresa XYZ LTDA"
+          value={filters.nomeParte ?? ''}
+          oninput={(e) => updateFilters({ nomeParte: e.currentTarget.value || undefined })}
+        />
+      </label>
+
+      <fieldset>
+        <legend>Meio</legend>
         <label>
           <input
             type="radio"
-            name="itensPorPagina"
-            checked={(filters.itensPorPagina ?? 30) === size}
-            onchange={() => (filters = { ...filters, itensPorPagina: size, pagina: 1 })}
-          /> {size}
+            name="meio"
+            checked={filters.meio == null}
+            onchange={() => updateFilters({ meio: undefined })}
+          /> Todos
         </label>
-      {/each}
-    </fieldset>
-  </div>
+        <label>
+          <input
+            type="radio"
+            name="meio"
+            checked={filters.meio === 'D'}
+            onchange={() => updateFilters({ meio: 'D' })}
+          /> Diário
+        </label>
+        <label>
+          <input
+            type="radio"
+            name="meio"
+            checked={filters.meio === 'E'}
+            onchange={() => updateFilters({ meio: 'E' })}
+          /> Edital
+        </label>
+      </fieldset>
 
-  <div class="publication-filters__presets">
-    <small>Período:</small>
-    <button type="button" onclick={() => setDatePreset('today')}>Hoje</button>
-    <button type="button" onclick={() => setDatePreset('7d')}>7 dias</button>
-    <button type="button" onclick={() => setDatePreset('30d')}>30 dias</button>
-    <button type="button" onclick={() => setDatePreset('month')}>Este mês</button>
-    <button type="button" class="outline" onclick={clearDates}>Limpar datas</button>
+      <fieldset>
+        <legend>Itens por página</legend>
+        {#each [5, 30, 100] as size (size)}
+          <label>
+            <input
+              type="radio"
+              name="itensPorPagina"
+              checked={(filters.itensPorPagina ?? 30) === size}
+              onchange={() => updateFilters({ itensPorPagina: size })}
+            /> {size}
+          </label>
+        {/each}
+      </fieldset>
+    </div>
+  </details>
+
+  <div>
     <button type="button" class="outline" data-tone="error" onclick={clearAll}>Limpar tudo</button>
   </div>
 </fieldset>
