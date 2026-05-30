@@ -322,7 +322,7 @@
   <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
   <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
   <article
-    class:expandable={!!onExpand}
+    class={`publication-card publication-card--compact${onExpand ? " publication-card--expandable expandable" : ""}`}
     id={`pub-${seq}`}
     role={onExpand ? "button" : undefined}
     tabindex={onExpand ? 0 : undefined}
@@ -337,7 +337,7 @@
       }
     }}
   >
-    <header>
+    <header class="publication-card__header">
       <span class="seq-number">#{seq}</span>
       {#if pub.tipoComunicacao}
         <span class="badge publication-badge">{pub.tipoComunicacao}</span>
@@ -389,7 +389,7 @@
       </div>
     {/if}
 
-    <footer>
+    <footer class="publication-card__footer">
       {#if pub.link}
         <a class="outline secondary" href={pub.link} target="_blank" rel="noopener noreferrer" role="button">
           {@render openExternalIcon()}
@@ -408,9 +408,9 @@
     </footer>
   </article>
 {:else if isReaderMode}
-  <article class="reader-mode" id={`pub-${seq}`}>
-    <header>
-      <div>
+  <article class="reader-mode publication-card publication-card--reader" id={`pub-${seq}`}>
+    <header class="publication-card__header">
+      <div class="publication-card__header-main">
         <span class="seq-number seq-bold">#{seq}</span>
         <span class="badge publication-badge">Modo Leitura</span>
         {@render sourceBadge()}
@@ -422,7 +422,7 @@
       {#if pub.nomeOrgao}
         <p class="orgao-name-reader">{pub.nomeOrgao}</p>
       {/if}
-      <div aria-label="Ações de navegação e leitura">
+      <div class="publication-card__actions" aria-label="Ações de navegação e leitura">
         <button
           type="button"
           class="outline secondary"
@@ -457,7 +457,7 @@
       </div>
     {/if}
 
-    <div class="reader-layout">
+    <div class="reader-layout publication-card__reader-layout">
       <aside class="reader-sidebar">
         {#if identityRows.length > 0}
           <div class="sidebar-panel">
@@ -490,9 +490,9 @@
         </div>
       </aside>
 
-      <div class="reader-content">
+      <div class="reader-content publication-card__reader-content">
         {#if pub.textoRender?.kind === "html"}
-          <div>
+          <div class="publication-card__html-content">
             {@html pub.textoRender.content}
           </div>
         {:else if textParts.length > 0}
@@ -514,9 +514,9 @@
     </div>
   </article>
 {:else}
-  <article id={`pub-${seq}`}>
-    <header>
-      <div>
+  <article class="publication-card publication-card--expanded" id={`pub-${seq}`}>
+    <header class="publication-card__header">
+      <div class="publication-card__header-main">
         <span class="seq-number seq-bold">#{seq}</span>
         {#if pub.tipoComunicacao}
           <span class="badge publication-badge">{pub.tipoComunicacao}</span>
@@ -530,7 +530,7 @@
       {#if pub.nomeOrgao}
         <small class="orgao-name-block">{pub.nomeOrgao}</small>
       {/if}
-      <div aria-label="Ações de navegação e leitura">
+      <div class="publication-card__actions" aria-label="Ações de navegação e leitura">
         {#if onCollapse}
           <button
             type="button"
@@ -555,7 +555,7 @@
             Inteiro teor
           </a>
         {/if}
-        <div class="nav-actions" aria-label="Ações de navegação">
+        <div class="nav-actions publication-card__nav-actions" aria-label="Ações de navegação">
           {#if onNavigate}
             <button
               type="button"
@@ -595,14 +595,14 @@
       </div>
     {/if}
 
-    <div class="story-grid">
+    <div class="story-grid publication-card__story-grid">
       <section>
         {#if teaser}
           <p>{teaser}</p>
         {/if}
 
         {#if pub.textoRender?.kind === "html"}
-          <div>
+          <div class="publication-card__html-content">
             {@html pub.textoRender.content}
           </div>
         {:else if textParts.length > 0}

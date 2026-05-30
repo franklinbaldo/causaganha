@@ -53,8 +53,8 @@
   }
 </script>
 
-<fieldset>
-  <div class="auto-grid-sm">
+<fieldset class="publication-filters">
+  <div class="auto-grid-sm publication-filters__grid">
     <label>
       Tribunal
       <select
@@ -146,7 +146,7 @@
       />
     </label>
 
-    <fieldset>
+    <fieldset class="publication-filters__choice-group">
       <legend>Meio</legend>
       <label>
         <input
@@ -174,7 +174,7 @@
       </label>
     </fieldset>
 
-    <fieldset>
+    <fieldset class="publication-filters__choice-group">
       <legend>Itens por página</legend>
       {#each [5, 30, 100] as size (size)}
         <label>
@@ -189,7 +189,7 @@
     </fieldset>
   </div>
 
-  <div>
+  <div class="publication-filters__presets">
     <small>Período:</small>
     <button type="button" onclick={() => setDatePreset('today')}>Hoje</button>
     <button type="button" onclick={() => setDatePreset('7d')}>7 dias</button>

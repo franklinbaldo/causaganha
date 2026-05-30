@@ -1,0 +1,252 @@
+
+/* Widget li */
+.widget-li { white-space: nowrap; flex-shrink: 0; }
+
+/* Nav dropdown — Pico handles details[role="list"] positioning natively */
+nav details[role="list"] > ul[role="listbox"] {
+  right: 0;
+  left: auto;
+  min-width: 160px;
+}
+
+nav details[role="list"] > ul[role="listbox"] a {
+  border-radius: var(--radius-btn);
+  font-size: var(--font-size-sm);
+}
+
+nav details[role="list"] > summary.active { background: var(--color-base-200); font-weight: 600; }
+
+.dropdown-divider {
+  height: 1px;
+  background: var(--color-base-300);
+  margin: var(--space-1) 0;
+  padding: 0;
+}
+
+/* Mobile nav drawer — native <dialog> positioned as right-side sheet;
+   Pico handles ::backdrop and focus-trap via showModal() */
+dialog.nav-drawer {
+  position: fixed;
+  right: 0;
+  left: auto;
+  top: 0;
+  bottom: 0;
+  width: 20rem;
+  height: 100%;
+  max-height: 100%;
+  margin: 0;
+  padding: var(--space-4);
+  border-radius: var(--pico-border-radius) 0 0 var(--pico-border-radius);
+  overflow-y: auto;
+}
+
+dialog.nav-drawer > ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+dialog.nav-drawer a {
+  display: block;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-btn);
+  font-size: var(--font-size-sm);
+  text-decoration: none;
+  color: var(--color-base-content);
+}
+
+dialog.nav-drawer a:hover     { background: var(--color-base-300); }
+dialog.nav-drawer a.active    { background: var(--color-base-300); font-weight: 600; }
+dialog.nav-drawer a:focus-visible {
+  background: var(--color-base-300);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.drawer-divider {
+  height: 1px;
+  background: var(--color-base-300);
+  margin: var(--space-2) 0;
+  list-style: none;
+}
+
+.menu-title {
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  opacity: 0.5;
+  padding: var(--space-2) var(--space-3);
+  list-style: none;
+}
+
+/* Burger button */
+.btn-menu {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 3rem; height: 3rem;
+  background: transparent; border: none;
+  border-radius: var(--radius-btn);
+  cursor: pointer; color: var(--color-base-content);
+}
+.btn-menu:hover { background: var(--color-base-200); }
+.btn-menu:focus-visible {
+  background: var(--color-base-200);
+  outline: 2px solid var(--color-primary); outline-offset: 2px;
+}
+
+/* Back button */
+.btn-back {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: var(--space-1) var(--space-2);
+  background: transparent; border: none;
+  border-radius: var(--radius-btn);
+  cursor: pointer; color: var(--color-base-content); text-decoration: none;
+}
+.btn-back:hover { background: var(--color-base-200); }
+.btn-back:focus-visible {
+  background: var(--color-base-200);
+  outline: 2px solid var(--color-primary); outline-offset: 2px;
+}
+
+@media (pointer: coarse) {
+  .btn-back, .btn-menu { min-width: 44px; min-height: 44px; }
+}
+
+/* Page header variant */
+.page-header {
+  border-bottom: 1px solid var(--color-base-300);
+  margin-bottom: var(--space-6);
+}
+
+.icon-slot {
+  width: 2.5rem; height: 2.5rem; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+}
+
+.tile-icon-link {
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--radius-sm); overflow: hidden; flex-shrink: 0;
+}
+.tile-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); }
+
+.title-li { flex: 1; }
+.title-group { display: flex; flex-direction: column; }
+
+.page-title {
+  font-size: var(--font-size-2xl);
+  font-family: var(--font-serif);
+  font-weight: 400;
+  line-height: 1.25;
+  margin: 0;
+}
+
+.page-subtitle {
+  font-size: var(--font-size-xs);
+  color: var(--color-base-content);
+  opacity: 0.5;
+  line-height: 1.25;
+  margin: 0;
+}
+
+/* Pico sets nav li padding — reset it in our header */
+.site-header nav li { padding: 0; }
+
+/* ═══════════════════════════════════════════
+   Footer
+   ═══════════════════════════════════════════ */
+
+.site-footer {
+  background: var(--color-base-200);
+  color: var(--color-base-content);
+  margin-top: var(--space-20, 5rem);
+  padding: var(--space-10, 2.5rem) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.footer-brand {
+  font-family: var(--font-serif);
+  font-size: var(--font-size-lg);
+  font-weight: 400;
+  margin: 0;
+}
+
+.footer-nav {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-4);
+}
+
+.footer-nav a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+  color: var(--color-content-secondary);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 500;
+}
+
+.footer-nav a:hover,
+.footer-nav a:focus-visible {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+.footer-nav svg { flex-shrink: 0; opacity: 0.7; }
+
+.footer-tagline {
+  font-size: var(--font-size-xs);
+  color: var(--color-content-tertiary);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin: 0;
+}
+
+
+/* ═══════════════════════════════════════════
+   Theme Toggle
+   ═══════════════════════════════════════════ */
+
+.theme-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0.25rem;
+  border-radius: var(--radius-btn);
+  cursor: pointer;
+  border: 1px solid transparent;
+  background: transparent;
+  color: inherit;
+}
+
+.theme-toggle-btn:hover { background: var(--color-base-200); }
+.theme-toggle-btn:focus-visible {
+  background: var(--color-base-200);
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Icon visibility driven by [data-theme] — no FOUC since the inline
+   head script sets data-theme before first paint. */
+.theme-toggle-btn .icon-sun  { display: none; }
+.theme-toggle-btn .icon-moon { display: inline; }
+
+:root[data-theme='dark'] .theme-toggle-btn .icon-sun  { display: inline; }
+:root[data-theme='dark'] .theme-toggle-btn .icon-moon { display: none; }
+
+@media (pointer: coarse) {
+  .theme-toggle-btn { width: 2.75rem; height: 2.75rem; }
+}
+
