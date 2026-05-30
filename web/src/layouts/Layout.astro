@@ -59,7 +59,14 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       // our custom --color-base-* tokens live in [data-theme="dark"], not in
       // a @media block, so they would not activate under data-theme="auto".
       (function () {
-        const saved = localStorage.getItem('causaganha-theme');
+        let saved = null;
+
+        try {
+          saved = localStorage.getItem('causaganha-theme');
+        } catch {
+          saved = null;
+        }
+
         const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
         const isDark = saved ? saved === 'dark' : prefersDark;
         document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');

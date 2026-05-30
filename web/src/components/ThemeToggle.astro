@@ -35,7 +35,11 @@
       btn.addEventListener('click', () => {
         const next = !isDark();
         document.documentElement.setAttribute('data-theme', next ? 'dark' : 'light');
-        localStorage.setItem('causaganha-theme', next ? 'dark' : 'light');
+        try {
+          localStorage.setItem('causaganha-theme', next ? 'dark' : 'light');
+        } catch {
+          // Ignore storage errors so the theme toggle still works in restricted contexts.
+        }
         // Sync labels on all instances after any toggle
         document.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn').forEach(b => {
           b.setAttribute('aria-label', next ? 'Mudar para modo claro' : 'Mudar para modo escuro');
