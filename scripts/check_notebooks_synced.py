@@ -60,7 +60,7 @@ def export_ipynb(notebook: Path, out: Path) -> None:
     with tempfile.NamedTemporaryFile(suffix=".ipynb", delete=False) as tmp:
         raw = Path(tmp.name)
     try:
-        subprocess.run(  # noqa: S603
+        subprocess.run(
             [
                 "marimo",
                 "export",
