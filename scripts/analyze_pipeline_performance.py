@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Comprehensive pipeline performance analyzer.
 
+Purpose:  Profile the pipeline end-to-end to find bottlenecks and optimization wins.
+Problem:  We need data, not guesses, about where pipeline time/memory/IO goes.
+Strategy: Measure per-step execution time, memory, I/O, network, and parallelization
+          potential, then surface bottlenecks and opportunities.
+Status:   dev/profiling tool — manual run, not in any workflow.
+
+
 Measures:
   - Execution time per step
   - Memory usage
