@@ -376,7 +376,12 @@ class LLMAnalyzer:
                 parsed = _parse_response(content)
                 analysis = _build_analysis(parsed, intimation_id or 0)
             except (ValueError, KeyError, json.JSONDecodeError) as exc:
-                logger.warning("llm_parse_error", model=model, error=str(exc), raw_content=content[:1000] if 'content' in locals() else None)
+                logger.warning(
+                    "llm_parse_error",
+                    model=model,
+                    error=str(exc),
+                    raw_content=content[:1000] if "content" in locals() else None,
+                )
                 last_exc = exc
                 continue
             except Exception as exc:
@@ -455,14 +460,14 @@ class LLMAnalyzer:
         if raw_keys:
             gemini_keys = [k.strip() for k in raw_keys.split(",") if k.strip()]
         if not gemini_keys:
-            gemini_keys = [None] # fallback to litellm default / system env
+            gemini_keys = [None]  # fallback to litellm default / system env
 
         last_exc: Exception | None = None
         for model in self.models:
             is_gemini = model.startswith("gemini/")
             # Rotate keys for Gemini models
             api_keys_to_try = gemini_keys if is_gemini else [None]
-            
+
             for api_key in api_keys_to_try:
                 try:
                     logger.debug(
@@ -471,17 +476,18 @@ class LLMAnalyzer:
                         batch_size=len(items),
                         using_key=f"{api_key[:8]}..." if api_key else "default",
                     )
-                    
-                    # Set temporary API key if rotating
-                    if api_key:
-                        os.environ["GEMINI_API_KEY"] = api_key
-                        os.environ["GOOGLE_API_KEY"] = api_key
-                        
+
+                    # Pass the rotating key directly instead of mutating the
+                    # process-wide environment: os.environ is shared across all
+                    # concurrent tasks, so writing it here races between batches
+                    # (and permanently leaks the last key). litellm resolves the
+                    # key from its env defaults when api_key is None.
                     response = await litellm.acompletion(
                         model=model,
                         messages=messages,
                         temperature=0.1,
                         max_tokens=max_output_tokens,
+                        api_key=api_key,
                     )
                     content = response.choices[0].message.content or ""
                     batch_parsed = _parse_response(content)
@@ -491,7 +497,11 @@ class LLMAnalyzer:
                     # Don't try other keys for formatting errors, go to next model/next step
                     break
                 except Exception as exc:
-                    if _is_retryable(exc) or "quota" in str(exc).lower() or "limit" in str(exc).lower():
+                    if (
+                        _is_retryable(exc)
+                        or "quota" in str(exc).lower()
+                        or "limit" in str(exc).lower()
+                    ):
                         logger.warning(
                             "llm_batch_model_unavailable_or_quota",
                             model=model,
@@ -548,14 +558,18 @@ class LLMAnalyzer:
         available: list[str] = []
         if os.environ.get("GEMINI_API_KEY") or os.environ.get("GOOGLE_API_KEY"):
             # gemini-2.0-flash retired March/2026; use 2.5 series
-            available.extend([
-                "gemini/gemini-2.5-flash-lite",  # 1 000 RPD free — most generous
-                "gemini/gemini-2.5-flash",        # 250 RPD free
-            ])
+            available.extend(
+                [
+                    "gemini/gemini-2.5-flash-lite",  # 1 000 RPD free — most generous
+                    "gemini/gemini-2.5-flash",  # 250 RPD free
+                ]
+            )
         if os.environ.get("OPENROUTER_API_KEY"):
-            available.extend([
-                "openrouter/moonshotai/kimi-k2.6:free",
-                "openrouter/google/gemma-4-31b-it:free",
-                "openrouter/meta-llama/llama-3.3-70b-instruct:free",
-            ])
+            available.extend(
+                [
+                    "openrouter/moonshotai/kimi-k2.6:free",
+                    "openrouter/google/gemma-4-31b-it:free",
+                    "openrouter/meta-llama/llama-3.3-70b-instruct:free",
+                ]
+            )
         return available or DEFAULT_MODELS
