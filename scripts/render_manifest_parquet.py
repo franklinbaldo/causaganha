@@ -1,17 +1,16 @@
 #!/usr/bin/env python3
 """Render sync-manifest.csv → sync-manifest.parquet and upload to IA.
 
-The Parquet artifact is a read-optimized companion to the canonical CSV.
-Engine writes still go through the CSV (cheap appends); workflows and
-dashboards that only need to QUERY the manifest can fetch this Parquet
-via DuckDB httpfs and pull only the row groups they care about.
-
-Delta CSVs written by the upload-backlog drain (upload-deltas/*.csv on IA)
-are merged in before rendering so the parquet reflects confirmed uploads
-even before the full sync-manifest.csv is updated.
-
-Typical size reduction: 8MB CSV → ~1MB Parquet (columnar + dictionary
-encoding on the high-cardinality `tribunal` column).
+Purpose:  Produce a read-optimized Parquet companion to the canonical manifest CSV.
+Problem:  The CSV is great for cheap engine appends but expensive to query remotely
+          (8MB, full download). Workflows/dashboards only need to read subsets.
+Strategy: Merge the upload-backlog delta CSVs (upload-deltas/*.csv on IA) so the
+          snapshot reflects confirmed uploads even before the full CSV updates,
+          then render to Parquet (columnar + dictionary encoding on the
+          high-cardinality `tribunal` column → ~8MB CSV becomes ~1MB) so readers
+          can fetch only the row groups they need via DuckDB httpfs. Writes still
+          flow through the CSV — this is a derived read replica.
+Status:   production — runs every 30 min via render-manifest-parquet.yml.
 """
 
 from __future__ import annotations

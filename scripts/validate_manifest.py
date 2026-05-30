@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Validate the newly generated manifest.jsonl before uploading."""
+"""Validate the newly generated manifest.jsonl before uploading.
+
+Purpose:  Sanity-check a freshly generated manifest.jsonl before it is pushed to IA.
+Problem:  A malformed or truncated manifest uploaded to IA would corrupt the single
+          source of truth that the dashboard and downstream jobs read.
+Strategy: Parse every line as JSON and assert the expected schema/row invariants,
+          failing loudly (non-zero exit) before any upload happens — cheap guard
+          rail in the publish path.
+Status:   production — gate step in the manifest publish workflow.
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows

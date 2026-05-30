@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 """Backfill probe — diagnose inconsistencies between sync-manifest and DJEN proxy.
 
-Pulls the canonical manifest from IA, samples entries by category
-(absent / unknown / available / 403 / timeout), re-probes the DJEN proxy live,
-and prints a side-by-side comparison so we can spot rows where the manifest
-disagrees with reality.
-
-Designed to run inside the ``backfill-probe`` GitHub Actions workflow. The job
-intentionally exits non-zero at the end so the run is flagged as failed and
-the operator gets the report attached to a visible failure.
+Purpose:  Spot rows where the manifest's recorded status disagrees with what the
+          DJEN proxy returns right now.
+Problem:  Manifest categories (absent/unknown/403/timeout) can be stale or wrong
+          (e.g. 403 rate-limits mislabeled as absent); we need a live audit.
+Strategy: Pull the canonical manifest from IA, sample entries per category, re-probe
+          the DJEN proxy live, and print a side-by-side comparison. Sampling keeps
+          the probe cheap while still surfacing systemic drift.
+Status:   production diagnostic — runs in the backfill-probe workflow, which
+          intentionally exits non-zero so the report is attached to a visible
+          failed run for the operator.
 """
 
 from __future__ import annotations
