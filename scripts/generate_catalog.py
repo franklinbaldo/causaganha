@@ -1,4 +1,27 @@
 #!/usr/bin/env python3
+"""Generate the CausaGanha catalog artifacts for Internet Archive.
+
+Purpose:  Build the catalog/index artifacts (manifest, backfill-needed, SQL views,
+          DuckDB file, progress JSON) that describe everything archived on IA.
+Problem:  Consumers need a single queryable index of what's on IA and what's still
+          missing from DJEN, without scanning IA directly.
+Strategy: Aggregate IA contents into manifest.parquet + backfill-needed.parquet,
+          emit catalog.sql/catalog.duckdb with remote views, and snapshot the
+          collect/consolidate progress.
+Status:   production — runs in update-catalog.yml.
+
+Creates:
+- manifest.parquet: Index of all files in IA
+- backfill-needed.parquet: What's missing from DJEN
+- catalog.sql: SQL with remote views
+- catalog.duckdb: Ready-to-use DuckDB file
+- collect-progress.json + .jsonl: Download progress (current + history)
+- consolidate-progress.json + .jsonl: Consolidation progress (current + history)
+
+Usage:
+    python scripts/generate_catalog.py --upload
+    python scripts/generate_catalog.py --output ./catalog/
+"""
 
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
@@ -19,21 +42,6 @@ MAX_DAY_OF_MONTH = 31
 MAX_MONTH = 12
 MAX_YEAR_CUTOFF = 2030
 MIN_YEAR_CUTOFF = 2020
-
-"""Generate CausaGanha catalog for Internet Archive.
-
-Creates:
-- manifest.parquet: Index of all files in IA
-- backfill-needed.parquet: What's missing from DJEN
-- catalog.sql: SQL with remote views
-- catalog.duckdb: Ready-to-use DuckDB file
-- collect-progress.json + .jsonl: Download progress (current + history)
-- consolidate-progress.json + .jsonl: Consolidation progress (current + history)
-
-Usage:
-    python scripts/generate_catalog.py --upload
-    python scripts/generate_catalog.py --output ./catalog/
-"""
 
 import argparse
 import asyncio

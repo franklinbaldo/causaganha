@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Extract <style> blocks from all .astro/.svelte files and move them to index.css.
 
+Purpose:  Consolidate inline <style> blocks from components into a single index.css.
+Problem:  Styles scattered across .astro/.svelte files are hard to audit and dedupe.
+Strategy: Scan all .astro/.svelte files, extract their <style> blocks, and move them
+          into index.css (--dry-run to preview).
+Status:   dev/one-off refactor tool — manual run, not in any workflow.
+
 Usage: python scripts/extract_local_css.py [--dry-run]
 """
 from __future__ import annotations
