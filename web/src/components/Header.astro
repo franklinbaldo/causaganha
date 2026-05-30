@@ -89,13 +89,26 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
         </li>
         <li><ThemeToggle /></li>
         <li class="mobile-only">
-          <button class="btn-menu" aria-label="Abrir menu de navegação" aria-haspopup="dialog"
-            onclick={`document.getElementById('nav-drawer-${drawerIdSuffix}').showModal()`}>
+          <button
+            class="btn-menu"
+            aria-label="Abrir menu de navegação"
+            aria-haspopup="dialog"
+            aria-controls={`nav-drawer-${drawerIdSuffix}`}
+            data-nav-drawer-trigger
+            type="button">
             <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
               <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <dialog id={`nav-drawer-${drawerIdSuffix}`} class="nav-drawer">
+          <dialog id={`nav-drawer-${drawerIdSuffix}`} class="nav-drawer" aria-labelledby={`nav-drawer-title-${drawerIdSuffix}`}>
+            <div class="nav-drawer__header">
+              <h2 id={`nav-drawer-title-${drawerIdSuffix}`}>Menu</h2>
+              <button class="nav-drawer__close" type="button" data-nav-drawer-close>Fechar</button>
+            </div>
+            <a href={BASE + 'publicacoes'} class="nav-drawer__primary">
+              <span>Buscar publicações</span>
+              <small>Pesquisa pública no DJEN · Ctrl+K</small>
+            </a>
             <ul>
               <li class="menu-title">Principal</li>
               {primaryLinks.map(link => (
@@ -171,13 +184,26 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
         </li>
         <li><ThemeToggle /></li>
         <li class="mobile-only">
-          <button class="btn-menu" aria-label="Abrir menu de navegação" aria-haspopup="dialog"
-            onclick={`document.getElementById('nav-drawer-${drawerIdSuffix}').showModal()`}>
+          <button
+            class="btn-menu"
+            aria-label="Abrir menu de navegação"
+            aria-haspopup="dialog"
+            aria-controls={`nav-drawer-${drawerIdSuffix}`}
+            data-nav-drawer-trigger
+            type="button">
             <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 24 24" aria-hidden="true">
               <line x1="3" y1="12" x2="21" y2="12" /><line x1="3" y1="6" x2="21" y2="6" /><line x1="3" y1="18" x2="21" y2="18" />
             </svg>
           </button>
-          <dialog id={`nav-drawer-${drawerIdSuffix}`} class="nav-drawer">
+          <dialog id={`nav-drawer-${drawerIdSuffix}`} class="nav-drawer" aria-labelledby={`nav-drawer-title-${drawerIdSuffix}`}>
+            <div class="nav-drawer__header">
+              <h2 id={`nav-drawer-title-${drawerIdSuffix}`}>Menu</h2>
+              <button class="nav-drawer__close" type="button" data-nav-drawer-close>Fechar</button>
+            </div>
+            <a href={BASE + 'publicacoes'} class="nav-drawer__primary">
+              <span>Buscar publicações</span>
+              <small>Pesquisa pública no DJEN · Ctrl+K</small>
+            </a>
             <ul>
               <li><a href={BASE}>Início</a></li>
               <li role="separator" class="drawer-divider" aria-hidden="true"></li>
@@ -204,14 +230,40 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
 )}
 
 <script>
-  function bindDrawerBackdropClicks() {
-    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
-      if (dialog.dataset.backdropBound === 'true') return;
+  const drawerOpeners = new WeakMap<HTMLDialogElement, HTMLElement>();
 
-      dialog.dataset.backdropBound = 'true';
+  function returnFocusToDrawerOpener(dialog: HTMLDialogElement) {
+    const opener = drawerOpeners.get(dialog);
+    if (!opener || !document.contains(opener)) return;
+    opener.focus();
+  }
+
+  function bindDrawerControls() {
+    document.querySelectorAll<HTMLButtonElement>('[data-nav-drawer-trigger]').forEach(trigger => {
+      if (trigger.dataset.drawerTriggerBound === 'true') return;
+
+      trigger.dataset.drawerTriggerBound = 'true';
+      trigger.addEventListener('click', () => {
+        const drawerId = trigger.getAttribute('aria-controls');
+        const dialog = drawerId ? document.getElementById(drawerId) as HTMLDialogElement | null : null;
+        if (!dialog) return;
+
+        drawerOpeners.set(dialog, trigger);
+        dialog.showModal();
+      });
+    });
+
+    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
+      if (dialog.dataset.drawerBound === 'true') return;
+
+      dialog.dataset.drawerBound = 'true';
       dialog.addEventListener('click', (e) => {
         if (e.target === dialog) dialog.close();
       });
+      dialog.querySelectorAll<HTMLButtonElement>('[data-nav-drawer-close]').forEach(button => {
+        button.addEventListener('click', () => dialog.close());
+      });
+      dialog.addEventListener('close', () => returnFocusToDrawerOpener(dialog));
     });
   }
 
@@ -234,15 +286,15 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
     });
   }
 
-  bindDrawerBackdropClicks();
+  bindDrawerControls();
 
   if (!(window as any).__navHandlersBound) {
     (window as any).__navHandlersBound = true;
     setupNavHandlers();
   }
 
-  // Re-bind dialog backdrop clicks after Astro view transitions
+  // Re-bind dialog controls after Astro view transitions
   document.addEventListener('astro:page-load', () => {
-    bindDrawerBackdropClicks();
+    bindDrawerControls();
   });
 </script>
