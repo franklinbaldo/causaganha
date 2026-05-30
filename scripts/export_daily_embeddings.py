@@ -1,6 +1,13 @@
 #!/usr/bin/env python3
 """Export embeddings to Parquet for Internet Archive upload.
 
+Purpose:  Snapshot generated embeddings into archival Parquet for IA upload.
+Problem:  Embeddings live in the working DB; we want a portable, compressed copy
+          for archival and reuse.
+Strategy: Write compressed Parquet files optimized for archival storage.
+Status:   experimental/ops — no workflow reference found. RFC: still part of the
+          intended embeddings export path, or superseded?
+
 Creates compressed Parquet files optimized for archival storage.
 """
 

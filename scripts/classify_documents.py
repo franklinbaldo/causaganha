@@ -1,5 +1,15 @@
 #!/usr/bin/env python3
-"""Run DocumentClassifier on the consolidated parquet texts and display statistics."""
+"""Run DocumentClassifier on the consolidated parquet texts and display statistics.
+
+Purpose:  Apply the heuristic DocumentClassifier over the corpus and report the
+          distribution of document types / procedural stages.
+Problem:  We need to know how well rule-based classification covers the corpus and
+          to emit labels that feed the ML training step.
+Strategy: Read textos/comunicacoes parquet, classify each, print stats, and write
+          classificacoes_documentos.parquet (consumed by train_ml_document_classifier).
+Status:   research/analysis step in the classification R&D track. RFC: keep as a
+          manual analysis tool, or fold into a reproducible pipeline?
+"""
 
 import argparse
 import sys

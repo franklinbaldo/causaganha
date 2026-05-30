@@ -1,5 +1,14 @@
 #!/usr/bin/env python3
-"""Evaluate KeywordClassifier and ML models against the gold benchmark."""
+"""Evaluate KeywordClassifier and ML models against the gold benchmark.
+
+Purpose:  Score classifiers (keyword + ML) against the gold benchmark to compare
+          approaches.
+Problem:  The surface outcome label is posture-dependent, so naive accuracy is
+          misleading and the ~40% procedural 'unknown' mass can mask performance.
+Strategy: Run each classifier over the benchmark and report the invariant-winner
+          (A/P/draw) gate + conditional decomposition (see benchmark_metrics).
+Status:   research/eval harness — referenced by data/benchmark docs; manual run.
+"""
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
