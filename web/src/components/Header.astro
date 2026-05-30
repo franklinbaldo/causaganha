@@ -204,6 +204,17 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
 )}
 
 <script>
+  function bindDrawerBackdropClicks() {
+    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
+      if (dialog.dataset.backdropBound === 'true') return;
+
+      dialog.dataset.backdropBound = 'true';
+      dialog.addEventListener('click', (e) => {
+        if (e.target === dialog) dialog.close();
+      });
+    });
+  }
+
   function setupNavHandlers() {
     // Close details[role="list"] dropdowns on outside click
     document.addEventListener('click', (e) => {
@@ -221,14 +232,9 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
       open.open = false;
       open.querySelector<HTMLElement>('summary')?.focus();
     });
-
-    // Close nav-drawer dialog on backdrop click
-    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
-      dialog.addEventListener('click', (e) => {
-        if (e.target === dialog) dialog.close();
-      });
-    });
   }
+
+  bindDrawerBackdropClicks();
 
   if (!(window as any).__navHandlersBound) {
     (window as any).__navHandlersBound = true;
@@ -237,10 +243,6 @@ const drawerIdSuffix = variant === 'home' ? 'home' : 'page';
 
   // Re-bind dialog backdrop clicks after Astro view transitions
   document.addEventListener('astro:page-load', () => {
-    document.querySelectorAll<HTMLDialogElement>('dialog.nav-drawer').forEach(dialog => {
-      dialog.addEventListener('click', (e) => {
-        if (e.target === dialog) dialog.close();
-      });
-    });
+    bindDrawerBackdropClicks();
   });
 </script>
