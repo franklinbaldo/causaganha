@@ -46,6 +46,66 @@
   let cooldownUntil = $state<number | null>(null);
   let cooldownRemaining = $state(0);
 
+  type ActiveFilterChip = {
+    key: string;
+    label: string;
+    value: string;
+  };
+
+  const DEFAULT_ITEMS_PER_PAGE = 30;
+
+  function formatDateLabel(value: string): string {
+    const [year, month, day] = value.split('-');
+    if (!year || !month || !day) return value;
+    return `${day}/${month}/${year}`;
+  }
+
+  function periodLabel(query: DjenComunicacaoQuery): string | null {
+    const start = query.dataDisponibilizacaoInicio;
+    const end = query.dataDisponibilizacaoFim;
+    if (start && end) return `${formatDateLabel(start)} a ${formatDateLabel(end)}`;
+    if (start) return `A partir de ${formatDateLabel(start)}`;
+    if (end) return `Até ${formatDateLabel(end)}`;
+    return null;
+  }
+
+  const activeFilterChips = $derived.by((): ActiveFilterChip[] => {
+    const query = effectiveQuery;
+    const chips: ActiveFilterChip[] = [];
+    const period = periodLabel(query);
+
+    if (query.siglaTribunal) {
+      chips.push({ key: 'siglaTribunal', label: 'Tribunal', value: query.siglaTribunal });
+    }
+    if (period) {
+      chips.push({ key: 'periodo', label: 'Período', value: period });
+    }
+    if (query.numeroOab) {
+      chips.push({ key: 'numeroOab', label: 'OAB', value: query.numeroOab });
+    }
+    if (query.ufOab) {
+      chips.push({ key: 'ufOab', label: 'UF', value: query.ufOab });
+    }
+    if (query.nomeAdvogado) {
+      chips.push({ key: 'nomeAdvogado', label: 'Advogado', value: query.nomeAdvogado });
+    }
+    if (query.nomeParte) {
+      chips.push({ key: 'nomeParte', label: 'Parte', value: query.nomeParte });
+    }
+    if (query.meio) {
+      chips.push({ key: 'meio', label: 'Meio', value: query.meio === 'D' ? 'Diário' : 'Edital' });
+    }
+    if (query.itensPorPagina && query.itensPorPagina !== DEFAULT_ITEMS_PER_PAGE) {
+      chips.push({
+        key: 'itensPorPagina',
+        label: 'Itens por página',
+        value: String(query.itensPorPagina),
+      });
+    }
+
+    return chips;
+  });
+
   const smart = $derived(smartParseInput(rawInput));
   const effectiveQuery = $derived<DjenComunicacaoQuery>({ ...filters, ...smart.patch });
   const criteriaFilters = $derived({
@@ -210,6 +270,31 @@
     submitSearch({ page: next });
   }
 
+
+  function removeActiveFilter(key: ActiveFilterChip['key']) {
+    const patch: Partial<DjenComunicacaoQuery> = { pagina: 1 };
+
+    if (key === 'siglaTribunal') patch.siglaTribunal = undefined;
+    if (key === 'periodo') {
+      patch.dataDisponibilizacaoInicio = undefined;
+      patch.dataDisponibilizacaoFim = undefined;
+    }
+    if (key === 'numeroOab') {
+      patch.numeroOab = undefined;
+      if (smart.patch.numeroOab) rawInput = '';
+    }
+    if (key === 'ufOab') {
+      patch.ufOab = undefined;
+      if (smart.patch.ufOab) rawInput = '';
+    }
+    if (key === 'nomeAdvogado') patch.nomeAdvogado = undefined;
+    if (key === 'nomeParte') patch.nomeParte = undefined;
+    if (key === 'meio') patch.meio = undefined;
+    if (key === 'itensPorPagina') patch.itensPorPagina = DEFAULT_ITEMS_PER_PAGE;
+
+    filters = { ...filters, ...patch };
+  }
+
   // Debounced reactive trigger for criteria changes. Pagination changes are handled separately.
   $effect(() => {
     const _input = rawInput;
@@ -285,6 +370,31 @@
   <h2 id="publication-search-heading" class="sr-only">Busca de publicações</h2>
 
   <SmartSearchInput bind:value={rawInput} hint={smart.label} kind={smart.kind} onsubmit={handleSubmit} bind:inputRef={searchInputRef} />
+
+  <section aria-label="Filtros ativos">
+    <strong>Filtros ativos</strong>
+    {#if activeFilterChips.length > 0}
+      <ul aria-label="Lista de filtros ativos">
+        {#each activeFilterChips as chip (chip.key)}
+          <li>
+            <button
+              type="button"
+              class="secondary outline"
+              aria-label={`Remover filtro ${chip.label}: ${chip.value}`}
+              title={`Remover filtro ${chip.label}`}
+              onclick={() => removeActiveFilter(chip.key)}
+            >
+              <span>{chip.label}: {chip.value}</span>
+              <span aria-hidden="true">×</span>
+            </button>
+          </li>
+        {/each}
+      </ul>
+    {:else}
+      <small class="meta-text" data-tone="muted">Nenhum filtro ativo.</small>
+    {/if}
+  </section>
+
   {#if !rawInput}
     <div>
       <small>Experimente:</small>

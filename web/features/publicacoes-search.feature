@@ -40,3 +40,15 @@ Feature: Live DJEN publication search
     Given the DJEN API returns 30 publications out of 60 for each request
     When I search for "contrato", go to page 2, and replace the search with "mandado de segurança"
     Then the last DJEN query should request page 1 for "mandado de segurança"
+
+  Scenario: Active filters are shown and can be removed outside advanced filters
+    When I configure advanced filters and close the filters panel
+    Then I should see active chips for tribunal, period, OAB, UF, advogado, parte, meio and items per page
+    When I remove the tribunal active filter chip
+    Then the filters panel should remain closed
+    And the tribunal active filter chip should be removed
+
+  Scenario: Clearing all filters resets pagination and page size defaults
+    Given the DJEN API returns 30 publications out of 60 for each request
+    When I search for "contrato", go to page 2, set 100 items per page, and clear all filters
+    Then active filters should be empty and the URL should request page 1 with 30 items per page
