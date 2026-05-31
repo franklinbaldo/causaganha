@@ -44,7 +44,7 @@ export const GET: APIRoute = ({ site }) => {
     `);
   });
 
-  ((backfill?.tribunal_stats ?? []) as any[]).slice(0, 12).forEach((item) => {
+  ((backfill?.tribunal_stats ?? []) as any[]).sort((a, b) => Number(b.data_rate_pct ?? 0) - Number(a.data_rate_pct ?? 0)).slice(0, 12).forEach((item) => {
     const slug = String(item.tribunal ?? '').toLowerCase();
     if (!slug) return;
     sitemapUrls.push(`
