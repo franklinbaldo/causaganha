@@ -22,9 +22,11 @@ const tribunalStats = (backfill?.tribunal_stats ?? [])
 export function getStaticPaths() {
   const backfillData = readJson<any>('cache/backfill.json');
   const entries = (backfillData?.tribunal_stats ?? [])
-    .map((item: any) => String(item.tribunal ?? '').toLowerCase())
-    .filter((tribunal: string) => tribunal.length > 0)
-    .slice(0, 12);
+    .map((item: any) => ({ slug: String(item.tribunal ?? '').toLowerCase(), rate: Number(item.data_rate_pct ?? 0) }))
+    .filter((item: any) => item.slug.length > 0)
+    .sort((a: any, b: any) => b.rate - a.rate)
+    .slice(0, 12)
+    .map((item: any) => item.slug);
 
   return entries.map((tribunal: string) => ({ params: { tribunal } }));
 }

@@ -36,56 +36,50 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
       <StatCard title="Fonte" value="Backfill snapshot" subtitle="Mesmo snapshot usado no dashboard" />
     </section>
 
-    <section style="margin-top: 2rem;">
+    <section class="leaderboard-section">
       <article>
         <header>
-          <h2 style="margin: 0;">Leaderboard de Qualidade (OpenSkill) — TJRO Sandbox</h2>
-          <p class="meta-text" style="margin-top: 0.25rem;">
+          <h2>Leaderboard de Qualidade (OpenSkill) — TJRO Sandbox</h2>
+          <p class="meta-text">
             Calculado sobre dados de 2026. Apenas advogados com 20+ casos participam para garantir significância estatística.
           </p>
         </header>
 
         <div class="table-responsive">
-          <table class="striped">
+          <table class="striped leaderboard-table">
             <thead>
               <tr>
-                <th scope="col" style="text-align: center; width: 4rem;">Posição</th>
+                <th scope="col" class="col-rank">Posição</th>
                 <th scope="col">Nome do Advogado</th>
-                <th scope="col" style="text-align: center;">OAB</th>
-                <th scope="col" style="text-align: center;">Vitórias</th>
-                <th scope="col" style="text-align: center;">Derrotas</th>
-                <th scope="col" style="text-align: center;">Total Casos</th>
-                <th scope="col" style="text-align: center;">Win Rate</th>
-                <th scope="col" style="text-align: right; font-weight: 700; color: var(--color-primary);">Rating</th>
+                <th scope="col" class="col-center">OAB</th>
+                <th scope="col" class="col-center col-wins">Vitórias</th>
+                <th scope="col" class="col-center col-losses">Derrotas</th>
+                <th scope="col" class="col-center">Total Casos</th>
+                <th scope="col" class="col-center">Win Rate</th>
+                <th scope="col" class="col-rating">Rating</th>
               </tr>
             </thead>
             <tbody>
               {leaderboard.map((row: any, i: number) => (
                 <tr>
-                  <td style="text-align: center; font-weight: 700;">
+                  <td class="col-rank">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}
                   </td>
-                  <td>
-                    <span style="font-weight: 600;">{row.lawyer_name.split(' (OAB')[0]}</span>
+                  <td class="col-name">{row.lawyer_name.split(' (OAB')[0]}</td>
+                  <td class="col-center col-mono">{row.oab_number}/{row.oab_state}</td>
+                  <td class="col-center col-wins">{row.wins}</td>
+                  <td class="col-center col-losses">{row.losses}</td>
+                  <td class="col-center col-mono">{row.total_cases}</td>
+                  <td class="col-center col-winrate">
+                    <progress value={row.win_rate} max="100" class="winrate-bar" />
+                    <span class="col-mono">{row.win_rate.toFixed(1)}%</span>
                   </td>
-                  <td style="text-align: center; font-family: var(--font-mono); font-size: 0.85rem;">
-                    {row.oab_number}/{row.oab_state}
-                  </td>
-                  <td style="text-align: center; color: var(--color-success); font-weight: 600;">{row.wins}</td>
-                  <td style="text-align: center; color: var(--color-error); font-weight: 600;">{row.losses}</td>
-                  <td style="text-align: center; font-family: var(--font-mono);">{row.total_cases}</td>
-                  <td style="text-align: center;">
-                    <progress value={row.win_rate} max="100" style="width: 4rem; height: 0.5rem; margin: 0; display: inline-block; vertical-align: middle;" />
-                    <span style="font-family: var(--font-mono); font-size: 0.85rem; margin-left: 0.5rem; vertical-align: middle;">{row.win_rate.toFixed(1)}%</span>
-                  </td>
-                  <td style="text-align: right; font-family: var(--font-mono); font-weight: 700; color: var(--color-primary);">
-                    {row.rating.toFixed(2)}
-                  </td>
+                  <td class="col-rating col-mono">{row.rating.toFixed(2)}</td>
                 </tr>
               ))}
               {leaderboard.length === 0 && (
                 <tr>
-                  <td colspan="8" style="text-align: center; color: var(--color-content-tertiary);">
+                  <td colspan="8" class="col-empty">
                     Nenhum advogado atingiu os critérios de elegibilidade para exibição no ranking de qualidade ainda.
                   </td>
                 </tr>
@@ -96,9 +90,27 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
       </article>
     </section>
 
-    <h2 style="margin-top: 3rem;">Cobertura dos Tribunais</h2>
-    <section class="auto-grid" style="margin-top: 1rem;">
+    <h2 class="section-heading">Cobertura dos Tribunais</h2>
+    <section class="auto-grid">
       {tribunalStats.map((stats: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard stats={stats} />)}
     </section>
   </div>
 </Layout>
+
+<style>
+  .leaderboard-section { margin-top: var(--space-lg, 2rem); }
+  .leaderboard-table h2 { margin: 0; }
+  .section-heading { margin-top: var(--space-xl, 3rem); }
+
+  .leaderboard-table .col-rank  { text-align: center; width: 4rem; font-weight: 700; }
+  .leaderboard-table .col-center { text-align: center; }
+  .leaderboard-table .col-mono  { font-family: var(--font-mono); font-size: 0.85rem; }
+  .leaderboard-table .col-name  { font-weight: 600; }
+  .leaderboard-table .col-wins  { color: var(--color-success); font-weight: 600; }
+  .leaderboard-table .col-losses { color: var(--color-error); font-weight: 600; }
+  .leaderboard-table .col-rating { text-align: right; font-family: var(--font-mono); font-weight: 700; color: var(--color-primary); }
+  .leaderboard-table .col-empty { text-align: center; color: var(--color-content-tertiary); }
+  .leaderboard-table .col-winrate { display: flex; align-items: center; gap: 0.5rem; justify-content: center; }
+
+  .winrate-bar { width: 4rem; height: 0.5rem; margin: 0; }
+</style>
