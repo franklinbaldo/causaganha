@@ -1,6 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import PerfDashboard from '../../components/PerfDashboard.svelte';
 import TribunalCoverageHeatmap from '../../components/TribunalCoverageHeatmap.svelte';
 import LatencyHeatmap from '../../components/LatencyHeatmap.svelte';
@@ -29,6 +30,7 @@ interface PerfMetrics {
 
 const perfMetrics = readJson<PerfMetrics>('perf-metrics.json');
 const qualityScores = readJson<Record<string, QualityScore>>('tribunal_quality_scores.json');
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
@@ -39,9 +41,16 @@ const qualityScores = readJson<Record<string, QualityScore>>('tribunal_quality_s
     variant="page"
     title="Monitoramento de Performance"
     subtitle="Latência do sistema, taxas de sucesso de upload e qualidade dos dados por tribunal"
+    backHref={BASE + 'admin'}
+    backLabel="Admin"
   />
 
   <div class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Admin', href: BASE + 'admin' },
+      { label: 'Performance' }
+    ]} />
     <PerfDashboard client:visible perfMetrics={perfMetrics} qualityScores={qualityScores} />
 
     <details open>

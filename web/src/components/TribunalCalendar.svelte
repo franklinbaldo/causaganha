@@ -120,7 +120,8 @@
     (TRIBUNAL_NAMES[selectedTribunal] ?? selectedTribunal) + ' · ' + selectedYear
   );
 
-  const detailHref = $derived('/causaganha/publicacoes?tribunal=' + encodeURIComponent(selectedTribunal));
+  const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+  const detailHref = $derived(BASE + 'publicacoes?tribunal=' + encodeURIComponent(selectedTribunal));
 </script>
 
 <div class="cal-control">

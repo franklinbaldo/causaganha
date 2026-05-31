@@ -1,7 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
-import JulesSessionStatus from '../../components/JulesSessionStatus.svelte';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import AuditLogExport from '../../components/AuditLogExport.svelte';
 import PausedTribunals from '../../components/PausedTribunals.svelte';
 import OmissionCost from '../../components/OmissionCost.svelte';
@@ -21,36 +21,59 @@ const adminPages = [
 ---
 
 <Layout title="Admin — CausaGanha" description="Painel de administração e monitoramento do CausaGanha.">
-  <Header variant="page" title="Admin Dashboard" subtitle="Monitoramento interno e ferramentas do sistema" />
+  <Header variant="page" title="Admin Dashboard" subtitle="Monitoramento interno e ferramentas do sistema" backHref={BASE} backLabel="Início" />
 
   <div class="container">
-    <div class="admin-grid">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Admin' }
+    ]} />
 
-      <div class="admin-main">
-        <h2>Painéis de Monitoramento</h2>
-        <div class="pages-grid">
-          {adminPages.map(page => (
-            <a href={page.href} class="admin-page-link">
-              <article>
-                <strong>{page.title}</strong>
-                <small>{page.description}</small>
-              </article>
-            </a>
-          ))}
-        </div>
-      </div>
-
-      <aside class="admin-sidebar">
-        <h2>Jules Assistant</h2>
-        <JulesSessionStatus client:idle />
-      </aside>
-
+    <div class="auto-grid">
+      {adminPages.map(page => (
+        <a href={page.href} class="admin-nav-card">
+          <strong>{page.title}</strong>
+          <small>{page.description}</small>
+        </a>
+      ))}
     </div>
 
-    <div class="bottom-section">
+    <div class="stack" style="margin-top: var(--space-lg);">
       <PausedTribunals data={backfillState} client:idle />
       <AuditLogExport client:only="svelte" />
       <OmissionCost omissionStats={omissionStats} client:idle />
     </div>
   </div>
 </Layout>
+
+<style>
+  .admin-nav-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: var(--space-md);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-box);
+    background: var(--color-surface);
+    text-decoration: none;
+    color: var(--color-content);
+    transition: background var(--transition-base), border-color var(--transition-base);
+  }
+
+  .admin-nav-card:hover {
+    background: var(--color-base-200);
+    border-color: var(--color-primary);
+    text-decoration: none;
+  }
+
+  .admin-nav-card strong {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+  }
+
+  .admin-nav-card small {
+    color: var(--color-content-tertiary);
+    font-size: var(--font-size-sm);
+  }
+
+</style>

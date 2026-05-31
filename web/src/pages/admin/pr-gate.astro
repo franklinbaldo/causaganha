@@ -1,7 +1,10 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import Header from '../../components/Header.astro';
+import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import PRGateExplainer from '../../components/PRGateExplainer.svelte';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
@@ -12,9 +15,16 @@ import PRGateExplainer from '../../components/PRGateExplainer.svelte';
     variant="page"
     title="Diagnóstico de prontidão do PR"
     subtitle="Entenda por que um PR está ou não pronto para ser mesclado"
+    backHref={BASE + 'admin'}
+    backLabel="Admin"
   />
 
   <div class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Admin', href: BASE + 'admin' },
+      { label: 'PR Gate' }
+    ]} />
     <PRGateExplainer client:load />
   </div>
 </Layout>
