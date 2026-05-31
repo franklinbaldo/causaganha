@@ -120,6 +120,9 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
           Escolha um tribunal. Cada quadradinho é um dia: cobalto se o diário daquele dia
           está no arquivo, ocre se parcial, vermelho se houve erro, vazio se ausente.
         </p>
+        <p style="font-family: var(--font-mono); font-size: var(--t-micro); color: var(--fg-muted); margin-top: var(--s-2);">
+          <span class="badge">Demonstração</span> — dados ilustrativos. Calendário real disponível na página de cada tribunal.
+        </p>
       </div>
       <TribunalCalendar client:load />
       <div style="margin-top: var(--s-5); padding: var(--s-3) var(--s-4); background: var(--papel-00); border: 1px solid var(--border); display: flex; gap: var(--s-5); flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--t-micro); color: var(--fg-muted); align-items: center;">
