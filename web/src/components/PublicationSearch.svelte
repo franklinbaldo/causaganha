@@ -137,7 +137,7 @@
   ] as const;
 
   const resultsHeadingId = 'publication-search-results';
-  const historicalArchiveHref = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}dados`;
+  const historicalArchiveHref = 'https://archive.org/details/causaganha-dashboard';
 
   function parsePublicationHash(hash: string): PublicationHashTarget | null {
     const value = hash.replace(/^#/, '');
