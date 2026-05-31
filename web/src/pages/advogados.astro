@@ -98,7 +98,7 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
 
     <h2 style="margin-top: 3rem;">Cobertura dos Tribunais</h2>
     <section class="auto-grid" style="margin-top: 1rem;">
-      {tribunalStats.map((index: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard index={index} />)}
+      {tribunalStats.map((stats: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard stats={stats} />)}
     </section>
   </div>
 </Layout>

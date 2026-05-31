@@ -3,6 +3,7 @@ import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import ManifestStatus from '../components/ManifestStatus.svelte';
+import StatCard from '../components/StatCard.astro';
 import { readJson } from '../lib/readJson';
 
 // All aggregations come from .qmd query contracts rendered against the manifest.
@@ -64,21 +65,23 @@ const base = import.meta.env.BASE_URL;
         <small data-tone="muted">Últimos 30 dias</small>
       </header>
       <div class="auto-grid">
-        <figure>
-          <div class="stat-value">{avgCoverage30Pct.toFixed(1)}<small class="stat-label">%</small></div>
-          <figcaption>Média de Coleta</figcaption>
-          <small data-tone="muted">{avgCoverage30.toFixed(1)} / {totalTribunals} tribunais por dia</small>
-        </figure>
-        <figure>
-          <div class="stat-value" data-tone="success">{bestCount}<small class="stat-label"> / {totalTribunals}</small></div>
-          <figcaption>Melhor Dia</figcaption>
-          <small data-tone="muted">{bestDay ?? '--'}</small>
-        </figure>
-        <figure>
-          <div class="stat-value" data-tone="error">{worstCount}<small class="stat-label"> / {totalTribunals}</small></div>
-          <figcaption>Pior Dia</figcaption>
-          <small data-tone="muted">{worstDay ?? '--'}</small>
-        </figure>
+        <StatCard
+          title="Média de Coleta"
+          value={`${avgCoverage30Pct.toFixed(1)}%`}
+          subtitle={`${avgCoverage30.toFixed(1)} / ${totalTribunals} tribunais por dia`}
+        />
+        <StatCard
+          title="Melhor Dia"
+          value={`${bestCount} / ${totalTribunals}`}
+          subtitle={bestDay ?? '--'}
+          tone="success"
+        />
+        <StatCard
+          title="Pior Dia"
+          value={`${worstCount} / ${totalTribunals}`}
+          subtitle={worstDay ?? '--'}
+          tone="warning"
+        />
       </div>
     </article>
 

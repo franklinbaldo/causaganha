@@ -10,7 +10,7 @@ const { title, value, subtitle, tone = 'default' } = Astro.props;
 ---
 
 <article>
-  <p class="stat-label">{title}</p>
   <strong class="stat-value" data-tone={tone}>{value}</strong>
+  <p class="stat-label">{title}</p>
   {subtitle && <small>{subtitle}</small>}
 </article>
