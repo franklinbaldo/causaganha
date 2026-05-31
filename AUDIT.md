@@ -6,6 +6,16 @@
 
 ---
 
+## Completed Fixes Log
+
+| Fix | Branch / PR | Status |
+|-----|-------------|--------|
+| Missing `@media (max-width: 979px)` block in layout.css; `--radius-selector` undefined; QueryCard copy-btn icon swap | PR #755 | ✅ merged |
+| Priority-1: define `.cg-pulse` animation (base.css); remove duplicate `.sr-only` (data-viz.css); fix AlertBanner role semantics; fix TribunalCalendar hardcoded BASE_URL + hardcoded date; homepage KPI card 3/4 placeholder labels; add "Demonstração" badge to calendar; remove `JulesSessionStatus` (foreign component); fix admin/index broken CSS layout; fix admin breadcrumbs + navigation | PR #755 branch | ✅ committed |
+| Remove live-data widgets with no backing data: delete `ActivePipelineStatus.svelte`, `LiveStatusWidget.svelte`, `WorkflowStatusBadge.astro`; remove them from `Header.astro` and `PerfDashboard.svelte`; fix test mock; add "Demonstração" label to index.astro calendar section; fix AlertBanner `isLive` derivation | `fix/remove-live-widgets-no-data` | 🔄 this PR |
+
+---
+
 ## Evaluation Dimensions
 
 | Symbol | Dimension | What it measures |
@@ -497,14 +507,14 @@ Pages and components use both systems freely. A new developer (or AI assistant) 
 
 | Class/Token | Used in | Defined in |
 |-------------|---------|------------|
-| `.cg-pulse` | `ActivePipelineStatus.svelte`, `LiveStatusWidget.svelte`, `DataSourceIndicator.astro`, `WorkflowStatusBadge.astro` | **Nowhere** |
-| `.admin-grid` | `admin/index.astro` | **Nowhere** |
-| `.admin-main` | `admin/index.astro` | **Nowhere** |
-| `.admin-sidebar` | `admin/index.astro` | **Nowhere** |
-| `.pages-grid` | `admin/index.astro` | **Nowhere** |
-| `.bottom-section` | `admin/index.astro` | **Nowhere** |
-| `.admin-page-link` | `admin/index.astro` | **Nowhere** |
-| `--radius-selector` | `base.css` (badges/pills) | Fixed in PR #755 |
+| `.cg-pulse` | `DataSourceIndicator.astro` only (3 callers deleted) | ✅ Added to `base.css` in PR #755 |
+| `.admin-grid` | ~~`admin/index.astro`~~ | ✅ Page refactored to use `auto-grid` |
+| `.admin-main` | ~~`admin/index.astro`~~ | ✅ Page refactored |
+| `.admin-sidebar` | ~~`admin/index.astro`~~ | ✅ Page refactored |
+| `.pages-grid` | ~~`admin/index.astro`~~ | ✅ Page refactored |
+| `.bottom-section` | ~~`admin/index.astro`~~ | ✅ Page refactored |
+| `.admin-page-link` | ~~`admin/index.astro`~~ | ✅ Page refactored |
+| `--radius-selector` | `base.css` (badges/pills) | ✅ Fixed in PR #755 |
 
 ---
 
@@ -640,16 +650,16 @@ All 4 admin pages lack breadcrumbs and back navigation. Add `<Breadcrumbs>` star
 | TribunalCompareCard | 3 | 4 | 4 | 2 | 3 | — | 4 | **3.3** |
 | QueryCard | 4 | 4 | 3 | 4 | 3 | 4 | 4 | **3.7** |
 | EmptyState | 4 | 3 | 4 | 3 | 3 | 4 | 4 | **3.6** |
-| AlertBanner | 4 | 4 | 3 | 2 | 3 | — | 4 | **3.3** |
-| ActivePipelineStatus | 3 | 2 | 3 | 2 | 3 | 3 | 3 | **2.7** |
-| TribunalCalendar | 5 | 5 | 4 | 2 | 5 | 3 | 4 | **4.0** |
+| AlertBanner | 4 | 4 | 3 | 4 | 3 | — | 4 | **3.7** |
+| ~~ActivePipelineStatus~~ | — | — | — | — | — | — | — | **deleted** |
+| TribunalCalendar | 5 | 5 | 4 | 4 | 5 | 4 | 4 | **4.4** |
 | ManifestStatus | 4 | 3 | 3 | 3 | 3 | 4 | 4 | **3.4** |
 
-**System average: 3.4 / 5**
+**System average: 3.6 / 5** *(up from 3.4 after fixes)*
 
-### Worst performers requiring immediate attention:
-1. `admin/index.astro` — 1.6 (broken CSS)
+### Remaining issues requiring attention:
+1. `admin/index.astro` — 1.6 → **3.5** (fixed in PR #755 branch)
 2. `advogados.astro` — 2.4 (disconnected sections, misleading empty state)
 3. `advogados/[oab].astro` — 2.7 (wrong route name, wrong purpose)
-4. `ActivePipelineStatus.svelte` — 2.7 (`.cg-pulse` undefined, no aria-live)
-5. `stats.astro` — 3.0 (re-invents StatCard, wrong semantic elements)
+4. `stats.astro` — 3.0 (re-invents StatCard, wrong semantic elements)
+5. `publicacoes/index.astro` — hardcoded attention card always visible regardless of system state

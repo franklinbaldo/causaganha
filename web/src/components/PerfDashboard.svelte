@@ -1,6 +1,5 @@
 <script lang="ts">
   import * as Plot from '@observablehq/plot';
-  import LiveStatusWidget from './LiveStatusWidget.svelte';
   import PipelineRunHistory from './PipelineRunHistory.svelte';
 
   interface LatencyEntry {
@@ -103,10 +102,6 @@
   <p aria-live="polite" aria-busy="true">Carregando dados de desempenho...</p>
 {:else}
   <div>
-    <div>
-      <LiveStatusWidget />
-    </div>
-
     <div class="auto-grid">
       <article>
         <small>Taxa de sucesso de upload</small>

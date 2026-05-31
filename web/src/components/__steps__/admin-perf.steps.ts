@@ -12,7 +12,6 @@ vi.mock('@observablehq/plot', () => ({
 }));
 
 // Mock sub-components that rely on fetch/WebSocket
-vi.mock('../LiveStatusWidget.svelte', () => import('./stubs/LiveStatusWidgetStub.svelte'));
 vi.mock('../PipelineRunHistory.svelte', () => import('./stubs/PipelineRunHistoryStub.svelte'));
 
 import PerfDashboard from '../PerfDashboard.svelte';

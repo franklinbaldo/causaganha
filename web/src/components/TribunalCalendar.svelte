@@ -40,9 +40,9 @@
   const MONTH_ABBR = ["jan","fev","mar","abr","mai","jun","jul","ago","set","out","nov","dez"];
 
   let selectedTribunal = $state('TJSP');
-  let selectedYear = $state(2026);
-  const today = new Date('2026-05-27T00:00:00');
+  const today = new Date();
   const currentYear = today.getFullYear();
+  let selectedYear = $state(currentYear);
 
   function dayStatus(tribCode: string, isoDate: string): string {
     let h = 0;
