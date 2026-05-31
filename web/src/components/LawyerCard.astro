@@ -1,6 +1,6 @@
 ---
 interface Props {
-  index: {
+  stats: {
     tribunal: string;
     dataRatePct: number;
     daysWithData: number;
@@ -8,16 +8,15 @@ interface Props {
   };
 }
 
-const { index } = Astro.props;
-const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}advogados/${index.tribunal.toLowerCase()}`;
+const { stats } = Astro.props;
+const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}advogados/${stats.tribunal.toLowerCase()}`;
 ---
 
 <article>
-  <h3>{index.tribunal}</h3>
-  <p>Base disponível para exploração de OABs neste tribunal</p>
+  <h3>{stats.tribunal}</h3>
   <ul>
-    <li><strong>Dias com dados:</strong> {index.daysWithData.toLocaleString('pt-BR')} de {index.daysTotal.toLocaleString('pt-BR')}</li>
-    <li><strong>Cobertura:</strong> {index.dataRatePct.toFixed(1)}%</li>
+    <li><strong>Dias com dados:</strong> {stats.daysWithData.toLocaleString('pt-BR')} de {stats.daysTotal.toLocaleString('pt-BR')}</li>
+    <li><strong>Cobertura:</strong> {stats.dataRatePct.toFixed(1)}%</li>
   </ul>
   <footer>
     <a href={href} role="button" class="secondary">Ver guia do tribunal</a>

@@ -61,6 +61,13 @@ cd web && npm run dev
 - Cache `has_uploaded_entries` / `counts` in `SyncManifest`; invalidate on mutation.
 - For sampling/debugging absent entries, see patterns in previous audit (sample → `get_caderno_url` live).
 
+### CSS token boundary
+
+Two token systems coexist — keep them in their lanes:
+
+- **Brazilian Modernism** (`--s-*`, `--papel-*`, `--tinta-*`): homepage and marketing sections only (`index.astro`, `sobre.astro`). Do not use inside `container`-layout data pages.
+- **Semantic** (`--color-*`, `--space-*`, `--pico-*`): all functional/data pages (`stats`, `publicacoes`, `explorador`, tribunal pages, etc.).
+
 ### Style
 
 - Ruff is strict. Only formatter-incompatible ignores + accepted-pattern ignores are in `ruff.toml` (see comments).
