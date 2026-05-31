@@ -20,8 +20,6 @@ export const GET: APIRoute = ({ site }) => {
     { url: '/dicionario', changefreq: 'weekly', priority: '0.7' },
     { url: '/changelog', changefreq: 'weekly', priority: '0.6' },
     { url: '/sobre', changefreq: 'weekly', priority: '0.8' },
-    { url: '/admin/quality', changefreq: 'daily', priority: '0.5' },
-    { url: '/admin/backfill', changefreq: 'daily', priority: '0.5' },
   ];
 
   staticPages.forEach(page => {
