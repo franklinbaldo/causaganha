@@ -12,7 +12,8 @@
 |-----|-------------|--------|
 | Missing `@media (max-width: 979px)` block in layout.css; `--radius-selector` undefined; QueryCard copy-btn icon swap | PR #755 | ✅ merged |
 | Priority-1: define `.cg-pulse` animation (base.css); remove duplicate `.sr-only` (data-viz.css); fix AlertBanner role semantics; fix TribunalCalendar hardcoded BASE_URL + hardcoded date; homepage KPI card 3/4 placeholder labels; add "Demonstração" badge to calendar; remove `JulesSessionStatus` (foreign component); fix admin/index broken CSS layout; fix admin breadcrumbs + navigation | PR #755 branch | ✅ committed |
-| Remove live-data widgets with no backing data: delete `ActivePipelineStatus.svelte`, `LiveStatusWidget.svelte`, `WorkflowStatusBadge.astro`; remove them from `Header.astro` and `PerfDashboard.svelte`; fix test mock; add "Demonstração" label to index.astro calendar section; fix AlertBanner `isLive` derivation | `fix/remove-live-widgets-no-data` | 🔄 this PR |
+| Remove live-data widgets with no backing data: delete `ActivePipelineStatus.svelte`, `LiveStatusWidget.svelte`, `WorkflowStatusBadge.astro`; remove them from `Header.astro` and `PerfDashboard.svelte`; fix test mock; add "Demonstração" label to index.astro calendar section; fix AlertBanner `isLive` derivation | PR #756 | ✅ open |
+| Feature-creep purge: delete all 5 `/admin` pages (unlinked from nav); delete 10 admin-exclusive components + `completedItemsStore`; delete orphaned step tests/features/stubs; surface `ManifestStatus` (live IA coverage) on public `stats.astro`; remove misleading "Ctrl+K" nav hint | `fix/remove-admin-and-feature-creep` | 🔄 this PR |
 
 ---
 
