@@ -16,8 +16,7 @@ export const GET: APIRoute = ({ site }) => {
     { url: '/advogados', changefreq: 'daily', priority: '0.8' },
     { url: '/comparador', changefreq: 'daily', priority: '0.8' },
     { url: '/stats', changefreq: 'daily', priority: '0.8' },
-    { url: '/consultas', changefreq: 'weekly', priority: '0.7' },
-    { url: '/dicionario', changefreq: 'weekly', priority: '0.7' },
+    { url: '/explorador', changefreq: 'weekly', priority: '0.7' },
     { url: '/changelog', changefreq: 'weekly', priority: '0.6' },
     { url: '/sobre', changefreq: 'weekly', priority: '0.8' },
   ];
