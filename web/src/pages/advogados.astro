@@ -1,6 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import Header from '../components/Header.astro';
+import PageHeader from '../components/PageHeader.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import LawyerCard from '../components/LawyerCard.astro';
 import StatCard from '../components/StatCard.astro';
@@ -25,7 +25,7 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
 ---
 
 <Layout title="Advogados — CausaGanha" description="Cobertura por tribunal para exploração de dados de advogados/OAB no acervo público.">
-  <Header variant="page" title="Advogados / OAB" subtitle="Cobertura por tribunal para consultas de advogados" backHref={BASE} backLabel="Início" tile="advogados" />
+  <PageHeader title="Advogados / OAB" subtitle="Cobertura por tribunal para consultas de advogados" backHref={BASE} backLabel="Início" tile="advogados" />
 
   <div class="container">
     <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Advogados' }]} />

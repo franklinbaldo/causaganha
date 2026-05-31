@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import Header from '../../components/Header.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import AlertBanner from '../../components/AlertBanner.svelte';
 import StatCard from '../../components/StatCard.astro';
@@ -37,7 +37,7 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
 ---
 
 <Layout title={`${key} — Advogados — CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
-  <Header variant="page" backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
+  <PageHeader backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
 
   <div class="container">
     <Breadcrumbs crumbs={[

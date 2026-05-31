@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import Header from '../../components/Header.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import TribunalDetail from '../../components/TribunalDetail.svelte';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
@@ -73,9 +73,9 @@ const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.sit
   description={ogDesc}
   ogImage={ogImage}
 >
-  <Header variant="page" backHref={BASE + 'publicacoes'} backLabel="Publicações" tile="tribunal" title="">
+  <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicações" tile="tribunal" title="">
     <Fragment slot="title">CausaGanha <small>/ {tribunalCode}</small></Fragment>
-  </Header>
+  </PageHeader>
 
   <div class="container">
     <Breadcrumbs crumbs={[
