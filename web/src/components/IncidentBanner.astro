@@ -61,6 +61,7 @@ const { incident } = Astro.props;
       </div>
       {incident.latest_failing_run_url && (
          <div>
+           <dt>Ver execução:</dt>
            <dd>
              <a
                href={incident.latest_failing_run_url} target="_blank"

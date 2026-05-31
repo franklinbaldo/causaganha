@@ -1,6 +1,6 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import Header from '../../components/Header.astro';
+import PageHeader from '../../components/PageHeader.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import AlertBanner from '../../components/AlertBanner.svelte';
 import StatCard from '../../components/StatCard.astro';
@@ -22,22 +22,24 @@ const tribunalStats = (backfill?.tribunal_stats ?? [])
 export function getStaticPaths() {
   const backfillData = readJson<any>('cache/backfill.json');
   const entries = (backfillData?.tribunal_stats ?? [])
-    .map((item: any) => String(item.tribunal ?? '').toLowerCase())
-    .filter((tribunal: string) => tribunal.length > 0)
-    .slice(0, 12);
+    .map((item: any) => ({ slug: String(item.tribunal ?? '').toLowerCase(), rate: Number(item.data_rate_pct ?? 0) }))
+    .filter((item: any) => item.slug.length > 0)
+    .sort((a: any, b: any) => b.rate - a.rate)
+    .slice(0, 12)
+    .map((item: any) => item.slug);
 
-  return entries.map((oab: string) => ({ params: { oab } }));
+  return entries.map((tribunal: string) => ({ params: { tribunal } }));
 }
 
-const { oab } = Astro.params;
+const { tribunal } = Astro.params;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const key = String(oab ?? '').toUpperCase();
-const tribunal = tribunalStats.find((item: any) => item.tribunal === key);
+const key = String(tribunal ?? '').toUpperCase();
+const entry = tribunalStats.find((item: any) => item.tribunal === key);
 const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\nWHERE tribunal = '${key}'\nGROUP BY numero_oab, uf_oab\nORDER BY aparicoes DESC\nLIMIT 25;`;
 ---
 
 <Layout title={`${key} — Advogados — CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`}>
-  <Header variant="page" backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
+  <PageHeader backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
 
   <div class="container">
     <Breadcrumbs crumbs={[
@@ -52,12 +54,12 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
       message="Este detalhe é focado no que já existe no snapshot de backfill: cobertura por tribunal e query pronta para localizar OABs reais no explorador."
     />
 
-    {tribunal ? (
+    {entry ? (
       <>
         <section class="auto-grid">
-          <StatCard title="Tribunal" value={tribunal.tribunal} />
-          <StatCard title="Cobertura" value={`${tribunal.dataRatePct.toFixed(1)}%`} tone="info" />
-          <StatCard title="Dias com dados" value={`${tribunal.daysWithData} / ${tribunal.daysTotal}`} />
+          <StatCard title="Tribunal" value={entry.tribunal} />
+          <StatCard title="Cobertura" value={`${entry.dataRatePct.toFixed(1)}%`} tone="info" />
+          <StatCard title="Dias com dados" value={`${entry.daysWithData} / ${entry.daysTotal}`} />
         </section>
 
         <article>

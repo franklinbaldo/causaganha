@@ -114,6 +114,7 @@
   --radius-btn: 2rem;
   --radius-field: 2rem;
   --radius-full: 9999px;
+  --radius-selector: var(--radius-full);
 
   /* Shadows */
   --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);

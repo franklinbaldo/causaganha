@@ -92,14 +92,19 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </article>
         <article class="card">
           <div class="kicker">Hoje</div>
-          <div class="stat__n stat__n--accent">—<span class="unit">novos</span></div>
+          <div class="stat__n stat__n--accent" aria-label="Uploads recentes em tempo real">
+            <span class="stat__live-badge">em tempo real</span>
+          </div>
           <div class="stat__label">Uploads recentes</div>
+          <div class="stat__sub">dados ao vivo via manifesto</div>
         </article>
         <article class="card card--sunken">
           <div class="kicker">Lacunas</div>
-          <div class="stat__n stat__n--ocre">—</div>
+          <div class="stat__n stat__n--ocre" aria-label="Lacunas em processamento">
+            <span class="stat__live-badge">em backfill</span>
+          </div>
           <div class="stat__label">Pendentes + ausentes + desconhecidos</div>
-          <div class="stat__sub">em backfill</div>
+          <div class="stat__sub">atualizado a cada 10 min</div>
         </article>
       </div>
     </div>
@@ -114,6 +119,9 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <p class="lede">
           Escolha um tribunal. Cada quadradinho é um dia: cobalto se o diário daquele dia
           está no arquivo, ocre se parcial, vermelho se houve erro, vazio se ausente.
+        </p>
+        <p style="font-family: var(--font-mono); font-size: var(--t-micro); color: var(--fg-muted); margin-top: var(--s-2);">
+          <span class="badge">Demonstração</span> — dados ilustrativos. Calendário real disponível na página de cada tribunal.
         </p>
       </div>
       <TribunalCalendar client:load />

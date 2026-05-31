@@ -106,6 +106,10 @@ code, kbd {
   -webkit-overflow-scrolling: touch;
 }
 
+pre {
+  overflow-x: auto;
+}
+
 /* ─── article > header/footer: suppress Pico's sectioning background ─── */
 article > header {
   background: none;
@@ -180,12 +184,27 @@ table tbody tr:hover {
 }
 
 /* ═══════════════════════════════════════════
-   Animations — only functional spinner kept
+   Animations
    ═══════════════════════════════════════════ */
 
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+@keyframes cg-pulse-anim {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.35; transform: scale(0.7); }
+}
+
+.cg-pulse {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  background: var(--color-success);
+  border-radius: var(--radius-full);
+  animation: cg-pulse-anim 1.6s ease-in-out infinite;
+  flex-shrink: 0;
 }
 
 /* ═══════════════════════════════════════════

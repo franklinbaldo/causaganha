@@ -16,12 +16,9 @@ export const GET: APIRoute = ({ site }) => {
     { url: '/advogados', changefreq: 'daily', priority: '0.8' },
     { url: '/comparador', changefreq: 'daily', priority: '0.8' },
     { url: '/stats', changefreq: 'daily', priority: '0.8' },
-    { url: '/consultas', changefreq: 'weekly', priority: '0.7' },
-    { url: '/dicionario', changefreq: 'weekly', priority: '0.7' },
+    { url: '/explorador', changefreq: 'weekly', priority: '0.7' },
     { url: '/changelog', changefreq: 'weekly', priority: '0.6' },
     { url: '/sobre', changefreq: 'weekly', priority: '0.8' },
-    { url: '/admin/quality', changefreq: 'daily', priority: '0.5' },
-    { url: '/admin/backfill', changefreq: 'daily', priority: '0.5' },
   ];
 
   staticPages.forEach(page => {
@@ -47,7 +44,7 @@ export const GET: APIRoute = ({ site }) => {
     `);
   });
 
-  ((backfill?.tribunal_stats ?? []) as any[]).slice(0, 12).forEach((item) => {
+  ((backfill?.tribunal_stats ?? []) as any[]).sort((a, b) => Number(b.data_rate_pct ?? 0) - Number(a.data_rate_pct ?? 0)).slice(0, 12).forEach((item) => {
     const slug = String(item.tribunal ?? '').toLowerCase();
     if (!slug) return;
     sitemapUrls.push(`
