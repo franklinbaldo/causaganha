@@ -2,6 +2,7 @@
 import Layout from '../layouts/Layout.astro';
 import Header from '../components/Header.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
+import ManifestStatus from '../components/ManifestStatus.svelte';
 import { readJson } from '../lib/readJson';
 
 // All aggregations come from .qmd query contracts rendered against the manifest.
@@ -139,6 +140,15 @@ const base = import.meta.env.BASE_URL;
           );
         })}
       </div>
+    </article>
+
+    <!-- Per-tribunal coverage from live IA manifest -->
+    <article>
+      <header>
+        <strong>Cobertura por tribunal e ano</strong>
+        <small data-tone="muted">Dados ao vivo do manifesto canônico em archive.org</small>
+      </header>
+      <ManifestStatus client:load />
     </article>
   </div>
 </Layout>
