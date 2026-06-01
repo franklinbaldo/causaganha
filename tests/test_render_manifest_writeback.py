@@ -116,7 +116,9 @@ def test_write_back_makes_absent_200_rows_self_consistent(tmp_path, monkeypatch)
             -- a genuine available must stay available
             ('TJRO', DATE '2024-01-02', 'uploaded', 'available', '200', '2024-01-03'),
             -- a real 404 absent is untouched
-            ('TJBA', DATE '2024-01-02', '', 'absent', '404', '2024-01-03')
+            ('TJBA', DATE '2024-01-02', '', 'absent', '404', '2024-01-03'),
+            -- a probe-confirmed available: CSV must see plain 'available'
+            ('TJMG', DATE '2024-01-02', '', 'confirmed', '200', '2024-01-03')
         """
     )
 
@@ -133,6 +135,9 @@ def test_write_back_makes_absent_200_rows_self_consistent(tmp_path, monkeypatch)
     # The available row keeps its raw; the genuine 404 absent is untouched.
     assert by_key[("TJRO", "2024-01-02")]["djen_raw"] == "200"
     assert by_key[("TJBA", "2024-01-02")]["djen_raw"] == "404"
+    # 'confirmed' is normalized to 'available' so CSV consumers can upload it.
+    assert by_key[("TJMG", "2024-01-02")]["djen_status"] == "available"
+    assert by_key[("TJMG", "2024-01-02")]["djen_raw"] == "200"
 
     # Every written row re-derives consistently from its raw — no phantom available.
     for r in rows:

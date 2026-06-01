@@ -224,10 +224,20 @@ def write_back_csv(con: duckdb.DuckDBPyConnection) -> Path:
     the ``no_publications`` sentinel (already in ``ABSENT_CODES`` → ``absent``)
     so the row re-derives to ``absent`` no matter who reads it, instead of
     relying on every consumer trusting the stored ``djen_status`` over the raw.
+
+    CSV vocabulary: ``confirmed`` is a parquet/drain-only refinement of
+    ``available``; the CSV consumers don't know it (``entries_needing_upload``
+    selects only ``available`` and ``_categorize`` buckets ``confirmed`` as
+    ``unknown``), so a confirmed-but-not-uploaded row would drop out of the
+    CSV upload/check flow. Normalize it back to ``available`` for the CSV.
     """
     manifest = ibis.duckdb.from_connection(con).table("manifest")
     corrected = manifest.mutate(
         date=manifest.date.strftime("%Y-%m-%d"),
+        djen_status=ibis.cases(
+            (manifest.djen_status == "confirmed", "available"),
+            else_=manifest.djen_status,
+        ),
         djen_raw=ibis.cases(
             (
                 (manifest.djen_status == "absent")
