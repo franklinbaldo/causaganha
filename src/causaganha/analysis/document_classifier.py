@@ -15,6 +15,7 @@ class ClassificationResult(TypedDict):
     confidence: float
     matched_keywords: list[str]
 
+
 class DocumentClassifier:
     """Rule-based classifier for judicial documents."""
 
@@ -163,7 +164,13 @@ class DocumentClassifier:
             best_types = [dt for dt, score in doc_scores.items() if score == max_score]
 
             # Tie breaking priority
-            priority = ["acórdão", "decisão monocrática", "sentença", "decisão interlocutória", "despacho"]
+            priority = [
+                "acórdão",
+                "decisão monocrática",
+                "sentença",
+                "decisão interlocutória",
+                "despacho",
+            ]
             document_type = "outro"
             for p in priority:
                 if p in best_types:
@@ -188,7 +195,7 @@ class DocumentClassifier:
             procedural_class = "outro"
         else:
             # Get the class with the highest score
-            procedural_class = max(class_scores, key=class_scores.get) # type: ignore[arg-type]
+            procedural_class = max(class_scores, key=class_scores.get)  # type: ignore[arg-type]
 
         # Calculate confidence based on the number of matches
         total_matches = len(matched_keywords)

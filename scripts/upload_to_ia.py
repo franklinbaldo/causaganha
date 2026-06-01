@@ -9,7 +9,6 @@ Status:   production — invoked by collect-zips.yml and consolidate-parquet.yml
 Uploads compressed embedding Parquet files to IA for long-term archival.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

@@ -24,6 +24,7 @@ DEFAULT_PROC_CLASS_PATH = Path("data/ml_procedural_class.joblib")
 # Minimum samples per class needed to train
 MIN_SAMPLES_PER_CLASS = 5
 
+
 def _build_classifiers() -> list[tuple[str, object]]:
     """Build the standard list of classifiers."""
     from sklearn.calibration import CalibratedClassifierCV  # noqa: PLC0415
@@ -88,6 +89,7 @@ def _build_classifiers() -> list[tuple[str, object]]:
             ),
         ),
     ]
+
 
 class MLDocumentEnsemble:
     """Ensemble of scikit-learn classifiers for document type or procedural class classification."""
@@ -161,11 +163,9 @@ class MLDocumentEnsemble:
                 logger.info("training_document_classifier", target=self.target_col, name=name)
                 clf.fit(x_mat, y)
                 n_cv = min(5, *[counts[c] for c in valid_classes])
-                n_cv = max(2, n_cv) # ensure at least 2 folds
+                n_cv = max(2, n_cv)  # ensure at least 2 folds
 
-                scores = cross_val_score(
-                    clf, x_mat, y, cv=n_cv, scoring="f1_macro"
-                )
+                scores = cross_val_score(clf, x_mat, y, cv=n_cv, scoring="f1_macro")
                 cv_results[name] = {
                     "cv_f1_macro_mean": round(float(scores.mean()), 3),
                     "cv_f1_macro_std": round(float(scores.std()), 3),
@@ -182,7 +182,7 @@ class MLDocumentEnsemble:
                     "document_classifier_training_failed",
                     target=self.target_col,
                     name=name,
-                    error=str(exc)
+                    error=str(exc),
                 )
 
         self._classifiers = trained
@@ -222,7 +222,7 @@ class MLDocumentEnsemble:
                     "document_classifier_predict_failed",
                     target=self.target_col,
                     name=name,
-                    error=str(exc)
+                    error=str(exc),
                 )
 
         if not all_probas:
@@ -255,7 +255,7 @@ class MLDocumentEnsemble:
             Top predicted class label (string).
         """
         probas = self.predict_proba(embedding)
-        return max(probas, key=probas.get) # type: ignore[arg-type]
+        return max(probas, key=probas.get)  # type: ignore[arg-type]
 
     def save(self) -> None:
         """Save the trained ensemble to joblib."""

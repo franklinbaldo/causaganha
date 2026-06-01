@@ -17,7 +17,6 @@ Measures:
   - Bottlenecks and optimization opportunities
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

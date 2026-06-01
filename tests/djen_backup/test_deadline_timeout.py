@@ -30,6 +30,7 @@ async def test_run_sync_deadline_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
 
     async def _get_caderno_url(client, base_url, tribunal, d):
         from djen_backup.djen import DJENNotFoundError
+
         raise DJENNotFoundError(status_code=404, reason="Not Found")
 
     async def _upload_to_ia(self: SyncManifest, auth: str) -> bool:
@@ -49,7 +50,7 @@ async def test_run_sync_deadline_timeout(monkeypatch: pytest.MonkeyPatch) -> Non
             lower_bound=date(2024, 1, 1),
             tribunal="TJSP",
             deadline_minutes=-1,  # Set deadline to negative so it times
-                                  # out in the past
+            # out in the past
             max_items=0,
             workers=1,
             manifest_file=manifest_path,

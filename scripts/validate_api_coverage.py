@@ -14,7 +14,6 @@ This script attempts to fetch intimations from a list of courts to determine
 which ones are accessible via the API.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

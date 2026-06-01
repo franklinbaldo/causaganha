@@ -158,7 +158,6 @@ def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
             f"{len(delta_urls)} delta file(s)"
         )
 
-
     con.execute(f"COPY manifest TO '{LOCAL_PARQUET}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     return LOCAL_PARQUET
 

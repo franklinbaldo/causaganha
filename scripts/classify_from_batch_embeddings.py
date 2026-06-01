@@ -11,7 +11,6 @@ Status:   research/experiment — pairs with batch_embed_decisions + index_groun
           keeper?
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

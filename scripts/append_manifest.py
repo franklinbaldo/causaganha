@@ -11,7 +11,6 @@ Strategy: Append new rows as JSONL lines and push to IA. Append-only keeps write
 Status:   production — invoked by the collect/backfill workflows.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

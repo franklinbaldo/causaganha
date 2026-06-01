@@ -10,7 +10,6 @@ Strategy: Parse every line as JSON and assert the expected schema/row invariants
 Status:   production — gate step in the manifest publish workflow.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

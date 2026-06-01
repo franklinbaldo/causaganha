@@ -20,7 +20,6 @@ Exit codes:
     3: Configuration error
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

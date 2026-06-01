@@ -22,13 +22,15 @@ if TYPE_CHECKING:
     from causaganha.analysis.bayesian_fusion import WinnerPolo
 
 # Outcomes that indicate an appeal decision (as opposed to a first-instance ruling)
-RECURSO_OUTCOMES: frozenset[str] = frozenset({
-    "provido",
-    "não provido",
-    "parcialmente provido",
-    "não conhecido",
-    "prejudicado",
-})
+RECURSO_OUTCOMES: frozenset[str] = frozenset(
+    {
+        "provido",
+        "não provido",
+        "parcialmente provido",
+        "não conhecido",
+        "prejudicado",
+    }
+)
 
 # First-instance outcome -> winning polo (no polarity inversion)
 _FIRST_INSTANCE_MAP: dict[str, str] = {

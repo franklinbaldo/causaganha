@@ -98,16 +98,14 @@ def main() -> int:
     # Load environment variables from .env files
     try:
         from dotenv import load_dotenv
+
         load_dotenv()
         load_dotenv(Path(__file__).resolve().parents[1] / ".env")
         load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     except ImportError:
         pass
 
-    api_key = (
-        os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-    )
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if "OPENROUTER_API_KEY" in os.environ:
         del os.environ["OPENROUTER_API_KEY"]
     use_mock = args.mock or not api_key
@@ -141,9 +139,7 @@ def main() -> int:
         return 1
 
     # Get already labeled IDs/hashes
-    existing_uuids = {
-        r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()
-    }
+    existing_uuids = {r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()}
     existing_ids = {
         r[0] for r in conn.execute("SELECT intimation_id FROM gold_benchmark").fetchall()
     }
@@ -161,7 +157,9 @@ def main() -> int:
         (args.court,),
     ).fetchall()
 
-    new_candidates = [c for c in candidates if c[0] not in existing_uuids and c[1] not in existing_ids]
+    new_candidates = [
+        c for c in candidates if c[0] not in existing_uuids and c[1] not in existing_ids
+    ]
     if not new_candidates:
         console.print(
             "[green]✓ Não há novas decisões para rotular. Benchmark está 100% atualizado![/green]"
@@ -334,7 +332,10 @@ def main() -> int:
             elif isinstance(v, list):
                 row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
             elif isinstance(v, dict):
-                row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
+                row[k] = {
+                    str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv)
+                    for dk, dv in v.items()
+                }
 
         frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
         md_filename = f"{court}-{val_date_str}-{int_id}.md"
@@ -343,7 +344,9 @@ def main() -> int:
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
 
-    console.print(f"[green]✓ {len(gold_df)} arquivos .md atualizados com sucesso em {md_dir}.[/green]\n")
+    console.print(
+        f"[green]✓ {len(gold_df)} arquivos .md atualizados com sucesso em {md_dir}.[/green]\n"
+    )
 
     conn.close()
     return 0

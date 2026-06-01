@@ -12,7 +12,6 @@ Status:   research / experiment — part of the embeddings R&D track (experiment
           scripts/ if yes; archive if no.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

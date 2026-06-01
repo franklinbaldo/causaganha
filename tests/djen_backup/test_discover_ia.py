@@ -63,9 +63,7 @@ async def test_discover_falls_back_to_manifest_on_http_error() -> None:
     await m.mark_uploaded("TJSP", date(2024, 1, 2))  # not in fallback
 
     with respx.mock(assert_all_called=False) as router:
-        router.get(url__startswith=_IA_SEARCH_URL).mock(
-            side_effect=httpx.ConnectError("boom")
-        )
+        router.get(url__startswith=_IA_SEARCH_URL).mock(side_effect=httpx.ConnectError("boom"))
         existing = await _discover_ia_items(m)
 
     # Fallback returns (tribunal, year) for entries still pending upload —

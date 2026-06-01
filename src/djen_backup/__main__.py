@@ -452,7 +452,6 @@ def upload(
             start_date=date(2020, 1, 1),
             end_date=datetime.now(UTC).date(),
             lower_bound=None,
-
             tribunal=tribunal,
             deadline_minutes=deadline_minutes,
             max_items=max_items,
@@ -555,7 +554,6 @@ def probe(
         )
     )
 
-
     confirmed, absent = asyncio.run(
         _probe(
             workers=workers,
@@ -579,7 +577,6 @@ def reset(
     tribunal: str | None = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
     *,
     reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),  # noqa: FBT003
-
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),
@@ -599,7 +596,6 @@ def reset(
     # Reset entries by rebuilding without the targeted entries
     count = 0
     for _k, entry in list(manifest._entries.items()):  # noqa: SLF001
-
         if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
             entry.ia_status = ""
             entry.djen_status = ""

@@ -1,4 +1,3 @@
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
 

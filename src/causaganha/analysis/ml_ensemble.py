@@ -199,6 +199,7 @@ class EmbeddingEnsemble:
 
         # Filter classes with too few samples
         from collections import Counter  # noqa: PLC0415
+
         counts = Counter(y_raw)
         valid_classes = {cls for cls, cnt in counts.items() if cnt >= MIN_SAMPLES_PER_CLASS}
         final_mask = [label in valid_classes for label in y_raw]
@@ -230,9 +231,7 @@ class EmbeddingEnsemble:
                 logger.info("training_classifier", name=name)
                 clf.fit(x_mat, y)
                 n_cv = min(5, *counts.values())
-                scores = cross_val_score(
-                    clf, x_mat, y, cv=n_cv, scoring="f1_macro"
-                )
+                scores = cross_val_score(clf, x_mat, y, cv=n_cv, scoring="f1_macro")
                 cv_results[name] = {
                     "cv_f1_macro_mean": round(float(scores.mean()), 3),
                     "cv_f1_macro_std": round(float(scores.std()), 3),
@@ -297,6 +296,7 @@ class EmbeddingEnsemble:
 
         if not all_probas:
             from causaganha.analysis.bayesian_fusion import uniform_prior  # noqa: PLC0415
+
             return uniform_prior()
 
         # Soft vote: average probabilities across classifiers
@@ -338,6 +338,7 @@ class EmbeddingEnsemble:
         """
         if not self._is_trained or not self._classifiers:
             from causaganha.analysis.bayesian_fusion import uniform_prior  # noqa: PLC0415
+
             return uniform_prior(), 0.0
 
         x = embedding.reshape(1, -1)
@@ -355,10 +356,12 @@ class EmbeddingEnsemble:
 
         if not all_probas:
             from causaganha.analysis.bayesian_fusion import uniform_prior  # noqa: PLC0415
+
             return uniform_prior(), 0.0
 
         # Agreement: fraction of classifiers picking the same top outcome
         from collections import Counter  # noqa: PLC0415
+
         top_counter = Counter(individual_tops)
         majority_outcome, majority_count = top_counter.most_common(1)[0]
         agreement = majority_count / len(individual_tops)

@@ -46,11 +46,11 @@ DEFAULT_NEAR_DUPLICATE_SIM = 0.95
 # Columns expected in anchor_set.parquet
 ANCHOR_SCHEMA = {
     "numero_processo": str,
-    "texto_truncado": str,   # first 1000 chars of decision text
-    "outcome": str,          # one of OUTCOME_KEYS
-    "confidence": float,     # annotation confidence (LLM or manual)
-    "annotation_src": str,   # "llm" | "manual" | "auto"
-    "embedding": object,     # bytes or list[float] — 256-dim EmbeddingGemma
+    "texto_truncado": str,  # first 1000 chars of decision text
+    "outcome": str,  # one of OUTCOME_KEYS
+    "confidence": float,  # annotation confidence (LLM or manual)
+    "annotation_src": str,  # "llm" | "manual" | "auto"
+    "embedding": object,  # bytes or list[float] — 256-dim EmbeddingGemma
 }
 
 
@@ -86,11 +86,11 @@ class AnchorClassifier:
         self.max_anchors_per_class = max_anchors_per_class
         self.near_duplicate_sim = near_duplicate_sim
 
-        self._embeddings: np.ndarray | None = None   # (N, D) float32
-        self._labels: list[str] | None = None         # len N
+        self._embeddings: np.ndarray | None = None  # (N, D) float32
+        self._labels: list[str] | None = None  # len N
         self._confidences: list[float] | None = None  # len N
-        self._loaded_processes: set[str] = set()      # for in-memory dedup
-        self._pending_anchors: list[dict] = []        # batched before flush
+        self._loaded_processes: set[str] = set()  # for in-memory dedup
+        self._pending_anchors: list[dict] = []  # batched before flush
         self._loaded = False
 
     # ------------------------------------------------------------------
@@ -157,6 +157,7 @@ class AnchorClassifier:
 
         # Slow path: mixed or list[float] format — iterate per-row
         import io  # noqa: PLC0415
+
         rows = []
         for val in col:
             if isinstance(val, (list, np.ndarray)):
@@ -209,6 +210,7 @@ class AnchorClassifier:
             )
             # Return uniform distribution when anchor set can't help
             from causaganha.analysis.bayesian_fusion import uniform_prior  # noqa: PLC0415
+
             return uniform_prior()
 
         valid_idx = top_idx[valid_mask]
@@ -327,10 +329,12 @@ class AnchorClassifier:
 
         # Add to in-memory arrays
         if self._loaded and self._embeddings is not None:
-            self._embeddings = np.vstack([
-                self._embeddings,
-                embedding.reshape(1, -1).astype(np.float32),
-            ])
+            self._embeddings = np.vstack(
+                [
+                    self._embeddings,
+                    embedding.reshape(1, -1).astype(np.float32),
+                ]
+            )
             self._labels = self._labels or []
             self._labels.append(outcome)
             self._confidences = self._confidences or []
@@ -342,14 +346,16 @@ class AnchorClassifier:
         self._loaded_processes.add(numero_processo)
 
         # Queue for batched parquet write
-        self._pending_anchors.append({
-            "numero_processo": numero_processo,
-            "texto_truncado": texto_truncado,
-            "embedding": embedding.astype(np.float32).tobytes(),
-            "outcome": outcome,
-            "confidence": confidence,
-            "annotation_src": annotation_src,
-        })
+        self._pending_anchors.append(
+            {
+                "numero_processo": numero_processo,
+                "texto_truncado": texto_truncado,
+                "embedding": embedding.astype(np.float32).tobytes(),
+                "outcome": outcome,
+                "confidence": confidence,
+                "annotation_src": annotation_src,
+            }
+        )
 
         if len(self._pending_anchors) >= _FLUSH_THRESHOLD:
             self.flush()
@@ -386,10 +392,7 @@ class AnchorClassifier:
             existing = ibis.read_parquet(self.anchor_path)
             # Build the full expression lazily; new_ids are small (≤ _FLUSH_THRESHOLD)
             new_ids = [row["numero_processo"] for row in pending]
-            combined = (
-                existing.filter(~existing["numero_processo"].isin(new_ids))
-                .union(new_table)
-            )
+            combined = existing.filter(~existing["numero_processo"].isin(new_ids)).union(new_table)
         else:
             self.anchor_path.parent.mkdir(parents=True, exist_ok=True)
             combined = new_table
@@ -414,4 +417,5 @@ class AnchorClassifier:
         if not self._labels:
             return {}
         from collections import Counter  # noqa: PLC0415
+
         return dict(Counter(self._labels))
