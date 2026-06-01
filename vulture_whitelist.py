@@ -141,3 +141,6 @@ textos
 
 # State
 State.is_done
+
+# Kept-for-API-compat params explicitly documented as ignored
+max_chars_per_doc

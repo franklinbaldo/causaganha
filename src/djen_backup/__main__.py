@@ -311,7 +311,7 @@ def _run_pipeline(c: PipelineRunConfig) -> int:
     config_table.add_row("Deadline:", f"{c.deadline_minutes} min")
     config_table.add_row("Max Items:", str(c.max_items) if c.max_items else "Unlimited")
     config_table.add_row("Workers:", str(c.workers))
-    config_table.add_row("Dry Run:", "Yes" if False else "No")
+    config_table.add_row("Dry Run:", "No")
     config_table.add_row("Fail Fast:", "Yes" if c.fail_fast else "No")
     config_table.add_row("Manifest:", "data/sync-manifest.csv")
     config_table.add_row("DJEN Mode:", "Proxy" if c.use_proxy else "Direct")

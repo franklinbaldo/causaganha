@@ -215,7 +215,9 @@ async def put_ia_bytes(
             continue
         break
 
-    assert last_resp is not None
+    if last_resp is None:
+        msg = "retry loop exited without recording a response"
+        raise RuntimeError(msg)
     return last_resp
 
 
