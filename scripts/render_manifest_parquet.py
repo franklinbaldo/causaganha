@@ -31,6 +31,7 @@ import urllib.request
 from pathlib import Path
 
 import duckdb
+import ibis
 
 from causaganha.pipeline.ia_s3 import create_upload_client, upload_to_ia
 
@@ -193,25 +194,30 @@ def write_back_csv(con: duckdb.DuckDBPyConnection) -> Path:
     the delta corrections in — becomes the new canonical CSV, so the CSV stops
     drifting behind the Parquet. Re-applying deltas over an already-corrected
     CSV is idempotent, so deltas are NOT pruned here (kept simple + safe).
+
+    Self-consistency: the delta merge only flips ``djen_status`` to ``absent``
+    and leaves ``djen_raw='200'`` behind, so the row contradicts itself —
+    ``interpret_djen_raw('200')`` derives ``available``. We rewrite that raw to
+    the ``no_publications`` sentinel (already in ``ABSENT_CODES`` → ``absent``)
+    so the row re-derives to ``absent`` no matter who reads it, instead of
+    relying on every consumer trusting the stored ``djen_status`` over the raw.
     """
-    # Bare-empty fields (",,") to match the canonical CSV exactly — COALESCE to
-    # '' + the default quoting would emit `""`; letting NULLs flow with the
-    # default NULLSTR='' writes bare empties like the engine's own to_csv().
-    con.execute(
-        f"""
-        COPY (
-            SELECT
-                tribunal,
-                strftime(date, '%Y-%m-%d') AS date,
-                ia_status,
-                djen_status,
-                djen_raw,
-                updated_at
-            FROM manifest
-            ORDER BY tribunal, date
-        ) TO '{LOCAL_CSV}' (FORMAT CSV, HEADER)
-        """
-    )
+    manifest = ibis.duckdb.from_connection(con).table("manifest")
+    corrected = manifest.mutate(
+        date=manifest.date.strftime("%Y-%m-%d"),
+        djen_raw=ibis.cases(
+            (
+                (manifest.djen_status == "absent")
+                & ((manifest.djen_raw == "200") | manifest.djen_raw.startswith("200:")),
+                "no_publications",
+            ),
+            else_=manifest.djen_raw,
+        ),
+    ).select("tribunal", "date", "ia_status", "djen_status", "djen_raw", "updated_at")
+
+    # pandas to_csv renders NULL/empty as bare "" fields (na_rep=''), matching
+    # SyncManifest.to_csv() byte-for-byte — no DuckDB COPY quoting/NULLSTR fiddling.
+    corrected.order_by(["tribunal", "date"]).to_pandas().to_csv(LOCAL_CSV, index=False)
     print(f"  wrote back merged CSV: {LOCAL_CSV} ({LOCAL_CSV.stat().st_size:,} bytes)")
     return LOCAL_CSV
 
@@ -238,8 +244,11 @@ async def upload(path: Path, target: str) -> None:
 def main() -> None:
     # Phase 1 (docs/planning/manifest-source-of-truth.md): when MANIFEST_COMPACT_WRITEBACK
     # is set, the merged manifest is written back to the canonical CSV so it stops
-    # drifting behind the Parquet. Default OFF — enabling is a deliberate op step
-    # (writes the shared CSV; ideally run when the engine isn't appending).
+    # drifting behind the Parquet. Default OFF — enabling is a deliberate op step.
+    # REQUIRED ordering: stop the engine → run write-back → restart the engine.
+    # A running engine holds the legacy rows as 'available' in memory and never
+    # re-checks rows that already have a djen_status, so its periodic 10-min IA
+    # upload would clobber the corrected CSV straight back to available-200.
     # MANIFEST_DRY_RUN renders + reports locally without touching IA.
     write_back = _env_truthy("MANIFEST_COMPACT_WRITEBACK")
     dry_run = _env_truthy("MANIFEST_DRY_RUN")

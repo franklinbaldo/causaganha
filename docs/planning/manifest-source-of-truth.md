@@ -144,6 +144,17 @@ Fases incrementais — cada uma é segura e entrega valor isolado:
 - **Fase 1 — compactação com write-back (mata a deriva já).** Alterar `render_manifest_parquet`
   para que o merge **vire a nova base** e os segmentos consumidos sejam podados. Mesmo antes de
   aposentar o CSV, isto estanca a divergência. *(Menor mudança, maior retorno.)*
+  - **Sequência obrigatória de ops:** `parar o engine → rodar o write-back → reiniciar o engine`.
+    Um engine em execução segura as ~79K linhas legadas como `available` em memória e **não
+    re-checa** linhas que já têm `djen_status`, então o upload periódico de 10 min dele
+    sobrescreveria o CSV corrigido de volta para `available`-200. A ordem não é "ideal", é
+    requisito.
+  - **Autoconsistência da linha corrigida:** o merge dos deltas só vira `djen_status='absent'` e
+    deixa `djen_raw='200'` para trás — uma linha que se contradiz (`interpret_djen_raw('200')`
+    deriva `available`). O write-back reescreve esse raw para o sentinela `no_publications` (já em
+    `ABSENT_CODES`), então a linha re-deriva para `absent` independentemente de quem leia, sem
+    depender de cada consumidor confiar no `djen_status` salvo em vez do raw. *(Fecha a questão §7.3
+    para o legado.)*
 - **Fase 2 — escritores emitem só segmentos.** `SyncManifest` (`manifest.py`) e o checker param
   de reescrever o CSV canônico; passam a gravar segmentos de log. Drain/probe já fazem isto.
 - **Fase 3 — remover o CSV.** Tirar as referências a `sync-manifest.csv` dos ~27 arquivos / 7
@@ -171,7 +182,9 @@ Fases incrementais — cada uma é segura e entrega valor isolado:
    Recomendação: CSV para segmentos, Parquet para a base compactada.
 2. **Retenção de segmentos compactados:** apagar vs arquivar os últimos N para replay/auditoria.
 3. **Desambiguar o 200-vazio no `djen_raw`** (`200-empty`/`sem_comunicacoes`) para que o veredito
-   seja reproduzível direto do raw, sem depender só do `djen_status`.
+   seja reproduzível direto do raw, sem depender só do `djen_status`. *(Para o legado já resolvido
+   na Fase 1: o write-back grava `no_publications`. Em aberto fica só padronizar o que os
+   **checkers ao vivo** persistem daqui pra frente — hoje o engine já grava `no_publications`.)*
 4. **Tombstones / reset para `unknown`:** como um evento representa "esqueça o veredito anterior".
 5. **Bootstrap:** confirmar por auditoria ampla (não só amostra) que o Parquet atual está 100%
    correto antes de promovê-lo a base — ou rodar um `probe` completo de reconciliação primeiro.
