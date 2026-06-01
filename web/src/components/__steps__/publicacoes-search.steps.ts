@@ -191,7 +191,12 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
       render(PublicationSearch);
       const input = screen.getByLabelText('Buscar publicações') as HTMLInputElement;
       await fireEvent.input(input, { target: { value: 'mandado de segurança' } });
-      await fireEvent.click(screen.getByRole('button', { name: /^Buscar$/ }));
+      // The Buscar button enables only after the 300ms validation debounce
+      // promotes rawInput into the parsed query (canSubmit). Wait for it before
+      // clicking — clicking a disabled submit button is a no-op.
+      const buscar = screen.getByRole('button', { name: /^Buscar$/ });
+      await waitFor(() => expect(buscar).toBeEnabled());
+      await fireEvent.click(buscar);
     });
 
     Then('I should see 1 result card', async () => {
@@ -382,6 +387,10 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
         await fireEvent.click(screen.getByRole('button', { name: /Filtros avançados/ }));
         await fireEvent.click(screen.getByText('Mais filtros'));
         await fireEvent.click(screen.getByRole('radio', { name: '100' }));
+        // Filter changes update state only; the DJEN query fires on an explicit
+        // submit (Enter / Buscar / pagination). Submit to apply the new page
+        // size — changing it also resets pagination back to page 1.
+        await fireEvent.keyDown(input, { key: 'Enter' });
         await waitFor(() => {
           const lastUrl = latestFetchUrl(fetchMock);
           expect(lastUrl.searchParams.get('pagina')).toBe('1');
@@ -389,6 +398,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario, AfterEachScenario }) =
         });
 
         await fireEvent.click(screen.getByRole('button', { name: /Limpar tudo/ }));
+        // Clearing resets filters to defaults; submit again so the request and
+        // synced URL reflect the cleared state (page 1, 30 items per page).
+        await fireEvent.keyDown(input, { key: 'Enter' });
       },
     );
 

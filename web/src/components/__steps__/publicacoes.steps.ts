@@ -112,10 +112,13 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see "150" next to STF', () => {
+      // The tribunal card wraps the name in an <a> and the ZIP count in a
+      // sibling <footer>, so assert against the whole card <article>, not the
+      // anchor (which only holds the tribunal sigla).
       const stfElements = screen.getAllByText('STF');
       const stfCard = stfElements
-        .map(el => el.closest('a'))
-        .find(a => a !== null);
+        .map(el => el.closest('article'))
+        .find(article => article !== null);
       expect(stfCard).toBeTruthy();
       expect(stfCard!.textContent).toContain('150');
     });

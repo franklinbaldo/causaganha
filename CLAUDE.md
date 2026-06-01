@@ -16,7 +16,8 @@ CausaGanha archives Brazilian judicial communications (DJEN) on Internet Archive
 The canonical sync engine is in `src/djen_backup/`. Key concepts:
 
 - **`sync-manifest.csv`** on IA (`https://archive.org/download/causaganha-dashboard/sync-manifest.csv`) is the single source of truth. One row per `(tribunal, date)` pair with `ia_status`, `djen_status`, `djen_raw`, `updated_at`.
-- **`djen_raw`** stores the actual DJEN response ("200", "404", "400", "403", "timeout", "network"). Never derive absent from just a category — always trust the raw.
+- **`djen_raw`** stores the actual DJEN **HTTP status** ("200", "404", "400", "403", "timeout", "network"). It is the transport code, **not** a verdict on availability — in particular `djen_raw="200"` does **NOT** mean the caderno exists (see next bullet). Derive `djen_status` from the full response (status + body), and once derived, trust `djen_status` — not a bare reading of `djen_raw`.
+- **A `200` can still be genuinely absent.** When there is no publication, DJEN returns HTTP **200 with body `{"status": "Sem comunicações"}`** (no download URL). `get_caderno_url` correctly raises `DJENNotFoundError(status_code=200)` for this. So **availability = HTTP 200 *and* a download URL in the body**; a 200-without-URL is `absent`, exactly like a 404. Do not equate `djen_raw="200"` with `djen_status="available"`.
 - Engine runs 3 independent worker pools: **checkers** (DJEN API), **downloaders** (fetch ZIP), **uploaders** (push to IA).
 - Periodic IA upload every 10 min protects against crashes.
 - Phase 0 uses IA advanced search to discover existing items, then fetches metadata in parallel (~50 concurrent).
@@ -50,7 +51,8 @@ cd web && npm run dev
 
 ### Correctness
 
-- **Never treat 403 as absent.** CloudFront/WAF returns 403 when rate-limiting. Only 404 (+ 400 for holidays) is genuine absent.
+- **Never treat 403 as absent.** CloudFront/WAF returns 403 when rate-limiting. Genuine absent is: **404**, **400** (holidays), **or 200 with body `"Sem comunicações"`** (no download URL). A bare 200 status is *not* enough to call it available.
+- **`djen_raw="200"` + `djen_status="available"` is NOT self-consistent proof.** The canonical CSV carries ~79K legacy rows recorded by an older checker that read only the HTTP 200 and never inspected the body — they are actually "Sem comunicações" (absent). The accurate corrections live in the probe **upload-delta** CSVs and are merged into `sync-manifest.parquet`; the CSV itself was never backfilled. So: the **parquet is more accurate than the CSV** for these rows. Before "fixing" any available/absent discrepancy, **verify against live DJEN** (sample → `get_caderno_url`) — do not assume the CSV is right just because it is "canonical".
 - **Don't trust `absent` from old runs.** If auditing shows false positives, reset all `absent` entries (where `djen_raw` is empty) to unknown.
 - **Upload bug:** `ia_s3._perform_upload` must use `file_path.read_bytes()`, not `file_path.open("rb")` as content — sync file objects don't work with `AsyncClient`.
 - **Per-item lock + token bucket for IA uploads** (in `src/djen_backup/archive.py`). IA serializes writes per item. `ItemBusyError` → re-queue, don't block.
