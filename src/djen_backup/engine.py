@@ -20,6 +20,7 @@ from aiolimiter import AsyncLimiter
 
 from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
+    HTTP_OK,
     CircuitBreaker,
     ItemBusyError,
     check_ia_file_exists,
@@ -237,6 +238,12 @@ async def _classify_djen_status(
         async with djen_limiter:
             await get_caderno_url(client, proxy_url, tribunal, d)
     except DJENNotFoundError as exc:
+        # A 200 that raised NotFound is "Sem comunicações" (HTTP 200, empty body,
+        # no download URL) — genuinely absent. Record the canonical absent
+        # sentinel so interpret_djen_raw() maps it to absent; returning the bare
+        # "200" would derive "available" and manufacture a phantom caderno.
+        if exc.status_code == HTTP_OK:
+            return "no_publications"
         return str(exc.status_code)
     except DJENRateLimitedError:
         return "403"

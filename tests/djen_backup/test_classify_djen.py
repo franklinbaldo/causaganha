@@ -80,6 +80,33 @@ async def test_classify_returns_400_for_holiday(monkeypatch: pytest.MonkeyPatch)
 
 
 @pytest.mark.asyncio
+async def test_classify_returns_no_publications_for_200_sem_comunicacoes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # "Sem comunicações" = HTTP 200, empty body, no URL. get_caderno_url raises
+    # DJENNotFoundError(status_code=200). This is genuinely absent — it must NOT
+    # be recorded as "200" (which interpret_djen_raw maps to "available").
+    async def _empty(*_args: object, **_kwargs: object) -> str:
+        raise DJENNotFoundError(status_code=200, reason="No publications")
+
+    monkeypatch.setattr(engine_module, "get_caderno_url", _empty)
+
+    raw = await _classify_djen_status(
+        client=object(),  # type: ignore[arg-type]
+        proxy_url="https://djen.example",
+        tribunal="TJSP",
+        d=date(2024, 1, 2),
+        djen_limiter=_limiter(),
+    )
+    assert raw == "no_publications"
+    # And the derived status must be absent, never available.
+    from djen_backup.manifest import interpret_djen_raw
+
+    assert interpret_djen_raw(raw) == "absent"
+    assert interpret_djen_raw("200") == "available"
+
+
+@pytest.mark.asyncio
 async def test_classify_returns_403_for_cloudfront_block(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
