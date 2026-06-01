@@ -75,6 +75,87 @@ def fetch_delta_urls() -> list[str]:
     return urls
 
 
+def _apply_deltas(con: duckdb.DuckDBPyConnection, delta_urls: list[str]) -> tuple[int, int, int]:
+    """Merge the upload-delta corrections into the ``manifest`` table in place.
+
+    Stages every delta row into one table (resilient per-file load), then applies
+    the corrections as set-based UPDATEs instead of a row-by-row Python loop.
+    Three independent signals; applying uploaded first means an archived item is
+    never also flagged absent. This is deterministic — the old per-row loop's
+    result for a key with conflicting deltas depended on file/row ordering
+    (see docs/planning/manifest-source-of-truth.md). Returns the count of rows
+    actually updated per signal (uploaded, absent, confirmed).
+    """
+    con.execute(
+        """
+        CREATE TABLE deltas (
+            tribunal VARCHAR, date DATE, ia_status VARCHAR,
+            djen_status VARCHAR, updated_at VARCHAR
+        )
+        """
+    )
+    for url in delta_urls:
+        try:
+            con.execute(
+                f"""
+                INSERT INTO deltas
+                SELECT tribunal::VARCHAR, date::DATE,
+                       ia_status::VARCHAR, djen_status::VARCHAR, updated_at::VARCHAR
+                FROM read_csv_auto('{url}', header=true,
+                    types={{'tribunal':'VARCHAR','date':'DATE','ia_status':'VARCHAR',
+                            'djen_status':'VARCHAR','updated_at':'VARCHAR'}})
+                """
+            )
+        except (duckdb.Error, OSError) as exc:
+            print(f"  warning: could not read delta {url}: {exc}")
+
+    merged_uploaded = con.execute(
+        """
+        UPDATE manifest SET ia_status = 'uploaded', updated_at = d.updated_at
+        FROM (
+            SELECT tribunal, date, max(updated_at) AS updated_at
+            FROM deltas WHERE ia_status = 'uploaded' GROUP BY tribunal, date
+        ) d
+        WHERE manifest.tribunal = d.tribunal AND manifest.date = d.date
+          AND (manifest.ia_status IS NULL OR manifest.ia_status != 'uploaded')
+        """
+    ).fetchone()[0]
+
+    merged_absent = con.execute(
+        """
+        UPDATE manifest SET djen_status = 'absent', updated_at = d.updated_at
+        FROM (
+            SELECT tribunal, date, max(updated_at) AS updated_at
+            FROM deltas WHERE djen_status = 'absent' GROUP BY tribunal, date
+        ) d
+        WHERE manifest.tribunal = d.tribunal AND manifest.date = d.date
+          AND (manifest.djen_status IS NULL OR manifest.djen_status != 'absent')
+          AND (manifest.ia_status IS NULL OR manifest.ia_status != 'uploaded')
+        """
+    ).fetchone()[0]
+
+    merged_confirmed = con.execute(
+        """
+        UPDATE manifest SET djen_status = 'confirmed', updated_at = d.updated_at
+        FROM (
+            SELECT tribunal, date, max(updated_at) AS updated_at
+            FROM deltas WHERE djen_status = 'confirmed' GROUP BY tribunal, date
+        ) d
+        WHERE manifest.tribunal = d.tribunal AND manifest.date = d.date
+          AND manifest.djen_status = 'available'
+        """
+    ).fetchone()[0]
+
+    if delta_urls:
+        print(
+            f"  merged {merged_uploaded} uploaded + "
+            f"{merged_absent} absent + "
+            f"{merged_confirmed} confirmed rows from "
+            f"{len(delta_urls)} delta file(s)"
+        )
+    return merged_uploaded, merged_absent, merged_confirmed
+
+
 def render_parquet(csv_path: Path, delta_urls: list[str], *, write_back: bool = False) -> Path:
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
@@ -99,65 +180,7 @@ def render_parquet(csv_path: Path, delta_urls: list[str], *, write_back: bool = 
         """
     )
 
-    # Apply each delta: mark uploaded rows and absent (DJEN 404) rows
-    merged_uploaded = 0
-    merged_absent = 0
-    merged_confirmed = 0
-    for url in delta_urls:
-        try:
-            delta_rows = con.execute(
-                f"""
-                SELECT tribunal::VARCHAR, date::DATE,
-                       ia_status::VARCHAR, djen_status::VARCHAR, updated_at::VARCHAR
-                FROM read_csv_auto('{url}', header=true,
-                    types={{'tribunal':'VARCHAR','date':'DATE','ia_status':'VARCHAR',
-                            'djen_status':'VARCHAR','updated_at':'VARCHAR'}})
-                """
-            ).fetchall()
-        except Exception as exc:
-            print(f"  warning: could not read delta {url}: {exc}")
-            continue
-        for tribunal, date, ia_status, djen_status, updated_at in delta_rows:
-            if ia_status == "uploaded":
-                con.execute(
-                    """
-                    UPDATE manifest SET ia_status = 'uploaded', updated_at = ?
-                    WHERE tribunal = ? AND date = ?
-                      AND (ia_status IS NULL OR ia_status != 'uploaded')
-                    """,
-                    [updated_at, tribunal, date],
-                )
-
-                merged_uploaded += 1
-            elif djen_status == "absent":
-                con.execute(
-                    """
-                    UPDATE manifest SET djen_status = 'absent', updated_at = ?
-                    WHERE tribunal = ? AND date = ?
-                      AND (djen_status IS NULL OR djen_status != 'absent')
-                      AND (ia_status IS NULL OR ia_status != 'uploaded')
-                    """,
-                    [updated_at, tribunal, date],
-                )
-                merged_absent += 1
-            elif djen_status == "confirmed":
-                con.execute(
-                    """
-                    UPDATE manifest SET djen_status = 'confirmed', updated_at = ?
-                    WHERE tribunal = ? AND date = ?
-                      AND djen_status = 'available'
-                    """,
-                    [updated_at, tribunal, date],
-                )
-                merged_confirmed += 1
-
-    if delta_urls:
-        print(
-            f"  merged {merged_uploaded} uploaded + "
-            f"{merged_absent} absent + "
-            f"{merged_confirmed} confirmed rows from "
-            f"{len(delta_urls)} delta file(s)"
-        )
+    _apply_deltas(con, delta_urls)
 
     con.execute(f"COPY manifest TO '{LOCAL_PARQUET}' (FORMAT PARQUET, COMPRESSION ZSTD)")
 
