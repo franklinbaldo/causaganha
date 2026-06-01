@@ -127,7 +127,7 @@
 <div class="cal-control">
   <div class="cal-control__selectors">
     <div class="cal-control__pick">
-      <label class="kicker" for="tribunal-calendar-tribunal" style="margin-bottom: 4px;">Tribunal</label>
+      <label class="kicker cal-control__label" for="tribunal-calendar-tribunal">Tribunal</label>
       <select id="tribunal-calendar-tribunal" class="select cal-control__select" bind:value={selectedTribunal}>
         {#each TRIBUNAL_GROUPS as group}
           <optgroup label={group.name}>
@@ -140,7 +140,7 @@
     </div>
 
     <div class="cal-control__pick">
-      <label class="kicker" for="tribunal-calendar-year" style="margin-bottom: 4px;">Ano</label>
+      <label class="kicker cal-control__label" for="tribunal-calendar-year">Ano</label>
       <select id="tribunal-calendar-year" class="select cal-control__select" bind:value={selectedYear}>
         {#each Array.from({ length: currentYear - 2018 + 1 }, (_, i) => currentYear - i) as y}
           <option value={y}>{y}</option>
@@ -167,8 +167,8 @@
   <a class="btn btn--secondary btn--sm" href={detailHref}>Ver página →</a>
 </div>
 
-<p style="font-family: var(--font-mono); font-size: var(--t-small); color: var(--fg-muted); margin: 0 0 var(--s-5);">
-  Mostrando <b style="color: var(--fg-heading);">{tribunalLabel}</b>.
+<p class="cal-summary">
+  Mostrando <b class="cal-summary__value">{tribunalLabel}</b>.
 </p>
 
 <div class="mini-months" role="img" aria-label="Calendário de 12 meses">
@@ -200,3 +200,21 @@
     </div>
   {/each}
 </div>
+
+<style>
+  .cal-control__label {
+    display: inline-block;
+    margin-bottom: 4px;
+  }
+
+  .cal-summary {
+    margin: 0 0 var(--s-5);
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+  }
+
+  .cal-summary__value {
+    color: var(--fg-heading);
+  }
+</style>

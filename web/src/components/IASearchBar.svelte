@@ -139,11 +139,10 @@
         aria-label="Buscar no Internet Archive por tribunal ou ano"
         enterkeyhint="search"
       />
-      {#if shortcutEnabled}
-        <kbd>Ctrl</kbd>
-        <kbd>K</kbd>
-      {/if}
     </label>
+    {#if shortcutEnabled}
+      <span class="search-shortcut-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+    {/if}
 
     <div>
       <small>Sugestões:</small>

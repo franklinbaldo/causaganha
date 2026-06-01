@@ -32,35 +32,60 @@ const missing = totalTribunals - tribunalStats.length;
     <a href={statsHref}>Ver estatísticas →</a>
   </header>
 
-  <div
-    aria-label="Grade de cobertura dos tribunais"
-    style="display: grid; grid-template-columns: repeat(auto-fill, minmax(1.5rem, 1fr)); gap: 0.25rem;"
-  >
+  <div class="tribunal-coverage-grid" aria-label="Grade de cobertura dos tribunais">
     {sorted.map(t => (
       <div
+        class="tribunal-coverage-grid__cell"
         data-tone={getCellTone(t.data_rate_pct) || undefined}
         title={`${t.tribunal}: ${t.data_rate_pct.toFixed(0)}%`}
         aria-label={`${t.tribunal}: ${t.data_rate_pct.toFixed(0)}% de cobertura`}
-        style="aspect-ratio: 1; border-radius: 2px;"
       />
     ))}
     {Array.from({ length: missing }).map(() => (
       <div
+        class="tribunal-coverage-grid__cell"
         data-tone="muted"
         title="Tribunal sem dados ainda"
-        style="aspect-ratio: 1; border-radius: 2px;"
       />
     ))}
   </div>
 
   <footer>
-    <ul class="auto-grid-sm">
-      <li><span data-tone="success" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> ≥80%</li>
-      <li><span style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;background:var(--pico-muted-border-color);"></span> 40–79%</li>
-      <li><span data-tone="warning" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> 1–39%</li>
-      <li><span data-tone="error" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> 0%</li>
-      <li><span data-tone="muted" style="display:inline-block;width:0.75rem;height:0.75rem;border-radius:2px;"></span> Não iniciado</li>
+    <ul class="auto-grid-sm tribunal-coverage-grid__legend">
+      <li><span class="tribunal-coverage-grid__swatch" data-tone="success"></span> ≥80%</li>
+      <li><span class="tribunal-coverage-grid__swatch tribunal-coverage-grid__swatch--partial"></span> 40–79%</li>
+      <li><span class="tribunal-coverage-grid__swatch" data-tone="warning"></span> 1–39%</li>
+      <li><span class="tribunal-coverage-grid__swatch" data-tone="error"></span> 0%</li>
+      <li><span class="tribunal-coverage-grid__swatch" data-tone="muted"></span> Não iniciado</li>
     </ul>
     <small data-tone="muted">{withData} de {totalTribunals} com dados</small>
   </footer>
 </article>
+
+<style>
+  .tribunal-coverage-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(1.5rem, 1fr));
+    gap: 0.25rem;
+  }
+
+  .tribunal-coverage-grid__cell {
+    aspect-ratio: 1;
+    border-radius: 2px;
+  }
+
+  .tribunal-coverage-grid__legend {
+    align-items: center;
+  }
+
+  .tribunal-coverage-grid__swatch {
+    display: inline-block;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 2px;
+  }
+
+  .tribunal-coverage-grid__swatch--partial {
+    background: var(--pico-muted-border-color);
+  }
+</style>

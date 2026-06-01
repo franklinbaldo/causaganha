@@ -54,7 +54,7 @@
                 {/if}
               </td>
               <td><small>{t.genesis_date}</small></td>
-              <td><kbd>{t.cursor_date || 'N/A'}</kbd></td>
+              <td><data value={t.cursor_date ?? ''}>{t.cursor_date || 'N/A'}</data></td>
               <td>
                 <progress value={t.completion_pct} max="100" aria-label="{t.tribunal}: {t.completion_pct}%"></progress>
                 <small>{t.completion_pct}%</small>
