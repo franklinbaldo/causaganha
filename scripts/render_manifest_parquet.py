@@ -74,7 +74,7 @@ def fetch_delta_urls() -> list[str]:
     return urls
 
 
-def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
+def render_parquet(csv_path: Path, delta_urls: list[str], *, write_back: bool = False) -> Path:
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
 
@@ -159,36 +159,112 @@ def render_parquet(csv_path: Path, delta_urls: list[str]) -> Path:
         )
 
     con.execute(f"COPY manifest TO '{LOCAL_PARQUET}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+
+    _print_merge_stats(con)
+    if write_back:
+        write_back_csv(con)
     return LOCAL_PARQUET
 
 
-async def upload(parquet_path: Path) -> None:
+def _print_merge_stats(con: duckdb.DuckDBPyConnection) -> None:
+    """Show how the delta merge reshaped the manifest vs the raw CSV base.
+
+    The headline number is rows the deltas reclassified to ``absent`` while the
+    HTTP code stayed ``200`` — genuine "Sem comunicações" absents the canonical
+    CSV still mislabels as ``available`` (see docs/planning/manifest-source-of-truth.md).
+    """
+    absent_200 = con.execute(
+        "SELECT count(*) FROM manifest WHERE djen_status = 'absent' AND djen_raw = '200'"
+    ).fetchone()[0]
+    pending = con.execute(
+        """SELECT count(*) FROM manifest
+           WHERE djen_status IN ('available', 'confirmed')
+             AND (ia_status IS NULL OR ia_status != 'uploaded')"""
+    ).fetchone()[0]
+    print(f"  merged manifest: {absent_200:,} rows are absent-with-HTTP-200 (Sem comunicações)")
+    print(f"  pending uploads after merge: {pending:,}")
+
+
+def write_back_csv(con: duckdb.DuckDBPyConnection) -> Path:
+    """Export the merged manifest back to the canonical CSV layout.
+
+    This is the *compaction write-back* (Phase 1 of
+    docs/planning/manifest-source-of-truth.md): the merge result — which folds
+    the delta corrections in — becomes the new canonical CSV, so the CSV stops
+    drifting behind the Parquet. Re-applying deltas over an already-corrected
+    CSV is idempotent, so deltas are NOT pruned here (kept simple + safe).
+    """
+    # Bare-empty fields (",,") to match the canonical CSV exactly — COALESCE to
+    # '' + the default quoting would emit `""`; letting NULLs flow with the
+    # default NULLSTR='' writes bare empties like the engine's own to_csv().
+    con.execute(
+        f"""
+        COPY (
+            SELECT
+                tribunal,
+                strftime(date, '%Y-%m-%d') AS date,
+                ia_status,
+                djen_status,
+                djen_raw,
+                updated_at
+            FROM manifest
+            ORDER BY tribunal, date
+        ) TO '{LOCAL_CSV}' (FORMAT CSV, HEADER)
+        """
+    )
+    print(f"  wrote back merged CSV: {LOCAL_CSV} ({LOCAL_CSV.stat().st_size:,} bytes)")
+    return LOCAL_CSV
+
+
+def _env_truthy(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
+
+
+async def upload(path: Path, target: str) -> None:
     auth = (
         f"LOW {os.environ['IAS3_ACCESS_KEY']}:{os.environ['IAS3_SECRET_KEY']}"
         if os.environ.get("IAS3_ACCESS_KEY") and os.environ.get("IAS3_SECRET_KEY")
         else None
     )
     if not auth:
-        print("No IA credentials — skipping upload")
+        print(f"No IA credentials — skipping upload of {target}")
         return
 
     async with create_upload_client(auth) as client:
-        ok = await upload_to_ia(client, IA_ITEM, parquet_path, IA_TARGET)
-        print("uploaded" if ok else "upload failed")
+        ok = await upload_to_ia(client, IA_ITEM, path, target)
+        print(f"{target}: {'uploaded' if ok else 'upload failed'}")
 
 
 def main() -> None:
+    # Phase 1 (docs/planning/manifest-source-of-truth.md): when MANIFEST_COMPACT_WRITEBACK
+    # is set, the merged manifest is written back to the canonical CSV so it stops
+    # drifting behind the Parquet. Default OFF — enabling is a deliberate op step
+    # (writes the shared CSV; ideally run when the engine isn't appending).
+    # MANIFEST_DRY_RUN renders + reports locally without touching IA.
+    write_back = _env_truthy("MANIFEST_COMPACT_WRITEBACK")
+    dry_run = _env_truthy("MANIFEST_DRY_RUN")
+
     csv = ensure_csv()
     print(f"CSV: {csv} ({csv.stat().st_size:,} bytes)")
     delta_urls = fetch_delta_urls()
     print(f"Delta files found: {len(delta_urls)}")
-    parquet = render_parquet(csv, delta_urls)
+    parquet = render_parquet(csv, delta_urls, write_back=write_back)
     uploaded_count = duckdb.execute(
         f"SELECT count(*) FROM read_parquet('{parquet}') WHERE ia_status = 'uploaded'"
     ).fetchone()[0]
     print(f"Parquet: {parquet} ({parquet.stat().st_size:,} bytes)")
     print(f"  ia_status=uploaded in parquet: {uploaded_count}")
-    asyncio.run(upload(parquet))
+    print(
+        f"  write-back: {'ON' if write_back else 'off'}  |  dry-run: {'ON' if dry_run else 'off'}"
+    )
+
+    if dry_run:
+        print("Dry run — no IA uploads.")
+        return
+
+    asyncio.run(upload(parquet, IA_TARGET))
+    if write_back:
+        asyncio.run(upload(LOCAL_CSV, "sync-manifest.csv"))
 
 
 if __name__ == "__main__":
