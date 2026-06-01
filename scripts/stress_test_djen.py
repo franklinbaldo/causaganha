@@ -298,9 +298,7 @@ def _save_config(safe_concurrency: int, err_threshold: float) -> None:
         )
     )
     rel_path = CONFIG_PATH.relative_to(Path.cwd())
-    console.print(
-        f"   [dim]{SYMBOL_ARROW}[/dim]saved to [cyan]{rel_path}[/cyan]"
-    )
+    console.print(f"   [dim]{SYMBOL_ARROW}[/dim]saved to [cyan]{rel_path}[/cyan]")
 
 
 if __name__ == "__main__":

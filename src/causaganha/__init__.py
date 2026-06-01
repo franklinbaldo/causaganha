@@ -10,4 +10,3 @@ for stream in (sys.stdout, sys.stderr):
             stream.reconfigure(errors="replace")
         except AttributeError:
             pass
-

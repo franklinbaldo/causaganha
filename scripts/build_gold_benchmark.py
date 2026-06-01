@@ -45,7 +45,9 @@ console = Console()
 DEFAULT_BATCH_SIZE = 20  # ~20x throughput vs single calls (1 RPD per batch)
 
 
-def mock_analysis(intimation_id: int, text: str, keyword_outcome: str) -> tuple[DecisionAnalysis, str]:
+def mock_analysis(
+    intimation_id: int, text: str, keyword_outcome: str
+) -> tuple[DecisionAnalysis, str]:
     """Return a deterministic mock label based on keyword heuristic."""
     outcome = keyword_outcome if keyword_outcome != "unknown" else "improcedente"
     dec_type = "sentença"
@@ -100,13 +102,19 @@ def main() -> int:
     # Load environment variables from .env file
     try:
         from dotenv import load_dotenv
+
         # Try current dir and parent directories
         load_dotenv()
         load_dotenv(Path(__file__).resolve().parents[1] / ".env")
         load_dotenv(Path(__file__).resolve().parents[2] / ".env")
     except ImportError:
         # Fallback to manual parsing if python-dotenv is not installed
-        for p in [Path(), Path(".."), Path(__file__).resolve().parents[1], Path(__file__).resolve().parents[2]]:
+        for p in [
+            Path(),
+            Path(".."),
+            Path(__file__).resolve().parents[1],
+            Path(__file__).resolve().parents[2],
+        ]:
             env_file = p / ".env"
             if env_file.exists():
                 with open(env_file, encoding="utf-8") as f:
@@ -122,10 +130,7 @@ def main() -> int:
                                 os.environ[k] = v
 
     # Check API key
-    api_key = (
-        os.getenv("GEMINI_API_KEY")
-        or os.getenv("GOOGLE_API_KEY")
-    )
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if "OPENROUTER_API_KEY" in os.environ:
         del os.environ["OPENROUTER_API_KEY"]
     use_mock = args.mock or not api_key
@@ -186,9 +191,7 @@ def main() -> int:
     """)
 
     # Get already indexed UUIDs in gold_benchmark to avoid re-labeling
-    existing_uuids = {
-        r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()
-    }
+    existing_uuids = {r[0] for r in conn.execute("SELECT text_uuid FROM gold_benchmark").fetchall()}
     console.print(f"[blue]Benchmark atual possui {len(existing_uuids)} decisões anotadas.[/blue]\n")
 
     # Fetch candidates from intimations (fetching hash as the text_uuid)
@@ -276,10 +279,7 @@ def main() -> int:
         random.shuffle(shuffled)
 
         # Split into batches
-        batches = [
-            shuffled[i : i + batch_size]
-            for i in range(0, len(shuffled), batch_size)
-        ]
+        batches = [shuffled[i : i + batch_size] for i in range(0, len(shuffled), batch_size)]
         n_batches = len(batches)
         console.print(
             f"  [dim]Batch size: {batch_size} | "
@@ -303,7 +303,9 @@ def main() -> int:
                             analysis, model_used = results[int_id]
                             gold_records.append((text_uuid, int_id, analysis, text, model_used))
                         else:
-                            console.print(f"[yellow]  Sem resultado para ID {int_id} no batch[/yellow]")
+                            console.print(
+                                f"[yellow]  Sem resultado para ID {int_id} no batch[/yellow]"
+                            )
                 except Exception as e:
                     console.print(f"[red]  Falha no batch: {e}[/red]")
 
@@ -414,6 +416,7 @@ def main() -> int:
 
         # Clean numpy/pandas data types so they serialize cleanly to standard YAML
         import numpy as np
+
         for k, v in list(row.items()):
             if isinstance(v, np.ndarray):
                 row[k] = v.tolist()
@@ -422,7 +425,10 @@ def main() -> int:
             elif isinstance(v, list):
                 row[k] = [x.tolist() if isinstance(x, np.ndarray) else x for x in v]
             elif isinstance(v, dict):
-                row[k] = {str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv) for dk, dv in v.items()}
+                row[k] = {
+                    str(dk): (dv.tolist() if isinstance(dv, np.ndarray) else dv)
+                    for dk, dv in v.items()
+                }
 
         # Build YAML frontmatter
         frontmatter = yaml.dump(row, allow_unicode=True, default_flow_style=False).strip()
@@ -434,7 +440,9 @@ def main() -> int:
         with open(md_path, "w", encoding="utf-8") as f:
             f.write(md_content)
 
-    console.print(f"[green]✓ {len(gold_df)} arquivos .md criados com sucesso em {md_dir}.[/green]\n")
+    console.print(
+        f"[green]✓ {len(gold_df)} arquivos .md criados com sucesso em {md_dir}.[/green]\n"
+    )
 
     # Show final distribution stats
     stats = conn.execute("""

@@ -1,4 +1,3 @@
-
 """Continuous embedding service for running on a laptop / personal computer.
 
 Purpose:  Run a resilient 24/7 embedding worker on personal hardware.

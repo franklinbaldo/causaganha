@@ -83,10 +83,7 @@ class JudicialNER:
         try:
             from transformers import pipeline as hf_pipeline  # noqa: PLC0415
         except ImportError as exc:
-            msg = (
-                "transformers is required for JudicialNER. "
-                "Install with: uv sync --group ner"
-            )
+            msg = "transformers is required for JudicialNER. Install with: uv sync --group ner"
             raise ImportError(msg) from exc
 
         logger.info("loading_ner_model", model=self.model_name)

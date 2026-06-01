@@ -11,7 +11,6 @@ Status:   ops/data-build — manual run, no workflow reference. RFC: re-run
           periodically as tribunals join, or one-shot?
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

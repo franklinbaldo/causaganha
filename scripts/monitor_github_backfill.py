@@ -9,7 +9,6 @@ Status:   ops/monitor — manual run, no workflow reference. RFC: still used, or
           superseded by backfill_probe / the catalog progress JSON?
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

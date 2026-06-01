@@ -14,7 +14,6 @@ by making a simple request to the IA S3 API. It exits with 0 on success,
 or 1 if the keys are invalid (e.g. InvalidAccessKeyId).
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

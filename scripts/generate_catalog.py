@@ -23,7 +23,6 @@ Usage:
     python scripts/generate_catalog.py --output ./catalog/
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys
@@ -1159,8 +1158,7 @@ def create_catalog_duckdb(
 
         con.execute("DROP VIEW IF EXISTS backfill_progress;")
         _zip_count_sql = (
-            "SELECT COUNT(DISTINCT date || tribunal)"
-            " FROM manifest WHERE file_type = 'zip'"
+            "SELECT COUNT(DISTINCT date || tribunal) FROM manifest WHERE file_type = 'zip'"
         )
         con.execute(f"""
             CREATE VIEW backfill_progress AS

@@ -155,7 +155,7 @@ async def _consolidate_zips(
                         circuit_breaker=breaker,
                     )
                     results.append(res)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 — per-table resilience: capture any failure, report all, keep exporting the rest
                     results.append(exc)
             for table_name, result in zip(TABLES, results, strict=True):
                 if isinstance(result, Exception):

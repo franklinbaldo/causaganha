@@ -9,6 +9,7 @@ Status:   dev/one-off refactor tool — manual run, not in any workflow.
 
 Usage: python scripts/extract_local_css.py [--dry-run]
 """
+
 from __future__ import annotations
 
 import re
@@ -49,9 +50,7 @@ def relative(path: Path) -> str:
 
 
 def main() -> None:
-    files = sorted(
-        [*WEB_SRC.rglob("*.astro"), *WEB_SRC.rglob("*.svelte")]
-    )
+    files = sorted([*WEB_SRC.rglob("*.astro"), *WEB_SRC.rglob("*.svelte")])
 
     extracted: list[tuple[Path, str]] = []
     for f in files:
@@ -68,9 +67,11 @@ def main() -> None:
         print(f"  {relative(f)}")
 
     # Build the appendix
-    sections: list[str] = ["\n\n/* ═══════════════════════════════════════════\n"
-                            "   Component & Page Styles (extracted from source)\n"
-                            "   ═══════════════════════════════════════════ */\n"]
+    sections: list[str] = [
+        "\n\n/* ═══════════════════════════════════════════\n"
+        "   Component & Page Styles (extracted from source)\n"
+        "   ═══════════════════════════════════════════ */\n"
+    ]
     for f, css in extracted:
         label = relative(f)
         sections.append(f"\n/* ── {label} ── */\n{css.strip()}\n")

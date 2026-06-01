@@ -13,7 +13,6 @@ Status:   dev/smoke test — manual run (no workflow reference). RFC: still alig
 Collects metadata from TJRO using V2 components and stores in DuckDB.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

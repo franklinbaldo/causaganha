@@ -143,9 +143,7 @@ def render_all() -> int:
     ratings_path = DEV_RATINGS_DIR / "lawyer_ratings.parquet"
     if ratings_path.exists():
         print(f"Using local lawyer_ratings: {ratings_path}")
-        con.execute(
-            f"CREATE VIEW lawyer_ratings AS SELECT * FROM read_parquet('{ratings_path}')"
-        )
+        con.execute(f"CREATE VIEW lawyer_ratings AS SELECT * FROM read_parquet('{ratings_path}')")
 
     ratings_history_path = DEV_RATINGS_DIR / "ratings_history.parquet"
     if ratings_history_path.exists():

@@ -28,7 +28,6 @@ Usage:
         --timeout 3600
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

@@ -11,7 +11,6 @@ Status:   experimental/ops — no workflow reference found. RFC: still part of t
 Creates compressed Parquet files optimized for archival storage.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys

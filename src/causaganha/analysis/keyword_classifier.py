@@ -98,10 +98,13 @@ _OUTCOME_PATTERNS: dict[str, list[tuple[re.Pattern[str], float]]] = {
         (re.compile(r"\bhomologo\s+a\s+transação\b", re.IGNORECASE), 0.92),
         (re.compile(r"\bhomologo\s+a\s+avença\b", re.IGNORECASE), 0.92),
         (re.compile(r"\bhomologo\s+a\s+composi[çc][ãa]o\b", re.IGNORECASE), 0.92),
-        (re.compile(
-            r"\bconcilia[çc][ãa]o\s+(?:entre\s+as\s+partes|realizada|homologada)\b",
-            re.IGNORECASE,
-        ), 0.60),
+        (
+            re.compile(
+                r"\bconcilia[çc][ãa]o\s+(?:entre\s+as\s+partes|realizada|homologada)\b",
+                re.IGNORECASE,
+            ),
+            0.60,
+        ),
         (re.compile(r"\bas\s+partes\s+transigiram\b", re.IGNORECASE), 0.90),
         (re.compile(r"\bas\s+partes\s+chegaram\s+a\s+acordo\b", re.IGNORECASE), 0.88),
         (re.compile(r"\bhomologo\s+o\s+acordo\s+firmado\b", re.IGNORECASE), 0.93),

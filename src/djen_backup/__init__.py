@@ -1,6 +1,5 @@
 """djen-backup: Complete backup of Brazil's DJEN to the Internet Archive."""
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
 

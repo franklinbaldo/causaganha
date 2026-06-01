@@ -122,8 +122,7 @@ def fuse(
 
     # Start with log-prior
     log_posterior: dict[str, float] = {
-        k: math.log(max(prior.get(k, _EPS), _EPS))
-        for k in OUTCOME_KEYS
+        k: math.log(max(prior.get(k, _EPS), _EPS)) for k in OUTCOME_KEYS
     }
 
     # Add each source's weighted log-likelihood

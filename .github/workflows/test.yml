@@ -17,7 +17,7 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Check formatting
         run: uv run ruff format --check
-      - name: Check lint (strict: security + policy)
+      - name: "Check lint (strict: security + policy)"
         # Blocking rules: the full `S` security family (bandit port —
         # SQL injection, URL open, subprocess, shell=True, pickle,
         # TLS verify, hash, asserts, etc.), CLAUDE.md-banned BLE001
@@ -28,7 +28,7 @@ jobs:
         # are locked in via per-file-ignores in ruff.toml so this step
         # passes today while blocking new violations in clean files.
         run: uv run ruff check --select S,BLE001,B904,TRY300
-      - name: Check lint (advisory: style)
+      - name: "Check lint (advisory: style)"
         # Everything else (E501, D10x, FBT003, PLR2004, PLC0415, ANN401,
         # PERF401, etc.) — ~265 pre-existing cosmetic violations that
         # stay visible in CI logs as non-blocking regression signal.

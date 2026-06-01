@@ -8,7 +8,6 @@ Strategy: Write small synthetic datasets in the shapes the export system expects
 Status:   dev/test helper — manual run, not in any workflow.
 """
 
-
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
 import sys
