@@ -1787,8 +1787,10 @@ def consolidate_tribunal_year(
                         error=str(e),
                     )
 
+        non_empty_tables: set[str] = set()
         if stats["records"] > 0:
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            non_empty_tables = {name for name, cnt in table_counts.items() if int(cnt or 0) > 0}
             logger.info("transform_complete", tables=table_counts)
 
         output_dir = tmp_path / "output"
@@ -1803,8 +1805,10 @@ def consolidate_tribunal_year(
             )
 
         ia_circuit_breaker = CircuitBreaker(threshold=5)
+        export_failures = 0
 
         async def _run_upload_phase() -> None:
+            nonlocal export_failures
             async with create_upload_client(ia_auth or "") as client:
                 results = []
                 for table_name in TABLES:
@@ -1829,18 +1833,38 @@ def consolidate_tribunal_year(
                             table=table_name,
                             error=str(result),
                         )
+                        if table_name in non_empty_tables:
+                            export_failures += 1
                         continue
                     success, size_mb, uploaded = result
                     if success:
                         stats["parquets_created"] += 1
                         stats["uploaded"] += uploaded
                         stats["uploaded_mb"] += size_mb
+                    elif table_name in non_empty_tables:
+                        export_failures += 1
 
-                if stats["parquets_created"] > 0 and not dry_run:
+                expected = len(non_empty_tables)
+                if (
+                    stats["parquets_created"] == expected
+                    and export_failures == 0
+                    and stats["parquets_created"] > 0
+                    and not dry_run
+                ):
                     if await _upload_marker(client, item_id, date_tag):
                         logger.info("marker_uploaded", item_id=item_id)
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
+                elif stats["parquets_created"] > 0 and (
+                    stats["parquets_created"] != expected or export_failures > 0
+                ):
+                    logger.error(
+                        "marker_blocked_by_incomplete_exports",
+                        item_id=item_id,
+                        expected_parquets=expected,
+                        parquets_created=stats["parquets_created"],
+                        export_failures=export_failures,
+                    )
 
         asyncio.run(_run_upload_phase())
 
@@ -1970,6 +1994,7 @@ def consolidate_date(
                     logger.exception("zip_processing_error", zip=zip_filename, error=str(e))
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
+        non_empty_tables: set[str] = set()
         if stats["records"] > 0:
             ndjson_vr = validate_ndjson_sample(ndjson_dir)
             if not ndjson_vr.passed:
@@ -1982,6 +2007,7 @@ def consolidate_date(
             if ndjson_vr.warnings:
                 logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            non_empty_tables = {name for name, cnt in table_counts.items() if int(cnt or 0) > 0}
             logger.info("transform_complete", tables=table_counts)
 
         # Phase 3: Export to Parquet and upload (parallel for 2-3x speedup)
@@ -2000,9 +2026,11 @@ def consolidate_date(
 
         ia_circuit_breaker = CircuitBreaker(threshold=5)
         uploaded_tables: list[str] = []
+        export_failures = 0
 
         async def _run_upload_phase() -> None:
             """Phase 3+4: sequential Parquet export/upload then marker upload."""
+            nonlocal export_failures
             async with create_upload_client(ia_auth or "") as client:
                 results = []
                 for table_name in TABLES:
@@ -2023,6 +2051,8 @@ def consolidate_date(
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):
                         logger.exception("table_export_error", table=table_name, error=str(result))
+                        if table_name in non_empty_tables:
+                            export_failures += 1
                     else:
                         success, size_mb, uploaded = result
                         if success:
@@ -2031,14 +2061,33 @@ def consolidate_date(
                             stats["uploaded_mb"] += size_mb
                             if uploaded:
                                 uploaded_tables.append(table_name)
+                        elif table_name in non_empty_tables:
+                            export_failures += 1
 
-                # Phase 4: Upload consolidation marker
-                if stats["parquets_created"] > 0 and not dry_run:
+                # Phase 4: Upload consolidation marker only when ALL non-empty
+                # tables produced valid Parquets (no partial uploads).
+                expected = len(non_empty_tables)
+                if (
+                    stats["parquets_created"] == expected
+                    and export_failures == 0
+                    and stats["parquets_created"] > 0
+                    and not dry_run
+                ):
                     if await _upload_marker(client, item_id, date):
                         logger.info("marker_uploaded", item_id=item_id)
                         mark_date_complete(date)
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
+                elif stats["parquets_created"] > 0 and (
+                    stats["parquets_created"] != expected or export_failures > 0
+                ):
+                    logger.error(
+                        "marker_blocked_by_incomplete_exports",
+                        item_id=item_id,
+                        expected_parquets=expected,
+                        parquets_created=stats["parquets_created"],
+                        export_failures=export_failures,
+                    )
 
         asyncio.run(_run_upload_phase())
 
