@@ -10,18 +10,23 @@ aggregations into DuckDB so only the aggregated result set reaches Python.
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import duckdb
 import structlog
 
+from causaganha.consolidate.schema_registry import CURRENT_VERSION
+
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
-    from pathlib import Path
 
 
 log = structlog.get_logger()
+
+_DEFAULT_CONSOLIDATION_MANIFEST = "web/public/data/consolidation-manifest.json"
 
 IA_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
 
@@ -110,3 +115,43 @@ def dates_needing_consolidation_from_local_manifest(
     from causaganha.consolidate.manifest_reader import dates_with_uploads
 
     return dates_with_uploads(sync_manifest_path)
+
+
+def load_consolidated_versions(
+    manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
+) -> dict[str, str]:
+    """Read the consolidation manifest and return {date: schema_version}.
+
+    Returns an empty dict if the manifest doesn't exist or can't be parsed.
+    """
+    path = Path(manifest_path)
+    if not path.exists():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+        return {
+            item["date"]: item.get("schema_version", "")
+            for item in data.get("items", [])
+            if "date" in item
+        }
+    except (OSError, json.JSONDecodeError, KeyError) as exc:
+        log.warning("consolidation_manifest_read_failed", error=str(exc))
+        return {}
+
+
+def dates_at_current_version(
+    manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
+) -> set[str]:
+    """Return dates already consolidated with CURRENT_VERSION."""
+    versions = load_consolidated_versions(manifest_path)
+    return {d for d, v in versions.items() if v == CURRENT_VERSION}
+
+
+def dates_needing_reconsolidation(
+    manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
+) -> list[str]:
+    """Return dates consolidated with an older schema version (newest first)."""
+    versions = load_consolidated_versions(manifest_path)
+    stale = [d for d, v in versions.items() if v and v != CURRENT_VERSION]
+    stale.sort(reverse=True)
+    return stale

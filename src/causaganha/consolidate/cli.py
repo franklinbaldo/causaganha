@@ -29,7 +29,11 @@ import structlog
 import typer
 
 from causaganha.consolidate import checkpoint, manifest_reader
-from causaganha.consolidate.candidates import dates_needing_consolidation_from_ia
+from causaganha.consolidate.candidates import (
+    dates_at_current_version,
+    dates_needing_consolidation_from_ia,
+    dates_needing_reconsolidation,
+)
 from causaganha.consolidate.consolidation_manifest import (
     collect_table_stats,
     update_consolidation_manifest,
@@ -338,18 +342,17 @@ def tribunal_year(
     _print_stats(stats)
 
 
-@app.command()
-def backfill(
+def _run_date_batch(
+    dates: list[str],
     *,
-    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
-    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors per date"),
-    max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
-    deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
-) -> None:
-    """Find unconsolidated dates (newest first) and consolidate them until deadline."""
+    dry_run: bool,
+    workers: int,
+    max_dates: int,
+    deadline_seconds: int,
+) -> dict[str, int | float]:
+    """Process a batch of dates with deadline and max-dates limits."""
     start = time.monotonic()
-    dates = dates_needing_consolidation_from_ia()
-    log.info("backfill_candidates", count=len(dates))
+    current_version_dates = dates_at_current_version()
 
     total_stats: dict[str, int | float] = {
         "zips_processed": 0,
@@ -362,13 +365,16 @@ def backfill(
 
     for target_date in dates:
         if max_dates and processed >= max_dates:
-            log.info("backfill_max_dates_reached", processed=processed)
+            log.info("batch_max_dates_reached", processed=processed)
             break
         if time.monotonic() - start > deadline_seconds:
-            log.info("backfill_deadline_reached", elapsed=time.monotonic() - start)
+            log.info("batch_deadline_reached", elapsed=time.monotonic() - start)
             break
         if checkpoint.is_date_completed(target_date):
-            log.info("backfill_already_done", date=target_date)
+            log.info("batch_already_done", date=target_date)
+            continue
+        if target_date in current_version_dates:
+            log.info("batch_current_version", date=target_date)
             continue
 
         zips = manifest_reader.uploaded_zips_for_date(target_date)
@@ -383,6 +389,51 @@ def backfill(
             checkpoint.mark_date_complete(target_date)
         processed += 1
 
+    return total_stats
+
+
+@app.command()
+def backfill(
+    *,
+    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
+    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors per date"),
+    max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
+    deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
+) -> None:
+    """Find unconsolidated dates (newest first) and consolidate them until deadline."""
+    dates = dates_needing_consolidation_from_ia()
+    log.info("backfill_candidates", count=len(dates))
+    total_stats = _run_date_batch(
+        dates,
+        dry_run=dry_run,
+        workers=workers,
+        max_dates=max_dates,
+        deadline_seconds=deadline_seconds,
+    )
+    _print_stats(total_stats)
+
+
+@app.command()
+def reconsolidate(
+    *,
+    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
+    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors per date"),
+    max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
+    deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
+) -> None:
+    """Re-consolidate dates with an older schema version (newest first)."""
+    dates = dates_needing_reconsolidation()
+    log.info("reconsolidate_candidates", count=len(dates))
+    if not dates:
+        log.info("reconsolidate_nothing_to_do")
+        return
+    total_stats = _run_date_batch(
+        dates,
+        dry_run=dry_run,
+        workers=workers,
+        max_dates=max_dates,
+        deadline_seconds=deadline_seconds,
+    )
     _print_stats(total_stats)
 
 
