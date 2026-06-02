@@ -126,7 +126,20 @@ seleciona o schema correto. Parquets antigos continuam legíveis.
 Seguindo a abordagem pragmática do ficha: asserts SQL simples sobre DuckDB, sem
 framework externo (nem Great Expectations, nem Pandera no v1).
 
-Em `exporter.py`, após `COPY TO`, antes do upload:
+**Atenção: dois code paths de consolidação coexistem.** O workflow de produção
+(`consolidate-parquet.yml`) roda `scripts/pipeline/consolidate.py` (monolito
+legado), não o módulo refatorado `src/causaganha/consolidate/exporter.py`. A
+validação precisa cobrir **ambos** para ser um gate real:
+
+- **Opção A (preferida):** extrair `validate_parquet()` para um módulo
+  compartilhado (`src/causaganha/consolidate/validation.py`) e importar em
+  ambos os code paths — o refatorado (`exporter.py`) e o legado
+  (`scripts/pipeline/consolidate.py`).
+- **Opção B:** migrar o workflow para usar o módulo refatorado
+  (`python -m causaganha.consolidate backfill`) antes de implementar a
+  validação. Mais limpo, mas bloqueia o gate na migração do workflow.
+
+Independente da opção, após `COPY TO` e antes do upload:
 
 1. Abrir o Parquet com DuckDB.
 2. Comparar colunas/tipos contra `TABLE_SCHEMAS[table_name]`.
