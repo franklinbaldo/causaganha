@@ -189,16 +189,21 @@ def _validate_invariants(
         _check_not_null(con, path, "id", table_name, result)
 
     elif table_name == "classificacoes":
+        _check_not_null(con, path, "outcome", table_name, result)
+        _check_not_null(con, path, "confidence", table_name, result)
+
         invalid_outcomes = con.execute(
             f"SELECT DISTINCT outcome FROM '{path}' "
-            f"WHERE outcome NOT IN ({','.join(repr(o) for o in VALID_OUTCOMES)})"
+            f"WHERE outcome IS NOT NULL "
+            f"AND outcome NOT IN ({','.join(repr(o) for o in VALID_OUTCOMES)})"
         ).fetchall()
         if invalid_outcomes:
             vals = [r[0] for r in invalid_outcomes]
             result.errors.append(f"classificacoes: invalid outcomes {vals}")
 
         bad_confidence = con.execute(
-            f"SELECT COUNT(*) FROM '{path}' WHERE confidence < 0 OR confidence > 1"
+            f"SELECT COUNT(*) FROM '{path}' "
+            f"WHERE confidence IS NOT NULL AND (confidence < 0 OR confidence > 1)"
         ).fetchone()[0]
         if bad_confidence > 0:
             result.errors.append(
