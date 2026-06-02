@@ -65,6 +65,7 @@ jobs:
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Download checkpoint state
+        id: download
         run: |
           mkdir -p data
           curl -sSfL -o data/consolidate-checkpoint.json \
@@ -81,9 +82,14 @@ jobs:
           # Download existing consolidation manifest so update_consolidation_manifest()
           # merges into it rather than overwriting with a single-run snapshot.
           mkdir -p web/public/data
-          curl -sSfL -o web/public/data/consolidation-manifest.json \
-            "https://archive.org/download/causaganha-dashboard/consolidation-manifest.json" \
-            || echo '{"schema_version":"3.0.0","generated_at":"","items":[]}' > web/public/data/consolidation-manifest.json
+          if curl -sSfL -o web/public/data/consolidation-manifest.json \
+            "https://archive.org/download/causaganha-dashboard/consolidation-manifest.json"; then
+            echo "existing_manifest_downloaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Consolidation manifest not found on IA (first run) — starting fresh"
+            echo '{"schema_version":"3.0.0","generated_at":"","items":[]}' > web/public/data/consolidation-manifest.json
+            echo "existing_manifest_downloaded=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run consolidation
         id: consolidate
@@ -158,7 +164,7 @@ jobs:
           fi
 
       - name: Upload consolidation manifest to IA
-        if: steps.consolidate.outputs.files_added == 'true'
+        if: steps.consolidate.outputs.files_added == 'true' && steps.download.outputs.existing_manifest_downloaded != 'false'
         run: |
           MANIFEST="web/public/data/consolidation-manifest.json"
           if [ -f "$MANIFEST" ]; then

@@ -285,8 +285,8 @@ def run_roundtrip_check(
 
     if report["mismatched"] > 0:
         report["status"] = "fail"
-    elif report["not_found"] > report["sampled"] * 0.5:
-        report["status"] = "warn"
+    if report["not_found"] > report["sampled"] * 0.5:
+        report["status"] = "fail"
 
     return report
 
