@@ -10,6 +10,13 @@ e "plataforma de dados judiciais confiável".
 cada Parquet com schema errado é retrabalho caro (re-download + re-process +
 re-upload de itens no IA).
 
+**Referência arquitetural:** padrões extraídos do projeto irmão
+[ficha](https://github.com/franklinbaldo/ficha) — especificamente ADRs 0003
+(schema versioning em três camadas), 0006 (validação pragmática), 0008
+(Parquet-per-access-pattern), 0009 (roundtrip-equivalence como gate), e 0012
+(IA como source-of-truth). Os padrões que se aplicam diretamente ao CausaGanha
+são marcados com `[ficha]` nas seções abaixo.
+
 ---
 
 ## 1. Por que schema primeiro
@@ -29,6 +36,24 @@ Riscos atuais:
 | **`classificacoes` é heurística v1** — keyword matching com confidence fixa 0.3, sem benchmark contínuo | Classificações de baixa qualidade congeladas no IA |
 | **Manifest CSV → Parquet em migração** — decisão doc (manifest-source-of-truth.md) define o caminho mas a Fase 1 ainda não rodou | Risco de drift continua |
 
+### Lições do ficha
+
+O ficha enfrentou o mesmo problema com dumps da RFB (layouts mudam
+silenciosamente) e resolveu com três camadas de versionamento (ADR 0003):
+
+1. **Versão embutida no Parquet** — KV metadata no footer (`ficha.schema_version`).
+2. **Manifest público** — `manifest.json` commitado, single source of truth de
+   snapshots.
+3. **Schemas Zod versionados e imutáveis** — `web/src/schemas/v1/`, nunca
+   editados após publicação; mudanças quebram → criar `v2/`.
+
+E com validação pragmática (ADR 0006): asserts SQL simples sobre DuckDB em vez
+de Great Expectations — 5-10 regras críticas, zero deps extras, ms de execução.
+
+O CausaGanha já tem metade das peças (Ibis schemas em Python, Zod gen via
+orval). O que falta é **colá-las**: stampar a versão no Parquet, validar antes
+de upload, e tornar os schemas imutáveis por versão.
+
 ---
 
 ## 2. Fases de execução
@@ -38,7 +63,22 @@ Riscos atuais:
 **Objetivo:** garantir que nenhum Parquet é gravado/uploaded sem validar contra o
 schema declarado. Impede acúmulo de dados com formato errado.
 
-#### 0.1 Schema registry em Python
+#### 0.1 Schema versioning em três camadas `[ficha ADR 0003]`
+
+O ficha usa três camadas complementares de versionamento. Adaptamos para o
+CausaGanha:
+
+**Camada 1 — Versão embutida no Parquet (KV metadata no footer)**
+
+Cada Parquet consolidado carrega no footer:
+```
+causaganha.schema_version = "3.1.0"
+causaganha.item_id = "djen-2026-06-01"
+causaganha.consolidated_at = "2026-06-02T07:00:00Z"
+```
+Lido via `parquet_kv_metadata()` do DuckDB. Custo zero, colado ao dado.
+
+**Camada 2 — Registry em Python (ETL side)**
 
 Criar `src/causaganha/consolidate/schema_registry.py`:
 
@@ -55,8 +95,36 @@ SCHEMA_REGISTRY: dict[str, SchemaVersion] = {...}
 - Registra cada versão do schema junto com o dict de tabelas.
 - A versão atual (`CURRENT_VERSION`) é a que o pipeline usa para gravar.
 - Versões anteriores ficam no registry para leitura/migração.
+- **Regra do ficha:** nunca editar um schema publicado. Mudanças → nova versão.
 
-#### 0.2 Validação pós-export
+**Camada 3 — Schemas Zod versionados no frontend**
+
+O CausaGanha já gera Zod schemas via orval (`djen-zod.gen.ts`) para a API.
+Estender para os Parquets consolidados:
+
+```
+web/src/schemas/
+  v3/            ← schema atual dos 10 Parquets
+    comunicacao.ts
+    advogado.ts
+    classificacao.ts
+    ...
+    index.ts     ← re-exports + VERSION = "3.1.0"
+  registry.ts    ← lookup por versão (como ficha)
+```
+
+Frontend lê `causaganha.schema_version` do Parquet footer via DuckDB WASM e
+seleciona o schema correto. Parquets antigos continuam legíveis.
+
+**SemVer (adaptado do ficha ADR 0009):**
+- *patch*: campo opcional novo, campo computado novo
+- *minor*: campo obrigatório com default, lookup description inline
+- *major*: campo removido, campo renomeado, tipo mudou
+
+#### 0.2 Validação pós-export `[ficha ADR 0006]`
+
+Seguindo a abordagem pragmática do ficha: asserts SQL simples sobre DuckDB, sem
+framework externo (nem Great Expectations, nem Pandera no v1).
 
 Em `exporter.py`, após `COPY TO`, antes do upload:
 
@@ -65,6 +133,23 @@ Em `exporter.py`, após `COPY TO`, antes do upload:
 3. Validar invariantes: `id` não-nulo, `tribunal` em lista conhecida,
    `data_disponibilizacao` parsável como date.
 4. Se falhar: log + skip upload + não marcar checkpoint. Não falha silenciosamente.
+
+```python
+def validate_parquet(path: Path, table_name: str) -> list[str]:
+    """Pragmatic validation — SQL asserts, zero extra deps."""
+    errors = []
+    con = duckdb.connect()
+    cols = con.execute(f"DESCRIBE SELECT * FROM '{path}'").fetchall()
+    expected = TABLE_SCHEMAS[table_name]
+    # Column count + types match
+    # NOT NULL invariants
+    # Domain checks (tribunal in known list, outcome in enum)
+    # Row count > 0 (WARN level)
+    return errors
+```
+
+**Quando escalar:** se regras passarem de ~15, avaliar Pandera (schema-as-class)
+ou dbt-style SQL tests. Não antes.
 
 #### 0.3 Version stamp nos Parquets
 
@@ -89,6 +174,58 @@ Novo test em `tests/test_schema_registry.py`:
 - Snapshot do schema atual (colunas + tipos) serializado como JSON.
 - Qualquer PR que mude `TABLE_SCHEMAS` ou `djen_schema.py` sem bumpar a versão → falha no CI.
 - Protege contra drift acidental do schema.
+
+#### 0.6 Consolidation manifest `[ficha ADR 0008]`
+
+O ficha usa um `manifest.json` como contrato único entre ETL e frontend: lista
+todos os snapshots, seus arquivos, SHA-256, row counts, e schema version. O
+CausaGanha tem o `sync-manifest` (para ZIPs) mas não tem equivalente para os
+Parquets consolidados.
+
+Criar `web/public/data/consolidation-manifest.json`:
+
+```json
+{
+  "schema_version": "3.1.0",
+  "generated_at": "2026-06-02T07:00:00Z",
+  "items": [
+    {
+      "item_id": "djen-2026-06-01",
+      "date": "2026-06-01",
+      "schema_version": "3.1.0",
+      "tables": {
+        "comunicacoes": { "rows": 12345, "size_bytes": 4567890, "sha256": "..." },
+        "advogados":    { "rows": 890,   "size_bytes": 123456,  "sha256": "..." }
+      }
+    }
+  ]
+}
+```
+
+Benefícios:
+- Frontend descobre quais Parquets existem com **um fetch** no boot.
+- DuckDB WASM sabe qual schema usar antes de abrir o Parquet.
+- Drift detection gratuita: diff de manifests sucessivos mostra row count drops.
+- Schema version coverage visível sem varrer todos os itens no IA.
+
+#### 0.7 Roundtrip-equivalence gate `[ficha ADR 0009]`
+
+O ficha valida que seus Parquets denormalizados retornam os mesmos dados que o
+dump cru original (`assert_roundtrip`). Adaptar para CausaGanha:
+
+Após consolidar um date, sortear N comunicações do NDJSON bruto e verificar que
+cada campo presente no Parquet bate com a extração original:
+
+```python
+def assert_roundtrip(con, ndjson_dir: Path, sample_size: int = 100) -> None:
+    sample = sample_records_from_ndjson(ndjson_dir, n=sample_size)
+    for rec in sample:
+        parquet_row = query_comunicacao_by_id(con, rec["id"])
+        assert_fields_match(rec, parquet_row, ignore=["processed_at", "texto_id"])
+```
+
+Campos computados (`texto_id`, `processed_at`, partition columns) são excluídos.
+Falha → não faz upload, exatamente como no ficha.
 
 **Entregável:** nenhum Parquet chega ao IA sem validação. Schema versionado e rastreável.
 
@@ -213,11 +350,28 @@ Funcionalidades que dependem da consolidação confiável:
 | Heatmap de classificações por tribunal | `classificacoes` v2 |
 | Comparador de tribunais por outcome | `classificacoes` v2 + `comunicacoes` |
 
-#### 4.3 API de dados abertos
+#### 4.3 API de dados abertos `[ficha ADR 0004, 0012]`
 
 - Manter Parquets no IA como API primária (HTTP Range + DuckDB httpfs).
 - `catalog.duckdb` com views remotas já existe.
 - Documentar o schema versionado como contrato público estável.
+- **IA como source-of-truth** (padrão ficha ADR 0012): os Parquets no IA são
+  o artefato canônico. O dashboard é uma view. Se o repo sumir, os dados
+  continuam acessíveis no IA.
+
+#### 4.4 IA practicality probe `[ficha ia_practicality.py]`
+
+Script de diagnóstico que exercita os Parquets consolidados no IA end-to-end:
+
+1. Descobre itens `djen-*` no IA.
+2. Para cada Parquet: `DESCRIBE` (schema inference), `COUNT(*)` (row group
+   stats), `LIMIT 5` (real data access).
+3. Compara colunas contra `MINIMAL_REQUIRED_COLUMNS` por tabela.
+4. Hard failures (zero rows, missing required columns) → exit non-zero.
+5. Soft warnings (optional column missing, schema drift) → annotations.
+
+Roda como CI job periódico (weekly) e detecta degradação de dados no IA antes
+que usuários reportem.
 
 ---
 
@@ -279,22 +433,25 @@ Qualquer outro valor é inválido. Validação no write-back e no checker.
 
 | # | Tarefa | Fase | Bloqueia | Estimativa |
 |---|---|---|---|---|
-| 1 | Schema registry + version stamp | 0.1, 0.3 | Tudo | P |
+| 1 | Schema registry 3 camadas (Python + KV metadata + Zod) | 0.1, 0.3 | Tudo | M |
 | 2 | Validação pós-export em `exporter.py` | 0.2 | Upload de novos Parquets | P |
 | 3 | CI snapshot test do schema | 0.5 | PRs que tocam schema | P |
 | 4 | Validação NDJSON de entrada | 0.4 | — | M |
-| 5 | Manifest write-back (Fase 1 da decisão doc) | 1 | Consolidação correta | M |
-| 6 | Backfill da consolidação em escala | 2.1 | — | G |
-| 7 | Monitoramento de qualidade | 2.3 | — | M |
-| 8 | Benchmark contínuo | 3.1 | Upgrade do classificador | M |
-| 9 | Classificador hybrid_v2 | 3.2 | — | G |
-| 10 | Schema classificacoes v2 | 3.3 | Precisa de 1 | M |
-| 11 | Lawyer ratings multi-tribunal | 4.1 | Precisa de 9 | M |
-| 12 | Dashboard v2 features | 4.2 | Precisa de 6, 10 | G |
+| 5 | Consolidation manifest JSON | 0.6 | Dashboard v2 | M |
+| 6 | Roundtrip-equivalence gate | 0.7 | — | M |
+| 7 | Manifest write-back (Fase 1 da decisão doc) | 1 | Consolidação correta | M |
+| 8 | Backfill da consolidação em escala | 2.1 | — | G |
+| 9 | Monitoramento de qualidade | 2.3 | — | M |
+| 10 | Benchmark contínuo | 3.1 | Upgrade do classificador | M |
+| 11 | Classificador hybrid_v2 | 3.2 | — | G |
+| 12 | Schema classificacoes v2 | 3.3 | Precisa de 1 | M |
+| 13 | Lawyer ratings multi-tribunal | 4.1 | Precisa de 11 | M |
+| 14 | Dashboard v2 features | 4.2 | Precisa de 8, 12 | G |
+| 15 | IA practicality probe (CI weekly) | 4.4 | — | M |
 
 P = pequeno (< 1 dia), M = médio (1-3 dias), G = grande (> 3 dias).
 
-**Caminho crítico:** 1 → 2 → 5 → 6 → 9 → 10 → 11 → 12
+**Caminho crítico:** 1 → 2 → 7 → 8 → 11 → 12 → 13 → 14
 
 **Quick wins imediatos (Fase 0):** tarefas 1, 2, 3 podem ser feitas hoje e já
 protegem contra retrabalho.
@@ -307,9 +464,16 @@ protegem contra retrabalho.
   item que precisa ser re-uploaded (IA não suporta update parcial).
 - **Não mudar o schema sem version bump.** Consumidores (DuckDB WASM no
   dashboard) dependem da estabilidade das colunas.
+- **Não editar um schema publicado `[ficha]`.** Mudanças quebram → criar nova
+  versão. Schemas antigos ficam imutáveis no registry para sempre.
 - **Não confiar no CSV como fonte.** Decisão já tomada: o Parquet é mais correto.
   O CSV é backup histórico.
 - **Não deploiar classificador novo sem benchmark.** O gold set existe e o
   framework de avaliação está definido. Usá-lo.
 - **Não adicionar campos ao Parquet consolidado sem atualizar `TABLE_SCHEMAS`.**
   DuckDB `union_by_name` resolve leitura, mas schemas implícitos viram dívida.
+- **Não adotar Great Expectations / framework pesado para <15 regras `[ficha]`.**
+  Asserts SQL sobre DuckDB. Zero deps extras. Reconsiderar Pandera se regras
+  passarem de ~15-20.
+- **Não separar metadado do dado `[ficha]`.** Schema version vive no footer do
+  Parquet (KV metadata), não em arquivo lateral. Fragiliza se separar.
