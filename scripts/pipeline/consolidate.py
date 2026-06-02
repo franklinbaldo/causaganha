@@ -1999,6 +1999,7 @@ def consolidate_date(
             )
 
         ia_circuit_breaker = CircuitBreaker(threshold=5)
+        uploaded_tables: list[str] = []
 
         async def _run_upload_phase() -> None:
             """Phase 3+4: sequential Parquet export/upload then marker upload."""
@@ -2028,6 +2029,8 @@ def consolidate_date(
                             stats["parquets_created"] += 1
                             stats["uploaded"] += uploaded
                             stats["uploaded_mb"] += size_mb
+                            if uploaded:
+                                uploaded_tables.append(table_name)
 
                 # Phase 4: Upload consolidation marker
                 if stats["parquets_created"] > 0 and not dry_run:
@@ -2039,10 +2042,11 @@ def consolidate_date(
 
         asyncio.run(_run_upload_phase())
 
-        # Phase 5: Update consolidation manifest
-        if stats["parquets_created"] > 0:
+        # Phase 5: Update consolidation manifest — only for tables that reached IA,
+        # and only on real runs (not dry-run).
+        if uploaded_tables and not dry_run:
             try:
-                table_stats = collect_table_stats(output_dir, list(TABLES))
+                table_stats = collect_table_stats(output_dir, uploaded_tables)
                 update_consolidation_manifest(
                     item_id=item_id,
                     date_str=date,
