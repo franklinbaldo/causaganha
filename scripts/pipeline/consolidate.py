@@ -60,6 +60,8 @@ from tenacity import (
 )
 
 from causaganha.config import TRIBUNAIS
+from causaganha.consolidate.schema_registry import kv_metadata_sql_fragment
+from causaganha.consolidate.validation import validate_parquet
 from causaganha.storage.connection import get_connection
 from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
@@ -408,7 +410,6 @@ class CheckpointManager:
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-SCHEMA_VERSION = "3"
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 logger = structlog.get_logger()
@@ -1499,6 +1500,7 @@ def _export_table_sync(
     table_name: str,
     con: ibis.BaseBackend,
     output_dir: Path,
+    item_id: str = "",
 ) -> tuple[Path, float, int] | None:
     """Export a single table to Parquet (blocking DuckDB work).
 
@@ -1511,8 +1513,12 @@ def _export_table_sync(
         if count == 0:
             return None
         output_path = output_dir / f"{table_name}.parquet"
+        kv_clause = kv_metadata_sql_fragment(item_id) if item_id else ""
+        copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
+        if kv_clause:
+            copy_opts = f"{copy_opts}, {kv_clause}"
         con.raw_sql(
-            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+            f"COPY {table_name} TO '{output_path}' ({copy_opts})",
         )
         size_mb = output_path.stat().st_size / (1024 * 1024)
         return output_path, size_mb, int(count)
@@ -1536,7 +1542,9 @@ async def _export_and_upload_table(
     behaviour as the previous ThreadPoolExecutor path).
     """
     try:
-        export_result = await asyncio.to_thread(_export_table_sync, table_name, con, output_dir)
+        export_result = await asyncio.to_thread(
+            _export_table_sync, table_name, con, output_dir, item_id
+        )
         if export_result is None:
             return False, 0.0, 0
 
@@ -1547,6 +1555,13 @@ async def _export_and_upload_table(
             rows=count,
             size_mb=f"{size_mb:.1f}",
         )
+
+        vr = await asyncio.to_thread(validate_parquet, output_path, table_name)
+        if not vr.passed:
+            logger.error("validation_blocked_upload", table=table_name, errors=vr.errors)
+            return False, size_mb, 0
+        if vr.warnings:
+            logger.warning("validation_warnings", table=table_name, warnings=vr.warnings)
 
         # Upload if not dry run
         uploaded = 0
