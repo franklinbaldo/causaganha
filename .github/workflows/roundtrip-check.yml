@@ -1,0 +1,110 @@
+# ============================================================================
+# ROUNDTRIP EQUIVALENCE CHECK — Phase 0.7 validation gate
+# ============================================================================
+#
+# Validates that the consolidation transform preserves data fidelity:
+# downloads ZIPs for a sample date, runs the full NDJSON → Parquet transform,
+# then compares sampled raw records against the transformed output.
+#
+# IMPORTANT: This workflow intentionally exits non-zero even on success
+# so the run shows as failed and you review the logs before proceeding.
+# ============================================================================
+
+name: "Phase 0.7: Roundtrip Equivalence Check"
+
+on:
+  push:
+    branches:
+      - claude/epic-clarke-9uaaQ
+    paths:
+      - 'scripts/roundtrip_check.py'
+      - '.github/workflows/roundtrip-check.yml'
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Date to check (YYYY-MM-DD). Leave empty for auto-pick.'
+        required: false
+      sample_size:
+        description: 'Number of records to sample'
+        required: false
+        default: '50'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roundtrip-check
+  cancel-in-progress: false
+
+jobs:
+  roundtrip:
+    name: Roundtrip equivalence check
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Download sync-manifest from IA
+        run: |
+          mkdir -p data
+          curl -sSfL -o data/sync-manifest.csv \
+            "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
+          echo "Manifest rows: $(tail -n +2 data/sync-manifest.csv | wc -l)"
+
+      - name: Run roundtrip equivalence check
+        run: |
+          DATE="${{ github.event.inputs.date || '' }}"
+          SAMPLE="${{ github.event.inputs.sample_size || '50' }}"
+
+          CMD="uv run python scripts/roundtrip_check.py --sample $SAMPLE"
+          if [ -n "$DATE" ]; then
+            CMD="$CMD --date $DATE"
+          fi
+
+          echo "Running: $CMD"
+          $CMD
+
+      - name: Roundtrip summary
+        if: always()
+        run: |
+          echo "## Phase 0.7: Roundtrip Equivalence Check" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/roundtrip-report.json ]; then
+            STATUS=$(python3 -c "import json; r=json.load(open('/tmp/roundtrip-report.json')); print(r['status'].upper())")
+            DATE=$(python3 -c "import json; r=json.load(open('/tmp/roundtrip-report.json')); print(r['date'])")
+            SAMPLED=$(python3 -c "import json; r=json.load(open('/tmp/roundtrip-report.json')); print(r['sampled'])")
+            MATCHED=$(python3 -c "import json; r=json.load(open('/tmp/roundtrip-report.json')); print(r['matched'])")
+            MISMATCHED=$(python3 -c "import json; r=json.load(open('/tmp/roundtrip-report.json')); print(r['mismatched'])")
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Date | $DATE |" >> $GITHUB_STEP_SUMMARY
+            echo "| Status | $STATUS |" >> $GITHUB_STEP_SUMMARY
+            echo "| Sampled | $SAMPLED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Matched | $MATCHED |" >> $GITHUB_STEP_SUMMARY
+            echo "| Mismatched | $MISMATCHED |" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No report generated — check logs above." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Intentional failure — review logs above
+        if: always()
+        run: |
+          echo ""
+          echo "============================================"
+          echo "  INTENTIONAL FAILURE — REVIEW LOGS ABOVE"
+          echo "============================================"
+          echo ""
+          echo "This workflow exits non-zero by design so you"
+          echo "review the roundtrip check output before proceeding."
+          echo ""
+          echo "If all records matched, the consolidation transform"
+          echo "is preserving data fidelity correctly."
+          exit 1
