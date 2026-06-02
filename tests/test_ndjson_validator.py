@@ -83,6 +83,22 @@ class TestNDJSONValidator:
         assert not result.passed
         assert any("data_disponibilizacao" in e for e in result.errors)
 
+    def test_all_files_sampled_not_just_first(self, tmp_path: Path) -> None:
+        good = {
+            "data_disponibilizacao": "2026-06-01",
+            "numero_processo": "00012345678901234567",
+            "tipoComunicacao": "Intimação",
+        }
+        bad = {"other_field": "x"}
+        # First file has 200 good records — enough to exhaust the old budget
+        _write_ndjson(tmp_path / "tjro.ndjson", [good] * 200)
+        # Second file is all bad records (missing all critical fields)
+        _write_ndjson(tmp_path / "tjsp.ndjson", [bad] * 200)
+        result = validate_ndjson_sample(tmp_path, sample_size=100)
+        # Per-file cap forces sampling from both files, so bad records are detected
+        assert not result.passed
+        assert any("data_disponibilizacao" in e for e in result.errors)
+
     def test_skips_blank_lines(self, tmp_path: Path) -> None:
         content = "\n".join(
             [

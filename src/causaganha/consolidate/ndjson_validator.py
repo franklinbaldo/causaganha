@@ -84,10 +84,12 @@ def _sample_records(
     sample_size: int,
     result: ValidationResult,
 ) -> list[dict]:
+    # Cap per file so every NDJSON file (one per tribunal ZIP) contributes.
+    # A single large file cannot exhaust the budget before others are read.
+    per_file = max(1, sample_size // len(ndjson_files))
     records: list[dict] = []
     for path in ndjson_files:
-        if len(records) >= sample_size:
-            break
+        file_count = 0
         try:
             with path.open(encoding="utf-8") as f:
                 for raw_line in f:
@@ -96,9 +98,10 @@ def _sample_records(
                         continue
                     try:
                         records.append(json.loads(stripped))
+                        file_count += 1
                     except json.JSONDecodeError:
                         continue
-                    if len(records) >= sample_size:
+                    if file_count >= per_file:
                         break
         except OSError as e:
             result.warnings.append(f"Could not read {path.name}: {e}")
