@@ -72,7 +72,7 @@ jobs:
 
       - name: "Phase 1b: Apply corrections"
         id: writeback
-        if: github.event.inputs.dry_run != 'true'
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.dry_run == 'false'
         run: |
           echo "=== APPLYING CORRECTIONS ==="
           uv run python scripts/manifest_writeback.py
