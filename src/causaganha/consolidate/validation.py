@@ -63,6 +63,7 @@ def validate_parquet(
     table_name: str,
     *,
     schema_version: str = CURRENT_VERSION,
+    check_kv_metadata: bool = True,
 ) -> ValidationResult:
     """Validate a Parquet file against the declared schema.
 
@@ -87,6 +88,8 @@ def validate_parquet(
     con = duckdb.connect()
     try:
         _validate_columns(con, path, table_name, expected_schema, result)
+        if check_kv_metadata:
+            _validate_kv_metadata(con, path, schema_version, result)
         _validate_row_count(con, path, table_name, result)
         _validate_invariants(con, path, table_name, result)
     except duckdb.Error as e:
@@ -119,7 +122,7 @@ def _validate_columns(
 
     extra = set(actual_names) - set(expected_names)
     if extra:
-        result.warnings.append(f"{table_name}: unexpected extra columns {sorted(extra)}")
+        result.errors.append(f"{table_name}: unexpected extra columns {sorted(extra)}")
 
     for col_name in set(expected_names) & set(actual_names):
         expected_t = expected_types[col_name]
@@ -128,6 +131,27 @@ def _validate_columns(
             result.errors.append(
                 f"{table_name}.{col_name}: expected type '{expected_t}', got '{actual_t}'"
             )
+
+
+def _validate_kv_metadata(
+    con: duckdb.DuckDBPyConnection,
+    path: Path,
+    expected_version: str,
+    result: ValidationResult,
+) -> None:
+    """Check that the Parquet footer contains the expected schema version stamp."""
+    rows = con.execute(f"SELECT key, value FROM parquet_kv_metadata('{path}')").fetchall()
+    kv = {
+        (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+        for k, v in rows
+    }
+    actual = kv.get("causaganha.schema_version")
+    if actual is None:
+        result.errors.append("Missing causaganha.schema_version in Parquet KV metadata")
+    elif actual != expected_version:
+        result.errors.append(
+            f"Schema version mismatch in KV metadata: expected '{expected_version}', got '{actual}'"
+        )
 
 
 def _validate_row_count(
@@ -218,14 +242,21 @@ def _check_tribunal_domain(
         result.warnings.append(f"{table_name}: unknown tribunals in '{column}': {unknown[:5]}")
 
 
+def all_passed(results: dict[str, ValidationResult]) -> bool:
+    """True when every table in the results dict passed validation."""
+    return all(r.passed for r in results.values())
+
+
 def validate_all_tables(
     output_dir: Path,
     *,
     schema_version: str = CURRENT_VERSION,
+    check_kv_metadata: bool = True,
 ) -> dict[str, ValidationResult]:
     """Validate all Parquet files in a directory against the schema.
 
     Returns a dict of table_name → ValidationResult.
+    Use ``all_passed(results)`` to gate the completion marker.
     """
     schema_entry = SCHEMA_REGISTRY.get(schema_version)
     if schema_entry is None:
@@ -235,7 +266,12 @@ def validate_all_tables(
     for table_name in schema_entry.tables:
         parquet_path = output_dir / f"{table_name}.parquet"
         if parquet_path.exists():
-            r = validate_parquet(parquet_path, table_name, schema_version=schema_version)
+            r = validate_parquet(
+                parquet_path,
+                table_name,
+                schema_version=schema_version,
+                check_kv_metadata=check_kv_metadata,
+            )
             results[table_name] = r
             if r.errors:
                 log.error("validation_failed", table=table_name, errors=r.errors)

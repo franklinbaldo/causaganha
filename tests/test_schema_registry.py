@@ -21,7 +21,7 @@ from causaganha.consolidate.schema_registry import (
     kv_metadata_sql_fragment,
 )
 from causaganha.consolidate.transforms import TABLE_SCHEMAS, TABLES
-from causaganha.consolidate.validation import validate_parquet
+from causaganha.consolidate.validation import all_passed, validate_parquet
 
 
 class TestSchemaRegistryConsistency:
@@ -114,6 +114,7 @@ class TestValidation:
     @pytest.fixture
     def valid_comunicacoes_parquet(self, tmp_path: Path) -> Path:
         con = duckdb.connect()
+        fragment = kv_metadata_sql_fragment("djen-2026-06-01")
         con.execute("""
             CREATE TABLE comunicacoes AS SELECT
                 'uuid-1' AS id,
@@ -138,7 +139,7 @@ class TestValidation:
                 'djen-2026-06-01' AS p_item_ia
         """)
         path = tmp_path / "comunicacoes.parquet"
-        con.execute(f"COPY comunicacoes TO '{path}' (FORMAT PARQUET)")
+        con.execute(f"COPY comunicacoes TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD, {fragment})")
         con.close()
         return path
 
@@ -152,7 +153,7 @@ class TestValidation:
         path = tmp_path / "comunicacoes.parquet"
         con.execute(f"COPY t TO '{path}' (FORMAT PARQUET)")
         con.close()
-        result = validate_parquet(path, "comunicacoes")
+        result = validate_parquet(path, "comunicacoes", check_kv_metadata=False)
         assert not result.passed
         assert any("missing columns" in e for e in result.errors)
 
@@ -176,6 +177,58 @@ class TestValidation:
         path = tmp_path / "classificacoes.parquet"
         con.execute(f"COPY classificacoes TO '{path}' (FORMAT PARQUET)")
         con.close()
-        result = validate_parquet(path, "classificacoes")
+        result = validate_parquet(path, "classificacoes", check_kv_metadata=False)
         assert not result.passed
         assert any("invalid outcomes" in e for e in result.errors)
+
+    def test_missing_kv_metadata_blocks(self, tmp_path: Path) -> None:
+        con = duckdb.connect()
+        con.execute("CREATE TABLE t AS SELECT 'uuid-1' AS id, 'TJRO' AS tribunal")
+        path = tmp_path / "comunicacoes.parquet"
+        con.execute(f"COPY t TO '{path}' (FORMAT PARQUET)")
+        con.close()
+        result = validate_parquet(path, "comunicacoes", check_kv_metadata=True)
+        assert not result.passed
+        assert any("Missing causaganha.schema_version" in e for e in result.errors)
+
+    def test_extra_columns_block(self, tmp_path: Path) -> None:
+        con = duckdb.connect()
+        fragment = kv_metadata_sql_fragment("djen-test")
+        con.execute("""
+            CREATE TABLE comunicacoes AS SELECT
+                'uuid-1' AS id,
+                '12345' AS original_id,
+                'TJRO' AS tribunal,
+                '00012345678901234567' AS numero_processo,
+                '0001234-56.2026.8.26.0100' AS numero_processo_mascara,
+                DATE '2026-06-01' AS data_disponibilizacao,
+                'Intimação' AS tipo_comunicacao,
+                '1ª Vara' AS nome_orgao,
+                'D' AS meio,
+                'https://x' AS link,
+                'Sentença' AS tipo_documento,
+                'Comum' AS nome_classe,
+                '7' AS codigo_classe,
+                '1' AS numero_comunicacao,
+                'abc123' AS hash,
+                CURRENT_TIMESTAMP AS processed_at,
+                'texto-uuid' AS texto_id,
+                2026 AS p_ano,
+                6 AS p_mes,
+                'djen-2026-06-01' AS p_item_ia,
+                'SURPRISE' AS rogue_column
+        """)
+        path = tmp_path / "comunicacoes.parquet"
+        con.execute(f"COPY comunicacoes TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD, {fragment})")
+        con.close()
+        result = validate_parquet(path, "comunicacoes")
+        assert not result.passed
+        assert any("extra columns" in e for e in result.errors)
+
+    def test_all_passed_helper(self) -> None:
+        from causaganha.consolidate.validation import ValidationResult
+
+        r1 = ValidationResult(table_name="a")
+        r2 = ValidationResult(table_name="b", errors=["bad"])
+        assert all_passed({"a": r1})
+        assert not all_passed({"a": r1, "b": r2})
