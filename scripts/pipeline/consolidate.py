@@ -60,7 +60,12 @@ from tenacity import (
 )
 
 from causaganha.config import TRIBUNAIS
-from causaganha.consolidate.schema_registry import kv_metadata_sql_fragment
+from causaganha.consolidate.consolidation_manifest import (
+    collect_table_stats,
+    update_consolidation_manifest,
+)
+from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
+from causaganha.consolidate.schema_registry import CURRENT_VERSION, kv_metadata_sql_fragment
 from causaganha.consolidate.validation import validate_parquet
 from causaganha.storage.connection import get_connection
 from causaganha.storage.djen_schema import (
@@ -1966,6 +1971,16 @@ def consolidate_date(
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
         if stats["records"] > 0:
+            ndjson_vr = validate_ndjson_sample(ndjson_dir)
+            if not ndjson_vr.passed:
+                logger.error(
+                    "ndjson_validation_blocked",
+                    errors=ndjson_vr.errors,
+                    item_id=item_id,
+                )
+                return stats
+            if ndjson_vr.warnings:
+                logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
             logger.info("transform_complete", tables=table_counts)
 
@@ -2023,6 +2038,19 @@ def consolidate_date(
                         logger.warning("marker_upload_failed", item_id=item_id)
 
         asyncio.run(_run_upload_phase())
+
+        # Phase 5: Update consolidation manifest
+        if stats["parquets_created"] > 0:
+            try:
+                table_stats = collect_table_stats(output_dir, list(TABLES))
+                update_consolidation_manifest(
+                    item_id=item_id,
+                    date_str=date,
+                    schema_version=CURRENT_VERSION,
+                    table_stats=table_stats,
+                )
+            except OSError as exc:
+                logger.warning("manifest_update_failed", error=str(exc))
 
     return stats
 

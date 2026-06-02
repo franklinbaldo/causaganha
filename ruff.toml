@@ -76,6 +76,7 @@ ignore = [
 # assert in archive.py that should become a real check.
 "src/causaganha/consolidate/manifest_reader.py" = ["S608"]
 "src/causaganha/consolidate/validation.py" = ["S608"]
+"src/causaganha/consolidate/consolidation_manifest.py" = ["S608"]
 "src/causaganha/storage/embedding_storage.py" = ["S608"]
 "src/causaganha/catalog/creator.py" = ["S608"]
 "src/causaganha/analysis/ground_truth.py" = ["S608"]
