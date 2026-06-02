@@ -151,6 +151,40 @@ jobs:
           "
           fi
 
+      - name: Upload consolidation manifest to IA
+        if: steps.consolidate.outputs.files_added == 'true'
+        run: |
+          MANIFEST="web/public/data/consolidation-manifest.json"
+          if [ -f "$MANIFEST" ]; then
+            uv run python -c "
+          import asyncio
+          from pathlib import Path
+          from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth, upload_to_ia
+          auth = get_ia_s3_auth()
+          async def _upload():
+              async with create_upload_client(auth) as client:
+                  await upload_to_ia(client, 'causaganha-dashboard', Path('$MANIFEST'), 'consolidation-manifest')
+                  print('Consolidation manifest uploaded to IA')
+          if auth:
+              asyncio.run(_upload())
+          else:
+              print('No IA credentials — skipping manifest upload')
+          "
+          else
+            echo "No consolidation manifest found — skipping"
+          fi
+
+      - name: Run benchmark update
+        if: steps.consolidate.outputs.files_added == 'true'
+        continue-on-error: true
+        run: |
+          if [ -f data/causaganha.duckdb ]; then
+            echo "Updating benchmark with new decisions..."
+            uv run python scripts/daily_benchmark_update.py --mock --limit 10
+          else
+            echo "No DuckDB catalog found — skipping benchmark update"
+          fi
+
       - name: Trigger catalog regeneration
         if: steps.consolidate.outputs.files_added == 'true'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
