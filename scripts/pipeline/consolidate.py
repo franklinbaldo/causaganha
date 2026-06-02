@@ -1851,28 +1851,32 @@ def consolidate_tribunal_year(
                         stats["parquets_created"] += 1
                         stats["uploaded"] += uploaded
                         stats["uploaded_mb"] += size_mb
+                        if not uploaded and not dry_run and table_name in non_empty_tables:
+                            export_failures += 1
                     elif table_name in non_empty_tables:
                         export_failures += 1
 
                 expected = len(non_empty_tables)
                 if (
-                    stats["parquets_created"] == expected
+                    stats["uploaded"] == expected
                     and export_failures == 0
-                    and stats["parquets_created"] > 0
+                    and expected > 0
                     and not dry_run
                 ):
                     if await _upload_marker(client, item_id, date_tag):
                         logger.info("marker_uploaded", item_id=item_id)
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
-                elif stats["parquets_created"] > 0 and (
-                    stats["parquets_created"] != expected or export_failures > 0
+                elif (
+                    expected > 0
+                    and not dry_run
+                    and (stats["uploaded"] != expected or export_failures > 0)
                 ):
                     logger.error(
                         "marker_blocked_by_incomplete_exports",
                         item_id=item_id,
                         expected_parquets=expected,
-                        parquets_created=stats["parquets_created"],
+                        uploaded=stats["uploaded"],
                         export_failures=export_failures,
                     )
 
@@ -2073,16 +2077,18 @@ def consolidate_date(
                             stats["uploaded_mb"] += size_mb
                             if uploaded:
                                 uploaded_tables.append(table_name)
+                            elif not dry_run and table_name in non_empty_tables:
+                                export_failures += 1
                         elif table_name in non_empty_tables:
                             export_failures += 1
 
                 # Phase 4: Upload consolidation marker only when ALL non-empty
-                # tables produced valid Parquets (no partial uploads).
+                # tables were created AND uploaded to IA (not just locally).
                 expected = len(non_empty_tables)
                 if (
-                    stats["parquets_created"] == expected
+                    stats["uploaded"] == expected
                     and export_failures == 0
-                    and stats["parquets_created"] > 0
+                    and expected > 0
                     and not dry_run
                 ):
                     if await _upload_marker(client, item_id, date):
@@ -2091,14 +2097,16 @@ def consolidate_date(
                         marker_ok = True
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
-                elif stats["parquets_created"] > 0 and (
-                    stats["parquets_created"] != expected or export_failures > 0
+                elif (
+                    expected > 0
+                    and not dry_run
+                    and (stats["uploaded"] != expected or export_failures > 0)
                 ):
                     logger.error(
-                        "marker_blocked_by_incomplete_exports",
+                        "marker_blocked_by_incomplete_uploads",
                         item_id=item_id,
-                        expected_parquets=expected,
-                        parquets_created=stats["parquets_created"],
+                        expected=expected,
+                        uploaded=stats["uploaded"],
                         export_failures=export_failures,
                     )
 

@@ -108,6 +108,8 @@ def _collect_export_results(
     results: list[tuple[bool, float, int] | Exception],
     non_empty_tables: set[str],
     stats: dict[str, int | float],
+    *,
+    dry_run: bool,
 ) -> list[str]:
     """Fold per-table export results into stats. Returns list of uploaded table names."""
     uploaded_tables: list[str] = []
@@ -125,26 +127,28 @@ def _collect_export_results(
             stats["uploaded_mb"] += size_mb
             if uploaded:
                 uploaded_tables.append(table_name)
+            elif not dry_run and table_name in non_empty_tables:
+                stats["export_failures"] += 1
         elif table_name in non_empty_tables:
             stats["export_failures"] += 1
     return uploaded_tables
 
 
-def _exports_complete(
+def _uploads_complete(
     non_empty_tables: set[str],
     stats: dict[str, int | float],
     item_id: str,
 ) -> bool:
-    """Return true only when every non-empty table produced a valid Parquet."""
-    expected_parquets = len(non_empty_tables)
-    if stats["parquets_created"] == expected_parquets and stats["export_failures"] == 0:
+    """Return true only when every non-empty table was uploaded to IA."""
+    expected = len(non_empty_tables)
+    if stats["uploaded"] == expected and stats["export_failures"] == 0:
         return True
 
     log.error(
-        "marker_blocked_by_incomplete_exports",
+        "marker_blocked_by_incomplete_uploads",
         item_id=item_id,
-        expected_parquets=expected_parquets,
-        parquets_created=stats["parquets_created"],
+        expected=expected,
+        uploaded=stats["uploaded"],
         export_failures=stats["export_failures"],
     )
     return False
@@ -185,10 +189,15 @@ async def _export_upload_and_manifest(
                 results.append(res)
             except Exception as exc:  # noqa: BLE001 — per-table resilience
                 results.append(exc)
-        uploaded_tables = _collect_export_results(results, non_empty_tables, stats)
+        uploaded_tables = _collect_export_results(
+            results,
+            non_empty_tables,
+            stats,
+            dry_run=dry_run,
+        )
 
-        if _exports_complete(non_empty_tables, stats, item_id) and (
-            stats["parquets_created"] > 0
+        if _uploads_complete(non_empty_tables, stats, item_id) and (
+            stats["uploaded"] > 0
             and not dry_run
             and await upload_marker(client, item_id, date_tag, circuit_breaker=breaker)
         ):
