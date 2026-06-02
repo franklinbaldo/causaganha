@@ -78,6 +78,12 @@ jobs:
             "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
             || echo 'tribunal,date,ia_status,djen_status,djen_raw,updated_at' > data/sync-manifest.csv
           echo "Sync manifest entries: $(tail -n +2 data/sync-manifest.csv | wc -l)"
+          # Download existing consolidation manifest so update_consolidation_manifest()
+          # merges into it rather than overwriting with a single-run snapshot.
+          mkdir -p web/public/data
+          curl -sSfL -o web/public/data/consolidation-manifest.json \
+            "https://archive.org/download/causaganha-dashboard/consolidation-manifest.json" \
+            || echo '{"schema_version":"3.0.0","generated_at":"","items":[]}' > web/public/data/consolidation-manifest.json
 
       - name: Run consolidation
         id: consolidate
