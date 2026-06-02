@@ -68,11 +68,11 @@ Em `exporter.py`, após `COPY TO`, antes do upload:
 
 #### 0.3 Version stamp nos Parquets
 
-Gravar `schema_version` como metadata do Parquet file (via DuckDB `KEY_VALUE_METADATA`):
+Gravar `schema_version` como metadata do Parquet file (via DuckDB `KV_METADATA`):
 
 ```sql
 COPY tbl TO 'x.parquet' (FORMAT PARQUET, COMPRESSION ZSTD,
-  KEY_VALUE_METADATA {schema_version: '3.1.0'});
+  KV_METADATA {schema_version: '3.1.0'});
 ```
 
 Leitores podem checar a versão antes de consumir.
