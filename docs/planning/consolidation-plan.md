@@ -398,18 +398,21 @@ WARN = log + upload procede, mas incrementa contador de warnings.
 
 ### 3.2 Validação cruzada entre tabelas
 
+Anti-join containment checks (not just cardinality — `COUNT <=` would miss
+orphaned IDs where child has IDs absent from parent):
+
+```sql
+SELECT comunicacao_id FROM destinatarios
+WHERE comunicacao_id NOT IN (SELECT id FROM comunicacoes)
+
+SELECT advogado_id FROM comunicacao_advogados
+WHERE advogado_id NOT IN (SELECT id FROM advogados)
+
+SELECT texto_id FROM classificacoes
+WHERE texto_id NOT IN (SELECT id FROM textos)
 ```
-COUNT(DISTINCT comunicacao_id FROM destinatarios)
-  <= COUNT(DISTINCT id FROM comunicacoes)
 
-COUNT(DISTINCT advogado_id FROM comunicacao_advogados)
-  <= COUNT(DISTINCT id FROM advogados)
-
-COUNT(DISTINCT texto_id FROM classificacoes)
-  <= COUNT(DISTINCT id FROM textos)
-```
-
-Violação = WARN (possível referência a comunicação de outro item/date).
+Any rows returned = WARN (possible FK to comunicação from another item/date).
 
 ### 3.3 Formato do campo `djen_raw` (manifest)
 
@@ -421,11 +424,17 @@ Valores válidos pós-Fase 1:
 '404'              # Not Found (genuinely absent)
 '400'              # Bad Request (holidays)
 '403'              # Forbidden (rate limit → unknown)
+'500'              # Internal Server Error (transient → unknown)
+'502'              # Bad Gateway (transient → unknown)
+'503'              # Service Unavailable (transient → unknown)
+'504'              # Gateway Timeout (transient → unknown)
 'timeout'          # Request timeout (unknown)
 'network'          # Network error (unknown)
 ```
 
-Qualquer outro valor é inválido. Validação no write-back e no checker.
+Must match `TRANSIENT_CODES` in `src/djen_backup/manifest.py` — the 5xx codes
+are legitimate server failures that the engine records and retries. Validation
+on write-back and checker.
 
 ---
 
