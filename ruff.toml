@@ -75,6 +75,7 @@ ignore = [
 # checksums; S108 is a hardcoded tmp path (audit on cleanup); S101 is an
 # assert in archive.py that should become a real check.
 "src/causaganha/consolidate/manifest_reader.py" = ["S608"]
+"src/causaganha/consolidate/validation.py" = ["S608"]
 "src/causaganha/storage/embedding_storage.py" = ["S608"]
 "src/causaganha/catalog/creator.py" = ["S608"]
 "src/causaganha/analysis/ground_truth.py" = ["S608"]
@@ -95,6 +96,7 @@ ignore = [
     "SLF001",           # private member access
     "E402",             # module import not at top (dynamic imports in tests)
     "SIM108",           # ternary expressions not required
+    "S608",             # f-string SQL (DuckDB with tmp_path, no user input)
 ]
 
 # ── Scripts ────────────────────────────────────────────────────────────────
