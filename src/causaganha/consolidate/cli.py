@@ -195,7 +195,7 @@ async def _export_upload_and_manifest(
             stats["marker_uploaded"] = 1
             log.info("marker_uploaded", item_id=item_id)
 
-    if uploaded_tables and not dry_run:
+    if stats["marker_uploaded"] and uploaded_tables:
         try:
             table_s = collect_table_stats(output_dir, uploaded_tables)
             update_consolidation_manifest(

@@ -252,6 +252,16 @@ def mark_date_complete(date: str) -> None:
     logger.info("date_marked_complete", date=date)
 
 
+def clear_date_checkpoint(date: str) -> None:
+    """Clear per-ZIP checkpoint for a date so the next run re-processes all ZIPs."""
+    state = load_checkpoint_state()
+    if state.get("current_date") == date:
+        state["current_date"] = None
+        state["processed_zips"] = []
+        save_checkpoint_state(state)
+        logger.info("date_checkpoint_cleared", date=date)
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=8),
@@ -2003,6 +2013,7 @@ def consolidate_date(
                     errors=ndjson_vr.errors,
                     item_id=item_id,
                 )
+                clear_date_checkpoint(date)
                 return stats
             if ndjson_vr.warnings:
                 logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
@@ -2027,10 +2038,11 @@ def consolidate_date(
         ia_circuit_breaker = CircuitBreaker(threshold=5)
         uploaded_tables: list[str] = []
         export_failures = 0
+        marker_ok = False
 
         async def _run_upload_phase() -> None:
             """Phase 3+4: sequential Parquet export/upload then marker upload."""
-            nonlocal export_failures
+            nonlocal export_failures, marker_ok
             async with create_upload_client(ia_auth or "") as client:
                 results = []
                 for table_name in TABLES:
@@ -2076,6 +2088,7 @@ def consolidate_date(
                     if await _upload_marker(client, item_id, date):
                         logger.info("marker_uploaded", item_id=item_id)
                         mark_date_complete(date)
+                        marker_ok = True
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
                 elif stats["parquets_created"] > 0 and (
@@ -2091,9 +2104,12 @@ def consolidate_date(
 
         asyncio.run(_run_upload_phase())
 
-        # Phase 5: Update consolidation manifest — only for tables that reached IA,
-        # and only on real runs (not dry-run).
-        if uploaded_tables and not dry_run:
+        if not marker_ok and not dry_run:
+            clear_date_checkpoint(date)
+
+        # Phase 5: Update consolidation manifest — only when the marker succeeded
+        # (all non-empty tables exported and uploaded) and only on real runs.
+        if marker_ok and uploaded_tables:
             try:
                 table_stats = collect_table_stats(output_dir, uploaded_tables)
                 update_consolidation_manifest(
