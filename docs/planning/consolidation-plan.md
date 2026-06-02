@@ -56,7 +56,57 @@ de upload, e tornar os schemas imutáveis por versão.
 
 ---
 
-## 2. Fases de execução
+## 2. Restrições de design
+
+Estas restrições se aplicam a todo código no pipeline de consolidação e são
+obrigatórias para qualquer novo table builder ou transform.
+
+### 2.1 Ibis — nunca pandas
+
+`pandas` está banido do repo (`ruff.toml` `banned-api`). Todo processamento de
+dados usa **Ibis** com o backend DuckDB. Isso não é preferência de estilo — é
+a garantia de que o DuckDB, não o Python, executa os joins e aggregations.
+
+### 2.2 Transformações vetorizadas — nunca row-by-row
+
+Proibido: `.iterrows()`, loops Python sobre DataFrames, list comprehensions que
+materializam rows. Cada table builder deve ser uma expressão Ibis pura que o
+DuckDB compila e executa como SQL.
+
+**Errado:**
+```python
+rows = []
+for record in ndjson_data:       # Python loop → O(n) overhead
+    rows.append(transform(record))
+```
+
+**Certo:**
+```python
+t = con.read_json(path)          # DuckDB lê e transforma em SQL
+result = (t.select(...).filter(...).mutate(...))  # expressão lazy
+```
+
+### 2.3 Delay de materialização — `.execute()` só no `COPY`
+
+Expressões Ibis são **lazy** (o DuckDB só executa quando chamamos `.execute()`
+ou `COPY`). Manter o plano de execução em SQL até o momento do `COPY TO` é o
+que permite ao DuckDB otimizar joins multi-tabela e usar leitura por colunas.
+
+**Regra:** chamar `.execute()` ou `.to_pyarrow()` fora do `COPY` final é sinal
+de que algo pode ser reestruturado como expressão Ibis. A única exceção
+permitida é `t.count().execute()` para checar se a tabela está vazia antes de
+exportar.
+
+### 2.4 UDFs Python — somente para lógica não expressável em SQL
+
+`@ibis.udf.scalar.python` executa Python por-linha dentro do DuckDB. Usar
+apenas para coisas que o SQL não tem: UUIDv5 determinístico (`djen_uuid5`),
+normalização de strings com `unicodedata` (`normalize_name`). Nunca para
+transformar colunas que SQL nativo expressaria em uma linha.
+
+---
+
+## 3. Fases de execução
 
 ### Fase 0 — Validação de schema (gate obrigatório)
 
@@ -170,7 +220,7 @@ Gravar `schema_version` como metadata do Parquet file (via DuckDB `KV_METADATA`)
 
 ```sql
 COPY tbl TO 'x.parquet' (FORMAT PARQUET, COMPRESSION ZSTD,
-  KV_METADATA {schema_version: '3.1.0'});
+  KV_METADATA {'schema_version': '3.1.0'});
 ```
 
 Leitores podem checar a versão antes de consumir.
@@ -388,9 +438,9 @@ que usuários reportem.
 
 ---
 
-## 3. Schema de validação — especificação detalhada
+## 4. Schema de validação — especificação detalhada
 
-### 3.1 Invariantes por tabela
+### 4.1 Invariantes por tabela
 
 | Tabela | Invariante | Severidade |
 |---|---|---|
@@ -409,7 +459,7 @@ que usuários reportem.
 BLOCK = não faz upload, não marca checkpoint.
 WARN = log + upload procede, mas incrementa contador de warnings.
 
-### 3.2 Validação cruzada entre tabelas
+### 4.2 Validação cruzada entre tabelas
 
 Anti-join containment checks (not just cardinality — `COUNT <=` would miss
 orphaned IDs where child has IDs absent from parent):
@@ -427,7 +477,7 @@ WHERE texto_id NOT IN (SELECT id FROM textos)
 
 Any rows returned = WARN (possible FK to comunicação from another item/date).
 
-### 3.3 Formato do campo `djen_raw` (manifest)
+### 4.3 Formato do campo `djen_raw` (manifest)
 
 Valores válidos pós-Fase 1:
 
@@ -451,7 +501,7 @@ on write-back and checker.
 
 ---
 
-## 4. Ordem de implementação e estimativas
+## 5. Ordem de implementação e estimativas
 
 | # | Tarefa | Fase | Bloqueia | Estimativa |
 |---|---|---|---|---|
@@ -480,7 +530,7 @@ protegem contra retrabalho.
 
 ---
 
-## 5. O que NÃO fazer
+## 6. O que NÃO fazer
 
 - **Não reconsolidar sem schema validation.** Cada Parquet errado no IA é um
   item que precisa ser re-uploaded (IA não suporta update parcial).
