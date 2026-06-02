@@ -244,9 +244,7 @@ def _check_tribunal_domain(
     ).fetchall()
     unknown = [r[0] for r in tribunals if r[0] not in KNOWN_TRIBUNALS]
     if unknown:
-        result.errors.append(
-            f"{table_name}: unknown tribunal codes in '{column}': {unknown[:5]}"
-        )
+        result.errors.append(f"{table_name}: unknown tribunal codes in '{column}': {unknown[:5]}")
 
 
 def all_passed(results: dict[str, ValidationResult]) -> bool:
