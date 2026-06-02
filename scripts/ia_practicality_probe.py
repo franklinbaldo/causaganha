@@ -61,8 +61,12 @@ def list_parquets(item_id: str) -> list[str]:
             timeout=30,
         )
         resp.raise_for_status()
-        files = resp.json().get("files", {})
-        return [name for name in files if name.endswith(".parquet")]
+        files = resp.json().get("files", [])
+        return [
+            f.get("name") if isinstance(f, dict) else f
+            for f in files
+            if (f.get("name", "") if isinstance(f, dict) else f).endswith(".parquet")
+        ]
     except httpx.HTTPError as exc:
         log.warning("item_metadata_failed", item_id=item_id, error=str(exc))
         return []
