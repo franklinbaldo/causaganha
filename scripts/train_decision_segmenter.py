@@ -173,6 +173,18 @@ def write_jsonl(records: list[dict], path: Path) -> None:
     logger.info("jsonl_written", path=str(path), count=len(records))
 
 
+def _detect_device() -> str:
+    """Return 'cuda' if available, else 'cpu'."""
+    try:
+        import torch  # noqa: PLC0415
+
+        if torch.cuda.is_available():
+            return "cuda"
+    except ImportError:
+        pass
+    return "cpu"
+
+
 def run_opf_train(
     train_jsonl: Path,
     val_jsonl: Path,
@@ -183,6 +195,7 @@ def run_opf_train(
     batch_size: int = 8,
 ) -> int:
     """Shell out to `opf train`."""
+    device = _detect_device()
     cmd = [
         sys.executable,
         "-m",
@@ -195,12 +208,14 @@ def run_opf_train(
         str(label_space_json),
         "--output-dir",
         str(output_dir),
+        "--device",
+        device,
         "--epochs",
         str(epochs),
         "--batch-size",
         str(batch_size),
     ]
-    logger.info("opf_train_start", cmd=" ".join(cmd))
+    logger.info("opf_train_start", cmd=" ".join(cmd), device=device)
     result = subprocess.run(cmd, check=False)
     logger.info("opf_train_done", returncode=result.returncode)
     return result.returncode
@@ -213,42 +228,36 @@ def run_opf_eval(
     metrics_output: Path,
 ) -> dict | None:
     """Shell out to `opf eval` and parse metrics."""
+    device = _detect_device()
+    metrics_output.parent.mkdir(parents=True, exist_ok=True)
     cmd = [
         sys.executable,
         "-m",
         "opf",
         "eval",
         str(test_jsonl),
-        "--model-dir",
+        "--checkpoint",
         str(model_dir),
         "--label-space-json",
         str(label_space_json),
+        "--device",
+        device,
+        "--per-class",
+        "--metrics-out",
+        str(metrics_output),
     ]
-    logger.info("opf_eval_start", cmd=" ".join(cmd))
-    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    logger.info("opf_eval_start", cmd=" ".join(cmd), device=device)
+    result = subprocess.run(cmd, check=False)
     logger.info("opf_eval_done", returncode=result.returncode)
-
-    print(result.stdout)
-    if result.stderr:
-        print(result.stderr, file=sys.stderr)
 
     if result.returncode != 0:
         return None
 
-    metrics_output.parent.mkdir(parents=True, exist_ok=True)
-
-    try:
-        for raw_line in result.stdout.strip().splitlines():
-            stripped = raw_line.strip()
-            if stripped.startswith("{"):
-                metrics = json.loads(stripped)
-                metrics_output.write_text(
-                    json.dumps(metrics, indent=2, ensure_ascii=False),
-                    encoding="utf-8",
-                )
-                return metrics
-    except (json.JSONDecodeError, ValueError):
-        pass
+    if metrics_output.exists():
+        try:
+            return json.loads(metrics_output.read_text(encoding="utf-8"))
+        except (json.JSONDecodeError, ValueError):
+            pass
 
     return None
 
