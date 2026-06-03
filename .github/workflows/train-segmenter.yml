@@ -70,7 +70,7 @@ jobs:
 
       - name: Install ML dependencies
         run: |
-          uv pip install --system transformers datasets accelerate scikit-learn
+          uv add --dev transformers datasets accelerate scikit-learn
 
       - uses: ./.github/actions/configure-ia
         with:

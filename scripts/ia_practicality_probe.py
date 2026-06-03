@@ -174,6 +174,10 @@ def main() -> None:
         failures=report["hard_failures"],
     )
 
+    if report["tables_checked"] == 0:
+        log.error("no_tables_checked", hint="No Parquet files found in any probed item")
+        sys.exit(1)
+
     if report["hard_failures"] > 0:
         sys.exit(1)
 

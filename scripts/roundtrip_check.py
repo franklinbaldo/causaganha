@@ -158,7 +158,7 @@ def compare_record(
             continue
         expected = _coalesce_raw(raw, variants)
         actual = str(parquet_row.get(parquet_col, "")).strip()
-        if expected and actual and expected != actual:
+        if expected and expected != actual:
             mismatches.append(f"{parquet_col}: expected={expected!r} got={actual!r}")
 
     raw_date = _extract_raw_date(raw)
