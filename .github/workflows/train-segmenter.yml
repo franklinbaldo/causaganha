@@ -100,6 +100,17 @@ jobs:
           BATCH_SIZE="${{ github.event.inputs.batch_size || '2' }}"
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
+          # OPF's 1.5B model needs ~12GB RAM for training (weights + optimizer).
+          # ubuntu-latest has 7GB — use --prepare-only to write JSONL data,
+          # then train locally on GPU or a larger runner.
+          TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+          TOTAL_MEM_GB=$((TOTAL_MEM_KB / 1024 / 1024))
+          PREPARE_FLAG=""
+          if [ "$TOTAL_MEM_GB" -lt 14 ]; then
+            echo "::warning::Only ${TOTAL_MEM_GB}GB RAM — using --prepare-only (1.5B model needs >=14GB)"
+            PREPARE_FLAG="--prepare-only"
+          fi
+
           if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
             echo "Training with LLM-labeled data via opf"
             uv run python scripts/train_decision_segmenter.py \
@@ -107,6 +118,7 @@ jobs:
               --epochs "$EPOCHS" \
               --batch-size "$BATCH_SIZE" \
               --output-dir models/decision_segmenter \
+              $PREPARE_FLAG \
               2>&1 | tee train.log
           else
             echo "Training with heuristic-labeled data from IA via opf"
@@ -118,6 +130,7 @@ jobs:
               --epochs "$EPOCHS" \
               --batch-size "$BATCH_SIZE" \
               --output-dir models/decision_segmenter \
+              $PREPARE_FLAG \
               2>&1 | tee train.log
           fi
 
@@ -150,6 +163,18 @@ jobs:
           else
             echo "Training did not produce metrics." >> $GITHUB_STEP_SUMMARY
           fi
+
+      - name: Upload prepared data (prepare-only mode)
+        if: steps.train.outputs.metrics_available != 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: segmenter-prepared-data
+          path: |
+            models/decision_segmenter/train.jsonl
+            models/decision_segmenter/val.jsonl
+            models/decision_segmenter/test.jsonl
+            models/decision_segmenter/label_space.json
+          retention-days: 30
 
       - name: Upload model artifact
         if: steps.train.outputs.metrics_available == 'true'

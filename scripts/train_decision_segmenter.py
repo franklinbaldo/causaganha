@@ -288,6 +288,12 @@ def main() -> int:
         help="Pre-labeled parquet with spans_json column (LLM/human labels). "
         "Skips heuristic segmentation.",
     )
+    parser.add_argument(
+        "--prepare-only",
+        action="store_true",
+        help="Write JSONL + label_space.json but skip training/eval. "
+        "Use when running on CPU-only machines without enough RAM for the 1.5B model.",
+    )
     args = parser.parse_args()
 
     # Build records
@@ -343,6 +349,18 @@ def main() -> int:
         json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     logger.info("label_space_written", path=str(label_space_path))
+
+    if args.prepare_only:
+        print(f"\nData prepared in {output_dir}/")
+        print(f"  train: {len(train_records)} examples")
+        print(f"  val:   {len(val_records)} examples")
+        print(f"  test:  {len(test_records)} examples")
+        print("\nTo train, run on a machine with GPU or >=16GB RAM:")
+        print(f"  opf train {train_jsonl} \\")
+        print(f"    --validation-dataset {val_jsonl} \\")
+        print(f"    --label-space-json {label_space_path} \\")
+        print(f"    --output-dir {output_dir / 'best'}")
+        return 0
 
     # Train with opf
     checkpoint_dir = output_dir / "best"
