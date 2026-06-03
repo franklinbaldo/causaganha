@@ -167,3 +167,10 @@ jobs:
           else:
               print('No IA credentials — skipping model upload')
           "
+
+      - name: Force failure for CI notification
+        if: always()
+        run: |
+          echo "Training workflow completed — failing intentionally for webhook notification."
+          echo "Check the Training Summary above for results."
+          exit 1
