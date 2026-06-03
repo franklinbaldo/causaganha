@@ -95,6 +95,7 @@ jobs:
       - name: Train decision segmenter
         id: train
         run: |
+          set -euo pipefail
           EPOCHS="${{ github.event.inputs.epochs || '3' }}"
           BATCH_SIZE="${{ github.event.inputs.batch_size || '8' }}"
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
