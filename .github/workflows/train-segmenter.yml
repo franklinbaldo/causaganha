@@ -100,15 +100,22 @@ jobs:
           BATCH_SIZE="${{ github.event.inputs.batch_size || '2' }}"
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
-          # OPF's 1.5B model needs ~12GB RAM for training (weights + optimizer).
-          # ubuntu-latest has 7GB — use --prepare-only to write JSONL data,
-          # then train locally on GPU or a larger runner.
-          TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-          TOTAL_MEM_GB=$((TOTAL_MEM_KB / 1024 / 1024))
-          PREPARE_FLAG=""
-          if [ "$TOTAL_MEM_GB" -lt 14 ]; then
-            echo "::warning::Only ${TOTAL_MEM_GB}GB RAM — using --prepare-only (1.5B model needs >=14GB)"
-            PREPARE_FLAG="--prepare-only"
+          # OPF's 1.5B model needs ~24GB RAM for training (weights + Adam optimizer
+          # + gradients). Standard GHA runners have 16GB — not enough.
+          # Also, CPU training is impractical for 1.5B params.
+          # Use --prepare-only unless a GPU is available on a large runner.
+          PREPARE_FLAG="--prepare-only"
+          if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
+            TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
+            TOTAL_MEM_GB=$((TOTAL_MEM_KB / 1024 / 1024))
+            if [ "$TOTAL_MEM_GB" -ge 24 ]; then
+              echo "GPU available + ${TOTAL_MEM_GB}GB RAM — running full training"
+              PREPARE_FLAG=""
+            else
+              echo "::warning::GPU available but only ${TOTAL_MEM_GB}GB RAM (need >=24GB) — using --prepare-only"
+            fi
+          else
+            echo "::warning::No GPU detected — using --prepare-only (download JSONL artifact to train on GPU)"
           fi
 
           if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
