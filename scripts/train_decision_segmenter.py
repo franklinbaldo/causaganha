@@ -1,21 +1,17 @@
 #!/usr/bin/env python3
-r"""Train a 22-class decision segmenter by fine-tuning openai/privacy-filter.
+r"""Train a 22-class decision segmenter using the opf CLI (openai/privacy-filter).
 
-Purpose:  Produce a token-classification model that segments Brazilian judicial
-          decisions into structural sections and named entities.
-Problem:  The base openai/privacy-filter has a 33-class PII head; we replace it
-          with a 22-class judicial head and fine-tune on silver-labeled data.
-Strategy: Heuristic segmentation produces silver labels (regex for sections,
-          patterns for entities); the model generalises beyond the heuristics.
-Status:   research/training — run via GHA workflow or locally.
+Converts labeled data (LLM-labeled parquet or heuristic-labeled texts) into the
+JSONL format expected by `opf train`, writes label_space.json, then shells out
+to the opf CLI for training and evaluation.
 
 Usage:
+    # From LLM-labeled parquet (recommended):
     uv run python scripts/train_decision_segmenter.py \
-        --parquet data/test_parquets/textos.parquet \
-        --output-dir models/decision_segmenter \
-        --epochs 3 --batch-size 16
+        --labeled-parquet data/benchmark/segmenter_training.parquet \
+        --output-dir models/decision_segmenter
 
-    # Download textos from IA first:
+    # From IA-downloaded texts with heuristic labeling:
     uv run python scripts/train_decision_segmenter.py \
         --download-from djen-tjro-2025 --n-zips 50 \
         --output-dir models/decision_segmenter
@@ -27,6 +23,7 @@ import argparse
 import io
 import json
 import random
+import subprocess
 import sys
 import uuid
 import zipfile
@@ -35,12 +32,10 @@ from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
-import numpy as np
 import structlog
 
 from scripts.prepare_privacy_filter_dataset import (
     LABEL_SPACE,
-    SPAN_CLASS_NAMES,
     _segment,
 )
 
@@ -48,39 +43,6 @@ from scripts.prepare_privacy_filter_dataset import (
 logger = structlog.get_logger()
 
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
-
-ID2LABEL = dict(enumerate(SPAN_CLASS_NAMES))
-LABEL2ID = {name: i for i, name in ID2LABEL.items()}
-NUM_LABELS = len(SPAN_CLASS_NAMES)
-
-_SECTION_LABELS = frozenset(
-    {
-        "sec_cabecalho",
-        "sec_relatorio",
-        "sec_fundamentacao",
-        "sec_dispositivo",
-        "sec_assinatura",
-        "elem_nao_textual",
-    }
-)
-
-_ENTITY_PRIORITY = [
-    "classe_processual",
-    "data",
-    "valor_monetario",
-    "citacao_precedente",
-    "id_lei",
-    "id_precedente",
-    "parte_autor",
-    "parte_reu",
-    "parte_terceiro",
-    "nome_advogado",
-    "nome_juiz",
-    "serventuario",
-    "oab",
-    "processo_cnj",
-    "cpf_cnpj",
-]
 
 
 def download_textos(ia_item: str, n_zips: int | None, output_path: Path) -> Path:
@@ -159,7 +121,7 @@ def download_textos(ia_item: str, n_zips: int | None, output_path: Path) -> Path
 
 
 def build_records(parquet_path: Path) -> list[dict]:
-    """Segment texts and return labeled records."""
+    """Segment texts with heuristic regex and return OPF-format records."""
     import ibis  # noqa: PLC0415
 
     t = ibis.read_parquet(parquet_path)
@@ -193,222 +155,111 @@ def build_records_from_labeled(parquet_path: Path) -> list[dict]:
         if not spans_raw:
             continue
         spans = json.loads(spans_raw)
-        spans_tuples = {k: [tuple(pair) for pair in v] for k, v in spans.items()}
-        records.append({"text": row["texto"], "spans": spans_tuples})
+        spans_clean = {
+            k: [list(pair) for pair in v] for k, v in spans.items() if v and isinstance(v, list)
+        }
+        records.append({"text": row["texto"], "spans": spans_clean})
 
     logger.info("labeled_records_loaded", records=len(records))
     return records
 
 
-def tokenize_and_label(example: dict, tokenizer: object, max_length: int = 512) -> dict:
-    """Convert text + char spans to token-level labels."""
-    text = example["text"]
-    spans = example["spans"]
-    char_labels = np.zeros(len(text), dtype=np.int32)
-
-    for label_name, span_list in spans.items():
-        if label_name not in _SECTION_LABELS:
-            continue
-        lid = LABEL2ID.get(label_name, 0)
-        for start, end in span_list:
-            char_labels[start : min(end, len(text))] = lid
-
-    remaining = {k: v for k, v in spans.items() if k not in _SECTION_LABELS}
-    ordered = [la for la in _ENTITY_PRIORITY if la in remaining]
-    ordered += [la for la in remaining if la not in _ENTITY_PRIORITY]
-    for label_name in ordered:
-        lid = LABEL2ID.get(label_name, 0)
-        for start, end in remaining[label_name]:
-            char_labels[start : min(end, len(text))] = lid
-
-    enc = tokenizer(text, truncation=True, max_length=max_length, return_offsets_mapping=True)
-    offsets = enc.pop("offset_mapping")
-    token_labels = []
-    for start, end in offsets:
-        if start == end:
-            token_labels.append(-100)
-        else:
-            token_labels.append(int(char_labels[start]))
-    enc["labels"] = token_labels
-    return enc
+def write_jsonl(records: list[dict], path: Path) -> None:
+    """Write records to JSONL in OPF's expected format."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("w", encoding="utf-8") as f:
+        for rec in records:
+            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+    logger.info("jsonl_written", path=str(path), count=len(records))
 
 
-def train(
-    records: list[dict],
+def run_opf_train(
+    train_jsonl: Path,
+    val_jsonl: Path,
+    label_space_json: Path,
     output_dir: Path,
-    epochs: int = 3,
-    batch_size: int = 16,
-    learning_rate: float = 2e-5,
-    max_length: int = 512,
     *,
-    fp16: bool = False,
-) -> dict:
-    """Fine-tune the model and return test metrics."""
-    from datasets import Dataset  # noqa: PLC0415
-    from sklearn.metrics import classification_report  # noqa: PLC0415
-    from transformers import (  # noqa: PLC0415
-        AutoModelForTokenClassification,
-        AutoTokenizer,
-        DataCollatorForTokenClassification,
-        Trainer,
-        TrainingArguments,
+    epochs: int = 3,
+    batch_size: int = 8,
+) -> int:
+    """Shell out to `opf train`."""
+    cmd = [
+        sys.executable,
+        "-m",
+        "opf",
+        "train",
+        str(train_jsonl),
+        "--validation-dataset",
+        str(val_jsonl),
+        "--label-space-json",
+        str(label_space_json),
+        "--output-dir",
+        str(output_dir),
+        "--epochs",
+        str(epochs),
+        "--batch-size",
+        str(batch_size),
+    ]
+    logger.info("opf_train_start", cmd=" ".join(cmd))
+    result = subprocess.run(cmd, check=False)
+    logger.info("opf_train_done", returncode=result.returncode)
+    return result.returncode
+
+
+def run_opf_eval(
+    test_jsonl: Path,
+    model_dir: Path,
+    label_space_json: Path,
+    metrics_output: Path,
+) -> dict | None:
+    """Shell out to `opf eval` and parse metrics."""
+    cmd = [
+        sys.executable,
+        "-m",
+        "opf",
+        "eval",
+        str(test_jsonl),
+        "--model-dir",
+        str(model_dir),
+        "--label-space-json",
+        str(label_space_json),
+    ]
+    logger.info("opf_eval_start", cmd=" ".join(cmd))
+    result = subprocess.run(cmd, capture_output=True, text=True, check=False)
+    logger.info("opf_eval_done", returncode=result.returncode)
+
+    print(result.stdout)
+    if result.stderr:
+        print(result.stderr, file=sys.stderr)
+
+    metrics_output.parent.mkdir(parents=True, exist_ok=True)
+    metrics_output.write_text(
+        json.dumps({"stdout": result.stdout, "returncode": result.returncode}, indent=2),
+        encoding="utf-8",
     )
 
-    model_name = "openai/privacy-filter"
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
+    try:
+        for raw_line in result.stdout.strip().splitlines():
+            stripped = raw_line.strip()
+            if stripped.startswith("{"):
+                metrics = json.loads(stripped)
+                metrics_output.write_text(
+                    json.dumps(metrics, indent=2, ensure_ascii=False),
+                    encoding="utf-8",
+                )
+                return metrics
+    except (json.JSONDecodeError, ValueError):
+        pass
 
-    random.seed(42)
-    random.shuffle(records)
-    n = len(records)
-    train_end = int(n * 0.8)
-    val_end = train_end + int(n * 0.1)
-
-    raw_train = Dataset.from_list(records[:train_end])
-    raw_val = Dataset.from_list(records[train_end:val_end])
-    raw_test = Dataset.from_list(records[val_end:])
-
-    logger.info("splits", train=len(raw_train), val=len(raw_val), test=len(raw_test))
-
-    def _tokenize(example: dict) -> dict:
-        return tokenize_and_label(example, tokenizer, max_length)
-
-    train_ds = raw_train.map(_tokenize, remove_columns=["text", "spans"])
-    val_ds = raw_val.map(_tokenize, remove_columns=["text", "spans"])
-    test_ds = raw_test.map(_tokenize, remove_columns=["text", "spans"])
-
-    model = AutoModelForTokenClassification.from_pretrained(
-        model_name,
-        num_labels=NUM_LABELS,
-        id2label=ID2LABEL,
-        label2id=LABEL2ID,
-        ignore_mismatched_sizes=True,
-        trust_remote_code=True,
-    )
-
-    def compute_metrics(p: tuple) -> dict:
-        logits, labels = p
-        preds = np.argmax(logits, axis=-1)
-        y_true, y_pred = [], []
-        for pred_row, label_row in zip(preds, labels, strict=True):
-            for p_id, l_id in zip(pred_row, label_row, strict=True):
-                if l_id == -100:
-                    continue
-                y_true.append(ID2LABEL[l_id])
-                y_pred.append(ID2LABEL[p_id])
-        report = classification_report(
-            y_true,
-            y_pred,
-            labels=[la for la in SPAN_CLASS_NAMES if la != "O"],
-            output_dict=True,
-            zero_division=0,
-        )
-        macro = report.get("macro avg", {})
-        result = {
-            "macro_f1": macro.get("f1-score", 0),
-            "macro_precision": macro.get("precision", 0),
-            "macro_recall": macro.get("recall", 0),
-        }
-        for lbl in [
-            "sec_dispositivo",
-            "sec_fundamentacao",
-            "sec_relatorio",
-            "processo_cnj",
-            "id_lei",
-            "id_precedente",
-            "data",
-        ]:
-            result[f"f1_{lbl}"] = report.get(lbl, {}).get("f1-score", 0)
-        return result
-
-    total_steps = (len(train_ds) // batch_size) * epochs
-    warmup_steps = max(50, total_steps // 10)
-
-    training_args = TrainingArguments(
-        output_dir=str(output_dir / "checkpoints"),
-        num_train_epochs=epochs,
-        per_device_train_batch_size=batch_size,
-        per_device_eval_batch_size=batch_size * 2,
-        learning_rate=learning_rate,
-        warmup_steps=warmup_steps,
-        weight_decay=0.01,
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        load_best_model_at_end=True,
-        metric_for_best_model="macro_f1",
-        fp16=fp16,
-        logging_steps=50,
-        report_to="none",
-    )
-
-    trainer = Trainer(
-        model=model,
-        args=training_args,
-        train_dataset=train_ds,
-        eval_dataset=val_ds,
-        data_collator=DataCollatorForTokenClassification(tokenizer),
-        compute_metrics=compute_metrics,
-    )
-
-    logger.info("training_start", epochs=epochs, batch_size=batch_size)
-    trainer.train()
-
-    # Evaluate on test set
-    logger.info("evaluating_test_set")
-    preds_out = trainer.predict(test_ds)
-    preds = np.argmax(preds_out.predictions, axis=-1)
-    labels = preds_out.label_ids
-
-    y_true, y_pred = [], []
-    for pred_row, label_row in zip(preds, labels, strict=True):
-        for p_id, l_id in zip(pred_row, label_row, strict=True):
-            if l_id == -100:
-                continue
-            y_true.append(ID2LABEL[l_id])
-            y_pred.append(ID2LABEL[p_id])
-
-    report_text = classification_report(
-        y_true,
-        y_pred,
-        labels=[la for la in SPAN_CLASS_NAMES if la != "O"],
-        zero_division=0,
-    )
-    report_dict = classification_report(
-        y_true,
-        y_pred,
-        labels=[la for la in SPAN_CLASS_NAMES if la != "O"],
-        output_dict=True,
-        zero_division=0,
-    )
-
-    print("\n" + "=" * 70)
-    print("TEST SET CLASSIFICATION REPORT")
-    print("=" * 70)
-    print(report_text)
-
-    # Save model
-    best_dir = output_dir / "best"
-    trainer.save_model(str(best_dir))
-    tokenizer.save_pretrained(str(best_dir))
-    label_space_path = best_dir / "label_space.json"
-    label_space_path.write_text(
-        json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-    logger.info("model_saved", path=str(best_dir))
-
-    # Save metrics
-    metrics_path = output_dir / "test_metrics.json"
-    metrics_path.write_text(json.dumps(report_dict, indent=2, ensure_ascii=False), encoding="utf-8")
-    logger.info("metrics_saved", path=str(metrics_path))
-
-    return report_dict
+    return None
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Train decision segmenter")
+    parser = argparse.ArgumentParser(description="Train decision segmenter via opf")
     parser.add_argument(
         "--parquet",
         default="data/test_parquets/textos.parquet",
-        help="Path to textos.parquet",
+        help="Path to textos.parquet (for heuristic labeling)",
     )
     parser.add_argument(
         "--download-from",
@@ -422,10 +273,7 @@ def main() -> int:
         help="Output directory for model and metrics",
     )
     parser.add_argument("--epochs", type=int, default=3)
-    parser.add_argument("--batch-size", type=int, default=16)
-    parser.add_argument("--learning-rate", type=float, default=2e-5)
-    parser.add_argument("--max-length", type=int, default=512)
-    parser.add_argument("--fp16", action="store_true", help="Use mixed precision (GPU only)")
+    parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument(
         "--labeled-parquet",
         metavar="PATH",
@@ -434,6 +282,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
+    # Build records
     if args.labeled_parquet:
         labeled_path = Path(args.labeled_parquet)
         if not labeled_path.exists():
@@ -458,19 +307,58 @@ def main() -> int:
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    report = train(
-        records,
-        output_dir,
+    # Split into train/val/test (80/10/10)
+    random.seed(42)
+    random.shuffle(records)
+    n = len(records)
+    train_end = int(n * 0.8)
+    val_end = train_end + int(n * 0.1)
+
+    train_records = records[:train_end]
+    val_records = records[train_end:val_end]
+    test_records = records[val_end:]
+
+    logger.info("splits", train=len(train_records), val=len(val_records), test=len(test_records))
+
+    # Write JSONL files
+    train_jsonl = output_dir / "train.jsonl"
+    val_jsonl = output_dir / "val.jsonl"
+    test_jsonl = output_dir / "test.jsonl"
+
+    write_jsonl(train_records, train_jsonl)
+    write_jsonl(val_records, val_jsonl)
+    write_jsonl(test_records, test_jsonl)
+
+    # Write label_space.json
+    label_space_path = output_dir / "label_space.json"
+    label_space_path.write_text(
+        json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+    logger.info("label_space_written", path=str(label_space_path))
+
+    # Train with opf
+    checkpoint_dir = output_dir / "best"
+    rc = run_opf_train(
+        train_jsonl,
+        val_jsonl,
+        label_space_path,
+        checkpoint_dir,
         epochs=args.epochs,
         batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        max_length=args.max_length,
-        fp16=args.fp16,
     )
+    if rc != 0:
+        logger.error("opf_train_failed", returncode=rc)
+        return rc
 
-    macro = report.get("macro avg", {})
-    print(f"\nMacro F1: {macro.get('f1-score', 0):.3f}")
-    print(f"sec_dispositivo F1: {report.get('sec_dispositivo', {}).get('f1-score', 0):.3f}")
+    # Evaluate on test set
+    metrics_path = output_dir / "test_metrics.json"
+    metrics = run_opf_eval(test_jsonl, checkpoint_dir, label_space_path, metrics_path)
+
+    if metrics:
+        macro = metrics.get("macro avg", {})
+        print(f"\nMacro F1: {macro.get('f1-score', 0):.3f}")
+        disp = metrics.get("sec_dispositivo", {})
+        print(f"sec_dispositivo F1: {disp.get('f1-score', 0):.3f}")
 
     return 0
 

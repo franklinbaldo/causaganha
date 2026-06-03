@@ -2,9 +2,9 @@
 # TRAIN SEGMENTER — Fine-tune openai/privacy-filter as 22-class decision segmenter
 # ============================================================================
 #
-# Downloads judicial texts from Internet Archive, generates silver labels via
-# heuristic segmentation, fine-tunes the model, evaluates on held-out test set,
-# and uploads the trained model + metrics to IA.
+# Uses the opf CLI (openai/privacy-filter) to fine-tune a span classifier on
+# LLM-labeled or heuristic-labeled judicial texts. Evaluates on held-out test
+# set and uploads trained model + metrics to Internet Archive.
 # ============================================================================
 
 name: Train Decision Segmenter
@@ -51,7 +51,7 @@ concurrency:
 
 jobs:
   train:
-    name: Fine-tune segmenter
+    name: Fine-tune segmenter (opf)
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: dev
@@ -68,9 +68,10 @@ jobs:
         with:
           dev: "true"
 
-      - name: Install ML dependencies
+      - name: Install opf (openai/privacy-filter)
         run: |
-          uv add --dev transformers datasets accelerate scikit-learn
+          uv pip install --python .venv/bin/python \
+            "opf @ git+https://github.com/openai/privacy-filter.git"
 
       - uses: ./.github/actions/configure-ia
         with:
@@ -85,7 +86,7 @@ jobs:
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
           if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
-            echo "Training with LLM-labeled data"
+            echo "Training with LLM-labeled data via opf"
             uv run python scripts/train_decision_segmenter.py \
               --labeled-parquet data/benchmark/segmenter_training.parquet \
               --epochs "$EPOCHS" \
@@ -93,7 +94,7 @@ jobs:
               --output-dir models/decision_segmenter \
               2>&1 | tee train.log
           else
-            echo "Training with heuristic-labeled data from IA"
+            echo "Training with heuristic-labeled data from IA via opf"
             IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
             N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
             uv run python scripts/train_decision_segmenter.py \
@@ -117,7 +118,7 @@ jobs:
       - name: Training Summary
         if: always()
         run: |
-          echo "## Decision Segmenter Training" >> $GITHUB_STEP_SUMMARY
+          echo "## Decision Segmenter Training (opf)" >> $GITHUB_STEP_SUMMARY
 
           if [ -f models/decision_segmenter/test_metrics.json ]; then
             MACRO_F1="${{ steps.train.outputs.macro_f1 || 'N/A' }}"
@@ -166,4 +167,3 @@ jobs:
           else:
               print('No IA credentials — skipping model upload')
           "
-
