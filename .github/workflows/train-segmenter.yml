@@ -80,18 +80,30 @@ jobs:
       - name: Train decision segmenter
         id: train
         run: |
-          IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
-          N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
           EPOCHS="${{ github.event.inputs.epochs || '3' }}"
           BATCH_SIZE="${{ github.event.inputs.batch_size || '8' }}"
+          USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
-          uv run python scripts/train_decision_segmenter.py \
-            --download-from "$IA_ITEM" \
-            --n-zips "$N_ZIPS" \
-            --epochs "$EPOCHS" \
-            --batch-size "$BATCH_SIZE" \
-            --output-dir models/decision_segmenter \
-            2>&1 | tee train.log
+          if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
+            echo "Training with LLM-labeled data"
+            uv run python scripts/train_decision_segmenter.py \
+              --labeled-parquet data/benchmark/segmenter_training.parquet \
+              --epochs "$EPOCHS" \
+              --batch-size "$BATCH_SIZE" \
+              --output-dir models/decision_segmenter \
+              2>&1 | tee train.log
+          else
+            echo "Training with heuristic-labeled data from IA"
+            IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
+            N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
+            uv run python scripts/train_decision_segmenter.py \
+              --download-from "$IA_ITEM" \
+              --n-zips "$N_ZIPS" \
+              --epochs "$EPOCHS" \
+              --batch-size "$BATCH_SIZE" \
+              --output-dir models/decision_segmenter \
+              2>&1 | tee train.log
+          fi
 
           # Extract key metrics for summary
           if [ -f models/decision_segmenter/test_metrics.json ]; then

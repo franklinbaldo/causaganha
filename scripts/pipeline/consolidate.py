@@ -1799,6 +1799,17 @@ def consolidate_tribunal_year(
 
         non_empty_tables: set[str] = set()
         if stats["records"] > 0:
+            ndjson_vr = validate_ndjson_sample(ndjson_dir)
+            if not ndjson_vr.passed:
+                logger.error(
+                    "ndjson_validation_blocked",
+                    errors=ndjson_vr.errors,
+                    item_id=item_id,
+                )
+                return stats
+            if ndjson_vr.warnings:
+                logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
+
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
             non_empty_tables = {name for name, cnt in table_counts.items() if int(cnt or 0) > 0}
             logger.info("transform_complete", tables=table_counts)
