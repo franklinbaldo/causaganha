@@ -35,6 +35,11 @@ on:
         description: 'Training batch size (reduce for CPU/low memory)'
         required: false
         default: '8'
+      use_llm_labels:
+        description: 'Use LLM-labeled training data instead of heuristic segmentation'
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: read

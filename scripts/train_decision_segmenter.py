@@ -179,6 +179,27 @@ def build_records(parquet_path: Path) -> list[dict]:
     return records
 
 
+def build_records_from_labeled(parquet_path: Path) -> list[dict]:
+    """Load pre-labeled records (LLM or human annotated) with spans_json column."""
+    import ibis  # noqa: PLC0415
+
+    t = ibis.read_parquet(parquet_path)
+    df = t.filter(t.texto.notnull()).execute()
+    logger.info("loaded_labeled_texts", count=len(df))
+
+    records: list[dict] = []
+    for _, row in df.iterrows():
+        spans_raw = row.get("spans_json", "")
+        if not spans_raw:
+            continue
+        spans = json.loads(spans_raw)
+        spans_tuples = {k: [tuple(pair) for pair in v] for k, v in spans.items()}
+        records.append({"text": row["texto"], "spans": spans_tuples})
+
+    logger.info("labeled_records_loaded", records=len(records))
+    return records
+
+
 def tokenize_and_label(example: dict, tokenizer: object, max_length: int = 512) -> dict:
     """Convert text + char spans to token-level labels."""
     text = example["text"]
@@ -405,20 +426,32 @@ def main() -> int:
     parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--max-length", type=int, default=512)
     parser.add_argument("--fp16", action="store_true", help="Use mixed precision (GPU only)")
+    parser.add_argument(
+        "--labeled-parquet",
+        metavar="PATH",
+        help="Pre-labeled parquet with spans_json column (LLM/human labels). "
+        "Skips heuristic segmentation.",
+    )
     args = parser.parse_args()
 
-    parquet_path = Path(args.parquet)
+    if args.labeled_parquet:
+        labeled_path = Path(args.labeled_parquet)
+        if not labeled_path.exists():
+            logger.error("labeled_parquet_not_found", path=str(labeled_path))
+            return 1
+        records = build_records_from_labeled(labeled_path)
+    else:
+        parquet_path = Path(args.parquet)
+        if args.download_from:
+            parquet_path = download_textos(args.download_from, args.n_zips, parquet_path)
+        elif not parquet_path.exists():
+            logger.error("parquet_not_found", path=str(parquet_path))
+            msg = f"Error: {parquet_path} not found. Use --download-from to fetch data."
+            print(msg, file=sys.stderr)
+            return 1
+        records = build_records(parquet_path)
 
-    if args.download_from:
-        parquet_path = download_textos(args.download_from, args.n_zips, parquet_path)
-    elif not parquet_path.exists():
-        logger.error("parquet_not_found", path=str(parquet_path))
-        msg = f"Error: {parquet_path} not found. Use --download-from to fetch data."
-        print(msg, file=sys.stderr)
-        return 1
-
-    records = build_records(parquet_path)
-    if len(records) < 100:
+    if len(records) < 10:
         logger.error("insufficient_data", count=len(records))
         return 1
 
