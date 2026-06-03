@@ -47,7 +47,7 @@ permissions:
 
 concurrency:
   group: train-segmenter
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   train:
@@ -96,8 +96,8 @@ jobs:
         id: train
         run: |
           set -euo pipefail
-          EPOCHS="${{ github.event.inputs.epochs || '3' }}"
-          BATCH_SIZE="${{ github.event.inputs.batch_size || '8' }}"
+          EPOCHS="${{ github.event.inputs.epochs || '1' }}"
+          BATCH_SIZE="${{ github.event.inputs.batch_size || '2' }}"
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
           if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
