@@ -2,9 +2,9 @@
 # TRAIN SEGMENTER — Fine-tune openai/privacy-filter as 22-class decision segmenter
 # ============================================================================
 #
-# Uses the opf CLI (openai/privacy-filter) to fine-tune a span classifier on
-# LLM-labeled or heuristic-labeled judicial texts. Evaluates on held-out test
-# set and uploads trained model + metrics to Internet Archive.
+# Uses the opf CLI (openai/privacy-filter) to fine-tune a 1.5B-param span
+# classifier on LLM-labeled or heuristic-labeled judicial texts. Evaluates on
+# held-out test set and uploads trained model + metrics to Internet Archive.
 # ============================================================================
 
 name: Train Decision Segmenter
