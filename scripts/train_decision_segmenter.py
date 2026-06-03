@@ -232,11 +232,10 @@ def run_opf_eval(
     if result.stderr:
         print(result.stderr, file=sys.stderr)
 
+    if result.returncode != 0:
+        return None
+
     metrics_output.parent.mkdir(parents=True, exist_ok=True)
-    metrics_output.write_text(
-        json.dumps({"stdout": result.stdout, "returncode": result.returncode}, indent=2),
-        encoding="utf-8",
-    )
 
     try:
         for raw_line in result.stdout.strip().splitlines():
@@ -354,11 +353,14 @@ def main() -> int:
     metrics_path = output_dir / "test_metrics.json"
     metrics = run_opf_eval(test_jsonl, checkpoint_dir, label_space_path, metrics_path)
 
-    if metrics:
-        macro = metrics.get("macro avg", {})
-        print(f"\nMacro F1: {macro.get('f1-score', 0):.3f}")
-        disp = metrics.get("sec_dispositivo", {})
-        print(f"sec_dispositivo F1: {disp.get('f1-score', 0):.3f}")
+    if not metrics:
+        logger.error("opf_eval_failed")
+        return 1
+
+    macro = metrics.get("macro avg", {})
+    print(f"\nMacro F1: {macro.get('f1-score', 0):.3f}")
+    disp = metrics.get("sec_dispositivo", {})
+    print(f"sec_dispositivo F1: {disp.get('f1-score', 0):.3f}")
 
     return 0
 
