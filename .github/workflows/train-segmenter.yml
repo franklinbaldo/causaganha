@@ -10,6 +10,13 @@
 name: Train Decision Segmenter
 
 on:
+  push:
+    branches:
+      - 'claude/**'
+    paths:
+      - 'scripts/train_decision_segmenter.py'
+      - 'scripts/prepare_privacy_filter_dataset.py'
+      - '.github/workflows/train-segmenter.yml'
   workflow_dispatch:
     inputs:
       ia_item:
@@ -69,7 +76,7 @@ jobs:
         id: train
         run: |
           IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
-          N_ZIPS="${{ github.event.inputs.n_zips || '50' }}"
+          N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
           EPOCHS="${{ github.event.inputs.epochs || '3' }}"
           BATCH_SIZE="${{ github.event.inputs.batch_size || '8' }}"
 
