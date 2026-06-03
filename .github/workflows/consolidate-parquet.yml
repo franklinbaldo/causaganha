@@ -164,7 +164,7 @@ jobs:
           fi
 
       - name: Upload consolidation manifest to IA
-        if: steps.consolidate.outputs.files_added == 'true' && steps.download.outputs.existing_manifest_downloaded != 'false'
+        if: steps.consolidate.outputs.files_added == 'true'
         run: |
           MANIFEST="web/public/data/consolidation-manifest.json"
           if [ -f "$MANIFEST" ]; then

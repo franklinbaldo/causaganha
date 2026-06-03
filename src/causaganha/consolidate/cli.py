@@ -349,6 +349,7 @@ def _run_date_batch(
     workers: int,
     max_dates: int,
     deadline_seconds: int,
+    skip_checkpoint: bool = False,
 ) -> dict[str, int | float]:
     """Process a batch of dates with deadline and max-dates limits."""
     start = time.monotonic()
@@ -370,7 +371,7 @@ def _run_date_batch(
         if time.monotonic() - start > deadline_seconds:
             log.info("batch_deadline_reached", elapsed=time.monotonic() - start)
             break
-        if checkpoint.is_date_completed(target_date):
+        if not skip_checkpoint and checkpoint.is_date_completed(target_date):
             log.info("batch_already_done", date=target_date)
             continue
         if target_date in current_version_dates:
@@ -433,6 +434,7 @@ def reconsolidate(
         workers=workers,
         max_dates=max_dates,
         deadline_seconds=deadline_seconds,
+        skip_checkpoint=True,
     )
     _print_stats(total_stats)
 
