@@ -73,6 +73,20 @@ jobs:
           uv pip install --python .venv/bin/python \
             "opf @ git+https://github.com/openai/privacy-filter.git"
 
+      - name: Cache OPF base checkpoint
+        uses: actions/cache@v4
+        with:
+          path: ~/.opf/privacy_filter
+          key: opf-checkpoint-v1
+
+      - name: Download OPF base checkpoint
+        run: |
+          if [ ! -f ~/.opf/privacy_filter/config.json ]; then
+            uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"
+          else
+            echo "OPF checkpoint already cached"
+          fi
+
       - uses: ./.github/actions/configure-ia
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
