@@ -28,7 +28,7 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"vulture_whitelist.py" = ["B018", "F821"]
+"vulture_whitelist.py" = ["B018", "F821", "SLF001"]
 
 # generate-data.py: filename uses a dash (required by existing callers); both
 # functions are intentionally monolithic data-generation routines that would
@@ -98,6 +98,7 @@ ignore = [
     "E402",             # module import not at top (dynamic imports in tests)
     "SIM108",           # ternary expressions not required
     "S608",             # f-string SQL (DuckDB with tmp_path, no user input)
+    "TC003",            # move stdlib import into TYPE_CHECKING (too noisy with from __future__)
 ]
 
 # ── Scripts ────────────────────────────────────────────────────────────────
