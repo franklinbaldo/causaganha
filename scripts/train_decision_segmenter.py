@@ -224,7 +224,6 @@ def run_opf_train(
 def run_opf_eval(
     test_jsonl: Path,
     model_dir: Path,
-    label_space_json: Path,
     metrics_output: Path,
 ) -> dict | None:
     """Shell out to `opf eval` and parse metrics."""
@@ -238,8 +237,6 @@ def run_opf_eval(
         str(test_jsonl),
         "--checkpoint",
         str(model_dir),
-        "--label-space-json",
-        str(label_space_json),
         "--device",
         device,
         "--per-class",
@@ -378,7 +375,7 @@ def main() -> int:
 
     # Evaluate on test set
     metrics_path = output_dir / "test_metrics.json"
-    metrics = run_opf_eval(test_jsonl, checkpoint_dir, label_space_path, metrics_path)
+    metrics = run_opf_eval(test_jsonl, checkpoint_dir, metrics_path)
 
     if not metrics:
         logger.error("opf_eval_failed")
