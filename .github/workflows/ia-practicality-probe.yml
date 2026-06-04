@@ -1,0 +1,56 @@
+# ============================================================================
+# IA PRACTICALITY PROBE — Verify consolidated Parquets on Internet Archive
+# ============================================================================
+#
+# Weekly smoke test: discovers djen-* items on IA, reads Parquet metadata
+# (schema, row counts), and compares against expected columns. Catches data
+# degradation before users report it.
+# ============================================================================
+
+name: IA Practicality Probe
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Every Monday at 09:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe Parquets on IA
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Run practicality probe
+        run: uv run python scripts/ia_practicality_probe.py --sample 5
+
+      - name: Probe Summary
+        if: always()
+        run: |
+          echo "## IA Practicality Probe" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/ia-probe-report.json ]; then
+            uv run python -c "
+          import json, sys
+          report = json.load(open('/tmp/ia-probe-report.json'))
+          print(f'| Metric | Value |', file=sys.stdout)
+          print(f'|--------|-------|', file=sys.stdout)
+          print(f'| Items probed | {report.get(\"items_probed\", 0)} |', file=sys.stdout)
+          print(f'| Tables checked | {report.get(\"tables_checked\", 0)} |', file=sys.stdout)
+          print(f'| Hard failures | {report.get(\"hard_failures\", 0)} |', file=sys.stdout)
+          print(f'| Warnings | {report.get(\"warnings\", 0)} |', file=sys.stdout)
+          " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No probe report generated" >> $GITHUB_STEP_SUMMARY
+          fi

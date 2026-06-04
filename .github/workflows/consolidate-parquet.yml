@@ -65,6 +65,7 @@ jobs:
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
       - name: Download checkpoint state
+        id: download
         run: |
           mkdir -p data
           curl -sSfL -o data/consolidate-checkpoint.json \
@@ -78,6 +79,17 @@ jobs:
             "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
             || echo 'tribunal,date,ia_status,djen_status,djen_raw,updated_at' > data/sync-manifest.csv
           echo "Sync manifest entries: $(tail -n +2 data/sync-manifest.csv | wc -l)"
+          # Download existing consolidation manifest so update_consolidation_manifest()
+          # merges into it rather than overwriting with a single-run snapshot.
+          mkdir -p web/public/data
+          if curl -sSfL -o web/public/data/consolidation-manifest.json \
+            "https://archive.org/download/causaganha-dashboard/consolidation-manifest.json"; then
+            echo "existing_manifest_downloaded=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Consolidation manifest not found on IA (first run) — starting fresh"
+            echo '{"schema_version":"3.0.0","generated_at":"","items":[]}' > web/public/data/consolidation-manifest.json
+            echo "existing_manifest_downloaded=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Run consolidation
         id: consolidate
@@ -149,6 +161,40 @@ jobs:
           else:
               print('No IA credentials — skipping checkpoint upload')
           "
+          fi
+
+      - name: Upload consolidation manifest to IA
+        if: steps.consolidate.outputs.files_added == 'true'
+        run: |
+          MANIFEST="web/public/data/consolidation-manifest.json"
+          if [ -f "$MANIFEST" ]; then
+            uv run python -c "
+          import asyncio
+          from pathlib import Path
+          from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth, upload_to_ia
+          auth = get_ia_s3_auth()
+          async def _upload():
+              async with create_upload_client(auth) as client:
+                  await upload_to_ia(client, 'causaganha-dashboard', Path('$MANIFEST'), 'consolidation-manifest')
+                  print('Consolidation manifest uploaded to IA')
+          if auth:
+              asyncio.run(_upload())
+          else:
+              print('No IA credentials — skipping manifest upload')
+          "
+          else
+            echo "No consolidation manifest found — skipping"
+          fi
+
+      - name: Run benchmark update
+        if: steps.consolidate.outputs.files_added == 'true'
+        continue-on-error: true
+        run: |
+          if [ -f data/causaganha.duckdb ]; then
+            echo "Updating benchmark with new decisions..."
+            uv run python scripts/daily_benchmark_update.py --mock --limit 10
+          else
+            echo "No DuckDB catalog found — skipping benchmark update"
           fi
 
       - name: Trigger catalog regeneration

@@ -46,7 +46,6 @@ if TYPE_CHECKING:
 
 log = structlog.get_logger()
 
-SCHEMA_VERSION = "3"
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 

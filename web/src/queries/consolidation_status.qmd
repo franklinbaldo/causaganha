@@ -1,0 +1,32 @@
+---
+title: "Consolidation Status"
+description: "Daily consolidation coverage: how many uploaded dates have been consolidated vs pending."
+output: /data/consolidation_status.json
+format: object
+---
+
+Overview of consolidation progress: total dates with uploads, how many have
+been consolidated (have Parquets on IA), and the backlog depth.
+
+```{sql}
+WITH uploaded_dates AS (
+  SELECT DISTINCT date
+  FROM manifest
+  WHERE ia_status = 'uploaded'
+),
+daily_counts AS (
+  SELECT
+    date,
+    COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS tribunals_uploaded
+  FROM manifest
+  WHERE ia_status = 'uploaded'
+  GROUP BY date
+)
+SELECT
+  COUNT(*) AS total_dates_with_uploads,
+  COUNT(*) FILTER (WHERE tribunals_uploaded >= 90) AS dates_fully_uploaded,
+  COUNT(*) FILTER (WHERE tribunals_uploaded < 90) AS dates_partially_uploaded,
+  MIN(CAST(date AS VARCHAR)) AS earliest_date,
+  MAX(CAST(date AS VARCHAR)) AS latest_date
+FROM daily_counts;
+```

@@ -60,6 +60,13 @@ from tenacity import (
 )
 
 from causaganha.config import TRIBUNAIS
+from causaganha.consolidate.consolidation_manifest import (
+    collect_table_stats,
+    update_consolidation_manifest,
+)
+from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
+from causaganha.consolidate.schema_registry import CURRENT_VERSION, kv_metadata_sql_fragment
+from causaganha.consolidate.validation import validate_parquet
 from causaganha.storage.connection import get_connection
 from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
@@ -245,6 +252,16 @@ def mark_date_complete(date: str) -> None:
     logger.info("date_marked_complete", date=date)
 
 
+def clear_date_checkpoint(date: str) -> None:
+    """Clear per-ZIP checkpoint for a date so the next run re-processes all ZIPs."""
+    state = load_checkpoint_state()
+    if state.get("current_date") == date:
+        state["current_date"] = None
+        state["processed_zips"] = []
+        save_checkpoint_state(state)
+        logger.info("date_checkpoint_cleared", date=date)
+
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=1, max=8),
@@ -408,7 +425,6 @@ class CheckpointManager:
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
-SCHEMA_VERSION = "3"
 NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 logger = structlog.get_logger()
@@ -1499,6 +1515,7 @@ def _export_table_sync(
     table_name: str,
     con: ibis.BaseBackend,
     output_dir: Path,
+    item_id: str = "",
 ) -> tuple[Path, float, int] | None:
     """Export a single table to Parquet (blocking DuckDB work).
 
@@ -1511,8 +1528,12 @@ def _export_table_sync(
         if count == 0:
             return None
         output_path = output_dir / f"{table_name}.parquet"
+        kv_clause = kv_metadata_sql_fragment(item_id) if item_id else ""
+        copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
+        if kv_clause:
+            copy_opts = f"{copy_opts}, {kv_clause}"
         con.raw_sql(
-            f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+            f"COPY {table_name} TO '{output_path}' ({copy_opts})",
         )
         size_mb = output_path.stat().st_size / (1024 * 1024)
         return output_path, size_mb, int(count)
@@ -1536,7 +1557,9 @@ async def _export_and_upload_table(
     behaviour as the previous ThreadPoolExecutor path).
     """
     try:
-        export_result = await asyncio.to_thread(_export_table_sync, table_name, con, output_dir)
+        export_result = await asyncio.to_thread(
+            _export_table_sync, table_name, con, output_dir, item_id
+        )
         if export_result is None:
             return False, 0.0, 0
 
@@ -1547,6 +1570,13 @@ async def _export_and_upload_table(
             rows=count,
             size_mb=f"{size_mb:.1f}",
         )
+
+        vr = await asyncio.to_thread(validate_parquet, output_path, table_name)
+        if not vr.passed:
+            logger.error("validation_blocked_upload", table=table_name, errors=vr.errors)
+            return False, size_mb, 0
+        if vr.warnings:
+            logger.warning("validation_warnings", table=table_name, warnings=vr.warnings)
 
         # Upload if not dry run
         uploaded = 0
@@ -1767,8 +1797,21 @@ def consolidate_tribunal_year(
                         error=str(e),
                     )
 
+        non_empty_tables: set[str] = set()
         if stats["records"] > 0:
+            ndjson_vr = validate_ndjson_sample(ndjson_dir)
+            if not ndjson_vr.passed:
+                logger.error(
+                    "ndjson_validation_blocked",
+                    errors=ndjson_vr.errors,
+                    item_id=item_id,
+                )
+                return stats
+            if ndjson_vr.warnings:
+                logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
+
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            non_empty_tables = {name for name, cnt in table_counts.items() if int(cnt or 0) > 0}
             logger.info("transform_complete", tables=table_counts)
 
         output_dir = tmp_path / "output"
@@ -1783,8 +1826,10 @@ def consolidate_tribunal_year(
             )
 
         ia_circuit_breaker = CircuitBreaker(threshold=5)
+        export_failures = 0
 
         async def _run_upload_phase() -> None:
+            nonlocal export_failures
             async with create_upload_client(ia_auth or "") as client:
                 results = []
                 for table_name in TABLES:
@@ -1809,18 +1854,42 @@ def consolidate_tribunal_year(
                             table=table_name,
                             error=str(result),
                         )
+                        if table_name in non_empty_tables:
+                            export_failures += 1
                         continue
                     success, size_mb, uploaded = result
                     if success:
                         stats["parquets_created"] += 1
                         stats["uploaded"] += uploaded
                         stats["uploaded_mb"] += size_mb
+                        if not uploaded and not dry_run and table_name in non_empty_tables:
+                            export_failures += 1
+                    elif table_name in non_empty_tables:
+                        export_failures += 1
 
-                if stats["parquets_created"] > 0 and not dry_run:
+                expected = len(non_empty_tables)
+                if (
+                    stats["uploaded"] == expected
+                    and export_failures == 0
+                    and expected > 0
+                    and not dry_run
+                ):
                     if await _upload_marker(client, item_id, date_tag):
                         logger.info("marker_uploaded", item_id=item_id)
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
+                elif (
+                    expected > 0
+                    and not dry_run
+                    and (stats["uploaded"] != expected or export_failures > 0)
+                ):
+                    logger.error(
+                        "marker_blocked_by_incomplete_exports",
+                        item_id=item_id,
+                        expected_parquets=expected,
+                        uploaded=stats["uploaded"],
+                        export_failures=export_failures,
+                    )
 
         asyncio.run(_run_upload_phase())
 
@@ -1950,8 +2019,21 @@ def consolidate_date(
                     logger.exception("zip_processing_error", zip=zip_filename, error=str(e))
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
+        non_empty_tables: set[str] = set()
         if stats["records"] > 0:
+            ndjson_vr = validate_ndjson_sample(ndjson_dir)
+            if not ndjson_vr.passed:
+                logger.error(
+                    "ndjson_validation_blocked",
+                    errors=ndjson_vr.errors,
+                    item_id=item_id,
+                )
+                clear_date_checkpoint(date)
+                return stats
+            if ndjson_vr.warnings:
+                logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
             table_counts = _load_and_transform(con, ndjson_dir, item_id)
+            non_empty_tables = {name for name, cnt in table_counts.items() if int(cnt or 0) > 0}
             logger.info("transform_complete", tables=table_counts)
 
         # Phase 3: Export to Parquet and upload (parallel for 2-3x speedup)
@@ -1969,9 +2051,13 @@ def consolidate_date(
             )
 
         ia_circuit_breaker = CircuitBreaker(threshold=5)
+        uploaded_tables: list[str] = []
+        export_failures = 0
+        marker_ok = False
 
         async def _run_upload_phase() -> None:
             """Phase 3+4: sequential Parquet export/upload then marker upload."""
+            nonlocal export_failures, marker_ok
             async with create_upload_client(ia_auth or "") as client:
                 results = []
                 for table_name in TABLES:
@@ -1992,22 +2078,67 @@ def consolidate_date(
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):
                         logger.exception("table_export_error", table=table_name, error=str(result))
+                        if table_name in non_empty_tables:
+                            export_failures += 1
                     else:
                         success, size_mb, uploaded = result
                         if success:
                             stats["parquets_created"] += 1
                             stats["uploaded"] += uploaded
                             stats["uploaded_mb"] += size_mb
+                            if uploaded:
+                                uploaded_tables.append(table_name)
+                            elif not dry_run and table_name in non_empty_tables:
+                                export_failures += 1
+                        elif table_name in non_empty_tables:
+                            export_failures += 1
 
-                # Phase 4: Upload consolidation marker
-                if stats["parquets_created"] > 0 and not dry_run:
+                # Phase 4: Upload consolidation marker only when ALL non-empty
+                # tables were created AND uploaded to IA (not just locally).
+                expected = len(non_empty_tables)
+                if (
+                    stats["uploaded"] == expected
+                    and export_failures == 0
+                    and expected > 0
+                    and not dry_run
+                ):
                     if await _upload_marker(client, item_id, date):
                         logger.info("marker_uploaded", item_id=item_id)
                         mark_date_complete(date)
+                        marker_ok = True
                     else:
                         logger.warning("marker_upload_failed", item_id=item_id)
+                elif (
+                    expected > 0
+                    and not dry_run
+                    and (stats["uploaded"] != expected or export_failures > 0)
+                ):
+                    logger.error(
+                        "marker_blocked_by_incomplete_uploads",
+                        item_id=item_id,
+                        expected=expected,
+                        uploaded=stats["uploaded"],
+                        export_failures=export_failures,
+                    )
 
         asyncio.run(_run_upload_phase())
+
+        if not marker_ok and not dry_run:
+            clear_date_checkpoint(date)
+
+        # Phase 5: Update consolidation manifest — only when the marker succeeded
+        # (all non-empty tables exported and uploaded) and only on real runs.
+        if marker_ok and uploaded_tables:
+            try:
+                table_stats = collect_table_stats(output_dir, uploaded_tables)
+                update_consolidation_manifest(
+                    item_id=item_id,
+                    date_str=date,
+                    schema_version=CURRENT_VERSION,
+                    table_stats=table_stats,
+                )
+            except OSError as exc:
+                logger.warning("manifest_update_failed", error=str(exc))
 
     return stats
 

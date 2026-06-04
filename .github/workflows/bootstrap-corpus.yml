@@ -1,0 +1,164 @@
+# ============================================================================
+# BOOTSTRAP CORPUS — OPF entity detection + heuristic sections (CPU)
+# ============================================================================
+#
+# Stage 1 of the two-stage bootstrap pipeline:
+#   1. Download texts from IA (tribunal-stratified sampling)
+#   2. Run OPF base model (1.5B) on CPU for entity detection
+#   3. Apply heuristic regex for structural sections + legal refs
+#   4. Auto-map unambiguous labels, isolate person spans for review
+#   5. Upload intermediate.jsonl to IA for agent review (Stage 2)
+#
+# Stage 2 (person role classification) is handled by Claude agents
+# that download the intermediate, review person spans, and produce
+# the final v5 training corpus.
+# ============================================================================
+
+name: Bootstrap Training Corpus
+
+on:
+  push:
+    branches:
+      - claude/epic-clarke-9uaaQ
+    paths:
+      - 'scripts/bootstrap_training_corpus.py'
+      - '.github/workflows/bootstrap-corpus.yml'
+  workflow_dispatch:
+    inputs:
+      target:
+        description: 'Number of texts to process'
+        required: false
+        default: '500'
+      n_items:
+        description: 'Number of IA items to scan for ZIPs'
+        required: false
+        default: '10'
+      max_per_tribunal:
+        description: 'Max texts per tribunal (prevents bias)'
+        required: false
+        default: '100'
+
+permissions:
+  contents: read
+  actions: write
+
+concurrency:
+  group: bootstrap-corpus
+  cancel-in-progress: true
+
+jobs:
+  stage1-opf-heuristic:
+    name: "Stage 1: OPF + Heuristic (CPU)"
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    environment: dev
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "true"
+
+      - name: Install opf + transformers
+        run: |
+          uv pip install --python .venv/bin/python \
+            "opf @ git+https://github.com/openai/privacy-filter.git"
+
+      - name: Cache OPF base checkpoint
+        uses: actions/cache@v4
+        with:
+          path: ~/.opf/privacy_filter
+          key: opf-checkpoint-v1
+          save-always: true
+
+      - name: Download OPF base checkpoint
+        run: |
+          if [ -f ~/.opf/privacy_filter/config.json ]; then
+            echo "OPF checkpoint already cached"
+            exit 0
+          fi
+          for attempt in 1 2 3 4; do
+            echo "Download attempt $attempt..."
+            if uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"; then
+              echo "Checkpoint downloaded successfully"
+              exit 0
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "::error::Failed to download OPF checkpoint after 4 attempts"
+          exit 1
+
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+
+      - name: Download texts from IA
+        run: |
+          TARGET="${{ inputs.target || '500' }}"
+          N_ITEMS="${{ inputs.n_items || '10' }}"
+          MAX_PER="${{ inputs.max_per_tribunal || '100' }}"
+
+          uv run python scripts/augment_segmenter_data.py \
+            --target "$TARGET" \
+            --max-per-tribunal "$MAX_PER" \
+            --output-dir data/bootstrap_texts \
+            --n-items "$N_ITEMS"
+
+      - name: Run OPF + heuristic (Stage 1)
+        run: |
+          uv run python scripts/bootstrap_training_corpus.py \
+            --input data/bootstrap_texts/train.jsonl \
+            --target ${{ inputs.target || '500' }} \
+            --device -1 \
+            --save-intermediate data/intermediate.jsonl
+
+      - name: Stage 1 Summary
+        if: always()
+        run: |
+          echo "## Bootstrap Corpus — Stage 1 (OPF + Heuristic)" >> $GITHUB_STEP_SUMMARY
+
+          if [ -f data/intermediate.jsonl ]; then
+            LINES=$(wc -l < data/intermediate.jsonl)
+            SIZE=$(du -h data/intermediate.jsonl | cut -f1)
+            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
+            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| Texts processed | $LINES |" >> $GITHUB_STEP_SUMMARY
+            echo "| Intermediate size | $SIZE |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Intermediate saved. Ready for Stage 2 (agent review)." >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No intermediate output produced." >> $GITHUB_STEP_SUMMARY
+          fi
+
+      - name: Upload intermediate as artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bootstrap-intermediate
+          path: data/intermediate.jsonl
+          retention-days: 90
+
+      - name: Upload intermediate to IA
+        if: success()
+        run: |
+          uv pip install --python .venv/bin/python internetarchive
+          uv run ia upload causaganha-segmenter-data \
+            data/intermediate.jsonl \
+            --metadata="collection:opensource" \
+            --metadata="mediatype:data" \
+            --metadata="title:CausaGanha Segmenter Bootstrap Intermediate" \
+            --no-derive \
+            || echo "::warning::IA upload failed — intermediate available as GHA artifact"
+
+      - name: Force failure for CI notification
+        if: always()
+        run: |
+          echo "Bootstrap Stage 1 completed — failing intentionally for webhook notification."
+          exit 1

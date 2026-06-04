@@ -196,7 +196,7 @@ async def upload_to_ia(
 
     Args:
         client: Shared httpx client (should have Authorization header).
-        item_id: IA item identifier (e.g. ``"djen-2026-01-27"``).
+        item_id: IA item identifier (e.g. ``"djen-tjro-2025"``).
         file_path: Local file to upload.
         date_str: Date string for metadata (``YYYY-MM-DD``).
         metadata_overrides: Optional dict of ``x-archive-meta-*`` values

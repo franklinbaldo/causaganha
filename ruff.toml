@@ -28,7 +28,7 @@ ignore = [
 ]
 
 [lint.per-file-ignores]
-"vulture_whitelist.py" = ["B018", "F821"]
+"vulture_whitelist.py" = ["B018", "F821", "SLF001"]
 
 # generate-data.py: filename uses a dash (required by existing callers); both
 # functions are intentionally monolithic data-generation routines that would
@@ -75,6 +75,8 @@ ignore = [
 # checksums; S108 is a hardcoded tmp path (audit on cleanup); S101 is an
 # assert in archive.py that should become a real check.
 "src/causaganha/consolidate/manifest_reader.py" = ["S608"]
+"src/causaganha/consolidate/validation.py" = ["S608"]
+"src/causaganha/consolidate/consolidation_manifest.py" = ["S608"]
 "src/causaganha/storage/embedding_storage.py" = ["S608"]
 "src/causaganha/catalog/creator.py" = ["S608"]
 "src/causaganha/analysis/ground_truth.py" = ["S608"]
@@ -95,6 +97,8 @@ ignore = [
     "SLF001",           # private member access
     "E402",             # module import not at top (dynamic imports in tests)
     "SIM108",           # ternary expressions not required
+    "S608",             # f-string SQL (DuckDB with tmp_path, no user input)
+    "TC003",            # move stdlib import into TYPE_CHECKING (too noisy with from __future__)
 ]
 
 # ── Scripts ────────────────────────────────────────────────────────────────

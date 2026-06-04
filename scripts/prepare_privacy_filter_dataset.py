@@ -16,24 +16,23 @@ Status:   research/dataset-prep — feeds notebooks/train_decision_segmenter.py.
 Reads textos.parquet from data/test_parquets, applies heuristic segmentation to
 label each decision with structural spans, named entities, and legal references.
 
-Label taxonomy (21 categories + O background = 22 labels):
+Label taxonomy v5 (20 categories + O background = 21 labels):
   Sections   : sec_cabecalho, sec_relatorio, sec_fundamentacao,
                 sec_dispositivo, sec_assinatura
-  Non-text   : elem_nao_textual
-  Parties    : parte_autor, parte_reu, parte_terceiro
-  Personnel  : nome_advogado, oab, nome_juiz
-  PII        : cpf_cnpj
-  Legal meta : processo_cnj, classe_processual, id_lei,
-                id_precedente, citacao_precedente
+  Parties    : parte_autor, parte_reu
+  Personnel  : nome_advogado, oab, autoridade_judicial
+  PII        : cpf_cnpj, endereco, email, telefone
+  Legal meta : processo_cnj, classe_processual, id_lei, id_precedente
   Temporal   : data
+  Financial  : valor_monetario
 
 Heuristic coverage per label:
   ✓ All structural sections (regex boundary markers)
   ✓ processo_cnj, cpf_cnpj, oab, data, id_lei, id_precedente,
-    classe_processual  (pattern-based)
+    classe_processual, valor_monetario, autoridade_judicial  (pattern-based)
   ~ nome_advogado  (adjacent-to-OAB heuristic, partial)
-  ✗ parte_autor, parte_reu, parte_terceiro, nome_juiz,
-    citacao_precedente, elem_nao_textual  (need LLM or NER pass)
+  ~ endereco, email, telefone  (OPF base model detects; heuristic does not)
+  ✗ parte_autor, parte_reu  (need LLM or NER pass)
 
 Output format is compatible with both:
   - opf train  (openai/privacy-filter CLI, --label-space-json)
@@ -91,6 +90,62 @@ LABEL_SPACE = {
     "span_class_names": SPAN_CLASS_NAMES,
 }
 
+# v5: drop dead labels, merge serventuario→autoridade_judicial, add PII from OPF
+SPAN_CLASS_NAMES_V5: list[str] = [
+    "O",
+    "sec_cabecalho",
+    "sec_relatorio",
+    "sec_fundamentacao",
+    "sec_dispositivo",
+    "sec_assinatura",
+    "parte_autor",
+    "parte_reu",
+    "nome_advogado",
+    "oab",
+    "autoridade_judicial",  # merged nome_juiz + serventuario
+    "cpf_cnpj",
+    "processo_cnj",
+    "classe_processual",
+    "id_lei",
+    "id_precedente",
+    "data",
+    "valor_monetario",
+    "endereco",  # new: physical addresses (OPF private_address)
+    "email",  # new: email addresses (OPF private_email)
+    "telefone",  # new: phone numbers (OPF private_phone)
+]
+
+LABEL_SPACE_V5 = {
+    "category_version": "causaganha-v5",
+    "span_class_names": SPAN_CLASS_NAMES_V5,
+}
+
+_V5_VALID = frozenset(SPAN_CLASS_NAMES_V5)
+
+_V4_TO_V5_MAP: dict[str, str | None] = {
+    "nome_juiz": "autoridade_judicial",
+    "serventuario": "autoridade_judicial",
+    "elem_nao_textual": None,
+    "parte_terceiro": None,
+    "citacao_precedente": None,
+}
+
+
+def migrate_spans_v4_to_v5(
+    spans: dict[str, list[list[int]]],
+) -> dict[str, list[list[int]]]:
+    """Map v4 label names to v5, merging/dropping as needed."""
+    out: dict[str, list[list[int]]] = {}
+    for label, pairs in spans.items():
+        if label in _V5_VALID:
+            out.setdefault(label, []).extend(pairs)
+        elif label in _V4_TO_V5_MAP:
+            mapped = _V4_TO_V5_MAP[label]
+            if mapped is not None:
+                out.setdefault(mapped, []).extend(pairs)
+    return out
+
+
 # Labels that are structural sections (filled first; overwritten by entity labels)
 _SECTION_LABELS: frozenset[str] = frozenset(
     {
@@ -99,7 +154,6 @@ _SECTION_LABELS: frozenset[str] = frozenset(
         "sec_fundamentacao",
         "sec_dispositivo",
         "sec_assinatura",
-        "elem_nao_textual",
     }
 )
 
@@ -397,8 +451,9 @@ def _segment(text: str, fp_filter: object = None) -> dict[str, list[list[int]]] 
     _collect(spans, "nome_advogado", _ADVOGADO_HEADER_RE, text, group=1, end=assin_start)
 
     # Judge / clerk: only after dispositivo (signature block)
-    _collect(spans, "nome_juiz", _JUIZ_RE, text, group=1, start=dispositivo_start)
-    _collect(spans, "serventuario", _SERVENTUARIO_RE, text, group=1, start=dispositivo_start)
+    # v5: merged nome_juiz + serventuario → autoridade_judicial
+    _collect(spans, "autoridade_judicial", _JUIZ_RE, text, group=1, start=dispositivo_start)
+    _collect(spans, "autoridade_judicial", _SERVENTUARIO_RE, text, group=1, start=dispositivo_start)
 
     return spans
 
@@ -588,9 +643,11 @@ def main() -> int:
     label_space_path = Path(args.label_space)
     label_space_path.parent.mkdir(parents=True, exist_ok=True)
     label_space_path.write_text(
-        json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(LABEL_SPACE_V5, indent=2, ensure_ascii=False), encoding="utf-8"
     )
-    logger.info("label_space_saved", file=str(label_space_path), num_labels=len(SPAN_CLASS_NAMES))
+    logger.info(
+        "label_space_saved", file=str(label_space_path), num_labels=len(SPAN_CLASS_NAMES_V5)
+    )
     return 0
 
 

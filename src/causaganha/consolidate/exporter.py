@@ -16,6 +16,8 @@ import anyio
 import httpx
 import structlog
 
+from causaganha.consolidate.schema_registry import kv_metadata_sql_fragment
+from causaganha.consolidate.validation import validate_parquet
 from causaganha.pipeline.ia_s3 import upload_to_ia
 
 
@@ -40,8 +42,9 @@ def export_table_sync(
     table_name: str,
     con: ibis.BaseBackend,
     output_dir: Path,
+    item_id: str = "",
 ) -> tuple[Path, float, int] | None:
-    """Export one DuckDB table → Parquet file.
+    """Export one DuckDB table → Parquet file with schema version stamp.
 
     Returns ``(output_path, size_mb, row_count)`` or ``None`` when empty.
     Blocking — call via ``asyncio.to_thread`` from async code.
@@ -51,8 +54,12 @@ def export_table_sync(
     if count == 0:
         return None
     output_path = output_dir / f"{table_name}.parquet"
+    kv_clause = kv_metadata_sql_fragment(item_id) if item_id else ""
+    copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
+    if kv_clause:
+        copy_opts = f"{copy_opts}, {kv_clause}"
     con.raw_sql(
-        f"COPY {table_name} TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)",
+        f"COPY {table_name} TO '{output_path}' ({copy_opts})",
     )
     size_mb = output_path.stat().st_size / (1024 * 1024)
     return output_path, size_mb, count
@@ -93,7 +100,13 @@ async def export_and_upload_table(
     Any exception during export or upload is logged and returns ``(False, 0.0, 0)``.
     """
     try:
-        export_result = await asyncio.to_thread(export_table_sync, table_name, con, output_dir)
+        export_result = await asyncio.to_thread(
+            export_table_sync,
+            table_name,
+            con,
+            output_dir,
+            item_id,
+        )
         if export_result is None:
             return False, 0.0, 0
 
@@ -104,6 +117,13 @@ async def export_and_upload_table(
             rows=count,
             size_mb=f"{size_mb:.1f}",
         )
+
+        vr = await asyncio.to_thread(validate_parquet, output_path, table_name)
+        if not vr.passed:
+            log.error("validation_blocked_upload", table=table_name, errors=vr.errors)
+            return False, size_mb, 0
+        if vr.warnings:
+            log.warning("validation_warnings", table=table_name, warnings=vr.warnings)
 
         uploaded = 0
         if not dry_run and await _upload_consolidated(
@@ -134,22 +154,22 @@ async def upload_marker(
     The existence of the file in the IA item is the signal — contents are
     irrelevant. Future runs check for this marker to skip already-done dates.
     """
+    tmp_dir = Path(tempfile.mkdtemp())
+    marker_path = tmp_dir / "_consolidated.marker"
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix="_consolidated.marker", delete=False
-        ) as f:
-            marker_path = Path(f.name)
+        marker_path.write_text("")
 
         log.info("uploading_marker", item_id=item_id)
         success = await _upload_consolidated(
             client, item_id, marker_path, date_str, circuit_breaker=circuit_breaker
         )
 
-        with contextlib.suppress(OSError):
-            await anyio.Path(marker_path).unlink()
-
     except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
         log.exception("marker_upload_failed", item_id=item_id, error=str(exc))
         return False
     else:
         return success
+    finally:
+        with contextlib.suppress(OSError):
+            await anyio.Path(marker_path).unlink()
+            await anyio.Path(tmp_dir).rmdir()
