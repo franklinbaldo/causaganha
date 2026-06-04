@@ -41,7 +41,7 @@ NAMESPACE_DJEN = uuid.uuid5(uuid.NAMESPACE_DNS, "djen.causaganha.org")
 
 IA_SEARCH_URL = (
     "https://archive.org/advancedsearch.php"
-    "?q=identifier:djen-2*+AND+mediatype:data"
+    "?q=identifier:djen-*+AND+mediatype:data"
     "&fl[]=identifier&rows={rows}&sort[]=addeddate+desc&output=json"
 )
 
@@ -136,7 +136,7 @@ def _clean_texto(raw: str) -> str:
 
 
 def discover_items(n_items: int = 20) -> list[str]:
-    """Find recent djen-YYYY-MM-DD items on IA."""
+    """Find djen-* items on IA (tribunal-year format: djen-tjro-2025)."""
     url = IA_SEARCH_URL.format(rows=n_items)
     with urlopen(url, timeout=30) as r:
         data = json.loads(r.read())
@@ -158,7 +158,7 @@ def list_zips(item_id: str) -> list[str]:
 
 
 def _parse_tribunal_from_zip(zip_name: str) -> str:
-    """Extract tribunal sigla from ZIP filename like djen-2026-01-27-TJSP.zip."""
+    """Extract tribunal sigla from ZIP filename like djen-2025-01-27-TJSP.zip."""
     stem = zip_name.replace(".zip", "")
     parts = stem.split("-")
     if len(parts) >= 4:
@@ -386,7 +386,7 @@ def main() -> int:
         "--n-items",
         type=int,
         default=15,
-        help="Number of IA date-items to scan for ZIPs",
+        help="Number of IA items to scan for ZIPs (tribunal-year items)",
     )
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()

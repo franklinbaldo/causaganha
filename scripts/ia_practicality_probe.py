@@ -38,9 +38,9 @@ MINIMAL_REQUIRED_COLUMNS: dict[str, list[str]] = {
 
 
 def discover_items(limit: int = 10) -> list[str]:
-    """Find djen-YYYY-MM-DD items on IA via advanced search."""
+    """Find djen-* items on IA via advanced search (tribunal-year format)."""
     params = {
-        "q": "identifier:djen-2* AND mediatype:data",
+        "q": "identifier:djen-* AND mediatype:data",
         "fl[]": "identifier",
         "rows": str(limit),
         "sort[]": "addeddate desc",
