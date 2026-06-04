@@ -19,7 +19,7 @@ from causaganha.consolidate.schema_registry import CURRENT_VERSION, kv_metadata_
 
 @pytest.fixture
 def parquet_dir(tmp_path: Path) -> Path:
-    fragment = kv_metadata_sql_fragment("djen-2026-06-01")
+    fragment = kv_metadata_sql_fragment("djen-tjsp-2026")
     con = duckdb.connect()
     con.execute("CREATE TABLE comunicacoes AS SELECT 'uuid-1' AS id, 'TJRO' AS tribunal")
     con.execute(
@@ -54,7 +54,7 @@ class TestUpdateConsolidationManifest:
         manifest_path = tmp_path / "manifest.json"
         stats = {"comunicacoes": TableStats(rows=100, size_bytes=1024, sha256="abc")}
         update_consolidation_manifest(
-            item_id="djen-2026-06-01",
+            item_id="djen-tjsp-2026",
             date_str="2026-06-01",
             schema_version=CURRENT_VERSION,
             table_stats=stats,
@@ -63,14 +63,14 @@ class TestUpdateConsolidationManifest:
         assert manifest_path.exists()
         data = json.loads(manifest_path.read_text())
         assert len(data["items"]) == 1
-        assert data["items"][0]["item_id"] == "djen-2026-06-01"
+        assert data["items"][0]["item_id"] == "djen-tjsp-2026"
 
     def test_idempotent_on_rerun(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.json"
         stats = {"comunicacoes": TableStats(rows=100, size_bytes=1024, sha256="abc")}
         for _ in range(3):
             update_consolidation_manifest(
-                item_id="djen-2026-06-01",
+                item_id="djen-tjsp-2026",
                 date_str="2026-06-01",
                 schema_version=CURRENT_VERSION,
                 table_stats=stats,
@@ -79,13 +79,18 @@ class TestUpdateConsolidationManifest:
         data = json.loads(manifest_path.read_text())
         assert len(data["items"]) == 1
 
-    def test_accumulates_multiple_dates(self, tmp_path: Path) -> None:
+    def test_accumulates_multiple_items(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.json"
         stats = {"comunicacoes": TableStats(rows=50, size_bytes=512, sha256="def")}
-        for date in ["2026-06-01", "2026-06-02", "2026-06-03"]:
+        items = [
+            ("djen-tjsp-2026", "2026-06-01"),
+            ("djen-tjmg-2026", "2026-06-02"),
+            ("djen-tjro-2026", "2026-06-03"),
+        ]
+        for item_id, date_str in items:
             update_consolidation_manifest(
-                item_id=f"djen-{date}",
-                date_str=date,
+                item_id=item_id,
+                date_str=date_str,
                 schema_version=CURRENT_VERSION,
                 table_stats=stats,
                 manifest_path=manifest_path,
@@ -101,10 +106,15 @@ class TestUpdateConsolidationManifest:
     def test_items_sorted_by_date(self, tmp_path: Path) -> None:
         manifest_path = tmp_path / "manifest.json"
         stats = {"comunicacoes": TableStats(rows=10, size_bytes=256, sha256="xyz")}
-        for date in ["2026-06-03", "2026-06-01", "2026-06-02"]:
+        items = [
+            ("djen-tjro-2026", "2026-06-03"),
+            ("djen-tjsp-2026", "2026-06-01"),
+            ("djen-tjmg-2026", "2026-06-02"),
+        ]
+        for item_id, date_str in items:
             update_consolidation_manifest(
-                item_id=f"djen-{date}",
-                date_str=date,
+                item_id=item_id,
+                date_str=date_str,
                 schema_version=CURRENT_VERSION,
                 table_stats=stats,
                 manifest_path=manifest_path,
@@ -117,7 +127,7 @@ class TestUpdateConsolidationManifest:
         manifest_path = tmp_path / "deep" / "nested" / "manifest.json"
         stats = {"comunicacoes": TableStats(rows=1, size_bytes=100, sha256="aaa")}
         update_consolidation_manifest(
-            item_id="djen-2026-06-01",
+            item_id="djen-tjsp-2026",
             date_str="2026-06-01",
             schema_version=CURRENT_VERSION,
             table_stats=stats,

@@ -60,8 +60,8 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
 
     Given('coverage data for tribunals STF and STJ', () => {
       props.initialIaSnapshot.items = {
-        'backup-djen-2024-01-01-STF': { tribunal: 'STF', zip_count: 10, latest_date: '2024-01-01' },
-        'backup-djen-2024-01-01-STJ': { tribunal: 'STJ', zip_count: 5, latest_date: '2024-01-01' },
+        'djen-stf-2024': { tribunal: 'STF', zip_count: 10, latest_date: '2024-01-01' },
+        'djen-stj-2024': { tribunal: 'STJ', zip_count: 5, latest_date: '2024-01-01' },
       };
     });
 

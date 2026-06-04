@@ -123,7 +123,7 @@ CausaGanha:
 Cada Parquet consolidado carrega no footer:
 ```
 causaganha.schema_version = "3.1.0"
-causaganha.item_id = "djen-2026-06-01"
+causaganha.item_id = "djen-tjsp-2026"
 causaganha.consolidated_at = "2026-06-02T07:00:00Z"
 ```
 Lido via `parquet_kv_metadata()` do DuckDB. Custo zero, colado ao dado.
@@ -253,8 +253,9 @@ Criar `web/public/data/consolidation-manifest.json`:
   "generated_at": "2026-06-02T07:00:00Z",
   "items": [
     {
-      "item_id": "djen-2026-06-01",
-      "date": "2026-06-01",
+      "item_id": "djen-tjsp-2026",
+      "year": 2026,
+      "tribunal": "tjsp",
       "schema_version": "3.1.0",
       "tables": {
         "comunicacoes": { "rows": 12345, "size_bytes": 4567890, "sha256": "..." },

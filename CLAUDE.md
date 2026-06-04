@@ -21,6 +21,7 @@ The canonical sync engine is in `src/djen_backup/`. Key concepts:
 - Engine runs 3 independent worker pools: **checkers** (DJEN API), **downloaders** (fetch ZIP), **uploaders** (push to IA).
 - Periodic IA upload every 10 min protects against crashes.
 - Phase 0 uses IA advanced search to discover existing items, then fetches metadata in parallel (~50 concurrent).
+- **IA item naming**: Items use `djen-{tribunal}-{year}` format (e.g. `djen-tjro-2025`). The old `djen-YYYY-MM-DD` per-day format is discontinued. ZIP files inside items still use `djen-YYYY-MM-DD-{TRIBUNAL}.zip`.
 
 ### Manifest query contracts (web)
 

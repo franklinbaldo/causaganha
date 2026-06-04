@@ -90,7 +90,7 @@ def test_all_tables_populated_from_synthetic_data():
         ndjson_dir = Path(tmpdir)
         _create_synthetic_ndjson(ndjson_dir)
 
-        counts = _load_and_transform(con, ndjson_dir, item_id="djen-2026-04-01")
+        counts = _load_and_transform(con, ndjson_dir, item_id="djen-tjsp-2026")
 
     # All tables should exist
     assert len(TABLES) == 10, f"Expected 10 tables, got {len(TABLES)}"
@@ -133,7 +133,7 @@ def test_classificacoes_outcomes():
     with tempfile.TemporaryDirectory() as tmpdir:
         ndjson_dir = Path(tmpdir)
         _create_synthetic_ndjson(ndjson_dir)
-        _load_and_transform(con, ndjson_dir, item_id="djen-2026-04-01")
+        _load_and_transform(con, ndjson_dir, item_id="djen-tjsp-2026")
 
     df = con.table("classificacoes").to_pandas()
     outcomes = set(df["outcome"].tolist())
@@ -155,7 +155,7 @@ def test_parquet_export_roundtrip():
         ndjson_dir = Path(tmpdir) / "ndjson"
         ndjson_dir.mkdir()
         _create_synthetic_ndjson(ndjson_dir)
-        _load_and_transform(con, ndjson_dir, item_id="djen-2026-04-01")
+        _load_and_transform(con, ndjson_dir, item_id="djen-tjsp-2026")
 
         output_dir = Path(tmpdir) / "parquet"
         output_dir.mkdir()

@@ -79,12 +79,12 @@ class TestSchemaVersioning:
 
 class TestKVMetadata:
     def test_kv_metadata_contains_version(self) -> None:
-        meta = kv_metadata_for_export("djen-2026-06-01")
+        meta = kv_metadata_for_export("djen-tjsp-2026")
         assert meta["causaganha.schema_version"] == CURRENT_VERSION
 
     def test_kv_metadata_contains_item_id(self) -> None:
-        meta = kv_metadata_for_export("djen-2026-06-01")
-        assert meta["causaganha.item_id"] == "djen-2026-06-01"
+        meta = kv_metadata_for_export("djen-tjsp-2026")
+        assert meta["causaganha.item_id"] == "djen-tjsp-2026"
 
     def test_kv_sql_fragment_parseable(self) -> None:
         fragment = kv_metadata_sql_fragment("djen-test")
@@ -114,7 +114,7 @@ class TestValidation:
     @pytest.fixture
     def valid_comunicacoes_parquet(self, tmp_path: Path) -> Path:
         con = duckdb.connect()
-        fragment = kv_metadata_sql_fragment("djen-2026-06-01")
+        fragment = kv_metadata_sql_fragment("djen-tjsp-2026")
         con.execute("""
             CREATE TABLE comunicacoes AS SELECT
                 'uuid-1' AS id,
@@ -136,7 +136,7 @@ class TestValidation:
                 'texto-uuid' AS texto_id,
                 2026 AS p_ano,
                 6 AS p_mes,
-                'djen-2026-06-01' AS p_item_ia
+                'djen-tjsp-2026' AS p_item_ia
         """)
         path = tmp_path / "comunicacoes.parquet"
         con.execute(f"COPY comunicacoes TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD, {fragment})")
@@ -215,7 +215,7 @@ class TestValidation:
                 'texto-uuid' AS texto_id,
                 2026 AS p_ano,
                 6 AS p_mes,
-                'djen-2026-06-01' AS p_item_ia,
+                'djen-tjsp-2026' AS p_item_ia,
                 'SURPRISE' AS rogue_column
         """)
         path = tmp_path / "comunicacoes.parquet"

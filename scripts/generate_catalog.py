@@ -171,9 +171,8 @@ def get_items_from_sync_manifest(
 def list_ia_items() -> list[str]:
     """List all djen-* items from Internet Archive.
 
-    Covers both item formats:
-      - New: djen-{tribunal}-{year}  (e.g. djen-tjro-2025)
-      - Old: djen-{YYYY-MM-DD}       (e.g. djen-2026-01-15)
+    Current item format: djen-{tribunal}-{year} (e.g. djen-tjro-2025).
+    Legacy format (discontinued): djen-{YYYY-MM-DD} (e.g. djen-2026-01-15).
 
     Returns empty list on error - caller should handle gracefully.
     """
@@ -416,7 +415,7 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 }
         return None
 
-    # Handle consolidated parquets in daily item root (e.g. textos.parquet in djen-2026-02-10)
+    # Handle consolidated parquets in item root (e.g. textos.parquet in djen-tjro-2025)
     if (
         filename.endswith(".parquet")
         and not filename.startswith("djen-")
@@ -690,9 +689,10 @@ def load_existing_manifest() -> list[dict]:
 def get_item_date(item_id: str) -> date | None:
     """Extract date from item identifier.
 
-    Handles two formats:
-      - Old: djen-2026-01-06  → returns 2026-01-06
-      - New: djen-tjro-2025   → returns None (no specific date in ID)
+    Current format: djen-{tribunal}-{year} (e.g. djen-tjro-2025) → returns None
+        (no specific date in ID).
+    Legacy format (discontinued): djen-YYYY-MM-DD (e.g. djen-2026-01-06) → returns
+        the embedded date.
     """
     if not item_id.startswith("djen-"):
         return None
