@@ -1,20 +1,26 @@
 #!/usr/bin/env python3
-"""Bootstrap high-quality training corpus using OPF base model + Haiku refinement.
+r"""Bootstrap high-quality training corpus using OPF base model + agent review.
 
-Two-stage pipeline:
-  Stage 1 (GPU): OPF base model detects entity spans (private_person, email, etc.)
-  Stage 1b (CPU): Heuristic regex detects structural sections + legal refs
-  Stage 2 (API): Claude Haiku reclassifies ambiguous spans (persons → roles)
+Two-stage pipeline (can run independently):
+  Stage 1 (CPU/GPU): OPF detects entities, heuristic detects sections, auto-maps
+    unambiguous labels → saves intermediate.jsonl with person spans for review
+  Stage 2 (agents): Claude agents review person spans, classify roles, produce
+    final v5 training corpus
 
-Unambiguous OPF labels are auto-mapped without LLM (email, phone, address, date).
-Account numbers are regex-classified (CPF/CNPJ/OAB/CNJ patterns).
-Only `private_person` spans go to Haiku for role disambiguation.
-
-Usage (on Colab with GPU + ANTHROPIC_API_KEY):
+Stage 1 runs via GHA (bootstrap-corpus.yml) or locally:
     python scripts/bootstrap_training_corpus.py \
-        --texts-parquet data/texts.parquet \
-        --output-dir models/decision_segmenter \
-        --target 2000
+        --input data/texts.jsonl --device -1 \
+        --save-intermediate data/intermediate.jsonl
+
+Stage 2 (agent review) loads intermediate and merges:
+    python scripts/bootstrap_training_corpus.py \
+        --load-intermediate data/intermediate.jsonl \
+        --output-dir models/decision_segmenter
+
+Full pipeline (Colab with GPU + API key):
+    python scripts/bootstrap_training_corpus.py \
+        --input data/texts.jsonl --device 0 \
+        --output-dir models/decision_segmenter
 """
 
 from __future__ import annotations
@@ -73,42 +79,35 @@ CONTEXT_CHARS = 150
 # ---------------------------------------------------------------------------
 
 
-def run_opf_inference(texts: list[str], batch_size: int = 8) -> list[list[dict]]:
+def run_opf_inference(texts: list[str], *, device: int = -1) -> list[list[dict]]:
     """Run OPF base model on texts, return spans per text.
 
-    Each span: {"entity_group": str, "start": int, "end": int, "score": float}
+    Each span: {"label": str, "start": int, "end": int, "text": str}
+    Uses OPF's native Python API (opf._api.OPF) instead of HuggingFace pipeline.
     """
-    from transformers import pipeline as hf_pipeline  # noqa: PLC0415
+    from opf._api import OPF  # noqa: PLC0415
 
-    logger.info("loading_opf_model")
-    classifier = hf_pipeline(
-        task="token-classification",
-        model="openai/privacy-filter",
-        aggregation_strategy="simple",
-        trust_remote_code=True,
-        device=0,
-    )
+    device_str = "cpu" if device < 0 else "cuda"
+    logger.info("loading_opf_model", device=device_str)
+    redactor = OPF(device=device_str, output_mode="typed")
     logger.info("opf_model_loaded")
 
     all_spans: list[list[dict]] = []
-    for i in range(0, len(texts), batch_size):
-        batch = texts[i : i + batch_size]
-        results = classifier(batch)
-        if isinstance(results[0], dict):
-            results = [results]
-        for spans in results:
-            parsed = [
-                {
-                    "entity_group": s["entity_group"],
-                    "start": int(s["start"]),
-                    "end": int(s["end"]),
-                    "score": float(s["score"]),
-                }
-                for s in spans
-            ]
-            all_spans.append(parsed)
-        if (i + batch_size) % 100 == 0 or i + batch_size >= len(texts):
-            logger.info("opf_progress", done=min(i + batch_size, len(texts)), total=len(texts))
+    for i, text in enumerate(texts):
+        result = redactor.redact(text)
+        parsed = [
+            {
+                "label": span.label,
+                "start": span.start,
+                "end": span.end,
+                "text": span.text,
+            }
+            for span in result.detected_spans
+        ]
+        all_spans.append(parsed)
+        done = i + 1
+        if done % 50 == 0 or done == len(texts):
+            logger.info("opf_progress", done=done, total=len(texts))
 
     return all_spans
 
@@ -128,7 +127,7 @@ def classify_account(span_text: str, context_before: str) -> str:
         return "oab"
     if re.search(r"CPF|CNPJ", context_before[-80:], re.IGNORECASE):
         return "cpf_cnpj"
-    return "cpf_cnpj"
+    return "O"
 
 
 def auto_map_spans(text: str, opf_spans: list[dict]) -> tuple[list[dict], list[dict]]:
@@ -141,19 +140,19 @@ def auto_map_spans(text: str, opf_spans: list[dict]) -> tuple[list[dict], list[d
     ambiguous = []
 
     for span in opf_spans:
-        eg = span["entity_group"]
+        opf_label = span["label"]
         s, e = span["start"], span["end"]
-        span_text = text[s:e]
+        span_text = span.get("text", text[s:e])
 
-        if eg in AUTO_MAP:
-            label = AUTO_MAP[eg]
+        if opf_label in AUTO_MAP:
+            label = AUTO_MAP[opf_label]
             if label != "O":
                 resolved.append({"start": s, "end": e, "label": label, "text": span_text})
-        elif eg == "account_number":
+        elif opf_label == "account_number":
             ctx_before = text[max(0, s - 80) : s]
             label = classify_account(span_text, ctx_before)
             resolved.append({"start": s, "end": e, "label": label, "text": span_text})
-        elif eg in HAIKU_LABELS:
+        elif opf_label in HAIKU_LABELS:
             ctx_before = text[max(0, s - CONTEXT_CHARS) : s]
             ctx_after = text[e : e + CONTEXT_CHARS]
             ambiguous.append(
@@ -161,7 +160,7 @@ def auto_map_spans(text: str, opf_spans: list[dict]) -> tuple[list[dict], list[d
                     "start": s,
                     "end": e,
                     "text": span_text,
-                    "opf_label": eg,
+                    "opf_label": opf_label,
                     "context_before": ctx_before,
                     "context_after": ctx_after,
                 }
@@ -372,26 +371,154 @@ def load_texts(input_path: Path, limit: int | None = None) -> list[dict]:
     return rows
 
 
+def _merge_and_write(
+    texts: list[str],
+    all_heuristic: list[dict],
+    all_auto: list[list[dict]],
+    all_haiku: list[list[dict]],
+    args: argparse.Namespace,
+) -> int:
+    """Merge all label sources, split, and write training JSONL."""
+    from collections import Counter  # noqa: PLC0415
+
+    logger.info("merging_labels")
+    records: list[dict] = []
+    for text, heur, auto, haiku in zip(texts, all_heuristic, all_auto, all_haiku, strict=True):
+        merged = merge_spans(heur, auto, haiku)
+        if not merged:
+            continue
+        has_section = any(k.startswith("sec_") for k in merged)
+        has_entity = any(not k.startswith("sec_") for k in merged)
+        if has_section or has_entity:
+            records.append({"text": text, "spans": merged})
+
+    logger.info("records_built", count=len(records))
+
+    random.shuffle(records)
+    n = len(records)
+    train_end = int(n * 0.8)
+    val_end = train_end + int(n * 0.1)
+
+    splits = {
+        "train": records[:train_end],
+        "val": records[train_end:val_end],
+        "test": records[val_end:],
+    }
+
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+    for name, recs in splits.items():
+        path = args.output_dir / f"{name}.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            for rec in recs:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+        logger.info("jsonl_written", split=name, path=str(path), count=len(recs))
+
+    label_space_path = args.output_dir / "label_space.json"
+    label_space_path.write_text(
+        json.dumps(LABEL_SPACE_V5, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
+
+    label_counts: Counter[str] = Counter()
+    for rec in records:
+        for label in rec["spans"]:
+            label_counts[label] += 1
+
+    print(f"\n{'=' * 60}")
+    print("BOOTSTRAP CORPUS SUMMARY")
+    print(f"{'=' * 60}")
+    print(f"Total records: {len(records)}")
+    print(f"Train/Val/Test: {len(splits['train'])}/{len(splits['val'])}/{len(splits['test'])}")
+    print("\nLabel coverage:")
+    for label, count in sorted(label_counts.items(), key=lambda x: -x[1]):
+        pct = count / len(records) * 100
+        print(f"  {label:<22} {count:>5} ({pct:.1f}%)")
+    print(f"{'=' * 60}")
+
+    return 0
+
+
+def _run_from_intermediate(args: argparse.Namespace) -> int:
+    """Stage 2 only: load intermediate JSONL, run Haiku, merge, write output."""
+    api_key = os.environ.get("ANTHROPIC_API_KEY", "")
+    if not api_key and not args.skip_haiku:
+        logger.error("ANTHROPIC_API_KEY not set. Use --skip-haiku for heuristic-only merge.")
+        return 1
+
+    logger.info("loading_intermediate", path=str(args.load_intermediate))
+    with args.load_intermediate.open(encoding="utf-8") as f:
+        records_raw = [json.loads(line) for line in f if line.strip()]
+    logger.info("intermediate_loaded", count=len(records_raw))
+
+    if len(records_raw) < 10:
+        logger.error("insufficient_records", count=len(records_raw))
+        return 1
+
+    texts = [r["text"] for r in records_raw]
+    all_heuristic = [r["heuristic_spans"] for r in records_raw]
+    all_auto = [r["auto_mapped"] for r in records_raw]
+    all_ambiguous = [r["ambiguous"] for r in records_raw]
+
+    total_ambig = sum(len(a) for a in all_ambiguous)
+    logger.info("intermediate_stats", texts=len(texts), need_haiku=total_ambig)
+
+    if args.skip_haiku or not api_key:
+        logger.info("skipping_haiku")
+        all_haiku: list[list[dict]] = [[] for _ in texts]
+    else:
+        logger.info("stage2_haiku", total_persons=total_ambig)
+        all_haiku = classify_persons_haiku(
+            texts,
+            all_ambiguous,
+            all_heuristic,
+            api_key,
+            batch_size=args.haiku_batch_size,
+        )
+        haiku_classified = sum(len(h) for h in all_haiku)
+        dropped = total_ambig - haiku_classified
+        logger.info("haiku_done", classified=haiku_classified, dropped_as_O=dropped)
+
+    return _merge_and_write(texts, all_heuristic, all_auto, all_haiku, args)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Bootstrap training corpus via OPF + Haiku")
-    parser.add_argument("--input", type=Path, required=True, help="Input texts (parquet or JSONL)")
+    parser.add_argument("--input", type=Path, help="Input texts (parquet or JSONL)")
     parser.add_argument("--output-dir", type=Path, default=Path("models/decision_segmenter"))
     parser.add_argument("--target", type=int, default=2000, help="Max texts to process")
-    parser.add_argument("--opf-batch-size", type=int, default=8)
     parser.add_argument("--haiku-batch-size", type=int, default=40)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--device", type=int, default=-1, help="Device for OPF (-1=CPU, 0+=GPU)")
     parser.add_argument(
         "--skip-haiku",
         action="store_true",
         help="Skip Haiku step (use only auto-mapped + heuristic labels)",
     )
+    stage_group = parser.add_mutually_exclusive_group()
+    stage_group.add_argument(
+        "--save-intermediate",
+        type=Path,
+        metavar="PATH",
+        help="Run stages 1/1b/1.5 only and save intermediate JSONL (no Haiku)",
+    )
+    stage_group.add_argument(
+        "--load-intermediate",
+        type=Path,
+        metavar="PATH",
+        help="Skip OPF, load intermediate JSONL, run Haiku + merge",
+    )
     args = parser.parse_args()
 
     random.seed(args.seed)
 
+    if args.load_intermediate:
+        return _run_from_intermediate(args)
+
+    if not args.input:
+        parser.error("--input is required unless using --load-intermediate")
+
     api_key = os.environ.get("ANTHROPIC_API_KEY", "")
-    if not api_key and not args.skip_haiku:
-        logger.error("ANTHROPIC_API_KEY not set. Use --skip-haiku for OPF+heuristic only.")
+    if not api_key and not args.skip_haiku and not args.save_intermediate:
+        logger.error("ANTHROPIC_API_KEY not set. Use --skip-haiku or --save-intermediate.")
         return 1
 
     # --- Load texts ---
@@ -403,14 +530,14 @@ def main() -> int:
     texts = [r["texto"] for r in rows]
 
     # --- Stage 1: OPF inference ---
-    logger.info("stage1_opf_inference", texts=len(texts))
-    opf_spans_per_text = run_opf_inference(texts, batch_size=args.opf_batch_size)
+    logger.info("stage1_opf_inference", texts=len(texts), device=args.device)
+    opf_spans_per_text = run_opf_inference(texts, device=args.device)
 
     opf_stats: dict[str, int] = {}
     for spans in opf_spans_per_text:
         for sp in spans:
-            eg = sp["entity_group"]
-            opf_stats[eg] = opf_stats.get(eg, 0) + 1
+            lbl = sp["label"]
+            opf_stats[lbl] = opf_stats.get(lbl, 0) + 1
     logger.info("opf_detection_stats", **opf_stats)
 
     # --- Stage 1b: Heuristic sections + regex entities ---
@@ -437,6 +564,35 @@ def main() -> int:
     total_ambig = sum(len(a) for a in all_ambiguous)
     logger.info("auto_map_done", auto_resolved=total_auto, need_haiku=total_ambig)
 
+    # --- Save intermediate and exit if requested ---
+    if args.save_intermediate:
+        args.save_intermediate.parent.mkdir(parents=True, exist_ok=True)
+        with args.save_intermediate.open("w", encoding="utf-8") as f:
+            for row, heur, auto, ambig in zip(
+                rows, all_heuristic, all_auto, all_ambiguous, strict=True
+            ):
+                f.write(
+                    json.dumps(
+                        {
+                            "id": row["id"],
+                            "text": row["texto"],
+                            "heuristic_spans": heur,
+                            "auto_mapped": auto,
+                            "ambiguous": ambig,
+                        },
+                        ensure_ascii=False,
+                    )
+                    + "\n"
+                )
+        logger.info(
+            "intermediate_saved",
+            path=str(args.save_intermediate),
+            count=len(rows),
+            auto_mapped=total_auto,
+            need_haiku=total_ambig,
+        )
+        return 0
+
     # --- Stage 2: Haiku reclassification ---
     if args.skip_haiku or not api_key:
         logger.info("skipping_haiku")
@@ -454,69 +610,7 @@ def main() -> int:
         dropped = total_ambig - haiku_classified
         logger.info("haiku_done", classified=haiku_classified, dropped_as_O=dropped)
 
-    # --- Merge and write ---
-    logger.info("merging_labels")
-    records: list[dict] = []
-    for text, heur, auto, haiku in zip(texts, all_heuristic, all_auto, all_haiku, strict=True):
-        merged = merge_spans(heur, auto, haiku)
-        if not merged:
-            continue
-        has_section = any(k.startswith("sec_") for k in merged)
-        has_entity = any(not k.startswith("sec_") for k in merged)
-        if has_section or has_entity:
-            records.append({"text": text, "spans": merged})
-
-    logger.info("records_built", count=len(records))
-
-    # --- Split and write JSONL ---
-    random.shuffle(records)
-    n = len(records)
-    train_end = int(n * 0.8)
-    val_end = train_end + int(n * 0.1)
-
-    splits = {
-        "train": records[:train_end],
-        "val": records[train_end:val_end],
-        "test": records[val_end:],
-    }
-
-    args.output_dir.mkdir(parents=True, exist_ok=True)
-    for name, recs in splits.items():
-        path = args.output_dir / f"{name}.jsonl"
-        with path.open("w", encoding="utf-8") as f:
-            for rec in recs:
-                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-        logger.info("jsonl_written", split=name, path=str(path), count=len(recs))
-
-    # Write label space
-    label_space_path = args.output_dir / "label_space.json"
-    label_space_path.write_text(
-        json.dumps(LABEL_SPACE_V5, indent=2, ensure_ascii=False), encoding="utf-8"
-    )
-
-    # --- Coverage report ---
-    from collections import Counter  # noqa: PLC0415
-
-    label_counts: Counter[str] = Counter()
-    for rec in records:
-        for label in rec["spans"]:
-            label_counts[label] += 1
-
-    print(f"\n{'=' * 60}")
-    print("BOOTSTRAP CORPUS SUMMARY")
-    print(f"{'=' * 60}")
-    print(f"Total records: {len(records)}")
-    print(f"OPF entities auto-mapped: {total_auto}")
-    print(f"Person spans sent to Haiku: {total_ambig}")
-    print(f"Heuristic coverage: {heuristic_ok}/{len(texts)} texts")
-    print(f"Train/Val/Test: {len(splits['train'])}/{len(splits['val'])}/{len(splits['test'])}")
-    print("\nLabel coverage:")
-    for label, count in sorted(label_counts.items(), key=lambda x: -x[1]):
-        pct = count / len(records) * 100
-        print(f"  {label:<22} {count:>5} ({pct:.1f}%)")
-    print(f"{'=' * 60}")
-
-    return 0
+    return _merge_and_write(texts, all_heuristic, all_auto, all_haiku, args)
 
 
 if __name__ == "__main__":
