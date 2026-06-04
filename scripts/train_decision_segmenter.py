@@ -142,6 +142,34 @@ def build_records(parquet_path: Path) -> list[dict]:
     return records
 
 
+def build_records_from_intermediate(jsonl_path: Path) -> list[dict]:
+    """Load bootstrap intermediate JSONL and merge heuristic + auto-mapped spans.
+
+    The intermediate format (from bootstrap_training_corpus.py --save-intermediate)
+    has: text, heuristic_spans, auto_mapped, ambiguous.  We merge heuristic +
+    auto_mapped into final spans.  Ambiguous person spans are dropped (they need
+    agent review in Stage 2).
+    """
+    from scripts.bootstrap_training_corpus import merge_spans  # noqa: PLC0415
+
+    records: list[dict] = []
+    with jsonl_path.open(encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            rec = json.loads(line)
+            merged = merge_spans(
+                rec.get("heuristic_spans", {}),
+                rec.get("auto_mapped", []),
+                [],
+            )
+            if merged:
+                records.append({"text": rec["text"], "spans": merged})
+
+    logger.info("intermediate_records_loaded", records=len(records), source=str(jsonl_path))
+    return records
+
+
 def build_records_from_labeled(parquet_path: Path) -> list[dict]:
     """Load pre-labeled records (LLM or human annotated) with spans_json column."""
     import ibis  # noqa: PLC0415
@@ -287,6 +315,12 @@ def main() -> int:
         "Skips heuristic segmentation.",
     )
     parser.add_argument(
+        "--from-intermediate",
+        metavar="PATH",
+        help="Bootstrap intermediate JSONL (from bootstrap_training_corpus.py "
+        "--save-intermediate). Merges heuristic + auto-mapped spans.",
+    )
+    parser.add_argument(
         "--prepare-only",
         action="store_true",
         help="Write JSONL + label_space.json but skip training/eval. "
@@ -295,7 +329,13 @@ def main() -> int:
     args = parser.parse_args()
 
     # Build records
-    if args.labeled_parquet:
+    if args.from_intermediate:
+        intermediate_path = Path(args.from_intermediate)
+        if not intermediate_path.exists():
+            logger.error("intermediate_not_found", path=str(intermediate_path))
+            return 1
+        records = build_records_from_intermediate(intermediate_path)
+    elif args.labeled_parquet:
         labeled_path = Path(args.labeled_parquet)
         if not labeled_path.exists():
             logger.error("labeled_parquet_not_found", path=str(labeled_path))

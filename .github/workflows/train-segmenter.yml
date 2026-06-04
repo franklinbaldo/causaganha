@@ -1,10 +1,10 @@
 # ============================================================================
-# TRAIN SEGMENTER — Fine-tune openai/privacy-filter as 22-class decision segmenter
+# TRAIN SEGMENTER — Fine-tune openai/privacy-filter as 21-class decision segmenter
 # ============================================================================
 #
 # Uses the opf CLI (openai/privacy-filter) to fine-tune a 1.5B-param span
-# classifier on LLM-labeled or heuristic-labeled judicial texts. Evaluates on
-# held-out test set and uploads trained model + metrics to Internet Archive.
+# classifier on LLM-labeled, bootstrap intermediate, or heuristic-labeled
+# judicial texts. Evaluates on held-out test set and uploads model to IA.
 # ============================================================================
 
 name: Train Decision Segmenter
@@ -78,21 +78,48 @@ jobs:
         with:
           path: ~/.opf/privacy_filter
           key: opf-checkpoint-v1
+          save-always: true
 
       - name: Download OPF base checkpoint
         run: |
-          if [ ! -f ~/.opf/privacy_filter/config.json ]; then
-            uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"
-          else
+          if [ -f ~/.opf/privacy_filter/config.json ]; then
             echo "OPF checkpoint already cached"
+            exit 0
           fi
+          for attempt in 1 2 3 4; do
+            echo "Download attempt $attempt..."
+            if uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"; then
+              echo "Checkpoint downloaded successfully"
+              exit 0
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "::error::Failed to download OPF checkpoint after 4 attempts"
+          exit 1
 
       - uses: ./.github/actions/configure-ia
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
 
-      - name: Train decision segmenter
+      - name: Download bootstrap intermediate from IA
+        id: intermediate
+        run: |
+          uv pip install --python .venv/bin/python internetarchive
+          INTERMEDIATE_URL="https://archive.org/download/causaganha-segmenter-data/intermediate.jsonl"
+          echo "Checking for bootstrap intermediate at $INTERMEDIATE_URL..."
+          if curl -sfL --head "$INTERMEDIATE_URL" >/dev/null 2>&1; then
+            mkdir -p data
+            curl -fL "$INTERMEDIATE_URL" -o data/intermediate.jsonl
+            LINES=$(wc -l < data/intermediate.jsonl)
+            echo "Downloaded intermediate.jsonl ($LINES records)"
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "No bootstrap intermediate found on IA — will use other data sources"
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Prepare training data
         id: train
         run: |
           set -euo pipefail
@@ -102,8 +129,7 @@ jobs:
 
           # OPF's 1.5B model needs ~24GB RAM for training (weights + Adam optimizer
           # + gradients). Standard GHA runners have 16GB — not enough.
-          # Also, CPU training is impractical for 1.5B params.
-          # Use --prepare-only unless a GPU is available on a large runner.
+          # Use --prepare-only unless a GPU with enough RAM is available.
           PREPARE_FLAG="--prepare-only"
           if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
             TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
@@ -118,8 +144,18 @@ jobs:
             echo "::warning::No GPU detected — using --prepare-only (download JSONL artifact to train on GPU)"
           fi
 
-          if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
-            echo "Training with LLM-labeled data via opf"
+          # Data source priority: intermediate > LLM parquet > IA download
+          if [ "${{ steps.intermediate.outputs.available }}" = "true" ]; then
+            echo "Using bootstrap intermediate (OPF + heuristic labeled)"
+            uv run python scripts/train_decision_segmenter.py \
+              --from-intermediate data/intermediate.jsonl \
+              --epochs "$EPOCHS" \
+              --batch-size "$BATCH_SIZE" \
+              --output-dir models/decision_segmenter \
+              $PREPARE_FLAG \
+              2>&1 | tee train.log
+          elif [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
+            echo "Using LLM-labeled parquet"
             uv run python scripts/train_decision_segmenter.py \
               --labeled-parquet data/benchmark/segmenter_training.parquet \
               --epochs "$EPOCHS" \
@@ -128,7 +164,7 @@ jobs:
               $PREPARE_FLAG \
               2>&1 | tee train.log
           else
-            echo "Training with heuristic-labeled data from IA via opf"
+            echo "Using heuristic-labeled data from IA"
             IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
             N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
             uv run python scripts/train_decision_segmenter.py \
