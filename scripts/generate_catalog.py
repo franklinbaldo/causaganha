@@ -343,11 +343,14 @@ def generate_consolidate_progress(manifest: list[dict]) -> dict:
     target_days = (target_end - target_start).days + 1
 
     # Find dates with consolidated parquets or _consolidated.marker
+    # Tribunal-year items have date=None (whole-year consolidation); skip those for
+    # per-day progress tracking.
     consolidated_dates = set()
     for m in manifest:
-        if m["file_type"] == "parquet" or (
-            m["file_type"] == "marker" and "_consolidated" in m.get("filename", "")
-        ):
+        if (
+            m["file_type"] == "parquet"
+            or (m["file_type"] == "marker" and "_consolidated" in m.get("filename", ""))
+        ) and m["date"] is not None:
             consolidated_dates.add(m["date"])
 
     if not consolidated_dates:
@@ -390,6 +393,29 @@ def generate_consolidate_progress(manifest: list[dict]) -> dict:
     }
 
 
+def _parse_tribunal_year_item(item_id: str) -> tuple[str, str] | None:
+    """Parse tribunal and year from a tribunal-year item ID.
+
+    Returns (tribunal_upper, year) or None if not a tribunal-year item.
+    E.g. "djen-tjro-2025" → ("TJRO", "2025"), "djen-tre-ac-2025" → ("TRE-AC", "2025").
+    """
+    if not item_id.startswith("djen-"):
+        return None
+    suffix = item_id[len("djen-") :]
+    if suffix[:1].isdigit():
+        return None
+    parts = suffix.split("-")
+    if len(parts) < 2:
+        return None
+    year = parts[-1]
+    if not (year.isdigit() and MIN_YEAR_CUTOFF <= int(year) <= MAX_YEAR_CUTOFF):
+        return None
+    tribunal = "-".join(parts[:-1]).upper()
+    if not _validate_tribunal_code(tribunal):
+        return None
+    return (tribunal, year)
+
+
 def parse_filename(filename: str, item_id: str) -> dict | None:
     """Parse filename to extract date, tribunal, file_type, table_name.
 
@@ -399,8 +425,21 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
     if not filename or not isinstance(filename, str):
         return None
 
+    tribunal_year = _parse_tribunal_year_item(item_id)
+
     if filename == "_consolidated.marker":
-        # Extract date from item_id
+        if tribunal_year:
+            tribunal, _year = tribunal_year
+            return {
+                "date": None,
+                "tribunal": tribunal,
+                "file_type": "marker",
+                "table_name": None,
+                "file_name": filename,
+                "ia_item": item_id,
+                "ia_url": f"https://archive.org/download/{item_id}/{filename}",
+            }
+        # Fallback for legacy per-day items
         if item_id.startswith("djen-"):
             date_str = item_id.replace("djen-", "")
             if _validate_date_str(date_str):
@@ -415,22 +454,31 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                 }
         return None
 
-    # Handle consolidated parquets in item root (e.g. textos.parquet in djen-tjro-2025)
+    # Handle consolidated parquets in item root (e.g. comunicacoes.parquet in djen-tjro-2025)
     if (
         filename.endswith(".parquet")
         and not filename.startswith("djen-")
-        and len(filename.split("-")) == 1
+        and "-" not in filename.replace(".parquet", "")
     ):
+        table_name = filename.replace(".parquet", "")
+        if table_name not in KNOWN_TABLE_NAMES and table_name != "embeddings":
+            return None
+
+        if tribunal_year:
+            tribunal, _year = tribunal_year
+            return {
+                "date": None,
+                "tribunal": tribunal,
+                "file_type": "parquet",
+                "table_name": table_name,
+                "file_name": filename,
+                "ia_item": item_id,
+                "ia_url": f"https://archive.org/download/{item_id}/{filename}",
+            }
+        # Fallback for legacy per-day items
         if item_id.startswith("djen-"):
-            try:
-                date_str = item_id.replace("djen-", "")
-                if not _validate_date_str(date_str):
-                    return None
-
-                table_name = filename.replace(".parquet", "")
-                if table_name not in KNOWN_TABLE_NAMES and table_name != "embeddings":
-                    return None
-
+            date_str = item_id.replace("djen-", "")
+            if _validate_date_str(date_str):
                 return {
                     "date": date_str,
                     "tribunal": "ALL",
@@ -440,8 +488,6 @@ def parse_filename(filename: str, item_id: str) -> dict | None:
                     "ia_item": item_id,
                     "ia_url": f"https://archive.org/download/{item_id}/{filename}",
                 }
-            except Exception:
-                return None
         return None
 
     # Validate file extension

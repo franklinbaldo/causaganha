@@ -63,6 +63,40 @@ def test_parse_filename_absent() -> None:
     assert res["file_type"] == "absent"
 
 
+def test_parse_filename_root_parquet_tribunal_year() -> None:
+    """Root parquets (comunicacoes.parquet) in tribunal-year items."""
+    item_id = "djen-tjro-2025"
+    filename = "comunicacoes.parquet"
+    res = parse_filename(filename, item_id)
+    assert res is not None
+    assert res["date"] is None
+    assert res["tribunal"] == "TJRO"
+    assert res["file_type"] == "parquet"
+    assert res["table_name"] == "comunicacoes"
+
+
+def test_parse_filename_root_parquet_compound_tribunal() -> None:
+    """Root parquets in items with compound tribunal codes (TRE-AC)."""
+    item_id = "djen-tre-ac-2026"
+    filename = "textos.parquet"
+    res = parse_filename(filename, item_id)
+    assert res is not None
+    assert res["date"] is None
+    assert res["tribunal"] == "TRE-AC"
+    assert res["table_name"] == "textos"
+
+
+def test_parse_filename_marker_tribunal_year() -> None:
+    """_consolidated.marker in tribunal-year items."""
+    item_id = "djen-tjsp-2026"
+    filename = "_consolidated.marker"
+    res = parse_filename(filename, item_id)
+    assert res is not None
+    assert res["date"] is None
+    assert res["tribunal"] == "TJSP"
+    assert res["file_type"] == "marker"
+
+
 def test_parse_filename_parquet() -> None:
     item_id = "djen-tjsp-2026"
     filename = "TJSP-2026-01-15-comunicacoes.parquet"
