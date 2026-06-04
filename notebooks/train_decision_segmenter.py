@@ -246,8 +246,8 @@ def _(PARQUET_DIR, REPO_DIR):
     # Import label taxonomy and segmentation logic from the repo script
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
-    SPAN_CLASS_NAMES = mod.SPAN_CLASS_NAMES
-    LABEL_SPACE = mod.LABEL_SPACE
+    SPAN_CLASS_NAMES = mod.SPAN_CLASS_NAMES_V5
+    LABEL_SPACE = mod.LABEL_SPACE_V5
     _segment = mod._segment
     ID2LABEL = {i: name for i, name in enumerate(SPAN_CLASS_NAMES)}
     LABEL2ID = {name: i for i, name in enumerate(SPAN_CLASS_NAMES)}

@@ -32,7 +32,7 @@ from urllib.request import urlopen
 
 import structlog
 
-from scripts.prepare_privacy_filter_dataset import LABEL_SPACE, _segment
+from scripts.prepare_privacy_filter_dataset import LABEL_SPACE_V5, _segment
 
 
 logger = structlog.get_logger()
@@ -507,7 +507,7 @@ def main() -> int:
 
     label_space_path = output_dir / "label_space.json"
     label_space_path.write_text(
-        json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(LABEL_SPACE_V5, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     logger.info("label_space_written", path=str(label_space_path))
 

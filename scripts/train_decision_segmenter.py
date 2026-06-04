@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-r"""Train a 22-class decision segmenter using the opf CLI (openai/privacy-filter).
+r"""Train a 21-class decision segmenter (v5) using the opf CLI (openai/privacy-filter).
 
 Converts labeled data (LLM-labeled parquet or heuristic-labeled texts) into the
 JSONL format expected by `opf train`, writes label_space.json, then shells out
@@ -35,7 +35,7 @@ from urllib.request import urlopen
 import structlog
 
 from scripts.prepare_privacy_filter_dataset import (
-    LABEL_SPACE,
+    LABEL_SPACE_V5,
     _segment,
 )
 
@@ -343,7 +343,7 @@ def main() -> int:
     # Write label_space.json
     label_space_path = output_dir / "label_space.json"
     label_space_path.write_text(
-        json.dumps(LABEL_SPACE, indent=2, ensure_ascii=False), encoding="utf-8"
+        json.dumps(LABEL_SPACE_V5, indent=2, ensure_ascii=False), encoding="utf-8"
     )
     logger.info("label_space_written", path=str(label_space_path))
 
