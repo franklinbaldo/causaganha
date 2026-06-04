@@ -75,6 +75,7 @@ jobs:
         with:
           path: ~/.opf/privacy_filter
           key: opf-checkpoint-v1
+          save-always: true
 
       - name: Download OPF base checkpoint
         run: |
