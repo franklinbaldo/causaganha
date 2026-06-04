@@ -17,6 +17,12 @@
 name: Bootstrap Training Corpus
 
 on:
+  push:
+    branches:
+      - claude/epic-clarke-9uaaQ
+    paths:
+      - 'scripts/bootstrap_training_corpus.py'
+      - '.github/workflows/bootstrap-corpus.yml'
   workflow_dispatch:
     inputs:
       target:
