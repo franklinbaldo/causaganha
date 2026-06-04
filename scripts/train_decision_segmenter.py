@@ -222,9 +222,13 @@ def run_opf_train(
     *,
     epochs: int = 3,
     batch_size: int = 8,
+    n_ctx: int | None = None,
+    grad_accum_steps: int | None = None,
 ) -> int:
     """Shell out to `opf train`."""
     device = _detect_device()
+    if device == "cpu" and batch_size > 1:
+        batch_size = 1
     cmd = [
         sys.executable,
         "-m",
@@ -244,6 +248,14 @@ def run_opf_train(
         "--batch-size",
         str(batch_size),
     ]
+    if n_ctx is not None:
+        cmd.extend(["--n-ctx", str(n_ctx)])
+    elif device == "cpu":
+        cmd.extend(["--n-ctx", "512"])
+    if grad_accum_steps is not None:
+        cmd.extend(["--grad-accum-steps", str(grad_accum_steps)])
+    elif device == "cpu":
+        cmd.extend(["--grad-accum-steps", "8"])
     logger.info("opf_train_start", cmd=" ".join(cmd), device=device)
     result = subprocess.run(cmd, check=False)
     logger.info("opf_train_done", returncode=result.returncode)

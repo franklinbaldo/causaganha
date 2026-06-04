@@ -53,7 +53,7 @@ jobs:
   train:
     name: Fine-tune segmenter (opf)
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 360
     environment: dev
 
     env:
@@ -127,22 +127,10 @@ jobs:
           BATCH_SIZE="${{ github.event.inputs.batch_size || '2' }}"
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
-          # OPF's 1.5B model needs ~24GB RAM for training (weights + Adam optimizer
-          # + gradients). Standard GHA runners have 16GB — not enough.
-          # Use --prepare-only unless a GPU with enough RAM is available.
-          PREPARE_FLAG="--prepare-only"
-          if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-            TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-            TOTAL_MEM_GB=$((TOTAL_MEM_KB / 1024 / 1024))
-            if [ "$TOTAL_MEM_GB" -ge 24 ]; then
-              echo "GPU available + ${TOTAL_MEM_GB}GB RAM — running full training"
-              PREPARE_FLAG=""
-            else
-              echo "::warning::GPU available but only ${TOTAL_MEM_GB}GB RAM (need >=24GB) — using --prepare-only"
-            fi
-          else
-            echo "::warning::No GPU detected — using --prepare-only (download JSONL artifact to train on GPU)"
-          fi
+          # OPF's train CLI supports --device cpu natively.
+          # CPU training is slow but works on standard GHA runners (16GB RAM)
+          # with batch-size 1 + grad-accum + small n-ctx.
+          PREPARE_FLAG=""
 
           # Data source priority: intermediate > LLM parquet > IA download
           if [ "${{ steps.intermediate.outputs.available }}" = "true" ]; then
