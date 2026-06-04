@@ -78,11 +78,20 @@ jobs:
 
       - name: Download OPF base checkpoint
         run: |
-          if [ ! -f ~/.opf/privacy_filter/config.json ]; then
-            uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"
-          else
+          if [ -f ~/.opf/privacy_filter/config.json ]; then
             echo "OPF checkpoint already cached"
+            exit 0
           fi
+          for attempt in 1 2 3 4; do
+            echo "Download attempt $attempt..."
+            if uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"; then
+              echo "Checkpoint downloaded successfully"
+              exit 0
+            fi
+            sleep $((2 ** attempt))
+          done
+          echo "::error::Failed to download OPF checkpoint after 4 attempts"
+          exit 1
 
       - uses: ./.github/actions/configure-ia
         with:
