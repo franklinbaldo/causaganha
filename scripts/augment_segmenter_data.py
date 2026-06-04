@@ -32,7 +32,7 @@ from urllib.request import urlopen
 
 import structlog
 
-from scripts.prepare_privacy_filter_dataset import LABEL_SPACE_V5, _segment
+from scripts.prepare_privacy_filter_dataset import LABEL_SPACE_V5, _segment, migrate_spans_v4_to_v5
 
 
 logger = structlog.get_logger()
@@ -341,7 +341,7 @@ def _clean_llm_records(parquet_path: Path) -> list[dict]:
             dropped["no_sections"] += 1
             continue
 
-        records.append({"text": texto, "spans": spans_clean})
+        records.append({"text": texto, "spans": migrate_spans_v4_to_v5(spans_clean)})
 
     logger.info("llm_cleanup", kept=len(records), dropped=dict(dropped))
     return records

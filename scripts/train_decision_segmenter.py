@@ -37,6 +37,7 @@ import structlog
 from scripts.prepare_privacy_filter_dataset import (
     LABEL_SPACE_V5,
     _segment,
+    migrate_spans_v4_to_v5,
 )
 
 
@@ -158,7 +159,7 @@ def build_records_from_labeled(parquet_path: Path) -> list[dict]:
         spans_clean = {
             k: [list(pair) for pair in v] for k, v in spans.items() if v and isinstance(v, list)
         }
-        records.append({"text": row["texto"], "spans": spans_clean})
+        records.append({"text": row["texto"], "spans": migrate_spans_v4_to_v5(spans_clean)})
 
     logger.info("labeled_records_loaded", records=len(records))
     return records

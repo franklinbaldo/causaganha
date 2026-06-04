@@ -120,6 +120,32 @@ LABEL_SPACE_V5 = {
     "span_class_names": SPAN_CLASS_NAMES_V5,
 }
 
+_V5_VALID = frozenset(SPAN_CLASS_NAMES_V5)
+
+_V4_TO_V5_MAP: dict[str, str | None] = {
+    "nome_juiz": "autoridade_judicial",
+    "serventuario": "autoridade_judicial",
+    "elem_nao_textual": None,
+    "parte_terceiro": None,
+    "citacao_precedente": None,
+}
+
+
+def migrate_spans_v4_to_v5(
+    spans: dict[str, list[list[int]]],
+) -> dict[str, list[list[int]]]:
+    """Map v4 label names to v5, merging/dropping as needed."""
+    out: dict[str, list[list[int]]] = {}
+    for label, pairs in spans.items():
+        if label in _V5_VALID:
+            out.setdefault(label, []).extend(pairs)
+        elif label in _V4_TO_V5_MAP:
+            mapped = _V4_TO_V5_MAP[label]
+            if mapped is not None:
+                out.setdefault(mapped, []).extend(pairs)
+    return out
+
+
 # Labels that are structural sections (filled first; overwritten by entity labels)
 _SECTION_LABELS: frozenset[str] = frozenset(
     {

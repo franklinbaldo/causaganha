@@ -24,6 +24,8 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 
+from scripts.prepare_privacy_filter_dataset import migrate_spans_v4_to_v5
+
 
 logger = structlog.get_logger()
 
@@ -164,6 +166,7 @@ def process_batch_file(batch_path: Path, texts_by_uuid: dict[str, str]) -> list[
             logger.warning("no_spans_resolved", text_uuid=text_uuid)
             continue
 
+        spans = migrate_spans_v4_to_v5(spans)
         spans_serializable = {k: [[s, e] for s, e in v] for k, v in spans.items()}
         records.append(
             {
