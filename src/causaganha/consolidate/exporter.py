@@ -155,10 +155,9 @@ async def upload_marker(
     irrelevant. Future runs check for this marker to skip already-done dates.
     """
     try:
-        with tempfile.NamedTemporaryFile(
-            mode="w", suffix="_consolidated.marker", delete=False
-        ) as f:
-            marker_path = Path(f.name)
+        tmp_dir = Path(tempfile.mkdtemp())
+        marker_path = tmp_dir / "_consolidated.marker"
+        marker_path.write_text("")
 
         log.info("uploading_marker", item_id=item_id)
         success = await _upload_consolidated(
@@ -167,6 +166,7 @@ async def upload_marker(
 
         with contextlib.suppress(OSError):
             await anyio.Path(marker_path).unlink()
+            await anyio.Path(tmp_dir).rmdir()
 
     except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
         log.exception("marker_upload_failed", item_id=item_id, error=str(exc))

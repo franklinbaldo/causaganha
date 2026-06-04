@@ -86,12 +86,12 @@ def tribunal_years_needing_consolidation_from_ia(
                 CAST(split_part(item_id, '-', -1) AS INTEGER) AS year
             FROM read_parquet('{manifest_url}')
             WHERE item_id LIKE 'djen-%-%'
-              AND file_type = 'zip'
             GROUP BY item_id, tribunal, year
-            HAVING SUM(
-                CASE WHEN file_type = 'parquet' OR file_name = '_consolidated.marker'
-                     THEN 1 ELSE 0 END
-            ) = 0
+            HAVING SUM(CASE WHEN file_type = 'zip' THEN 1 ELSE 0 END) > 0
+               AND SUM(
+                   CASE WHEN file_type = 'parquet' OR file_name = '_consolidated.marker'
+                        THEN 1 ELSE 0 END
+               ) = 0
             ORDER BY year DESC, tribunal
         """
         rows = con.execute(query).fetchall()
