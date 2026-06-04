@@ -31,7 +31,7 @@ from causaganha.consolidate.schema_registry import (
 
 log = structlog.get_logger()
 
-KNOWN_TRIBUNALS: frozenset[str] = frozenset(TRIBUNAIS)
+KNOWN_TRIBUNALS: frozenset[str] = frozenset(t.upper() for t in TRIBUNAIS)
 
 VALID_OUTCOMES: frozenset[str] = frozenset(
     {
@@ -242,7 +242,7 @@ def _check_tribunal_domain(
     tribunals = con.execute(
         f'SELECT DISTINCT "{column}" FROM \'{path}\' WHERE "{column}" IS NOT NULL'
     ).fetchall()
-    unknown = [r[0] for r in tribunals if r[0] not in KNOWN_TRIBUNALS]
+    unknown = [r[0] for r in tribunals if r[0].upper() not in KNOWN_TRIBUNALS]
     if unknown:
         result.errors.append(f"{table_name}: unknown tribunal codes in '{column}': {unknown[:5]}")
 
