@@ -91,6 +91,36 @@ LABEL_SPACE = {
     "span_class_names": SPAN_CLASS_NAMES,
 }
 
+# v5: drop dead labels, merge serventuario→autoridade_judicial, add PII from OPF
+SPAN_CLASS_NAMES_V5: list[str] = [
+    "O",
+    "sec_cabecalho",
+    "sec_relatorio",
+    "sec_fundamentacao",
+    "sec_dispositivo",
+    "sec_assinatura",
+    "parte_autor",
+    "parte_reu",
+    "nome_advogado",
+    "oab",
+    "autoridade_judicial",  # merged nome_juiz + serventuario
+    "cpf_cnpj",
+    "processo_cnj",
+    "classe_processual",
+    "id_lei",
+    "id_precedente",
+    "data",
+    "valor_monetario",
+    "endereco",  # new: physical addresses (OPF private_address)
+    "email",  # new: email addresses (OPF private_email)
+    "telefone",  # new: phone numbers (OPF private_phone)
+]
+
+LABEL_SPACE_V5 = {
+    "category_version": "causaganha-v5",
+    "span_class_names": SPAN_CLASS_NAMES_V5,
+}
+
 # Labels that are structural sections (filled first; overwritten by entity labels)
 _SECTION_LABELS: frozenset[str] = frozenset(
     {
