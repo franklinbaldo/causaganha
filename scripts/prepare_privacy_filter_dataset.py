@@ -92,7 +92,6 @@ LABEL_SPACE = {
 
 # v5: drop dead labels, merge serventuario→autoridade_judicial, add PII from OPF
 SPAN_CLASS_NAMES_V5: list[str] = [
-    "O",
     "sec_cabecalho",
     "sec_relatorio",
     "sec_fundamentacao",
