@@ -63,13 +63,22 @@ jobs:
         run: |
           set -euo pipefail
           OUTPUT_DIR="data/segmenter_v7"
+          GOLD_DIR="data/segmenter_splits"
 
-          if [ -d data/segmenter_splits ] && [ -f data/segmenter_splits/label_space.json ]; then
+          # Gold is "complete" only when all three splits exist — the label
+          # space and guideline alone are not annotated data. Gate on the
+          # splits so a label-space-only push falls through instead of
+          # selecting promote and failing its required-file check.
+          if [ -f "$GOLD_DIR/train.jsonl" ] \
+            && [ -f "$GOLD_DIR/val.jsonl" ] \
+            && [ -f "$GOLD_DIR/test.jsonl" ]; then
             echo "Promoting gold splits from git"
             uv run python scripts/prepare_privacy_filter_dataset.py \
-              --gold-dir data/segmenter_splits \
+              --gold-dir "$GOLD_DIR" \
               --output-dir "$OUTPUT_DIR" \
               2>&1 | tee prep.log
+            echo "prepared=true" >> "$GITHUB_OUTPUT"
+            echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
           elif [ -f data/test_parquets/textos.parquet ]; then
             echo "Bootstrapping from local textos.parquet"
             uv run python scripts/prepare_privacy_filter_dataset.py \
@@ -77,15 +86,17 @@ jobs:
               --parquet data/test_parquets/textos.parquet \
               --output-dir "$OUTPUT_DIR" \
               2>&1 | tee prep.log
+            echo "prepared=true" >> "$GITHUB_OUTPUT"
+            echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
           else
-            echo "ERROR: No gold splits in data/segmenter_splits/ and no parquet available."
-            echo "Run bootstrap locally first, verify with subagents, and commit to data/segmenter_splits/."
-            exit 1
+            echo "No gold splits in $GOLD_DIR/ yet (only label_space.json/guideline) "
+            echo "and no bootstrap parquet available — nothing to prepare."
+            echo "Annotate via subagents and commit train/val/test.jsonl to $GOLD_DIR/ to enable."
+            echo "prepared=false" >> "$GITHUB_OUTPUT"
           fi
 
-          echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
-
       - name: Validate all splits
+        if: steps.prep.outputs.prepared == 'true'
         run: |
           set -euo pipefail
           OUTPUT_DIR="${{ steps.prep.outputs.output_dir }}"
@@ -124,6 +135,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload prepared data
+        if: steps.prep.outputs.prepared == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: segmenter-v7-data

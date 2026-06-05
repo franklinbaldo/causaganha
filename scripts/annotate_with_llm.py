@@ -167,10 +167,24 @@ def resolve_regex_spans(
             )
             continue
 
-        match = compiled.search(text)
-        if not match:
+        # The prompt requires each pattern to match exactly once. A pattern
+        # that matches multiple times is ambiguous — judicial anchors like
+        # "Ante o exposto" can appear in quoted precedent before the operative
+        # occurrence — so silently taking the first hit would plant a
+        # valid-looking but wrong offset. Reject it for manual review instead.
+        matches = list(compiled.finditer(text))
+        if not matches:
             logger.warning("regex_no_match", category=cat, pattern=pattern_str[:80])
             continue
+        if len(matches) > 1:
+            logger.warning(
+                "regex_ambiguous_match",
+                category=cat,
+                pattern=pattern_str[:80],
+                n_matches=len(matches),
+            )
+            continue
+        match = matches[0]
 
         try:
             start, end = match.span(group_idx)
@@ -600,10 +614,13 @@ def main() -> int:
 
     else:
         # ── Regex-anchored batch mode (default) ───────────────────────────────
-        # Prepare records with doc_id field for batching
-        for rec in raw_records:
-            if "doc_id" not in rec:
-                rec["doc_id"] = rec["info"].get("id", f"doc_{id(rec)}")
+        # Prepare records with a locally-generated UNIQUE doc_id for batching.
+        # Source ids (rec["info"]["id"]) may be empty or duplicated, which would
+        # collapse distinct documents in the per-batch rec_by_id lookup and
+        # misassign / silently drop annotations. The source id is preserved in
+        # rec["info"]["id"] for provenance; the batch marker is always unique.
+        for i, rec in enumerate(raw_records):
+            rec["doc_id"] = f"doc_{i:06d}"
 
         batches = build_batches(raw_records, char_budget=args.batch_char_budget)
         print(

@@ -145,8 +145,13 @@ def sample_tribunal(
         logger.warning("no_items_found", tribunal=tribunal)
         return []
 
-    all_texts: list[dict] = []
+    # Reservoir sampling (Algorithm R): retain at most `n` records in memory
+    # no matter how many decisions the ZIPs expand to. A single ZIP can hold
+    # ~200 MB of JSON, so buffering every extracted decision before truncating
+    # to `n` can exhaust a runner. Each unique decision gets an equal chance.
+    reservoir: list[dict] = []
     seen_hashes: set[str] = set()
+    seen = 0  # unique decisions encountered so far
 
     rng = random.Random(seed)
     rng.shuffle(items)
@@ -169,28 +174,35 @@ def sample_tribunal(
                 texts = extract_texts_from_zip(zip_bytes)
                 for rec in texts:
                     h = hashlib.sha256(rec["text"].encode()).hexdigest()
-                    if h not in seen_hashes:
-                        seen_hashes.add(h)
-                        rec["info"]["source_item"] = item_id
-                        rec["info"]["source_zip"] = zip_name
-                        all_texts.append(rec)
+                    if h in seen_hashes:
+                        continue
+                    seen_hashes.add(h)
+                    rec["info"]["source_item"] = item_id
+                    rec["info"]["source_zip"] = zip_name
+                    seen += 1
+                    if len(reservoir) < n:
+                        reservoir.append(rec)
+                    else:
+                        j = rng.randint(1, seen)
+                        if j <= n:
+                            reservoir[j - 1] = rec
                 zips_processed += 1
                 logger.info(
                     "zip_extracted",
                     item=item_id,
                     zip=zip_name,
                     texts=len(texts),
-                    total=len(all_texts),
+                    sampled=len(reservoir),
+                    seen=seen,
                 )
             except (URLError, TimeoutError, OSError, zipfile.BadZipFile, ValueError) as e:
                 logger.warning("zip_download_failed", item=item_id, zip=zip_name, error=str(e))
 
-    if len(all_texts) < n:
-        logger.warning("insufficient_texts", tribunal=tribunal, found=len(all_texts), requested=n)
-        return all_texts
+    if len(reservoir) < n:
+        logger.warning("insufficient_texts", tribunal=tribunal, found=len(reservoir), requested=n)
 
-    rng.shuffle(all_texts)
-    return all_texts[:n]
+    rng.shuffle(reservoir)
+    return reservoir
 
 
 def main() -> int:

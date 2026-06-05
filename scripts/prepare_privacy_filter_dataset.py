@@ -116,9 +116,40 @@ LABEL_SPACE_V6 = {
 SPAN_CLASS_NAMES = SPAN_CLASS_NAMES_V7
 LABEL_SPACE = LABEL_SPACE_V7
 
-# Backwards compat for importers expecting older names
-LABEL_SPACE_V5 = LABEL_SPACE_V6
-SPAN_CLASS_NAMES_V5 = SPAN_CLASS_NAMES_V6
+# Legacy v5 — the 22-class ("O" + 21) privacy-filter taxonomy that predates
+# the v7 anchor-span ontology. Kept INTACT (not aliased to the 6-class v6)
+# so legacy importers (bootstrap_training_corpus.py, augment_segmenter_data.py,
+# notebooks/train_decision_segmenter.py) retain their original label space
+# instead of silently switching taxonomies. New code must use *_V7.
+SPAN_CLASS_NAMES_V5: list[str] = [
+    "O",  # 0 — background / unlabeled
+    "sec_cabecalho",  # 1 — header block (tribunal, vara, parties list)
+    "sec_relatorio",  # 2 — Relatório (case history)
+    "sec_fundamentacao",  # 3 — Fundamentação (legal reasoning)
+    "sec_dispositivo",  # 4 — Dispositivo (operative ruling)
+    "sec_assinatura",  # 5 — Signature/closing block
+    "elem_nao_textual",  # 6 — non-textual elements (page numbers, headers)
+    "parte_autor",  # 7 — plaintiff / polo ativo name
+    "parte_reu",  # 8 — defendant / polo passivo name
+    "parte_terceiro",  # 9 — third party / interested party
+    "nome_advogado",  # 10 — lawyer name
+    "oab",  # 11 — OAB registration number
+    "nome_juiz",  # 12 — judge / magistrate name
+    "cpf_cnpj",  # 13 — CPF (individual) or CNPJ (company) tax ID
+    "processo_cnj",  # 14 — CNJ case number
+    "classe_processual",  # 15 — procedural class (Apelação Cível, etc.)
+    "id_lei",  # 16 — law / statute reference (Art. X, Lei nº Y)
+    "id_precedente",  # 17 — precedent identifier (Súmula X, Tema Y)
+    "citacao_precedente",  # 18 — direct textual quote from a precedent
+    "data",  # 19 — date spans
+    "serventuario",  # 20 — court clerk / officer who signs instead of judge
+    "valor_monetario",  # 21 — monetary value in Brazilian Reais (R$)
+]
+
+LABEL_SPACE_V5 = {
+    "category_version": "causaganha-v5",
+    "span_class_names": SPAN_CLASS_NAMES_V5,
+}
 
 # Gold splits live in git (source of truth)
 GOLD_DIR = Path("data/segmenter_splits")
@@ -461,13 +492,27 @@ def _stratified_split(
         cat = _dominant_category(rec)
         buckets.setdefault(cat, []).append(rec)
 
+    test_ratio = 1.0 - train_ratio - val_ratio
     train, val, test = [], [], []
     for cat in sorted(buckets):
         items = buckets[cat]
         rng.shuffle(items)
         n = len(items)
-        n_train = max(1, int(n * train_ratio))
-        n_val = max(1, int(n * val_ratio)) if n > 2 else 0
+        if n == 1:
+            # Single example: must go to train (can't populate every split).
+            n_train, n_val = 1, 0
+        elif n == 2:
+            # Two examples: one train, one val (test reserved at >=3).
+            n_train, n_val = 1, 1
+        else:
+            # n >= 3: reserve at least one record for BOTH val and test so
+            # every stratum is evaluable, while keeping train non-empty.
+            n_val = max(1, round(n * val_ratio))
+            n_test = max(1, round(n * test_ratio))
+            # Leave room for >=1 train and the reserved val/test records.
+            n_test = min(n_test, n - 2)
+            n_val = min(n_val, n - 1 - n_test)
+            n_train = n - n_val - n_test
         train.extend(items[:n_train])
         val.extend(items[n_train : n_train + n_val])
         test.extend(items[n_train + n_val :])

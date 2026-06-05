@@ -59,7 +59,6 @@ def _build_toy_records() -> list[dict]:
     s2, e2 = _find(_TEXT_1, "cobranca.")
     s3, e3 = _find(_TEXT_1, "RELATORIO:")
     s4, e4 = _find(_TEXT_1, "1234567-89.0123.4.56.7890")
-    s5, e5 = _find(_TEXT_1, "art. 927 do CPC")
     s6, e6 = _find(_TEXT_1, "Ante o exposto")
     s7, e7 = _find(_TEXT_1, "julgo procedente o pedido")
     s8, e8 = _find(_TEXT_1, "R$ 5.000,00")
@@ -83,7 +82,6 @@ def _build_toy_records() -> list[dict]:
                 {"category": "ementa_fim", "start": s2, "end": e2},
                 {"category": "relatorio_inicio", "start": s3, "end": e3},
                 {"category": "ref_processual", "start": s4, "end": e4},
-                {"category": "ref_normativa", "start": s5, "end": e5},
                 {"category": "dispositivo_abertura", "start": s6, "end": e6},
                 {"category": "resultado", "start": s7, "end": e7},
                 {"category": "valor_condenacao", "start": s8, "end": e8},
@@ -160,11 +158,11 @@ def run_train(label_space: dict, label: str, tmpdir: Path) -> int:
 
 
 def main() -> int:
-    assert len(SPAN_CLASS_NAMES_V7) == 25, f"Expected 25, got {len(SPAN_CLASS_NAMES_V7)}"
+    assert len(SPAN_CLASS_NAMES_V7) == 22, f"Expected 22, got {len(SPAN_CLASS_NAMES_V7)}"
     assert SPAN_CLASS_NAMES_V7[0] == "O"
 
     categories_without_o = SPAN_CLASS_NAMES_V7[1:]
-    assert len(categories_without_o) == 24
+    assert len(categories_without_o) == 21
 
     single_count = len(SINGLE_ANCHOR_CATEGORIES)
     paired_count = len(categories_without_o) - single_count
