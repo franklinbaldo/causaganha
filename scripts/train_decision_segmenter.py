@@ -246,20 +246,29 @@ def main() -> int:
         return 1
 
     # Report — derive category names from label_space, not hardcoded.
-    # OPF uses flat keys like "detection.span.f1" and "by_class.<label>.span.f1";
-    # fall back to sklearn-style "macro avg" / per-category dicts.
-    macro_f1 = metrics.get("detection.span.f1") or metrics.get("macro avg", {}).get("f1-score", 0)
-    print(f"\nMacro F1: {macro_f1:.3f}")
+    # OPF uses flat keys like "detection.span.f1" and "by_class.<label>.span.f1".
+    # Compute true macro F1 as mean of per-class F1 (not detection.span.f1 which
+    # is the aggregate and misleading under class imbalance).
+    per_class_f1s: list[float] = []
+    detection_f1 = metrics.get("detection.span.f1")
     for cat in ls["span_class_names"]:
         if cat == "O":
             continue
         f1 = metrics.get(f"by_class.{cat}.span.f1")
         if f1 is not None:
+            per_class_f1s.append(f1)
             print(f"  {cat}: F1={f1:.3f}")
         else:
             cat_metrics = metrics.get(cat, {})
             if cat_metrics:
-                print(f"  {cat}: F1={cat_metrics.get('f1-score', 0):.3f}")
+                cf1 = cat_metrics.get("f1-score", 0)
+                per_class_f1s.append(cf1)
+                print(f"  {cat}: F1={cf1:.3f}")
+
+    macro_f1 = sum(per_class_f1s) / len(per_class_f1s) if per_class_f1s else (detection_f1 or 0)
+    print(f"\nMacro F1 (mean of {len(per_class_f1s)} classes): {macro_f1:.3f}")
+    if detection_f1 is not None:
+        print(f"Detection F1 (aggregate): {detection_f1:.3f}")
 
     return 0
 
