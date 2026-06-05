@@ -1,22 +1,27 @@
 # ============================================================================
-# TRAIN SEGMENTER — Fine-tune openai/privacy-filter as 22-class decision segmenter
+# PREPARE SEGMENTER DATA — Generate frozen artifact set for OPF training
 # ============================================================================
 #
-# Uses the opf CLI (openai/privacy-filter) to fine-tune a 1.5B-param span
-# classifier on LLM-labeled or heuristic-labeled judicial texts. Evaluates on
-# held-out test set and uploads trained model + metrics to Internet Archive.
+# Runs the prep script (CPU, no GPU needed) to produce:
+#   train.jsonl, val.jsonl, test.jsonl, label_space.json, manifest.json
+#
+# Validates all splits with opf_annotate.py. Uploads artifacts for offline
+# GPU training (Colab / dedicated machine). Training is NOT done in CI —
+# OPF's 1.5B model needs GPU + 24GB RAM, exceeding standard GHA runners.
 # ============================================================================
 
-name: Train Decision Segmenter
+name: Prepare Segmenter Data
 
 on:
   push:
     branches:
       - 'claude/**'
     paths:
-      - 'scripts/train_decision_segmenter.py'
       - 'scripts/prepare_privacy_filter_dataset.py'
+      - 'scripts/opf_annotate.py'
+      - 'scripts/train_decision_segmenter.py'
       - '.github/workflows/train-segmenter.yml'
+      - 'data/segmenter_splits/**'
   workflow_dispatch:
     inputs:
       ia_item:
@@ -24,41 +29,26 @@ on:
         required: false
         default: 'djen-tjro-2025'
       n_zips:
-        description: 'Number of ZIPs to download (more = better model, slower)'
+        description: 'Number of ZIPs to download'
         required: false
         default: '50'
-      epochs:
-        description: 'Training epochs'
-        required: false
-        default: '3'
-      batch_size:
-        description: 'Training batch size (reduce for CPU/low memory)'
-        required: false
-        default: '8'
-      use_llm_labels:
-        description: 'Use LLM-labeled training data instead of heuristic segmentation'
-        required: false
-        default: true
-        type: boolean
 
 permissions:
   contents: read
   actions: write
 
 concurrency:
-  group: train-segmenter
+  group: prepare-segmenter
   cancel-in-progress: true
 
 jobs:
-  train:
-    name: Fine-tune segmenter (opf)
+  prepare:
+    name: Prepare + validate segmenter data
     runs-on: ubuntu-latest
-    timeout-minutes: 120
+    timeout-minutes: 30
     environment: dev
 
     env:
-      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
-      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
       PYTHONPATH: ${{ github.workspace }}
 
     steps:
@@ -68,156 +58,79 @@ jobs:
         with:
           dev: "true"
 
-      - name: Install opf (openai/privacy-filter)
-        run: |
-          uv pip install --python .venv/bin/python \
-            "opf @ git+https://github.com/openai/privacy-filter.git"
-
-      - name: Cache OPF base checkpoint
-        uses: actions/cache@v4
-        with:
-          path: ~/.opf/privacy_filter
-          key: opf-checkpoint-v1
-
-      - name: Download OPF base checkpoint
-        run: |
-          if [ ! -f ~/.opf/privacy_filter/config.json ]; then
-            uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"
-          else
-            echo "OPF checkpoint already cached"
-          fi
-
-      - uses: ./.github/actions/configure-ia
-        with:
-          access-key: ${{ secrets.IA_ACCESS_KEY }}
-          secret-key: ${{ secrets.IA_SECRET_KEY }}
-
-      - name: Train decision segmenter
-        id: train
+      - name: Prepare segmenter data
+        id: prep
         run: |
           set -euo pipefail
-          EPOCHS="${{ github.event.inputs.epochs || '1' }}"
-          BATCH_SIZE="${{ github.event.inputs.batch_size || '2' }}"
-          USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
+          OUTPUT_DIR="data/segmenter_v7"
 
-          # OPF's 1.5B model needs ~24GB RAM for training (weights + Adam optimizer
-          # + gradients). Standard GHA runners have 16GB — not enough.
-          # Also, CPU training is impractical for 1.5B params.
-          # Use --prepare-only unless a GPU is available on a large runner.
-          PREPARE_FLAG="--prepare-only"
-          if python3 -c "import torch; assert torch.cuda.is_available()" 2>/dev/null; then
-            TOTAL_MEM_KB=$(grep MemTotal /proc/meminfo | awk '{print $2}')
-            TOTAL_MEM_GB=$((TOTAL_MEM_KB / 1024 / 1024))
-            if [ "$TOTAL_MEM_GB" -ge 24 ]; then
-              echo "GPU available + ${TOTAL_MEM_GB}GB RAM — running full training"
-              PREPARE_FLAG=""
-            else
-              echo "::warning::GPU available but only ${TOTAL_MEM_GB}GB RAM (need >=24GB) — using --prepare-only"
-            fi
+          if [ -d data/segmenter_splits ] && [ -f data/segmenter_splits/label_space.json ]; then
+            echo "Promoting gold splits from git"
+            uv run python scripts/prepare_privacy_filter_dataset.py \
+              --gold-dir data/segmenter_splits \
+              --output-dir "$OUTPUT_DIR" \
+              2>&1 | tee prep.log
+          elif [ -f data/test_parquets/textos.parquet ]; then
+            echo "Bootstrapping from local textos.parquet"
+            uv run python scripts/prepare_privacy_filter_dataset.py \
+              --bootstrap \
+              --parquet data/test_parquets/textos.parquet \
+              --output-dir "$OUTPUT_DIR" \
+              2>&1 | tee prep.log
           else
-            echo "::warning::No GPU detected — using --prepare-only (download JSONL artifact to train on GPU)"
+            echo "ERROR: No gold splits in data/segmenter_splits/ and no parquet available."
+            echo "Run bootstrap locally first, verify with subagents, and commit to data/segmenter_splits/."
+            exit 1
           fi
 
-          if [ "$USE_LLM" = "true" ] && [ -f data/benchmark/segmenter_training.parquet ]; then
-            echo "Training with LLM-labeled data via opf"
-            uv run python scripts/train_decision_segmenter.py \
-              --labeled-parquet data/benchmark/segmenter_training.parquet \
-              --epochs "$EPOCHS" \
-              --batch-size "$BATCH_SIZE" \
-              --output-dir models/decision_segmenter \
-              $PREPARE_FLAG \
-              2>&1 | tee train.log
-          else
-            echo "Training with heuristic-labeled data from IA via opf"
-            IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
-            N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
-            uv run python scripts/train_decision_segmenter.py \
-              --download-from "$IA_ITEM" \
-              --n-zips "$N_ZIPS" \
-              --epochs "$EPOCHS" \
-              --batch-size "$BATCH_SIZE" \
-              --output-dir models/decision_segmenter \
-              $PREPARE_FLAG \
-              2>&1 | tee train.log
-          fi
+          echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
 
-          # Extract key metrics for summary
-          if [ -f models/decision_segmenter/test_metrics.json ]; then
-            echo "metrics_available=true" >> "$GITHUB_OUTPUT"
-            MACRO_F1=$(python3 -c "import json; m=json.load(open('models/decision_segmenter/test_metrics.json')); print(f\"{m.get('macro avg',{}).get('f1-score',0):.3f}\")")
-            DISP_F1=$(python3 -c "import json; m=json.load(open('models/decision_segmenter/test_metrics.json')); print(f\"{m.get('sec_dispositivo',{}).get('f1-score',0):.3f}\")")
-            echo "macro_f1=$MACRO_F1" >> "$GITHUB_OUTPUT"
-            echo "dispositivo_f1=$DISP_F1" >> "$GITHUB_OUTPUT"
-          fi
+      - name: Validate all splits
+        run: |
+          set -euo pipefail
+          OUTPUT_DIR="${{ steps.prep.outputs.output_dir }}"
+          for split in train val test; do
+            echo "Validating ${split}.jsonl..."
+            uv run python scripts/opf_annotate.py validate \
+              "${OUTPUT_DIR}/${split}.jsonl" \
+              --label-space "${OUTPUT_DIR}/label_space.json"
+          done
 
-      - name: Training Summary
+      - name: Data summary
         if: always()
         run: |
-          echo "## Decision Segmenter Training (opf)" >> $GITHUB_STEP_SUMMARY
+          OUTPUT_DIR="${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}"
+          echo "## Segmenter Data Preparation" >> $GITHUB_STEP_SUMMARY
 
-          if [ -f models/decision_segmenter/test_metrics.json ]; then
-            MACRO_F1="${{ steps.train.outputs.macro_f1 || 'N/A' }}"
-            DISP_F1="${{ steps.train.outputs.dispositivo_f1 || 'N/A' }}"
+          if [ -f "${OUTPUT_DIR}/manifest.json" ]; then
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat "${OUTPUT_DIR}/manifest.json" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
 
-            echo "| Metric | Value |" >> $GITHUB_STEP_SUMMARY
-            echo "|--------|-------|" >> $GITHUB_STEP_SUMMARY
-            echo "| Macro F1 | $MACRO_F1 |" >> $GITHUB_STEP_SUMMARY
-            echo "| sec_dispositivo F1 | $DISP_F1 |" >> $GITHUB_STEP_SUMMARY
+          if [ -f "${OUTPUT_DIR}/label_space.json" ]; then
             echo "" >> $GITHUB_STEP_SUMMARY
+            echo "**Label space:**" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat "${OUTPUT_DIR}/label_space.json" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            python3 -c "import json; m=json.load(open('models/decision_segmenter/test_metrics.json')); [print(f\"  {k:<22} P={v.get('precision',0):.2f}  R={v.get('recall',0):.2f}  F1={v.get('f1-score',0):.2f}  n={v.get('support',0)}\") for k,v in m.items() if isinstance(v, dict) and 'f1-score' in v and k not in ('macro avg','weighted avg','micro avg')]" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          else
-            echo "Training did not produce metrics." >> $GITHUB_STEP_SUMMARY
           fi
 
-      - name: Upload prepared data (prepare-only mode)
-        if: steps.train.outputs.metrics_available != 'true'
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To train on GPU, download the artifact and run:" >> $GITHUB_STEP_SUMMARY
+          echo '```bash' >> $GITHUB_STEP_SUMMARY
+          echo "opf train train.jsonl --validation-dataset val.jsonl \\" >> $GITHUB_STEP_SUMMARY
+          echo "  --label-space-json label_space.json --output-dir ./best" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload prepared data
         uses: actions/upload-artifact@v4
         with:
-          name: segmenter-prepared-data
+          name: segmenter-v7-data
           path: |
-            models/decision_segmenter/train.jsonl
-            models/decision_segmenter/val.jsonl
-            models/decision_segmenter/test.jsonl
-            models/decision_segmenter/label_space.json
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/train.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/val.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/test.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/label_space.json
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/manifest.json
           retention-days: 30
-
-      - name: Upload model artifact
-        if: steps.train.outputs.metrics_available == 'true'
-        uses: actions/upload-artifact@v4
-        with:
-          name: decision-segmenter-model
-          path: |
-            models/decision_segmenter/best/
-            models/decision_segmenter/test_metrics.json
-          retention-days: 90
-
-      - name: Upload model to Internet Archive
-        if: steps.train.outputs.metrics_available == 'true'
-        run: |
-          # Pack model into a tar.gz for IA upload
-          tar -czf models/decision_segmenter.tar.gz -C models/decision_segmenter/best .
-
-          uv run python -c "
-          import asyncio
-          from pathlib import Path
-          from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth, upload_to_ia
-          auth = get_ia_s3_auth()
-          async def _upload():
-              async with create_upload_client(auth) as client:
-                  await upload_to_ia(client, 'causaganha-dashboard', Path('models/decision_segmenter.tar.gz'), 'decision-segmenter-model')
-                  await upload_to_ia(client, 'causaganha-dashboard', Path('models/decision_segmenter/test_metrics.json'), 'decision-segmenter-metrics')
-                  print('Model + metrics uploaded to IA')
-          if auth:
-              asyncio.run(_upload())
-          else:
-              print('No IA credentials — skipping model upload')
-          "
-
-      - name: Force failure for CI notification
-        if: always()
-        run: |
-          echo "Training workflow completed — failing intentionally for webhook notification."
-          echo "Check the Training Summary above for results."
-          exit 1

@@ -1,0 +1,27 @@
+{
+  "category_version": "segmenter_v7",
+  "span_class_names": [
+    "O",
+    "dispositivo_abertura",
+    "fundamentacao_legal",
+    "ref_processual",
+    "resultado",
+    "valor_condenacao",
+    "cabecalho_fim",
+    "cabecalho_inicio",
+    "capitulo_merito_fim",
+    "capitulo_merito_inicio",
+    "custas_fim",
+    "custas_inicio",
+    "ementa_fim",
+    "ementa_inicio",
+    "encerramento_fim",
+    "encerramento_inicio",
+    "honorarios_fim",
+    "honorarios_inicio",
+    "preliminar_fim",
+    "preliminar_inicio",
+    "relatorio_fim",
+    "relatorio_inicio"
+  ]
+}

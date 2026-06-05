@@ -13,6 +13,10 @@ data/benchmark/
 !data/benchmark/
 !data/benchmark/**
 
+# Keep gold segmenter splits in git (source of truth; Drive/IA are caches)
+!data/segmenter_splits/
+!data/segmenter_splits/**
+
 
 
 # Processing artifacts
