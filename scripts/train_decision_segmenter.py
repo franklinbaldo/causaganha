@@ -158,9 +158,10 @@ def build_records_from_intermediate(jsonl_path: Path) -> list[dict]:
             if not line.strip():
                 continue
             rec = json.loads(line)
+            auto = [s for s in rec.get("auto_mapped", []) if s.get("label") != "O"]
             merged = merge_spans(
                 rec.get("heuristic_spans", {}),
-                rec.get("auto_mapped", []),
+                auto,
                 [],
             )
             if merged:
