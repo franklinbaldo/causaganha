@@ -18,20 +18,16 @@ import hashlib
 import os
 from pathlib import Path
 
-# Re-export the canonical CircuitBreaker so legacy callers
-# (`from causaganha.pipeline.ia_s3 import CircuitBreaker`) keep working
-# without duplicating the implementation. The class supports both sync
-# (is_open / record_*) and async (allow_request) APIs.
-from typing import TYPE_CHECKING
-
 import anyio
 import httpx
 import structlog
 from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
 
-
-if TYPE_CHECKING:
-    from djen_backup.circuit_breaker import CircuitBreaker
+# Re-export the canonical CircuitBreaker so legacy callers
+# (`from causaganha.pipeline.ia_s3 import CircuitBreaker`) keep working
+# without duplicating the implementation. The class supports both sync
+# (is_open / record_*) and async (allow_request) APIs.
+from djen_backup.circuit_breaker import CircuitBreaker as CircuitBreaker  # noqa: PLC0414, TC001
 
 
 logger = structlog.get_logger()

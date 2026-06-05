@@ -17,11 +17,13 @@ from __future__ import annotations
 
 import argparse
 import html
+import io
 import json
 import random
 import re
 import sys
 import uuid
+import zipfile
 from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
@@ -226,87 +228,66 @@ def _sample_zips(
     return sampled
 
 
-def get_zip_json_links(item_id: str, zip_name: str) -> list[str]:
-    """Fetch HTML list of JSON files inside the ZIP virtual directory."""
-    url = f"https://archive.org/download/{item_id}/{zip_name}/"
-    try:
-        with urlopen(url, timeout=30) as r:
-            html_content = r.read().decode("utf-8")
-        links = re.findall(r'href=["\']([^"\']+\.json)["\']', html_content)
-        absolute_links = []
-        for link in links:
-            if link.startswith("//"):
-                absolute_links.append(f"https:{link}")
-            elif link.startswith("/"):
-                absolute_links.append(f"https://archive.org{link}")
-            elif not link.startswith("http"):
-                absolute_links.append(f"https://archive.org/download/{item_id}/{zip_name}/{link}")
-            else:
-                absolute_links.append(link)
-        return absolute_links
-    except Exception as e:
-        logger.warning("failed_to_fetch_zip_virtual_dir", url=url, error=str(e))
-        return []
-
-
-def _extract_texts_from_json_url(url: str, tribunal: str) -> list[dict]:
-    """Fetch a single JSON file from virtual ZIP path and extract text records."""
-    try:
-        with urlopen(url, timeout=30) as r:
-            data = json.loads(r.read())
-    except Exception as e:
-        logger.warning("failed_to_fetch_json_url", url=url, error=str(e))
-        return []
-
-    items = []
-    if isinstance(data, dict):
-        items = data.get("items", [data])
-    elif isinstance(data, list):
-        items = data
-
-    rows = []
-    for rec in items:
-        if not isinstance(rec, dict):
-            continue
-        raw_texto = (rec.get("texto") or "").strip()
-        if len(raw_texto) < 200:
-            continue
-
-        texto = _clean_texto(raw_texto)
-        if len(texto) < 200:
-            continue
-
-        uid = str(uuid.uuid5(NAMESPACE_DJEN, texto[:500]))
-        rows.append(
-            {
-                "id": uid,
-                "texto": texto,
-                "tribunal": tribunal,
-            }
-        )
-    return rows
-
-
 def _extract_texts_from_zip(
     item_id: str,
     zip_name: str,
     tribunal: str,
     max_per_zip: int = 100,
 ) -> list[dict]:
-    """Stream JSON files inside a ZIP virtual directory without downloading full ZIP."""
-    json_urls = get_zip_json_links(item_id, zip_name)
-    if not json_urls:
+    """Download a ZIP and extract cleaned texts."""
+    url = f"https://archive.org/download/{item_id}/{zip_name}"
+    try:
+        with urlopen(url, timeout=120) as r:
+            content = r.read()
+    except (URLError, OSError) as e:
+        logger.warning("zip_download_failed", zip=zip_name, error=str(e))
         return []
 
-    random.shuffle(json_urls)
     rows: list[dict] = []
-    for url in json_urls[:10]:
-        fetched = _extract_texts_from_json_url(url, tribunal)
-        rows.extend(fetched)
-        if len(rows) >= max_per_zip:
-            break
+    try:
+        with zipfile.ZipFile(io.BytesIO(content)) as zf:
+            for name in zf.namelist():
+                if not name.endswith(".json"):
+                    continue
+                try:
+                    data = json.loads(zf.read(name))
+                except json.JSONDecodeError:
+                    continue
 
-    return rows[:max_per_zip]
+                items = []
+                if isinstance(data, dict):
+                    items = data.get("items", [data])
+                elif isinstance(data, list):
+                    items = data
+
+                for rec in items:
+                    if not isinstance(rec, dict):
+                        continue
+                    raw_texto = (rec.get("texto") or "").strip()
+                    if len(raw_texto) < 200:
+                        continue
+
+                    texto = _clean_texto(raw_texto)
+                    if len(texto) < 200:
+                        continue
+
+                    uid = str(uuid.uuid5(NAMESPACE_DJEN, texto[:500]))
+                    rows.append(
+                        {
+                            "id": uid,
+                            "texto": texto,
+                            "tribunal": tribunal,
+                        }
+                    )
+                    if len(rows) >= max_per_zip:
+                        break
+                if len(rows) >= max_per_zip:
+                    break
+    except zipfile.BadZipFile:
+        logger.warning("bad_zip", zip=zip_name)
+        return []
+
+    return rows
 
 
 def _label_text(texto: str) -> dict[str, list[list[int]]] | None:
