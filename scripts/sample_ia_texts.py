@@ -1,8 +1,9 @@
 """Sample judicial decision texts from Internet Archive for segmenter annotation.
 
 Downloads ZIPs from IA items (djen-{tribunal}-{year} format), extracts
-textos.parquet, and samples N decisions per tribunal. Outputs one JSONL
-per tribunal with raw text + metadata, ready for annotation.
+texts from JSON files inside, and samples N decisions per tribunal.
+Outputs one JSONL per tribunal with raw text + metadata, ready for
+annotation.
 
 Usage:
     uv run python scripts/sample_ia_texts.py --tribunal TJRO --n 20 \

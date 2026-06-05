@@ -101,6 +101,18 @@ class TestReconstructSingleAnchor:
         assert regions[1].start == sr
         assert regions[1].end == TEXT_LEN
 
+    def test_stops_at_paired_inicio(self) -> None:
+        sr, er = _find("julgo procedente")
+        sh, eh = _find("HONORARIOS:")
+        spans = [
+            {"category": "resultado", "start": sr, "end": er},
+            {"category": "honorarios_inicio", "start": sh, "end": eh},
+        ]
+        regions = reconstruct_single_anchor_regions(spans, TEXT_LEN)
+        assert len(regions) == 1
+        assert regions[0].category == "resultado"
+        assert regions[0].end == sh
+
     def test_empty_spans(self) -> None:
         assert reconstruct_single_anchor_regions([], TEXT_LEN) == []
 
