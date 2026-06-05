@@ -13,6 +13,10 @@ data/benchmark/
 !data/benchmark/
 !data/benchmark/**
 
+# Keep reviewed segmenter training splits
+!data/segmenter_splits/
+!data/segmenter_splits/**
+
 
 
 # Processing artifacts

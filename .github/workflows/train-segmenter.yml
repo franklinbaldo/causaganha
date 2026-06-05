@@ -90,8 +90,12 @@ jobs:
           set -euo pipefail
           USE_LLM="${{ github.event.inputs.use_llm_labels || 'true' }}"
 
-          # Data source priority: intermediate > LLM parquet > IA download
-          if [ "${{ steps.intermediate.outputs.available }}" = "true" ]; then
+          # Data source priority: reviewed splits > intermediate > LLM parquet > IA download
+          if [ -f data/segmenter_splits/train.jsonl ]; then
+            echo "Using reviewed splits (subagent-classified person spans)"
+            mkdir -p models/decision_segmenter
+            cp data/segmenter_splits/*.jsonl data/segmenter_splits/label_space.json models/decision_segmenter/
+          elif [ "${{ steps.intermediate.outputs.available }}" = "true" ]; then
             echo "Using bootstrap intermediate (OPF + heuristic labeled)"
             uv run python scripts/train_decision_segmenter.py \
               --from-intermediate data/intermediate.jsonl \

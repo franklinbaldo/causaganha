@@ -1,0 +1,26 @@
+{
+  "category_version": "causaganha-v5",
+  "span_class_names": [
+    "O",
+    "sec_cabecalho",
+    "sec_relatorio",
+    "sec_fundamentacao",
+    "sec_dispositivo",
+    "sec_assinatura",
+    "parte_autor",
+    "parte_reu",
+    "nome_advogado",
+    "oab",
+    "autoridade_judicial",
+    "cpf_cnpj",
+    "processo_cnj",
+    "classe_processual",
+    "id_lei",
+    "id_precedente",
+    "data",
+    "valor_monetario",
+    "endereco",
+    "email",
+    "telefone"
+  ]
+}
