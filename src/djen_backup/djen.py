@@ -83,7 +83,8 @@ async def get_caderno_url(
     if resp.status_code in (HTTP_NOT_FOUND, HTTP_BAD_REQUEST):
         raise DJENNotFoundError(status_code=resp.status_code, reason="Not Found")
     if resp.status_code == HTTP_FORBIDDEN:
-        raise DJENRateLimitedError("CloudFront block (403) — rate limited")
+        msg = "CloudFront block (403) — rate limited"
+        raise DJENRateLimitedError(msg)
 
     # 5xx and other unexpected statuses propagate as HTTPStatusError so the
     # caller can read response.status_code (engine._classify_djen_status uses

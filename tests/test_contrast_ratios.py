@@ -9,6 +9,7 @@ WCAG AA requires:
 
 import pytest
 
+
 WCAG_SRGB_LUMINANCE_THRESHOLD = 0.03928
 
 
