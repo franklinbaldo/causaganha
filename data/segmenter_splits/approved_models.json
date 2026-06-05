@@ -1,0 +1,10 @@
+{
+  "approved_models": [
+    "openrouter/google/gemma-4-31b-it:free",
+    "openrouter/google/gemma-4-26b-a4b-it:free",
+    "openrouter/google/lyria-3-pro-preview",
+    "openrouter/google/lyria-3-clip-preview",
+    "openrouter/qwen/qwen3-next-80b-a3b-instruct:free",
+    "openrouter/qwen/qwen3-coder:free"
+  ]
+}

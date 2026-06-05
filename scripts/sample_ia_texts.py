@@ -14,11 +14,10 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import json
 import random
+import re
 import sys
-import zipfile
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -89,47 +88,61 @@ def list_zips(item_id: str) -> list[str]:
     return [f["name"] for f in files if f["name"].endswith(".zip")]
 
 
-def download_zip(item_id: str, zip_name: str) -> bytes:
-    """Download a single ZIP from IA."""
-    url = f"https://archive.org/download/{item_id}/{zip_name}"
-    logger.info("downloading_zip", item=item_id, zip=zip_name)
-    with urlopen(url, timeout=120) as r:
-        return r.read()
+def get_zip_json_links(item_id: str, zip_name: str) -> list[str]:
+    """Fetch HTML list of JSON files inside the ZIP virtual directory."""
+    url = f"https://archive.org/download/{item_id}/{zip_name}/"
+    logger.info("fetching_zip_virtual_dir", url=url)
+    try:
+        with urlopen(url, timeout=30) as r:
+            html = r.read().decode("utf-8")
+        links = re.findall(r'href=["\']([^"\']+\.json)["\']', html)
+        absolute_links = []
+        for link in links:
+            if link.startswith("//"):
+                absolute_links.append(f"https:{link}")
+            elif link.startswith("/"):
+                absolute_links.append(f"https://archive.org{link}")
+            elif not link.startswith("http"):
+                absolute_links.append(f"https://archive.org/download/{item_id}/{zip_name}/{link}")
+            else:
+                absolute_links.append(link)
+        return absolute_links
+    except Exception as e:
+        logger.warning("failed_to_fetch_zip_virtual_dir", url=url, error=str(e))
+        return []
 
 
-def extract_texts_from_zip(zip_bytes: bytes) -> list[dict]:
-    """Extract text records from a DJEN ZIP (JSON files inside)."""
-    records: list[dict] = []
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        for name in zf.namelist():
-            if not name.endswith(".json"):
-                continue
-            try:
-                data = json.loads(zf.read(name))
-            except (json.JSONDecodeError, ValueError):
-                continue
+def extract_texts_from_json_url(url: str) -> list[dict]:
+    """Fetch a single JSON file from virtual ZIP path and extract text records."""
+    try:
+        with urlopen(url, timeout=30) as r:
+            data = json.loads(r.read())
+    except Exception as e:
+        logger.warning("failed_to_fetch_json_url", url=url, error=str(e))
+        return []
 
-            items: list = []
-            if isinstance(data, dict):
-                items = data.get("items", [data])
-            elif isinstance(data, list):
-                items = data
+    items = []
+    if isinstance(data, dict):
+        items = data.get("items", [data])
+    elif isinstance(data, list):
+        items = data
 
-            for rec in items:
-                if not isinstance(rec, dict):
-                    continue
-                text = (rec.get("texto") or "").strip()
-                if len(text) < 200:
-                    continue
-                records.append(
-                    {
-                        "text": text,
-                        "info": {
-                            "id": str(rec.get("id", "")),
-                            "tribunal": str(rec.get("tribunal", "")),
-                        },
-                    }
-                )
+    records = []
+    for rec in items:
+        if not isinstance(rec, dict):
+            continue
+        text = (rec.get("texto") or "").strip()
+        if len(text) < 200:
+            continue
+        records.append(
+            {
+                "text": text,
+                "info": {
+                    "id": str(rec.get("id", "")),
+                    "tribunal": str(rec.get("tribunal", "")),
+                },
+            }
+        )
     return records
 
 
@@ -165,8 +178,18 @@ def sample_tribunal(
             if zips_processed >= max_zips:
                 break
             try:
-                zip_bytes = download_zip(item_id, zip_name)
-                texts = extract_texts_from_zip(zip_bytes)
+                json_urls = get_zip_json_links(item_id, zip_name)
+                if not json_urls:
+                    continue
+
+                rng.shuffle(json_urls)
+                texts = []
+                for json_url in json_urls[:10]:
+                    fetched = extract_texts_from_json_url(json_url)
+                    texts.extend(fetched)
+                    if len(all_texts) + len(texts) >= n + 10:
+                        break
+
                 for rec in texts:
                     h = hashlib.sha256(rec["text"].encode()).hexdigest()
                     if h not in seen_hashes:
@@ -176,14 +199,15 @@ def sample_tribunal(
                         all_texts.append(rec)
                 zips_processed += 1
                 logger.info(
-                    "zip_extracted",
+                    "zip_streamed",
                     item=item_id,
                     zip=zip_name,
-                    texts=len(texts),
+                    jsons=len(json_urls),
+                    extracted=len(texts),
                     total=len(all_texts),
                 )
-            except (URLError, TimeoutError, OSError, zipfile.BadZipFile, ValueError) as e:
-                logger.warning("zip_download_failed", item=item_id, zip=zip_name, error=str(e))
+            except (URLError, TimeoutError, OSError, ValueError) as e:
+                logger.warning("zip_streaming_failed", item=item_id, zip=zip_name, error=str(e))
 
     if len(all_texts) < n:
         logger.warning("insufficient_texts", tribunal=tribunal, found=len(all_texts), requested=n)

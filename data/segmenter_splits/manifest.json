@@ -1,0 +1,29 @@
+{
+  "category_version": "segmenter_v7",
+  "seed": 42,
+  "counts": {
+    "train": 23,
+    "val": 4,
+    "test": 3
+  },
+  "per_class": {
+    "cabecalho_inicio": 24,
+    "ref_processual": 28,
+    "cabecalho_fim": 24,
+    "encerramento_inicio": 12,
+    "encerramento_fim": 11,
+    "capitulo_merito_inicio": 4,
+    "capitulo_merito_fim": 1,
+    "dispositivo_abertura": 4,
+    "resultado": 8,
+    "custas_inicio": 2,
+    "honorarios_inicio": 3,
+    "fundamentacao_legal": 11,
+    "relatorio_inicio": 3,
+    "relatorio_fim": 3,
+    "valor_condenacao": 2,
+    "ementa_inicio": 1,
+    "ementa_fim": 2
+  },
+  "test_verified_by": "llm_annotator"
+}
