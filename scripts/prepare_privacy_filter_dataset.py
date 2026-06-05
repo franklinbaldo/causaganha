@@ -208,14 +208,25 @@ def segment(text: str) -> list[dict] | None:
     return _remove_overlaps(spans)
 
 
-_segment = segment
+def _segment(text: str) -> dict[str, list[list[int]]] | None:
+    """Compat wrapper: returns old dict-of-lists format for legacy callers."""
+    spans = segment(text)
+    if spans is None:
+        return None
+    result: dict[str, list[list[int]]] = {}
+    for sp in spans:
+        result.setdefault(sp["category"], []).append([sp["start"], sp["end"]])
+    return result
+
+
+_V6_CATEGORIES = frozenset(SPAN_CLASS_NAMES_V6)
 
 
 def migrate_spans_v4_to_v5(
     spans: dict[str, list[list[int]]],
 ) -> dict[str, list[list[int]]]:
-    """Stub for backwards compat — v6 uses a completely different ontology."""
-    return spans
+    """Keep only categories that exist in the v6 ontology, drop the rest."""
+    return {k: v for k, v in spans.items() if k in _V6_CATEGORIES and k != "O"}
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +388,26 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
         )
 
     logger.info("segmentation_done", records=len(records), skipped=skipped)
+
+    # Deduplicate by text hash to prevent train/test leakage
+    import hashlib  # noqa: PLC0415
+
+    seen: set[str] = set()
+    unique_records: list[dict] = []
+    for rec in records:
+        h = hashlib.sha256(rec["text"].encode()).hexdigest()
+        if h not in seen:
+            seen.add(h)
+            unique_records.append(rec)
+    if len(unique_records) < len(records):
+        logger.info(
+            "deduplicated",
+            before=len(records),
+            after=len(unique_records),
+            removed=len(records) - len(unique_records),
+        )
+    records = unique_records
+
     if len(records) < 10:
         logger.error("insufficient_data", count=len(records))
         return 1

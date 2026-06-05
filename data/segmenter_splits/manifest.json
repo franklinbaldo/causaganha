@@ -3,16 +3,16 @@
   "seed": 42,
   "source_commit": "be4a6fc",
   "counts": {
-    "train": 124,
-    "val": 15,
-    "test": 17
+    "train": 115,
+    "val": 14,
+    "test": 13
   },
   "per_class": {
-    "ref_processual": 312,
-    "dispositivo_abertura": 236,
-    "ref_normativa": 1683,
-    "resultado": 121,
-    "valor_condenacao": 112
+    "ref_processual": 294,
+    "dispositivo_abertura": 218,
+    "resultado": 112,
+    "valor_condenacao": 108,
+    "ref_normativa": 1391
   },
   "test_verified_by": "same_as_train_labeler"
 }
