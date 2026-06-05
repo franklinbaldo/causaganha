@@ -1,7 +1,6 @@
 {
   "category_version": "causaganha-v5",
   "span_class_names": [
-    "O",
     "sec_cabecalho",
     "sec_relatorio",
     "sec_fundamentacao",
