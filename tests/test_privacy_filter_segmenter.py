@@ -58,6 +58,21 @@ def test_finds_dispositivo_abertura() -> None:
     assert "Ante o exposto" in surface
 
 
+def test_keeps_only_last_dispositivo() -> None:
+    text = (
+        "Processo nº 0001234-56.2025.8.22.0001\n"
+        "Pelo exposto, rejeito a preliminar.\n"
+        "Do mérito. Analiso o pedido.\n"
+        "Ante o exposto, julgo procedente o pedido."
+    )
+    spans = segment(text)
+    assert spans is not None
+    disp = [s for s in spans if s["category"] == "dispositivo_abertura"]
+    assert len(disp) == 1
+    surface = text[disp[0]["start"] : disp[0]["end"]]
+    assert "Ante o exposto" in surface
+
+
 def test_finds_resultado() -> None:
     spans = segment(DECISION)
     assert spans is not None
