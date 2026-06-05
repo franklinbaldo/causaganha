@@ -1,0 +1,32 @@
+{
+  "seed": 771,
+  "source": "Internet Archive djen OCR cadernos",
+  "tribunals": {
+    "TJRO": 20
+  },
+  "doc_types": {
+    "acordao": 8,
+    "sentenca": 12
+  },
+  "length_band_chars": [
+    1200,
+    6500
+  ],
+  "total": 20,
+  "coverage_hint": {
+    "honorarios+custas+preliminar biased": true
+  },
+  "batches": {
+    "acordao": [
+      "data/segmenter_work/batches/ac_1.jsonl",
+      "data/segmenter_work/batches/ac_2.jsonl",
+      "data/segmenter_work/batches/ac_3.jsonl"
+    ],
+    "sentenca": [
+      "data/segmenter_work/batches/se_1.jsonl",
+      "data/segmenter_work/batches/se_2.jsonl",
+      "data/segmenter_work/batches/se_3.jsonl",
+      "data/segmenter_work/batches/se_4.jsonl"
+    ]
+  }
+}
