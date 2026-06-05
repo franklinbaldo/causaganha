@@ -1,18 +1,32 @@
 {
   "category_version": "segmenter_v7",
   "seed": 42,
-  "source_commit": "be4a6fc",
   "counts": {
-    "train": 115,
-    "val": 14,
-    "test": 13
+    "train": 111,
+    "val": 15,
+    "test": 16
   },
   "per_class": {
-    "ref_normativa": 1391,
-    "ref_processual": 294,
+    "cabecalho_fim": 138,
+    "cabecalho_inicio": 139,
+    "capitulo_merito_fim": 44,
+    "capitulo_merito_inicio": 56,
+    "custas_fim": 24,
+    "custas_inicio": 38,
     "dispositivo_abertura": 133,
-    "valor_condenacao": 108,
-    "resultado": 97
-  },
-  "test_verified_by": "same_as_train_labeler"
+    "ementa_fim": 4,
+    "ementa_inicio": 4,
+    "encerramento_fim": 125,
+    "encerramento_inicio": 122,
+    "fundamentacao_legal": 102,
+    "honorarios_fim": 31,
+    "honorarios_inicio": 31,
+    "preliminar_fim": 9,
+    "preliminar_inicio": 9,
+    "ref_processual": 294,
+    "relatorio_fim": 82,
+    "relatorio_inicio": 90,
+    "resultado": 97,
+    "valor_condenacao": 108
+  }
 }

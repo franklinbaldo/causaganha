@@ -2,7 +2,8 @@
 
 ``segment()`` finds short anchor cues in judicial decisions.
 v7 has two anchor schemes: single-anchor (6 categories) and start/end
-pairs (9x2=18 categories) for a total of 24 + O = 25 entries.
+pairs (8x2=16 categories). ref_normativa is handled by regex pre-pass
+and excluded from the OPF training label space (22 entries).
 
 The bootstrap ``segment()`` only emits v6-era single-anchor categories;
 v7 paired categories are produced by subagent annotation, not regex.
@@ -14,6 +15,7 @@ format, or None if no dispositivo opening cue is found.
 from __future__ import annotations
 
 from scripts.prepare_privacy_filter_dataset import (
+    SINGLE_ANCHOR_CATEGORIES,
     SPAN_CLASS_NAMES_V7,
     _stratified_split,
     segment,
@@ -132,7 +134,7 @@ def test_no_overlapping_spans() -> None:
 def test_spans_have_correct_format() -> None:
     spans = segment(DECISION)
     assert spans is not None
-    valid_cats = set(SPAN_CLASS_NAMES_V7) - {"O"}
+    valid_cats = set(SINGLE_ANCHOR_CATEGORIES)
     for sp in spans:
         assert set(sp.keys()) == {"category", "start", "end"}
         assert sp["category"] in valid_cats
@@ -140,15 +142,20 @@ def test_spans_have_correct_format() -> None:
         assert isinstance(sp["end"], int)
 
 
-def test_v7_label_space_has_25_entries() -> None:
-    assert len(SPAN_CLASS_NAMES_V7) == 25
+def test_v7_label_space_has_22_entries() -> None:
+    assert len(SPAN_CLASS_NAMES_V7) == 22
     assert SPAN_CLASS_NAMES_V7[0] == "O"
     assert "dispositivo_abertura" in SPAN_CLASS_NAMES_V7
+    assert "cabecalho_inicio" in SPAN_CLASS_NAMES_V7
+    assert "cabecalho_fim" in SPAN_CLASS_NAMES_V7
     assert "ementa_inicio" in SPAN_CLASS_NAMES_V7
     assert "ementa_fim" in SPAN_CLASS_NAMES_V7
     assert "encerramento_inicio" in SPAN_CLASS_NAMES_V7
     assert "encerramento_fim" in SPAN_CLASS_NAMES_V7
+    assert "preliminar_inicio" in SPAN_CLASS_NAMES_V7
+    assert "preliminar_fim" in SPAN_CLASS_NAMES_V7
     assert "fundamentacao_legal" in SPAN_CLASS_NAMES_V7
+    assert "ref_normativa" not in SPAN_CLASS_NAMES_V7
 
 
 def test_stratified_split_preserves_categories() -> None:

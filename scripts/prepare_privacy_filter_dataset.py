@@ -9,8 +9,8 @@ Two modes:
 
 Ontology v7 — two anchor schemes:
   Single-anchor (6): short cue, region extends to next anchor/EOD.
-  Start/end pairs (9x2=18): discrete regions with _inicio/_fim markers.
-  Total: O + 24 = 25 entries in span_class_names.
+  Start/end pairs (8x2=16): discrete regions with _inicio/_fim markers.
+  Total: O + 22 = 23 entries in span_class_names.
 
 Output: OPF-format JSONL — one record per line:
   {"text": str, "label": [{"category": str, "start": int, "end": int}],
@@ -45,8 +45,15 @@ logger = structlog.get_logger()
 #
 # Two anchor schemes:
 #   Single-anchor (6): short cue, region extends to next anchor or EOD.
-#   Start/end pairs (9x2=18): _inicio/_fim bracket discrete regions.
-# Total: O + 24 = 25 entries.
+#   Start/end pairs (8x2=16): _inicio/_fim bracket discrete regions.
+#
+# ref_normativa is a single-anchor category but is handled by regex
+# pre-pass at inference time. It is kept in SINGLE_ANCHOR_CATEGORIES
+# for region reconstruction but excluded from the OPF training label
+# space (SPAN_CLASS_NAMES_V7).
+#
+# Training label space: O + 5 trained single + 16 paired = 22 entries.
+# Full ontology: O + 6 single + 16 paired = 23 entries.
 # ---------------------------------------------------------------------------
 
 # -- Single-anchor categories (tiling regions) --
@@ -61,12 +68,11 @@ SINGLE_ANCHOR_CATEGORIES: list[str] = [
 
 # -- Start/end pair categories (discrete regions) --
 _PAIRED_REGION_BASES: list[str] = [
+    "cabecalho",
     "ementa",
     "relatorio",
-    "capitulo_fato",
-    "capitulo_direito",
     "capitulo_merito",
-    "capitulo_tutela",
+    "preliminar",
     "honorarios",
     "custas",
     "encerramento",
@@ -76,9 +82,11 @@ PAIRED_CATEGORIES: list[str] = []
 for _base in _PAIRED_REGION_BASES:
     PAIRED_CATEGORIES.extend([f"{_base}_inicio", f"{_base}_fim"])
 
+_TRAINED_SINGLE = [c for c in SINGLE_ANCHOR_CATEGORIES if c != "ref_normativa"]
+
 SPAN_CLASS_NAMES_V7: list[str] = [
     "O",
-    *SINGLE_ANCHOR_CATEGORIES,
+    *_TRAINED_SINGLE,
     *PAIRED_CATEGORIES,
 ]
 

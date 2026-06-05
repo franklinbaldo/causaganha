@@ -23,7 +23,7 @@ as one span.
 | `ref_normativa` | Citation of statute, article, or precedent | "art. 927 do CPC" / "Súmula 331 do TST" |
 | `fundamentacao_legal` | Legal reasoning phrase citing authority | "nos termos do art. 932 do CPC" |
 
-### Start/end pairs (9 region types, 18 categories)
+### Start/end pairs (8 region types, 16 categories)
 
 Mark a short **opening cue** as `_inicio` and a short **closing cue** as
 `_fim`. The region is everything between them (inclusive). If no closing
@@ -31,15 +31,14 @@ cue exists, the `_inicio` extends to EOD (reconstructed as unmatched).
 
 | Base | `_inicio` example | `_fim` example |
 |---|---|---|
+| `cabecalho` | "PODER JUDICIÁRIO" / court name | Last party/OAB before SENTENÇA |
 | `ementa` | "EMENTA:" | Last line before RELATÓRIO |
-| `relatorio` | "RELATÓRIO:" / "Trata-se de" | Last line before fundamentação |
-| `capitulo_fato` | "DOS FATOS:" / "Da narrativa fática" | End of fact section |
-| `capitulo_direito` | "DO DIREITO:" | End of legal discussion |
-| `capitulo_merito` | "DO MÉRITO:" / "Mérito:" | End of merit analysis |
-| `capitulo_tutela` | "DA TUTELA:" | End of injunctive section |
-| `honorarios` | "HONORÁRIOS:" / "Dos honorários" | End of fee determination |
-| `custas` | "CUSTAS:" / "Das custas" | End of costs determination |
-| `encerramento` | "Publique-se." / "P.R.I." | End of document |
+| `relatorio` | "RELATÓRIO:" / "Trata-se de" | "É o relatório." |
+| `capitulo_merito` | "DO MÉRITO:" / "DECIDO" / "Mérito:" | "DISPOSITIVO" / start of dispositivo |
+| `preliminar` | "DAS PRELIMINARES" / "PRELIMINAR" | End of preliminary analysis |
+| `honorarios` | "HONORÁRIOS:" / "Dos honorários" / "Sem honorários" | End of fee determination |
+| `custas` | "CUSTAS:" / "Das custas" / "Sem custas" | End of costs determination |
+| `encerramento` | "Publique-se." / "P.R.I." | Judge title at end of document |
 
 ## Rules
 
