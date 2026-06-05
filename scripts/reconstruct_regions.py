@@ -125,9 +125,11 @@ def reconstruct_single_anchor_regions(
     Each anchor starts a region that extends to the next anchor or EOD.
     """
     single = frozenset(SINGLE_ANCHOR_CATEGORIES)
-    paired_inicio = frozenset(f"{b}_inicio" for b in _PAIRED_REGION_BASES)
+    paired_cats = frozenset(
+        f"{b}_{suffix}" for b in _PAIRED_REGION_BASES for suffix in ("inicio", "fim")
+    )
     all_boundaries = sorted(
-        (sp for sp in spans if sp["category"] in single or sp["category"] in paired_inicio),
+        (sp for sp in spans if sp["category"] in single or sp["category"] in paired_cats),
         key=lambda s: s["start"],
     )
     regions: list[Region] = []
