@@ -158,11 +158,11 @@ def run_train(label_space: dict, label: str, tmpdir: Path) -> int:
 
 
 def main() -> int:
-    assert len(SPAN_CLASS_NAMES_V7) == 22, f"Expected 22, got {len(SPAN_CLASS_NAMES_V7)}"
+    assert len(SPAN_CLASS_NAMES_V7) == 26, f"Expected 26, got {len(SPAN_CLASS_NAMES_V7)}"
     assert SPAN_CLASS_NAMES_V7[0] == "O"
 
     categories_without_o = SPAN_CLASS_NAMES_V7[1:]
-    assert len(categories_without_o) == 21
+    assert len(categories_without_o) == 25
 
     single_count = len(SINGLE_ANCHOR_CATEGORIES)
     paired_count = len(categories_without_o) - single_count

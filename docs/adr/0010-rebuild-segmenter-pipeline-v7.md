@@ -12,7 +12,7 @@ The v6 Decision Segmenter relied on a gold dataset generated through heuristics 
 
 We recently observed significant success with the "Leizilla #84" strategy, which employed a clean, subagent-driven annotation loop to build high-quality datasets from scratch.
 
-To advance the segmenter to v7, we have developed new infrastructure and updated our ontology. The trained label space has 22 entries (`O` + 5 single-anchor + 16 paired `_inicio`/`_fim`); `ref_normativa` is excluded and handled by a regex pre-pass at inference. To fully leverage these improvements, we need a pristine gold dataset.
+To advance the segmenter to v7, we have developed new infrastructure and updated our ontology. The trained label space has 26 entries (`O` + 5 single-anchor + 20 paired `_inicio`/`_fim`, including the acórdão-specific `voto_*` and `acordao_decisorio_*` pairs); `ref_normativa` is excluded and handled by a regex pre-pass at inference. To fully leverage these improvements, we need a pristine gold dataset.
 
 ## Decision
 
@@ -28,26 +28,23 @@ We have decided to rebuild the v7 Decision Segmenter pipeline from scratch, spec
 *   **Positive**: The clean separation of code and data allows us to iterate on the infrastructure independently of the dataset state.
 *   **Negative**: There is an initial cost to re-annotate a full dataset from scratch. We will depend heavily on the subagent annotation loop performing well to populate the new dataset in a timely manner. We will not have a deployable v7 model until the new annotation loop completes.
 
-## Phase 2 plan (gold build — deferred)
+## Phase 2 plan (gold build — in progress)
 
-The infrastructure (Step 1) is merged and CI-green; the gold annotation
-(Phase 2) is deferred to a dedicated effort. Two decisions are locked in for
-when it runs:
+The infrastructure (Step 1) is merged and CI-green. The gold annotation
+(Phase 2) is now under way. The governing decisions:
 
-1.  **Extend the ontology before annotating.** The current 22-entry trained
-    label space (`O` + 5 single-anchor + 16 paired) covers structures shared by
-    sentenças and acórdãos (e.g. `ementa_*`, `relatorio_*`, `capitulo_merito_*`)
-    but has no acórdão-specific categories. Before sampling/annotating, add the
-    acórdão pair categories — `voto_inicio`/`voto_fim` and
-    `acordao_decisorio_inicio`/`acordao_decisorio_fim` — to
-    `SPAN_CLASS_NAMES_V7`, `label_space.json`, the annotation guideline, and the
-    count assertions (`tests/test_privacy_filter_segmenter.py`,
-    `scripts/test_opf_label_space.py`, the Colab notebook, this ADR). The pool
-    MUST include acórdãos so these categories — and the rare
-    `custas_*`/`honorarios_*`/`preliminar_*` ones — get real examples; otherwise
-    they stay declared-but-unlearnable (the open `label_space.json` review
-    thread). Categories that cannot be populated should be trimmed rather than
-    declared empty.
+1.  **Extend the ontology before annotating — DONE.** The trained label space
+    was grown from 22 to 26 entries (`O` + 5 single-anchor + 20 paired) by
+    adding the acórdão pair categories `voto_inicio`/`voto_fim` and
+    `acordao_decisorio_inicio`/`acordao_decisorio_fim` across
+    `SPAN_CLASS_NAMES_V7`, the committed `label_space.json`, the annotation
+    guideline, the count assertions (`tests/test_privacy_filter_segmenter.py`,
+    `scripts/test_opf_label_space.py`), the Colab notebook, and this ADR. The
+    pool MUST include genuine second-instance acórdãos so these categories — and
+    the rare `custas_*`/`honorarios_*`/`preliminar_*` ones — get real examples;
+    otherwise they stay declared-but-unlearnable (the open `label_space.json`
+    review thread). Categories that cannot be populated should be trimmed rather
+    than declared empty.
 
 2.  **Annotate via subagents, not an LLM-API script.** Shard the pool (acórdãos
     first); one labeling subagent per batch returns `{category, match, nth}` in
@@ -58,3 +55,21 @@ when it runs:
     four-role ensemble (strict-boundary, category-disambiguation, blind-relabel,
     adversarial) and set `manifest.test_verified_by` accordingly. Report
     macro-F1 both with and without `ref_normativa` to surface the v6 inflation.
+
+3.  **Tiered model assignment (to stay under usage limits).** The orchestrator
+    spawns subagents with an explicit model per role:
+    *   **Bulk labeling → Haiku.** The structural anchors are short, distinctive
+        cues, so cheap models suffice. To neutralise Haiku's weakness at
+        *counting occurrences*, labeling subagents must return the **shortest
+        _unique_ `match`** (so `nth` is `1` and no counting is needed); a longer
+        unique surface also forces them to locate the genuinely operative
+        clause. `from-spans` + `validate` are the mechanical safety net (they
+        fail loudly on match-not-found / overlap / whitespace), letting cheap
+        models be wrong loudly rather than silently.
+    *   **Verification ensemble → strong model (Sonnet/Opus).** It runs over
+        val+test only (low volume, high leverage), so it does not threaten
+        limits. Model heterogeneity between the Haiku labeler and a stronger
+        blind-relabel verifier is a *feature*: their errors decorrelate, which
+        is the whole point of the ensemble.
+    *   Any document a Haiku labeler flags as ambiguous is re-adjudicated by the
+        stronger model.

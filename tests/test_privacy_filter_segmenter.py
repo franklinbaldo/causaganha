@@ -140,8 +140,8 @@ def test_spans_have_correct_format() -> None:
         assert isinstance(sp["end"], int)
 
 
-def test_v7_label_space_has_22_entries() -> None:
-    assert len(SPAN_CLASS_NAMES_V7) == 22
+def test_v7_label_space_has_26_entries() -> None:
+    assert len(SPAN_CLASS_NAMES_V7) == 26
     assert SPAN_CLASS_NAMES_V7[0] == "O"
     assert "dispositivo_abertura" in SPAN_CLASS_NAMES_V7
     assert "cabecalho_inicio" in SPAN_CLASS_NAMES_V7
@@ -153,6 +153,11 @@ def test_v7_label_space_has_22_entries() -> None:
     assert "preliminar_inicio" in SPAN_CLASS_NAMES_V7
     assert "preliminar_fim" in SPAN_CLASS_NAMES_V7
     assert "fundamentacao_legal" in SPAN_CLASS_NAMES_V7
+    # Acórdão-specific pairs (second-instance decisions).
+    assert "voto_inicio" in SPAN_CLASS_NAMES_V7
+    assert "voto_fim" in SPAN_CLASS_NAMES_V7
+    assert "acordao_decisorio_inicio" in SPAN_CLASS_NAMES_V7
+    assert "acordao_decisorio_fim" in SPAN_CLASS_NAMES_V7
     assert "ref_normativa" not in SPAN_CLASS_NAMES_V7
 
 

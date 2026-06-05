@@ -23,7 +23,7 @@ as one span.
 | `ref_normativa` | Citation of statute, article, or precedent | "art. 927 do CPC" / "Súmula 331 do TST" |
 | `fundamentacao_legal` | Legal reasoning phrase citing authority | "nos termos do art. 932 do CPC" |
 
-### Start/end pairs (8 region types, 16 categories)
+### Start/end pairs (10 region types, 20 categories)
 
 Mark a short **opening cue** as `_inicio` and a short **closing cue** as
 `_fim`. The region is everything between them (inclusive). If no closing
@@ -39,6 +39,15 @@ cue exists, the `_inicio` extends to EOD (reconstructed as unmatched).
 | `honorarios` | "HONORÁRIOS:" / "Dos honorários" / "Sem honorários" | End of fee determination |
 | `custas` | "CUSTAS:" / "Das custas" / "Sem custas" | End of costs determination |
 | `encerramento` | "Publique-se." / "P.R.I." | Judge title at end of document |
+| `voto` | "VOTO" / "É como voto" (start of a judge's reasoning in an acórdão) | "É o voto." / last line before the next vote or the decisório |
+| `acordao_decisorio` | "ACORDAM os Desembargadores" / "Vistos, relatados e discutidos" | "à unanimidade" / "por maioria" + close of the collegiate result |
+
+**Acórdão (second-instance) notes.** `voto` and `acordao_decisorio` only
+appear in collegiate decisions (Câmaras, Turmas Recursais). An acórdão's
+operative result is the **collegiate** `acordao_decisorio` ("ACORDAM ...");
+do **not** also tag a single-judge `dispositivo_abertura` inside an
+individual `voto` as the decision's operative opening. In a sentença
+(first instance) these two categories do not occur.
 
 ## Rules
 
