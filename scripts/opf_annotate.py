@@ -35,10 +35,6 @@ def _spans_of(rec: dict) -> list[dict]:
     return []
 
 
-def _has_span_field(rec: dict) -> bool:
-    return any(f in rec for f in SPAN_FIELDS)
-
-
 def _read_jsonl(path: str):
     with Path(path).open(encoding="utf-8") as fh:
         for ln, raw in enumerate(fh, 1):
@@ -88,9 +84,6 @@ def validate(path: str, label_space: str | None) -> int:
             errors.append(f"L{ln}: missing/invalid `text`")
             continue
         tlen = len(text)
-        if not _has_span_field(rec):
-            errors.append(f"L{ln}: record has no `label` or `spans` field")
-            continue
         spans = _spans_of(rec)
         norm: list[tuple[int, int, str]] = []
         for i, sp in enumerate(spans):
@@ -143,8 +136,6 @@ def validate(path: str, label_space: str | None) -> int:
                     f"Listing a category without examples teaches the model nothing "
                     f"and can degrade it."
                 )
-    if n_lines == 0:
-        errors.append("file is empty (0 records)")
     for w in warnings:
         print(f"WARN  {w}", file=sys.stderr)
     for e in errors:
@@ -156,62 +147,56 @@ def validate(path: str, label_space: str | None) -> int:
     return 0
 
 
-import contextlib
-
-
 # ------------------------------------------------------------------------- from-spans
 def from_spans(path: str, output: str | None) -> int:
     """Build OPF JSONL from looser input with `finds` (match-based) and `spans`."""
-    with contextlib.ExitStack() as stack:
-        out_fh = (
-            stack.enter_context(Path(output).open("w", encoding="utf-8")) if output else sys.stdout
-        )
-        n = 0
-        errors = 0
-        try:
-            for ln, rec in _read_jsonl(path):
-                if isinstance(rec, json.JSONDecodeError):
-                    print(f"ERROR L{ln}: invalid JSON ({rec})", file=sys.stderr)
+    out_fh = Path(output).open("w", encoding="utf-8") if output else sys.stdout  # noqa: SIM115
+    n = 0
+    errors = 0
+    try:
+        for ln, rec in _read_jsonl(path):
+            if isinstance(rec, json.JSONDecodeError):
+                print(f"ERROR L{ln}: invalid JSON ({rec})", file=sys.stderr)
+                errors += 1
+                continue
+            text = rec.get("text")
+            if not isinstance(text, str):
+                print(f"ERROR L{ln}: missing/invalid `text`", file=sys.stderr)
+                errors += 1
+                continue
+            label: list[dict] = [
+                {"category": sp["category"], "start": int(sp["start"]), "end": int(sp["end"])}
+                for sp in (rec.get("spans", []) or [])
+            ]
+            for fnd in rec.get("finds", []) or []:
+                match, cat = fnd["match"], fnd["category"]
+                nth = int(fnd.get("nth", 1))
+                idx, found, count = -1, -1, 0
+                while True:
+                    idx = text.find(match, idx + 1)
+                    if idx == -1:
+                        break
+                    count += 1
+                    if count == nth:
+                        found = idx
+                        break
+                if found == -1:
+                    print(
+                        f"ERROR L{ln}: match {match!r} (nth={nth}) for [{cat}] not found in text",
+                        file=sys.stderr,
+                    )
                     errors += 1
                     continue
-                text = rec.get("text")
-                if not isinstance(text, str):
-                    print(f"ERROR L{ln}: missing/invalid `text`", file=sys.stderr)
-                    errors += 1
-                    continue
-                label: list[dict] = [
-                    {"category": sp["category"], "start": int(sp["start"]), "end": int(sp["end"])}
-                    for sp in (rec.get("spans", []) or [])
-                ]
-                for fnd in rec.get("finds", []) or []:
-                    match, cat = fnd["match"], fnd["category"]
-                    nth = int(fnd.get("nth", 1))
-                    idx, found, count = -1, -1, 0
-                    while True:
-                        idx = text.find(match, idx + 1)
-                        if idx == -1:
-                            break
-                        count += 1
-                        if count == nth:
-                            found = idx
-                            break
-                    if found == -1:
-                        msg = (
-                            f"ERROR L{ln}: match {match!r} (nth={nth}) "
-                            f"for [{cat}] not found in text"
-                        )
-                        print(msg, file=sys.stderr)
-                        errors += 1
-                        continue
-                    label.append({"category": cat, "start": found, "end": found + len(match)})
-                out = {"text": text, "label": label}
-                if "info" in rec:
-                    out["info"] = rec["info"]
-                out_fh.write(json.dumps(out, ensure_ascii=False) + "\n")
-                n += 1
-        finally:
-            pass
-        print(f"wrote {n} record(s)" + (f" -> {output}" if output else ""), file=sys.stderr)
+                label.append({"category": cat, "start": found, "end": found + len(match)})
+            out = {"text": text, "label": label}
+            if "info" in rec:
+                out["info"] = rec["info"]
+            out_fh.write(json.dumps(out, ensure_ascii=False) + "\n")
+            n += 1
+    finally:
+        if output:
+            out_fh.close()
+    print(f"wrote {n} record(s)" + (f" -> {output}" if output else ""), file=sys.stderr)
     return 1 if errors else 0
 
 

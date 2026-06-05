@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare anchor-span dataset for CausaGanha decision segmenter (OPF v7).
+"""Prepare anchor-span dataset for CausaGanha decision segmenter (OPF v6).
 
 Two modes:
   1. PROMOTE (default): Read gold splits from git (data/segmenter_splits/),
@@ -7,10 +7,9 @@ Two modes:
   2. BOOTSTRAP: Generate initial heuristic labels from a parquet of judicial
      texts. Output needs LLM verification before becoming gold.
 
-Ontology v7 — two anchor schemes:
-  Single-anchor (6): short cue, region extends to next anchor/EOD.
-  Start/end pairs (8x2=16): discrete regions with _inicio/_fim markers.
-  Total: O + 22 = 23 entries in span_class_names.
+Ontology (per project-recipes.md):
+  ["O", "dispositivo_abertura", "resultado", "ref_processual",
+   "valor_condenacao", "ref_normativa"]
 
 Output: OPF-format JSONL — one record per line:
   {"text": str, "label": [{"category": str, "start": int, "end": int}],
@@ -28,7 +27,6 @@ Usage:
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import random
 import re
@@ -36,78 +34,15 @@ import subprocess
 import sys
 from pathlib import Path
 
-import ibis
 import structlog
 
 
 logger = structlog.get_logger()
 
 # ---------------------------------------------------------------------------
-# Label space v7 — CausaGanha anchor-span ontology
-#
-# Two anchor schemes:
-#   Single-anchor (6): short cue, region extends to next anchor or EOD.
-#   Start/end pairs (10x2=20): _inicio/_fim bracket discrete regions.
-#
-# The paired set includes acórdão-specific regions (voto, acordao_decisorio)
-# so second-instance decisions are first-class, not forced through the
-# sentença-shaped categories.
-#
-# ref_normativa is a single-anchor category but is handled by regex
-# pre-pass at inference time. It is kept in SINGLE_ANCHOR_CATEGORIES
-# for region reconstruction but excluded from the OPF training label
-# space (SPAN_CLASS_NAMES_V7).
-#
-# Training label space: O + 5 trained single + 20 paired = 26 entries.
-# Full ontology: O + 6 single + 20 paired = 27 entries.
+# Label space v6 — CausaGanha anchor-span ontology
 # ---------------------------------------------------------------------------
 
-# -- Single-anchor categories (tiling regions) --
-SINGLE_ANCHOR_CATEGORIES: list[str] = [
-    "dispositivo_abertura",
-    "resultado",
-    "ref_processual",
-    "valor_condenacao",
-    "ref_normativa",
-    "fundamentacao_legal",
-]
-
-# -- Start/end pair categories (discrete regions) --
-# Shared (sentença + acórdão): cabecalho, ementa, relatorio, capitulo_merito,
-# preliminar, honorarios, custas, encerramento.
-# Acórdão-specific: voto (each judge's vote) and acordao_decisorio (the
-# collegiate operative result, "ACORDAM os Desembargadores ...").
-_PAIRED_REGION_BASES: list[str] = [
-    "cabecalho",
-    "ementa",
-    "relatorio",
-    "capitulo_merito",
-    "preliminar",
-    "honorarios",
-    "custas",
-    "encerramento",
-    "voto",
-    "acordao_decisorio",
-]
-
-PAIRED_CATEGORIES: list[str] = []
-for _base in _PAIRED_REGION_BASES:
-    PAIRED_CATEGORIES.extend([f"{_base}_inicio", f"{_base}_fim"])
-
-_TRAINED_SINGLE = [c for c in SINGLE_ANCHOR_CATEGORIES if c != "ref_normativa"]
-
-SPAN_CLASS_NAMES_V7: list[str] = [
-    "O",
-    *_TRAINED_SINGLE,
-    *PAIRED_CATEGORIES,
-]
-
-LABEL_SPACE_V7 = {
-    "category_version": "segmenter_v7",
-    "span_class_names": SPAN_CLASS_NAMES_V7,
-}
-
-# v6 kept for migration / backwards compat
 SPAN_CLASS_NAMES_V6: list[str] = [
     "O",
     "dispositivo_abertura",
@@ -122,44 +57,11 @@ LABEL_SPACE_V6 = {
     "span_class_names": SPAN_CLASS_NAMES_V6,
 }
 
-# Current-version aliases — all new code should use these
-SPAN_CLASS_NAMES = SPAN_CLASS_NAMES_V7
-LABEL_SPACE = LABEL_SPACE_V7
-
-# Legacy v5 — the 22-class ("O" + 21) privacy-filter taxonomy that predates
-# the v7 anchor-span ontology. Kept INTACT (not aliased to the 6-class v6)
-# so legacy importers (bootstrap_training_corpus.py, augment_segmenter_data.py,
-# notebooks/train_decision_segmenter.py) retain their original label space
-# instead of silently switching taxonomies. New code must use *_V7.
-SPAN_CLASS_NAMES_V5: list[str] = [
-    "O",  # 0 — background / unlabeled
-    "sec_cabecalho",  # 1 — header block (tribunal, vara, parties list)
-    "sec_relatorio",  # 2 — Relatório (case history)
-    "sec_fundamentacao",  # 3 — Fundamentação (legal reasoning)
-    "sec_dispositivo",  # 4 — Dispositivo (operative ruling)
-    "sec_assinatura",  # 5 — Signature/closing block
-    "elem_nao_textual",  # 6 — non-textual elements (page numbers, headers)
-    "parte_autor",  # 7 — plaintiff / polo ativo name
-    "parte_reu",  # 8 — defendant / polo passivo name
-    "parte_terceiro",  # 9 — third party / interested party
-    "nome_advogado",  # 10 — lawyer name
-    "oab",  # 11 — OAB registration number
-    "nome_juiz",  # 12 — judge / magistrate name
-    "cpf_cnpj",  # 13 — CPF (individual) or CNPJ (company) tax ID
-    "processo_cnj",  # 14 — CNJ case number
-    "classe_processual",  # 15 — procedural class (Apelação Cível, etc.)
-    "id_lei",  # 16 — law / statute reference (Art. X, Lei nº Y)
-    "id_precedente",  # 17 — precedent identifier (Súmula X, Tema Y)
-    "citacao_precedente",  # 18 — direct textual quote from a precedent
-    "data",  # 19 — date spans
-    "serventuario",  # 20 — court clerk / officer who signs instead of judge
-    "valor_monetario",  # 21 — monetary value in Brazilian Reais (R$)
-]
-
-LABEL_SPACE_V5 = {
-    "category_version": "causaganha-v5",
-    "span_class_names": SPAN_CLASS_NAMES_V5,
-}
+# Backwards compat: re-export for any importers expecting older names
+LABEL_SPACE_V5 = LABEL_SPACE_V6
+SPAN_CLASS_NAMES_V5 = SPAN_CLASS_NAMES_V6
+SPAN_CLASS_NAMES = SPAN_CLASS_NAMES_V6
+LABEL_SPACE = LABEL_SPACE_V6
 
 # Gold splits live in git (source of truth)
 GOLD_DIR = Path("data/segmenter_splits")
@@ -184,7 +86,7 @@ _DISPOSITIVO_ABERTURA_RE = re.compile(
     r"|Por\s+(?:todo\s+o\s+)?exposto"
     r"|Por\s+essas\s+raz[oõ]es"
     r"|Em\s+raz[aã]o\s+do\s+exposto"
-    r"|Ex\s+positis)",
+    r"|\bDECIDO\b)",
     re.IGNORECASE,
 )
 
@@ -222,6 +124,20 @@ _REF_PROCESSUAL_RE = re.compile(
 _VALOR_CONDENACAO_RE = re.compile(
     r"R\$\s*\d{1,3}(?:\.\d{3})*,\d{2}"
     r"|R\$\s*\d+,\d{2}",
+)
+
+_REF_NORMATIVA_RE = re.compile(
+    r"[Aa]rt(?:igo)?\.?\s*\d+(?:[,\s]*[§ºa°]\s*\d+)*"
+    r"(?:\s+(?:do|da|de)\s+[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][a-záéíóúâêîôûãõç]+"
+    r"(?:\s+[a-záéíóúâêîôûãõç]+){0,3})?"
+    r"|[Ll]ei\s+(?:[Cc]omplementar\s+)?(?:n[oºa°]?\s*)?[\d.]+/\d{2,4}"
+    r"|[Dd]ecreto(?:-[Ll]ei)?\s+(?:n[oºa°]?\s*)?[\d.]+(?:/\d{2,4})?"
+    r"|\b(?:CPC|CC|CDC|CLT|CF|CTN|CP|CPP|ECA|LRF|LINDB)\b"
+    r"|[Ss][úu]mula\s*(?:[Vv]inculante\s*)?(?:n[oºa°]?\s*)?\d+"
+    r"(?:\s+(?:do\s+)?[A-Z]{2,4})?"
+    r"|[Tt]ema\s*(?:[Rr]epetitivo\s*)?(?:n[oºa°]?\s*)?\d+"
+    r"(?:\s+(?:do\s+)?[A-Z]{2,4})?",
+    re.IGNORECASE,
 )
 
 
@@ -268,16 +184,15 @@ def segment(text: str) -> list[dict] | None:
     """Return OPF-format span list for a judicial decision text.
 
     Returns None if no dispositivo opening cue is found (required anchor).
-    Keeps only the LAST dispositivo match (the operative one) per v7 rules.
     """
-    all_disp = _collect_spans(_DISPOSITIVO_ABERTURA_RE, text, "dispositivo_abertura")
-    if not all_disp:
+    disp_match = _DISPOSITIVO_ABERTURA_RE.search(text)
+    if not disp_match:
         return None
 
-    operative_disp = max(all_disp, key=lambda s: s["start"])
-    disp_start = operative_disp["start"]
-    spans: list[dict] = [operative_disp]
+    disp_start = disp_match.start()
+    spans: list[dict] = []
 
+    spans.extend(_collect_spans(_DISPOSITIVO_ABERTURA_RE, text, "dispositivo_abertura"))
     spans.extend(_collect_spans(_RESULTADO_RE, text, "resultado", start=disp_start))
     spans.extend(_collect_spans(_REF_PROCESSUAL_RE, text, "ref_processual"))
     spans.extend(
@@ -288,52 +203,19 @@ def segment(text: str) -> list[dict] | None:
             start=disp_start,
         )
     )
+    spans.extend(_collect_spans(_REF_NORMATIVA_RE, text, "ref_normativa"))
+
     return _remove_overlaps(spans)
 
 
-def _segment(text: str) -> dict[str, list[list[int]]] | None:
-    """Compat wrapper: returns old dict-of-lists format for legacy callers."""
-    spans = segment(text)
-    if spans is None:
-        return None
-    result: dict[str, list[list[int]]] = {}
-    for sp in spans:
-        result.setdefault(sp["category"], []).append([sp["start"], sp["end"]])
-    return result
-
-
-_V6_CATEGORIES = frozenset(SPAN_CLASS_NAMES_V6)
-_V7_CATEGORIES = frozenset(SPAN_CLASS_NAMES_V7)
+_segment = segment
 
 
 def migrate_spans_v4_to_v5(
     spans: dict[str, list[list[int]]],
 ) -> dict[str, list[list[int]]]:
-    """Keep only categories that exist in the v6 ontology, reject unknown ones."""
-    kept = {k: v for k, v in spans.items() if k in _V6_CATEGORIES and k != "O"}
-    unknown = set(spans) - _V6_CATEGORIES
-    if unknown and not kept:
-        msg = (
-            f"All categories are legacy/unknown: {sorted(unknown)}. "
-            f"Valid v6 categories: {sorted(_V6_CATEGORIES - {'O'})}"
-        )
-        raise ValueError(msg)
-    return kept
-
-
-def migrate_spans_v6_to_v7(
-    spans: dict[str, list[list[int]]],
-) -> dict[str, list[list[int]]]:
-    """Keep only categories that exist in the v7 ontology, reject unknown ones."""
-    kept = {k: v for k, v in spans.items() if k in _V7_CATEGORIES and k != "O"}
-    unknown = set(spans) - _V7_CATEGORIES
-    if unknown and not kept:
-        msg = (
-            f"All categories are legacy/unknown: {sorted(unknown)}. "
-            f"Valid v7 categories: {sorted(_V7_CATEGORIES - {'O'})}"
-        )
-        raise ValueError(msg)
-    return kept
+    """Stub for backwards compat — v6 uses a completely different ontology."""
+    return spans
 
 
 # ---------------------------------------------------------------------------
@@ -462,97 +344,14 @@ def promote_gold(gold_dir: Path, output_dir: Path) -> int:
 
 
 # ---------------------------------------------------------------------------
-# Stratified splitting
-# ---------------------------------------------------------------------------
-
-
-def _pop_from_duplicate_category(records: list[dict]) -> dict:
-    """Pop a record from a category that has multiple training examples."""
-    cat_indices: dict[str, list[int]] = {}
-    for i, rec in enumerate(records):
-        cat = _dominant_category(rec)
-        cat_indices.setdefault(cat, []).append(i)
-    for cat in sorted(cat_indices, key=lambda c: -len(cat_indices[c])):
-        if len(cat_indices[cat]) > 1:
-            return records.pop(cat_indices[cat][-1])
-    return records.pop()
-
-
-def _dominant_category(rec: dict) -> str:
-    """Return the most frequent category in a record's labels (for stratification)."""
-    cats: dict[str, int] = {}
-    for sp in rec.get("label", []):
-        c = sp.get("category", "O")
-        cats[c] = cats.get(c, 0) + 1
-    return max(cats, key=cats.get) if cats else "O"
-
-
-def _stratified_split(
-    records: list[dict],
-    *,
-    seed: int = 42,
-    train_ratio: float = 0.8,
-    val_ratio: float = 0.1,
-) -> dict[str, list[dict]]:
-    """Split records into train/val/test preserving category distribution."""
-    rng = random.Random(seed)
-
-    buckets: dict[str, list[dict]] = {}
-    for rec in records:
-        cat = _dominant_category(rec)
-        buckets.setdefault(cat, []).append(rec)
-
-    test_ratio = 1.0 - train_ratio - val_ratio
-    train, val, test = [], [], []
-    for cat in sorted(buckets):
-        items = buckets[cat]
-        rng.shuffle(items)
-        n = len(items)
-        if n == 1:
-            # Single example: must go to train (can't populate every split).
-            n_train, n_val = 1, 0
-        elif n == 2:
-            # Two examples: one train, one val (test reserved at >=3).
-            n_train, n_val = 1, 1
-        else:
-            # n >= 3: reserve at least one record for BOTH val and test so
-            # every stratum is evaluable, while keeping train non-empty.
-            n_val = max(1, round(n * val_ratio))
-            n_test = max(1, round(n * test_ratio))
-            # Leave room for >=1 train and the reserved val/test records.
-            n_test = min(n_test, n - 2)
-            n_val = min(n_val, n - 1 - n_test)
-            n_train = n - n_val - n_test
-        train.extend(items[:n_train])
-        val.extend(items[n_train : n_train + n_val])
-        test.extend(items[n_train + n_val :])
-
-    rng.shuffle(train)
-    rng.shuffle(val)
-    rng.shuffle(test)
-
-    if not val and train:
-        val.append(_pop_from_duplicate_category(train))
-    if not test and train:
-        test.append(_pop_from_duplicate_category(train))
-
-    logger.info(
-        "stratified_split",
-        train=len(train),
-        val=len(val),
-        test=len(test),
-        strata=len(buckets),
-    )
-    return {"train": train, "val": val, "test": test}
-
-
-# ---------------------------------------------------------------------------
 # Bootstrap mode: generate heuristic labels from parquet
 # ---------------------------------------------------------------------------
 
 
 def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> int:
     """Generate initial heuristic labels from parquet. Needs LLM verification."""
+    import ibis  # noqa: PLC0415
+
     if not parquet_path.exists():
         logger.error("parquet_not_found", path=str(parquet_path))
         return 1
@@ -578,24 +377,6 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
         )
 
     logger.info("segmentation_done", records=len(records), skipped=skipped)
-
-    # Deduplicate by text hash to prevent train/test leakage
-    seen: set[str] = set()
-    unique_records: list[dict] = []
-    for rec in records:
-        h = hashlib.sha256(rec["text"].encode()).hexdigest()
-        if h not in seen:
-            seen.add(h)
-            unique_records.append(rec)
-    if len(unique_records) < len(records):
-        logger.info(
-            "deduplicated",
-            before=len(records),
-            after=len(unique_records),
-            removed=len(records) - len(unique_records),
-        )
-    records = unique_records
-
     if len(records) < 10:
         logger.error("insufficient_data", count=len(records))
         return 1
@@ -607,7 +388,17 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
     for cat, count in sorted(cat_counts.items()):
         logger.info("category_count", category=cat, spans=count)
 
-    splits = _stratified_split(records, seed=seed)
+    random.seed(seed)
+    random.shuffle(records)
+    n = len(records)
+    train_end = int(n * 0.8)
+    val_end = train_end + int(n * 0.1)
+
+    splits = {
+        "train": records[:train_end],
+        "val": records[train_end:val_end],
+        "test": records[val_end:],
+    }
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, data in splits.items():
@@ -618,10 +409,10 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
         logger.info("split_written", split=name, path=str(path), count=len(data))
 
     ls_path = output_dir / "label_space.json"
-    ls_path.write_text(json.dumps(LABEL_SPACE_V7, indent=2, ensure_ascii=False), encoding="utf-8")
+    ls_path.write_text(json.dumps(LABEL_SPACE_V6, indent=2, ensure_ascii=False), encoding="utf-8")
 
     manifest = {
-        "category_version": LABEL_SPACE_V7["category_version"],
+        "category_version": LABEL_SPACE_V6["category_version"],
         "seed": seed,
         "source_commit": _get_source_commit(),
         "counts": {name: len(data) for name, data in splits.items()},
@@ -653,7 +444,7 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Prepare CausaGanha anchor-span dataset (OPF v7)")
+    parser = argparse.ArgumentParser(description="Prepare CausaGanha anchor-span dataset (OPF v6)")
     parser.add_argument(
         "--gold-dir",
         default=str(GOLD_DIR),
@@ -661,7 +452,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--output-dir",
-        default="data/segmenter_v7",
+        default="data/segmenter_v6",
         help="Output directory for runtime artifacts (Drive/IA cache)",
     )
     parser.add_argument(

@@ -21,7 +21,6 @@ on:
       - 'scripts/opf_annotate.py'
       - 'scripts/train_decision_segmenter.py'
       - '.github/workflows/train-segmenter.yml'
-      - 'data/segmenter_splits/**'
   workflow_dispatch:
     inputs:
       ia_item:
@@ -62,41 +61,27 @@ jobs:
         id: prep
         run: |
           set -euo pipefail
-          OUTPUT_DIR="data/segmenter_v7"
-          GOLD_DIR="data/segmenter_splits"
+          OUTPUT_DIR="data/segmenter_v6"
 
-          # Gold is "complete" only when all three splits exist — the label
-          # space and guideline alone are not annotated data. Gate on the
-          # splits so a label-space-only push falls through instead of
-          # selecting promote and failing its required-file check.
-          if [ -f "$GOLD_DIR/train.jsonl" ] \
-            && [ -f "$GOLD_DIR/val.jsonl" ] \
-            && [ -f "$GOLD_DIR/test.jsonl" ]; then
-            echo "Promoting gold splits from git"
+          if [ -f data/test_parquets/textos.parquet ]; then
+            echo "Using local textos.parquet"
             uv run python scripts/prepare_privacy_filter_dataset.py \
-              --gold-dir "$GOLD_DIR" \
-              --output-dir "$OUTPUT_DIR" \
-              2>&1 | tee prep.log
-            echo "prepared=true" >> "$GITHUB_OUTPUT"
-            echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
-          elif [ -f data/test_parquets/textos.parquet ]; then
-            echo "Bootstrapping from local textos.parquet"
-            uv run python scripts/prepare_privacy_filter_dataset.py \
-              --bootstrap \
               --parquet data/test_parquets/textos.parquet \
               --output-dir "$OUTPUT_DIR" \
               2>&1 | tee prep.log
-            echo "prepared=true" >> "$GITHUB_OUTPUT"
-            echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
           else
-            echo "No gold splits in $GOLD_DIR/ yet (only label_space.json/guideline) "
-            echo "and no bootstrap parquet available — nothing to prepare."
-            echo "Annotate via subagents and commit train/val/test.jsonl to $GOLD_DIR/ to enable."
-            echo "prepared=false" >> "$GITHUB_OUTPUT"
+            echo "No local parquet — downloading from IA"
+            IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
+            N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
+            uv run python scripts/train_decision_segmenter.py \
+              --prepare-from "data/test_parquets/textos.parquet" \
+              --output-dir "$OUTPUT_DIR" \
+              2>&1 | tee prep.log
           fi
 
+          echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
+
       - name: Validate all splits
-        if: steps.prep.outputs.prepared == 'true'
         run: |
           set -euo pipefail
           OUTPUT_DIR="${{ steps.prep.outputs.output_dir }}"
@@ -110,7 +95,7 @@ jobs:
       - name: Data summary
         if: always()
         run: |
-          OUTPUT_DIR="${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}"
+          OUTPUT_DIR="${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}"
           echo "## Segmenter Data Preparation" >> $GITHUB_STEP_SUMMARY
 
           if [ -f "${OUTPUT_DIR}/manifest.json" ]; then
@@ -135,14 +120,13 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       - name: Upload prepared data
-        if: steps.prep.outputs.prepared == 'true'
         uses: actions/upload-artifact@v4
         with:
-          name: segmenter-v7-data
+          name: segmenter-v6-data
           path: |
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/train.jsonl
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/val.jsonl
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/test.jsonl
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/label_space.json
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/manifest.json
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/train.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/val.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/test.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/label_space.json
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/manifest.json
           retention-days: 30

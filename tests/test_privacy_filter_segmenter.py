@@ -1,12 +1,7 @@
-"""Tests for the anchor-span segmenter (v7 ontology).
+"""Tests for the anchor-span segmenter (v6 ontology).
 
-``segment()`` finds short anchor cues in judicial decisions.
-v7 has two anchor schemes: single-anchor (6 categories) and start/end
-pairs (8x2=16 categories). ref_normativa is handled by regex pre-pass
-and excluded from the OPF training label space (22 entries).
-
-The bootstrap ``segment()`` only emits v6-era single-anchor categories;
-v7 paired categories are produced by subagent annotation, not regex.
+``segment()`` finds short anchor cues in judicial decisions:
+dispositivo_abertura, resultado, ref_processual, valor_condenacao, ref_normativa.
 
 Returns a list of ``{"category": str, "start": int, "end": int}`` dicts in OPF
 format, or None if no dispositivo opening cue is found.
@@ -14,12 +9,7 @@ format, or None if no dispositivo opening cue is found.
 
 from __future__ import annotations
 
-from scripts.prepare_privacy_filter_dataset import (
-    SINGLE_ANCHOR_CATEGORIES,
-    SPAN_CLASS_NAMES_V7,
-    _stratified_split,
-    segment,
-)
+from scripts.prepare_privacy_filter_dataset import segment
 
 
 DECISION = """PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA
@@ -60,21 +50,6 @@ def test_finds_dispositivo_abertura() -> None:
     assert "Ante o exposto" in surface
 
 
-def test_keeps_only_last_dispositivo() -> None:
-    text = (
-        "Processo nº 0001234-56.2025.8.22.0001\n"
-        "Pelo exposto, rejeito a preliminar.\n"
-        "Do mérito. Analiso o pedido.\n"
-        "Ante o exposto, julgo procedente o pedido."
-    )
-    spans = segment(text)
-    assert spans is not None
-    disp = [s for s in spans if s["category"] == "dispositivo_abertura"]
-    assert len(disp) == 1
-    surface = text[disp[0]["start"] : disp[0]["end"]]
-    assert "Ante o exposto" in surface
-
-
 def test_finds_resultado() -> None:
     spans = segment(DECISION)
     assert spans is not None
@@ -102,11 +77,13 @@ def test_finds_valor_condenacao() -> None:
     assert "5.000,00" in surface
 
 
-def test_bootstrap_excludes_ref_normativa() -> None:
+def test_finds_ref_normativa() -> None:
     spans = segment(DECISION)
     assert spans is not None
     by_cat = _spans_by_category(spans)
-    assert "ref_normativa" not in by_cat
+    assert "ref_normativa" in by_cat
+    surfaces = [_span_text(DECISION, sp) for sp in by_cat["ref_normativa"]]
+    assert any("art." in s.lower() or "lei" in s.lower() for s in surfaces)
 
 
 def test_all_spans_within_bounds_and_non_empty() -> None:
@@ -132,103 +109,15 @@ def test_no_overlapping_spans() -> None:
 def test_spans_have_correct_format() -> None:
     spans = segment(DECISION)
     assert spans is not None
-    valid_cats = set(SINGLE_ANCHOR_CATEGORIES)
+    valid_cats = {
+        "dispositivo_abertura",
+        "resultado",
+        "ref_processual",
+        "valor_condenacao",
+        "ref_normativa",
+    }
     for sp in spans:
         assert set(sp.keys()) == {"category", "start", "end"}
         assert sp["category"] in valid_cats
         assert isinstance(sp["start"], int)
         assert isinstance(sp["end"], int)
-
-
-def test_v7_label_space_has_26_entries() -> None:
-    assert len(SPAN_CLASS_NAMES_V7) == 26
-    assert SPAN_CLASS_NAMES_V7[0] == "O"
-    assert "dispositivo_abertura" in SPAN_CLASS_NAMES_V7
-    assert "cabecalho_inicio" in SPAN_CLASS_NAMES_V7
-    assert "cabecalho_fim" in SPAN_CLASS_NAMES_V7
-    assert "ementa_inicio" in SPAN_CLASS_NAMES_V7
-    assert "ementa_fim" in SPAN_CLASS_NAMES_V7
-    assert "encerramento_inicio" in SPAN_CLASS_NAMES_V7
-    assert "encerramento_fim" in SPAN_CLASS_NAMES_V7
-    assert "preliminar_inicio" in SPAN_CLASS_NAMES_V7
-    assert "preliminar_fim" in SPAN_CLASS_NAMES_V7
-    assert "fundamentacao_legal" in SPAN_CLASS_NAMES_V7
-    # Acórdão-specific pairs (second-instance decisions).
-    assert "voto_inicio" in SPAN_CLASS_NAMES_V7
-    assert "voto_fim" in SPAN_CLASS_NAMES_V7
-    assert "acordao_decisorio_inicio" in SPAN_CLASS_NAMES_V7
-    assert "acordao_decisorio_fim" in SPAN_CLASS_NAMES_V7
-    assert "ref_normativa" not in SPAN_CLASS_NAMES_V7
-
-
-def test_stratified_split_preserves_categories() -> None:
-    records = [
-        {"text": f"text_{i}", "label": [{"category": cat, "start": 0, "end": 5}]}
-        for i, cat in enumerate(
-            ["dispositivo_abertura"] * 10 + ["resultado"] * 10 + ["ref_normativa"] * 10
-        )
-    ]
-    splits = _stratified_split(records, seed=42)
-    assert set(splits.keys()) == {"train", "val", "test"}
-    assert len(splits["train"]) + len(splits["val"]) + len(splits["test"]) == 30
-    for split_name, split_data in splits.items():
-        cats = {rec["label"][0]["category"] for rec in split_data}
-        if len(split_data) >= 3:
-            assert len(cats) > 1, f"{split_name} has only one category: {cats}"
-
-
-def test_stratified_split_small_buckets_non_empty() -> None:
-    records = [
-        {"text": f"text_{i}", "label": [{"category": cat, "start": 0, "end": 5}]}
-        for i, cat in enumerate(
-            ["dispositivo_abertura"] * 2
-            + ["resultado"] * 2
-            + ["ref_normativa"] * 2
-            + ["valor_condenacao"] * 2
-            + ["ref_processual"] * 2
-        )
-    ]
-    splits = _stratified_split(records, seed=42)
-    assert len(splits["train"]) >= 1
-    assert len(splits["val"]) >= 1
-    assert len(splits["test"]) >= 1
-    assert len(splits["train"]) + len(splits["val"]) + len(splits["test"]) == 10
-
-
-def test_opf_label_space_matches_gold_artifacts() -> None:
-    """T8: empirically verify label_space.json matches code and gold splits."""
-    import json
-    from pathlib import Path
-
-    gold = Path("data/segmenter_splits")
-    ls_path = gold / "label_space.json"
-    assert ls_path.exists(), "label_space.json missing from gold dir"
-
-    ls = json.loads(ls_path.read_text(encoding="utf-8"))
-    file_names = set(ls["span_class_names"])
-    code_names = set(SPAN_CLASS_NAMES_V7)
-    assert file_names == code_names, (
-        f"label_space.json vs code mismatch: "
-        f"in file not code={file_names - code_names}, "
-        f"in code not file={code_names - file_names}"
-    )
-
-    assert ls["span_class_names"][0] == "O"
-    assert "ref_normativa" not in file_names
-
-    for split in ("train", "val", "test"):
-        jsonl = gold / f"{split}.jsonl"
-        if not jsonl.exists():
-            continue
-        with jsonl.open(encoding="utf-8") as f:
-            for ln, line in enumerate(f, 1):
-                rec = json.loads(line)
-                assert "text" in rec, f"{split} L{ln}: missing text"
-                assert "label" in rec, f"{split} L{ln}: missing label"
-                for sp in rec["label"]:
-                    assert sp["category"] in file_names, (
-                        f"{split} L{ln}: category {sp['category']!r} not in label space"
-                    )
-                    assert 0 <= sp["start"] < sp["end"] <= len(rec["text"]), (
-                        f"{split} L{ln}: bad offsets {sp}"
-                    )
