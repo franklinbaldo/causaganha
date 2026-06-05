@@ -21,6 +21,7 @@ on:
       - 'scripts/opf_annotate.py'
       - 'scripts/train_decision_segmenter.py'
       - '.github/workflows/train-segmenter.yml'
+      - 'data/segmenter_splits/**'
   workflow_dispatch:
     inputs:
       ia_item:
@@ -66,6 +67,7 @@ jobs:
           if [ -f data/test_parquets/textos.parquet ]; then
             echo "Using local textos.parquet"
             uv run python scripts/prepare_privacy_filter_dataset.py \
+              --bootstrap \
               --parquet data/test_parquets/textos.parquet \
               --output-dir "$OUTPUT_DIR" \
               2>&1 | tee prep.log

@@ -181,6 +181,7 @@ def main() -> int:
 
         sys.argv = [
             "prepare",
+            "--bootstrap",
             "--parquet",
             args.prepare_from,
             "--output-dir",

@@ -225,8 +225,16 @@ _V6_CATEGORIES = frozenset(SPAN_CLASS_NAMES_V6)
 def migrate_spans_v4_to_v5(
     spans: dict[str, list[list[int]]],
 ) -> dict[str, list[list[int]]]:
-    """Keep only categories that exist in the v6 ontology, drop the rest."""
-    return {k: v for k, v in spans.items() if k in _V6_CATEGORIES and k != "O"}
+    """Keep only categories that exist in the v6 ontology, reject unknown ones."""
+    kept = {k: v for k, v in spans.items() if k in _V6_CATEGORIES and k != "O"}
+    unknown = set(spans) - _V6_CATEGORIES
+    if unknown and not kept:
+        msg = (
+            f"All categories are legacy/unknown: {sorted(unknown)}. "
+            f"Valid v6 categories: {sorted(_V6_CATEGORIES - {'O'})}"
+        )
+        raise ValueError(msg)
+    return kept
 
 
 # ---------------------------------------------------------------------------
