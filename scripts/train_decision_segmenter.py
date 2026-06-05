@@ -245,15 +245,21 @@ def main() -> int:
         logger.error("opf_eval_failed")
         return 1
 
-    # Report — derive category names from label_space, not hardcoded
-    macro = metrics.get("macro avg", {})
-    print(f"\nMacro F1: {macro.get('f1-score', 0):.3f}")
+    # Report — derive category names from label_space, not hardcoded.
+    # OPF uses flat keys like "detection.span.f1" and "by_class.<label>.span.f1";
+    # fall back to sklearn-style "macro avg" / per-category dicts.
+    macro_f1 = metrics.get("detection.span.f1") or metrics.get("macro avg", {}).get("f1-score", 0)
+    print(f"\nMacro F1: {macro_f1:.3f}")
     for cat in ls["span_class_names"]:
         if cat == "O":
             continue
-        cat_metrics = metrics.get(cat, {})
-        if cat_metrics:
-            print(f"  {cat}: F1={cat_metrics.get('f1-score', 0):.3f}")
+        f1 = metrics.get(f"by_class.{cat}.span.f1")
+        if f1 is not None:
+            print(f"  {cat}: F1={f1:.3f}")
+        else:
+            cat_metrics = metrics.get(cat, {})
+            if cat_metrics:
+                print(f"  {cat}: F1={cat_metrics.get('f1-score', 0):.3f}")
 
     return 0
 
