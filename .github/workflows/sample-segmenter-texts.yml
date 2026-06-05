@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   sample:
-    name: Sample ${{ matrix.tribunal }} (${{ matrix.mode }})
+    name: Sample ${{ matrix.tribunal }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -64,9 +64,6 @@ jobs:
           - TRF3
           - TRF5
           - STJ
-        mode:
-          - sentenca
-          - acordao
     env:
       PYTHONPATH: ${{ github.workspace }}
 
@@ -77,23 +74,21 @@ jobs:
         with:
           dev: "true"
 
-      - name: Sample texts for ${{ matrix.tribunal }} (${{ matrix.mode }})
-        continue-on-error: true
+      - name: Sample texts for ${{ matrix.tribunal }}
         run: |
           set -euo pipefail
           uv run python scripts/sample_ia_texts.py \
             --tribunal "${{ matrix.tribunal }}" \
-            --mode "${{ matrix.mode }}" \
             --n "${{ inputs.n_per_tribunal || '20' }}" \
             --max-zips "${{ inputs.max_zips || '10' }}" \
             --seed "${{ inputs.seed || '42' }}" \
-            --output-dir /tmp/segmenter_samples
+            --output-dir data/segmenter_samples
 
       - name: Upload sample
         uses: actions/upload-artifact@v4
         with:
-          name: sample-${{ matrix.tribunal }}-${{ matrix.mode }}
-          path: /tmp/segmenter_samples/
+          name: sample-${{ matrix.tribunal }}
+          path: data/segmenter_samples/
           retention-days: 30
 
   merge:
@@ -107,49 +102,41 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          path: /tmp/segmenter_samples/
+          path: data/segmenter_samples/
           pattern: sample-*
           merge-multiple: true
 
       - name: Build combined manifest
-        env:
-          SEED: ${{ inputs.seed || '42' }}
         run: |
           set -euo pipefail
-          cd /tmp/segmenter_samples
+          cd data/segmenter_samples
 
-          python3 - <<'PYEOF'
-          import json, glob, os, pathlib
+          echo "## Per-tribunal samples" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          manifests = sorted(glob.glob("*_manifest.json"))
-          entries = {}
-          total = 0
-          for m in manifests:
-              d = json.loads(pathlib.Path(m).read_text())
-              # Key by filename stem to preserve mode distinction
-              key = pathlib.Path(m).stem.removesuffix("_manifest")
-              entries[key] = {"tribunal": d["tribunal"], "n_sampled": d["n_sampled"]}
-              total += d["n_sampled"]
+          TOTAL=0
+          echo '{"tribunals": {' > combined_manifest.json
+          FIRST=true
+          for manifest in *_manifest.json; do
+            TRIBUNAL=$(jq -r '.tribunal' "$manifest")
+            N=$(jq -r '.n_sampled' "$manifest")
+            TOTAL=$((TOTAL + N))
+            if [ "$FIRST" = true ]; then
+              FIRST=false
+            else
+              echo ',' >> combined_manifest.json
+            fi
+            echo "\"$TRIBUNAL\": $N" >> combined_manifest.json
+            echo "- **$TRIBUNAL**: $N texts" >> $GITHUB_STEP_SUMMARY
+          done
+          echo "}, \"total\": $TOTAL, \"seed\": ${{ inputs.seed || '42' }}}" >> combined_manifest.json
 
-          combined = {"entries": entries, "total": total, "seed": int(os.environ.get("SEED", 42))}
-          pathlib.Path("combined_manifest.json").write_text(json.dumps(combined, indent=2))
-
-          lines = ["## Per-tribunal samples", ""]
-          for key, d in sorted(entries.items()):
-              lines.append(f"- **{key}**: {d['n_sampled']} texts")
-          lines.append(f"\n**Total: {total} texts across {len(entries)} entries**")
-          summary = "\n".join(lines) + "\n"
-
-          step_summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
-          if step_summary:
-              with open(step_summary, "a") as f:
-                  f.write(summary)
-          print(summary)
-          PYEOF
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Total: $TOTAL texts across $(ls *_manifest.json | wc -l) tribunals**" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload combined samples
         uses: actions/upload-artifact@v4
         with:
           name: segmenter-samples-all
-          path: /tmp/segmenter_samples/
+          path: data/segmenter_samples/
           retention-days: 30
