@@ -1,5 +1,5 @@
 # ============================================================================
-# TRAIN SEGMENTER — Prepare data for OPF fine-tuning (21-class decision segmenter)
+# TRAIN SEGMENTER — Prepare data for OPF fine-tuning (20-class decision segmenter)
 # ============================================================================
 #
 # Prepares training data (JSONL splits + label_space.json) and uploads to IA.
@@ -19,6 +19,7 @@ on:
       - 'scripts/train_decision_segmenter.py'
       - 'scripts/prepare_privacy_filter_dataset.py'
       - '.github/workflows/train-segmenter.yml'
+      - 'data/segmenter_splits/**'
   workflow_dispatch:
     inputs:
       ia_item:
