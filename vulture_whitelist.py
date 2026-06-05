@@ -144,3 +144,23 @@ State.is_done
 
 # Kept-for-API-compat params explicitly documented as ignored
 max_chars_per_doc
+
+# Segmenter v7 exports (used by downstream scripts)
+SPAN_CLASS_NAMES_V7
+LABEL_SPACE_V7
+SINGLE_ANCHOR_CATEGORIES
+PAIRED_CATEGORIES
+migrate_spans_v6_to_v7
+
+# ref_normativa prepass exports
+extract_ref_normativa
+merge_with_opf_spans
+REF_NORMATIVA_PATTERNS
+
+# Reconstruction module exports
+Region
+validate_anchor_lengths
+pair_inicio_fim
+reconstruct_single_anchor_regions
+reconstruct_regions
+PAIRED_BASES_SET

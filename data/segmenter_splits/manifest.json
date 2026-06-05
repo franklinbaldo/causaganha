@@ -1,0 +1,63 @@
+{
+  "category_version": "segmenter_v7",
+  "seed": 771,
+  "source": "Internet Archive djen-tjro-2025 OCR cadernos (public DJEN publications)",
+  "source_commit": "22e9e10ce4f5cfc9bd2ab86b13e468ebf017613d",
+  "counts": {
+    "train": 14,
+    "val": 3,
+    "test": 3
+  },
+  "per_class": {
+    "acordao_decisorio_fim": 2,
+    "acordao_decisorio_inicio": 3,
+    "cabecalho_fim": 10,
+    "cabecalho_inicio": 17,
+    "capitulo_merito_fim": 2,
+    "capitulo_merito_inicio": 11,
+    "custas_fim": 2,
+    "custas_inicio": 4,
+    "dispositivo_abertura": 13,
+    "ementa_fim": 7,
+    "ementa_inicio": 8,
+    "encerramento_fim": 9,
+    "encerramento_inicio": 10,
+    "fundamentacao_legal": 6,
+    "honorarios_fim": 4,
+    "honorarios_inicio": 6,
+    "preliminar_fim": 1,
+    "preliminar_inicio": 1,
+    "ref_processual": 18,
+    "relatorio_fim": 11,
+    "relatorio_inicio": 12,
+    "resultado": 20,
+    "valor_condenacao": 6,
+    "voto_fim": 3,
+    "voto_inicio": 3
+  },
+  "tribunals": {
+    "TJRO": 20
+  },
+  "doc_types_total": {
+    "acordao": 8,
+    "sentenca": 12
+  },
+  "doc_types_per_split": {
+    "train": {
+      "acordao": 6,
+      "sentenca": 8
+    },
+    "val": {
+      "acordao": 1,
+      "sentenca": 2
+    },
+    "test": {
+      "acordao": 1,
+      "sentenca": 2
+    }
+  },
+  "labeler": "prompt_subagents:haiku (one labeling subagent per batch, acordaos first)",
+  "test_verified_by": "prompt_ensemble:strict+disambig+blind+adversarial",
+  "verifier_model": "sonnet",
+  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa is intentionally NOT labeled (regex pre-pass at inference). Single-tribunal (TJRO) seed of 20 docs; scale to more tribunals/volume next."
+}

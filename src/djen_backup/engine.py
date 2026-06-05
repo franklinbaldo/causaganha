@@ -403,10 +403,7 @@ async def run_pipeline(
         uploads = uploaded_by_tribunal.get(entry.tribunal)
         if not uploads:
             return False
-        for up in uploads:
-            if abs((up - entry.date).days) <= 30:
-                return True
-        return False
+        return any(abs((up - entry.date).days) <= 30 for up in uploads)
 
     adjacent_entries, isolated_entries = [], []
     for e in manifest._entries.values():
@@ -735,9 +732,8 @@ async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
         pass
     finally:
         manifest.save_to_disk(config.manifest_file)
-        if not config.dry_run:
-            if await manifest.upload_to_ia(config.ia_auth):
-                await manifest.upload_summary_to_ia(config.ia_auth)
+        if not config.dry_run and await manifest.upload_to_ia(config.ia_auth):
+            await manifest.upload_summary_to_ia(config.ia_auth)
 
     summary.final_counts = manifest.counts()
     return (1 if summary.errors > 0 or abort_event.is_set() else 0), summary

@@ -27,7 +27,7 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 # (`from causaganha.pipeline.ia_s3 import CircuitBreaker`) keep working
 # without duplicating the implementation. The class supports both sync
 # (is_open / record_*) and async (allow_request) APIs.
-from djen_backup.circuit_breaker import CircuitBreaker as CircuitBreaker  # noqa: PLC0414
+from djen_backup.circuit_breaker import CircuitBreaker as CircuitBreaker  # noqa: PLC0414, TC001
 
 
 logger = structlog.get_logger()

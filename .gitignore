@@ -13,6 +13,10 @@ data/benchmark/
 !data/benchmark/
 !data/benchmark/**
 
+# Keep gold segmenter splits in git (source of truth; Drive/IA are caches)
+!data/segmenter_splits/
+!data/segmenter_splits/**
+
 
 
 # Processing artifacts
@@ -84,3 +88,6 @@ data_*.json
 ia_data.json
 run_stats.json
 logs/
+
+# segmenter v7 gold-build scratch (PII OCR + intermediate labels; never commit)
+data/segmenter_work/

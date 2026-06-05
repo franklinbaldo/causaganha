@@ -9,7 +9,6 @@ import duckdb
 import pytest
 
 from causaganha.consolidate.consolidation_manifest import (
-    ManifestItem,
     TableStats,
     collect_table_stats,
     update_consolidation_manifest,
