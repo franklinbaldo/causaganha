@@ -7,13 +7,13 @@ label_space.json) produced by the prep script. Never re-derives inputs.
 Usage:
     # From pre-prepared artifacts (recommended):
     uv run python scripts/train_decision_segmenter.py \
-        --data-dir data/segmenter_v6 \
+        --data-dir data/segmenter_v7 \
         --output-dir models/decision_segmenter
 
     # Prepare-only (write JSONL from parquet, skip training):
     uv run python scripts/train_decision_segmenter.py \
         --prepare-from data/test_parquets/textos.parquet \
-        --output-dir data/segmenter_v6
+        --output-dir data/segmenter_v7
 """
 
 from __future__ import annotations

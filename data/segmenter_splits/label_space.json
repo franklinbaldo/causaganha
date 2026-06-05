@@ -1,11 +1,30 @@
 {
-  "category_version": "causaganha_v6",
+  "category_version": "segmenter_v7",
   "span_class_names": [
     "O",
     "dispositivo_abertura",
     "resultado",
     "ref_processual",
     "valor_condenacao",
-    "ref_normativa"
+    "ref_normativa",
+    "fundamentacao_legal",
+    "ementa_inicio",
+    "ementa_fim",
+    "relatorio_inicio",
+    "relatorio_fim",
+    "capitulo_fato_inicio",
+    "capitulo_fato_fim",
+    "capitulo_direito_inicio",
+    "capitulo_direito_fim",
+    "capitulo_merito_inicio",
+    "capitulo_merito_fim",
+    "capitulo_tutela_inicio",
+    "capitulo_tutela_fim",
+    "honorarios_inicio",
+    "honorarios_fim",
+    "custas_inicio",
+    "custas_fim",
+    "encerramento_inicio",
+    "encerramento_fim"
   ]
 }

@@ -1,7 +1,11 @@
-"""Tests for the anchor-span segmenter (v6 ontology).
+"""Tests for the anchor-span segmenter (v7 ontology).
 
-``segment()`` finds short anchor cues in judicial decisions:
-dispositivo_abertura, resultado, ref_processual, valor_condenacao, ref_normativa.
+``segment()`` finds short anchor cues in judicial decisions.
+v7 has two anchor schemes: single-anchor (6 categories) and start/end
+pairs (9x2=18 categories) for a total of 24 + O = 25 entries.
+
+The bootstrap ``segment()`` only emits v6-era single-anchor categories;
+v7 paired categories are produced by subagent annotation, not regex.
 
 Returns a list of ``{"category": str, "start": int, "end": int}`` dicts in OPF
 format, or None if no dispositivo opening cue is found.
@@ -9,7 +13,7 @@ format, or None if no dispositivo opening cue is found.
 
 from __future__ import annotations
 
-from scripts.prepare_privacy_filter_dataset import segment
+from scripts.prepare_privacy_filter_dataset import SPAN_CLASS_NAMES_V7, segment
 
 
 DECISION = """PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA
@@ -109,15 +113,20 @@ def test_no_overlapping_spans() -> None:
 def test_spans_have_correct_format() -> None:
     spans = segment(DECISION)
     assert spans is not None
-    valid_cats = {
-        "dispositivo_abertura",
-        "resultado",
-        "ref_processual",
-        "valor_condenacao",
-        "ref_normativa",
-    }
+    valid_cats = set(SPAN_CLASS_NAMES_V7) - {"O"}
     for sp in spans:
         assert set(sp.keys()) == {"category", "start", "end"}
         assert sp["category"] in valid_cats
         assert isinstance(sp["start"], int)
         assert isinstance(sp["end"], int)
+
+
+def test_v7_label_space_has_25_entries() -> None:
+    assert len(SPAN_CLASS_NAMES_V7) == 25
+    assert SPAN_CLASS_NAMES_V7[0] == "O"
+    assert "dispositivo_abertura" in SPAN_CLASS_NAMES_V7
+    assert "ementa_inicio" in SPAN_CLASS_NAMES_V7
+    assert "ementa_fim" in SPAN_CLASS_NAMES_V7
+    assert "encerramento_inicio" in SPAN_CLASS_NAMES_V7
+    assert "encerramento_fim" in SPAN_CLASS_NAMES_V7
+    assert "fundamentacao_legal" in SPAN_CLASS_NAMES_V7

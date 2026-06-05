@@ -62,7 +62,7 @@ jobs:
         id: prep
         run: |
           set -euo pipefail
-          OUTPUT_DIR="data/segmenter_v6"
+          OUTPUT_DIR="data/segmenter_v7"
 
           if [ -d data/segmenter_splits ] && [ -f data/segmenter_splits/label_space.json ]; then
             echo "Promoting gold splits from git"
@@ -99,7 +99,7 @@ jobs:
       - name: Data summary
         if: always()
         run: |
-          OUTPUT_DIR="${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}"
+          OUTPUT_DIR="${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}"
           echo "## Segmenter Data Preparation" >> $GITHUB_STEP_SUMMARY
 
           if [ -f "${OUTPUT_DIR}/manifest.json" ]; then
@@ -126,11 +126,11 @@ jobs:
       - name: Upload prepared data
         uses: actions/upload-artifact@v4
         with:
-          name: segmenter-v6-data
+          name: segmenter-v7-data
           path: |
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/train.jsonl
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/val.jsonl
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/test.jsonl
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/label_space.json
-            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v6' }}/manifest.json
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/train.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/val.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/test.jsonl
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/label_space.json
+            ${{ steps.prep.outputs.output_dir || 'data/segmenter_v7' }}/manifest.json
           retention-days: 30

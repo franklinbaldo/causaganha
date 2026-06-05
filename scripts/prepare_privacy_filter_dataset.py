@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare anchor-span dataset for CausaGanha decision segmenter (OPF v6).
+"""Prepare anchor-span dataset for CausaGanha decision segmenter (OPF v7).
 
 Two modes:
   1. PROMOTE (default): Read gold splits from git (data/segmenter_splits/),
@@ -7,9 +7,10 @@ Two modes:
   2. BOOTSTRAP: Generate initial heuristic labels from a parquet of judicial
      texts. Output needs LLM verification before becoming gold.
 
-Ontology (per project-recipes.md):
-  ["O", "dispositivo_abertura", "resultado", "ref_processual",
-   "valor_condenacao", "ref_normativa"]
+Ontology v7 — two anchor schemes:
+  Single-anchor (6): short cue, region extends to next anchor/EOD.
+  Start/end pairs (9x2=18): discrete regions with _inicio/_fim markers.
+  Total: O + 24 = 25 entries in span_class_names.
 
 Output: OPF-format JSONL — one record per line:
   {"text": str, "label": [{"category": str, "start": int, "end": int}],
@@ -40,9 +41,53 @@ import structlog
 logger = structlog.get_logger()
 
 # ---------------------------------------------------------------------------
-# Label space v6 — CausaGanha anchor-span ontology
+# Label space v7 — CausaGanha anchor-span ontology
+#
+# Two anchor schemes:
+#   Single-anchor (6): short cue, region extends to next anchor or EOD.
+#   Start/end pairs (9x2=18): _inicio/_fim bracket discrete regions.
+# Total: O + 24 = 25 entries.
 # ---------------------------------------------------------------------------
 
+# -- Single-anchor categories (tiling regions) --
+SINGLE_ANCHOR_CATEGORIES: list[str] = [
+    "dispositivo_abertura",
+    "resultado",
+    "ref_processual",
+    "valor_condenacao",
+    "ref_normativa",
+    "fundamentacao_legal",
+]
+
+# -- Start/end pair categories (discrete regions) --
+_PAIRED_REGION_BASES: list[str] = [
+    "ementa",
+    "relatorio",
+    "capitulo_fato",
+    "capitulo_direito",
+    "capitulo_merito",
+    "capitulo_tutela",
+    "honorarios",
+    "custas",
+    "encerramento",
+]
+
+PAIRED_CATEGORIES: list[str] = []
+for _base in _PAIRED_REGION_BASES:
+    PAIRED_CATEGORIES.extend([f"{_base}_inicio", f"{_base}_fim"])
+
+SPAN_CLASS_NAMES_V7: list[str] = [
+    "O",
+    *SINGLE_ANCHOR_CATEGORIES,
+    *PAIRED_CATEGORIES,
+]
+
+LABEL_SPACE_V7 = {
+    "category_version": "segmenter_v7",
+    "span_class_names": SPAN_CLASS_NAMES_V7,
+}
+
+# v6 kept for migration / backwards compat
 SPAN_CLASS_NAMES_V6: list[str] = [
     "O",
     "dispositivo_abertura",
@@ -57,11 +102,13 @@ LABEL_SPACE_V6 = {
     "span_class_names": SPAN_CLASS_NAMES_V6,
 }
 
-# Backwards compat: re-export for any importers expecting older names
+# Current-version aliases — all new code should use these
+SPAN_CLASS_NAMES = SPAN_CLASS_NAMES_V7
+LABEL_SPACE = LABEL_SPACE_V7
+
+# Backwards compat for importers expecting older names
 LABEL_SPACE_V5 = LABEL_SPACE_V6
 SPAN_CLASS_NAMES_V5 = SPAN_CLASS_NAMES_V6
-SPAN_CLASS_NAMES = SPAN_CLASS_NAMES_V6
-LABEL_SPACE = LABEL_SPACE_V6
 
 # Gold splits live in git (source of truth)
 GOLD_DIR = Path("data/segmenter_splits")
@@ -220,6 +267,7 @@ def _segment(text: str) -> dict[str, list[list[int]]] | None:
 
 
 _V6_CATEGORIES = frozenset(SPAN_CLASS_NAMES_V6)
+_V7_CATEGORIES = frozenset(SPAN_CLASS_NAMES_V7)
 
 
 def migrate_spans_v4_to_v5(
@@ -232,6 +280,21 @@ def migrate_spans_v4_to_v5(
         msg = (
             f"All categories are legacy/unknown: {sorted(unknown)}. "
             f"Valid v6 categories: {sorted(_V6_CATEGORIES - {'O'})}"
+        )
+        raise ValueError(msg)
+    return kept
+
+
+def migrate_spans_v6_to_v7(
+    spans: dict[str, list[list[int]]],
+) -> dict[str, list[list[int]]]:
+    """Keep only categories that exist in the v7 ontology, reject unknown ones."""
+    kept = {k: v for k, v in spans.items() if k in _V7_CATEGORIES and k != "O"}
+    unknown = set(spans) - _V7_CATEGORIES
+    if unknown and not kept:
+        msg = (
+            f"All categories are legacy/unknown: {sorted(unknown)}. "
+            f"Valid v7 categories: {sorted(_V7_CATEGORIES - {'O'})}"
         )
         raise ValueError(msg)
     return kept
@@ -448,10 +511,10 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
         logger.info("split_written", split=name, path=str(path), count=len(data))
 
     ls_path = output_dir / "label_space.json"
-    ls_path.write_text(json.dumps(LABEL_SPACE_V6, indent=2, ensure_ascii=False), encoding="utf-8")
+    ls_path.write_text(json.dumps(LABEL_SPACE_V7, indent=2, ensure_ascii=False), encoding="utf-8")
 
     manifest = {
-        "category_version": LABEL_SPACE_V6["category_version"],
+        "category_version": LABEL_SPACE_V7["category_version"],
         "seed": seed,
         "source_commit": _get_source_commit(),
         "counts": {name: len(data) for name, data in splits.items()},
@@ -483,7 +546,7 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Prepare CausaGanha anchor-span dataset (OPF v6)")
+    parser = argparse.ArgumentParser(description="Prepare CausaGanha anchor-span dataset (OPF v7)")
     parser.add_argument(
         "--gold-dir",
         default=str(GOLD_DIR),
@@ -491,7 +554,7 @@ def main() -> int:
     )
     parser.add_argument(
         "--output-dir",
-        default="data/segmenter_v6",
+        default="data/segmenter_v7",
         help="Output directory for runtime artifacts (Drive/IA cache)",
     )
     parser.add_argument(
