@@ -88,3 +88,6 @@ data_*.json
 ia_data.json
 run_stats.json
 logs/
+
+# segmenter v7 gold-build scratch (PII OCR + intermediate labels; never commit)
+data/segmenter_work/
