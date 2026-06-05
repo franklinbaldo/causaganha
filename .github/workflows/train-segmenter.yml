@@ -134,7 +134,7 @@ jobs:
       - name: Data Summary
         if: always()
         run: |
-          echo "## Segmenter Training Data (v5 — 21 classes)" >> $GITHUB_STEP_SUMMARY
+          echo "## Segmenter Training Data (v5 — 20 classes)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           if [ -f models/decision_segmenter/train.jsonl ]; then
