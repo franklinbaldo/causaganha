@@ -85,6 +85,8 @@ def validate(path: str, label_space: str | None) -> int:
             continue
         tlen = len(text)
         spans = _spans_of(rec)
+        if not any(f in rec for f in SPAN_FIELDS):
+            warnings.append(f"L{ln}: record has no `label` or `spans` field — treated as all-O")
         norm: list[tuple[int, int, str]] = []
         for i, sp in enumerate(spans):
             try:

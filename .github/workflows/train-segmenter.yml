@@ -64,21 +64,23 @@ jobs:
           set -euo pipefail
           OUTPUT_DIR="data/segmenter_v6"
 
-          if [ -f data/test_parquets/textos.parquet ]; then
-            echo "Using local textos.parquet"
+          if [ -d data/segmenter_splits ] && [ -f data/segmenter_splits/label_space.json ]; then
+            echo "Promoting gold splits from git"
+            uv run python scripts/prepare_privacy_filter_dataset.py \
+              --gold-dir data/segmenter_splits \
+              --output-dir "$OUTPUT_DIR" \
+              2>&1 | tee prep.log
+          elif [ -f data/test_parquets/textos.parquet ]; then
+            echo "Bootstrapping from local textos.parquet"
             uv run python scripts/prepare_privacy_filter_dataset.py \
               --bootstrap \
               --parquet data/test_parquets/textos.parquet \
               --output-dir "$OUTPUT_DIR" \
               2>&1 | tee prep.log
           else
-            echo "No local parquet — downloading from IA"
-            IA_ITEM="${{ github.event.inputs.ia_item || 'djen-tjro-2025' }}"
-            N_ZIPS="${{ github.event.inputs.n_zips || '30' }}"
-            uv run python scripts/train_decision_segmenter.py \
-              --prepare-from "data/test_parquets/textos.parquet" \
-              --output-dir "$OUTPUT_DIR" \
-              2>&1 | tee prep.log
+            echo "ERROR: No gold splits in data/segmenter_splits/ and no parquet available."
+            echo "Run bootstrap locally first, verify with subagents, and commit to data/segmenter_splits/."
+            exit 1
           fi
 
           echo "output_dir=$OUTPUT_DIR" >> "$GITHUB_OUTPUT"
