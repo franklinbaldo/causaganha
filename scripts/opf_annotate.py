@@ -35,6 +35,10 @@ def _spans_of(rec: dict) -> list[dict]:
     return []
 
 
+def _has_span_field(rec: dict) -> bool:
+    return any(f in rec for f in SPAN_FIELDS)
+
+
 def _read_jsonl(path: str):
     with Path(path).open(encoding="utf-8") as fh:
         for ln, raw in enumerate(fh, 1):
@@ -84,9 +88,10 @@ def validate(path: str, label_space: str | None) -> int:
             errors.append(f"L{ln}: missing/invalid `text`")
             continue
         tlen = len(text)
+        if not _has_span_field(rec):
+            errors.append(f"L{ln}: record has no `label` or `spans` field")
+            continue
         spans = _spans_of(rec)
-        if not any(f in rec for f in SPAN_FIELDS):
-            warnings.append(f"L{ln}: record has no `label` or `spans` field — treated as all-O")
         norm: list[tuple[int, int, str]] = []
         for i, sp in enumerate(spans):
             try:

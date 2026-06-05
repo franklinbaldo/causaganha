@@ -133,7 +133,7 @@ _DISPOSITIVO_ABERTURA_RE = re.compile(
     r"|Por\s+(?:todo\s+o\s+)?exposto"
     r"|Por\s+essas\s+raz[oõ]es"
     r"|Em\s+raz[aã]o\s+do\s+exposto"
-    r"|\bDECIDO\b)",
+    r"|Ex\s+positis)",
     re.IGNORECASE,
 )
 
@@ -231,15 +231,16 @@ def segment(text: str) -> list[dict] | None:
     """Return OPF-format span list for a judicial decision text.
 
     Returns None if no dispositivo opening cue is found (required anchor).
+    Keeps only the LAST dispositivo match (the operative one) per v7 rules.
     """
-    disp_match = _DISPOSITIVO_ABERTURA_RE.search(text)
-    if not disp_match:
+    all_disp = _collect_spans(_DISPOSITIVO_ABERTURA_RE, text, "dispositivo_abertura")
+    if not all_disp:
         return None
 
-    disp_start = disp_match.start()
-    spans: list[dict] = []
+    operative_disp = max(all_disp, key=lambda s: s["start"])
+    disp_start = operative_disp["start"]
+    spans: list[dict] = [operative_disp]
 
-    spans.extend(_collect_spans(_DISPOSITIVO_ABERTURA_RE, text, "dispositivo_abertura"))
     spans.extend(_collect_spans(_RESULTADO_RE, text, "resultado", start=disp_start))
     spans.extend(_collect_spans(_REF_PROCESSUAL_RE, text, "ref_processual"))
     spans.extend(
