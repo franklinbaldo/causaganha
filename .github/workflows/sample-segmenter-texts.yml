@@ -107,32 +107,38 @@ jobs:
           merge-multiple: true
 
       - name: Build combined manifest
+        env:
+          SEED: ${{ inputs.seed || '42' }}
         run: |
           set -euo pipefail
           cd data/segmenter_samples
 
-          echo "## Per-tribunal samples" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
+          python3 - <<'PYEOF'
+          import json, glob, os, pathlib
 
-          TOTAL=0
-          echo '{"tribunals": {' > combined_manifest.json
-          FIRST=true
-          for manifest in *_manifest.json; do
-            TRIBUNAL=$(jq -r '.tribunal' "$manifest")
-            N=$(jq -r '.n_sampled' "$manifest")
-            TOTAL=$((TOTAL + N))
-            if [ "$FIRST" = true ]; then
-              FIRST=false
-            else
-              echo ',' >> combined_manifest.json
-            fi
-            echo "\"$TRIBUNAL\": $N" >> combined_manifest.json
-            echo "- **$TRIBUNAL**: $N texts" >> $GITHUB_STEP_SUMMARY
-          done
-          echo "}, \"total\": $TOTAL, \"seed\": ${{ inputs.seed || '42' }}}" >> combined_manifest.json
+          manifests = sorted(glob.glob("*_manifest.json"))
+          tribunals = {}
+          total = 0
+          for m in manifests:
+              d = json.loads(pathlib.Path(m).read_text())
+              tribunals[d["tribunal"]] = d["n_sampled"]
+              total += d["n_sampled"]
 
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**Total: $TOTAL texts across $(ls *_manifest.json | wc -l) tribunals**" >> $GITHUB_STEP_SUMMARY
+          combined = {"tribunals": tribunals, "total": total, "seed": int(os.environ.get("SEED", 42))}
+          pathlib.Path("combined_manifest.json").write_text(json.dumps(combined, indent=2))
+
+          lines = ["## Per-tribunal samples", ""]
+          for t, n in sorted(tribunals.items()):
+              lines.append(f"- **{t}**: {n} texts")
+          lines.append(f"\n**Total: {total} texts across {len(tribunals)} tribunals**")
+          summary = "\n".join(lines) + "\n"
+
+          step_summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
+          if step_summary:
+              with open(step_summary, "a") as f:
+                  f.write(summary)
+          print(summary)
+          PYEOF
 
       - name: Upload combined samples
         uses: actions/upload-artifact@v4

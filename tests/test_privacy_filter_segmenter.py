@@ -13,7 +13,11 @@ format, or None if no dispositivo opening cue is found.
 
 from __future__ import annotations
 
-from scripts.prepare_privacy_filter_dataset import SPAN_CLASS_NAMES_V7, segment
+from scripts.prepare_privacy_filter_dataset import (
+    SPAN_CLASS_NAMES_V7,
+    _stratified_split,
+    segment,
+)
 
 
 DECISION = """PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA
@@ -130,3 +134,19 @@ def test_v7_label_space_has_25_entries() -> None:
     assert "encerramento_inicio" in SPAN_CLASS_NAMES_V7
     assert "encerramento_fim" in SPAN_CLASS_NAMES_V7
     assert "fundamentacao_legal" in SPAN_CLASS_NAMES_V7
+
+
+def test_stratified_split_preserves_categories() -> None:
+    records = [
+        {"text": f"text_{i}", "label": [{"category": cat, "start": 0, "end": 5}]}
+        for i, cat in enumerate(
+            ["dispositivo_abertura"] * 10 + ["resultado"] * 10 + ["ref_normativa"] * 10
+        )
+    ]
+    splits = _stratified_split(records, seed=42)
+    assert set(splits.keys()) == {"train", "val", "test"}
+    assert len(splits["train"]) + len(splits["val"]) + len(splits["test"]) == 30
+    for split_name, split_data in splits.items():
+        cats = {rec["label"][0]["category"] for rec in split_data}
+        if len(split_data) >= 3:
+            assert len(cats) > 1, f"{split_name} has only one category: {cats}"

@@ -19,6 +19,7 @@ import random
 import sys
 import zipfile
 from pathlib import Path
+from urllib.error import URLError
 from urllib.request import urlopen
 
 import structlog
@@ -175,7 +176,7 @@ def sample_tribunal(
                     texts=len(texts),
                     total=len(all_texts),
                 )
-            except Exception as e:
+            except (URLError, TimeoutError, OSError, zipfile.BadZipFile, ValueError) as e:
                 logger.warning("zip_download_failed", item=item_id, zip=zip_name, error=str(e))
 
     if len(all_texts) < n:

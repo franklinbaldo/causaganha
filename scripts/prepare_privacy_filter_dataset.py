@@ -426,6 +426,60 @@ def promote_gold(gold_dir: Path, output_dir: Path) -> int:
 
 
 # ---------------------------------------------------------------------------
+# Stratified splitting
+# ---------------------------------------------------------------------------
+
+
+def _dominant_category(rec: dict) -> str:
+    """Return the most frequent category in a record's labels (for stratification)."""
+    cats: dict[str, int] = {}
+    for sp in rec.get("label", []):
+        c = sp.get("category", "O")
+        cats[c] = cats.get(c, 0) + 1
+    return max(cats, key=cats.get) if cats else "O"
+
+
+def _stratified_split(
+    records: list[dict],
+    *,
+    seed: int = 42,
+    train_ratio: float = 0.8,
+    val_ratio: float = 0.1,
+) -> dict[str, list[dict]]:
+    """Split records into train/val/test preserving category distribution."""
+    rng = random.Random(seed)
+
+    buckets: dict[str, list[dict]] = {}
+    for rec in records:
+        cat = _dominant_category(rec)
+        buckets.setdefault(cat, []).append(rec)
+
+    train, val, test = [], [], []
+    for cat in sorted(buckets):
+        items = buckets[cat]
+        rng.shuffle(items)
+        n = len(items)
+        n_train = max(1, int(n * train_ratio))
+        n_val = max(1, int(n * val_ratio)) if n > 2 else 0
+        train.extend(items[:n_train])
+        val.extend(items[n_train : n_train + n_val])
+        test.extend(items[n_train + n_val :])
+
+    rng.shuffle(train)
+    rng.shuffle(val)
+    rng.shuffle(test)
+
+    logger.info(
+        "stratified_split",
+        train=len(train),
+        val=len(val),
+        test=len(test),
+        strata=len(buckets),
+    )
+    return {"train": train, "val": val, "test": test}
+
+
+# ---------------------------------------------------------------------------
 # Bootstrap mode: generate heuristic labels from parquet
 # ---------------------------------------------------------------------------
 
@@ -490,17 +544,7 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
     for cat, count in sorted(cat_counts.items()):
         logger.info("category_count", category=cat, spans=count)
 
-    random.seed(seed)
-    random.shuffle(records)
-    n = len(records)
-    train_end = int(n * 0.8)
-    val_end = train_end + int(n * 0.1)
-
-    splits = {
-        "train": records[:train_end],
-        "val": records[train_end:val_end],
-        "test": records[val_end:],
-    }
+    splits = _stratified_split(records, seed=seed)
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, data in splits.items():
