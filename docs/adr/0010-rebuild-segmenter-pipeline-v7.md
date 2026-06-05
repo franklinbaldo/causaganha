@@ -28,10 +28,14 @@ We have decided to rebuild the v7 Decision Segmenter pipeline from scratch, spec
 *   **Positive**: The clean separation of code and data allows us to iterate on the infrastructure independently of the dataset state.
 *   **Negative**: There is an initial cost to re-annotate a full dataset from scratch. We will depend heavily on the subagent annotation loop performing well to populate the new dataset in a timely manner. We will not have a deployable v7 model until the new annotation loop completes.
 
-## Phase 2 plan (gold build — in progress)
+## Phase 2 plan (gold build — seed committed)
 
-The infrastructure (Step 1) is merged and CI-green. The gold annotation
-(Phase 2) is now under way. The governing decisions:
+The infrastructure (Step 1) is merged and CI-green. A first **seed gold** is
+committed to `data/segmenter_splits/` (20 TJRO docs — 8 acórdão + 12 sentença,
+189 spans, all 25 trained classes populated, `test_verified_by =
+prompt_ensemble:strict+disambig+blind+adversarial`). It was built end-to-end the
+subagent way below; the remaining work is to **scale** it (more tribunals, more
+volume per rare class) — not to change the method. The governing decisions:
 
 1.  **Extend the ontology before annotating — DONE.** The trained label space
     was grown from 22 to 26 entries (`O` + 5 single-anchor + 20 paired) by
