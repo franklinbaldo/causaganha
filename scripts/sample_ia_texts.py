@@ -97,33 +97,38 @@ def download_zip(item_id: str, zip_name: str) -> bytes:
 
 
 def extract_texts_from_zip(zip_bytes: bytes) -> list[dict]:
-    """Extract text records from a DJEN ZIP (textos.parquet inside)."""
-    try:
-        import pyarrow.parquet as pq  # noqa: PLC0415
-    except ImportError:
-        logger.warning("pyarrow_required")
-        return []
-
-    records = []
+    """Extract text records from a DJEN ZIP (JSON files inside)."""
+    records: list[dict] = []
     with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
         for name in zf.namelist():
-            if "textos" in name.lower() and name.endswith(".parquet"):
-                with zf.open(name) as pf:
-                    table = pq.read_table(io.BytesIO(pf.read()))
-                    df = table.to_pandas()
-                    for _, row in df.iterrows():
-                        text = row.get("texto", "")
-                        if not isinstance(text, str) or len(text) < 200:
-                            continue
-                        records.append(
-                            {
-                                "text": text,
-                                "info": {
-                                    "id": str(row.get("id", "")),
-                                    "tribunal": str(row.get("tribunal", "")),
-                                },
-                            }
-                        )
+            if not name.endswith(".json"):
+                continue
+            try:
+                data = json.loads(zf.read(name))
+            except (json.JSONDecodeError, ValueError):
+                continue
+
+            items: list = []
+            if isinstance(data, dict):
+                items = data.get("items", [data])
+            elif isinstance(data, list):
+                items = data
+
+            for rec in items:
+                if not isinstance(rec, dict):
+                    continue
+                text = (rec.get("texto") or "").strip()
+                if len(text) < 200:
+                    continue
+                records.append(
+                    {
+                        "text": text,
+                        "info": {
+                            "id": str(rec.get("id", "")),
+                            "tribunal": str(rec.get("tribunal", "")),
+                        },
+                    }
+                )
     return records
 
 

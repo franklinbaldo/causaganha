@@ -150,3 +150,21 @@ def test_stratified_split_preserves_categories() -> None:
         cats = {rec["label"][0]["category"] for rec in split_data}
         if len(split_data) >= 3:
             assert len(cats) > 1, f"{split_name} has only one category: {cats}"
+
+
+def test_stratified_split_small_buckets_non_empty() -> None:
+    records = [
+        {"text": f"text_{i}", "label": [{"category": cat, "start": 0, "end": 5}]}
+        for i, cat in enumerate(
+            ["dispositivo_abertura"] * 2
+            + ["resultado"] * 2
+            + ["ref_normativa"] * 2
+            + ["valor_condenacao"] * 2
+            + ["ref_processual"] * 2
+        )
+    ]
+    splits = _stratified_split(records, seed=42)
+    assert len(splits["train"]) >= 1
+    assert len(splits["val"]) >= 1
+    assert len(splits["test"]) >= 1
+    assert len(splits["train"]) + len(splits["val"]) + len(splits["test"]) == 10

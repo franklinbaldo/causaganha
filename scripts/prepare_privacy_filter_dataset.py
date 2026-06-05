@@ -469,6 +469,11 @@ def _stratified_split(
     rng.shuffle(val)
     rng.shuffle(test)
 
+    if not val and train:
+        val.append(train.pop())
+    if not test and train:
+        test.append(train.pop())
+
     logger.info(
         "stratified_split",
         train=len(train),
