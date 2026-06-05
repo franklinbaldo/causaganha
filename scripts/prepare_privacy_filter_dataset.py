@@ -181,19 +181,6 @@ _VALOR_CONDENACAO_RE = re.compile(
     r"|R\$\s*\d+,\d{2}",
 )
 
-_REF_NORMATIVA_RE = re.compile(
-    r"[Aa]rt(?:igo)?\.?\s*\d+(?:[,\s]*[§ºa°]\s*\d+)*"
-    r"(?:\s+(?:do|da|de)\s+[A-ZÁÉÍÓÚÂÊÎÔÛÃÕÇ][a-záéíóúâêîôûãõç]+"
-    r"(?:\s+[a-záéíóúâêîôûãõç]+){0,3})?"
-    r"|[Ll]ei\s+(?:[Cc]omplementar\s+)?(?:n[oºa°]?\s*)?[\d.]+/\d{2,4}"
-    r"|[Dd]ecreto(?:-[Ll]ei)?\s+(?:n[oºa°]?\s*)?[\d.]+(?:/\d{2,4})?"
-    r"|\b(?:CPC|CC|CDC|CLT|CF|CTN|CP|CPP|ECA|LRF|LINDB)\b"
-    r"|[Ss][úu]mula\s*(?:[Vv]inculante\s*)?(?:n[oºa°]?\s*)?\d+"
-    r"(?:\s+(?:do\s+)?[A-Z]{2,4})?"
-    r"|[Tt]ema\s*(?:[Rr]epetitivo\s*)?(?:n[oºa°]?\s*)?\d+"
-    r"(?:\s+(?:do\s+)?[A-Z]{2,4})?",
-    re.IGNORECASE,
-)
 
 
 # ---------------------------------------------------------------------------
@@ -259,8 +246,6 @@ def segment(text: str) -> list[dict] | None:
             start=disp_start,
         )
     )
-    spans.extend(_collect_spans(_REF_NORMATIVA_RE, text, "ref_normativa"))
-
     return _remove_overlaps(spans)
 
 

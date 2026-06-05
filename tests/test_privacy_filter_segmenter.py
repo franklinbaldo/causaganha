@@ -102,13 +102,11 @@ def test_finds_valor_condenacao() -> None:
     assert "5.000,00" in surface
 
 
-def test_finds_ref_normativa() -> None:
+def test_bootstrap_excludes_ref_normativa() -> None:
     spans = segment(DECISION)
     assert spans is not None
     by_cat = _spans_by_category(spans)
-    assert "ref_normativa" in by_cat
-    surfaces = [_span_text(DECISION, sp) for sp in by_cat["ref_normativa"]]
-    assert any("art." in s.lower() or "lei" in s.lower() for s in surfaces)
+    assert "ref_normativa" not in by_cat
 
 
 def test_all_spans_within_bounds_and_non_empty() -> None:
@@ -190,3 +188,41 @@ def test_stratified_split_small_buckets_non_empty() -> None:
     assert len(splits["val"]) >= 1
     assert len(splits["test"]) >= 1
     assert len(splits["train"]) + len(splits["val"]) + len(splits["test"]) == 10
+
+
+def test_opf_label_space_matches_gold_artifacts() -> None:
+    """T8: empirically verify label_space.json matches code and gold splits."""
+    import json
+    from pathlib import Path
+
+    gold = Path("data/segmenter_splits")
+    ls_path = gold / "label_space.json"
+    assert ls_path.exists(), "label_space.json missing from gold dir"
+
+    ls = json.loads(ls_path.read_text(encoding="utf-8"))
+    file_names = set(ls["span_class_names"])
+    code_names = set(SPAN_CLASS_NAMES_V7)
+    assert file_names == code_names, (
+        f"label_space.json vs code mismatch: "
+        f"in file not code={file_names - code_names}, "
+        f"in code not file={code_names - file_names}"
+    )
+
+    assert ls["span_class_names"][0] == "O"
+    assert "ref_normativa" not in file_names
+
+    for split in ("train", "val", "test"):
+        jsonl = gold / f"{split}.jsonl"
+        assert jsonl.exists(), f"{split}.jsonl missing"
+        with jsonl.open(encoding="utf-8") as f:
+            for ln, line in enumerate(f, 1):
+                rec = json.loads(line)
+                assert "text" in rec, f"{split} L{ln}: missing text"
+                assert "label" in rec, f"{split} L{ln}: missing label"
+                for sp in rec["label"]:
+                    assert sp["category"] in file_names, (
+                        f"{split} L{ln}: category {sp['category']!r} not in label space"
+                    )
+                    assert 0 <= sp["start"] < sp["end"] <= len(rec["text"]), (
+                        f"{split} L{ln}: bad offsets {sp}"
+                    )
