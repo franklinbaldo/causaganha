@@ -143,6 +143,8 @@ def validate(path: str, label_space: str | None) -> int:
                     f"Listing a category without examples teaches the model nothing "
                     f"and can degrade it."
                 )
+    if n_lines == 0:
+        errors.append("file is empty (0 records)")
     for w in warnings:
         print(f"WARN  {w}", file=sys.stderr)
     for e in errors:

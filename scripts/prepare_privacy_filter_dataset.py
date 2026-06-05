@@ -431,6 +431,18 @@ def promote_gold(gold_dir: Path, output_dir: Path) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _pop_from_duplicate_category(records: list[dict]) -> dict:
+    """Pop a record from a category that has multiple training examples."""
+    cat_indices: dict[str, list[int]] = {}
+    for i, rec in enumerate(records):
+        cat = _dominant_category(rec)
+        cat_indices.setdefault(cat, []).append(i)
+    for cat in sorted(cat_indices, key=lambda c: -len(cat_indices[c])):
+        if len(cat_indices[cat]) > 1:
+            return records.pop(cat_indices[cat][-1])
+    return records.pop()
+
+
 def _dominant_category(rec: dict) -> str:
     """Return the most frequent category in a record's labels (for stratification)."""
     cats: dict[str, int] = {}
@@ -471,9 +483,9 @@ def _stratified_split(
     rng.shuffle(test)
 
     if not val and train:
-        val.append(train.pop())
+        val.append(_pop_from_duplicate_category(train))
     if not test and train:
-        test.append(train.pop())
+        test.append(_pop_from_duplicate_category(train))
 
     logger.info(
         "stratified_split",

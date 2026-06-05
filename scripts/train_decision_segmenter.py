@@ -250,6 +250,7 @@ def main() -> int:
     # Compute true macro F1 as mean of per-class F1 (not detection.span.f1 which
     # is the aggregate and misleading under class imbalance).
     per_class_f1s: list[float] = []
+    per_class_f1s_no_ref: list[float] = []
     detection_f1 = metrics.get("detection.span.f1")
     for cat in ls["span_class_names"]:
         if cat == "O":
@@ -257,16 +258,25 @@ def main() -> int:
         f1 = metrics.get(f"by_class.{cat}.span.f1")
         if f1 is not None:
             per_class_f1s.append(f1)
+            if cat != "ref_normativa":
+                per_class_f1s_no_ref.append(f1)
             print(f"  {cat}: F1={f1:.3f}")
         else:
             cat_metrics = metrics.get(cat, {})
             if cat_metrics:
                 cf1 = cat_metrics.get("f1-score", 0)
                 per_class_f1s.append(cf1)
+                if cat != "ref_normativa":
+                    per_class_f1s_no_ref.append(cf1)
                 print(f"  {cat}: F1={cf1:.3f}")
 
     macro_f1 = sum(per_class_f1s) / len(per_class_f1s) if per_class_f1s else (detection_f1 or 0)
+    macro_f1_no_ref = (
+        sum(per_class_f1s_no_ref) / len(per_class_f1s_no_ref) if per_class_f1s_no_ref else macro_f1
+    )
     print(f"\nMacro F1 (mean of {len(per_class_f1s)} classes): {macro_f1:.3f}")
+    n_no_ref = len(per_class_f1s_no_ref)
+    print(f"Macro F1 excl. ref_normativa ({n_no_ref} classes): {macro_f1_no_ref:.3f}")
     if detection_f1 is not None:
         print(f"Detection F1 (aggregate): {detection_f1:.3f}")
 

@@ -8,11 +8,11 @@
     "test": 13
   },
   "per_class": {
+    "ref_normativa": 1391,
     "ref_processual": 294,
-    "dispositivo_abertura": 218,
-    "resultado": 112,
+    "dispositivo_abertura": 133,
     "valor_condenacao": 108,
-    "ref_normativa": 1391
+    "resultado": 97
   },
   "test_verified_by": "same_as_train_labeler"
 }
