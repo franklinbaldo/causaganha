@@ -84,6 +84,7 @@ jobs:
             --tribunal "${{ matrix.tribunal }}" \
             --mode "${{ matrix.mode }}" \
             --n "${{ inputs.n_per_tribunal || '20' }}" \
+            --max-zips "${{ inputs.max_zips || '10' }}" \
             --seed "${{ inputs.seed || '42' }}" \
             --output-dir /tmp/segmenter_samples
 

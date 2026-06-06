@@ -185,11 +185,13 @@ def _filter_and_score(
         if not tipo and not cue_hits.get("dispositivo"):
             continue
 
+        is_collegiate = bool(COLLEGIATE_ORGAN.search(orgao))
         if mode == "acordao":
-            is_collegiate = bool(COLLEGIATE_ORGAN.search(orgao))
             has_acordam = bool(re.search(r"\bACORDAM\b", texto[:2000]))
             if not (is_collegiate or has_acordam):
                 continue
+        elif is_collegiate:
+            continue
 
         filtered.append(
             {
@@ -212,7 +214,12 @@ def _filter_and_score(
     return filtered
 
 
-def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
+def sample_tribunal(
+    tribunal: str,
+    seed: int,
+    mode: str,
+    max_zips: int = 10,
+) -> list[dict]:
     """Fetch one random inner JSON for a tribunal, filter and score records."""
     try:
         items = discover_items(tribunal)
@@ -225,8 +232,11 @@ def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
 
     rng = random.Random(seed)
     rng.shuffle(items)
+    zips_tried = 0
 
     for item_id in items:
+        if zips_tried >= max_zips:
+            break
         try:
             zips = list_zips(item_id)
         except (URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
@@ -244,6 +254,9 @@ def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
         rng.shuffle(pool)
 
         for zip_name, _filecount in pool:
+            if zips_tried >= max_zips:
+                break
+            zips_tried += 1
             try:
                 inner_jsons = list_inner_jsons(item_id, zip_name)
             except (URLError, TimeoutError, OSError) as e:
@@ -306,8 +319,8 @@ def main() -> int:
         default="sentenca",
         help="sentenca: Sentença/Decisão types; acordao: collegiate bodies",
     )
-    parser.add_argument("--n", type=int, default=20, help="(ignored)")
-    parser.add_argument("--max-zips", type=int, default=10, help="(ignored)")
+    parser.add_argument("--n", type=int, default=20, help="Max records to keep per tribunal")
+    parser.add_argument("--max-zips", type=int, default=10, help="Max ZIPs to try per tribunal")
     parser.add_argument("--output-dir", default="data/segmenter_samples")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -320,7 +333,7 @@ def main() -> int:
     summary: dict[str, dict] = {}
     for tribunal in tribunals:
         logger.info("sampling_start", tribunal=tribunal, mode=args.mode)
-        records = sample_tribunal(tribunal, args.seed, args.mode)
+        records = sample_tribunal(tribunal, args.seed, args.mode, args.max_zips)
 
         if not records:
             summary[tribunal] = {"status": "empty", "n": 0}
