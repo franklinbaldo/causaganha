@@ -213,7 +213,11 @@ def _filter_and_score(
 
 def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
     """Fetch one random inner JSON for a tribunal, filter and score records."""
-    items = discover_items(tribunal)
+    try:
+        items = discover_items(tribunal)
+    except (URLError, TimeoutError, OSError) as e:
+        logger.warning("discover_failed", tribunal=tribunal, error=str(e))
+        return []
     if not items:
         logger.warning("no_items_found", tribunal=tribunal)
         return []
@@ -320,6 +324,9 @@ def main() -> int:
         if not records:
             summary[tribunal] = {"status": "empty", "n": 0}
             continue
+
+        if args.n and len(records) > args.n:
+            records = records[: args.n]
 
         suffix = f"_{args.mode}" if args.mode != "sentenca" else ""
         out_path = output_dir / f"{tribunal.lower()}{suffix}.jsonl"

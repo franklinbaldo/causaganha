@@ -80,15 +80,14 @@ jobs:
           uv run python scripts/sample_ia_texts.py \
             --tribunal "${{ matrix.tribunal }}" \
             --n "${{ inputs.n_per_tribunal || '20' }}" \
-            --max-zips "${{ inputs.max_zips || '10' }}" \
             --seed "${{ inputs.seed || '42' }}" \
-            --output-dir data/segmenter_samples
+            --output-dir /tmp/segmenter_samples
 
       - name: Upload sample
         uses: actions/upload-artifact@v4
         with:
           name: sample-${{ matrix.tribunal }}
-          path: data/segmenter_samples/
+          path: /tmp/segmenter_samples/
           retention-days: 30
 
   merge:
@@ -102,7 +101,7 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          path: data/segmenter_samples/
+          path: /tmp/segmenter_samples/
           pattern: sample-*
           merge-multiple: true
 
@@ -111,7 +110,7 @@ jobs:
           SEED: ${{ inputs.seed || '42' }}
         run: |
           set -euo pipefail
-          cd data/segmenter_samples
+          cd /tmp/segmenter_samples
 
           python3 - <<'PYEOF'
           import json, glob, os, pathlib
@@ -144,5 +143,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: segmenter-samples-all
-          path: data/segmenter_samples/
+          path: /tmp/segmenter_samples/
           retention-days: 30
