@@ -215,7 +215,7 @@ def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
     """Fetch one random inner JSON for a tribunal, filter and score records."""
     try:
         items = discover_items(tribunal)
-    except (URLError, TimeoutError, OSError) as e:
+    except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
         logger.warning("discover_failed", tribunal=tribunal, error=str(e))
         return []
     if not items:
@@ -342,7 +342,7 @@ def main() -> int:
             "path": str(out_path),
         }
 
-        per_trib_manifest = output_dir / f"{tribunal.lower()}_manifest.json"
+        per_trib_manifest = output_dir / f"{tribunal.lower()}{suffix}_manifest.json"
         per_trib_manifest.write_text(
             json.dumps(
                 {"tribunal": tribunal, "n_sampled": len(records), "seed": args.seed},
