@@ -17,6 +17,10 @@ data/benchmark/
 !data/segmenter_splits/
 !data/segmenter_splits/**
 
+# Keep segmenter samples in git (annotation pool; no PII — only published DJEN texts)
+!data/segmenter_samples/
+!data/segmenter_samples/**
+
 
 
 # Processing artifacts

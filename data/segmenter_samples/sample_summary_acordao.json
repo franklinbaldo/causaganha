@@ -1,0 +1,255 @@
+{
+  "seed": 42,
+  "mode": "acordao",
+  "tribunals": {
+    "TJSP": {
+      "status": "ok",
+      "n": 11,
+      "top_score": 1,
+      "source": "djen-tjsp-2026",
+      "path": "data/segmenter_samples/tjsp_acordao.jsonl"
+    },
+    "TJRJ": {
+      "status": "ok",
+      "n": 764,
+      "top_score": 7,
+      "source": "djen-tjrj-2026",
+      "path": "data/segmenter_samples/tjrj_acordao.jsonl"
+    },
+    "TJMG": {
+      "status": "ok",
+      "n": 74,
+      "top_score": 0,
+      "source": "djen-tjmg-2026",
+      "path": "data/segmenter_samples/tjmg_acordao.jsonl"
+    },
+    "TJRS": {
+      "status": "ok",
+      "n": 72,
+      "top_score": 5,
+      "source": "djen-tjrs-2026",
+      "path": "data/segmenter_samples/tjrs_acordao.jsonl"
+    },
+    "TJPR": {
+      "status": "ok",
+      "n": 90,
+      "top_score": 7,
+      "source": "djen-tjpr-2021",
+      "path": "data/segmenter_samples/tjpr_acordao.jsonl"
+    },
+    "TJSC": {
+      "status": "ok",
+      "n": 23,
+      "top_score": 4,
+      "source": "djen-tjsc-2026",
+      "path": "data/segmenter_samples/tjsc_acordao.jsonl"
+    },
+    "TJBA": {
+      "status": "ok",
+      "n": 45,
+      "top_score": 8,
+      "source": "djen-tjba-2026",
+      "path": "data/segmenter_samples/tjba_acordao.jsonl"
+    },
+    "TJPE": {
+      "status": "ok",
+      "n": 263,
+      "top_score": 8,
+      "source": "djen-tjpe-2025",
+      "path": "data/segmenter_samples/tjpe_acordao.jsonl"
+    },
+    "TJCE": {
+      "status": "ok",
+      "n": 95,
+      "top_score": 9,
+      "source": "djen-tjce-2026",
+      "path": "data/segmenter_samples/tjce_acordao.jsonl"
+    },
+    "TJDF": {
+      "status": "empty",
+      "n": 0
+    },
+    "TJGO": {
+      "status": "ok",
+      "n": 1,
+      "top_score": 0,
+      "source": "djen-tjgo-2025",
+      "path": "data/segmenter_samples/tjgo_acordao.jsonl"
+    },
+    "TJPA": {
+      "status": "ok",
+      "n": 117,
+      "top_score": 10,
+      "source": "djen-tjpa-2024",
+      "path": "data/segmenter_samples/tjpa_acordao.jsonl"
+    },
+    "TJMA": {
+      "status": "ok",
+      "n": 1,
+      "top_score": 9,
+      "source": "djen-tjma-2026",
+      "path": "data/segmenter_samples/tjma_acordao.jsonl"
+    },
+    "TJPB": {
+      "status": "ok",
+      "n": 2,
+      "top_score": 6,
+      "source": "djen-tjpb-2024",
+      "path": "data/segmenter_samples/tjpb_acordao.jsonl"
+    },
+    "TJRN": {
+      "status": "ok",
+      "n": 277,
+      "top_score": 9,
+      "source": "djen-tjrn-2022",
+      "path": "data/segmenter_samples/tjrn_acordao.jsonl"
+    },
+    "TJES": {
+      "status": "ok",
+      "n": 30,
+      "top_score": 5,
+      "source": "djen-tjes-2026",
+      "path": "data/segmenter_samples/tjes_acordao.jsonl"
+    },
+    "TJMT": {
+      "status": "ok",
+      "n": 26,
+      "top_score": 6,
+      "source": "djen-tjmt-2024",
+      "path": "data/segmenter_samples/tjmt_acordao.jsonl"
+    },
+    "TJMS": {
+      "status": "ok",
+      "n": 425,
+      "top_score": 4,
+      "source": "djen-tjms-2024",
+      "path": "data/segmenter_samples/tjms_acordao.jsonl"
+    },
+    "TJAL": {
+      "status": "ok",
+      "n": 424,
+      "top_score": 7,
+      "source": "djen-tjal-2025",
+      "path": "data/segmenter_samples/tjal_acordao.jsonl"
+    },
+    "TJPI": {
+      "status": "ok",
+      "n": 5,
+      "top_score": 3,
+      "source": "djen-tjpi-2023",
+      "path": "data/segmenter_samples/tjpi_acordao.jsonl"
+    },
+    "TJSE": {
+      "status": "ok",
+      "n": 1,
+      "top_score": 1,
+      "source": "djen-tjse-2026",
+      "path": "data/segmenter_samples/tjse_acordao.jsonl"
+    },
+    "TJAM": {
+      "status": "ok",
+      "n": 3,
+      "top_score": 9,
+      "source": "djen-tjam-2022",
+      "path": "data/segmenter_samples/tjam_acordao.jsonl"
+    },
+    "TJRO": {
+      "status": "ok",
+      "n": 86,
+      "top_score": 8,
+      "source": "djen-tjro-2026",
+      "path": "data/segmenter_samples/tjro_acordao.jsonl"
+    },
+    "TJTO": {
+      "status": "ok",
+      "n": 49,
+      "top_score": 4,
+      "source": "djen-tjto-2025",
+      "path": "data/segmenter_samples/tjto_acordao.jsonl"
+    },
+    "TJAC": {
+      "status": "ok",
+      "n": 44,
+      "top_score": 3,
+      "source": "djen-tjac-2024",
+      "path": "data/segmenter_samples/tjac_acordao.jsonl"
+    },
+    "TJAP": {
+      "status": "ok",
+      "n": 115,
+      "top_score": 5,
+      "source": "djen-tjap-2022",
+      "path": "data/segmenter_samples/tjap_acordao.jsonl"
+    },
+    "TJRR": {
+      "status": "ok",
+      "n": 31,
+      "top_score": 4,
+      "source": "djen-tjrr-2026",
+      "path": "data/segmenter_samples/tjrr_acordao.jsonl"
+    },
+    "TRF1": {
+      "status": "ok",
+      "n": 8,
+      "top_score": 5,
+      "source": "djen-trf1-2023",
+      "path": "data/segmenter_samples/trf1_acordao.jsonl"
+    },
+    "TRF2": {
+      "status": "ok",
+      "n": 51,
+      "top_score": 4,
+      "source": "djen-trf2-2025",
+      "path": "data/segmenter_samples/trf2_acordao.jsonl"
+    },
+    "TRF3": {
+      "status": "ok",
+      "n": 19,
+      "top_score": 3,
+      "source": "djen-trf3-2026",
+      "path": "data/segmenter_samples/trf3_acordao.jsonl"
+    },
+    "TRF4": {
+      "status": "ok",
+      "n": 85,
+      "top_score": 2,
+      "source": "djen-trf4-2025",
+      "path": "data/segmenter_samples/trf4_acordao.jsonl"
+    },
+    "TRF5": {
+      "status": "ok",
+      "n": 2,
+      "top_score": 7,
+      "source": "djen-trf5-2025",
+      "path": "data/segmenter_samples/trf5_acordao.jsonl"
+    },
+    "TRF6": {
+      "status": "ok",
+      "n": 53,
+      "top_score": 3,
+      "source": "djen-trf6-2025",
+      "path": "data/segmenter_samples/trf6_acordao.jsonl"
+    },
+    "STJ": {
+      "status": "ok",
+      "n": 104,
+      "top_score": 2,
+      "source": "djen-stj-2025",
+      "path": "data/segmenter_samples/stj_acordao.jsonl"
+    },
+    "TST": {
+      "status": "ok",
+      "n": 985,
+      "top_score": 8,
+      "source": "djen-tst-2025",
+      "path": "data/segmenter_samples/tst_acordao.jsonl"
+    },
+    "STM": {
+      "status": "ok",
+      "n": 1,
+      "top_score": 6,
+      "source": "djen-stm-2025",
+      "path": "data/segmenter_samples/stm_acordao.jsonl"
+    }
+  }
+}
