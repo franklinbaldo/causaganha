@@ -78,6 +78,7 @@ jobs:
           dev: "true"
 
       - name: Sample texts for ${{ matrix.tribunal }} (${{ matrix.mode }})
+        continue-on-error: true
         run: |
           set -euo pipefail
           uv run python scripts/sample_ia_texts.py \
