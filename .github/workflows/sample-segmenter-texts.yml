@@ -120,20 +120,22 @@ jobs:
           import json, glob, os, pathlib
 
           manifests = sorted(glob.glob("*_manifest.json"))
-          tribunals = {}
+          entries = {}
           total = 0
           for m in manifests:
               d = json.loads(pathlib.Path(m).read_text())
-              tribunals[d["tribunal"]] = d["n_sampled"]
+              # Key by filename stem to preserve mode distinction
+              key = pathlib.Path(m).stem.removesuffix("_manifest")
+              entries[key] = {"tribunal": d["tribunal"], "n_sampled": d["n_sampled"]}
               total += d["n_sampled"]
 
-          combined = {"tribunals": tribunals, "total": total, "seed": int(os.environ.get("SEED", 42))}
+          combined = {"entries": entries, "total": total, "seed": int(os.environ.get("SEED", 42))}
           pathlib.Path("combined_manifest.json").write_text(json.dumps(combined, indent=2))
 
           lines = ["## Per-tribunal samples", ""]
-          for t, n in sorted(tribunals.items()):
-              lines.append(f"- **{t}**: {n} texts")
-          lines.append(f"\n**Total: {total} texts across {len(tribunals)} tribunals**")
+          for key, d in sorted(entries.items()):
+              lines.append(f"- **{key}**: {d['n_sampled']} texts")
+          lines.append(f"\n**Total: {total} texts across {len(entries)} entries**")
           summary = "\n".join(lines) + "\n"
 
           step_summary = os.environ.get("GITHUB_STEP_SUMMARY", "")
