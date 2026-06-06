@@ -83,7 +83,7 @@ ALL_TRIBUNALS = [t for tier in TRIBUNAL_TIERS.values() for t in tier]
 DECISION_TYPES = {"Sentença", "Decisão", "Acórdão"}
 
 COLLEGIATE_ORGAN = re.compile(
-    r"Turma\b|C[âa]mara\b|Se[çc][ãa]o\b|Plen[áa]rio",
+    r"Turma\b|C[âa]mara\b|Se[çc][ãa]o(?!\s+Judici)\b|Plen[áa]rio",
     re.IGNORECASE,
 )
 
@@ -176,13 +176,14 @@ def _filter_and_score(
         tipo = (rec.get("tipoDocumento") or "").strip()
         orgao = (rec.get("nomeOrgao") or "").strip()
 
+        if tipo not in DECISION_TYPES:
+            continue
+
         if mode == "acordao":
             is_collegiate = bool(COLLEGIATE_ORGAN.search(orgao))
             has_acordam = bool(re.search(r"\bACORDAM\b", texto))
             if not (is_collegiate or has_acordam):
                 continue
-        elif tipo and tipo not in DECISION_TYPES:
-            continue
 
         cue_hits, cue_score = score_record(texto)
 
@@ -345,6 +346,9 @@ def main() -> int:
     ok = sum(1 for v in summary.values() if v["status"] == "ok")
     empty = sum(1 for v in summary.values() if v["status"] == "empty")
     print(f"\nDone: {ok} tribunals sampled, {empty} empty. Manifest: {manifest_path}")
+
+    if not args.all and ok == 0:
+        return 1
     return 0
 
 
