@@ -229,7 +229,7 @@ def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
     for item_id in items:
         try:
             zips = list_zips(item_id)
-        except (URLError, TimeoutError, OSError) as e:
+        except (URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
             logger.warning("list_zips_failed", item=item_id, error=str(e))
             continue
 
