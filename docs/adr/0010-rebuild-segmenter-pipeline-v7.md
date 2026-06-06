@@ -18,7 +18,7 @@ To advance the segmenter to v7, we have developed new infrastructure and updated
 
 We have decided to rebuild the v7 Decision Segmenter pipeline from scratch, specifically focusing on the gold dataset generation.
 
-1.  **Salvage v7 Infrastructure**: We will retain the modern v7 infrastructure, scripts, tests, and configurations (e.g., sampler logic, region reconstruction, regex pre-pass, OPF annotation helpers, and the 22-entry trained label space) developed in earlier iterations.
+1.  **Salvage v7 Infrastructure**: We will retain the modern v7 infrastructure, scripts, tests, and configurations (e.g., sampler logic, region reconstruction, regex pre-pass, OPF annotation helpers, and the 26-entry trained label space — `O` + 25 trainable categories) developed in earlier iterations.
 2.  **Discard Legacy Data**: We will intentionally discard all pre-existing v6 gold data splits (`train.jsonl`, `val.jsonl`, `test.jsonl`, `manifest.json`).
 3.  **Clean Annotation Loop**: We will regenerate all gold splits from zero using a clean subagent flow modeled directly after the successful "Leizilla #84" strategy. This will ensure our new dataset is free from legacy heuristic biases and fully aligned with the v7 annotation guidelines.
 
@@ -32,7 +32,7 @@ We have decided to rebuild the v7 Decision Segmenter pipeline from scratch, spec
 
 The infrastructure (Step 1) is merged and CI-green. A first **seed gold** is
 committed to `data/segmenter_splits/` (20 TJRO docs — 8 acórdão + 12 sentença,
-189 spans, all 25 trained classes populated, `test_verified_by =
+189 spans, all 25 non-O categories populated, `test_verified_by =
 prompt_ensemble:strict+disambig+blind+adversarial`). It was built end-to-end the
 subagent way below; the remaining work is to **scale** it (more tribunals, more
 volume per rare class) — not to change the method. The governing decisions:
