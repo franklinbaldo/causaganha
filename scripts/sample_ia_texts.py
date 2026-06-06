@@ -1,24 +1,33 @@
 """Sample judicial decision texts from Internet Archive for segmenter annotation.
 
-Downloads ZIPs from IA items (djen-{tribunal}-{year} format), extracts
-texts from JSON files inside, and samples N decisions per tribunal.
-Outputs one JSONL per tribunal with raw text + metadata, ready for
-annotation.
+Fetches individual JSON files directly from inside IA ZIP items (no full
+ZIP download).  Each inner JSON contains ~1000 intimações.  Records are
+filtered by document type and scored by rare-class cue density to
+prioritize docs that exercise the v7 ontology's underrepresented categories.
+
+Inner JSONs within a ZIP are selected randomly (seeded) to avoid the
+ordering bias that comes from always picking the first page.
 
 Usage:
-    uv run python scripts/sample_ia_texts.py --tribunal TJRO --n 20 \
-        --output-dir data/segmenter_samples
+    # One random JSON per tribunal (all tiers)
+    uv run python scripts/sample_ia_texts.py --all
+
+    # Single tribunal
+    uv run python scripts/sample_ia_texts.py --tribunal TJRO
+
+    # Acórdão-targeted mode (filters for collegiate bodies)
+    uv run python scripts/sample_ia_texts.py --all --mode acordao
 """
 
 from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import json
 import random
+import re
 import sys
-import zipfile
+import time
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
@@ -32,7 +41,6 @@ IA_SEARCH_URL = (
     "https://archive.org/advancedsearch.php?"
     "q=identifier%3A(djen-{tribunal}-*)&fl[]=identifier&rows=50&output=json"
 )
-
 
 TRIBUNAL_TIERS: dict[str, list[str]] = {
     "large_tj": [
@@ -70,9 +78,35 @@ TRIBUNAL_TIERS: dict[str, list[str]] = {
     "superior": ["STJ", "TST", "STM"],
 }
 
+ALL_TRIBUNALS = [t for tier in TRIBUNAL_TIERS.values() for t in tier]
+
+SENTENCA_TYPES = {"Sentença", "Decisão"}
+ACORDAO_TYPES = {"Decisão", "Acórdão"}
+
+COLLEGIATE_ORGAN = re.compile(
+    r"Turma\b|C[âa]mara\b|Se[çc][ãa]o(?!\s+Judici)\b|Plen[áa]rio",
+    re.IGNORECASE,
+)
+
+RARE_CLASS_CUES: dict[str, re.Pattern[str]] = {
+    "preliminar": re.compile(r"\bPRELIMINAR|DAS PRELIMINARES", re.IGNORECASE),
+    "honorarios": re.compile(r"\bhonor[áa]rios\b", re.IGNORECASE),
+    "custas": re.compile(r"\bcustas\b", re.IGNORECASE),
+    "voto": re.compile(r"\bVOTO\b|É o voto|É como voto"),
+    "acordao_decisorio": re.compile(r"\bACORDAM\b|unanimidade|por maioria", re.IGNORECASE),
+    "dispositivo": re.compile(
+        r"Ante o exposto|Pelo exposto|Posto isso|Diante do exposto",
+        re.IGNORECASE,
+    ),
+    "ementa": re.compile(r"\bEMENTA:"),
+    "relatorio": re.compile(r"\bRELAT[ÓO]RIO:|\bTrata-se de\b", re.IGNORECASE),
+    "encerramento": re.compile(r"Publique-se|P\.R\.I\.", re.IGNORECASE),
+    "cabecalho": re.compile(r"PODER JUDICI[ÁA]RIO|TRIBUNAL DE JUSTI[ÇC]A", re.IGNORECASE),
+}
+
 
 def discover_items(tribunal: str) -> list[str]:
-    """Find IA items for a tribunal."""
+    """Find IA items for a tribunal via advanced search."""
     url = IA_SEARCH_URL.format(tribunal=tribunal.lower())
     with urlopen(url, timeout=30) as r:
         data = json.loads(r.read())
@@ -81,166 +115,276 @@ def discover_items(tribunal: str) -> list[str]:
     return items
 
 
-def list_zips(item_id: str) -> list[str]:
-    """List ZIP files in an IA item."""
-    meta_url = f"https://archive.org/metadata/{item_id}/files"
-    with urlopen(meta_url, timeout=30) as r:
+def list_zips(item_id: str) -> list[tuple[str, int]]:
+    """List ZIP files in an IA item with their inner file counts."""
+    url = f"https://archive.org/metadata/{item_id}/files"
+    with urlopen(url, timeout=30) as r:
         files = json.loads(r.read()).get("result", [])
-    return [f["name"] for f in files if f["name"].endswith(".zip")]
+    return [(f["name"], int(f.get("filecount", 1))) for f in files if f["name"].endswith(".zip")]
 
 
-def download_zip(item_id: str, zip_name: str) -> bytes:
-    """Download a single ZIP from IA."""
-    url = f"https://archive.org/download/{item_id}/{zip_name}"
-    logger.info("downloading_zip", item=item_id, zip=zip_name)
+def list_inner_jsons(item_id: str, zip_name: str) -> list[str]:
+    """List JSON files inside a ZIP via IA's directory listing."""
+    url = f"https://archive.org/download/{item_id}/{zip_name}/"
+    with urlopen(url, timeout=30) as r:
+        html = r.read().decode("utf-8", errors="replace")
+    matches = re.findall(r'href="([^"]*\.json)"', html)
+    return [m.split("/")[-1] for m in matches]
+
+
+def fetch_json_records(item_id: str, zip_name: str, json_name: str) -> list[dict]:
+    """Fetch a single JSON file from inside a ZIP — no ZIP download."""
+    url = f"https://archive.org/download/{item_id}/{zip_name}/{json_name}"
+    logger.info("fetching_json", item=item_id, zip=zip_name, json=json_name)
     with urlopen(url, timeout=120) as r:
-        return r.read()
+        data = json.loads(r.read())
+    if isinstance(data, dict):
+        return data.get("items", [data])
+    if isinstance(data, list):
+        return data
+    return []
 
 
-def extract_texts_from_zip(zip_bytes: bytes) -> list[dict]:
-    """Extract text records from a DJEN ZIP (JSON files inside)."""
-    records: list[dict] = []
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        for name in zf.namelist():
-            if not name.endswith(".json"):
+def score_record(texto: str) -> tuple[dict[str, bool], int]:
+    """Score a text by rare-class cue presence."""
+    hits = {name: bool(pat.search(texto)) for name, pat in RARE_CLASS_CUES.items()}
+    return hits, sum(hits.values())
+
+
+def _filter_and_score(
+    records: list[dict],
+    tribunal: str,
+    item_id: str,
+    zip_name: str,
+    json_name: str,
+    mode: str,
+) -> list[dict]:
+    """Apply structured gate + regex scoring to raw records."""
+    filtered: list[dict] = []
+    seen: set[str] = set()
+    for rec in records:
+        if not isinstance(rec, dict):
+            continue
+        texto = (rec.get("texto") or "").strip()
+        if len(texto) < 200:
+            continue
+
+        h = hashlib.sha256(texto.encode()).hexdigest()
+        if h in seen:
+            continue
+        seen.add(h)
+
+        tipo = (rec.get("tipoDocumento") or "").strip()
+        orgao = (rec.get("nomeOrgao") or "").strip()
+
+        cue_hits, cue_score = score_record(texto)
+
+        allowed = ACORDAO_TYPES if mode == "acordao" else SENTENCA_TYPES
+        if tipo and tipo not in allowed:
+            continue
+        if not tipo and not cue_hits.get("dispositivo"):
+            continue
+
+        is_collegiate = bool(COLLEGIATE_ORGAN.search(orgao))
+        if mode == "acordao":
+            has_acordam = bool(re.search(r"\bACORDAM\b", texto[:2000]))
+            if not (is_collegiate or has_acordam):
                 continue
-            try:
-                data = json.loads(zf.read(name))
-            except (json.JSONDecodeError, ValueError):
-                continue
+        elif is_collegiate:
+            continue
 
-            items: list = []
-            if isinstance(data, dict):
-                items = data.get("items", [data])
-            elif isinstance(data, list):
-                items = data
-
-            for rec in items:
-                if not isinstance(rec, dict):
-                    continue
-                text = (rec.get("texto") or "").strip()
-                if len(text) < 200:
-                    continue
-                records.append(
-                    {
-                        "text": text,
-                        "info": {
-                            "id": str(rec.get("id", "")),
-                            "tribunal": str(rec.get("tribunal", "")),
-                        },
-                    }
-                )
-    return records
+        filtered.append(
+            {
+                "text": texto,
+                "info": {
+                    "id": str(rec.get("id", "")),
+                    "tribunal": tribunal,
+                    "tipoDocumento": tipo,
+                    "nomeOrgao": orgao,
+                    "nomeClasse": (rec.get("nomeClasse") or "").strip(),
+                    "source_item": item_id,
+                    "source_zip": zip_name,
+                    "source_json": json_name,
+                    "sha256": h,
+                },
+                "cue_hits": cue_hits,
+                "cue_score": cue_score,
+            }
+        )
+    return filtered
 
 
 def sample_tribunal(
     tribunal: str,
-    n: int,
-    max_zips: int,
     seed: int,
+    mode: str,
+    max_zips: int = 10,
 ) -> list[dict]:
-    """Sample n texts from a tribunal's IA items."""
-    items = discover_items(tribunal)
+    """Fetch one random inner JSON for a tribunal, filter and score records."""
+    try:
+        items = discover_items(tribunal)
+    except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
+        logger.warning("discover_failed", tribunal=tribunal, error=str(e))
+        return []
     if not items:
         logger.warning("no_items_found", tribunal=tribunal)
         return []
 
-    # Reservoir sampling (Algorithm R): retain at most `n` records in memory
-    # no matter how many decisions the ZIPs expand to. A single ZIP can hold
-    # ~200 MB of JSON, so buffering every extracted decision before truncating
-    # to `n` can exhaust a runner. Each unique decision gets an equal chance.
-    reservoir: list[dict] = []
-    seen_hashes: set[str] = set()
-    seen = 0  # unique decisions encountered so far
-
     rng = random.Random(seed)
     rng.shuffle(items)
+    zips_tried = 0
 
-    zips_processed = 0
     for item_id in items:
-        if zips_processed >= max_zips:
+        if zips_tried >= max_zips:
             break
-        zip_names = list_zips(item_id)
-        trib_zips = [z for z in zip_names if tribunal.upper() in z.upper()]
+        try:
+            zips = list_zips(item_id)
+        except (URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
+            logger.warning("list_zips_failed", item=item_id, error=str(e))
+            continue
+
+        trib_zips = [(z, c) for z, c in zips if tribunal.upper() in z.upper()]
         if not trib_zips:
-            trib_zips = zip_names[:3]
-        rng.shuffle(trib_zips)
+            logger.warning("no_matching_zips", item=item_id, tribunal=tribunal)
+            continue
 
-        for zip_name in trib_zips[:2]:
-            if zips_processed >= max_zips:
+        # Prefer multi-file ZIPs (more inner JSONs → better randomisation)
+        multi = [(z, c) for z, c in trib_zips if c > 1]
+        pool = multi or trib_zips
+        rng.shuffle(pool)
+
+        for zip_name, _filecount in pool:
+            if zips_tried >= max_zips:
                 break
+            zips_tried += 1
             try:
-                zip_bytes = download_zip(item_id, zip_name)
-                texts = extract_texts_from_zip(zip_bytes)
-                for rec in texts:
-                    h = hashlib.sha256(rec["text"].encode()).hexdigest()
-                    if h in seen_hashes:
-                        continue
-                    seen_hashes.add(h)
-                    rec["info"]["source_item"] = item_id
-                    rec["info"]["source_zip"] = zip_name
-                    seen += 1
-                    if len(reservoir) < n:
-                        reservoir.append(rec)
-                    else:
-                        j = rng.randint(1, seen)
-                        if j <= n:
-                            reservoir[j - 1] = rec
-                zips_processed += 1
+                inner_jsons = list_inner_jsons(item_id, zip_name)
+            except (URLError, TimeoutError, OSError) as e:
+                logger.warning("list_jsons_failed", zip=zip_name, error=str(e))
+                continue
+
+            if not inner_jsons:
+                continue
+
+            json_name = rng.choice(inner_jsons)
+
+            try:
+                records = fetch_json_records(item_id, zip_name, json_name)
+            except (URLError, TimeoutError, OSError, json.JSONDecodeError) as e:
+                logger.warning("fetch_failed", json=json_name, error=str(e))
+                continue
+
+            filtered = _filter_and_score(
+                records,
+                tribunal,
+                item_id,
+                zip_name,
+                json_name,
+                mode,
+            )
+
+            if filtered:
+                filtered.sort(key=lambda r: r["cue_score"], reverse=True)
                 logger.info(
-                    "zip_extracted",
-                    item=item_id,
-                    zip=zip_name,
-                    texts=len(texts),
-                    sampled=len(reservoir),
-                    seen=seen,
+                    "sampled",
+                    tribunal=tribunal,
+                    raw=len(records),
+                    kept=len(filtered),
+                    top_score=filtered[0]["cue_score"],
+                    source=f"{item_id}/{zip_name}/{json_name}",
                 )
-            except (URLError, TimeoutError, OSError, zipfile.BadZipFile, ValueError) as e:
-                logger.warning("zip_download_failed", item=item_id, zip=zip_name, error=str(e))
+                return filtered
 
-    if len(reservoir) < n:
-        logger.warning("insufficient_texts", tribunal=tribunal, found=len(reservoir), requested=n)
+            logger.info(
+                "no_decisions",
+                zip=zip_name,
+                json=json_name,
+                raw=len(records),
+            )
 
-    rng.shuffle(reservoir)
-    return reservoir
+    logger.warning("no_suitable_records", tribunal=tribunal)
+    return []
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Sample texts from IA for segmenter annotation")
-    parser.add_argument("--tribunal", required=True, help="Tribunal sigla (e.g. TJRO)")
-    parser.add_argument("--n", type=int, default=20, help="Number of texts to sample")
-    parser.add_argument("--max-zips", type=int, default=10, help="Max ZIPs to download")
-    parser.add_argument("--output-dir", default="data/segmenter_samples", help="Output directory")
+    parser = argparse.ArgumentParser(
+        description="Sample texts from IA for segmenter annotation",
+    )
+    group = parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("--tribunal", help="Tribunal sigla (e.g. TJRO)")
+    group.add_argument("--all", action="store_true", help="All tribunals")
+    parser.add_argument(
+        "--mode",
+        choices=["sentenca", "acordao"],
+        default="sentenca",
+        help="sentenca: Sentença/Decisão types; acordao: collegiate bodies",
+    )
+    parser.add_argument("--n", type=int, default=20, help="Max records to keep per tribunal")
+    parser.add_argument("--max-zips", type=int, default=10, help="Max ZIPs to try per tribunal")
+    parser.add_argument("--output-dir", default="data/segmenter_samples")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
-    tribunal = args.tribunal.upper()
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    logger.info("sampling_start", tribunal=tribunal, n=args.n, seed=args.seed)
-    samples = sample_tribunal(tribunal, args.n, args.max_zips, args.seed)
+    tribunals = ALL_TRIBUNALS if args.all else [args.tribunal.upper()]
 
-    if not samples:
-        logger.error("no_samples", tribunal=tribunal)
+    summary: dict[str, dict] = {}
+    for tribunal in tribunals:
+        logger.info("sampling_start", tribunal=tribunal, mode=args.mode)
+        records = sample_tribunal(tribunal, args.seed, args.mode, args.max_zips)
+
+        if not records:
+            summary[tribunal] = {"status": "empty", "n": 0}
+            continue
+
+        if args.n and len(records) > args.n:
+            records = records[: args.n]
+
+        suffix = f"_{args.mode}" if args.mode != "sentenca" else ""
+        out_path = output_dir / f"{tribunal.lower()}{suffix}.jsonl"
+        with out_path.open("w", encoding="utf-8") as f:
+            for rec in records:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+        summary[tribunal] = {
+            "status": "ok",
+            "n": len(records),
+            "top_score": records[0]["cue_score"],
+            "source": records[0]["info"]["source_item"],
+            "path": str(out_path),
+        }
+
+        per_trib_manifest = output_dir / f"{tribunal.lower()}{suffix}_manifest.json"
+        per_trib_manifest.write_text(
+            json.dumps(
+                {"tribunal": tribunal, "n_sampled": len(records), "seed": args.seed},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+        if args.all:
+            time.sleep(1)
+
+    suffix = f"_{args.mode}" if args.mode != "sentenca" else ""
+    manifest_path = output_dir / f"sample_summary{suffix}.json"
+    manifest_path.write_text(
+        json.dumps(
+            {"seed": args.seed, "mode": args.mode, "tribunals": summary},
+            indent=2,
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    ok = sum(1 for v in summary.values() if v["status"] == "ok")
+    empty = sum(1 for v in summary.values() if v["status"] == "empty")
+    print(f"\nDone: {ok} tribunals sampled, {empty} empty. Manifest: {manifest_path}")
+
+    if not args.all and ok == 0:
         return 1
-
-    out_path = output_dir / f"{tribunal.lower()}.jsonl"
-    with out_path.open("w", encoding="utf-8") as f:
-        for rec in samples:
-            f.write(json.dumps(rec, ensure_ascii=False) + "\n")
-
-    manifest = {
-        "tribunal": tribunal,
-        "n_sampled": len(samples),
-        "n_requested": args.n,
-        "seed": args.seed,
-    }
-    manifest_path = output_dir / f"{tribunal.lower()}_manifest.json"
-    manifest_path.write_text(json.dumps(manifest, indent=2), encoding="utf-8")
-
-    logger.info("sampling_done", tribunal=tribunal, n=len(samples), path=str(out_path))
-    print(f"Sampled {len(samples)} texts for {tribunal} -> {out_path}")
     return 0
 
 
