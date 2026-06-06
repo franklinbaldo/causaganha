@@ -229,6 +229,7 @@ def sample_tribunal(tribunal: str, seed: int, mode: str) -> list[dict]:
 
         trib_zips = [(z, c) for z, c in zips if tribunal.upper() in z.upper()]
         if not trib_zips:
+            logger.warning("no_matching_zips", item=item_id, tribunal=tribunal)
             continue
 
         # Prefer multi-file ZIPs (more inner JSONs → better randomisation)
