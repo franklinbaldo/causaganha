@@ -177,18 +177,19 @@ def _filter_and_score(
         tipo = (rec.get("tipoDocumento") or "").strip()
         orgao = (rec.get("nomeOrgao") or "").strip()
 
+        cue_hits, cue_score = score_record(texto)
+
         allowed = ACORDAO_TYPES if mode == "acordao" else SENTENCA_TYPES
-        if tipo not in allowed:
+        if tipo and tipo not in allowed:
+            continue
+        if not tipo and not cue_hits.get("dispositivo"):
             continue
 
         if mode == "acordao":
             is_collegiate = bool(COLLEGIATE_ORGAN.search(orgao))
-            # Only match ACORDAM in the first 2000 chars to avoid quoted precedents
             has_acordam = bool(re.search(r"\bACORDAM\b", texto[:2000]))
             if not (is_collegiate or has_acordam):
                 continue
-
-        cue_hits, cue_score = score_record(texto)
 
         filtered.append(
             {
