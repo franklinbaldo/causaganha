@@ -183,7 +183,8 @@ def _filter_and_score(
 
         if mode == "acordao":
             is_collegiate = bool(COLLEGIATE_ORGAN.search(orgao))
-            has_acordam = bool(re.search(r"\bACORDAM\b", texto))
+            # Only match ACORDAM in the first 2000 chars to avoid quoted precedents
+            has_acordam = bool(re.search(r"\bACORDAM\b", texto[:2000]))
             if not (is_collegiate or has_acordam):
                 continue
 
@@ -300,6 +301,8 @@ def main() -> int:
         default="sentenca",
         help="sentenca: Sentença/Decisão types; acordao: collegiate bodies",
     )
+    parser.add_argument("--n", type=int, default=20, help="(ignored)")
+    parser.add_argument("--max-zips", type=int, default=10, help="(ignored)")
     parser.add_argument("--output-dir", default="data/segmenter_samples")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -331,6 +334,15 @@ def main() -> int:
             "source": records[0]["info"]["source_item"],
             "path": str(out_path),
         }
+
+        per_trib_manifest = output_dir / f"{tribunal.lower()}_manifest.json"
+        per_trib_manifest.write_text(
+            json.dumps(
+                {"tribunal": tribunal, "n_sampled": len(records), "seed": args.seed},
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
 
         if args.all:
             time.sleep(1)
