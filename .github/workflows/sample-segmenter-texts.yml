@@ -37,7 +37,7 @@ concurrency:
 
 jobs:
   sample:
-    name: Sample ${{ matrix.tribunal }}
+    name: Sample ${{ matrix.tribunal }} (${{ matrix.mode }})
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -64,6 +64,9 @@ jobs:
           - TRF3
           - TRF5
           - STJ
+        mode:
+          - sentenca
+          - acordao
     env:
       PYTHONPATH: ${{ github.workspace }}
 
@@ -74,11 +77,12 @@ jobs:
         with:
           dev: "true"
 
-      - name: Sample texts for ${{ matrix.tribunal }}
+      - name: Sample texts for ${{ matrix.tribunal }} (${{ matrix.mode }})
         run: |
           set -euo pipefail
           uv run python scripts/sample_ia_texts.py \
             --tribunal "${{ matrix.tribunal }}" \
+            --mode "${{ matrix.mode }}" \
             --n "${{ inputs.n_per_tribunal || '20' }}" \
             --seed "${{ inputs.seed || '42' }}" \
             --output-dir /tmp/segmenter_samples
@@ -86,7 +90,7 @@ jobs:
       - name: Upload sample
         uses: actions/upload-artifact@v4
         with:
-          name: sample-${{ matrix.tribunal }}
+          name: sample-${{ matrix.tribunal }}-${{ matrix.mode }}
           path: /tmp/segmenter_samples/
           retention-days: 30
 
