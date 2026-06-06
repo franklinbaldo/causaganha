@@ -80,7 +80,8 @@ TRIBUNAL_TIERS: dict[str, list[str]] = {
 
 ALL_TRIBUNALS = [t for tier in TRIBUNAL_TIERS.values() for t in tier]
 
-DECISION_TYPES = {"Sentença", "Decisão", "Acórdão"}
+SENTENCA_TYPES = {"Sentença", "Decisão"}
+ACORDAO_TYPES = {"Decisão", "Acórdão"}
 
 COLLEGIATE_ORGAN = re.compile(
     r"Turma\b|C[âa]mara\b|Se[çc][ãa]o(?!\s+Judici)\b|Plen[áa]rio",
@@ -176,7 +177,8 @@ def _filter_and_score(
         tipo = (rec.get("tipoDocumento") or "").strip()
         orgao = (rec.get("nomeOrgao") or "").strip()
 
-        if tipo not in DECISION_TYPES:
+        allowed = ACORDAO_TYPES if mode == "acordao" else SENTENCA_TYPES
+        if tipo not in allowed:
             continue
 
         if mode == "acordao":
