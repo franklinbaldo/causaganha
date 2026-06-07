@@ -125,14 +125,14 @@
 
   <small class="meta-text">Atualizado: {new Date(data.generated_at).toLocaleString('pt-BR')}</small>
 
-  <nav aria-label="Visualização">
+  <div class="manifest-status__view-toggle" role="toolbar" aria-label="Visualização">
     <button type="button" aria-pressed={view === 'tribunals'} onclick={() => view = 'tribunals'}>
       Por Tribunal ({data.tribunals.length})
     </button>
     <button type="button" class="secondary" aria-pressed={view === 'years'} onclick={() => view = 'years'}>
       Por Ano ({data.years.length})
     </button>
-  </nav>
+  </div>
 
   {#if view === 'tribunals'}
     <div class="table-wrap">
@@ -214,3 +214,12 @@
     </div>
   {/if}
 {/if}
+
+<style>
+  .manifest-status__view-toggle {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    margin-block: var(--space-3);
+  }
+</style>

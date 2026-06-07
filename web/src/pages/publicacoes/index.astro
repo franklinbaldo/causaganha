@@ -12,7 +12,6 @@ function fmt(n: number): string {
   return n.toLocaleString('pt-BR');
 }
 
-const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
@@ -50,10 +49,16 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
   </section>
 
   <!-- ═══════════ SEARCH ═══════════ -->
-  <section style="padding: var(--s-7) 0 var(--s-9);">
+  <section class="publication-search-section">
     <div class="wrap wrap--wide">
       <PublicationSearch client:load />
     </div>
   </section>
 
 </Layout>
+
+<style>
+  .publication-search-section {
+    padding: var(--s-7) 0 var(--s-9);
+  }
+</style>

@@ -4,19 +4,19 @@
   id="network-status-banner"
   role="alert"
   aria-live="assertive"
-  style="display: none;">
+  hidden>
 
-  <div id="ns-slow" style="display: none;">
+  <div id="ns-slow" hidden>
     <strong>Rede Lenta Detectada</strong>
     <small>O carregamento pode demorar mais que o normal. Usando dados em cache, se disponíveis.</small>
   </div>
 
-  <div id="ns-retry" style="display: none;">
+  <div id="ns-retry" hidden>
     <strong>Problema de Conexão</strong>
     <small id="ns-retry-text"></small>
   </div>
 
-  <div id="ns-error" style="display: none;">
+  <div id="ns-error" hidden>
     <div>
       <strong>Falha na Rede</strong>
       <small>Não foi possível conectar ao servidor. Mostrando dados offline em cache.</small>
@@ -51,9 +51,9 @@
     const loadedAt = Date.now();
 
     function hideAll() {
-      elSlow!.style.display = 'none';
-      elRetry!.style.display = 'none';
-      elError!.style.display = 'none';
+      elSlow!.hidden = true;
+      elRetry!.hidden = true;
+      elError!.hidden = true;
       if (countdownInterval) {
         clearInterval(countdownInterval);
         countdownInterval = null;
@@ -66,14 +66,14 @@
 
     function updateView() {
       if (status === 'idle') {
-        banner!.style.display = 'none';
+        banner!.hidden = true;
         hideAll();
       } else {
-        banner!.style.display = 'block';
+        banner!.hidden = false;
         hideAll();
-        if (status === 'slow') elSlow!.style.display = 'block';
-        if (status === 'retrying') elRetry!.style.display = 'block';
-        if (status === 'error') elError!.style.display = 'block';
+        if (status === 'slow') elSlow!.hidden = false;
+        if (status === 'retrying') elRetry!.hidden = false;
+        if (status === 'error') elError!.hidden = false;
       }
     }
 

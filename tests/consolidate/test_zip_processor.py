@@ -27,38 +27,71 @@ def test_stream_extracts_top_level_array() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / "x.zip"
         out = Path(tmpdir) / "out.ndjson"
-        _make_zip(zip_path, {"a.json": [{"id": 1}, {"id": 2}, {"id": 3}]})
+        _make_zip(
+            zip_path,
+            {
+                "a.json": [
+                    {"id": 1, "data_disponibilizacao": "2026-04-01"},
+                    {"id": 2, "data_disponibilizacao": "2026-04-01"},
+                    {"id": 3, "data_disponibilizacao": "2026-04-01"},
+                ]
+            },
+        )
 
         count = stream_zip_to_ndjson(zip_path, out)
 
         assert count == 3
         lines = out.read_text().splitlines()
         assert len(lines) == 3
-        assert json.loads(lines[0]) == {"id": 1}
+        assert json.loads(lines[0]) == {"id": 1, "data_disponibilizacao": "2026-04-01"}
 
 
 def test_stream_extracts_items_wrapper() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / "x.zip"
         out = Path(tmpdir) / "out.ndjson"
-        _make_zip(zip_path, {"a.json": {"items": [{"id": 1}], "status": "ok"}})
+        _make_zip(
+            zip_path,
+            {
+                "a.json": {
+                    "items": [{"id": 1, "data_disponibilizacao": "2026-04-01"}],
+                    "status": "ok",
+                }
+            },
+        )
 
         count = stream_zip_to_ndjson(zip_path, out)
 
         assert count == 1
-        assert json.loads(out.read_text().strip()) == {"id": 1}
+        assert json.loads(out.read_text().strip()) == {
+            "id": 1,
+            "data_disponibilizacao": "2026-04-01",
+        }
 
 
 def test_stream_extracts_single_object() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         zip_path = Path(tmpdir) / "x.zip"
         out = Path(tmpdir) / "out.ndjson"
-        _make_zip(zip_path, {"a.json": {"id": 42, "texto": "foo"}})
+        _make_zip(
+            zip_path,
+            {
+                "a.json": {
+                    "id": 42,
+                    "texto": "foo",
+                    "data_disponibilizacao": "2026-04-01",
+                }
+            },
+        )
 
         count = stream_zip_to_ndjson(zip_path, out)
 
         assert count == 1
-        assert json.loads(out.read_text().strip()) == {"id": 42, "texto": "foo"}
+        assert json.loads(out.read_text().strip()) == {
+            "id": 42,
+            "texto": "foo",
+            "data_disponibilizacao": "2026-04-01",
+        }
 
 
 def test_stream_skips_non_json_files() -> None:
@@ -69,7 +102,7 @@ def test_stream_skips_non_json_files() -> None:
             zip_path,
             {
                 "readme.txt": "ignore me",
-                "data.json": [{"id": 1}],
+                "data.json": [{"id": 1, "data_disponibilizacao": "2026-04-01"}],
             },
         )
 
@@ -86,7 +119,7 @@ def test_stream_handles_malformed_json() -> None:
             zip_path,
             {
                 "broken.json": "{not valid json",
-                "good.json": [{"id": 1}],
+                "good.json": [{"id": 1, "data_disponibilizacao": "2026-04-01"}],
             },
         )
 
@@ -113,9 +146,12 @@ def test_stream_combines_multiple_json_files() -> None:
         _make_zip(
             zip_path,
             {
-                "a.json": [{"id": 1}],
-                "b.json": [{"id": 2}, {"id": 3}],
-                "c.json": {"items": [{"id": 4}]},
+                "a.json": [{"id": 1, "data_disponibilizacao": "2026-04-01"}],
+                "b.json": [
+                    {"id": 2, "data_disponibilizacao": "2026-04-01"},
+                    {"id": 3, "data_disponibilizacao": "2026-04-01"},
+                ],
+                "c.json": {"items": [{"id": 4, "data_disponibilizacao": "2026-04-01"}]},
             },
         )
 

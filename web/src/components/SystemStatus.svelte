@@ -91,9 +91,9 @@
       </p>
     </hgroup>
     {#if stats?.timestamp}
-      <div>
+      <div class="system-status__next-run">
         <small>Próxima execução</small>
-        <kbd>{countdown}</kbd>
+        <data class="system-status__countdown" value={countdown}>{countdown}</data>
       </div>
     {/if}
   </header>
@@ -187,3 +187,22 @@
     </a>
   </footer>
 </article>
+
+<style>
+  .system-status__next-run {
+    display: grid;
+    gap: var(--space-1);
+  }
+
+  .system-status__countdown {
+    display: inline-flex;
+    width: fit-content;
+    padding: var(--space-1) var(--space-2);
+    border: 1px solid var(--color-border-muted);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-mono);
+    font-size: var(--font-size-sm);
+    font-variant-numeric: tabular-nums;
+    background: var(--color-surface-elevated);
+  }
+</style>

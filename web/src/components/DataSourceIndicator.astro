@@ -6,8 +6,9 @@
 
 <script>
   function setupDataSourceIndicator() {
-    const indicator = document.getElementById('datasource-indicator');
-    if (!indicator) return;
+    const indicatorEl = document.getElementById('datasource-indicator');
+    if (!indicatorEl) return;
+    const indicator = indicatorEl;
 
     const IA_URL = 'https://archive.org/download/causaganha-dashboard/meta.json';
 

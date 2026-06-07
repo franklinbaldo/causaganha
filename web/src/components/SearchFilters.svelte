@@ -122,8 +122,8 @@
     </label>
   </div>
 
-  <div aria-label="Presets de período mais usados">
-    <small>Período:</small>
+  <fieldset class="publication-filters__presets">
+    <legend>Período</legend>
     {#each DATE_PRESETS as preset (preset.value)}
       <button
         type="button"
@@ -135,7 +135,7 @@
       >{preset.label}</button>
     {/each}
     <button type="button" class="outline" onclick={clearDates}>Limpar datas</button>
-  </div>
+  </fieldset>
 
   <details bind:open={showSecondaryFilters}>
     <summary>Mais filtros</summary>

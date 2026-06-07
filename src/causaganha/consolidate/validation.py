@@ -11,21 +11,22 @@ Severity levels:
 
 from __future__ import annotations
 
+import datetime
+import json
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import Any
 
 import duckdb
+import ibis
 import structlog
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 from causaganha.config import TRIBUNAIS
 from causaganha.consolidate.schema_registry import (
     CURRENT_VERSION,
     SCHEMA_REGISTRY,
     _types_compatible,
+    get_current_schema,
 )
 
 
@@ -284,3 +285,231 @@ def validate_all_tables(
                 log.warning("validation_warnings", table=table_name, warnings=r.warnings)
 
     return results
+
+
+MIN_DATE_LENGTH = 10
+
+
+def validate_parquet_schema(file_path: Path, table_name: str) -> None:
+    """Validate that the Parquet file's columns and types match the expected schema using Ibis."""
+    con = ibis.duckdb.connect()
+    table = con.read_parquet(file_path)
+    actual_schema = table.schema()
+    expected_schema = get_current_schema().tables[table_name]
+
+    actual_names = set(actual_schema.names)
+    expected_names = set(expected_schema.names)
+
+    if actual_names != expected_names:
+        missing = expected_names - actual_names
+        extra = actual_names - expected_names
+        msg = (
+            f"Schema column mismatch in {file_path} for table '{table_name}'. "
+            f"Missing: {missing}, Extra: {extra}"
+        )
+        raise ValueError(msg)
+
+    # Validate types compatibility
+    for name, expected_type in expected_schema.items():
+        actual_type = actual_schema[name]
+        expected_type_str = str(expected_type)
+        actual_type_str = str(actual_type)
+
+        actual_norm = actual_type_str.lower()
+        if "string" in actual_norm:
+            actual_base = "string"
+        elif "int32" in actual_norm:
+            actual_base = "int32"
+        elif "int64" in actual_norm:
+            actual_base = "int64"
+        elif "date" in actual_norm:
+            actual_base = "date"
+        elif "timestamp" in actual_norm:
+            actual_base = "timestamp"
+        elif "float64" in actual_norm or "double" in actual_norm or "float" in actual_norm:
+            actual_base = "float64"
+        else:
+            actual_base = actual_norm
+
+        if actual_base != expected_type_str:
+            msg = (
+                f"Column '{name}' in {file_path} expected "
+                f"{expected_type_str}, got {actual_type_str}"
+            )
+            raise ValueError(msg)
+
+    log.info("parquet_schema_validated", file=str(file_path), table=table_name)
+
+
+def validate_ndjson_record(record: dict[str, Any]) -> bool:
+    """Validate a raw DJEN record before writing to NDJSON.
+
+    Checks that the record:
+      - Is a dictionary.
+      - Has a non-empty string or integer 'id'.
+      - Has a non-empty date field under one of the observed variants.
+    """
+    if not isinstance(record, dict):
+        return False
+
+    rec_id = record.get("id")
+    if rec_id is None or str(rec_id).strip() == "":
+        return False
+
+    has_date = False
+    for variant in (
+        "data_disponibilizacao",
+        "datadisponibilizacao",
+        "dataDisponibilizacao",
+    ):
+        val = record.get(variant)
+        if val is not None and str(val).strip() != "":
+            val_str = str(val).strip()
+            if len(val_str) >= MIN_DATE_LENGTH:
+                has_date = True
+                break
+    return has_date
+
+
+def _read_raw_records(raw_ndjson_dir: Path) -> list[dict[str, Any]]:
+    """Read all validated raw records from NDJSON files."""
+    raw_records = []
+    for ndjson_file in raw_ndjson_dir.glob("*.ndjson"):
+        with ndjson_file.open("r", encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                try:
+                    rec = json.loads(line)
+                    if validate_ndjson_record(rec):
+                        raw_records.append(rec)
+                except json.JSONDecodeError:
+                    continue
+    return raw_records
+
+
+def _verify_sample_equivalence(
+    raw_records: list[dict[str, Any]],
+    original_ids: list[str],
+    texto_ids: list[str],
+    txt_map: dict[str, str],
+) -> None:
+    """Verify sample of raw records match Parquet rows."""
+    id_to_index = {str(orig_id): idx for idx, orig_id in enumerate(original_ids)}
+    sample_records = raw_records[:50]
+    for rec in sample_records:
+        rec_id = str(rec["id"])
+        if rec_id not in id_to_index:
+            msg = f"Roundtrip equivalence failed: Original ID '{rec_id}' not found in Parquet"
+            raise ValueError(msg)
+
+        idx = id_to_index[rec_id]
+        rec_text = rec.get("texto", "")
+        if rec_text and txt_map:
+            texto_id = texto_ids[idx]
+            if not texto_id:
+                msg = (
+                    f"Roundtrip equivalence failed: original_id '{rec_id}' "
+                    "has empty texto_id in Parquet"
+                )
+                raise ValueError(msg)
+
+            if texto_id not in txt_map:
+                msg = (
+                    f"Roundtrip equivalence failed: texto_id '{texto_id}' "
+                    "not found in textos Parquet"
+                )
+                raise ValueError(msg)
+
+            pq_text = txt_map[texto_id]
+            if pq_text != rec_text:
+                msg = (
+                    f"Roundtrip equivalence failed: Text mismatch for original_id '{rec_id}'. "
+                    f"Expected: {rec_text[:50]!r}, Got: {pq_text[:50]!r}"
+                )
+                raise ValueError(msg)
+
+
+def validate_roundtrip_equivalence(raw_ndjson_dir: Path, parquet_dir: Path) -> None:
+    """Verify that exported Parquet tables can reconstruct the source NDJSON data.
+
+    Performs the following assertions:
+      1. Row count of 'comunicacoes' table must match the total number of validated NDJSON records.
+      2. For a sample of records from the NDJSON, verifies:
+         - The record ID is present in the 'comunicacoes' Parquet.
+         - The text (if present) matches the text in the 'textos' Parquet.
+    """
+    raw_records = _read_raw_records(raw_ndjson_dir)
+    if not raw_records:
+        log.warning("roundtrip_validation_no_records")
+        return
+
+    comunicacoes_path = parquet_dir / "comunicacoes.parquet"
+    textos_path = parquet_dir / "textos.parquet"
+
+    if not comunicacoes_path.exists():
+        msg = f"Missing expected Parquet file: {comunicacoes_path}"
+        raise FileNotFoundError(msg)
+
+    con = ibis.duckdb.connect()
+    com_table = con.read_parquet(comunicacoes_path)
+    original_ids = com_table["original_id"].execute().tolist()
+    texto_ids = com_table["texto_id"].execute().tolist()
+
+    if len(original_ids) != len(raw_records):
+        msg = (
+            f"Roundtrip equivalence row count mismatch: NDJSON has {len(raw_records)} "
+            f"records, but comunicacoes Parquet has {len(original_ids)} rows"
+        )
+        raise ValueError(msg)
+
+    txt_map = {}
+    if textos_path.exists():
+        txt_table = con.read_parquet(textos_path)
+        txt_ids = txt_table["id"].execute().tolist()
+        txt_texts = txt_table["texto"].execute().tolist()
+        txt_map = dict(zip(txt_ids, txt_texts, strict=True))
+
+    _verify_sample_equivalence(raw_records, original_ids, texto_ids, txt_map)
+    log.info(
+        "roundtrip_equivalence_validated",
+        checked_records=len(raw_records[:50]),
+        total_records=len(raw_records),
+    )
+
+
+def update_consolidation_manifest(
+    target_key: str, stats: dict[str, Any], *, is_date: bool = True
+) -> None:
+    """Update or append consolidation metrics for target_key to data/consolidation-manifest.json."""
+    manifest_path = Path("data/consolidation-manifest.json")
+
+    data: dict[str, Any] = {"schema_version": CURRENT_VERSION, "dates": {}}
+    if manifest_path.exists():
+        try:
+            with manifest_path.open("r", encoding="utf-8") as f:
+                loaded = json.load(f)
+                if isinstance(loaded, dict):
+                    data["dates"] = loaded.get("dates", {})
+        except (OSError, json.JSONDecodeError) as e:
+            log.warning("failed_to_load_consolidation_manifest", error=str(e))
+
+    item_id = f"djen-{target_key}" if is_date else f"djen-{target_key.lower()}"
+
+    data["dates"][target_key] = {
+        "item_id": item_id,
+        "zips_processed": stats.get("zips_processed", 0),
+        "records_count": stats.get("records", 0),
+        "parquets_created": stats.get("parquets_created", 0),
+        "uploaded_mb": round(stats.get("uploaded_mb", 0.0), 3),
+        "consolidated_at": datetime.datetime.now(datetime.UTC).isoformat(),
+    }
+
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    with manifest_path.open("w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2)
+    log.info(
+        "consolidation_manifest_updated",
+        path=str(manifest_path),
+        date=target_key,
+    )
