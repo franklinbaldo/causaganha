@@ -119,10 +119,11 @@
   gap: var(--space-modern-2);
   flex-wrap: wrap;
 }
-.publication-filters__presets small {
+.publication-filters__presets legend {
   font-family: var(--font-mono);
   font-size: var(--font-size-micro);
   color: var(--color-text-muted);
+  margin-bottom: 0;
 }
 
 .publication-card {

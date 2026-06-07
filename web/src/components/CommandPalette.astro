@@ -74,10 +74,11 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 <script>
   function setupCommandPalette() {
-    const dialog = document.getElementById('command-palette-dialog') as HTMLDialogElement | null;
+    const dialogEl = document.getElementById('command-palette-dialog') as HTMLDialogElement | null;
     const closeBtn = document.getElementById('command-palette-close');
 
-    if (!dialog || dialog.dataset.commandPaletteBound === 'true') return;
+    if (!dialogEl || dialogEl.dataset.commandPaletteBound === 'true') return;
+    const dialog = dialogEl;
     dialog.dataset.commandPaletteBound = 'true';
 
     function isTypingInField() {
