@@ -65,7 +65,11 @@ from causaganha.consolidate.consolidation_manifest import (
     update_consolidation_manifest,
 )
 from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
-from causaganha.consolidate.schema_registry import CURRENT_VERSION, kv_metadata_sql_fragment
+from causaganha.consolidate.schema_registry import (
+    CURRENT_VERSION,
+    get_current_schema,
+    kv_metadata_sql_fragment,
+)
 from causaganha.consolidate.validation import validate_parquet
 from causaganha.storage.connection import get_connection
 from causaganha.storage.djen_schema import (
@@ -969,126 +973,10 @@ def _load_and_transform(
     return counts
 
 
-# Explicit Schema Definitions using Ibis
-TABLE_SCHEMAS = {
-    "comunicacoes": ibis.schema(
-        {
-            "id": "string",
-            "original_id": "string",
-            "tribunal": "string",
-            "numero_processo": "string",
-            "numero_processo_mascara": "string",
-            "data_disponibilizacao": "date",
-            "tipo_comunicacao": "string",
-            "nome_orgao": "string",
-            "meio": "string",
-            "link": "string",
-            "tipo_documento": "string",
-            "nome_classe": "string",
-            "codigo_classe": "string",
-            "numero_comunicacao": "string",
-            "hash": "string",
-            "processed_at": "timestamp",
-            "texto_id": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "advogados": ibis.schema(
-        {
-            "id": "string",
-            "original_id": "string",
-            "tribunal": "string",
-            "nome": "string",
-            "numero_oab": "string",
-            "uf_oab": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "advogado_nomes": ibis.schema(
-        {
-            "advogado_id": "string",
-            "nome": "string",
-            "tribunal": "string",
-            "first_seen": "date",
-        },
-    ),
-    "destinatarios": ibis.schema(
-        {
-            "comunicacao_id": "string",
-            "tribunal": "string",
-            "nome": "string",
-            "polo": "string",
-            "parte_id": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "comunicacao_advogados": ibis.schema(
-        {
-            "comunicacao_id": "string",
-            "tribunal": "string",
-            "advogado_id": "string",
-        },
-    ),
-    "textos": ibis.schema(
-        {
-            "id": "string",
-            "texto": "string",
-        },
-    ),
-    "representacoes": ibis.schema(
-        {
-            "comunicacao_id": "string",
-            "tribunal": "string",
-            "advogado_id": "string",
-            "parte_id": "string",
-            "polo": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    # Process activity index: one row per communication event, NOT a dimension table.
-    # For a true process dimension (first/last seen, court unit), build a materialized view.
-    "processos": ibis.schema(
-        {
-            "numero_processo": "string",
-            "tribunal": "string",
-            "data": "date",
-            "comunicacao_id": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    # Outcome classification per unique text, decoupled from comunicacoes.
-    # Composite key: (texto_id, metodo)
-    "classificacoes": ibis.schema(
-        {
-            "texto_id": "string",
-            "metodo": "string",
-            "outcome": "string",
-            "decision_type": "string",
-            "winner_advogado_id": "string",
-            "loser_advogado_id": "string",
-            "confidence": "float64",
-            "classified_at": "timestamp",
-        },
-    ),
-    # Party dimension table with normalized keys for entity resolution.
-    "partes": ibis.schema(
-        {
-            "id": "string",
-            "nome_normalizado": "string",
-            "nome_original": "string",
-        },
-    ),
-}
+# Table schemas are owned by the schema registry (single source of truth).
+# Deriving them here keeps this legacy script, the refactored ETL builders in
+# transforms.py, and the KV-stamped Parquet footer on one definition.
+TABLE_SCHEMAS = get_current_schema().tables
 TABLES = list(TABLE_SCHEMAS.keys())
 
 
