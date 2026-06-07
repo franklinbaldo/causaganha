@@ -69,8 +69,6 @@ class TestTableOrderKeys:
 
         path = tmp_path / "comunicacoes.parquet"
         assert path.exists()
-        dates = duckdb.execute(
-            f"SELECT data_disponibilizacao FROM '{path}'"
-        ).fetchall()
+        dates = duckdb.execute(f"SELECT data_disponibilizacao FROM '{path}'").fetchall()
         date_vals = [r[0] for r in dates]
         assert date_vals == sorted(date_vals), "comunicacoes not sorted by data_disponibilizacao"
