@@ -405,8 +405,10 @@ def load_and_transform(
     )
     staging = con.table("_staging")
 
+    # _tribunal is stamped into every record by zip_processor.stream_zip_to_ndjson.
+    # No filename parsing needed — the data is self-describing.
     raw_expr = staging.mutate(
-        src_tribunal=staging.filename.split("/")[-1].split("__")[0],
+        src_tribunal=staging._tribunal,
         src_item_id=ibis.literal(item_id),
     )
     con.create_table("raw_records", raw_expr, overwrite=True)

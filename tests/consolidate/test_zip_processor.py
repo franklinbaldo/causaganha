@@ -38,12 +38,15 @@ def test_stream_extracts_top_level_array() -> None:
             },
         )
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TJSP")
 
         assert count == 3
         lines = out.read_text().splitlines()
         assert len(lines) == 3
-        assert json.loads(lines[0]) == {"id": 1, "data_disponibilizacao": "2026-04-01"}
+        rec = json.loads(lines[0])
+        assert rec["id"] == 1
+        assert rec["data_disponibilizacao"] == "2026-04-01"
+        assert rec["_tribunal"] == "TJSP"
 
 
 def test_stream_extracts_items_wrapper() -> None:
@@ -60,13 +63,12 @@ def test_stream_extracts_items_wrapper() -> None:
             },
         )
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TRT18")
 
         assert count == 1
-        assert json.loads(out.read_text().strip()) == {
-            "id": 1,
-            "data_disponibilizacao": "2026-04-01",
-        }
+        rec = json.loads(out.read_text().strip())
+        assert rec["id"] == 1
+        assert rec["_tribunal"] == "TRT18"
 
 
 def test_stream_extracts_single_object() -> None:
@@ -84,14 +86,13 @@ def test_stream_extracts_single_object() -> None:
             },
         )
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TJCE")
 
         assert count == 1
-        assert json.loads(out.read_text().strip()) == {
-            "id": 42,
-            "texto": "foo",
-            "data_disponibilizacao": "2026-04-01",
-        }
+        rec = json.loads(out.read_text().strip())
+        assert rec["id"] == 42
+        assert rec["texto"] == "foo"
+        assert rec["_tribunal"] == "TJCE"
 
 
 def test_stream_skips_non_json_files() -> None:
@@ -106,7 +107,7 @@ def test_stream_skips_non_json_files() -> None:
             },
         )
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TJSP")
 
         assert count == 1
 
@@ -123,7 +124,7 @@ def test_stream_handles_malformed_json() -> None:
             },
         )
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TJSP")
 
         assert count == 1
 
@@ -134,7 +135,7 @@ def test_stream_handles_bad_zip() -> None:
         out = Path(tmpdir) / "out.ndjson"
         zip_path.write_bytes(b"garbage")
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TJSP")
 
         assert count == 0
 
@@ -155,12 +156,15 @@ def test_stream_combines_multiple_json_files() -> None:
             },
         )
 
-        count = stream_zip_to_ndjson(zip_path, out)
+        count = stream_zip_to_ndjson(zip_path, out, "TRT4")
 
         assert count == 4
         lines = out.read_text().splitlines()
         ids = sorted(json.loads(line)["id"] for line in lines)
         assert ids == [1, 2, 3, 4]
+        # All records must carry the tribunal stamp
+        tribunals = {json.loads(line)["_tribunal"] for line in lines}
+        assert tribunals == {"TRT4"}
 
 
 if __name__ == "__main__":
