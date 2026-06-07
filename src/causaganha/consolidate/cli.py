@@ -38,10 +38,15 @@ from causaganha.consolidate.consolidation_manifest import (
     collect_table_stats,
     update_consolidation_manifest,
 )
-from causaganha.consolidate.exporter import export_and_upload_table, upload_marker
+from causaganha.consolidate.exporter import (
+    _upload_consolidated,
+    export_table_sync,
+    upload_marker,
+)
 from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
 from causaganha.consolidate.schema_registry import CURRENT_VERSION
 from causaganha.consolidate.transforms import TABLES, init_tables, load_and_transform
+from causaganha.consolidate.validation import validate_parquet, validate_roundtrip_equivalence
 from causaganha.consolidate.zip_processor import process_zip_entry
 from causaganha.pipeline.ia_s3 import (
     CircuitBreaker,
@@ -108,36 +113,6 @@ def _process_zip_entries(
                 )
 
 
-def _collect_export_results(
-    results: list[tuple[bool, float, int] | Exception],
-    non_empty_tables: set[str],
-    stats: dict[str, int | float],
-    *,
-    dry_run: bool,
-) -> list[str]:
-    """Fold per-table export results into stats. Returns list of uploaded table names."""
-    uploaded_tables: list[str] = []
-    for table_name, result in zip(TABLES, results, strict=True):
-        if isinstance(result, Exception):
-            log.error("table_export_error", table=table_name, error=str(result))
-            if table_name in non_empty_tables:
-                stats["export_failures"] += 1
-            continue
-
-        success, size_mb, uploaded = result
-        if success:
-            stats["parquets_created"] += 1
-            stats["uploaded"] += uploaded
-            stats["uploaded_mb"] += size_mb
-            if uploaded:
-                uploaded_tables.append(table_name)
-            elif not dry_run and table_name in non_empty_tables:
-                stats["export_failures"] += 1
-        elif table_name in non_empty_tables:
-            stats["export_failures"] += 1
-    return uploaded_tables
-
-
 def _uploads_complete(
     non_empty_tables: set[str],
     stats: dict[str, int | float],
@@ -167,50 +142,96 @@ async def _export_upload_and_manifest(
     stats: dict[str, int | float],
     *,
     dry_run: bool,
+    ndjson_dir: Path | None = None,
 ) -> None:
     """Export all tables, validate, upload, write marker, and update manifest."""
+    # 1. Export all tables locally and run validate_parquet on each
+    local_exports = []
+    for table_name in TABLES:
+        try:
+            export_result = await asyncio.to_thread(
+                export_table_sync,
+                table_name,
+                con,
+                output_dir,
+                item_id,
+            )
+        except Exception as exc:
+            log.error("table_export_error", table=table_name, error=str(exc))
+            if table_name in non_empty_tables:
+                stats["export_failures"] += 1
+            continue
+
+        if export_result is not None:
+            output_path, size_mb, count = export_result
+            log.info(
+                "parquet_created",
+                table=table_name,
+                rows=count,
+                size_mb=f"{size_mb:.1f}",
+            )
+            # Validate parquet
+            vr = await asyncio.to_thread(validate_parquet, output_path, table_name)
+            if not vr.passed:
+                log.error("validation_blocked_upload", table=table_name, errors=vr.errors)
+                if table_name in non_empty_tables:
+                    stats["export_failures"] += 1
+                raise ValueError(f"Parquet validation failed for table '{table_name}': {vr.errors}")
+            if vr.warnings:
+                log.warning("validation_warnings", table=table_name, warnings=vr.warnings)
+
+            local_exports.append((table_name, output_path, size_mb))
+            stats["parquets_created"] += 1
+
+    # 2. Run roundtrip equivalence gate!
+    if ndjson_dir is not None:
+        log.info("running_roundtrip_equivalence_gate", item_id=item_id)
+        validate_roundtrip_equivalence(ndjson_dir, output_dir)
+        log.info("roundtrip_equivalence_gate_passed", item_id=item_id)
+
+    # 3. Upload Parquet files to IA (if not dry_run)
     ia_auth = get_ia_s3_auth() or ""
     if not ia_auth and not dry_run:
         log.warning("ia_credentials_not_found", hint="Set IAS3_ACCESS_KEY/IAS3_SECRET_KEY")
         return
 
     breaker = CircuitBreaker(threshold=5)
+    uploaded_tables = []
 
     async with create_upload_client(ia_auth) as client:
-        results = []
-        for table_name in TABLES:
-            try:
-                res = await export_and_upload_table(
-                    table_name,
-                    con,
-                    output_dir,
-                    item_id,
+        for table_name, output_path, size_mb in local_exports:
+            uploaded = 0
+            if not dry_run:
+                success = await _upload_consolidated(
                     client,
+                    item_id,
+                    output_path,
                     date_tag,
-                    dry_run=dry_run,
                     circuit_breaker=breaker,
                 )
-                results.append(res)
-            except Exception as exc:  # noqa: BLE001 — per-table resilience
-                results.append(exc)
-        uploaded_tables = _collect_export_results(
-            results,
-            non_empty_tables,
-            stats,
-            dry_run=dry_run,
-        )
+                if success:
+                    uploaded = 1
+                    log.info("uploaded", table=table_name)
+                    uploaded_tables.append(table_name)
+                    stats["uploaded"] += 1
+                    stats["uploaded_mb"] += size_mb
+                elif table_name in non_empty_tables:
+                    stats["export_failures"] += 1
+            else:
+                stats["uploaded_mb"] += size_mb
 
         if _uploads_complete(non_empty_tables, stats, item_id) and (
-            stats["uploaded"] > 0
-            and not dry_run
-            and await upload_marker(client, item_id, date_tag, circuit_breaker=breaker)
+            (stats["uploaded"] > 0 or dry_run)
+            and (dry_run or await upload_marker(client, item_id, date_tag, circuit_breaker=breaker))
         ):
             stats["marker_uploaded"] = 1
             log.info("marker_uploaded", item_id=item_id)
 
-    if stats["marker_uploaded"] and uploaded_tables:
+    if stats["marker_uploaded"] and (uploaded_tables or dry_run):
         try:
-            table_s = collect_table_stats(output_dir, uploaded_tables)
+            # For dry runs, we don't upload but we can still register stats of non-empty tables to manifest
+            manifest_tables = uploaded_tables or list(non_empty_tables)
+            table_s = collect_table_stats(output_dir, manifest_tables)
             update_consolidation_manifest(
                 item_id=item_id,
                 date_str=date_tag,
@@ -290,6 +311,7 @@ async def _consolidate_zips(
             non_empty_tables,
             stats,
             dry_run=dry_run,
+            ndjson_dir=ndjson_dir,
         )
 
     return stats

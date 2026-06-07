@@ -22,6 +22,8 @@ from typing import Any
 import httpx
 import structlog
 
+from causaganha.consolidate.validation import validate_ndjson_record
+
 
 log = structlog.get_logger()
 
@@ -67,6 +69,9 @@ def stream_zip_to_ndjson(zip_path: Path, ndjson_path: Path) -> int:
                 records_iter = _iter_records(data)
                 for rec in records_iter:
                     if not isinstance(rec, dict):
+                        continue
+                    if not validate_ndjson_record(rec):
+                        log.warning("invalid_record_discarded", rec_id=rec.get("id"))
                         continue
                     try:
                         line = json.dumps(rec, default=str, ensure_ascii=False)
