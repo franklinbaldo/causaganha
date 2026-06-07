@@ -85,13 +85,30 @@ Estratégia realista, em ordem:
    aditivo (índice) ordenado por `numero_processo` — mesmo padrão do serving do
    Problema 3 — para que min/max podem por esse acesso. Aditivo, sem bump.
 3. A migração `numero_processo` para um **encoding empacotado** (Problema 2 / #3)
-   reduz bytes e melhora a seletividade de min/max independentemente da ordenação
-   — **mas só se for empacotado de verdade.** `string→BLOB` genérico mantém os
-   mesmos 20 bytes ASCII (no-op). Definir a representação lossless antes: o CNJ é
-   numérico de 20 dígitos, cujo máximo (~10²⁰) estoura `int64` (2⁶³≈9,2·10¹⁸), então
-   precisa de inteiro 128-bit / 16-byte fixo (16 < 20 bytes) e a reconstrução
-   re-aplica zero-pad para 20 dígitos. Decodificação no consumidor (DuckDB-WASM)
-   faz parte da tarefa.
+   **reduz bytes** — mas **não** melhora a seletividade de min/max. Para CNJs como
+   strings de 20 dígitos zero-padded, a ordem lexicográfica já é idêntica à
+   numérica, então min/max poda igual com ou sem empacotamento; o ganho de pruning
+   vem da **ordenação/índice** (§1a-1b), não do encoding. O encoding só vale por
+   tamanho, e só se for empacotado de verdade:
+
+   - `string→BLOB` genérico mantém os 20 bytes ASCII (no-op).
+   - **`HUGEINT`/`UHUGEINT` NÃO servem** (verificado no DuckDB 1.5.3): o `COPY`
+     mapeia ambos para Parquet `DOUBLE`, então `99999999999999999999` volta como
+     `1e+20` — **perde precisão**.
+   - **Usar `DECIMAL(20,0)`**: o `COPY` grava como `FIXED_LEN_BYTE_ARRAY` (~16
+     bytes < 20 ASCII) e faz round-trip lossless (verificado). Alternativa: byte
+     array de largura fixa com encoding explícito.
+   - **Exigir um teste de round-trip** (`COPY` → `read_parquet` → comparar com o
+     original) antes de fechar a migração; decode no consumidor (DuckDB-WASM) faz
+     parte da tarefa.
+
+   **Validar o formato antes (parte do #0):** o encoding numérico assume 20
+   dígitos, mas `_safe()` (ambos os code paths) converte valores ausentes em `''`
+   e `validate_ndjson_sample()` só checa presença, não formato (os testes aceitam
+   `numero_processo: "x"`). Valores históricos não-numéricos/curtos fazem o cast
+   `DECIMAL` falhar. O #0 tem que auditar essa invariante e a migração tem que
+   definir um **fallback** (ex.: manter string para os não-conformes, ou sentinela)
+   antes de reivindicar conversão lossless.
 
 **Onde:** o `COPY` é montado em `scripts/pipeline/consolidate.py:1419-1424` e
 `src/causaganha/consolidate/exporter.py:57-62` (acrescentar as opções ao
@@ -136,9 +153,10 @@ com base em dado:
   **mais** que os UUIDs nos bytes não-texto. A medição #0 tem que reportá-la lado
   a lado com as chaves UUID — senão a decisão fica com visão de túnel no UUID e
   ignora a coluna que talvez seja o maior alvo. **Atenção:** ao contrário do UUID
-  (que já é 16 bytes em binário), o CNJ precisa de um **encoding empacotado
-  explícito** — `string→BLOB` genérico é no-op (mantém 20 bytes ASCII). Ver §1c
-  passo 3 para a representação (inteiro 128-bit, zero-pad na reconstrução).
+  (que já é 16 bytes em binário), o CNJ só ganha **bytes** (não pruning) e precisa
+  de um **encoding empacotado explícito** — `string→BLOB` é no-op e `HUGEINT` vira
+  `DOUBLE` (perde precisão). Ver §1c passo 3 para a representação correta
+  (`DECIMAL(20,0)`), o round-trip e o fallback de formato.
 
 **Fix (se confirmado):** mudar UUIDs de `string` → tipo binário no registry.
 Isto é um **bump major (4.0.0)** e força todo consumidor DuckDB-WASM a `decode`.
@@ -241,7 +259,7 @@ mesmo `4.0.0` para não pagar dois re-uploads. **Esforço:** P. **Payoff:** Pequ
 | 0 | Script de medição: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas, reportando `numero_processo` ao lado das chaves UUID | não | P | Habilita decisões 2/5 |
 | 1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` + **1b** `ROW_GROUP_SIZE`, com benchmark de bytes httpfs pré/pós. (**1c** lookup por `numero_processo`: escolher chave de ordenação / índice aditivo — bloom filter via `COPY` não funciona, ver §1c) | não | P | **Grande** (itens grandes) |
 | 2 | Parquet de serving denormalizado — **só junto** com o consumidor frontend (join de 4 tabelas hoje inexistente) | patch `3.1.0` | M+M | Grande **se** consumidor construído |
-| 3 | (se #0 confirmar) UUID `string→16-byte` + `numero_processo` para inteiro 128-bit empacotado (BLOB genérico é no-op; definir encoding lossless + decode no WASM) | major `4.0.0` | M | Grande |
+| 3 | (se #0 confirmar) UUID `string→16-byte` + `numero_processo` → `DECIMAL(20,0)` (BLOB é no-op, HUGEINT vira DOUBLE; só ganha bytes, não pruning; round-trip + fallback de formato + decode no WASM) | major `4.0.0` | M | Grande |
 | 4 | Remover `p_item_ia` redundante | major `4.0.0` | P | Pequeno |
 | 5 | `confidence`→float32, revisar `hash` | major `4.0.0` | P | Pequeno |
 
