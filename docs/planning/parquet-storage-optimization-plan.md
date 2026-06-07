@@ -124,11 +124,17 @@ Estratégia realista, em ordem:
    `data_disponibilizacao`, confirmar com os logs de query do dashboard). O outro
    acesso paga full-scan de row groups.
 2. **Se o lookup por `numero_processo` for hot o suficiente**, criar um Parquet
-   aditivo (índice) ordenado por `numero_processo` — mesmo padrão do serving do
-   Problema 3 — para que min/max podem por esse acesso. Por ser um **dataset novo
-   com schema e contrato de consumidor próprios**, leva um **bump aditivo** (igual
-   ao serving — agrupar no mesmo `3.1.0`) e tem que ser **registrado** junto às
-   demais tabelas (schema registry + tooling de validação/descoberta), senão
+   aditivo ordenado por `numero_processo`. ⚠️ **Tem que ser um índice _covering_**,
+   não só `(numero_processo → comunicacao_id)`: um índice magro poda o lookup no
+   índice, mas depois **junta de volta** no `comunicacoes` ordenado por data — que
+   é exatamente o full-scan que se queria evitar. Para entregar a redução de I/O, o
+   arquivo precisa carregar **todo o payload da query quente** (as colunas que o
+   dashboard lê para esse acesso), de modo que a leitura termine no próprio índice
+   sem voltar ao arquivo base. (Alternativa teórica — um locator físico row-group —
+   não é praticável com DuckDB-over-HTTP; ficar no covering.) Por ser um **dataset
+   novo com schema e contrato de consumidor próprios**, leva um **bump aditivo**
+   (igual ao serving — agrupar no mesmo `3.1.0`) e tem que ser **registrado** junto
+   às demais tabelas (schema registry + tooling de validação/descoberta), senão
    clientes não têm como saber se o índice existe. Não é "sem bump".
 3. A migração `numero_processo` para um **encoding empacotado** (Problema 2 / A3)
    **reduz bytes** — mas **não** melhora a seletividade de min/max. Para CNJs como
