@@ -331,7 +331,13 @@ ainda não existe — não fica no caminho crítico de storage.
 | A5 | `confidence`→float32; revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
 
 A2-A5 agrupam-se num único bump `4.0.0` (cada major força re-upload de todos os
-itens; não pagar dois). **Caminho crítico de A:** A0 + A0w → A1 → A1b → A-pré → (A2+A3+A4+A5).
+itens; não pagar dois).
+
+**Caminho crítico de A:** A0 + A0w → A1 → A-pré → (A2+A3+A4+A5). **A1b fica
+fora do caminho crítico** — é tuning independente (§1b) e roda **em paralelo**; as
+economias de schema (A2-A5) são gated por A0/A0w, não por `ROW_GROUP_SIZE`. Se
+nenhum size menor evitar regressão de broad-scan, A1b simplesmente mantém o
+default e a migração v4 segue mesmo assim.
 
 > **A-pré — artefato de rollback (pré-requisito de A2/A3, hoje inexistente).** O
 > rollback "reler a versão anterior" **não existe no pipeline atual**:
@@ -356,12 +362,16 @@ B só vale com B1. **Sem B1, não fazer B2** — seria storage extra sem consumi
 Não é pré-requisito de nenhum item da Trilha A.
 
 **Quick win imediato:** A1 — `ORDER BY` sozinho **já** poda em arquivos com >1 row
-group (itens grandes), sem depender de A1b; A1b só **afina a granularidade** e
-`ROW_GROUP_SIZE` só importa para o item **pequeno** de 1 row group, onde a
-ordenação é no-op [verified]. Não dá para cobrir `data_disponibilizacao` *e*
-`numero_processo` na mesma ordenação — escolher a chave dominante **via A0w** e, se
-preciso, um índice aditivo (bloom filter não cobre essa coluna por cardinalidade,
-§1c). Provar o ganho com byte-count httpfs, não só com `parquet_metadata`.
+group (itens grandes), sem depender de A1b. `ROW_GROUP_SIZE` **não** é exclusivo do
+item pequeno: ele muda a **granularidade de pruning, o overhead de footer e o
+comportamento de scan dos arquivos grandes** que já têm múltiplos grupos — é
+justamente por isso que A1b mira esses itens; e, num arquivo pequeno, pode
+**quebrá-lo em vários grupos**. O único caso onde a **ordenação** (A1) é no-op
+[verified] é o item pequeno de 1 row group. Não dá para cobrir
+`data_disponibilizacao` *e* `numero_processo` na mesma ordenação — escolher a chave
+dominante **via A0w** e, se preciso, um índice aditivo (bloom filter não cobre essa
+coluna por cardinalidade, §1c). Provar o ganho com byte-count httpfs, não só com
+`parquet_metadata`.
 
 ## O que NÃO fazer
 
