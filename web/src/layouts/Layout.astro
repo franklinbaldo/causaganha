@@ -39,14 +39,14 @@ const ogImageUrl = ogImage || new URL(`${BASE}og-image.svg`, Astro.site).toStrin
     <meta property="og:url" content={canonicalURL} />
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
-    {ogImage && <meta property="og:image" content={ogImage} />}
+    <meta property="og:image" content={ogImageUrl} />
 
     <!-- Twitter -->
     <meta property="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
     <meta property="twitter:url" content={canonicalURL} />
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
-    {ogImage && <meta property="twitter:image" content={ogImage} />}
+    <meta property="twitter:image" content={ogImageUrl} />
 
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href={`${BASE}favicon.svg`} />
