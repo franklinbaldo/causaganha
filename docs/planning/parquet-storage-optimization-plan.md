@@ -84,8 +84,14 @@ Estratégia realista, em ordem:
 2. **Se o lookup por `numero_processo` for hot o suficiente**, criar um Parquet
    aditivo (índice) ordenado por `numero_processo` — mesmo padrão do serving do
    Problema 3 — para que min/max podem por esse acesso. Aditivo, sem bump.
-3. A migração `numero_processo` `string→binary` (Problema 2 / #3) reduz bytes e
-   melhora a seletividade de min/max independentemente da ordenação.
+3. A migração `numero_processo` para um **encoding empacotado** (Problema 2 / #3)
+   reduz bytes e melhora a seletividade de min/max independentemente da ordenação
+   — **mas só se for empacotado de verdade.** `string→BLOB` genérico mantém os
+   mesmos 20 bytes ASCII (no-op). Definir a representação lossless antes: o CNJ é
+   numérico de 20 dígitos, cujo máximo (~10²⁰) estoura `int64` (2⁶³≈9,2·10¹⁸), então
+   precisa de inteiro 128-bit / 16-byte fixo (16 < 20 bytes) e a reconstrução
+   re-aplica zero-pad para 20 dígitos. Decodificação no consumidor (DuckDB-WASM)
+   faz parte da tarefa.
 
 **Onde:** o `COPY` é montado em `scripts/pipeline/consolidate.py:1419-1424` e
 `src/causaganha/consolidate/exporter.py:57-62` (acrescentar as opções ao
@@ -129,7 +135,10 @@ com base em dado:
   entropia, repetida em `comunicacoes`/`processos`/`destinatarios`. Pode pesar
   **mais** que os UUIDs nos bytes não-texto. A medição #0 tem que reportá-la lado
   a lado com as chaves UUID — senão a decisão fica com visão de túnel no UUID e
-  ignora a coluna que talvez seja o maior alvo.
+  ignora a coluna que talvez seja o maior alvo. **Atenção:** ao contrário do UUID
+  (que já é 16 bytes em binário), o CNJ precisa de um **encoding empacotado
+  explícito** — `string→BLOB` genérico é no-op (mantém 20 bytes ASCII). Ver §1c
+  passo 3 para a representação (inteiro 128-bit, zero-pad na reconstrução).
 
 **Fix (se confirmado):** mudar UUIDs de `string` → tipo binário no registry.
 Isto é um **bump major (4.0.0)** e força todo consumidor DuckDB-WASM a `decode`.
@@ -232,7 +241,7 @@ mesmo `4.0.0` para não pagar dois re-uploads. **Esforço:** P. **Payoff:** Pequ
 | 0 | Script de medição: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas, reportando `numero_processo` ao lado das chaves UUID | não | P | Habilita decisões 2/5 |
 | 1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` + **1b** `ROW_GROUP_SIZE`, com benchmark de bytes httpfs pré/pós. (**1c** lookup por `numero_processo`: escolher chave de ordenação / índice aditivo — bloom filter via `COPY` não funciona, ver §1c) | não | P | **Grande** (itens grandes) |
 | 2 | Parquet de serving denormalizado — **só junto** com o consumidor frontend (join de 4 tabelas hoje inexistente) | patch `3.1.0` | M+M | Grande **se** consumidor construído |
-| 3 | (se #0 confirmar) UUID + `numero_processo` `string→binary` | major `4.0.0` | M | Grande |
+| 3 | (se #0 confirmar) UUID `string→16-byte` + `numero_processo` para inteiro 128-bit empacotado (BLOB genérico é no-op; definir encoding lossless + decode no WASM) | major `4.0.0` | M | Grande |
 | 4 | Remover `p_item_ia` redundante | major `4.0.0` | P | Pequeno |
 | 5 | `confidence`→float32, revisar `hash` | major `4.0.0` | P | Pequeno |
 
