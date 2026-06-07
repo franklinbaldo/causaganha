@@ -171,8 +171,131 @@ CURRENT_VERSION = "3.0.0"
 # Bump this string when rolling out new layout settings.
 CURRENT_LAYOUT_REVISION = "1"
 
+# ── SCHEMA_V4 (parked — NOT active) ──────────────────────────────────────────
+# Gated on A0e measurement: only activate when encoding_comparison.py confirms
+# that UUID→blob + CNJ→DECIMAL(20,0) savings justify a major re-upload.
+#
+# Changes vs v3:
+#   - Internally-generated UUID columns (id, texto_id, comunicacao_id,
+#     advogado_id, parte_id): "string" → "binary" (16-byte raw UUID).
+#   - original_id: STAYS "string" — comes from external DJEN source; format is
+#     not guaranteed to be a valid UUID (could be an arbitrary identifier).
+#     Binary conversion would silently corrupt non-conforming values with no
+#     recovery path. Keep as string until a full audit of the source data
+#     confirms 100% UUID conformance.
+#   - numero_processo: "string" → "decimal(20, 0)" (FIXED_LEN_BYTE_ARRAY, ~16 B)
+#     ⚠ DECIMAL loses leading zeros — consumers MUST LPAD(val::VARCHAR, 20, '0')
+#   - hash: "string" → "binary" (raw SHA-256 bytes)
+#   - p_item_ia removed (info lives in KV_METADATA footer + IA path)
+#     ⚠ Audit frontend/scripts for p_item_ia usage before activating
+#
+# To activate: set CURRENT_VERSION = "4.0.0" and run reconsolidate --force.
+# Prerequisite: run scripts/snapshot_parquets_for_rollback.py first (A-pré).
+SCHEMA_V4 = SchemaVersion(
+    version="4.0.0",
+    created_at="2026-06-07",
+    tables={
+        "comunicacoes": ibis.schema(
+            {
+                "id": "binary",
+                "original_id": "string",  # external source — not guaranteed UUID
+                "tribunal": "string",
+                "numero_processo": "decimal(20, 0)",
+                "numero_processo_mascara": "string",
+                "data_disponibilizacao": "date",
+                "tipo_comunicacao": "string",
+                "nome_orgao": "string",
+                "meio": "string",
+                "link": "string",
+                "tipo_documento": "string",
+                "nome_classe": "string",
+                "codigo_classe": "string",
+                "numero_comunicacao": "string",
+                "hash": "binary",
+                "processed_at": "timestamp",
+                "texto_id": "binary",
+                "p_ano": "int32",
+                "p_mes": "int32",
+            },
+        ),
+        "advogados": ibis.schema(
+            {
+                "id": "binary",
+                "original_id": "string",  # external source — not guaranteed UUID
+                "tribunal": "string",
+                "nome": "string",
+                "numero_oab": "string",
+                "uf_oab": "string",
+                "p_ano": "int32",
+                "p_mes": "int32",
+            },
+        ),
+        "advogado_nomes": ibis.schema(
+            {
+                "advogado_id": "binary",
+                "nome": "string",
+                "tribunal": "string",
+                "first_seen": "date",
+            },
+        ),
+        "destinatarios": ibis.schema(
+            {
+                "comunicacao_id": "binary",
+                "tribunal": "string",
+                "nome": "string",
+                "polo": "string",
+                "parte_id": "binary",
+                "p_ano": "int32",
+                "p_mes": "int32",
+            },
+        ),
+        "comunicacao_advogados": ibis.schema(
+            {
+                "comunicacao_id": "binary",
+                "tribunal": "string",
+                "advogado_id": "binary",
+            },
+        ),
+        "textos": ibis.schema(
+            {
+                "id": "binary",
+                "texto": "string",
+            },
+        ),
+        "representacoes": ibis.schema(
+            {
+                "comunicacao_id": "binary",
+                "tribunal": "string",
+                "advogado_id": "binary",
+                "parte_id": "binary",
+                "polo": "string",
+                "p_ano": "int32",
+                "p_mes": "int32",
+            },
+        ),
+        "processos": ibis.schema(
+            {
+                "numero_processo": "decimal(20, 0)",
+                "tribunal": "string",
+                "data": "date",
+                "comunicacao_id": "binary",
+                "p_ano": "int32",
+                "p_mes": "int32",
+            },
+        ),
+        "partes": ibis.schema(
+            {
+                "id": "binary",
+                "nome_normalizado": "string",
+                "nome_original": "string",
+            },
+        ),
+    },
+)
+
 SCHEMA_REGISTRY: dict[str, SchemaVersion] = {
     "3.0.0": SCHEMA_V3,
+    # "4.0.0": SCHEMA_V4,  # Activate after A0e confirms savings + A-pré snapshot taken
 }
 
 

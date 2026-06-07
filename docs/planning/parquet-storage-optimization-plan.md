@@ -413,22 +413,22 @@ ainda não existe — não fica no caminho crítico de storage.
 
 | # | Tarefa | Bump? | Esforço | Payoff |
 |---|--------|-------|---------|--------|
-| A0 | Medição **de storage**: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas. Reportar bytes por coluna (UUIDs **e** `numero_processo`), cardinalidade, e **auditar o formato de `numero_processo`** (quantos não são 20 dígitos) | não | P | Habilita A0e/A4/A5 |
-| A0w | Medição **de workload** (gate de A1): coletar a frequência de query por predicado — `data_disponibilizacao` (range) vs `numero_processo` (pontual) — dos logs do dashboard/explorador. A1 ordena por **uma** chave; ordenar pela errada deixa a outra em full-scan. Sem essa evidência, **não** escolher a chave de A1 — ou benchmarkar os dois workloads. | não | P | **Gate de A1** |
-| A0e | Benchmark **de encoding** (gate de A2/A3): nos mesmos itens representativos de A0, rodar `COPY` **lado a lado** do schema atual vs candidato (`VARCHAR`→16-byte UUID; `VARCHAR`→`DECIMAL(20,0)`) e comparar os **bytes comprimidos reais por coluna** (com ZSTD + dictionary, como em produção). Dominar o tamanho atual (A0) **não** prova economia — dictionary/ZSTD podem comprimir a string bem mais (ou menos) que o delta de largura crua sugere. **Gate:** só seguir com A2/A3 se a economia medida justificar o re-upload major. | não | P-M | **Gate de A2/A3** |
-| A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante **identificada em A0w**. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
-| A-rev | **Gatilho de reprocessamento (Problema 0) — pré-req para A1 valer no acervo.** Separar layout de contrato: `layout_revision` no manifest (Opção 1) e/ou `reconsolidate --force` (Opção 2). Sem isto, A1 só atinge itens **novos**; o retroativo nunca é re-laid-out. [verified: hoje só `schema_version` dispara] | não | P-M | **Habilita A1 retroativo** |
-| A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais, **incluindo as duas classes de item — pequeno (1 row group no default) e grande**: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. No item pequeno, medir se quebrar em vários grupos torna a ordenação útil. [speculative até medir] | não | P-M | Grande se confirmado |
+| A0 | Medição **de storage**: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas. Reportar bytes por coluna (UUIDs **e** `numero_processo`), cardinalidade, e **auditar o formato de `numero_processo`** (quantos não são 20 dígitos). Script: `scripts/benchmarks/column_storage.py`. | não | P | Habilita A0e/A4/A5 |
+| A0w | Medição **de workload** (gate de A1): coletar a frequência de query por predicado — `data_disponibilizacao` (range) vs `numero_processo` (pontual) — dos logs do dashboard/explorador. **Surface: DuckDB-WASM `read_parquet()` in `DuckDBExplorer.svelte` + `DataAccessPanel.svelte` — the only HTTP query path. Static JSON (`.qmd` contracts) does NOT query Parquets over HTTP.** A1 ordena por **uma** chave; ordenar pela errada deixa a outra em full-scan. | não | P | **Gate de A1** |
+| A0e | ✅ **Script written** (`scripts/benchmarks/encoding_comparison.py`) Benchmark **de encoding** (gate de A2/A3): compare v3 strings vs v4 binary candidates (UUID→blob, CNJ→DECIMAL(20,0), hash→bytes). Synthetic mode available without IA access; run `--real-file` against production Parquets before deciding. | não | P-M | **Gate de A2/A3** |
+| A1 | ✅ **DONE (PR #785)** Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante — `data_disponibilizacao` para `comunicacoes` (A0w pending, assumed dominant). `exporter.py` `_TABLE_ORDER_KEYS` dict covers all 9 tables; whitelist guard enforces completeness. | não | P | **Grande** (itens grandes) |
+| A-rev | ✅ **DONE (PR #785)** `layout_revision` field in `ManifestItem` + `CURRENT_LAYOUT_REVISION = "1"` in `schema_registry.py`. `dates_needing_reconsolidation()` catches stale layout. `reconsolidate --force` added as escape hatch (`all_consolidated_dates()`). | não | P-M | **Habilita A1 retroativo** |
+| A1b | ✅ **Script written** (`scripts/benchmarks/row_group_size.py`) Benchmark de `ROW_GROUP_SIZE` (8K/16K/32K/64K/default) in synthetic small/medium/large item classes. Run against production files before setting a non-default value. [speculative até medir em produção] | não | P-M | Grande se confirmado |
 | A1c | **Gate da decisão de §1c** (índice covering): em **dados reais**, escrever os layouts candidatos (`ORDER BY data` e `ORDER BY numero_processo`) e inspecionar `parquet_metadata` por **encoding e `bloom_filter_offset` por row group** + provar com byte-count httpfs de um lookup pontual por `numero_processo`. Confirma se a ordem por data realmente não rende bloom (→ precisa do índice covering) ou se rende (→ índice dispensável). Substitui a extrapolação do benchmark sintético. [speculative até medir em produção] | não | P | **Gate do índice covering** |
-| A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ver nota abaixo | major `4.0.0` | M | Grande |
-| A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` preserva o valor mas **perde zeros à esquerda** na leitura]. **Só ganha bytes, não pruning.** Exige round-trip test **com `LPAD(...,20,'0')`** + decode WASM com zero-pad + **fallback reversível** (string companheira p/ não-conformes). **Pré-req de rollback (A-pré)** | major `4.0.0` | M | Médio |
-| A4 | (se auditoria de consumidores liberar) remover `p_item_ia` | major `4.0.0` | P | Pequeno |
-| A5 | revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
+| A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **SCHEMA_V4 parked** in `schema_registry.py` (not active). **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ✅ `scripts/snapshot_parquets_for_rollback.py` written | major `4.0.0` | M | Grande |
+| A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. **SCHEMA_V4 parked** — `numero_processo decimal(20,0)` in `schema_registry.py`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; DECIMAL preserva valor mas **perde zeros à esquerda**]. **Só ganha bytes, não pruning.** Exige LPAD + round-trip + fallback. **Pré-req de rollback (A-pré):** ✅ snapshot script written | major `4.0.0` | M | Médio |
+| A4 | (se auditoria de consumidores liberar) remover `p_item_ia`. **SCHEMA_V4 parked** — `p_item_ia` already absent from `SCHEMA_V4` definition | major `4.0.0` | P | Pequeno |
+| A5 | revisar `hash` (binário?). **SCHEMA_V4 parked** — `hash binary(32)` in `SCHEMA_V4` definition | major `4.0.0` | P | Pequeno |
 
 A2-A5 agrupam-se num único bump `4.0.0` (cada major força re-upload de todos os
 itens; não pagar dois).
 
-**Caminho crítico de A:** A0 + A0w → A1 → **A-rev** → A-pré → A0e → (A2+A3+A4+A5).
+**Caminho crítico de A:** A0 + A0w → ~~A1~~ ✅ → ~~**A-rev**~~ ✅ → A-pré ✅ → A0e → (A2+A3+A4+A5).
 **A-rev é pré-requisito de A1 valer no acervo** (sem ele A1 só atinge itens novos —
 Problema 0). **A1b fica fora do caminho crítico** — é tuning independente (§1b) e
 roda **em paralelo**; as economias de schema (A2-A5) são gated por A0e (economia
@@ -436,8 +436,8 @@ medida), não por A0 sozinho nem por `ROW_GROUP_SIZE`. Se nenhum size menor evit
 regressão de broad-scan, A1b simplesmente mantém o default e a migração v4 segue
 mesmo assim.
 
-> **A-pré — artefato de rollback (pré-requisito de A2/A3, hoje inexistente).** O
-> rollback "reler a versão anterior" **não existe no pipeline atual**:
+> **A-pré — artefato de rollback (pré-requisito de A2/A3). ✅ Script written: `scripts/snapshot_parquets_for_rollback.py`.** O
+> rollback "reler a versão anterior" **não existia no pipeline anterior**:
 > `export_table_sync()` sempre grava `{table}.parquet` e `_upload_consolidated()`
 > sobe esse mesmo nome **dentro do mesmo item IA** `djen-{tribunal}-{ano}`; o
 > manifest de consolidação só registra a versão corrente. Quando o v4 sobrescreve
