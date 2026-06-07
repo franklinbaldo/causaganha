@@ -1,8 +1,12 @@
 # Plano — otimizar os Parquets consolidados para storage e leitura no IA
 
 **Data:** 2026-06-07
-**Contexto:** o schema de consolidação (10 tabelas, v`3.0.0`) já foi unificado em
-uma única fonte (`schema_registry.py`). As colunas e tipos estão razoáveis, mas a
+**Contexto:** o schema de consolidação foi unificado numa única fonte
+(`schema_registry.py`, v`3.0.0`). Era de **10 tabelas**; a tabela `classificacoes`
+(classificador keyword-v1, placeholder) está sendo **removida** enquanto a
+classificação é redesenhada (PR #784), levando o schema a **9 tabelas**. Este plano
+já assume as 9 — qualquer item que dependia de `outcome`/`classificacoes` está
+marcado como bloqueado abaixo. As colunas e tipos restantes estão razoáveis, mas a
 **camada física** dos Parquets gravados no Internet Archive não está otimizada
 para o padrão de acesso real (DuckDB httpfs / WASM via HTTP Range requests).
 
@@ -12,8 +16,8 @@ Este plano ataca cada problema identificado na análise, em ordem de payoff.
 
 - **Item IA** = `djen-{tribunal}-{year}` (ex.: `djen-tjro-2025`). Uma run
   consolida *todos* os ZIPs de um (tribunal, ano) num DuckDB in-memory.
-- **Um Parquet por tabela** → 10 arquivos por item; cada um contém o ano inteiro
-  daquela tabela/tribunal.
+- **Um Parquet por tabela** → 9 arquivos por item (10 antes da remoção de
+  `classificacoes`); cada um contém o ano inteiro daquela tabela/tribunal.
 - **Opções de escrita:** `COPY … (FORMAT PARQUET, COMPRESSION ZSTD,
   KV_METADATA {schema_version, item_id})`. Sem `ORDER BY`, sem `ROW_GROUP_SIZE`,
   sem `PARTITION_BY` (verificado em `scripts/pipeline/consolidate.py` e
@@ -22,8 +26,12 @@ Este plano ataca cada problema identificado na análise, em ordem de payoff.
 
 Princípio orientador: **medir antes de migrar schema**. Mudanças de coluna são
 caras (re-upload de itens no IA, bump de versão, quebra de consumidores
-DuckDB-WASM). Mudanças de layout físico (ordenação, row-group size) são baratas e
-não bumpam o schema.
+DuckDB-WASM). Mudanças de layout físico (ordenação, row-group size) **não quebram
+consumidores** e não bumpam o **contrato** de schema — mas **não são de graça**:
+aplicá-las ao acervo existente exige **re-upload dos itens** (os bytes do Parquet
+mudam) e, hoje, **não há gatilho** que dispare esse reprocessamento sem um bump de
+versão (ver "Problema 0 — gatilho de reprocessamento", logo abaixo). Então "sem
+bump" significa "sem quebra de consumidor", **não** "sem re-upload".
 
 **Legenda de evidência** (cada sub-item é marcado):
 
@@ -33,6 +41,55 @@ não bumpam o schema.
   doc).
 - **[speculative]** — hipótese plausível, **ainda não medida**; não tratar como
   ganho provado até benchmarkar.
+
+---
+
+## Problema 0 — `schema_version` é gatilho de reprocessamento **e** contrato (bloqueia P1 de chegar ao acervo) ⚠️
+
+**Sintoma [verified no código]:** a reconsolidação é decidida **só** pela string
+`schema_version`:
+
+- `dates_at_current_version()` (`candidates.py:142`) → datas já em
+  `CURRENT_VERSION` são consideradas **prontas**.
+- O backfill **pula** essas datas (`cli.py:399`).
+- `reconsolidate` (`cli.py:440`) só reprocessa datas onde
+  `version != CURRENT_VERSION` (`candidates.py:150`).
+- **Não há flag de força.**
+
+**Consequência:** uma mudança de layout **sem bump** (P1: `ORDER BY`/
+`ROW_GROUP_SIZE`) **nunca alcança os itens existentes** — continuam "3.0.0" =
+current = pulados. Só consolidações **novas** ganham o layout; o acervo retroativo
+fica na ordem-de-transform para sempre. O mesmo vale para a remoção in-place de
+`classificacoes` (PR #784): itens "3.0.0" antigos mantêm `classificacoes.parquet`,
+novos "3.0.0" não, e `reconsolidate` não toca nos antigos. **Acervo heterogêneo sob
+a mesma string de versão.**
+
+A raiz: `schema_version` faz **dupla função** — **contrato do consumidor** (mudou →
+WASM/Zod adaptam) **e** **gatilho de reprocessamento** (mudou → reconsolidar). Para
+o roadmap de layout valer, os dois têm que ser **separados**.
+
+**Proposta (concreta):**
+
+- **Opção 1 (principled) — `layout_revision` no manifest**, separado de
+  `schema_version`. Reconsolidação dispara quando `schema_version != CURRENT`
+  **OU** `layout_revision != CURRENT_LAYOUT`. Bumpar `layout_revision` força
+  re-layout **sem** quebrar o contrato (mesmo schema; só os bytes mudam).
+  - Onde: `consolidation_manifest.py` grava `layout_revision` ao lado de
+    `schema_version`; `candidates.py` compara os dois; `schema_registry.py` ganha
+    um `CURRENT_LAYOUT`.
+- **Opção 2 (cheap/imediata) — flag `reconsolidate --force/--all`** que reprocessa
+  itens current-version. Sem mudar manifest; operador-dirigido. Boa para o
+  **rollout único** de A1 e para o **backfill da remoção de `classificacoes`**.
+- **Recomendado:** Opção 1 para layout rotineiro (rastreável, automático) +
+  Opção 2 como ferramenta de mão para o primeiro rollout e o cleanup do #784.
+
+**Custo explícito:** re-layout = **re-upload dos itens tocados ao IA** (os bytes
+mudam), com lock por-item + token bucket (`archive.py`). "Sem bump" economiza o
+decode/quebra de consumidor, **não** o re-upload.
+
+**Schema bump:** não (infra de pipeline, não muda colunas). **Esforço:** P
+(Opção 2) / M (Opção 1). **Payoff:** **Habilita P1/A1 a valer no acervo** — sem
+isto, A1 só serve itens futuros.
 
 ---
 
@@ -61,7 +118,6 @@ abaixo).
   (benefício é **pruning ao filtrar por `comunicacao_id`** — joins hash do DuckDB
   não exploram ordenação)
 - `advogados` / `advogado_nomes` → `.order_by(nome)` ou `(uf_oab, numero_oab)`
-- `classificacoes` → `.order_by(texto_id)`
 - `textos` → `.order_by(id)` (acesso é por join em `id`)
 
 ### 1b — `ROW_GROUP_SIZE` explícito (tuning de granularidade, **não** pré-requisito) — [speculative, precisa benchmark]
@@ -231,10 +287,11 @@ faltante; A1b speculative até benchmarkar.]**
 ## Problema 2 — Chaves UUID gravadas como string de 36 chars (maior custo de tamanho) ⚠️
 
 **Sintoma:** o schema é UUID-keyed em todo lugar (`id`, `original_id`,
-`texto_id`, `comunicacao_id`, `advogado_id`, `parte_id`,
-`winner_advogado_id`, `loser_advogado_id`), todos `string`. Um UUIDv5 em texto
-são 36 bytes de alta entropia → dictionary/ZSTD rendem pouco. Em binário
-(`UUID`/16-byte fixed ou `BLOB`) são ~16 bytes e codificam melhor.
+`texto_id`, `comunicacao_id`, `advogado_id`, `parte_id`), todos `string`. Um
+UUIDv5 em texto são 36 bytes de alta entropia → dictionary/ZSTD rendem pouco. Em
+binário (`UUID`/16-byte fixed ou `BLOB`) são ~16 bytes e codificam melhor.
+(`winner_advogado_id`/`loser_advogado_id` saíram com a remoção de `classificacoes`,
+PR #784.)
 
 **Pré-requisito (NÃO migrar às cegas):** medir primeiro (ver tarefa A0). Decidir
 com base em dado:
@@ -269,49 +326,36 @@ Implementação:
 
 ## Problema 3 — JOINs cross-file pagam latência HTTP por arquivo
 
-**Sintoma:** 10 tabelas normalizadas são limpas como forma canônica, mas o
+**Sintoma:** as tabelas normalizadas são limpas como forma canônica, mas o
 DuckDB-over-HTTP paga footer + Range reads por arquivo a cada JOIN. A query
-"advogado → comunicações com outcome" é um join de 4 tabelas
+"advogado → comunicações com outcome" seria um join de 4 tabelas
 (`comunicacao_advogados` × `comunicacoes` × `classificacoes` × `advogados`).
 
-> ⚠️ **Ressalva (verificado no código):** esse join de 4 tabelas **ainda não
-> existe** no frontend. O consumidor atual é `web/src/components/
-> DuckDBExplorer.svelte`, que opera sobre **um** item `(tribunal, ano)` por vez,
-> sem `union_by_name` cross-item; o template "advogados mais ativos" faz no
-> máximo um join de **2** tabelas (`advogados` × `comunicacao_advogados`) e as
-> classificações são consultadas à parte. Portanto o serving **não elimina 3
-> leituras de um load path existente** — ele *habilita* um fluxo planejado. O
-> payoff é condicional a construir esse consumidor; sem ele, é storage extra sem
-> retorno. É a Trilha B (product-gated), não o caminho crítico de storage.
+> ⛔ **Bloqueado em dobro — não é acionável agora.**
+> 1. **A fonte de `outcome` saiu do schema.** O serving denormaliza
+>    `outcome`/`decision_type`/`confidence`, que vinham de `classificacoes` —
+>    tabela **removida** (PR #784) enquanto a classificação é redesenhada. Sem ela
+>    não há outcome para servir. Este problema **só volta à mesa quando a
+>    classificação retornar ao schema** (e seu shape final define o serving).
+> 2. **O consumidor não existe** [verified no código]. Mesmo com outcome, o join
+>    de 4 tabelas **não existe** no frontend: `web/src/components/
+>    DuckDBExplorer.svelte` opera sobre **um** item `(tribunal, ano)` por vez, sem
+>    `union_by_name` cross-item, e faz no máximo um join de **2** tabelas. O
+>    serving *habilita* um fluxo planejado, não elimina leituras de um load path
+>    existente.
 
-**Fix:** Parquet-per-access-pattern (ficha ADR 0008). Manter as 10 tabelas
-normalizadas como **canônicas** e adicionar um Parquet de **serving**
-denormalizado, modelado na query quente:
+**Fix (quando desbloquear):** Parquet-per-access-pattern (ficha ADR 0008). Manter
+as tabelas normalizadas como **canônicas** e adicionar um Parquet de **serving**
+denormalizado, modelado na query quente, gerado no fim da consolidação por uma
+expressão Ibis de join. O shape exato (quais colunas de outcome) depende do
+desenho final da classificação. É **por item** `(tribunal, ano)` — 1 arquivo em
+vez de 4 *por item*, não um arquivo global.
 
-```
-serving_advogado_comunicacoes.parquet
-  advogado_id, advogado_nome, numero_oab, uf_oab,
-  comunicacao_id, numero_processo, data_disponibilizacao, tribunal,
-  outcome, decision_type, confidence
-  (ordenado por advogado_id, data_disponibilizacao)
-```
+**Pré-requisito honesto:** (1) classificação reintroduzida no schema **e** (2) o
+fluxo de consumo que faz o join. Planejar os três juntos ou não priorizar.
 
-Gerado no fim da consolidação a partir das tabelas canônicas (uma expressão Ibis
-de join: `comunicacao_advogados` × `comunicacoes` × `classificacoes` [via
-`texto_id`] × `advogados`). As colunas de outcome existem em `classificacoes`
-(`outcome`, `decision_type`, `confidence` — verificado no `schema_registry.py`),
-então o serving é puro join, sem coluna nova derivada.
-
-**Escopo do arquivo:** o serving é **por item** `(tribunal, ano)`, igual às
-canônicas. Seria 1 arquivo em vez de 4 **por item** — não um arquivo global
-único.
-
-**Pré-requisito honesto:** esta tarefa só tem payoff se vier acompanhada do
-**fluxo de consumo** que faz o join de 4 tabelas (hoje inexistente — ver ressalva
-acima). Planejar os dois juntos ou não priorizar.
-
-**Schema bump:** patch (tabela nova, aditiva — `3.1.0`). **Esforço:** M (Parquet)
-+ M (consumidor no frontend). **Payoff:** Grande **se** o consumidor for
+**Schema bump:** patch (tabela nova, aditiva). **Esforço:** M (Parquet) + M
+(consumidor). **Payoff:** Grande **se** classificação voltar **e** o consumidor for
 construído; nulo isolado.
 
 ---
@@ -348,9 +392,12 @@ ruído de schema).
 
 **Sintoma:** ganhos pequenos, agrupar com outro bump.
 
-- `confidence` `float64` → `float32` (confiança não precisa de precisão dupla).
 - `hash` é texto de alta cardinalidade que comprime mal — avaliar se precisa
   viver no store colunar, ou se pode ser binário como os UUIDs.
+
+> Nota: o antigo item `confidence float64 → float32` **saiu** — `confidence` só
+> existia em `classificacoes`, removida (PR #784). Se a classificação voltar com
+> um campo de confiança, reavaliar `float32` então.
 
 **Schema bump:** sim — juntar com `4.0.0`. **Esforço:** P. **Payoff:** Pequeno.
 
@@ -370,21 +417,24 @@ ainda não existe — não fica no caminho crítico de storage.
 | A0w | Medição **de workload** (gate de A1): coletar a frequência de query por predicado — `data_disponibilizacao` (range) vs `numero_processo` (pontual) — dos logs do dashboard/explorador. A1 ordena por **uma** chave; ordenar pela errada deixa a outra em full-scan. Sem essa evidência, **não** escolher a chave de A1 — ou benchmarkar os dois workloads. | não | P | **Gate de A1** |
 | A0e | Benchmark **de encoding** (gate de A2/A3): nos mesmos itens representativos de A0, rodar `COPY` **lado a lado** do schema atual vs candidato (`VARCHAR`→16-byte UUID; `VARCHAR`→`DECIMAL(20,0)`) e comparar os **bytes comprimidos reais por coluna** (com ZSTD + dictionary, como em produção). Dominar o tamanho atual (A0) **não** prova economia — dictionary/ZSTD podem comprimir a string bem mais (ou menos) que o delta de largura crua sugere. **Gate:** só seguir com A2/A3 se a economia medida justificar o re-upload major. | não | P-M | **Gate de A2/A3** |
 | A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante **identificada em A0w**. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
+| A-rev | **Gatilho de reprocessamento (Problema 0) — pré-req para A1 valer no acervo.** Separar layout de contrato: `layout_revision` no manifest (Opção 1) e/ou `reconsolidate --force` (Opção 2). Sem isto, A1 só atinge itens **novos**; o retroativo nunca é re-laid-out. [verified: hoje só `schema_version` dispara] | não | P-M | **Habilita A1 retroativo** |
 | A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais, **incluindo as duas classes de item — pequeno (1 row group no default) e grande**: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. No item pequeno, medir se quebrar em vários grupos torna a ordenação útil. [speculative até medir] | não | P-M | Grande se confirmado |
 | A1c | **Gate da decisão de §1c** (índice covering): em **dados reais**, escrever os layouts candidatos (`ORDER BY data` e `ORDER BY numero_processo`) e inspecionar `parquet_metadata` por **encoding e `bloom_filter_offset` por row group** + provar com byte-count httpfs de um lookup pontual por `numero_processo`. Confirma se a ordem por data realmente não rende bloom (→ precisa do índice covering) ou se rende (→ índice dispensável). Substitui a extrapolação do benchmark sintético. [speculative até medir em produção] | não | P | **Gate do índice covering** |
 | A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ver nota abaixo | major `4.0.0` | M | Grande |
 | A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` preserva o valor mas **perde zeros à esquerda** na leitura]. **Só ganha bytes, não pruning.** Exige round-trip test **com `LPAD(...,20,'0')`** + decode WASM com zero-pad + **fallback reversível** (string companheira p/ não-conformes). **Pré-req de rollback (A-pré)** | major `4.0.0` | M | Médio |
 | A4 | (se auditoria de consumidores liberar) remover `p_item_ia` | major `4.0.0` | P | Pequeno |
-| A5 | `confidence`→float32; revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
+| A5 | revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
 
 A2-A5 agrupam-se num único bump `4.0.0` (cada major força re-upload de todos os
 itens; não pagar dois).
 
-**Caminho crítico de A:** A0 + A0w → A1 → A-pré → A0e → (A2+A3+A4+A5). **A1b fica
-fora do caminho crítico** — é tuning independente (§1b) e roda **em paralelo**; as
-economias de schema (A2-A5) são gated por A0e (economia medida), não por A0 sozinho
-nem por `ROW_GROUP_SIZE`. Se nenhum size menor evitar regressão de broad-scan, A1b
-simplesmente mantém o default e a migração v4 segue mesmo assim.
+**Caminho crítico de A:** A0 + A0w → A1 → **A-rev** → A-pré → A0e → (A2+A3+A4+A5).
+**A-rev é pré-requisito de A1 valer no acervo** (sem ele A1 só atinge itens novos —
+Problema 0). **A1b fica fora do caminho crítico** — é tuning independente (§1b) e
+roda **em paralelo**; as economias de schema (A2-A5) são gated por A0e (economia
+medida), não por A0 sozinho nem por `ROW_GROUP_SIZE`. Se nenhum size menor evitar
+regressão de broad-scan, A1b simplesmente mantém o default e a migração v4 segue
+mesmo assim.
 
 > **A-pré — artefato de rollback (pré-requisito de A2/A3, hoje inexistente).** O
 > rollback "reler a versão anterior" **não existe no pipeline atual**:
@@ -402,11 +452,13 @@ simplesmente mantém o default e a migração v4 segue mesmo assim.
 
 | # | Tarefa | Bump? | Depende de | Payoff |
 |---|--------|-------|-----------|--------|
-| B1 | **Decisão de produto:** construir o fluxo frontend "advogado → comunicações com outcome" (join de 4 tabelas, hoje inexistente) | — | priorização de produto | habilita B2 |
-| B2 | Parquet de serving denormalizado | patch `3.1.0` | **B1** | Grande **só** com B1 |
+| B0 | **Classificação reintroduzida no schema** (redesenho pós-PR #784) — define o shape do `outcome` que o serving denormaliza | — | redesenho da classificação | desbloqueia B1/B2 |
+| B1 | **Decisão de produto:** construir o fluxo frontend "advogado → comunicações com outcome" (join de 4 tabelas, hoje inexistente) | — | **B0** + priorização de produto | habilita B2 |
+| B2 | Parquet de serving denormalizado | patch aditivo | **B0 + B1** | Grande **só** com B0+B1 |
 
-B só vale com B1. **Sem B1, não fazer B2** — seria storage extra sem consumidor.
-Não é pré-requisito de nenhum item da Trilha A.
+B só vale com B0 **e** B1. **Sem B0** (sem classificação no schema) **não há
+outcome para servir**; sem B1, é storage extra sem consumidor. Nada da Trilha B é
+pré-requisito da Trilha A.
 
 **Quick win imediato:** A1 — `ORDER BY` sozinho **já** poda em arquivos com >1 row
 group (itens grandes), sem depender de A1b. `ROW_GROUP_SIZE` **não** é exclusivo do
@@ -426,6 +478,11 @@ ajuda CNJ se o arquivo for ordenado por CNJ **e** houver repetição por row gro
   dado diferentes). Se `texto` domina os bytes, o ganho é ruído e o custo (bump
   major + decode no WASM) não compensa. Medir várias tabelas, UUIDs **e**
   `numero_processo`, senão a decisão fica enviesada.
+- **Não assumir que A1 chega ao acervo (Problema 0).** [verified] A reconsolidação
+  dispara só por `schema_version`; mudança de layout sem bump **pula** todo item
+  já em current-version. A1 sem A-rev (`layout_revision`/`--force`) só beneficia
+  itens novos. E lembrar: re-layout = re-upload (os bytes mudam) — "sem bump" não é
+  "sem re-upload".
 - **Não confiar em `ORDER BY` sozinho (A1).** Sem `ROW_GROUP_SIZE`, itens
   pequenos ficam com 1 row group e a ordenação não poda nada. **E não fixar 16K
   como default** — benchmarkar (A1b) o custo de full scan, não só o pruning.
@@ -435,10 +492,11 @@ ajuda CNJ se o arquivo for ordenado por CNJ **e** houver repetição por row gro
   ordenando por data o CNJ espalha → PLAIN → sem bloom. Bloom **só** ajuda CNJ se o
   arquivo for ordenado por CNJ **e** houver repetição suficiente por row group
   (medir em A0) — não é categórico nas duas direções.
-- **Não fazer o serving (B2) sem o consumidor (B1).** O join de 4 tabelas não
-  existe no frontend hoje; sem construí-lo, o serving é só storage extra. É trilha
-  separada, não caminho crítico de storage.
-- **Não reshapear as 10 tabelas canônicas** para o serving. Adicionar Parquet
+- **Não fazer o serving (B2) sem (B0) classificação no schema e (B1) o
+  consumidor.** O serving denormaliza `outcome`, que saiu com `classificacoes`
+  (PR #784), e o join de 4 tabelas não existe no frontend. É trilha separada, não
+  caminho crítico de storage.
+- **Não reshapear as tabelas canônicas** para o serving. Adicionar Parquet
   aditivo; manter o modelo normalizado como fonte.
 - **Não remover `p_item_ia` sem auditar consumidores (A4).** Storage ganho é
   ínfimo; é troca de campo queryable por reconstrução via footer/path.
