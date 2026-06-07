@@ -28,6 +28,7 @@
 
       function syncLabel() {
         btn.setAttribute('aria-label', isDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+        btn.setAttribute('title', isDark() ? 'Mudar para modo claro' : 'Mudar para modo escuro');
       }
 
       syncLabel();
@@ -43,6 +44,7 @@
         // Sync labels on all instances after any toggle
         document.querySelectorAll<HTMLButtonElement>('.theme-toggle-btn').forEach(b => {
           b.setAttribute('aria-label', next ? 'Mudar para modo claro' : 'Mudar para modo escuro');
+          b.setAttribute('title', next ? 'Mudar para modo claro' : 'Mudar para modo escuro');
         });
       });
     });
@@ -51,3 +53,38 @@
   setupThemeToggles();
   document.addEventListener('astro:after-swap', setupThemeToggles);
 </script>
+
+<style>
+  .theme-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    padding: 0.25rem;
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    border-radius: var(--radius-btn);
+    cursor: pointer;
+    transition: all var(--transition-base);
+    border: 1px solid transparent;
+    background: transparent;
+    color: inherit;
+  }
+
+  .theme-toggle-btn:hover {
+    background: var(--color-base-200);
+  }
+
+  /* Show moon in light theme, sun in dark theme — handled by CSS to avoid FOUC */
+  .icon-sun,
+  .icon-moon {
+    display: none;
+  }
+  :global([data-theme='light']) .icon-moon {
+    display: block;
+  }
+  :global([data-theme='dark']) .icon-sun {
+    display: block;
+  }
+</style>
