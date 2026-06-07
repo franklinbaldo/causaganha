@@ -127,8 +127,12 @@ processo espalhadas no ano). Script reproduzível:
 > ⚠️ **Dados sintéticos, não produção.** O modelo coprimo é uma aproximação do
 > acoplamento data↔processo. A correlação real (quantas comunicações por processo,
 > quão agrupadas no tempo) muda os distintos por row group e, com eles, a decisão
-> de bloom. A conclusão do caso date-ordered tem que ser **confirmada em itens
-> reais (A0)**, não cravada a partir do sintético.
+> de bloom. A conclusão do caso date-ordered tem que ser **confirmada em dados
+> reais por A1c** (ver abaixo) — não cravada a partir do sintético, e **não** por
+> A0, que só mede arquivos atuais (bytes/cardinalidade/formato) e nunca escreve
+> layouts candidatos nem inspeciona bloom por row group. Sem essa confirmação, o
+> roadmap pode prescrever um índice covering desnecessário (se na verdade a ordem
+> por data **já** rendesse bloom em produção) — ou deixar de prescrevê-lo.
 
 Leitura correta:
 
@@ -176,11 +180,17 @@ Estratégia realista, em ordem:
      mapeia ambos para Parquet `DOUBLE`, então `99999999999999999999` volta como
      `1e+20` — **perde precisão**.
    - **Usar `DECIMAL(20,0)`**: o `COPY` grava como `FIXED_LEN_BYTE_ARRAY` (~16
-     bytes < 20 ASCII) e faz round-trip lossless (verificado). Alternativa: byte
-     array de largura fixa com encoding explícito.
-   - **Exigir um teste de round-trip** (`COPY` → `read_parquet` → comparar com o
-     original) antes de fechar a migração; decode no consumidor (DuckDB-WASM) faz
-     parte da tarefa.
+     bytes < 20 ASCII) e preserva o **valor numérico** lossless (verificado).
+     Alternativa: byte array de largura fixa com encoding explícito.
+   - ⚠️ **`DECIMAL` perde os zeros à esquerda na decodificação.** [verified, DuckDB
+     1.5.3] O CNJ `00000011202580100012` volta como `11202580100012` num
+     `CAST(... AS VARCHAR)` ingênuo. O valor numérico é lossless, mas o
+     **identificador canônico de 20 chars não é** sem re-padding. **Obrigatório**
+     reconstruir com `LPAD(CAST(numero_processo AS VARCHAR), 20, '0')`:
+     - no **teste de round-trip** (`COPY` → `read_parquet` → `LPAD(...,20)` →
+       comparar com a string original — comparar `d::VARCHAR` cru **falha**);
+     - no **contrato WASM** (todo consumidor faz `LPAD`/zero-pad ao reidratar o
+       CNJ; sem isso, joins por `numero_processo` e exibição quebram).
 
    **Validar o formato antes (parte do A0):** o encoding numérico assume 20
    dígitos, mas `_safe()` (ambos os code paths) converte valores ausentes em `''`
@@ -240,7 +250,8 @@ com base em dado:
   (que já é 16 bytes em binário), o CNJ só ganha **bytes** (não pruning) e precisa
   de um **encoding empacotado explícito** — `string→BLOB` é no-op e `HUGEINT` vira
   `DOUBLE` (perde precisão). Ver §1c passo 3 para a representação correta
-  (`DECIMAL(20,0)`), o round-trip e o fallback de formato.
+  (`DECIMAL(20,0)`), o **re-padding com `LPAD(...,20,'0')`** (DECIMAL perde zeros à
+  esquerda), o round-trip e o fallback de formato.
 
 **Fix (se confirmado):** mudar UUIDs de `string` → tipo binário no registry.
 Isto é um **bump major (4.0.0)** e força todo consumidor DuckDB-WASM a `decode`.
@@ -360,8 +371,9 @@ ainda não existe — não fica no caminho crítico de storage.
 | A0e | Benchmark **de encoding** (gate de A2/A3): nos mesmos itens representativos de A0, rodar `COPY` **lado a lado** do schema atual vs candidato (`VARCHAR`→16-byte UUID; `VARCHAR`→`DECIMAL(20,0)`) e comparar os **bytes comprimidos reais por coluna** (com ZSTD + dictionary, como em produção). Dominar o tamanho atual (A0) **não** prova economia — dictionary/ZSTD podem comprimir a string bem mais (ou menos) que o delta de largura crua sugere. **Gate:** só seguir com A2/A3 se a economia medida justificar o re-upload major. | não | P-M | **Gate de A2/A3** |
 | A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante **identificada em A0w**. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
 | A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais, **incluindo as duas classes de item — pequeno (1 row group no default) e grande**: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. No item pequeno, medir se quebrar em vários grupos torna a ordenação útil. [speculative até medir] | não | P-M | Grande se confirmado |
+| A1c | **Gate da decisão de §1c** (índice covering): em **dados reais**, escrever os layouts candidatos (`ORDER BY data` e `ORDER BY numero_processo`) e inspecionar `parquet_metadata` por **encoding e `bloom_filter_offset` por row group** + provar com byte-count httpfs de um lookup pontual por `numero_processo`. Confirma se a ordem por data realmente não rende bloom (→ precisa do índice covering) ou se rende (→ índice dispensável). Substitui a extrapolação do benchmark sintético. [speculative até medir em produção] | não | P | **Gate do índice covering** |
 | A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ver nota abaixo | major `4.0.0` | M | Grande |
-| A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` round-trips]. **Só ganha bytes, não pruning.** Exige round-trip test + **fallback reversível** (string companheira p/ não-conformes) + decode no WASM. **Pré-req de rollback (A-pré)** | major `4.0.0` | M | Médio |
+| A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` preserva o valor mas **perde zeros à esquerda** na leitura]. **Só ganha bytes, não pruning.** Exige round-trip test **com `LPAD(...,20,'0')`** + decode WASM com zero-pad + **fallback reversível** (string companheira p/ não-conformes). **Pré-req de rollback (A-pré)** | major `4.0.0` | M | Médio |
 | A4 | (se auditoria de consumidores liberar) remover `p_item_ia` | major `4.0.0` | P | Pequeno |
 | A5 | `confidence`→float32; revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
 
