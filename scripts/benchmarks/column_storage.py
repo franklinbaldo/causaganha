@@ -1,4 +1,4 @@
-"""A0 — column storage measurement.
+r"""A0 — column storage measurement.
 
 Reports compressed bytes per column for a Parquet file (local or HTTP URL),
 including row-group structure and encoding choices.  Run this against a
@@ -34,9 +34,9 @@ def analyze_file(path: str, *, use_httpfs: bool = False) -> None:
     if use_httpfs:
         _load_httpfs(con)
 
-    print(f"\n{'='*72}")
+    print(f"\n{'=' * 72}")
     print(f"File: {path}")
-    print(f"{'='*72}")
+    print(f"{'=' * 72}")
 
     # Row and row-group counts
     rg_meta = con.execute(
@@ -72,7 +72,7 @@ def analyze_file(path: str, *, use_httpfs: bool = False) -> None:
     total_compressed = sum(r[2] for r in col_data)
     print(f"{'Column':<35} {'Compressed':>12} {'%total':>7} {'Ratio':>7} {'Bloom':>6}  Encodings")
     print("-" * 90)
-    for col, rgs, compressed, uncompressed, ratio, encodings, bloom in col_data:
+    for col, _rgs, compressed, _uncompressed, ratio, encodings, bloom in col_data:
         pct = 100.0 * (compressed or 0) / total_compressed if total_compressed else 0
         print(
             f"{col:<35} {_human(compressed):>12} {pct:>6.1f}% "
@@ -119,9 +119,9 @@ def _human(n: int | None) -> str:
     if n is None:
         return "N/A"
     if n >= 1_048_576:
-        return f"{n/1_048_576:.1f} MiB"
+        return f"{n / 1_048_576:.1f} MiB"
     if n >= 1_024:
-        return f"{n/1_024:.1f} KiB"
+        return f"{n / 1_024:.1f} KiB"
     return f"{n} B"
 
 

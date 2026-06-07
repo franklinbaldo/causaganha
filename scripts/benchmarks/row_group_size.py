@@ -27,9 +27,9 @@ import duckdb
 
 SIZES = [8_192, 16_384, 32_768, 65_536, 122_880]
 ITEM_CLASSES = {
-    "small":  50_000,
+    "small": 50_000,
     "medium": 300_000,
-    "large":  1_000_000,
+    "large": 1_000_000,
 }
 DAYS = 365
 
@@ -54,9 +54,7 @@ def _write_and_measure(
     rgs: int,
 ) -> dict:
     opts = f"FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE {rgs}"
-    con.execute(
-        f"COPY (SELECT * FROM t ORDER BY data_disponibilizacao) TO '{path}' ({opts})"
-    )
+    con.execute(f"COPY (SELECT * FROM t ORDER BY data_disponibilizacao) TO '{path}' ({opts})")
 
     # Structure
     rg_count = con.execute(
@@ -81,11 +79,9 @@ def _write_and_measure(
     }
 
 
-def _count_row_groups_touched(
-    con: duckdb.DuckDBPyConnection, path: Path, date: str
-) -> int:
+def _count_row_groups_touched(con: duckdb.DuckDBPyConnection, path: Path, date: str) -> int:
     """Row groups whose [min,max] overlaps date — a proxy for HTTP ranges downloaded."""
-    rows = con.execute(
+    return con.execute(
         f"""
         SELECT COUNT(*)
         FROM parquet_metadata('{path}')
@@ -94,14 +90,13 @@ def _count_row_groups_touched(
                OR (stats_min_value <= '{date}' AND stats_max_value >= '{date}'))
         """
     ).fetchone()[0]
-    return rows
 
 
 def _human(n: int) -> str:
     if n >= 1_048_576:
-        return f"{n/1_048_576:.2f} MiB"
+        return f"{n / 1_048_576:.2f} MiB"
     if n >= 1_024:
-        return f"{n/1_024:.1f} KiB"
+        return f"{n / 1_024:.1f} KiB"
     return f"{n} B"
 
 
@@ -109,9 +104,9 @@ def run() -> None:
     print(f"duckdb {duckdb.__version__}")
     print()
     for class_name, n_rows in ITEM_CLASSES.items():
-        print(f"{'='*72}")
+        print(f"{'=' * 72}")
         print(f"Item class: {class_name} ({n_rows:,} rows)")
-        print(f"{'='*72}")
+        print(f"{'=' * 72}")
         print(
             f"{'ROW_GROUP_SIZE':>15} {'RG count':>9} {'File size':>12} "
             f"{'Compressed%':>12} {'RGs for 1 day':>14}"
@@ -125,7 +120,9 @@ def run() -> None:
             for rgs in SIZES:
                 path = Path(tmpdir) / f"t_{rgs}.parquet"
                 m = _write_and_measure(con, path, rgs)
-                ratio = round(100 * m["file_bytes"] / m["uncompressed"], 1) if m["uncompressed"] else 0
+                ratio = (
+                    round(100 * m["file_bytes"] / m["uncompressed"], 1) if m["uncompressed"] else 0
+                )
                 default_marker = " ← default" if rgs == 122_880 else ""
                 print(
                     f"{rgs:>15,} {m['rg_count']:>9} {_human(m['file_bytes']):>12} "
