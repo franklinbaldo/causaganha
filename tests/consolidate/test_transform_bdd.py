@@ -46,7 +46,7 @@ def _write_ndjson(ndjson_dir: Path, tribunal: str, records: list[dict[str, Any]]
     ndjson_path = ndjson_dir / f"{tribunal}__synthetic.ndjson"
     with ndjson_path.open("w", encoding="utf-8") as f:
         for rec in records:
-            f.write(json.dumps(rec))
+            f.write(json.dumps({**rec, "_tribunal": tribunal}))
             f.write("\n")
 
 

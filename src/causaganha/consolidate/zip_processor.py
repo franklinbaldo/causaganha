@@ -43,8 +43,11 @@ def download_zip(item_id: str, filename: str, output_path: Path) -> bool:
     return output_path.exists() and output_path.stat().st_size > 0
 
 
-def stream_zip_to_ndjson(zip_path: Path, ndjson_path: Path) -> int:
+def stream_zip_to_ndjson(zip_path: Path, ndjson_path: Path, tribunal: str) -> int:
     """Extract records from a ZIP and write each as one NDJSON line.
+
+    Stamps ``_tribunal`` into every record so downstream transforms can use
+    it directly without parsing it back out of the filename.
 
     Returns the number of records written. Never materializes the full
     record set in memory — records are written to disk as they are parsed.
@@ -73,6 +76,7 @@ def stream_zip_to_ndjson(zip_path: Path, ndjson_path: Path) -> int:
                     if not validate_ndjson_record(rec):
                         log.warning("invalid_record_discarded", rec_id=rec.get("id"))
                         continue
+                    rec["_tribunal"] = tribunal
                     try:
                         line = json.dumps(rec, default=str, ensure_ascii=False)
                     except (TypeError, ValueError):
@@ -151,7 +155,7 @@ def process_zip_entry(
     ndjson_path = ndjson_dir / ndjson_filename
 
     try:
-        count = stream_zip_to_ndjson(zip_path, ndjson_path)
+        count = stream_zip_to_ndjson(zip_path, ndjson_path, tribunal)
     except OSError as e:
         log.exception("ndjson_write_failed", file=ndjson_filename, error=str(e))
         return 0, 0
