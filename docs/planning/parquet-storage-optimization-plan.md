@@ -72,14 +72,18 @@ arquivo **acima** desse tamanho já tem múltiplos row groups, então a ordenaç
 sozinha (A1) cria faixas min/max disjuntas e poda — sem tocar em `ROW_GROUP_SIZE`.
 A1 é útil imediatamente; **não** depende do benchmark de A1b.
 
-O caso onde `ORDER BY` **não muda nada** [verified] é o item **pequeno** que cabe
-num **único** row group (ex.: `djen-tjro-2025`): há um só row group cobrindo o ano
-todo e um Range read baixa tudo. `ROW_GROUP_SIZE` menor não ajuda esse caso (o
-arquivo já é pequeno) — ele serve para **ajustar a granularidade** dos itens
-grandes, onde row groups menores dão faixas min/max mais estreitas, **mas com
+O caso onde `ORDER BY` **com o `ROW_GROUP_SIZE` default não muda nada** [verified]
+é o item **pequeno** que cabe num **único** row group (ex.: `djen-tjro-2025`): há um
+só row group cobrindo o ano todo e um Range read baixa tudo. **Mas isso não exclui
+o item pequeno de A1b:** reduzir o `ROW_GROUP_SIZE` pode **quebrar esse arquivo
+pequeno em vários row groups** e aí a ordenação prévia passa a podar (leituras HTTP
+seletivas em vez do arquivo inteiro). Então `ROW_GROUP_SIZE` tem dois papéis: (a)
+**habilitar** pruning no item pequeno (que sem ele tem 1 grupo só) e (b) **ajustar
+a granularidade** dos itens grandes (faixas min/max mais estreitas), ambos **com
 custo**: mais overhead de footer e possível **piora de full scans** (mais row
-groups para varrer). O valor `16_384` citado antes **não é um default seguro** — é
-só um ponto de partida.
+groups para varrer). A1b deve medir **as duas classes de item** (pequeno e grande).
+O valor `16_384` citado antes **não é um default seguro** — é só um ponto de
+partida.
 
 **Antes de fixar o valor, rodar um benchmark** [speculative até medir]: comparar
 `16K`, `32K`, `64K` e o default (`122_880`) contra arquivos de produção reais,
@@ -106,16 +110,25 @@ uma faixa estreita de valores em cada row group, então uma coluna globalmente d
 alta cardinalidade **pode** virar dictionary-encoded (e ganhar bloom) **quando o
 arquivo é ordenado por ela**. Não existe sintaxe por coluna (`BLOOM_FILTER(col)` é
 rejeitada); o flag global é `WRITE_BLOOM_FILTER true`. Matriz medida — **500K
-linhas** fixas, coluna CNJ zero-padded de 20 dígitos. Script reproduzível:
+linhas** fixas, coluna CNJ zero-padded de 20 dígitos, **com coluna `data` real e
+`ORDER BY data` explícito** (não shuffle): `data` e `numero_processo` usam strides
+coprimos, modelando o real (muitos processos distintos por dia, comunicações de um
+processo espalhadas no ano). Script reproduzível:
 `scripts/benchmarks/bloom_cardinality.py`:
 
 | ordenação | cardinalidade | `ROW_GROUP_SIZE` | row groups c/ bloom | encoding |
 |---|---|---|---|---|
-| por **data** (espalha CNJ) | 100K | default | 0 / 5 | PLAIN |
-| por **data** (espalha CNJ) | 100K | 16K | 0 / 31 | PLAIN |
-| por **`numero_processo`** | 100K | default | **5 / 5** | PLAIN_DICTIONARY |
-| por **`numero_processo`** | 100K | 16K | 1 / 31 | misto |
-| por **`numero_processo`** | 500K (único) | default | 0 / 5 | PLAIN |
+| `ORDER BY data` | 100K | default | 0 / 5 | PLAIN |
+| `ORDER BY data` | 100K | 16K | 0 / 31 | PLAIN |
+| `ORDER BY numero_processo` | 100K | default | **5 / 5** | PLAIN_DICTIONARY |
+| `ORDER BY numero_processo` | 100K | 16K | 1 / 31 | misto |
+| `ORDER BY numero_processo` | 500K (único) | default | 0 / 5 | PLAIN |
+
+> ⚠️ **Dados sintéticos, não produção.** O modelo coprimo é uma aproximação do
+> acoplamento data↔processo. A correlação real (quantas comunicações por processo,
+> quão agrupadas no tempo) muda os distintos por row group e, com eles, a decisão
+> de bloom. A conclusão do caso date-ordered tem que ser **confirmada em itens
+> reais (A0)**, não cravada a partir do sintético.
 
 Leitura correta:
 
@@ -346,7 +359,7 @@ ainda não existe — não fica no caminho crítico de storage.
 | A0w | Medição **de workload** (gate de A1): coletar a frequência de query por predicado — `data_disponibilizacao` (range) vs `numero_processo` (pontual) — dos logs do dashboard/explorador. A1 ordena por **uma** chave; ordenar pela errada deixa a outra em full-scan. Sem essa evidência, **não** escolher a chave de A1 — ou benchmarkar os dois workloads. | não | P | **Gate de A1** |
 | A0e | Benchmark **de encoding** (gate de A2/A3): nos mesmos itens representativos de A0, rodar `COPY` **lado a lado** do schema atual vs candidato (`VARCHAR`→16-byte UUID; `VARCHAR`→`DECIMAL(20,0)`) e comparar os **bytes comprimidos reais por coluna** (com ZSTD + dictionary, como em produção). Dominar o tamanho atual (A0) **não** prova economia — dictionary/ZSTD podem comprimir a string bem mais (ou menos) que o delta de largura crua sugere. **Gate:** só seguir com A2/A3 se a economia medida justificar o re-upload major. | não | P-M | **Gate de A2/A3** |
 | A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante **identificada em A0w**. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
-| A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. [speculative até medir] | não | P-M | Grande se confirmado |
+| A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais, **incluindo as duas classes de item — pequeno (1 row group no default) e grande**: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. No item pequeno, medir se quebrar em vários grupos torna a ordenação útil. [speculative até medir] | não | P-M | Grande se confirmado |
 | A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ver nota abaixo | major `4.0.0` | M | Grande |
 | A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` round-trips]. **Só ganha bytes, não pruning.** Exige round-trip test + **fallback reversível** (string companheira p/ não-conformes) + decode no WASM. **Pré-req de rollback (A-pré)** | major `4.0.0` | M | Médio |
 | A4 | (se auditoria de consumidores liberar) remover `p_item_ia` | major `4.0.0` | P | Pequeno |
