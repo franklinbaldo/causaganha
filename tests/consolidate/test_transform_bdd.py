@@ -57,7 +57,6 @@ def _write_ndjson(ndjson_dir: Path, tribunal: str, records: list[dict[str, Any]]
             f.write("\n")
 
 
-
 @pytest.fixture
 def tmpdir() -> Any:
     with tempfile.TemporaryDirectory() as d:
