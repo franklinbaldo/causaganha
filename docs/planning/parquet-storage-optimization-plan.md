@@ -96,27 +96,42 @@ Ordenar por `data_disponibilizacao` **não** agrupa o `numero_processo`, então
 min/max não podam nada para esse acesso — e **não dá para ordenar fisicamente o
 mesmo arquivo por duas chaves**. Há um trade-off de uma-chave-por-arquivo.
 
-⚠️ **Bloom filter via `COPY` não ajuda *esta* coluna — por cardinalidade, não por
-falta de suporte.** [benchmarked, DuckDB 1.5.3 fixado no repo] Correção de uma
-afirmação anterior cedo demais: o DuckDB **escreve** bloom filters de Parquet, mas
-só para colunas **dictionary-encoded** (baixa cardinalidade). Não existe sintaxe
-por coluna (`BLOOM_FILTER(col)` é rejeitada); o flag global é
-`WRITE_BLOOM_FILTER true`. Matriz medida — **500K linhas** fixas, coluna CNJ
-zero-padded de 20 dígitos, variando a cardinalidade (≤ nº de linhas). Script
-reproduzível: `scripts/benchmarks/bloom_cardinality.py`:
+⚠️ **Bloom filter via `COPY` depende da _ordenação_, não da cardinalidade
+global.** [benchmarked, DuckDB 1.5.3 fixado no repo] Correção de uma afirmação
+anterior cedo demais (que dizia categoricamente "alta cardinalidade → nunca tem
+bloom"): o DuckDB **escreve** bloom filter só nos row groups que ele
+**dictionary-encoda**, e essa decisão é **por row group**, a partir dos distintos
+*dentro daquele grupo* — não da cardinalidade global. Ordenar pela coluna agrupa
+uma faixa estreita de valores em cada row group, então uma coluna globalmente de
+alta cardinalidade **pode** virar dictionary-encoded (e ganhar bloom) **quando o
+arquivo é ordenado por ela**. Não existe sintaxe por coluna (`BLOOM_FILTER(col)` é
+rejeitada); o flag global é `WRITE_BLOOM_FILTER true`. Matriz medida — **500K
+linhas** fixas, coluna CNJ zero-padded de 20 dígitos. Script reproduzível:
+`scripts/benchmarks/bloom_cardinality.py`:
 
-| cardinalidade (distintos) | bloom escrito? |
-|---|---|
-| 100 | **sim** |
-| 100_000 | não |
-| 500_000 (≈ único) | não |
+| ordenação | cardinalidade | `ROW_GROUP_SIZE` | row groups c/ bloom | encoding |
+|---|---|---|---|---|
+| por **data** (espalha CNJ) | 100K | default | 0 / 5 | PLAIN |
+| por **data** (espalha CNJ) | 100K | 16K | 0 / 31 | PLAIN |
+| por **`numero_processo`** | 100K | default | **5 / 5** | PLAIN_DICTIONARY |
+| por **`numero_processo`** | 100K | 16K | 1 / 31 | misto |
+| por **`numero_processo`** | 500K (único) | default | 0 / 5 | PLAIN |
 
-`numero_processo` é **alta cardinalidade** (quase único por linha) → o DuckDB não
-dictionary-encoda → **não escreve bloom filter** para ele. Ou seja: bloom filter é
-inútil **para esta coluna pela natureza do dado**, não porque o DuckDB não saiba
-escrever. Forçá-lo exigiria dictionary encoding manual ou outro writer (ex.:
-pyarrow) — fora do quick-win sem bump. (Chaves de join de menor cardinalidade
-*podem* receber bloom filter; medir caso a caso se virar gargalo.)
+Leitura correta:
+
+- **Arquivo ordenado por data** (caso date-dominant em A0w): `numero_processo`
+  fica espalhado → cada row group tem distintos demais → PLAIN, **sem bloom**. O
+  lookup pontual paga broad-scan → precisa do índice covering (passo 2 abaixo).
+- **Arquivo ordenado por `numero_processo`** (caso CNJ-dominant em A0w): com
+  repetição suficiente por grupo, vira dictionary + **bloom em todo row group** —
+  e ainda ganha min/max pruning pela própria ordenação. **Mas** se o CNJ for
+  **quase único** (poucas comunicações por processo), nem ordenar salva: distintos
+  por grupo estouram o limite de dictionary → PLAIN, sem bloom. O fator de
+  repetição real (comunicações por processo) tem que ser **medido em A0**.
+
+Ou seja: bloom para CNJ **não é categoricamente inútil** — é condicional à
+ordenação por CNJ **e** ao fator de repetição por row group. Onde o arquivo é
+ordenado por data, bloom não ajuda e o índice covering é a saída.
 
 Estratégia realista, em ordem:
 
@@ -376,9 +391,9 @@ justamente por isso que A1b mira esses itens; e, num arquivo pequeno, pode
 **quebrá-lo em vários grupos**. O único caso onde a **ordenação** (A1) é no-op
 [verified] é o item pequeno de 1 row group. Não dá para cobrir
 `data_disponibilizacao` *e* `numero_processo` na mesma ordenação — escolher a chave
-dominante **via A0w** e, se preciso, um índice aditivo (bloom filter não cobre essa
-coluna por cardinalidade, §1c). Provar o ganho com byte-count httpfs, não só com
-`parquet_metadata`.
+dominante **via A0w** e, se preciso, um índice aditivo covering (bloom filter só
+ajuda CNJ se o arquivo for ordenado por CNJ **e** houver repetição por row group,
+§1c). Provar o ganho com byte-count httpfs, não só com `parquet_metadata`.
 
 ## O que NÃO fazer
 
@@ -390,10 +405,11 @@ coluna por cardinalidade, §1c). Provar o ganho com byte-count httpfs, não só 
   pequenos ficam com 1 row group e a ordenação não poda nada. **E não fixar 16K
   como default** — benchmarkar (A1b) o custo de full scan, não só o pruning.
   Validar com byte-count httpfs, não só com `parquet_metadata`.
-- **Não contar com bloom filter de Parquet para `numero_processo` (§1c).**
-  [benchmarked] O DuckDB escreve bloom filter, mas só p/ colunas dictionary-encoded
-  (baixa cardinalidade); CNJ é alta cardinalidade → não recebe. Não planejar poda
-  de lookup pontual em cima disso para esta coluna.
+- **Não assumir bloom filter para `numero_processo` *no arquivo ordenado por
+  data* (§1c).** [benchmarked] Bloom só é escrito em row group dictionary-encoded;
+  ordenando por data o CNJ espalha → PLAIN → sem bloom. Bloom **só** ajuda CNJ se o
+  arquivo for ordenado por CNJ **e** houver repetição suficiente por row group
+  (medir em A0) — não é categórico nas duas direções.
 - **Não fazer o serving (B2) sem o consumidor (B1).** O join de 4 tabelas não
   existe no frontend hoje; sem construí-lo, o serving é só storage extra. É trilha
   separada, não caminho crítico de storage.
