@@ -121,7 +121,7 @@
         <dd>
           <strong data-tone={isDataStale ? 'warning' : undefined}>{filesToday}/91</strong>
           {#if isDataStale}
-            <small data-tone="warning" title="A coleta parece estar parada — sem novos dados desde esta data">desatualizado</small>
+            <small data-tone="warning" title="A coleta de dados parece travada — sem novos dados desde esta data">defasado</small>
           {/if}
         </dd>
       </div>

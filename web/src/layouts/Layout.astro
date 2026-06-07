@@ -17,7 +17,6 @@ interface Props {
 }
 
 const { title, description = 'CausaGanha — acervo público de comunicações judiciais brasileiras (DJEN), arquivado no Internet Archive.', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
-const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL(`${BASE}og-image.svg`, Astro.site).toString();
