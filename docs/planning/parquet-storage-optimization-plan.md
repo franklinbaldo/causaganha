@@ -60,19 +60,32 @@ produza faixas min/max **disjuntas**. Para itens grandes (TJSP) isso multiplica 
 row groups e habilita o pruning; para itens pequenos é inócuo (continua 1 row
 group, mas o arquivo já é pequeno).
 
-### 1c — Bloom filter em `numero_processo` (lookup pontual)
+### 1c — Lookup pontual por `numero_processo`: escolher a chave de ordenação
 
-O lookup quente do dashboard é por `numero_processo` (CNJ de 20 dígitos, alta
-entropia). Ordenar por `data_disponibilizacao` **não** agrupa o `numero_processo`,
-então min/max não podam nada para esse acesso. O writer Parquet do DuckDB
-suporta bloom filters por coluna — eles podam row groups em lookups de igualdade
-muito melhor que min/max. Adicionar bloom filter em `numero_processo` (e nas
-chaves de join, se a medição #0 mostrar que ajuda).
+O outro acesso quente é por `numero_processo` (CNJ de 20 dígitos, alta entropia).
+Ordenar por `data_disponibilizacao` **não** agrupa o `numero_processo`, então
+min/max não podam nada para esse acesso — e **não dá para ordenar fisicamente o
+mesmo arquivo por duas chaves**. Há um trade-off de uma-chave-por-arquivo.
 
-> **Requisito de versão:** escrita de bloom filter Parquet precisa de **DuckDB
-> ≥ 1.1**. O `pyproject.toml` hoje fixa `duckdb>=0.10.0` — subir o piso (ou
-> detectar a versão e degradar 1c graciosamente) é parte desta tarefa. `ORDER BY`
-> e `ROW_GROUP_SIZE` funcionam em 0.10.
+> ⚠️ **Bloom filter via `COPY` NÃO é uma opção (verificado empiricamente no
+> DuckDB 1.5.3 fixado no repo).** Não existe sintaxe por coluna — `COPY … (FORMAT
+> PARQUET, BLOOM_FILTER(numero_processo))` é rejeitado como opção desconhecida. O
+> flag global `WRITE_BLOOM_FILTER true` é *aceito mas no-op*: `bloom_filter_offset`
+> continua `NULL` no `parquet_metadata`, o arquivo fica byte-idêntico ao escrito
+> sem o flag, e `parquet_bloom_probe` não encontra nada. Subir o piso do DuckDB
+> não resolve. Escrever bloom filter exigiria outro writer (ex.: pyarrow) — fora
+> do quick-win sem bump.
+
+Estratégia realista, em ordem:
+
+1. **Ordenar `comunicacoes` pela chave dominante** (provavelmente
+   `data_disponibilizacao`, confirmar com os logs de query do dashboard). O outro
+   acesso paga full-scan de row groups.
+2. **Se o lookup por `numero_processo` for hot o suficiente**, criar um Parquet
+   aditivo (índice) ordenado por `numero_processo` — mesmo padrão do serving do
+   Problema 3 — para que min/max podem por esse acesso. Aditivo, sem bump.
+3. A migração `numero_processo` `string→binary` (Problema 2 / #3) reduz bytes e
+   melhora a seletividade de min/max independentemente da ordenação.
 
 **Onde:** o `COPY` é montado em `scripts/pipeline/consolidate.py:1419-1424` e
 `src/causaganha/consolidate/exporter.py:57-62` (acrescentar as opções ao
@@ -93,8 +106,9 @@ materializar em Python.
    pré/pós. Faixas estreitas no metadata são necessárias mas não suficientes — só
    o byte-count prova que "baixa 1 row group vs. o ano todo".
 
-**Schema bump:** não. **Esforço:** P (1a/1b) + P (1c). **Payoff:** Grande **para
-itens grandes**; neutro para itens pequenos de 1 row group.
+**Schema bump:** não. **Esforço:** P (1a/1b); 1c-opção-2 é M (Parquet de índice
+aditivo). **Payoff:** Grande **para itens grandes**; neutro para itens pequenos de
+1 row group.
 
 ---
 
@@ -134,10 +148,19 @@ Implementação:
 ## Problema 3 — JOINs cross-file pagam latência HTTP por arquivo
 
 **Sintoma:** 10 tabelas normalizadas são limpas como forma canônica, mas o
-DuckDB-over-HTTP paga footer + Range reads por arquivo a cada JOIN. O hot path do
-dashboard ("advogado → comunicações com outcome") é um join de 4 tabelas
-(`comunicacao_advogados` × `comunicacoes` × `classificacoes` × `advogados`)
-executado por HTTP a cada load.
+DuckDB-over-HTTP paga footer + Range reads por arquivo a cada JOIN. A query
+"advogado → comunicações com outcome" é um join de 4 tabelas
+(`comunicacao_advogados` × `comunicacoes` × `classificacoes` × `advogados`).
+
+> ⚠️ **Ressalva (verificado no código):** esse join de 4 tabelas **ainda não
+> existe** no frontend. O consumidor atual é `web/src/components/
+> DuckDBExplorer.svelte`, que opera sobre **um** item `(tribunal, ano)` por vez,
+> sem `union_by_name` cross-item; o template "advogados mais ativos" faz no
+> máximo um join de **2** tabelas (`advogados` × `comunicacao_advogados`) e as
+> classificações são consultadas à parte. Portanto o serving **não elimina 3
+> leituras de um load path existente** — ele *habilita* um fluxo planejado. O
+> payoff é condicional a construir esse consumidor; sem ele, é storage extra sem
+> retorno. Não priorizar #2 acima de #1 só por esse "payoff de latência".
 
 **Fix:** Parquet-per-access-pattern (ficha ADR 0008). Manter as 10 tabelas
 normalizadas como **canônicas** e adicionar um Parquet de **serving**
@@ -158,12 +181,16 @@ de join: `comunicacao_advogados` × `comunicacoes` × `classificacoes` [via
 então o serving é puro join, sem coluna nova derivada.
 
 **Escopo do arquivo:** o serving é **por item** `(tribunal, ano)`, igual às
-canônicas. Lê-se 1 arquivo em vez de 4 **por item** — mas o frontend continua
-fazendo `union_by_name` entre itens para visões cross-tribunal/ano. Não é um
-arquivo global único; o ganho é eliminar 3 footers + N Range reads por item a
-cada load.
+canônicas. Seria 1 arquivo em vez de 4 **por item** — não um arquivo global
+único.
 
-**Schema bump:** patch (tabela nova, aditiva — `3.1.0`). **Esforço:** M. **Payoff:** Grande para latência do frontend.
+**Pré-requisito honesto:** esta tarefa só tem payoff se vier acompanhada do
+**fluxo de consumo** que faz o join de 4 tabelas (hoje inexistente — ver ressalva
+acima). Planejar os dois juntos ou não priorizar.
+
+**Schema bump:** patch (tabela nova, aditiva — `3.1.0`). **Esforço:** M (Parquet)
++ M (consumidor no frontend). **Payoff:** Grande **se** o consumidor for
+construído; nulo isolado.
 
 ---
 
@@ -203,8 +230,8 @@ mesmo `4.0.0` para não pagar dois re-uploads. **Esforço:** P. **Payoff:** Pequ
 | # | Tarefa | Bump? | Esforço | Payoff |
 |---|--------|-------|---------|--------|
 | 0 | Script de medição: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas, reportando `numero_processo` ao lado das chaves UUID | não | P | Habilita decisões 2/5 |
-| 1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` + **1b** `ROW_GROUP_SIZE` + **1c** bloom filter em `numero_processo`, com benchmark de bytes httpfs pré/pós | não | P | **Grande** (itens grandes) |
-| 2 | Parquet de serving denormalizado para o hot path | patch `3.1.0` | M | Grande (frontend) |
+| 1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` + **1b** `ROW_GROUP_SIZE`, com benchmark de bytes httpfs pré/pós. (**1c** lookup por `numero_processo`: escolher chave de ordenação / índice aditivo — bloom filter via `COPY` não funciona, ver §1c) | não | P | **Grande** (itens grandes) |
+| 2 | Parquet de serving denormalizado — **só junto** com o consumidor frontend (join de 4 tabelas hoje inexistente) | patch `3.1.0` | M+M | Grande **se** consumidor construído |
 | 3 | (se #0 confirmar) UUID + `numero_processo` `string→binary` | major `4.0.0` | M | Grande |
 | 4 | Remover `p_item_ia` redundante | major `4.0.0` | P | Pequeno |
 | 5 | `confidence`→float32, revisar `hash` | major `4.0.0` | P | Pequeno |
@@ -213,9 +240,10 @@ mesmo `4.0.0` para não pagar dois re-uploads. **Esforço:** P. **Payoff:** Pequ
 
 **Quick win imediato:** #1 — mas atenção: `ORDER BY` **sozinho é no-op** em itens
 de 1 row group; só vira "baixar 1 row group vs. o ano inteiro" quando casado com
-`ROW_GROUP_SIZE` (1b). Para o lookup por `numero_processo`, o bloom filter (1c)
-vale mais que a ordenação. Prove o ganho com o byte-count httpfs, não só com
-`parquet_metadata`.
+`ROW_GROUP_SIZE` (1b). Não dá para cobrir `data_disponibilizacao` *e*
+`numero_processo` na mesma ordenação, e bloom filter via `COPY` não funciona no
+DuckDB fixado (§1c) — escolher a chave dominante e, se preciso, um índice aditivo.
+Prove o ganho com o byte-count httpfs, não só com `parquet_metadata`.
 
 ## O que NÃO fazer
 
@@ -226,6 +254,12 @@ vale mais que a ordenação. Prove o ganho com o byte-count httpfs, não só com
 - **Não confiar em `ORDER BY` sozinho (#1).** Sem `ROW_GROUP_SIZE`, itens
   pequenos ficam com 1 row group e a ordenação não poda nada. Validar com
   byte-count httpfs, não só com `parquet_metadata`.
+- **Não contar com bloom filter de Parquet via `COPY` (#1c).** Verificado no
+  DuckDB 1.5.3 do repo: sintaxe por coluna é rejeitada e `WRITE_BLOOM_FILTER` é
+  no-op. Não planejar a poda de lookup pontual em cima disso.
+- **Não priorizar o serving (#2) como ganho de latência sem o consumidor.** O join
+  de 4 tabelas não existe no frontend hoje; sem construí-lo, o serving é só
+  storage extra.
 - **Não reshapear as 10 tabelas canônicas** para o serving. Adicionar Parquet
   aditivo; manter o modelo normalizado como fonte.
 - **Não fazer dois bumps majors separados.** Agrupar 3, 4 e 5 em `4.0.0` —
