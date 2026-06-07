@@ -38,11 +38,14 @@ def analyze_file(path: str, *, use_httpfs: bool = False) -> None:
     print(f"File: {path}")
     print(f"{'=' * 72}")
 
-    # Row and row-group counts
+    # Row and row-group counts.
+    # parquet_metadata returns one row per column-chunk, so SUM(num_values)
+    # over the whole result counts each row once per column.  Divide by the
+    # number of distinct columns to get the actual row count.
     rg_meta = con.execute(
         f"""
         SELECT COUNT(DISTINCT row_group_id) AS rg_count,
-               SUM(num_values) AS total_rows
+               SUM(num_values) / NULLIF(COUNT(DISTINCT path_in_schema), 0) AS total_rows
         FROM parquet_metadata('{path}')
         """
     ).fetchone()

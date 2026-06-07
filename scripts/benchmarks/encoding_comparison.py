@@ -73,7 +73,8 @@ def run_synthetic() -> None:
         v3_total = v3_id + v3_orig + v3_txt + v3_cnj + v3_hash
 
         # ── v4 candidate ───────────────────────────────────────────────
-        # UUID → BLOB (16 bytes raw)
+        # id/texto_id → BLOB (16 bytes raw UUID)
+        # original_id stays VARCHAR — external DJEN source, not guaranteed UUID
         # CNJ  → DECIMAL(20,0) — stores as FIXED_LEN_BYTE_ARRAY, ~16 bytes
         # hash → BLOB (32 bytes raw SHA-256)
         con.execute(
@@ -81,7 +82,7 @@ def run_synthetic() -> None:
             CREATE OR REPLACE TABLE v4 AS
             SELECT
                 gen_random_uuid()                           AS id,
-                gen_random_uuid()                           AS original_id,
+                gen_random_uuid()::VARCHAR                  AS original_id,
                 gen_random_uuid()                           AS texto_id,
                 CAST(printf('%020d', range % 5000000) AS DECIMAL(20, 0))
                                                             AS numero_processo,
@@ -111,7 +112,7 @@ def run_synthetic() -> None:
     print("-" * 75)
     rows = [
         ("id (UUID)", v3_id, v4_id, "string→uuid blob"),
-        ("original_id", v3_orig, v4_orig, "string→uuid blob"),
+        ("original_id", v3_orig, v4_orig, "string (unchanged — external source)"),
         ("texto_id", v3_txt, v4_txt, "string→uuid blob"),
         ("numero_processo", v3_cnj, v4_cnj, "string→decimal(20,0)"),
         ("hash", v3_hash, v4_hash, "hex string→bytes"),

@@ -25,18 +25,23 @@ Usage:
     uv run python scripts/snapshot_parquets_for_rollback.py \\
         --tribunal tjro --output-dir snapshots/
 
-    # Restore a snapshot item to IA (requires IA credentials)
-    uv run python scripts/snapshot_parquets_for_rollback.py restore \\
-        --snapshot-dir snapshots/2026-06-07T12-00/ \\
-        --item djen-tjro-2025
+    # Inspect what a snapshot contains
+    uv run python scripts/snapshot_parquets_for_rollback.py list \\
+        snapshots/2026-06-07T12-00-00/
+
+Rollback procedure (after v4 overwrites the IA item):
+    1. Copy the snapshotted {table}.parquet files back to a local output dir.
+    2. Run the consolidation CLI:  causaganha reconsolidate --force
+       OR upload individually with  upload_to_ia.py.
+    The snapshot_index.json SHA-256s can be used to verify file integrity
+    before re-uploading.
 
 Notes:
     - Downloads are streamed to disk (no full-file RAM buffering).
     - Existing files are skipped (idempotent re-runs within the same snapshot).
-    - Snapshot index SHA-256s are verified against fresh downloads.
+    - Script exits nonzero if any download fails (404 = not found is a warning,
+      not a failure; HTTP 5xx / network errors are failures).
     - This script does NOT upload to IA — it only creates a local archive.
-      Re-upload with ``upload_to_ia.py`` or the consolidation CLI's
-      ``reconsolidate --force`` after rolling back.
 """
 
 from __future__ import annotations
@@ -144,6 +149,8 @@ def snapshot(
         print("\nDry run complete. Re-run without --dry-run to download.")
         return snap_root
 
+    failures: list[tuple[str, str, str]] = []  # (item_id, table, reason)
+
     client = httpx.Client()
     try:
         for it in items:
@@ -191,9 +198,11 @@ def snapshot(
                     )
                 except httpx.HTTPStatusError as exc:
                     if exc.response.status_code == 404:
+                        # Table absent from this IA item — not a failure.
                         log.warning("table_not_found_on_ia", item=item_id, table=table)
                         item_entry["tables"][table] = {"status": "not_found"}
                     else:
+                        reason = f"HTTP {exc.response.status_code}"
                         log.exception(
                             "download_error",
                             item=item_id,
@@ -204,9 +213,12 @@ def snapshot(
                             "status": "error",
                             "http_status": exc.response.status_code,
                         }
+                        failures.append((item_id, table, reason))
                 except (httpx.HTTPError, httpx.RequestError, OSError) as exc:
-                    log.exception("download_error", item=item_id, table=table, error=str(exc))
-                    item_entry["tables"][table] = {"status": "error", "error": str(exc)}
+                    reason = str(exc)
+                    log.exception("download_error", item=item_id, table=table, error=reason)
+                    item_entry["tables"][table] = {"status": "error", "error": reason}
+                    failures.append((item_id, table, reason))
 
             index.append(item_entry)
     finally:
@@ -225,6 +237,15 @@ def snapshot(
         ),
         encoding="utf-8",
     )
+
+    if failures:
+        print(f"\n⚠  {len(failures)} download(s) failed — snapshot is INCOMPLETE:")
+        for item_id, table, reason in failures:
+            print(f"   {item_id}/{table}: {reason}")
+        print("\nSnapshot index written to:", index_path)
+        print("Do NOT proceed with v4 migration until all downloads succeed.")
+        sys.exit(1)
+
     log.info("snapshot_complete", root=str(snap_root), items=len(index))
     print(f"\nSnapshot index written to: {index_path}")
     return snap_root
