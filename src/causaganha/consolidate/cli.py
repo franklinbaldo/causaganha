@@ -156,7 +156,7 @@ async def _export_upload_and_manifest(
                 output_dir,
                 item_id,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 — per-table resilience
             log.error("table_export_error", table=table_name, error=str(exc))
             if table_name in non_empty_tables:
                 stats["export_failures"] += 1

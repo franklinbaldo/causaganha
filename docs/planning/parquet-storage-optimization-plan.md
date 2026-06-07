@@ -58,19 +58,22 @@ abaixo).
 - `classificacoes` → `.order_by(texto_id)`
 - `textos` → `.order_by(id)` (acesso é por join em `id`)
 
-### 1b — `ROW_GROUP_SIZE` explícito (pré-requisito para o `ORDER BY` valer) — [speculative, precisa benchmark]
+### 1b — `ROW_GROUP_SIZE` explícito (tuning de granularidade, **não** pré-requisito) — [speculative, precisa benchmark]
 
-⚠️ **Ordenar sozinho pode ser no-op.** [verified] O pruning só existe quando o
-arquivo tem **mais de um row group**. O default do DuckDB é `ROW_GROUP_SIZE =
-122_880` linhas. Um item pequeno `(tribunal, ano)` (ex.: `djen-tjro-2025`) cabe
-inteiro num único row group — nesse caso `ORDER BY` **não muda nada**, porque há
-um só row group cobrindo o ano todo e um único Range read baixa tudo de qualquer
-jeito.
+⚠️ **`ORDER BY` sozinho já habilita pruning em arquivos com >1 row group.** Não
+gate A1 nisto. O default do DuckDB é `ROW_GROUP_SIZE = 122_880` linhas: qualquer
+arquivo **acima** desse tamanho já tem múltiplos row groups, então a ordenação
+sozinha (A1) cria faixas min/max disjuntas e poda — sem tocar em `ROW_GROUP_SIZE`.
+A1 é útil imediatamente; **não** depende do benchmark de A1b.
 
-Reduzir `ROW_GROUP_SIZE` produz faixas min/max **disjuntas** e habilita pruning
-nos itens grandes — **mas tem custo**: row groups menores aumentam o overhead de
-footer e podem **piorar full scans** (mais row groups para varrer). O valor
-`16_384` citado antes **não é um default seguro** — é só um ponto de partida.
+O caso onde `ORDER BY` **não muda nada** [verified] é o item **pequeno** que cabe
+num **único** row group (ex.: `djen-tjro-2025`): há um só row group cobrindo o ano
+todo e um Range read baixa tudo. `ROW_GROUP_SIZE` menor não ajuda esse caso (o
+arquivo já é pequeno) — ele serve para **ajustar a granularidade** dos itens
+grandes, onde row groups menores dão faixas min/max mais estreitas, **mas com
+custo**: mais overhead de footer e possível **piora de full scans** (mais row
+groups para varrer). O valor `16_384` citado antes **não é um default seguro** — é
+só um ponto de partida.
 
 **Antes de fixar o valor, rodar um benchmark** [speculative até medir]: comparar
 `16K`, `32K`, `64K` e o default (`122_880`) contra arquivos de produção reais,
@@ -115,7 +118,11 @@ Estratégia realista, em ordem:
    acesso paga full-scan de row groups.
 2. **Se o lookup por `numero_processo` for hot o suficiente**, criar um Parquet
    aditivo (índice) ordenado por `numero_processo` — mesmo padrão do serving do
-   Problema 3 — para que min/max podem por esse acesso. Aditivo, sem bump.
+   Problema 3 — para que min/max podem por esse acesso. Por ser um **dataset novo
+   com schema e contrato de consumidor próprios**, leva um **bump aditivo** (igual
+   ao serving — agrupar no mesmo `3.1.0`) e tem que ser **registrado** junto às
+   demais tabelas (schema registry + tooling de validação/descoberta), senão
+   clientes não têm como saber se o índice existe. Não é "sem bump".
 3. A migração `numero_processo` para um **encoding empacotado** (Problema 2 / A3)
    **reduz bytes** — mas **não** melhora a seletividade de min/max. Para CNJs como
    strings de 20 dígitos zero-padded, a ordem lexicográfica já é idêntica à
@@ -307,8 +314,9 @@ ainda não existe — não fica no caminho crítico de storage.
 
 | # | Tarefa | Bump? | Esforço | Payoff |
 |---|--------|-------|---------|--------|
-| A0 | Medição: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas. Reportar bytes por coluna (UUIDs **e** `numero_processo`), cardinalidade, e **auditar o formato de `numero_processo`** (quantos não são 20 dígitos) | não | P | Habilita A2/A3/A4/A5 |
-| A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
+| A0 | Medição **de storage**: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas. Reportar bytes por coluna (UUIDs **e** `numero_processo`), cardinalidade, e **auditar o formato de `numero_processo`** (quantos não são 20 dígitos) | não | P | Habilita A2/A3/A4/A5 |
+| A0w | Medição **de workload** (gate de A1): coletar a frequência de query por predicado — `data_disponibilizacao` (range) vs `numero_processo` (pontual) — dos logs do dashboard/explorador. A1 ordena por **uma** chave; ordenar pela errada deixa a outra em full-scan. Sem essa evidência, **não** escolher a chave de A1 — ou benchmarkar os dois workloads. | não | P | **Gate de A1** |
+| A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante **identificada em A0w**. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
 | A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. [speculative até medir] | não | P-M | Grande se confirmado |
 | A2 | (se A0 confirmar UUID domina) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`; **rollback:** se decode falhar, reler item na versão anterior (itens são imutáveis por versão) | major `4.0.0` | M | Grande |
 | A3 | (se A0 confirmar `numero_processo` domina) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` round-trips]. **Só ganha bytes, não pruning.** Exige round-trip test + **fallback reversível** (string companheira p/ não-conformes) + decode no WASM. **Rollback:** reler versão anterior | major `4.0.0` | M | Médio |
@@ -316,7 +324,7 @@ ainda não existe — não fica no caminho crítico de storage.
 | A5 | `confidence`→float32; revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
 
 A2-A5 agrupam-se num único bump `4.0.0` (cada major força re-upload de todos os
-itens; não pagar dois). **Caminho crítico de A:** A0 → A1 → A1b → (A2+A3+A4+A5).
+itens; não pagar dois). **Caminho crítico de A:** A0 + A0w → A1 → A1b → (A2+A3+A4+A5).
 
 ### Trilha B — serving/consumidor (product-gated, opcional)
 
@@ -328,13 +336,13 @@ itens; não pagar dois). **Caminho crítico de A:** A0 → A1 → A1b → (A2+A3
 B só vale com B1. **Sem B1, não fazer B2** — seria storage extra sem consumidor.
 Não é pré-requisito de nenhum item da Trilha A.
 
-**Quick win imediato:** A1 — mas atenção: `ORDER BY` **sozinho é no-op** [verified]
-em itens de 1 row group; só vira "baixar 1 row group vs. o ano inteiro" quando
-casado com `ROW_GROUP_SIZE` benchmarkado (A1b). Não dá para cobrir
-`data_disponibilizacao` *e* `numero_processo` na mesma ordenação; para CNJ,
-escolher a chave dominante e, se preciso, um índice aditivo (bloom filter não
-cobre essa coluna por cardinalidade, §1c). Provar o ganho com byte-count httpfs,
-não só com `parquet_metadata`.
+**Quick win imediato:** A1 — `ORDER BY` sozinho **já** poda em arquivos com >1 row
+group (itens grandes), sem depender de A1b; A1b só **afina a granularidade** e
+`ROW_GROUP_SIZE` só importa para o item **pequeno** de 1 row group, onde a
+ordenação é no-op [verified]. Não dá para cobrir `data_disponibilizacao` *e*
+`numero_processo` na mesma ordenação — escolher a chave dominante **via A0w** e, se
+preciso, um índice aditivo (bloom filter não cobre essa coluna por cardinalidade,
+§1c). Provar o ganho com byte-count httpfs, não só com `parquet_metadata`.
 
 ## O que NÃO fazer
 
