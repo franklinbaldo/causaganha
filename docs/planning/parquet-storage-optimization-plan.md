@@ -49,8 +49,14 @@ abaixo).
 
 ### 1a — `ORDER BY` na chave de filtro [verified que falta hoje]
 
-- `comunicacoes` → `.order_by(data_disponibilizacao, numero_processo)`
-- `processos` → `.order_by(data, numero_processo)`
+- `comunicacoes` → **chave dominante conforme A0w** (uma chave física por arquivo):
+  - se A0w mostrar **range por data** dominante → `.order_by(data_disponibilizacao, numero_processo)`
+  - se A0w mostrar **lookup pontual por `numero_processo`** dominante →
+    `.order_by(numero_processo, data_disponibilizacao)` (ou índice aditivo, §1c).
+  - ⚠️ A chave **secundária só agrupa dentro da primária** — não dá pruning min/max
+    global para o segundo predicado. Por isso a escolha da primária tem que vir de
+    A0w, não ser fixa.
+- `processos` → idem: `.order_by(data, numero_processo)` **ou** `(numero_processo, data)` conforme A0w
 - `destinatarios` / `representacoes` / `comunicacao_advogados` → `.order_by(comunicacao_id)`
   (benefício é **pruning ao filtrar por `comunicacao_id`** — joins hash do DuckDB
   não exploram ordenação)
@@ -95,14 +101,15 @@ falta de suporte.** [benchmarked, DuckDB 1.5.3 fixado no repo] Correção de uma
 afirmação anterior cedo demais: o DuckDB **escreve** bloom filters de Parquet, mas
 só para colunas **dictionary-encoded** (baixa cardinalidade). Não existe sintaxe
 por coluna (`BLOOM_FILTER(col)` é rejeitada); o flag global é
-`WRITE_BLOOM_FILTER true`. Matriz medida (500K linhas, coluna CNJ zero-padded de
-20 dígitos):
+`WRITE_BLOOM_FILTER true`. Matriz medida — **500K linhas** fixas, coluna CNJ
+zero-padded de 20 dígitos, variando a cardinalidade (≤ nº de linhas). Script
+reproduzível: `scripts/benchmarks/bloom_cardinality.py`:
 
-| cardinalidade | `ROW_GROUP_SIZE` | row groups | bloom escrito? |
-|---|---|---|---|
-| 100 | 16K / 122K | 31 / 5 | **sim** |
-| 100K | 16K / 122K | 31 / 5 | não |
-| 5M | 16K / 122K | 31 / 5 | não |
+| cardinalidade (distintos) | bloom escrito? |
+|---|---|
+| 100 | **sim** |
+| 100_000 | não |
+| 500_000 (≈ único) | não |
 
 `numero_processo` é **alta cardinalidade** (quase único por linha) → o DuckDB não
 dictionary-encoda → **não escreve bloom filter** para ele. Ou seja: bloom filter é
@@ -318,13 +325,25 @@ ainda não existe — não fica no caminho crítico de storage.
 | A0w | Medição **de workload** (gate de A1): coletar a frequência de query por predicado — `data_disponibilizacao` (range) vs `numero_processo` (pontual) — dos logs do dashboard/explorador. A1 ordena por **uma** chave; ordenar pela errada deixa a outra em full-scan. Sem essa evidência, **não** escolher a chave de A1 — ou benchmarkar os dois workloads. | não | P | **Gate de A1** |
 | A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante **identificada em A0w**. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
 | A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. [speculative até medir] | não | P-M | Grande se confirmado |
-| A2 | (se A0 confirmar UUID domina) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`; **rollback:** se decode falhar, reler item na versão anterior (itens são imutáveis por versão) | major `4.0.0` | M | Grande |
-| A3 | (se A0 confirmar `numero_processo` domina) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` round-trips]. **Só ganha bytes, não pruning.** Exige round-trip test + **fallback reversível** (string companheira p/ não-conformes) + decode no WASM. **Rollback:** reler versão anterior | major `4.0.0` | M | Médio |
+| A2 | (se A0 confirmar UUID domina) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ver nota abaixo | major `4.0.0` | M | Grande |
+| A3 | (se A0 confirmar `numero_processo` domina) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` round-trips]. **Só ganha bytes, não pruning.** Exige round-trip test + **fallback reversível** (string companheira p/ não-conformes) + decode no WASM. **Pré-req de rollback (A-pré)** | major `4.0.0` | M | Médio |
 | A4 | (se auditoria de consumidores liberar) remover `p_item_ia` | major `4.0.0` | P | Pequeno |
 | A5 | `confidence`→float32; revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
 
 A2-A5 agrupam-se num único bump `4.0.0` (cada major força re-upload de todos os
-itens; não pagar dois). **Caminho crítico de A:** A0 + A0w → A1 → A1b → (A2+A3+A4+A5).
+itens; não pagar dois). **Caminho crítico de A:** A0 + A0w → A1 → A1b → A-pré → (A2+A3+A4+A5).
+
+> **A-pré — artefato de rollback (pré-requisito de A2/A3, hoje inexistente).** O
+> rollback "reler a versão anterior" **não existe no pipeline atual**:
+> `export_table_sync()` sempre grava `{table}.parquet` e `_upload_consolidated()`
+> sobe esse mesmo nome **dentro do mesmo item IA** `djen-{tribunal}-{ano}`; o
+> manifest de consolidação só registra a versão corrente. Quando o v4 sobrescreve
+> os arquivos, **não sobra URL endereçável por versão** do v3 para reler — a
+> imutabilidade-por-versão que eu havia afirmado é falsa. Antes de prometer
+> rollback, implementar **uma** destas: (a) nomes de arquivo versionados
+> (`{table}-v4.parquet`), (b) itens versionados (`djen-{tribunal}-{ano}-v4`), ou
+> (c) um procedimento explícito de restauração (snapshot do v3 antes do
+> re-upload). Sem isso, A2/A3 são **irreversíveis** na prática.
 
 ### Trilha B — serving/consumidor (product-gated, opcional)
 
