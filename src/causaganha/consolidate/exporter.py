@@ -37,6 +37,24 @@ _CONSOLIDATION_META_OVERRIDES = {
     ),
 }
 
+# Physical ordering for each table's Parquet export (A1 layout optimization).
+# Ordering by the primary filter key enables DuckDB min/max row-group pruning for
+# HTTP Range reads.  data_disponibilizacao is the dominant dashboard filter key
+# (time-range queries); verify with A0w workload measurement before changing.
+# Every table in TRANSFORMS.TABLES must have an entry here (enforced at runtime
+# and by test_exporter.test_every_table_has_an_order_key).
+_TABLE_ORDER_KEYS: dict[str, str] = {
+    "comunicacoes": "data_disponibilizacao, p_mes",
+    "processos": "data, numero_processo",
+    "destinatarios": "comunicacao_id",
+    "comunicacao_advogados": "comunicacao_id",
+    "representacoes": "comunicacao_id",
+    "advogados": "uf_oab, numero_oab",
+    "advogado_nomes": "advogado_id, first_seen",
+    "textos": "id",
+    "partes": "id",
+}
+
 
 def export_table_sync(
     table_name: str,
@@ -58,8 +76,15 @@ def export_table_sync(
     copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
     if kv_clause:
         copy_opts = f"{copy_opts}, {kv_clause}"
+    # Whitelist guard: table_name must be a known schema table and order_keys
+    # is a static string from the same dict — neither is user-controlled input.
+    if table_name not in _TABLE_ORDER_KEYS:
+        msg = f"unknown table for export: {table_name!r}"
+        raise ValueError(msg)
+    order_keys = _TABLE_ORDER_KEYS[table_name]
+    copy_source = f"(SELECT * FROM {table_name} ORDER BY {order_keys})"  # noqa: S608
     con.raw_sql(
-        f"COPY {table_name} TO '{output_path}' ({copy_opts})",
+        f"COPY {copy_source} TO '{output_path}' ({copy_opts})",
     )
     size_mb = output_path.stat().st_size / (1024 * 1024)
     return output_path, size_mb, count

@@ -30,6 +30,7 @@ import typer
 
 from causaganha.consolidate import checkpoint, manifest_reader
 from causaganha.consolidate.candidates import (
+    all_consolidated_dates,
     dates_at_current_version,
     dates_needing_consolidation_from_ia,
     dates_needing_reconsolidation,
@@ -44,7 +45,7 @@ from causaganha.consolidate.exporter import (
     upload_marker,
 )
 from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
-from causaganha.consolidate.schema_registry import CURRENT_VERSION
+from causaganha.consolidate.schema_registry import CURRENT_LAYOUT_REVISION, CURRENT_VERSION
 from causaganha.consolidate.transforms import TABLES, init_tables, load_and_transform
 from causaganha.consolidate.validation import validate_parquet, validate_roundtrip_equivalence
 from causaganha.consolidate.zip_processor import process_zip_entry
@@ -236,6 +237,7 @@ async def _export_upload_and_manifest(
                 item_id=item_id,
                 date_str=date_tag,
                 schema_version=CURRENT_VERSION,
+                layout_revision=CURRENT_LAYOUT_REVISION,
                 table_stats=table_s,
             )
         except OSError as exc:
@@ -372,10 +374,11 @@ def _run_date_batch(
     max_dates: int,
     deadline_seconds: int,
     skip_checkpoint: bool = False,
+    force: bool = False,
 ) -> dict[str, int | float]:
     """Process a batch of dates with deadline and max-dates limits."""
     start = time.monotonic()
-    current_version_dates = dates_at_current_version()
+    current_version_dates: set[str] = set() if force else dates_at_current_version()
 
     total_stats: dict[str, int | float] = {
         "zips_processed": 0,
@@ -443,10 +446,23 @@ def reconsolidate(
     workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors per date"),
     max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
     deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
+    force: bool = typer.Option(
+        "--force",
+        default=False,
+        help="Re-process all items, including those already at current version/layout.",
+    ),
 ) -> None:
-    """Re-consolidate dates with an older schema version (newest first)."""
-    dates = dates_needing_reconsolidation()
-    log.info("reconsolidate_candidates", count=len(dates))
+    """Re-consolidate dates with stale schema or layout (newest first).
+
+    Without --force: only items with an outdated schema_version or layout_revision.
+    With    --force: all consolidated items, regardless of version.
+    """
+    if force:
+        dates = all_consolidated_dates()
+        log.info("reconsolidate_force_all", count=len(dates))
+    else:
+        dates = dates_needing_reconsolidation()
+        log.info("reconsolidate_candidates", count=len(dates))
     if not dates:
         log.info("reconsolidate_nothing_to_do")
         return
@@ -457,6 +473,7 @@ def reconsolidate(
         max_dates=max_dates,
         deadline_seconds=deadline_seconds,
         skip_checkpoint=True,
+        force=force,
     )
     _print_stats(total_stats)
 

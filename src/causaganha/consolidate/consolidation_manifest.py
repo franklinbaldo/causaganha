@@ -42,6 +42,7 @@ class ManifestItem:
     item_id: str
     date: str
     schema_version: str
+    layout_revision: str
     tables: dict[str, dict]
     consolidated_at: str = field(default_factory=lambda: datetime.now(tz=UTC).isoformat())
 
@@ -76,6 +77,7 @@ def update_consolidation_manifest(
     schema_version: str,
     table_stats: dict[str, TableStats],
     *,
+    layout_revision: str = "",
     manifest_path: Path = _DEFAULT_MANIFEST_PATH,
 ) -> None:
     """Read, merge, and write the consolidation manifest.
@@ -94,6 +96,7 @@ def update_consolidation_manifest(
         item_id=item_id,
         date=date_str,
         schema_version=schema_version,
+        layout_revision=layout_revision,
         tables={name: asdict(s) for name, s in table_stats.items()},
     )
     manifest["items"].append(asdict(entry))
