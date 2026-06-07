@@ -41,13 +41,6 @@ SAMPLE_WIN = {
     ],
 }
 
-SAMPLE_LOSS = {
-    **SAMPLE_WIN,
-    "id": "L1",
-    "texto": "JULGO IMPROCEDENTE o pedido formulado pelo autor.",
-    "hash": "abcloss",
-}
-
 
 def _write_ndjson(ndjson_dir: Path, tribunal: str, records: list[dict[str, Any]]) -> None:
     ndjson_path = ndjson_dir / f"{tribunal}__synthetic.ndjson"
@@ -82,14 +75,6 @@ def _noop_two_each() -> None:
     pass
 
 
-@given("a synthetic NDJSON record with an improcedente verdict")
-def given_loss(tmpdir: Path, context: dict[str, Any]) -> None:
-    ndjson_dir = tmpdir / "ndjson"
-    ndjson_dir.mkdir()
-    _write_ndjson(ndjson_dir, "TJRS", [SAMPLE_LOSS])
-    context["ndjson_dir"] = ndjson_dir
-
-
 @when(parsers.parse("I run the transform for item_id {item_id}"))
 def run_transform(context: dict[str, Any], item_id: str) -> None:
     con = ibis.duckdb.connect(":memory:")
@@ -109,10 +94,3 @@ def check_rows_singular(context: dict[str, Any], table_name: str, n: int) -> Non
 def check_rows_plural(context: dict[str, Any], table_name: str, n: int) -> None:
     count = int(context["con"].table(table_name).count().execute())
     assert count == n, f"{table_name}: expected {n}, got {count}"
-
-
-@then(parsers.parse("the classificacoes outcome is {outcome}"))
-def check_outcome(context: dict[str, Any], outcome: str) -> None:
-    result = context["con"].raw_sql("SELECT outcome FROM classificacoes").fetchall()
-    assert len(result) == 1, f"Expected 1 classificacao row, got {len(result)}"
-    assert result[0][0] == outcome, f"Expected {outcome}, got {result[0][0]}"

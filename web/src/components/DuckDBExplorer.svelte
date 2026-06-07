@@ -25,12 +25,6 @@
       label: 'vínculos',
       description: 'Relações entre comunicações, advogados, partes e representações.',
     },
-    {
-      key: 'classificacoes',
-      file: 'classificacoes.parquet',
-      label: 'classificações',
-      description: 'Classificações de resultado e tipo de decisão geradas pelo pipeline.',
-    },
   ];
 
   const TEMPLATE_DEFINITIONS = [
@@ -53,14 +47,6 @@ JOIN read_parquet('${path('comunicacao_advogados.parquet')}') ca
 GROUP BY nome, numero_oab, uf_oab
 ORDER BY comunicacoes DESC
 LIMIT 20`,
-    },
-    {
-      label: 'Classificações de resultado',
-      description: 'Agrupa resultados classificados e exibe confiança média.',
-      sql: (path) => `SELECT outcome, decision_type, COUNT(*) as total, ROUND(AVG(confidence), 2) as avg_confidence
-FROM read_parquet('${path('classificacoes.parquet')}')
-GROUP BY outcome, decision_type
-ORDER BY total DESC`,
     },
     {
       label: 'Processos distintos',

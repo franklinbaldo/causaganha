@@ -82,7 +82,7 @@ def _create_synthetic_ndjson(ndjson_dir: Path) -> None:
 
 
 def test_all_tables_populated_from_synthetic_data():
-    """Verify all 10 tables are produced from synthetic data, including classificacoes."""
+    """Verify all consolidated tables are produced from synthetic data."""
     con = ibis.duckdb.connect()
     init_tables(con)
 
@@ -93,7 +93,7 @@ def test_all_tables_populated_from_synthetic_data():
         counts = _load_and_transform(con, ndjson_dir, item_id="djen-tjsp-2026")
 
     # All tables should exist
-    assert len(TABLES) == 10, f"Expected 10 tables, got {len(TABLES)}"
+    assert len(TABLES) == 9, f"Expected 9 tables, got {len(TABLES)}"
 
     # Core tables must have rows
     assert counts.get("comunicacoes", 0) > 0, "comunicacoes should have rows"
@@ -102,48 +102,11 @@ def test_all_tables_populated_from_synthetic_data():
     assert counts.get("destinatarios", 0) > 0, "destinatarios should have rows"
     assert counts.get("processos", 0) > 0, "processos should have rows"
 
-    # classificacoes should be populated (keyword match on "procedente" / "improcedente")
-    assert counts.get("classificacoes", 0) > 0, (
-        "classificacoes should have rows from keyword classification"
-    )
 
-
-def test_classificacoes_schema_correct():
-    """Verify classificacoes table has the correct schema columns."""
-    expected_cols = {
-        "texto_id",
-        "metodo",
-        "outcome",
-        "decision_type",
-        "winner_advogado_id",
-        "loser_advogado_id",
-        "confidence",
-        "classified_at",
-    }
-    schema = TABLE_SCHEMAS["classificacoes"]
-    actual_cols = set(schema.names)
-    assert actual_cols == expected_cols, f"Schema mismatch: {actual_cols} != {expected_cols}"
-
-
-def test_classificacoes_outcomes():
-    """Verify keyword classifier produces correct outcomes."""
-    con = ibis.duckdb.connect()
-    init_tables(con)
-
-    with tempfile.TemporaryDirectory() as tmpdir:
-        ndjson_dir = Path(tmpdir)
-        _create_synthetic_ndjson(ndjson_dir)
-        _load_and_transform(con, ndjson_dir, item_id="djen-tjsp-2026")
-
-    df = con.table("classificacoes").to_pandas()
-    outcomes = set(df["outcome"].tolist())
-
-    # Our sample data has "procedente" (WIN) and "improcedente" (LOSS)
-    assert "WIN" in outcomes or "LOSS" in outcomes, (
-        f"Expected WIN or LOSS in outcomes, got {outcomes}"
-    )
-    assert all(df["metodo"] == "keyword_v1"), "All classifications should use keyword_v1 method"
-    assert all(df["confidence"] == 0.3), "Keyword classifier confidence should be 0.3"
+def test_classificacoes_removed_from_schema():
+    """Classification is still under development — it must not be a consolidated table."""
+    assert "classificacoes" not in TABLES
+    assert "classificacoes" not in TABLE_SCHEMAS
 
 
 def test_parquet_export_roundtrip():

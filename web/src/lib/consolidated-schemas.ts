@@ -87,17 +87,6 @@ export const processosSchema = z.object({
   p_item_ia: z.string(),
 });
 
-export const classificacoesSchema = z.object({
-  texto_id: z.string(),
-  metodo: z.string(),
-  outcome: z.string(),
-  decision_type: z.string(),
-  winner_advogado_id: z.string().nullable(),
-  loser_advogado_id: z.string().nullable(),
-  confidence: z.number(),
-  classified_at: z.string(), // ISO Timestamp
-});
-
 export const partesSchema = z.object({
   id: z.string(),
   nome_normalizado: z.string(),
@@ -113,6 +102,5 @@ export const consolidatedSchemas = {
   textos: textosSchema,
   representacoes: representacoesSchema,
   processos: processosSchema,
-  classificacoes: classificacoesSchema,
   partes: partesSchema,
 };

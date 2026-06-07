@@ -227,7 +227,7 @@ def test_ts_schema_snapshot_parity():
 
     assert 'export const CONSOLIDATED_SCHEMA_VERSION = "3";' in content
 
-    # Assert that all 10 tables have schemas defined in TS
+    # Assert that all consolidated tables have schemas defined in TS
     for table in TABLES:
         expected_schema_name = f"{table}Schema"
         if "_" in table:
