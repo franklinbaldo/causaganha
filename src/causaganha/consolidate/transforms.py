@@ -26,6 +26,7 @@ from typing import TYPE_CHECKING, Any
 import ibis
 import structlog
 
+from causaganha.consolidate.schema_registry import get_current_schema
 from causaganha.storage.djen_schema import (
     FIELD_CODIGO_CLASSE,
     FIELD_DATA_DISPONIBILIZACAO,
@@ -372,120 +373,11 @@ _TABLE_BUILDERS: tuple[tuple[str, Any], ...] = (
 # ── Schemas ─────────────────────────────────────────────────────────
 
 
-TABLE_SCHEMAS = {
-    "comunicacoes": ibis.schema(
-        {
-            "id": "string",
-            "original_id": "string",
-            "tribunal": "string",
-            "numero_processo": "string",
-            "numero_processo_mascara": "string",
-            "data_disponibilizacao": "date",
-            "tipo_comunicacao": "string",
-            "nome_orgao": "string",
-            "meio": "string",
-            "link": "string",
-            "tipo_documento": "string",
-            "nome_classe": "string",
-            "codigo_classe": "string",
-            "numero_comunicacao": "string",
-            "hash": "string",
-            "processed_at": "timestamp",
-            "texto_id": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "advogados": ibis.schema(
-        {
-            "id": "string",
-            "original_id": "string",
-            "tribunal": "string",
-            "nome": "string",
-            "numero_oab": "string",
-            "uf_oab": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "advogado_nomes": ibis.schema(
-        {
-            "advogado_id": "string",
-            "nome": "string",
-            "tribunal": "string",
-            "first_seen": "date",
-        },
-    ),
-    "destinatarios": ibis.schema(
-        {
-            "comunicacao_id": "string",
-            "tribunal": "string",
-            "nome": "string",
-            "polo": "string",
-            "parte_id": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "comunicacao_advogados": ibis.schema(
-        {
-            "comunicacao_id": "string",
-            "tribunal": "string",
-            "advogado_id": "string",
-        },
-    ),
-    "textos": ibis.schema(
-        {
-            "id": "string",
-            "texto": "string",
-        },
-    ),
-    "representacoes": ibis.schema(
-        {
-            "comunicacao_id": "string",
-            "tribunal": "string",
-            "advogado_id": "string",
-            "parte_id": "string",
-            "polo": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "processos": ibis.schema(
-        {
-            "numero_processo": "string",
-            "tribunal": "string",
-            "data": "date",
-            "comunicacao_id": "string",
-            "p_ano": "int32",
-            "p_mes": "int32",
-            "p_item_ia": "string",
-        },
-    ),
-    "classificacoes": ibis.schema(
-        {
-            "texto_id": "string",
-            "metodo": "string",
-            "outcome": "string",
-            "decision_type": "string",
-            "winner_advogado_id": "string",
-            "loser_advogado_id": "string",
-            "confidence": "float64",
-            "classified_at": "timestamp",
-        },
-    ),
-    "partes": ibis.schema(
-        {
-            "id": "string",
-            "nome_normalizado": "string",
-            "nome_original": "string",
-        },
-    ),
-}
+# The 10 table schemas are owned by the schema registry (single source of
+# truth). Deriving them here keeps the ETL builders, the legacy consolidation
+# script, and the KV-stamped Parquet footer all on one definition — bump the
+# version in schema_registry.py and every code path follows.
+TABLE_SCHEMAS = get_current_schema().tables
 TABLES = list(TABLE_SCHEMAS.keys())
 
 
