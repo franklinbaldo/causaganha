@@ -25,6 +25,15 @@ caras (re-upload de itens no IA, bump de versão, quebra de consumidores
 DuckDB-WASM). Mudanças de layout físico (ordenação, row-group size) são baratas e
 não bumpam o schema.
 
+**Legenda de evidência** (cada sub-item é marcado):
+
+- **[verified]** — confirmado contra código ou comportamento real do DuckDB neste
+  repo (com a linha/saída citada).
+- **[benchmarked]** — medido com um experimento reproduzível (matriz/numeros neste
+  doc).
+- **[speculative]** — hipótese plausível, **ainda não medida**; não tratar como
+  ganho provado até benchmarkar.
+
 ---
 
 ## Problema 1 — Row-group pruning está morto (maior payoff, sem bump) ⚠️
@@ -34,9 +43,11 @@ min/max de cada row group abrangem quase o ano inteiro, então uma query por
 `data_disponibilizacao` ou `numero_processo` precisa baixar **todos** os row
 groups via Range. Paga-se por storage colunar e recebe-se I/O de full table scan.
 
-**Fix:** três alavancas físicas no `COPY`, todas sem bump de schema:
+**Fix:** layout físico, sem bump de schema. `1a` e `1b` são alavancas do `COPY`;
+`1c` trata o caso do `numero_processo`, que **não** tem alavanca de `COPY` (ver
+abaixo).
 
-### 1a — `ORDER BY` na chave de filtro
+### 1a — `ORDER BY` na chave de filtro [verified que falta hoje]
 
 - `comunicacoes` → `.order_by(data_disponibilizacao, numero_processo)`
 - `processos` → `.order_by(data, numero_processo)`
@@ -47,18 +58,27 @@ groups via Range. Paga-se por storage colunar e recebe-se I/O de full table scan
 - `classificacoes` → `.order_by(texto_id)`
 - `textos` → `.order_by(id)` (acesso é por join em `id`)
 
-### 1b — `ROW_GROUP_SIZE` explícito (pré-requisito para o `ORDER BY` valer)
+### 1b — `ROW_GROUP_SIZE` explícito (pré-requisito para o `ORDER BY` valer) — [speculative, precisa benchmark]
 
-⚠️ **Ordenar sozinho pode ser no-op.** O pruning só existe quando o arquivo tem
-**mais de um row group**. O default do DuckDB é `ROW_GROUP_SIZE = 122_880`
-linhas. Um item pequeno `(tribunal, ano)` (ex.: `djen-tjro-2025`) cabe inteiro
-num único row group — nesse caso `ORDER BY` **não muda nada**, porque há um só
-row group cobrindo o ano todo e um único Range read baixa tudo de qualquer jeito.
+⚠️ **Ordenar sozinho pode ser no-op.** [verified] O pruning só existe quando o
+arquivo tem **mais de um row group**. O default do DuckDB é `ROW_GROUP_SIZE =
+122_880` linhas. Um item pequeno `(tribunal, ano)` (ex.: `djen-tjro-2025`) cabe
+inteiro num único row group — nesse caso `ORDER BY` **não muda nada**, porque há
+um só row group cobrindo o ano todo e um único Range read baixa tudo de qualquer
+jeito.
 
-Adicionar `ROW_GROUP_SIZE` menor (ex.: 16_384) ao `COPY` para que a ordenação
-produza faixas min/max **disjuntas**. Para itens grandes (TJSP) isso multiplica os
-row groups e habilita o pruning; para itens pequenos é inócuo (continua 1 row
-group, mas o arquivo já é pequeno).
+Reduzir `ROW_GROUP_SIZE` produz faixas min/max **disjuntas** e habilita pruning
+nos itens grandes — **mas tem custo**: row groups menores aumentam o overhead de
+footer e podem **piorar full scans** (mais row groups para varrer). O valor
+`16_384` citado antes **não é um default seguro** — é só um ponto de partida.
+
+**Antes de fixar o valor, rodar um benchmark** [speculative até medir]: comparar
+`16K`, `32K`, `64K` e o default (`122_880`) contra arquivos de produção reais,
+medindo **separadamente** queries seletivas e full scans, e reportando por caso:
+contagem de row groups, tamanho do arquivo, bytes lidos via httpfs e wall-clock.
+Escolher o **menor** size que dá ganho de pruning mensurável **sem** degradar o
+broad scan. Validar só o `parquet_metadata` (faixas) cobre o lado do pruning, não
+o lado do custo.
 
 ### 1c — Lookup pontual por `numero_processo`: escolher a chave de ordenação
 
@@ -67,14 +87,26 @@ Ordenar por `data_disponibilizacao` **não** agrupa o `numero_processo`, então
 min/max não podam nada para esse acesso — e **não dá para ordenar fisicamente o
 mesmo arquivo por duas chaves**. Há um trade-off de uma-chave-por-arquivo.
 
-> ⚠️ **Bloom filter via `COPY` NÃO é uma opção (verificado empiricamente no
-> DuckDB 1.5.3 fixado no repo).** Não existe sintaxe por coluna — `COPY … (FORMAT
-> PARQUET, BLOOM_FILTER(numero_processo))` é rejeitado como opção desconhecida. O
-> flag global `WRITE_BLOOM_FILTER true` é *aceito mas no-op*: `bloom_filter_offset`
-> continua `NULL` no `parquet_metadata`, o arquivo fica byte-idêntico ao escrito
-> sem o flag, e `parquet_bloom_probe` não encontra nada. Subir o piso do DuckDB
-> não resolve. Escrever bloom filter exigiria outro writer (ex.: pyarrow) — fora
-> do quick-win sem bump.
+⚠️ **Bloom filter via `COPY` não ajuda *esta* coluna — por cardinalidade, não por
+falta de suporte.** [benchmarked, DuckDB 1.5.3 fixado no repo] Correção de uma
+afirmação anterior cedo demais: o DuckDB **escreve** bloom filters de Parquet, mas
+só para colunas **dictionary-encoded** (baixa cardinalidade). Não existe sintaxe
+por coluna (`BLOOM_FILTER(col)` é rejeitada); o flag global é
+`WRITE_BLOOM_FILTER true`. Matriz medida (500K linhas, coluna CNJ zero-padded de
+20 dígitos):
+
+| cardinalidade | `ROW_GROUP_SIZE` | row groups | bloom escrito? |
+|---|---|---|---|
+| 100 | 16K / 122K | 31 / 5 | **sim** |
+| 100K | 16K / 122K | 31 / 5 | não |
+| 5M | 16K / 122K | 31 / 5 | não |
+
+`numero_processo` é **alta cardinalidade** (quase único por linha) → o DuckDB não
+dictionary-encoda → **não escreve bloom filter** para ele. Ou seja: bloom filter é
+inútil **para esta coluna pela natureza do dado**, não porque o DuckDB não saiba
+escrever. Forçá-lo exigiria dictionary encoding manual ou outro writer (ex.:
+pyarrow) — fora do quick-win sem bump. (Chaves de join de menor cardinalidade
+*podem* receber bloom filter; medir caso a caso se virar gargalo.)
 
 Estratégia realista, em ordem:
 
@@ -84,7 +116,7 @@ Estratégia realista, em ordem:
 2. **Se o lookup por `numero_processo` for hot o suficiente**, criar um Parquet
    aditivo (índice) ordenado por `numero_processo` — mesmo padrão do serving do
    Problema 3 — para que min/max podem por esse acesso. Aditivo, sem bump.
-3. A migração `numero_processo` para um **encoding empacotado** (Problema 2 / #3)
+3. A migração `numero_processo` para um **encoding empacotado** (Problema 2 / A3)
    **reduz bytes** — mas **não** melhora a seletividade de min/max. Para CNJs como
    strings de 20 dígitos zero-padded, a ordem lexicográfica já é idêntica à
    numérica, então min/max poda igual com ou sem empacotamento; o ganho de pruning
@@ -102,13 +134,15 @@ Estratégia realista, em ordem:
      original) antes de fechar a migração; decode no consumidor (DuckDB-WASM) faz
      parte da tarefa.
 
-   **Validar o formato antes (parte do #0):** o encoding numérico assume 20
+   **Validar o formato antes (parte do A0):** o encoding numérico assume 20
    dígitos, mas `_safe()` (ambos os code paths) converte valores ausentes em `''`
    e `validate_ndjson_sample()` só checa presença, não formato (os testes aceitam
    `numero_processo: "x"`). Valores históricos não-numéricos/curtos fazem o cast
-   `DECIMAL` falhar. O #0 tem que auditar essa invariante e a migração tem que
-   definir um **fallback** (ex.: manter string para os não-conformes, ou sentinela)
-   antes de reivindicar conversão lossless.
+   `DECIMAL` falhar. O A0 tem que auditar essa invariante e a migração tem que
+   definir um **fallback reversível** — reter o `numero_processo` original como
+   string (campo companheiro/variante) para os não-conformes. **Não** usar
+   sentinela: colapsa valores distintos, pode colidir com um válido e impede
+   reconstruir o original, quebrando a promessa lossless.
 
 **Onde:** o `COPY` é montado em `scripts/pipeline/consolidate.py:1419-1424` e
 `src/causaganha/consolidate/exporter.py:57-62` (acrescentar as opções ao
@@ -129,9 +163,10 @@ materializar em Python.
    pré/pós. Faixas estreitas no metadata são necessárias mas não suficientes — só
    o byte-count prova que "baixa 1 row group vs. o ano todo".
 
-**Schema bump:** não. **Esforço:** P (1a/1b); 1c-opção-2 é M (Parquet de índice
-aditivo). **Payoff:** Grande **para itens grandes**; neutro para itens pequenos de
-1 row group.
+**Schema bump:** não (A1/A1b). **Esforço:** P (`ORDER BY`) + P-M (benchmark de
+row-group); índice aditivo por `numero_processo` é M. **Payoff:** Grande **para
+itens grandes**; neutro para itens pequenos de 1 row group. **[A1 verified como
+faltante; A1b speculative até benchmarkar.]**
 
 ---
 
@@ -143,14 +178,15 @@ aditivo). **Payoff:** Grande **para itens grandes**; neutro para itens pequenos 
 são 36 bytes de alta entropia → dictionary/ZSTD rendem pouco. Em binário
 (`UUID`/16-byte fixed ou `BLOB`) são ~16 bytes e codificam melhor.
 
-**Pré-requisito (NÃO migrar às cegas):** medir primeiro (ver tarefa #0). Decidir
+**Pré-requisito (NÃO migrar às cegas):** medir primeiro (ver tarefa A0). Decidir
 com base em dado:
 
 - Se as chaves UUID dominam os bytes não-texto → migração vale.
 - Se `texto` domina → pular (o ganho é ruído).
 - **Não esquecer `numero_processo`:** é uma string CNJ de 20 dígitos, alta
-  entropia, repetida em `comunicacoes`/`processos`/`destinatarios`. Pode pesar
-  **mais** que os UUIDs nos bytes não-texto. A medição #0 tem que reportá-la lado
+  entropia, presente em `comunicacoes` e `processos` [verified — não existe em
+  `destinatarios`, cujo identificador é `comunicacao_id`]. Pode pesar **mais** que
+  os UUIDs nos bytes não-texto. A medição A0 tem que reportá-la lado
   a lado com as chaves UUID — senão a decisão fica com visão de túnel no UUID e
   ignora a coluna que talvez seja o maior alvo. **Atenção:** ao contrário do UUID
   (que já é 16 bytes em binário), o CNJ só ganha **bytes** (não pruning) e precisa
@@ -187,7 +223,7 @@ DuckDB-over-HTTP paga footer + Range reads por arquivo a cada JOIN. A query
 > classificações são consultadas à parte. Portanto o serving **não elimina 3
 > leituras de um load path existente** — ele *habilita* um fluxo planejado. O
 > payoff é condicional a construir esse consumidor; sem ele, é storage extra sem
-> retorno. Não priorizar #2 acima de #1 só por esse "payoff de latência".
+> retorno. É a Trilha B (product-gated), não o caminho crítico de storage.
 
 **Fix:** Parquet-per-access-pattern (ficha ADR 0008). Manter as 10 tabelas
 normalizadas como **canônicas** e adicionar um Parquet de **serving**
@@ -232,11 +268,20 @@ duplica info já presente no `KV_METADATA` (footer) e no nome do arquivo.
 
 - Manter `tribunal` e `p_ano` — queries cross-item (`union_by_name`) usam para
   filtrar/agrupar.
-- Remover `p_item_ia` das tabelas: já está em `kv_metadata.causaganha.item_id` e
-  no path do item. Leitores que precisam podem ler do footer.
+- `p_item_ia`: **candidato a remoção, não remoção certa.** A info já está em
+  `kv_metadata.causaganha.item_id` (footer) e no path do item. **Mas:** o ganho de
+  storage é provavelmente ínfimo (a própria análise diz que comprime "para quase
+  nada" via RLE), e remover troca um **campo queryable** por algo que o consumidor
+  teria que reconstruir do footer/path — é mudança de schema/API, não limpeza
+  pura. **Pré-requisito:** auditar consumidores (frontend, scripts, queries `.qmd`,
+  debugging ad-hoc) e só remover se nenhum usar `p_item_ia` como coluna. Se
+  remover, documentar quais workflows perdem o acesso direto e como recuperam a
+  proveniência (ler `kv_metadata`).
 
-**Schema bump:** sim (major — remoção de coluna). Agrupar com o Problema 2 no
-mesmo `4.0.0` para não pagar dois re-uploads. **Esforço:** P. **Payoff:** Pequeno.
+**Schema bump:** sim (major — remoção de coluna), **se** a auditoria liberar.
+Agrupar com o Problema 2 no mesmo `4.0.0` para não pagar dois re-uploads.
+**Esforço:** P. **Payoff:** Pequeno (storage ínfimo; o valor real é só reduzir
+ruído de schema).
 
 ---
 
@@ -254,42 +299,65 @@ mesmo `4.0.0` para não pagar dois re-uploads. **Esforço:** P. **Payoff:** Pequ
 
 ## Ordem de execução
 
+Duas trilhas independentes. **A** é trabalho de storage validável (medir → aplicar
+→ provar). **B** é feature de produto especulativa, **gated** por um consumidor que
+ainda não existe — não fica no caminho crítico de storage.
+
+### Trilha A — storage validado (storage roadmap)
+
 | # | Tarefa | Bump? | Esforço | Payoff |
 |---|--------|-------|---------|--------|
-| 0 | Script de medição: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas, reportando `numero_processo` ao lado das chaves UUID | não | P | Habilita decisões 2/5 |
-| 1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` + **1b** `ROW_GROUP_SIZE`, com benchmark de bytes httpfs pré/pós. (**1c** lookup por `numero_processo`: escolher chave de ordenação / índice aditivo — bloom filter via `COPY` não funciona, ver §1c) | não | P | **Grande** (itens grandes) |
-| 2 | Parquet de serving denormalizado — **só junto** com o consumidor frontend (join de 4 tabelas hoje inexistente) | patch `3.1.0` | M+M | Grande **se** consumidor construído |
-| 3 | (se #0 confirmar) UUID `string→16-byte` + `numero_processo` → `DECIMAL(20,0)` (BLOB é no-op, HUGEINT vira DOUBLE; só ganha bytes, não pruning; round-trip + fallback de formato + decode no WASM) | major `4.0.0` | M | Grande |
-| 4 | Remover `p_item_ia` redundante | major `4.0.0` | P | Pequeno |
-| 5 | `confidence`→float32, revisar `hash` | major `4.0.0` | P | Pequeno |
+| A0 | Medição: baixar **vários** itens (tribunais/anos de tamanhos diferentes) do IA + `parquet_metadata()` por coluna, em **todas** as tabelas largas. Reportar bytes por coluna (UUIDs **e** `numero_processo`), cardinalidade, e **auditar o formato de `numero_processo`** (quantos não são 20 dígitos) | não | P | Habilita A2/A3/A4/A5 |
+| A1 | Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante. [verified que falta hoje] | não | P | **Grande** (itens grandes) |
+| A1b | Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) em arquivos reais: seletivas vs full scan, bytes httpfs + wall-clock; fixar o menor size sem degradar scan. [speculative até medir] | não | P-M | Grande se confirmado |
+| A2 | (se A0 confirmar UUID domina) UUID `string → 16-byte` no registry. **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`; **rollback:** se decode falhar, reler item na versão anterior (itens são imutáveis por versão) | major `4.0.0` | M | Grande |
+| A3 | (se A0 confirmar `numero_processo` domina) CNJ `string → DECIMAL(20,0)`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; `DECIMAL(20,0)` round-trips]. **Só ganha bytes, não pruning.** Exige round-trip test + **fallback reversível** (string companheira p/ não-conformes) + decode no WASM. **Rollback:** reler versão anterior | major `4.0.0` | M | Médio |
+| A4 | (se auditoria de consumidores liberar) remover `p_item_ia` | major `4.0.0` | P | Pequeno |
+| A5 | `confidence`→float32; revisar `hash` (binário?) | major `4.0.0` | P | Pequeno |
 
-**Caminho crítico:** 0 → 1 → 2 → (3+4+5 num único bump 4.0.0).
+A2-A5 agrupam-se num único bump `4.0.0` (cada major força re-upload de todos os
+itens; não pagar dois). **Caminho crítico de A:** A0 → A1 → A1b → (A2+A3+A4+A5).
 
-**Quick win imediato:** #1 — mas atenção: `ORDER BY` **sozinho é no-op** em itens
-de 1 row group; só vira "baixar 1 row group vs. o ano inteiro" quando casado com
-`ROW_GROUP_SIZE` (1b). Não dá para cobrir `data_disponibilizacao` *e*
-`numero_processo` na mesma ordenação, e bloom filter via `COPY` não funciona no
-DuckDB fixado (§1c) — escolher a chave dominante e, se preciso, um índice aditivo.
-Prove o ganho com o byte-count httpfs, não só com `parquet_metadata`.
+### Trilha B — serving/consumidor (product-gated, opcional)
+
+| # | Tarefa | Bump? | Depende de | Payoff |
+|---|--------|-------|-----------|--------|
+| B1 | **Decisão de produto:** construir o fluxo frontend "advogado → comunicações com outcome" (join de 4 tabelas, hoje inexistente) | — | priorização de produto | habilita B2 |
+| B2 | Parquet de serving denormalizado | patch `3.1.0` | **B1** | Grande **só** com B1 |
+
+B só vale com B1. **Sem B1, não fazer B2** — seria storage extra sem consumidor.
+Não é pré-requisito de nenhum item da Trilha A.
+
+**Quick win imediato:** A1 — mas atenção: `ORDER BY` **sozinho é no-op** [verified]
+em itens de 1 row group; só vira "baixar 1 row group vs. o ano inteiro" quando
+casado com `ROW_GROUP_SIZE` benchmarkado (A1b). Não dá para cobrir
+`data_disponibilizacao` *e* `numero_processo` na mesma ordenação; para CNJ,
+escolher a chave dominante e, se preciso, um índice aditivo (bloom filter não
+cobre essa coluna por cardinalidade, §1c). Provar o ganho com byte-count httpfs,
+não só com `parquet_metadata`.
 
 ## O que NÃO fazer
 
-- **Não migrar UUID para binário sem medir (#0).** Se `texto` domina os bytes, o
-  ganho é ruído e o custo (bump major + decode no WASM) não compensa. E não medir
-  só `comunicacoes`/só UUIDs — incluir `numero_processo` e várias tabelas, senão a
-  decisão fica enviesada.
-- **Não confiar em `ORDER BY` sozinho (#1).** Sem `ROW_GROUP_SIZE`, itens
-  pequenos ficam com 1 row group e a ordenação não poda nada. Validar com
-  byte-count httpfs, não só com `parquet_metadata`.
-- **Não contar com bloom filter de Parquet via `COPY` (#1c).** Verificado no
-  DuckDB 1.5.3 do repo: sintaxe por coluna é rejeitada e `WRITE_BLOOM_FILTER` é
-  no-op. Não planejar a poda de lookup pontual em cima disso.
-- **Não priorizar o serving (#2) como ganho de latência sem o consumidor.** O join
-  de 4 tabelas não existe no frontend hoje; sem construí-lo, o serving é só
-  storage extra.
+- **Não migrar UUID nem CNJ sem medir (A0).** São decisões **separadas** (formas de
+  dado diferentes). Se `texto` domina os bytes, o ganho é ruído e o custo (bump
+  major + decode no WASM) não compensa. Medir várias tabelas, UUIDs **e**
+  `numero_processo`, senão a decisão fica enviesada.
+- **Não confiar em `ORDER BY` sozinho (A1).** Sem `ROW_GROUP_SIZE`, itens
+  pequenos ficam com 1 row group e a ordenação não poda nada. **E não fixar 16K
+  como default** — benchmarkar (A1b) o custo de full scan, não só o pruning.
+  Validar com byte-count httpfs, não só com `parquet_metadata`.
+- **Não contar com bloom filter de Parquet para `numero_processo` (§1c).**
+  [benchmarked] O DuckDB escreve bloom filter, mas só p/ colunas dictionary-encoded
+  (baixa cardinalidade); CNJ é alta cardinalidade → não recebe. Não planejar poda
+  de lookup pontual em cima disso para esta coluna.
+- **Não fazer o serving (B2) sem o consumidor (B1).** O join de 4 tabelas não
+  existe no frontend hoje; sem construí-lo, o serving é só storage extra. É trilha
+  separada, não caminho crítico de storage.
 - **Não reshapear as 10 tabelas canônicas** para o serving. Adicionar Parquet
   aditivo; manter o modelo normalizado como fonte.
-- **Não fazer dois bumps majors separados.** Agrupar 3, 4 e 5 em `4.0.0` —
+- **Não remover `p_item_ia` sem auditar consumidores (A4).** Storage ganho é
+  ínfimo; é troca de campo queryable por reconstrução via footer/path.
+- **Não fazer dois bumps majors separados.** Agrupar A2-A5 em `4.0.0` —
   cada bump força re-upload de todos os itens no IA (sem update parcial).
 - **Não esquecer o code path legado.** `consolidate-parquet.yml` roda
   `scripts/pipeline/consolidate.py`; toda mudança de layout precisa estar lá
