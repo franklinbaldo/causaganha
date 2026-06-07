@@ -152,18 +152,6 @@ SCHEMA_V3 = SchemaVersion(
                 "p_item_ia": "string",
             },
         ),
-        "classificacoes": ibis.schema(
-            {
-                "texto_id": "string",
-                "metodo": "string",
-                "outcome": "string",
-                "decision_type": "string",
-                "winner_advogado_id": "string",
-                "loser_advogado_id": "string",
-                "confidence": "float64",
-                "classified_at": "timestamp",
-            },
-        ),
         "partes": ibis.schema(
             {
                 "id": "string",

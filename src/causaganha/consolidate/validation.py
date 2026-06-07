@@ -34,16 +34,6 @@ log = structlog.get_logger()
 
 KNOWN_TRIBUNALS: frozenset[str] = frozenset(t.upper() for t in TRIBUNAIS)
 
-VALID_OUTCOMES: frozenset[str] = frozenset(
-    {
-        "WIN",
-        "LOSS",
-        "PARTIAL",
-        "SETTLEMENT",
-        "UNKNOWN",
-    }
-)
-
 
 @dataclass
 class ValidationResult:
@@ -188,28 +178,6 @@ def _validate_invariants(
 
     elif table_name == "advogados":
         _check_not_null(con, path, "id", table_name, result)
-
-    elif table_name == "classificacoes":
-        _check_not_null(con, path, "outcome", table_name, result)
-        _check_not_null(con, path, "confidence", table_name, result)
-
-        invalid_outcomes = con.execute(
-            f"SELECT DISTINCT outcome FROM '{path}' "
-            f"WHERE outcome IS NOT NULL "
-            f"AND outcome NOT IN ({','.join(repr(o) for o in VALID_OUTCOMES)})"
-        ).fetchall()
-        if invalid_outcomes:
-            vals = [r[0] for r in invalid_outcomes]
-            result.errors.append(f"classificacoes: invalid outcomes {vals}")
-
-        bad_confidence = con.execute(
-            f"SELECT COUNT(*) FROM '{path}' "
-            f"WHERE confidence IS NOT NULL AND (confidence < 0 OR confidence > 1)"
-        ).fetchone()[0]
-        if bad_confidence > 0:
-            result.errors.append(
-                f"classificacoes: {bad_confidence} rows with confidence outside [0,1]"
-            )
 
     elif table_name in ("destinatarios", "comunicacao_advogados", "representacoes"):
         _check_not_null(con, path, "comunicacao_id", table_name, result)

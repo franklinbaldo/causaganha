@@ -82,7 +82,6 @@ KNOWN_TABLE_NAMES = {
     "advogado_nomes",
     "processos",
     "representacoes",
-    "classificacoes",
 }
 
 # Cache for tribunal stopped checks (tribunal -> date -> bool)

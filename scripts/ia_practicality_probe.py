@@ -33,7 +33,6 @@ MINIMAL_REQUIRED_COLUMNS: dict[str, list[str]] = {
     "advogados": ["id"],
     "destinatarios": ["comunicacao_id"],
     "processos": ["numero_processo", "tribunal"],
-    "classificacoes": ["outcome", "confidence"],
 }
 
 

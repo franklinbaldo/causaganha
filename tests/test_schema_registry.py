@@ -161,26 +161,6 @@ class TestValidation:
         result = validate_parquet(tmp_path / "nope.parquet", "comunicacoes")
         assert not result.passed
 
-    def test_classificacoes_validates_outcomes(self, tmp_path: Path) -> None:
-        con = duckdb.connect()
-        con.execute("""
-            CREATE TABLE classificacoes AS SELECT
-                'tid' AS texto_id,
-                'keyword_v1' AS metodo,
-                'INVALID_OUTCOME' AS outcome,
-                'sentença' AS decision_type,
-                NULL AS winner_advogado_id,
-                NULL AS loser_advogado_id,
-                0.5 AS confidence,
-                CURRENT_TIMESTAMP AS classified_at
-        """)
-        path = tmp_path / "classificacoes.parquet"
-        con.execute(f"COPY classificacoes TO '{path}' (FORMAT PARQUET)")
-        con.close()
-        result = validate_parquet(path, "classificacoes", check_kv_metadata=False)
-        assert not result.passed
-        assert any("invalid outcomes" in e for e in result.errors)
-
     def test_missing_kv_metadata_blocks(self, tmp_path: Path) -> None:
         con = duckdb.connect()
         con.execute("CREATE TABLE t AS SELECT 'uuid-1' AS id, 'TJRO' AS tribunal")
