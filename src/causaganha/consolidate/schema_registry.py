@@ -164,6 +164,13 @@ SCHEMA_V3 = SchemaVersion(
 
 CURRENT_VERSION = "3.0.0"
 
+# Incremented whenever the physical layout of exported Parquets changes
+# (ORDER BY keys, ROW_GROUP_SIZE, bloom-filter flags) without touching the
+# logical schema.  Items whose manifest carries an older revision are
+# reconsolidated automatically by `reconsolidate` without a schema bump.
+# Bump this string when rolling out new layout settings.
+CURRENT_LAYOUT_REVISION = "1"
+
 SCHEMA_REGISTRY: dict[str, SchemaVersion] = {
     "3.0.0": SCHEMA_V3,
 }

@@ -37,6 +37,23 @@ _CONSOLIDATION_META_OVERRIDES = {
     ),
 }
 
+# Physical ordering for each table's Parquet export (A1 layout optimization).
+# Ordering by the primary filter key enables DuckDB min/max row-group pruning for
+# HTTP Range reads.  data_disponibilizacao is the dominant dashboard filter key
+# (time-range queries); verify with A0w workload measurement before changing.
+# Tables absent from this map are exported in transform order (no ORDER BY).
+_TABLE_ORDER_KEYS: dict[str, str] = {
+    "comunicacoes": "data_disponibilizacao, p_mes",
+    "processos": "data, numero_processo",
+    "destinatarios": "comunicacao_id",
+    "comunicacao_advogados": "comunicacao_id",
+    "representacoes": "comunicacao_id",
+    "advogados": "uf_oab, numero_oab",
+    "advogado_nomes": "advogado_id, first_seen",
+    "textos": "id",
+    "partes": "id",
+}
+
 
 def export_table_sync(
     table_name: str,
@@ -58,8 +75,13 @@ def export_table_sync(
     copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
     if kv_clause:
         copy_opts = f"{copy_opts}, {kv_clause}"
+    order_keys = _TABLE_ORDER_KEYS.get(table_name)
+    if order_keys:
+        copy_source = f"(SELECT * FROM {table_name} ORDER BY {order_keys})"  # noqa: S608
+    else:
+        copy_source = table_name
     con.raw_sql(
-        f"COPY {table_name} TO '{output_path}' ({copy_opts})",
+        f"COPY {copy_source} TO '{output_path}' ({copy_opts})",
     )
     size_mb = output_path.stat().st_size / (1024 * 1024)
     return output_path, size_mb, count

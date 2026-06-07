@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 import duckdb
 import structlog
 
-from causaganha.consolidate.schema_registry import CURRENT_VERSION
+from causaganha.consolidate.schema_registry import CURRENT_LAYOUT_REVISION, CURRENT_VERSION
 
 
 if TYPE_CHECKING:
@@ -117,12 +117,13 @@ def dates_needing_consolidation_from_local_manifest(
     return dates_with_uploads(sync_manifest_path)
 
 
-def load_consolidated_versions(
+def _load_consolidated_items(
     manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
-) -> dict[str, str]:
-    """Read the consolidation manifest and return {date: schema_version}.
+) -> dict[str, dict[str, str]]:
+    """Read consolidation manifest, return {date: {schema_version, layout_revision}}.
 
     Returns an empty dict if the manifest doesn't exist or can't be parsed.
+    Missing fields default to empty string (old manifests lack layout_revision).
     """
     path = Path(manifest_path)
     if not path.exists():
@@ -130,7 +131,10 @@ def load_consolidated_versions(
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
         return {
-            item["date"]: item.get("schema_version", "")
+            item["date"]: {
+                "schema_version": item.get("schema_version", ""),
+                "layout_revision": item.get("layout_revision", ""),
+            }
             for item in data.get("items", [])
             if "date" in item
         }
@@ -139,19 +143,54 @@ def load_consolidated_versions(
         return {}
 
 
+def load_consolidated_versions(
+    manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
+) -> dict[str, str]:
+    """Return {date: schema_version} for all consolidated items."""
+    return {d: v["schema_version"] for d, v in _load_consolidated_items(manifest_path).items()}
+
+
 def dates_at_current_version(
     manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
 ) -> set[str]:
-    """Return dates already consolidated with CURRENT_VERSION."""
-    versions = load_consolidated_versions(manifest_path)
-    return {d for d, v in versions.items() if v == CURRENT_VERSION}
+    """Return dates at both CURRENT_VERSION and CURRENT_LAYOUT_REVISION.
+
+    Only these dates are truly up-to-date — stale layout_revision means the
+    physical Parquet layout needs refreshing even if the schema hasn't changed.
+    """
+    items = _load_consolidated_items(manifest_path)
+    return {
+        d
+        for d, info in items.items()
+        if info["schema_version"] == CURRENT_VERSION
+        and info["layout_revision"] == CURRENT_LAYOUT_REVISION
+    }
 
 
 def dates_needing_reconsolidation(
     manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
 ) -> list[str]:
-    """Return dates consolidated with an older schema version (newest first)."""
-    versions = load_consolidated_versions(manifest_path)
-    stale = [d for d, v in versions.items() if v and v != CURRENT_VERSION]
+    """Return dates with stale schema_version OR stale layout_revision, newest first.
+
+    Includes legacy items whose manifest has no layout_revision key (treated as "").
+    """
+    items = _load_consolidated_items(manifest_path)
+    stale = [
+        d
+        for d, info in items.items()
+        if (info["schema_version"] and info["schema_version"] != CURRENT_VERSION)
+        or info["layout_revision"] != CURRENT_LAYOUT_REVISION
+    ]
     stale.sort(reverse=True)
     return stale
+
+
+def all_consolidated_dates(
+    manifest_path: str = _DEFAULT_CONSOLIDATION_MANIFEST,
+) -> list[str]:
+    """Return all consolidated dates (stale or current), newest first.
+
+    Used by ``reconsolidate --force`` to re-process even up-to-date items.
+    """
+    items = _load_consolidated_items(manifest_path)
+    return sorted(items.keys(), reverse=True)

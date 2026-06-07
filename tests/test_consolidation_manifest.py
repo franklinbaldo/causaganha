@@ -133,3 +133,32 @@ class TestUpdateConsolidationManifest:
             manifest_path=manifest_path,
         )
         assert manifest_path.exists()
+
+    def test_layout_revision_is_recorded(self, tmp_path: Path) -> None:
+        from causaganha.consolidate.schema_registry import CURRENT_LAYOUT_REVISION
+
+        manifest_path = tmp_path / "manifest.json"
+        stats = {"comunicacoes": TableStats(rows=10, size_bytes=256, sha256="xyz")}
+        update_consolidation_manifest(
+            item_id="djen-tjsp-2026",
+            date_str="2026-06-01",
+            schema_version=CURRENT_VERSION,
+            layout_revision=CURRENT_LAYOUT_REVISION,
+            table_stats=stats,
+            manifest_path=manifest_path,
+        )
+        data = json.loads(manifest_path.read_text())
+        assert data["items"][0]["layout_revision"] == CURRENT_LAYOUT_REVISION
+
+    def test_layout_revision_defaults_to_empty_string(self, tmp_path: Path) -> None:
+        manifest_path = tmp_path / "manifest.json"
+        stats = {"comunicacoes": TableStats(rows=10, size_bytes=256, sha256="xyz")}
+        update_consolidation_manifest(
+            item_id="djen-tjsp-2026",
+            date_str="2026-06-01",
+            schema_version=CURRENT_VERSION,
+            table_stats=stats,
+            manifest_path=manifest_path,
+        )
+        data = json.loads(manifest_path.read_text())
+        assert data["items"][0]["layout_revision"] == ""
