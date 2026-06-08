@@ -45,15 +45,19 @@ logger = structlog.get_logger()
 #
 # Two anchor schemes:
 #   Single-anchor (6): short cue, region extends to next anchor or EOD.
-#   Start/end pairs (8x2=16): _inicio/_fim bracket discrete regions.
+#   Start/end pairs (10x2=20): _inicio/_fim bracket discrete regions.
+#
+# The paired set includes acórdão-specific regions (voto, acordao_decisorio)
+# so second-instance decisions are first-class, not forced through the
+# sentença-shaped categories.
 #
 # ref_normativa is a single-anchor category but is handled by regex
 # pre-pass at inference time. It is kept in SINGLE_ANCHOR_CATEGORIES
 # for region reconstruction but excluded from the OPF training label
 # space (SPAN_CLASS_NAMES_V7).
 #
-# Training label space: O + 5 trained single + 16 paired = 22 entries.
-# Full ontology: O + 6 single + 16 paired = 23 entries.
+# Training label space: O + 5 trained single + 20 paired = 26 entries.
+# Full ontology: O + 6 single + 20 paired = 27 entries.
 # ---------------------------------------------------------------------------
 
 # -- Single-anchor categories (tiling regions) --
@@ -67,6 +71,10 @@ SINGLE_ANCHOR_CATEGORIES: list[str] = [
 ]
 
 # -- Start/end pair categories (discrete regions) --
+# Shared (sentença + acórdão): cabecalho, ementa, relatorio, capitulo_merito,
+# preliminar, honorarios, custas, encerramento.
+# Acórdão-specific: voto (each judge's vote) and acordao_decisorio (the
+# collegiate operative result, "ACORDAM os Desembargadores ...").
 _PAIRED_REGION_BASES: list[str] = [
     "cabecalho",
     "ementa",
@@ -76,6 +84,8 @@ _PAIRED_REGION_BASES: list[str] = [
     "honorarios",
     "custas",
     "encerramento",
+    "voto",
+    "acordao_decisorio",
 ]
 
 PAIRED_CATEGORIES: list[str] = []
