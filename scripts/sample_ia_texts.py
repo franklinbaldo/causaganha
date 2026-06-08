@@ -1,9 +1,9 @@
 """Sample judicial decision texts from Internet Archive for segmenter annotation.
 
-Downloads ZIPs from IA items (djen-{tribunal}-{year} format), extracts
-texts from JSON files inside, and samples N decisions per tribunal.
-Outputs one JSONL per tribunal with raw text + metadata, ready for
-annotation.
+Fetches individual JSON files directly from inside IA ZIP items (no full
+ZIP download). Each inner JSON contains ~1000 intimações. Records are
+filtered by document type and scored by rare-class cue density to
+prioritize docs that exercise the v7 ontology's underrepresented categories.
 
 Usage:
     uv run python scripts/sample_ia_texts.py --tribunal TJRO --n 20 \
@@ -14,19 +14,16 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import io
 import json
 import random
 import re
 import sys
 import time
-import zipfile
 from pathlib import Path
 from urllib.error import URLError
 from urllib.request import urlopen
 
 import structlog
-
 
 logger = structlog.get_logger()
 
@@ -116,50 +113,46 @@ def list_zips(item_id: str) -> list[str]:
     return [f["name"] for f in files if f["name"].endswith(".zip")]
 
 
-def download_zip(item_id: str, zip_name: str) -> bytes:
-    """Download a single ZIP from IA."""
-    logger.info("downloading_zip", item=item_id, zip=zip_name)
-    url = f"https://archive.org/download/{item_id}/{zip_name}"
+def list_inner_jsons(item_id: str, zip_name: str) -> list[str]:
+    """List JSON files inside a ZIP via IA's directory listing."""
+    url = f"https://archive.org/download/{item_id}/{zip_name}/"
+    with urlopen(url, timeout=30) as r:
+        html = r.read().decode("utf-8", errors="replace")
+    matches = re.findall(r'href="([^"]*\.json)"', html)
+    return [m.split("/")[-1] for m in matches]
+
+
+def fetch_json_records(item_id: str, zip_name: str, json_name: str) -> list[dict]:
+    """Fetch a single JSON file from inside a ZIP — no ZIP download."""
+    url = f"https://archive.org/download/{item_id}/{zip_name}/{json_name}"
+    logger.info("fetching_json", item=item_id, zip=zip_name, json=json_name)
     with urlopen(url, timeout=120) as r:
-        return r.read()
+        data = json.loads(r.read())
+    records = []
+    items = []
+    if isinstance(data, dict):
+        items = data.get("items", [data])
+    elif isinstance(data, list):
+        items = data
 
-
-def extract_texts_from_zip(zip_bytes: bytes) -> list[dict]:
-    """Extract text records from a DJEN ZIP (JSON files inside)."""
-    records: list[dict] = []
-    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
-        for name in zf.namelist():
-            if not name.endswith(".json"):
-                continue
-            try:
-                data = json.loads(zf.read(name))
-            except (json.JSONDecodeError, ValueError):
-                continue
-
-            items: list = []
-            if isinstance(data, dict):
-                items = data.get("items", [data])
-            elif isinstance(data, list):
-                items = data
-
-            for rec in items:
-                if not isinstance(rec, dict):
-                    continue
-                text = (rec.get("texto") or "").strip()
-                if len(text) < 200:
-                    continue
-                records.append(
-                    {
-                        "text": text,
-                        "info": {
-                            "id": str(rec.get("id", "")),
-                            "tribunal": str(rec.get("tribunal", "")),
-                            "tipoDocumento": (rec.get("tipoDocumento") or "").strip(),
-                            "nomeOrgao": (rec.get("nomeOrgao") or "").strip(),
-                            "nomeClasse": (rec.get("nomeClasse") or "").strip(),
-                        },
-                    }
-                )
+    for rec in items:
+        if not isinstance(rec, dict):
+            continue
+        text = (rec.get("texto") or "").strip()
+        if len(text) < 200:
+            continue
+        records.append(
+            {
+                "text": text,
+                "info": {
+                    "id": str(rec.get("id", "")),
+                    "tribunal": str(rec.get("tribunal", "")),
+                    "tipoDocumento": (rec.get("tipoDocumento") or "").strip(),
+                    "nomeOrgao": (rec.get("nomeOrgao") or "").strip(),
+                    "nomeClasse": (rec.get("nomeClasse") or "").strip(),
+                },
+            }
+        )
     return records
 
 
@@ -219,7 +212,12 @@ def sample_tribunal(
     for item_id in items:
         if zips_processed >= max_zips:
             break
-        zip_names = list_zips(item_id)
+        try:
+            zip_names = list_zips(item_id)
+        except (URLError, TimeoutError, OSError, json.JSONDecodeError, ValueError) as e:
+            logger.warning("list_zips_failed", item=item_id, error=str(e))
+            continue
+
         trib_zips = [z for z in zip_names if tribunal.upper() in z.upper()]
         if not trib_zips:
             trib_zips = zip_names[:3]
@@ -229,29 +227,48 @@ def sample_tribunal(
             if zips_processed >= max_zips:
                 break
             try:
-                zip_bytes = download_zip(item_id, zip_name)
-                texts = extract_texts_from_zip(zip_bytes)
-                for rec in texts:
-                    filtered_rec = filter_and_score_record(rec, mode)
-                    if filtered_rec is None:
-                        continue
-                    h = hashlib.sha256(filtered_rec["text"].encode()).hexdigest()
-                    if h not in seen_hashes:
-                        seen_hashes.add(h)
-                        filtered_rec["info"]["source_item"] = item_id
-                        filtered_rec["info"]["source_zip"] = zip_name
-                        filtered_rec["info"]["sha256"] = h
-                        all_texts.append(filtered_rec)
-                zips_processed += 1
-                logger.info(
-                    "zip_extracted",
-                    item=item_id,
-                    zip=zip_name,
-                    texts=len(texts),
-                    total=len(all_texts),
-                )
-            except (URLError, TimeoutError, OSError, zipfile.BadZipFile, ValueError) as e:
-                logger.warning("zip_download_failed", item=item_id, zip=zip_name, error=str(e))
+                inner_jsons = list_inner_jsons(item_id, zip_name)
+                if not inner_jsons:
+                    continue
+                rng.shuffle(inner_jsons)
+                
+                # Try up to 5 inner JSON files from the same ZIP until we get matches
+                for json_name in inner_jsons[:5]:
+                    try:
+                        texts = fetch_json_records(item_id, zip_name, json_name)
+                        zip_texts = []
+                        for rec in texts:
+                            filtered_rec = filter_and_score_record(rec, mode)
+                            if filtered_rec is None:
+                                continue
+                            h = hashlib.sha256(filtered_rec["text"].encode()).hexdigest()
+                            if h not in seen_hashes:
+                                seen_hashes.add(h)
+                                filtered_rec["info"]["source_item"] = item_id
+                                filtered_rec["info"]["source_zip"] = zip_name
+                                filtered_rec["info"]["source_json"] = json_name
+                                filtered_rec["info"]["sha256"] = h
+                                zip_texts.append(filtered_rec)
+                        
+                        if zip_texts:
+                            all_texts.extend(zip_texts)
+                            zips_processed += 1
+                            logger.info(
+                                "zip_extracted",
+                                item=item_id,
+                                zip=zip_name,
+                                json=json_name,
+                                texts=len(texts),
+                                matched=len(zip_texts),
+                                total=len(all_texts),
+                            )
+                            break
+                        else:
+                            logger.info("json_no_matches", item=item_id, zip=zip_name, json=json_name)
+                    except (URLError, TimeoutError, OSError, ValueError) as e:
+                        logger.warning("json_fetch_failed", item=item_id, zip=zip_name, json=json_name, error=str(e))
+            except (URLError, TimeoutError, OSError, ValueError) as e:
+                logger.warning("zip_fetch_failed", item=item_id, zip=zip_name, error=str(e))
 
     if not all_texts:
         return []
