@@ -1,5 +1,7 @@
 {
   "tribunal": "TJRO",
-  "n_sampled": 20,
-  "seed": 42
+  "n_sampled": 5,
+  "n_requested": 5,
+  "seed": 42,
+  "mode": "sentenca"
 }

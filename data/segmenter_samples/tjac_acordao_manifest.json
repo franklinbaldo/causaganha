@@ -1,5 +1,7 @@
 {
   "tribunal": "TJAC",
   "n_sampled": 1,
-  "seed": 42
+  "n_requested": 20,
+  "seed": 42,
+  "mode": "acordao"
 }

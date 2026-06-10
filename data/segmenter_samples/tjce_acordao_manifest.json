@@ -1,5 +1,7 @@
 {
   "tribunal": "TJCE",
-  "n_sampled": 3,
-  "seed": 42
+  "n_sampled": 10,
+  "n_requested": 20,
+  "seed": 42,
+  "mode": "acordao"
 }

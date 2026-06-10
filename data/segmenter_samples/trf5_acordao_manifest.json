@@ -1,5 +1,7 @@
 {
   "tribunal": "TRF5",
-  "n_sampled": 8,
-  "seed": 42
+  "n_sampled": 2,
+  "n_requested": 20,
+  "seed": 42,
+  "mode": "acordao"
 }

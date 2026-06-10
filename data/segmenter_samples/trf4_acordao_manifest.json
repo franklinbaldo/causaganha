@@ -1,6 +1,6 @@
 {
-  "tribunal": "TJMS",
-  "n_sampled": 20,
+  "tribunal": "TRF4",
+  "n_sampled": 12,
   "n_requested": 20,
   "seed": 42,
   "mode": "acordao"

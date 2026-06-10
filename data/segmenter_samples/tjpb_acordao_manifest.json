@@ -1,5 +1,7 @@
 {
   "tribunal": "TJPB",
-  "n_sampled": 3,
-  "seed": 42
+  "n_sampled": 7,
+  "n_requested": 20,
+  "seed": 42,
+  "mode": "acordao"
 }
