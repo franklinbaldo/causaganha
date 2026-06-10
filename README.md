@@ -164,7 +164,7 @@ directly in Google Colab:
 
 | Notebook | Open in Colab (`.ipynb`) | Open in marimo (`.py`) |
 |---|---|---|
-| **Decision segmenter** — fine-tune the 22-class judicial token classifier | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.py) |
+| **Decision segmenter v7** — fine-tune the 26-class anchor-span token classifier (OPF, BIOES) | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_segmenter_colab.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/train_decision_segmenter.py) |
 | **ML document classifier** — train the outcome classifier on embeddings | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/train_ml_document_classifier.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/train_ml_document_classifier.py) |
 | **Cost estimate** — estimate embedding token costs from the corpus | [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/franklinbaldo/causaganha/blob/main/notebooks/cost_estimate.ipynb) | [open](https://marimo.app/github.com/franklinbaldo/causaganha/blob/main/notebooks/cost_estimate.py) |
 

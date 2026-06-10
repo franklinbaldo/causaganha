@@ -165,6 +165,19 @@ LABEL_SPACE_V5 = {
 GOLD_DIR = Path("data/segmenter_splits")
 
 # ---------------------------------------------------------------------------
+# Readiness gates — enforced in promote mode
+# ---------------------------------------------------------------------------
+
+# Minimum span support per non-O category required to consider splits
+# production-ready. Enforced by promote_gold() unless --skip-gates is passed.
+# The current 20-doc TJRO seed intentionally FAILS these gates; that failure
+# is the signal to scale the gold before scheduling a real training run.
+_GATE_MIN_TRAIN_SUPPORT = 10  # spans per category in train
+_GATE_MIN_EVAL_SUPPORT = 3  # spans per category in val AND test
+_GATE_MIN_TRIBUNALS = 3  # distinct tribunals in manifest["tribunals"]
+_GATE_MIN_TOTAL_DOCS = 150  # sum of train + val + test docs
+
+# ---------------------------------------------------------------------------
 # Anchor-span patterns (used in bootstrap mode only)
 # ---------------------------------------------------------------------------
 
@@ -337,6 +350,81 @@ def migrate_spans_v6_to_v7(
 
 
 # ---------------------------------------------------------------------------
+# Readiness gate checker
+# ---------------------------------------------------------------------------
+
+
+def _check_readiness_gates(
+    split_counts: dict[str, int],
+    per_split_cats: dict[str, dict[str, int]],
+    allowed_cats: list[str],
+    manifest: dict,
+) -> list[str]:
+    """Return a list of gate-failure messages (empty = all gates pass)."""
+    failures: list[str] = []
+    non_o = [c for c in allowed_cats if c != "O"]
+
+    # G1 — every non-O category has ≥1 span in EACH split
+    for split in ("train", "val", "test"):
+        counts = per_split_cats.get(split, {})
+        missing = [c for c in non_o if counts.get(c, 0) == 0]
+        if missing:
+            failures.append(
+                f"G1 [{split}]: {len(missing)} categories have zero examples — "
+                f"trim or populate before training: {missing}"
+            )
+
+    # G2 — minimum span support per category
+    train_counts = per_split_cats.get("train", {})
+    weak_train = [
+        f"{c}={train_counts.get(c, 0)}"
+        for c in non_o
+        if train_counts.get(c, 0) < _GATE_MIN_TRAIN_SUPPORT
+    ]
+    if weak_train:
+        failures.append(
+            f"G2 [train]: {len(weak_train)} categories below {_GATE_MIN_TRAIN_SUPPORT} "
+            f"spans (min for reliable fine-tuning): {weak_train}"
+        )
+    for split in ("val", "test"):
+        counts = per_split_cats.get(split, {})
+        weak = [
+            f"{c}={counts.get(c, 0)}" for c in non_o if counts.get(c, 0) < _GATE_MIN_EVAL_SUPPORT
+        ]
+        if weak:
+            failures.append(
+                f"G2 [{split}]: {len(weak)} categories below {_GATE_MIN_EVAL_SUPPORT} "
+                f"spans (min for eval reliability): {weak}"
+            )
+
+    # G4 — tribunal diversity
+    tribunals = manifest.get("tribunals", {})
+    if not tribunals:
+        failures.append(
+            "G4 [tribunals]: manifest has no 'tribunals' key — "
+            "add tribunal metadata during annotation"
+        )
+    elif len(tribunals) < _GATE_MIN_TRIBUNALS:
+        failures.append(
+            f"G4 [tribunals]: only {len(tribunals)} tribunal(s) ({sorted(tribunals)}) "
+            f"— need ≥{_GATE_MIN_TRIBUNALS} for geographic generalization"
+        )
+
+    # G5 — total document volume
+    total_docs = sum(split_counts.values())
+    if total_docs < _GATE_MIN_TOTAL_DOCS:
+        failures.append(
+            f"G5 [volume]: {total_docs} total docs "
+            f"(train={split_counts.get('train', 0)}, "
+            f"val={split_counts.get('val', 0)}, "
+            f"test={split_counts.get('test', 0)}) — "
+            f"need ≥{_GATE_MIN_TOTAL_DOCS} for training"
+        )
+
+    return failures
+
+
+# ---------------------------------------------------------------------------
 # Validation helper
 # ---------------------------------------------------------------------------
 
@@ -372,7 +460,7 @@ def _get_source_commit() -> str:
         return "unknown"
 
 
-def promote_gold(gold_dir: Path, output_dir: Path) -> int:
+def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) -> int:
     """Read gold splits from git, validate, write manifest, publish."""
     required = ["train.jsonl", "val.jsonl", "test.jsonl", "label_space.json"]
     missing = [f for f in required if not (gold_dir / f).exists()]
@@ -405,12 +493,14 @@ def promote_gold(gold_dir: Path, output_dir: Path) -> int:
     if not all_valid:
         return 1
 
-    # Count records and categories
-    split_counts = {}
+    # Count records and categories (aggregate + per-split for gates)
+    split_counts: dict[str, int] = {}
+    per_split_cats: dict[str, dict[str, int]] = {}
     cat_counts: dict[str, int] = {}
     for split in ("train", "val", "test"):
         jsonl = gold_dir / f"{split}.jsonl"
         count = 0
+        split_cat: dict[str, int] = {}
         with jsonl.open(encoding="utf-8") as f:
             for raw in f:
                 stripped = raw.strip()
@@ -421,7 +511,9 @@ def promote_gold(gold_dir: Path, output_dir: Path) -> int:
                 for sp in rec.get("label", []):
                     cat = sp.get("category", "")
                     cat_counts[cat] = cat_counts.get(cat, 0) + 1
+                    split_cat[cat] = split_cat.get(cat, 0) + 1
         split_counts[split] = count
+        per_split_cats[split] = split_cat
 
     # Read existing manifest or create new
     existing_manifest_path = gold_dir / "manifest.json"
@@ -439,6 +531,26 @@ def promote_gold(gold_dir: Path, output_dir: Path) -> int:
             "per_class": cat_counts,
             "test_verified_by": "same_as_train_labeler",
         }
+
+    # Readiness gates — fail loud so CI turns red until gold is production-ready.
+    # The 20-doc TJRO seed intentionally fails G1/G2/G4/G5; pass --skip-gates
+    # ONLY for development / inspection runs, never for CI.
+    gate_failures = _check_readiness_gates(split_counts, per_split_cats, names, manifest)
+    if gate_failures:
+        print(
+            "\n⚠️  GOLD NOT READY FOR TRAINING — readiness gates failed:\n",
+            file=sys.stderr,
+        )
+        for msg in gate_failures:
+            print(f"  ✗ {msg}", file=sys.stderr)
+        print(
+            "\nSee docs/rfc/0001-opf-segmenter-v7-finetuning-diagnostico.md for the "
+            "scale plan. Pass --skip-gates ONLY for development runs.",
+            file=sys.stderr,
+        )
+        if not skip_gates:
+            return 1
+        print("\n⚠️  --skip-gates active: proceeding despite failures (dev only)\n", file=sys.stderr)
 
     # Publish to output dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -675,6 +787,14 @@ def main() -> int:
         help="Parquet path (bootstrap mode only)",
     )
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument(
+        "--skip-gates",
+        action="store_true",
+        help=(
+            "Skip readiness gates (G1-G5) and promote anyway. "
+            "Use ONLY for development/inspection; never pass this in CI."
+        ),
+    )
     args = parser.parse_args()
 
     if args.bootstrap:
@@ -683,7 +803,7 @@ def main() -> int:
             Path(args.output_dir),
             args.seed,
         )
-    return promote_gold(Path(args.gold_dir), Path(args.output_dir))
+    return promote_gold(Path(args.gold_dir), Path(args.output_dir), skip_gates=args.skip_gates)
 
 
 if __name__ == "__main__":
