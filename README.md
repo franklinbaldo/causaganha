@@ -174,6 +174,13 @@ GitHub); the **Colab** links open the exported `.ipynb`. To edit a notebook
 locally run `uv run marimo edit notebooks/<name>.py`, then regenerate its
 `.ipynb` with `uv run python scripts/check_notebooks_synced.py --fix`.
 
+The segmenter can also be trained headlessly from a terminal via the
+[Google Colab CLI](https://github.com/googlecolab/google-colab-cli) —
+`scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH]` provisions a GPU runtime,
+uploads `data/segmenter_splits/`, runs `opf train` + `opf eval`, and downloads
+the checkpoint. One-time setup: `uv tool install google-colab-cli && colab new`
+(OAuth browser flow).
+
 ## Repository structure
 
 ```text
