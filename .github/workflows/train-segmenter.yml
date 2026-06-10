@@ -95,6 +95,11 @@ jobs:
             echo "prepared=false" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Verify label-space contract (O-first, 26 entries)
+        run: |
+          set -euo pipefail
+          uv run python scripts/test_opf_label_space.py
+
       - name: Validate all splits
         if: steps.prep.outputs.prepared == 'true'
         run: |
