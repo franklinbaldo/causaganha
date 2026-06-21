@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-import pytest
-
 from causaganha.consolidate.candidates import (
     _load_consolidated_items,
     all_consolidated_dates,

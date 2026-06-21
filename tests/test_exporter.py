@@ -29,12 +29,11 @@ class TestTableOrderKeys:
                 )
 
     def test_export_produces_sorted_parquet(self, tmp_path) -> None:
-        """comunicacoes rows are written in data_disponibilizacao order."""
+        """Comunicacoes rows are written in data_disponibilizacao order."""
         import ibis
 
         from causaganha.consolidate.exporter import export_table_sync
-        from causaganha.consolidate.schema_registry import CURRENT_VERSION
-        from causaganha.consolidate.transforms import TABLE_SCHEMAS, init_tables
+        from causaganha.consolidate.transforms import init_tables
 
         con = ibis.duckdb.connect(":memory:")
         init_tables(con)
