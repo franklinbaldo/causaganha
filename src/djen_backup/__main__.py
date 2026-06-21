@@ -382,8 +382,8 @@ def main(
     deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
     max_items: int = typer.Option(0, help="Stop after N successful uploads."),
     workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
+    fail_fast: bool = typer.Option(True, help="Stop on first error."),  # noqa: FBT001, FBT003
+    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),  # noqa: FBT001, FBT003
 ) -> None:
     """Main backup and sync command (check + download + upload)."""
     if ctx.invoked_subcommand:
@@ -414,8 +414,8 @@ def check(
     tribunal: str | None = typer.Option(None, help="Specific tribunal code."),
     deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
     workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
+    fail_fast: bool = typer.Option(True, help="Stop on first error."),  # noqa: FBT001, FBT003
+    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),  # noqa: FBT001, FBT003
 ) -> None:
     """Check DJEN availability without downloading/uploading."""
     _run_pipeline(
@@ -443,8 +443,8 @@ def upload(
     deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
     max_items: int = typer.Option(0, help="Stop after N successful uploads."),
     workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),  # noqa: FBT001, FBT003
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),  # noqa: FBT001, FBT003
+    fail_fast: bool = typer.Option(True, help="Stop on first error."),  # noqa: FBT001, FBT003  # noqa: FBT001, FBT003
+    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),  # noqa: FBT001, FBT003  # noqa: FBT001, FBT003
 ) -> None:
     """Upload already-discovered available entries (backlog drain)."""
     _run_pipeline(
