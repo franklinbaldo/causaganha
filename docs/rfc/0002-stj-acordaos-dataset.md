@@ -47,7 +47,7 @@ O dataset é liberado sob **CC-BY**, sem restrições de uso.
 | Seção | Primeira Seção |
 | Formato | JSON (um arquivo por extração mensal) |
 | Nomenclatura | `YYYYMMDD.json` (data de extração) |
-| Histórico ZIP | `20220508.zip` (acervo completo até mai/2022) |
+| Histórico ZIP | `20220507.zip` (acervo completo até mai/2022) |
 | Dicionário | `dicionario-espelhodoacordao.csv` |
 | Licença | Creative Commons Attribution (CC-BY) |
 | Última atualização | jun/2026 |
@@ -116,7 +116,8 @@ Arquivo separado do `sync-manifest.csv` existente: `stj-manifest.csv`.
 
 | Coluna | Descrição |
 |---|---|
-| `arquivo` | Nome do arquivo JSON (ex.: `20260531.json`) |
+| `arquivo` | Nome do recurso (ex.: `20220507.zip`, `20260531.json`) |
+| `tipo` | `"zip"` \| `"json"` |
 | `data_extracao` | Data de extração (do nome do arquivo) |
 | `ia_status` | `""` \| `"uploaded"` |
 | `n_registros` | Quantidade de registros no arquivo |
@@ -130,18 +131,27 @@ o volume menor).
 
 ```
 1. Descoberta
-   └── GET portal/dataset → lista de recursos (nome + URL de download)
+   └── GET portal/dataset → lista de recursos (nome, tipo, URL de download)
+       Classifica cada recurso: "zip" (histórico) ou "json" (atualização mensal)
 
 2. Download incremental
-   └── Para cada arquivo ausente no manifest (ou com ia_status vazio):
-       └── GET URL → salva JSON local
+   ├── Recurso ZIP (20220507.zip — acervo completo até mai/2022):
+   │   ├── GET URL → salva .zip local
+   │   ├── zipfile.extractall() → extrai JSON(s) internos
+   │   └── Registra no manifest com tipo="zip"
+   └── Recursos JSON mensais:
+       └── GET URL → salva .json local
+           Registra no manifest com tipo="json"
 
 3. Deduplicação
-   └── DuckDB: COPY JSON → tabela, SELECT DISTINCT ON (id) ORDER BY data_extracao DESC
+   └── DuckDB: COPY JSON (todos os JSONs extraídos) → tabela
+   └── SELECT DISTINCT ON (id) ORDER BY data_extracao DESC
    └── Gera `acordaos-dedup-YYYYMMDD.parquet` (snapshot consolidado)
+       O ZIP histórico é processado PRIMEIRO — garante que o acervo pré-2022
+       está presente antes das atualizações mensais sobrescreverem versões.
 
 4. Upload para Internet Archive
-   └── Envia arquivos JSON originais + parquet consolidado
+   └── Envia .zip original + JSONs mensais + parquet consolidado
    └── Marca ia_status = "uploaded" no manifest
 
 5. Render queries
