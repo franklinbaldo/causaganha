@@ -101,7 +101,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    import ibis  # noqa: PLC0415
+    import ibis
 
     t = ibis.read_parquet(args.labeled)
     df = t.execute()

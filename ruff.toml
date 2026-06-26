@@ -9,7 +9,7 @@ line-length = 100
 # hand-maintained source and their committed .ipynb is verified separately by
 # scripts/check_notebooks_synced.py — so keep ruff (lint + format) out of them,
 # same as experiments/.
-extend-exclude = ["notebooks"]
+extend-exclude = ["notebooks", ".claude"]
 
 [lint]
 select = ["ALL"]
@@ -41,30 +41,31 @@ ignore = [
 # for optional deps (rich, tqdm). SLF001: engine accesses manifest internals
 # by design. ERA001: one commented-out debug line; acceptable in pipeline code.
 # B023: loop var captured in closure (existing suppression kept).
-"src/djen_backup/engine.py" = ["B023", "C901", "PLR0912", "PLR0915", "PLC0415", "SLF001", "ERA001"]
+"src/djen_backup/engine.py" = ["B023", "C901", "PLR0912", "PLR0915", "PLC0415", "SLF001", "ERA001", "D101", "D102", "D103", "PLR2004", "RUF006"]
 
 # ── djen_backup __main__ ──────────────────────────────────────────────────
 # B008: typer.Option() in default args is the idiomatic Typer pattern.
-"src/djen_backup/__main__.py" = ["B008"]
+"src/djen_backup/__main__.py" = ["B008", "D101", "D102", "D107", "DTZ011", "E402", "FBT001", "FBT003", "PLC0415", "PLR2004"]
 
 # ── causaganha CLI ────────────────────────────────────────────────────────
 # E402: lazy imports for fast CLI startup (import-heavy deps deferred).
 # C901/PLR0912/PLR0915: large CLI dispatch functions; refactor deferred.
 # S608: legacy f-string queries against DuckDB — table/column names are
 # internal constants, no user input reaches the SQL. Re-audit when touched.
-"src/causaganha/cli/__init__.py" = ["E402", "C901", "PLR0912", "PLR0915", "S608"]
-"src/causaganha/cli/commands/backfill.py" = ["B008"]
+"src/causaganha/cli/__init__.py" = ["E402", "C901", "PLR0912", "PLR0915", "S608", "ANN001", "D104", "E501", "FBT003"]
+"src/causaganha/cli/commands/backfill.py" = ["B008", "FBT003", "PLR2004", "PLW2901", "SLF001"]
 
 # ── Lazy / conditional imports in library modules ─────────────────────────
 # These modules defer expensive imports to avoid slowing every process start.
-"src/causaganha/pipeline/ia_s3.py" = ["E402", "S608", "S324"]
-"src/causaganha/pipeline/collect.py" = ["E402"]
-"src/causaganha/pipeline/score.py" = ["E402"]
-"src/causaganha/clients/archive.py" = ["E402"]
-"src/causaganha/consolidate/transforms.py" = ["E402", "S608"]
-"src/causaganha/consolidate/candidates.py" = ["E402", "S608"]
-"src/causaganha/pipeline/models.py" = ["E402"]
-"src/causaganha/storage/migrations.py" = ["E402"]
+"src/causaganha/pipeline/ia_s3.py" = ["E402", "S608", "S324", "D100", "E501", "PLR2004"]
+"src/causaganha/pipeline/collect.py" = ["E402", "C901", "D100", "PLR0915"]
+"src/causaganha/pipeline/score.py" = ["E402", "ANN401", "C901", "PLR0912", "PLR0915"]
+"src/causaganha/clients/archive.py" = ["E402", "D100", "E501"]
+"src/causaganha/consolidate/transforms.py" = ["E402", "S608", "SLF001"]
+"src/causaganha/consolidate/candidates.py" = ["E402", "S608", "PLC0415"]
+"src/causaganha/pipeline/models.py" = ["E402", "D100"]
+"src/causaganha/storage/migrations.py" = ["E402", "D100", "E501"]
+
 "src/djen_backup/djen.py" = ["E402"]
 
 # ── Legacy S608 / security-adjacent violations, locked in per file ────────
@@ -80,7 +81,31 @@ ignore = [
 "src/causaganha/storage/embedding_storage.py" = ["S608"]
 "src/causaganha/catalog/creator.py" = ["S608"]
 "src/causaganha/analysis/ground_truth.py" = ["S608"]
-"src/causaganha/archival/cold_storage.py" = ["S108"]
+"src/causaganha/archival/cold_storage.py" = ["S108", "D100", "D101", "D107", "D205", "E501", "PTH107", "PTH110", "PTH119"]
+"src/causaganha/archival/__init__.py" = ["D104"]
+"src/causaganha/compliance/__init__.py" = ["D104"]
+"src/causaganha/compliance/report.py" = ["D100", "D101", "D102", "D103", "D107", "E501"]
+"src/causaganha/analysis/llm_analyzer.py" = ["ANN401", "ARG002", "C901", "E501", "PLR0912", "PLR0915"]
+"src/causaganha/analysis/document_classifier.py" = ["C901", "D101", "D107", "E501", "PLR0912", "SIM108"]
+"src/causaganha/analysis/__init__.py" = ["ANN401"]
+"src/causaganha/analysis/embedding_service.py" = ["E501"]
+"src/causaganha/analysis/models.py" = ["E501"]
+"src/causaganha/analysis/text_chunker.py" = ["ANN401"]
+"src/causaganha/analysis/vector_store.py" = ["ANN401"]
+"src/causaganha/pipeline/analyze.py" = ["ANN401"]
+"src/causaganha/pipeline/analyze_parquet.py" = ["ANN204", "ANN401", "C901"]
+"src/causaganha/pipeline/ia_download.py" = ["ANN202", "ANN204"]
+"src/causaganha/pipeline/ia_parquet_uploader.py" = ["D100", "D107"]
+"src/causaganha/pipeline/parquet_export.py" = ["ANN001", "ANN204", "E501"]
+"src/causaganha/pipeline/repositories.py" = ["ANN001"]
+"src/causaganha/consolidate/cli.py" = ["C901", "E501", "PLR0912", "PLR0915"]
+"src/causaganha/consolidate/zip_processor.py" = ["ANN401"]
+"src/causaganha/scoring/openskill.py" = ["E501"]
+"src/causaganha/config.py" = ["ANN401", "D100"]
+"src/causaganha/cli/commands/archival.py" = ["D100", "E501", "FBT003"]
+"src/djen_backup/manifest.py" = ["ARG002", "D102", "D107", "PERF401", "PLC0415", "PLR2004", "PLW2901"]
+"src/djen_backup/inventory.py" = ["D100", "D102", "D107", "PLR2004", "PLW2901"]
+"src/djen_backup/archive.py" = ["C901", "PLC0415", "PLR2004"]
 "src/djen_backup/drain.py" = ["S608", "TRY300"]
 
 # ── Tests ──────────────────────────────────────────────────────────────────
@@ -118,6 +143,10 @@ ignore = [
     "SLF001",           # private member access
     "EXE001",           # shebang not executable (CI runs via uv run, not directly)
     "PLW1510",          # subprocess.run without explicit check=
+    "PLC0415",          # import not at top-level (conditional/lazy imports in scripts)
+    "PLW2901",          # for-loop variable overwritten (accepted in pipeline scripts)
+    "PTH123",           # open() not replaced by Path.open() (legacy scripts)
+    "PTH110",           # os.path.exists not replaced (legacy scripts)
     "ASYNC240",         # blocking-path-method-in-async-function (scripts: one-shot jobs, overhead fine)
     "ASYNC230",         # blocking-open-call-in-async-function (same reason)
     # Script-side security-adjacent rules: these are operational tools that

@@ -199,7 +199,7 @@ def main() -> int:
     )
     args = parser.parse_args()
 
-    import ibis  # noqa: PLC0415
+    import ibis
 
     bench = ibis.read_parquet(args.benchmark)
     df = bench.select("text_uuid", "texto", "court").execute()
