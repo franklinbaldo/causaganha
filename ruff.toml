@@ -9,7 +9,7 @@ line-length = 100
 # hand-maintained source and their committed .ipynb is verified separately by
 # scripts/check_notebooks_synced.py — so keep ruff (lint + format) out of them,
 # same as experiments/.
-extend-exclude = ["notebooks"]
+extend-exclude = ["notebooks", ".claude"]
 
 [lint]
 select = ["ALL"]
