@@ -104,7 +104,9 @@ permitir filtros eficientes na busca.
 
 ### 6.1 DuckDB local
 
-Tabela: `embeddings_jina_v4_1024` (mesma usada pelo DJEN).
+Tabela: `embeddings_jina_jina__v4_1024` — nome resolvido por
+`EmbeddingStorage._get_table_name("jina-embeddings-v4", 1024)` (mesma usada
+pelo DJEN).
 
 A coluna `fonte` distingue a origem. Queries de similaridade podem filtrar
 por `fonte` ou cruzar os três corpora.

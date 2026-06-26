@@ -131,12 +131,18 @@ O endpoint limita `size` a 400 por chamada. Para varrer o acervo completo sem
 depender de scroll/cursor (o Elasticsearch do JURIS não expõe `search_after`):
 
 1. **Particionar por tipo × mês de julgamento**: cada célula `(tipo, AAAA-MM)`
-   é uma unidade de coleta.
+   é uma unidade de coleta. **Importante**: o servidor não suporta filtro de
+   data via `gte/lte` (retorna HTTP 500). O mês é apenas um rótulo de janela
+   para o manifest — a coleta faz GET sem filtro de data e o filtro
+   `AAAA-MM` é aplicado **client-side** sobre `dtjulgamento` retornado nos
+   resultados.
 2. Para células com mais de 400 documentos: repartir por `ds_classe_judicial`
-   usando os buckets do endpoint de agregações.
+   usando os buckets do endpoint de agregações. Se ainda assim superar 400,
+   paginar por `from`/`size` iterativamente até a resposta retornar menos
+   que `size` resultados (condição de parada).
 3. Deduplicar por `id_processo_documento` antes de persistir — um documento
-   pode aparecer em mais de uma janela se o filtro de data client-side for
-   impreciso.
+   pode aparecer em mais de uma janela se a atribuição client-side for
+   imprecisa.
 
 ### 4.4 Limpeza do inteiro teor
 
