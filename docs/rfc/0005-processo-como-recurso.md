@@ -16,7 +16,16 @@ O número CNJ (20 dígitos) é a chave natural que atravessa as três fontes:
 |---|---|---|
 | DJEN | `numero_processo` | `70309694720248220001` |
 | TJRO JURIS | `nr_processo` | `70309694720248220001` |
-| STJ | `numeroProcesso` | `70309694720248220001` |
+| STJ | `numeroProcesso`* | `70309694720248220001` (quando é CNJ) |
+
+> **Nota importante sobre o STJ**: o campo `numeroProcesso` da Primeira Seção
+> contém o número interno do STJ (ex.: `6081`, `22082`), **não** o número CNJ
+> de 20 dígitos. Processos representados por número interno curto são excluídos
+> do join (vide § 3.3 e § 7.6). O join STJ↔DJEN/JURIS só é possível quando o
+> campo `numeroProcesso` já vem no formato CNJ — o que ocorre em parte dos
+> registros mais recentes. Para os demais, o cruzamento requer um campo
+> auxiliar ou a futura coluna `nrCnj` que o STJ está gradualmente adicionando
+> ao dataset.
 
 Hoje cada fonte vive em silo. Este RFC propõe:
 
@@ -144,7 +153,9 @@ são descartados do join mas mantidos nas tabelas de origem.
 
 3. Carregar STJ
    └── DuckDB: ler `stj-acordaos-dedup-YYYYMMDD.parquet`
-   └── JOIN por numeroProcesso normalizado
+   └── Filtrar registros onde `normalizar_cnj(numeroProcesso) != ""`
+       (descarta os números internos curtos como "6081")
+   └── JOIN por numeroProcesso normalizado para os que passam no filtro
 
 4. Full outer join dos três conjuntos por nr_processo
    └── DuckDB: FULL OUTER JOIN em memória (~segundos para 100k processos)
@@ -155,7 +166,12 @@ são descartados do join mas mantidos nas tabelas de origem.
    └── Upload para IA no item `causaganha-dashboard`
 
 7. Atualizar cache do dashboard
-   └── stj_render_queries.py e render_queries.py já lêem o parquet
+   └── `render_queries.py` precisa ser **estendido** para registrar as views
+       `processos_unificados` e `processo_documentos` antes de renderizar
+       os query contracts (hoje só registra `manifest` e opcionalmente
+       `lawyer_ratings`/`ratings_history`). A extensão deve baixar os dois
+       parquets do IA e registrá-los como views DuckDB com os nomes
+       esperados pelos `.qmd`.
 ```
 
 Frequência: rodar após qualquer ciclo de ingestão de qualquer uma das três
@@ -287,6 +303,20 @@ sem erro.
 O STJ recebe recursos de todo o Brasil. `stj_id` pode cruzar com DJEN de
 tribunais além do TJRO. A coluna `djen_tribunais[]` captura todos os tribunais
 onde o processo apareceu no DJEN — o join é por CNJ, não filtrado por TJRO.
+
+### 7.6 Cobertura parcial do STJ no join (número interno vs. CNJ)
+
+O campo `numeroProcesso` da Primeira Seção do STJ contém **números internos
+curtos** (ex.: `6081`, `22082`) para a maioria do acervo histórico — esses
+valores são descartados por `normalizar_cnj()` (< 20 dígitos). Apenas os
+registros mais recentes, onde o STJ já preenche `numeroProcesso` com o número
+CNJ completo, participarão do join.
+
+Consequência: `n_fontes = 3` será raro no acervo atual; a maioria dos processos
+com presença no STJ terá `fontes = ["djen", "juris"]` ou `["djen"]`. Isso não é
+um bug — reflete a limitação de dados do portal. Quando o STJ expor o campo
+`nrCnj` (em desenvolvimento), o pipeline pode ser estendido para usar esse campo
+como chave alternativa de join.
 
 ## 8. Riscos e mitigações
 

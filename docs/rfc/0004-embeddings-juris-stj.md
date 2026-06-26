@@ -153,8 +153,24 @@ class STJSource:
     """Itera sobre o Parquet consolidado do STJ e produz (texto, metadados)."""
 ```
 
-Ambos implementam a mesma interface que as fontes DJEN existentes, para que
-`embedding_job.py` os processe sem modificação.
+Ambos implementam uma interface `TextSource` a ser definida em
+`src/causaganha/analysis/sources/__init__.py`:
+
+```python
+class TextSource(Protocol):
+    def iter_texts(self) -> Iterator[tuple[str, dict]]:
+        """Yield (text, metadata) pairs to embed."""
+```
+
+**Modificação necessária em `embedding_job.py`**: o job atual consulta
+exclusivamente a tabela `intimations` e usa `load_decision_text` para buscar
+o texto — ele **não** descobre automaticamente novas fontes. A implementação
+desta RFC requer alterar `embedding_job.py` (ou criar um novo job
+`embed_sources_job.py`) para:
+
+1. Aceitar uma lista de `TextSource` configurável.
+2. Para cada fonte, iterar `iter_texts()`, gerar embeddings via `EmbeddingService`
+   e persistir via `EmbeddingStorage` com os metadados de fonte.
 
 ### 7.2 CLI
 
@@ -172,9 +188,10 @@ uv run causaganha embed export --fonte stj
 
 ### 7.3 Integração com jobs existentes
 
-O `continuous_embedding_service.py` existente pode receber as novas fontes via
-configuração sem reescrita. Basta registrar `TJROJurisSource` e `STJSource`
-na lista de fontes do serviço.
+`continuous_embedding_service.py` pode receber as novas fontes via
+configuração, **mas apenas após a modificação em `embedding_job.py`** descrita
+em § 7.1. O registro das fontes (`TJROJurisSource`, `STJSource`) na lista do
+serviço é o passo final, não o único necessário.
 
 ## 8. Estimativa de volume e custo
 
