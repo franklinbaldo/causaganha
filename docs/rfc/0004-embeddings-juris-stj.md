@@ -100,6 +100,17 @@ Campos de metadados adicionais a persistir junto ao embedding:
 Esses metadados são armazenados na tabela DuckDB ao lado do vetor para
 permitir filtros eficientes na busca.
 
+> **Limitação atual do `EmbeddingStorage`**: a tabela existente armazena
+> apenas `texto_id`, `chunk_index`, vetor, campos de versão, `text_preview` e
+> `created_at`. Ela **não possui** colunas para `fonte`, `id_documento`,
+> `tipo`, `data_julgamento`, `orgao`, `relator` ou `tema_stj`. A implementação
+> desta RFC requer uma **migração de schema** em `EmbeddingStorage` para
+> adicionar essas colunas (nullable para compatibilidade com embeddings DJEN
+> existentes) e um método `insert_with_metadata()` que persista o vetor e os
+> metadados de fonte na mesma transação. Sem essa alteração, as queries de
+> similaridade filtradas por `fonte` ou os cruzamentos entre corpora não
+> funcionam.
+
 ## 6. Armazenamento
 
 ### 6.1 DuckDB local
@@ -107,6 +118,24 @@ permitir filtros eficientes na busca.
 Tabela: `embeddings_jina_jina__v4_1024` — nome resolvido por
 `EmbeddingStorage._get_table_name("jina-embeddings-v4", 1024)` (mesma usada
 pelo DJEN).
+
+**Migração de schema necessária**: adicionar colunas de metadados à tabela
+existente via `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`:
+
+```sql
+ALTER TABLE embeddings_jina_jina__v4_1024
+  ADD COLUMN IF NOT EXISTS fonte         VARCHAR,
+  ADD COLUMN IF NOT EXISTS id_documento  VARCHAR,
+  ADD COLUMN IF NOT EXISTS nr_processo   VARCHAR,
+  ADD COLUMN IF NOT EXISTS tipo          VARCHAR,
+  ADD COLUMN IF NOT EXISTS data_julgamento DATE,
+  ADD COLUMN IF NOT EXISTS orgao         VARCHAR,
+  ADD COLUMN IF NOT EXISTS relator       VARCHAR,
+  ADD COLUMN IF NOT EXISTS tema_stj      VARCHAR;
+```
+
+As colunas são nullable — os embeddings DJEN existentes ficam com `NULL` nelas
+sem quebrar consultas de similaridade não filtradas.
 
 A coluna `fonte` distingue a origem. Queries de similaridade podem filtrar
 por `fonte` ou cruzar os três corpora.

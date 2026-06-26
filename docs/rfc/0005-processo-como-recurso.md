@@ -190,9 +190,22 @@ Full outer join de 550k chaves em DuckDB em memória: < 30 segundos.
 
 ## 5. Query contracts
 
-### 5.1 `processo_detalhe.qmd`
+> **Nota sobre o renderer estático**: `scripts/render_queries.py` executa cada
+> `.qmd` via `con.execute(sql).fetchall()` sem suporte a parâmetros dinâmicos
+> nem à variável `?`. Queries com `WHERE nr_processo = ?` **não podem ser
+> pré-computadas** por esse renderer — elas requerem um endpoint dinâmico ou
+> uma estratégia de pré-computação por lote. A divisão abaixo reflete isso:
+> - **Query estática** (`processos_multi_fonte.qmd`): compatível com o renderer
+>   atual, pré-computada a cada ciclo de reconciliação.
+> - **Queries parametrizadas** (`processo_detalhe`, `processo_documentos`):
+>   servidas por um endpoint dinâmico a ser definido em RFC subsequente. O
+>   dashboard pode usar um endpoint `/api/processo/{cnj}` que lê o Parquet com
+>   DuckDB em memória por requisição, ou pré-computar um JSON por processo num
+>   bucket estático (viável para 550k processos × ~2KB/JSON ≈ 1.1GB).
 
-Consulta parametrizada por `nr_processo`:
+### 5.1 `processo_detalhe.qmd` _(endpoint dinâmico — não compatível com renderer estático)_
+
+Consulta parametrizada por `nr_processo` — requer endpoint dinâmico:
 
 ```sql
 SELECT *
@@ -202,7 +215,7 @@ WHERE nr_processo = ?
 
 Output: objeto JSON único com todos os campos da tabela.
 
-### 5.2 `processos_multi_fonte.qmd`
+### 5.2 `processos_multi_fonte.qmd` _(query estática — compatível com renderer atual)_
 
 Processos presentes em mais de uma fonte (os mais ricos para o dashboard):
 
@@ -215,7 +228,7 @@ ORDER BY n_fontes DESC, djen_ultima_pub DESC
 LIMIT 500
 ```
 
-### 5.3 `processo_documentos.qmd`
+### 5.3 `processo_documentos.qmd` _(endpoint dinâmico — não compatível com renderer estático)_
 
 Todos os documentos de um processo por fonte:
 
