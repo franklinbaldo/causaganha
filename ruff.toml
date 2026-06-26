@@ -47,6 +47,19 @@ ignore = [
 # B008: typer.Option() in default args is the idiomatic Typer pattern.
 "src/djen_backup/__main__.py" = ["B008", "D101", "D102", "D107", "DTZ011", "E402", "FBT001", "FBT003", "PLC0415", "PLR2004"]
 
+# ── stj_acordaos ──────────────────────────────────────────────────────────
+# B008: typer.Option() in default args — idiomatic Typer pattern.
+# PLC0415: lazy imports inside CLI command functions — standard pattern.
+# D107/D105: __init__ and magic-method docstrings not required by project convention.
+# PLW2901: loop variable reassignment in CSV parser (strip idiom).
+# PERF401: list.append in CSV serializer — clarity over micro-optimisation.
+# E501: long IA metadata strings; re-wrapping would harm readability.
+"src/stj_acordaos/__main__.py" = ["B008", "PLC0415", "D101", "D102", "D103", "D107", "FBT001", "FBT003"]
+"src/stj_acordaos/manifest.py" = ["D107", "D105", "PLW2901", "PERF401"]
+# S608: f-string SQL with DuckDB — path_list is internal (no user input).
+# E501: long log line; splitting would obscure the structured-logging pattern.
+"src/stj_acordaos/dedup.py" = ["S608", "E501"]
+
 # ── causaganha CLI ────────────────────────────────────────────────────────
 # E402: lazy imports for fast CLI startup (import-heavy deps deferred).
 # C901/PLR0912/PLR0915: large CLI dispatch functions; refactor deferred.
