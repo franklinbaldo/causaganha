@@ -32,8 +32,13 @@ PORTAL = "https://juris.tjro.jus.br"
 UA = "Mozilla/5.0 (juris-tjro skill)"
 
 TIPOS_VALIDOS = [
-    "ACÓRDÃO", "DECISÃO", "DECISÃO DA PRESIDÊNCIA",
-    "SENTENÇA", "VOTO", "EMENTA", "RELATÓRIO",
+    "ACÓRDÃO",
+    "DECISÃO",
+    "DECISÃO DA PRESIDÊNCIA",
+    "SENTENÇA",
+    "VOTO",
+    "EMENTA",
+    "RELATÓRIO",
 ]
 
 
@@ -43,9 +48,14 @@ TIPOS_VALIDOS = [
 def _post(path, body, timeout=60):
     data = json.dumps(body).encode("utf-8")
     req = urllib.request.Request(
-        BASE + path, data=data, method="POST",
-        headers={"Content-Type": "application/json",
-                 "Accept": "application/json", "User-Agent": UA},
+        BASE + path,
+        data=data,
+        method="POST",
+        headers={
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": UA,
+        },
     )
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
@@ -62,8 +72,7 @@ def _get(path, params=None, timeout=60):
 
 def buscar_raw(fields, size=20, frm=0, sort=None):
     """Chamada bruta ao endpoint de busca. `sort` None => relevancia."""
-    body = {"from": frm, "size": size, "fields": fields,
-            "sort": sort or [], "token": ""}
+    body = {"from": frm, "size": size, "fields": fields, "sort": sort or [], "token": ""}
     d = _post("/search/varios_parametros/", body)
     return d
 
@@ -76,8 +85,8 @@ def clean_html(h):
     if not h:
         return ""
     h = re.sub(r"<img[^>]*>", " ", h, flags=re.I)
-    h = re.sub(r"<style[\s\S]*?</style>", " ", h, flags=re.I)
-    h = re.sub(r"<script[\s\S]*?</script>", " ", h, flags=re.I)
+    h = re.sub(r"<style[\s\S]*?</\s*style\s*>", " ", h, flags=re.I)
+    h = re.sub(r"<script[\s\S]*?</\s*script\s*>", " ", h, flags=re.I)
     h = re.sub(r"<[^>]+>", " ", h)
     h = htmllib.unescape(h)
     h = re.sub(r"\s+", " ", h).strip()
@@ -97,23 +106,27 @@ def so_digitos(n):
 
 
 def portal_url(src):
-    p = {"id": src.get("id_processo_documento"),
-         "sistema_origem": src.get("sistema_origem"),
-         "tipo": src.get("tipo"),
-         "id_documento_principal": src.get("id_documento_principal")}
+    p = {
+        "id": src.get("id_processo_documento"),
+        "sistema_origem": src.get("sistema_origem"),
+        "tipo": src.get("tipo"),
+        "id_documento_principal": src.get("id_documento_principal"),
+    }
     p = {k: v for k, v in p.items() if v not in (None, "")}
     return f"{PORTAL}/jurisprudencia/?{urllib.parse.urlencode(p)}"
 
 
 def relator(src):
-    return (src.get("nome_relator_acordao")
-            or src.get("nome_relator_processo")
-            or src.get("ds_nome") or "—")
+    return (
+        src.get("nome_relator_acordao")
+        or src.get("nome_relator_processo")
+        or src.get("ds_nome")
+        or "—"
+    )
 
 
 def orgao(src):
-    return (src.get("ds_orgao_julgador_colegiado")
-            or src.get("ds_orgao_julgador") or "—")
+    return src.get("ds_orgao_julgador_colegiado") or src.get("ds_orgao_julgador") or "—"
 
 
 def trecho_em_torno(txt, termo, raio=200):
@@ -125,7 +138,7 @@ def trecho_em_torno(txt, termo, raio=200):
         if m:
             pos = m.start()
     if pos < 0:
-        return txt[:raio * 2].strip()
+        return txt[: raio * 2].strip()
     ini = max(0, pos - raio)
     fim = min(len(txt), pos + len(termo) + raio)
     return ("..." if ini > 0 else "") + txt[ini:fim].strip() + ("..." if fim < len(txt) else "")
@@ -206,21 +219,27 @@ def cmd_buscar(args):
     if args.json:
         out = []
         for src, txt in resultados:
-            out.append({
-                "nr_processo": cnj(src.get("nr_processo", "")),
-                "tipo": src.get("tipo"),
-                "data_julgamento": src.get("dtjulgamento_str"),
-                "classe": src.get("ds_classe_judicial"),
-                "orgao": orgao(src),
-                "relator": relator(src),
-                "id_documento": src.get("id_processo_documento"),
-                "sistema_origem": src.get("sistema_origem"),
-                "url": portal_url(src),
-                "trecho": trecho_em_torno(txt, args.trecho_perto or args.termo, 200),
-            })
-        print(json.dumps({"total_no_acervo": total,
-                          "retornados": len(out),
-                          "resultados": out}, ensure_ascii=False, indent=2))
+            out.append(
+                {
+                    "nr_processo": cnj(src.get("nr_processo", "")),
+                    "tipo": src.get("tipo"),
+                    "data_julgamento": src.get("dtjulgamento_str"),
+                    "classe": src.get("ds_classe_judicial"),
+                    "orgao": orgao(src),
+                    "relator": relator(src),
+                    "id_documento": src.get("id_processo_documento"),
+                    "sistema_origem": src.get("sistema_origem"),
+                    "url": portal_url(src),
+                    "trecho": trecho_em_torno(txt, args.trecho_perto or args.termo, 200),
+                }
+            )
+        print(
+            json.dumps(
+                {"total_no_acervo": total, "retornados": len(out), "resultados": out},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
 
     # saida texto
@@ -232,8 +251,10 @@ def cmd_buscar(args):
     print(cab)
     print("=" * 92)
     for i, (src, txt) in enumerate(resultados, 1):
-        print(f"\n[{i}] {cnj(src.get('nr_processo',''))} | {src.get('tipo')} | "
-              f"{src.get('dtjulgamento_str')} | {src.get('ds_classe_judicial')}")
+        print(
+            f"\n[{i}] {cnj(src.get('nr_processo', ''))} | {src.get('tipo')} | "
+            f"{src.get('dtjulgamento_str')} | {src.get('ds_classe_judicial')}"
+        )
         print(f"    relator/magistrado: {relator(src)}")
         print(f"    orgao: {orgao(src)}")
         tr = trecho_em_torno(txt, args.trecho_perto or args.termo, 180)
@@ -254,24 +275,34 @@ def cmd_processo(args):
     hits = d.get("hits", {}).get("hits", [])
     total = d.get("hits", {}).get("total", {}).get("value", 0)
     if args.json:
-        out = [{
-            "tipo": h["_source"].get("tipo"),
-            "data_julgamento": h["_source"].get("dtjulgamento_str"),
-            "classe": h["_source"].get("ds_classe_judicial"),
-            "orgao": orgao(h["_source"]),
-            "relator": relator(h["_source"]),
-            "id_documento": h["_source"].get("id_processo_documento"),
-            "sistema_origem": h["_source"].get("sistema_origem"),
-            "url": portal_url(h["_source"]),
-        } for h in hits]
-        print(json.dumps({"processo": cnj(nr), "documentos": len(out),
-                          "itens": out}, ensure_ascii=False, indent=2))
+        out = [
+            {
+                "tipo": h["_source"].get("tipo"),
+                "data_julgamento": h["_source"].get("dtjulgamento_str"),
+                "classe": h["_source"].get("ds_classe_judicial"),
+                "orgao": orgao(h["_source"]),
+                "relator": relator(h["_source"]),
+                "id_documento": h["_source"].get("id_processo_documento"),
+                "sistema_origem": h["_source"].get("sistema_origem"),
+                "url": portal_url(h["_source"]),
+            }
+            for h in hits
+        ]
+        print(
+            json.dumps(
+                {"processo": cnj(nr), "documentos": len(out), "itens": out},
+                ensure_ascii=False,
+                indent=2,
+            )
+        )
         return 0
     print(f"Processo {cnj(nr)} — {total} documento(s)")
     print("=" * 92)
     for h in hits:
         src = h["_source"]
-        print(f"\n  {src.get('tipo')} | {src.get('dtjulgamento_str')} | {src.get('ds_classe_judicial')}")
+        print(
+            f"\n  {src.get('tipo')} | {src.get('dtjulgamento_str')} | {src.get('ds_classe_judicial')}"
+        )
         print(f"    relator/magistrado: {relator(src)}  | orgao: {orgao(src)}")
         print(f"    id={src.get('id_processo_documento')}  {portal_url(src)}")
     return 0
@@ -289,10 +320,12 @@ def cmd_texto(args):
     src = hits[0]["_source"]
     txt = clean_html(src.get("ds_modelo_documento", ""))
     if args.max and args.max > 0:
-        txt = txt[:args.max]
-    print(f"# {src.get('tipo')} — Processo {cnj(src.get('nr_processo',''))}")
-    print(f"# {src.get('ds_classe_judicial')} | {src.get('dtjulgamento_str')} | "
-          f"{orgao(src)} | relator: {relator(src)}")
+        txt = txt[: args.max]
+    print(f"# {src.get('tipo')} — Processo {cnj(src.get('nr_processo', ''))}")
+    print(
+        f"# {src.get('ds_classe_judicial')} | {src.get('dtjulgamento_str')} | "
+        f"{orgao(src)} | relator: {relator(src)}"
+    )
     print(f"# {portal_url(src)}")
     print()
     print(txt)
@@ -324,7 +357,7 @@ def cmd_facetas(args):
         if not buckets:
             continue
         print(f"\n## {titulo}")
-        for b in buckets[:args.limite]:
+        for b in buckets[: args.limite]:
             print(f"  {b.get('doc_count'):>9}  {b.get('key')}")
     return 0
 
@@ -333,33 +366,50 @@ def cmd_facetas(args):
 # CLI
 # ----------------------------------------------------------------------------
 def build_parser():
-    p = argparse.ArgumentParser(
-        description="Consulta a jurisprudencia do TJRO (sistema JURIS).")
+    p = argparse.ArgumentParser(description="Consulta a jurisprudencia do TJRO (sistema JURIS).")
     sub = p.add_subparsers(dest="modo", required=True)
 
     b = sub.add_parser("buscar", help="busca documentos por texto e/ou filtros")
-    b.add_argument("termo", nargs="?", default="",
-                   help="texto livre (busca no inteiro teor). DICA: a busca do "
-                        "servidor e OR (mais palavras = MAIS resultados); para "
-                        "precisao use o termo mais distintivo aqui e --contendo "
-                        "para as demais palavras obrigatorias.")
-    b.add_argument("--tipo", nargs="+", choices=TIPOS_VALIDOS, metavar="TIPO",
-                   help="um ou mais tipos: " + ", ".join(TIPOS_VALIDOS))
+    b.add_argument(
+        "termo",
+        nargs="?",
+        default="",
+        help="texto livre (busca no inteiro teor). DICA: a busca do "
+        "servidor e OR (mais palavras = MAIS resultados); para "
+        "precisao use o termo mais distintivo aqui e --contendo "
+        "para as demais palavras obrigatorias.",
+    )
+    b.add_argument(
+        "--tipo",
+        nargs="+",
+        choices=TIPOS_VALIDOS,
+        metavar="TIPO",
+        help="um ou mais tipos: " + ", ".join(TIPOS_VALIDOS),
+    )
     b.add_argument("--classe", help="match na classe judicial (ex: 'APELAÇÃO CÍVEL')")
     b.add_argument("--orgao", help="match no orgao julgador")
     b.add_argument("--relator", help="match no nome do relator do acordao")
-    b.add_argument("--contendo", nargs="+", metavar="PALAVRA",
-                   help="filtro AND client-side: so resultados cujo inteiro teor "
-                        "contenha TODAS estas palavras")
+    b.add_argument(
+        "--contendo",
+        nargs="+",
+        metavar="PALAVRA",
+        help="filtro AND client-side: so resultados cujo inteiro teor "
+        "contenha TODAS estas palavras",
+    )
     b.add_argument("--de", help="data inicial (DD/MM/AAAA) — filtro client-side")
     b.add_argument("--ate", help="data final (DD/MM/AAAA) — filtro client-side")
-    b.add_argument("--recentes", action="store_true",
-                   help="ordena por data de julgamento decrescente (padrao: relevancia)")
+    b.add_argument(
+        "--recentes",
+        action="store_true",
+        help="ordena por data de julgamento decrescente (padrao: relevancia)",
+    )
     b.add_argument("--tamanho", type=int, default=20, help="numero de resultados (padrao 20)")
-    b.add_argument("--repetidos", action="store_true",
-                   help="nao deduplicar por numero de processo")
-    b.add_argument("--trecho-perto", metavar="TERMO",
-                   help="extrai o trecho ao redor deste termo (padrao: o termo de busca)")
+    b.add_argument("--repetidos", action="store_true", help="nao deduplicar por numero de processo")
+    b.add_argument(
+        "--trecho-perto",
+        metavar="TERMO",
+        help="extrai o trecho ao redor deste termo (padrao: o termo de busca)",
+    )
     b.add_argument("--json", action="store_true", help="saida em JSON")
     b.set_defaults(func=cmd_buscar)
 
@@ -370,8 +420,7 @@ def build_parser():
 
     t = sub.add_parser("texto", help="texto limpo COMPLETO de um documento")
     t.add_argument("id", help="id_processo_documento (campo 'id_documento' dos resultados)")
-    t.add_argument("--max", type=int, default=0,
-                   help="trunca em N caracteres (0 = sem limite)")
+    t.add_argument("--max", type=int, default=0, help="trunca em N caracteres (0 = sem limite)")
     t.set_defaults(func=cmd_texto)
 
     f = sub.add_parser("facetas", help="agregacoes (classes, orgaos, relatores, tipos)")
