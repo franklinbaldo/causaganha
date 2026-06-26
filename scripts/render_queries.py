@@ -68,6 +68,9 @@ DEV_RATINGS_DIR = Path(__file__).parent.parent / "data" / "parquets"
 # When the consolidated parquets are present locally (after running the
 # respective ingestão pipelines), these views power stj_* and juris_* queries.
 _STJ_PARQUET = Path(__file__).parent.parent / "data" / "stj" / "stj-acordaos.parquet"
+_STJ_PARQUET_IA_URL = (
+    "https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet"
+)
 
 SQL_FENCE_RE = re.compile(
     r"```\s*\{\s*sql[^}]*\}\s*\n(.*?)\n```",
@@ -93,6 +96,21 @@ def parse_qmd(path: Path) -> tuple[dict[str, Any], str]:
     sql = sql_match.group(1).strip()
 
     return frontmatter, sql
+
+
+def ensure_stj_parquet() -> Path | None:
+    """Return local STJ parquet path, downloading from IA if absent."""
+    if _STJ_PARQUET.exists():
+        return _STJ_PARQUET
+    print(f"Downloading STJ parquet from IA: {_STJ_PARQUET_IA_URL}")
+    _STJ_PARQUET.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(_STJ_PARQUET_IA_URL, timeout=120) as resp:
+            _STJ_PARQUET.write_bytes(resp.read())
+        return _STJ_PARQUET
+    except OSError as exc:
+        print(f"  WARNING: could not download STJ parquet — {exc}", file=sys.stderr)
+        return None
 
 
 def ensure_manifest() -> Path:
@@ -157,10 +175,11 @@ def render_all() -> int:
             f"CREATE VIEW ratings_history AS SELECT * FROM read_parquet('{ratings_history_path}')"
         )
 
-    if _STJ_PARQUET.exists():
-        print(f"Using local STJ parquet: {_STJ_PARQUET}")
+    stj_parquet = ensure_stj_parquet()
+    if stj_parquet is not None:
+        print(f"Using STJ parquet: {stj_parquet}")
         # qmd files query "FROM acordaos" — register under that name
-        con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{_STJ_PARQUET}')")
+        con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_parquet}')")
 
     # Consolidate command writes: data/tjro_juris/<year>/tjro-juris-<year>.parquet
     juris_files = sorted(

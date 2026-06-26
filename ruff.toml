@@ -68,7 +68,7 @@ ignore = [
 # TC003: Path used at runtime (not type-checking only) in manifest/dedup.
 # S608: f-string SQL in dedup — file paths are internal constants, no user input.
 # E501: long lines in manifest entry construction; wrapping harms readability.
-"src/tjro_juris/__main__.py" = ["B008", "PLC0415", "D100", "D101", "D102", "D103", "D107", "E501", "ASYNC240", "PLR2004"]
+"src/tjro_juris/__main__.py" = ["B008", "PLC0415", "D100", "D101", "D102", "D103", "D107", "E501", "ASYNC240", "PLR2004", "TC003"]
 "src/tjro_juris/manifest.py" = ["D100", "D101", "D102", "D107", "TC003", "E501"]
 "src/tjro_juris/dedup.py" = ["S608", "D100", "TC003"]
 "src/tjro_juris/client.py" = ["D100", "D103"]
