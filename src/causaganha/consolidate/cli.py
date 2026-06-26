@@ -157,8 +157,8 @@ async def _export_upload_and_manifest(
                 output_dir,
                 item_id,
             )
-        except Exception as exc:  # noqa: BLE001 — per-table resilience
-            log.error("table_export_error", table=table_name, error=str(exc))
+        except Exception as exc:
+            log.exception("table_export_error", table=table_name, error=str(exc))
             if table_name in non_empty_tables:
                 stats["export_failures"] += 1
             continue
@@ -177,7 +177,8 @@ async def _export_upload_and_manifest(
                 log.error("validation_blocked_upload", table=table_name, errors=vr.errors)
                 if table_name in non_empty_tables:
                     stats["export_failures"] += 1
-                raise ValueError(f"Parquet validation failed for table '{table_name}': {vr.errors}")
+                msg = f"Parquet validation failed for table '{table_name}': {vr.errors}"
+                raise ValueError(msg)
             if vr.warnings:
                 log.warning("validation_warnings", table=table_name, warnings=vr.warnings)
 
@@ -201,7 +202,6 @@ async def _export_upload_and_manifest(
 
     async with create_upload_client(ia_auth) as client:
         for table_name, output_path, size_mb in local_exports:
-            uploaded = 0
             if not dry_run:
                 success = await _upload_consolidated(
                     client,
@@ -211,7 +211,6 @@ async def _export_upload_and_manifest(
                     circuit_breaker=breaker,
                 )
                 if success:
-                    uploaded = 1
                     log.info("uploaded", table=table_name)
                     uploaded_tables.append(table_name)
                     stats["uploaded"] += 1

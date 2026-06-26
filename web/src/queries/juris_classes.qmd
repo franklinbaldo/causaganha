@@ -1,0 +1,14 @@
+---
+title: "TJRO JURIS Classes Judiciais"
+output: /data/juris_classes.json
+format: array
+---
+```{sql}
+SELECT
+  classe_judicial,
+  COUNT(*) AS total
+FROM tjro_juris
+GROUP BY classe_judicial
+ORDER BY total DESC
+LIMIT 30;
+```

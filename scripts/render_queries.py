@@ -64,6 +64,21 @@ LOCAL_MANIFEST = Path(__file__).parent.parent / "data" / "sync-manifest.csv"
 # lack them will skip gracefully (those queries will fail with a missing-view error).
 DEV_RATINGS_DIR = Path(__file__).parent.parent / "data" / "parquets"
 
+# Optional parquet views for STJ and TJRO JURIS corpora.
+# When the consolidated parquets are present locally (after running the
+# respective ingestão pipelines), these views power stj_* and juris_* queries.
+_STJ_PARQUET = Path(__file__).parent.parent / "data" / "stj" / "stj-acordaos.parquet"
+_STJ_PARQUET_IA_URL = (
+    "https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet"
+)
+
+_PROCESSOS_UNIFICADOS_PARQUET = (
+    Path(__file__).parent.parent / "data" / "processos_unificados.parquet"
+)
+_PROCESSO_DOCUMENTOS_PARQUET = Path(__file__).parent.parent / "data" / "processo_documentos.parquet"
+_PROCESSOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processos_unificados.parquet"
+_DOCUMENTOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processo_documentos.parquet"
+
 SQL_FENCE_RE = re.compile(
     r"```\s*\{\s*sql[^}]*\}\s*\n(.*?)\n```",
     re.DOTALL,
@@ -88,6 +103,22 @@ def parse_qmd(path: Path) -> tuple[dict[str, Any], str]:
     sql = sql_match.group(1).strip()
 
     return frontmatter, sql
+
+
+def _try_download_parquet(url: str, dest: Path, label: str) -> Path | None:
+    """Download parquet from IA if not present locally; return path or None."""
+    if dest.exists():
+        print(f"Using local {label}: {dest}")
+        return dest
+    print(f"Downloading {label} from IA: {url}")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(url, timeout=120) as resp:
+            dest.write_bytes(resp.read())
+        return dest
+    except OSError as exc:
+        print(f"  WARNING: could not download {label} — {exc}", file=sys.stderr)
+        return None
 
 
 def ensure_manifest() -> Path:
@@ -151,6 +182,36 @@ def render_all() -> int:
         con.execute(
             f"CREATE VIEW ratings_history AS SELECT * FROM read_parquet('{ratings_history_path}')"
         )
+
+    stj_parquet = _try_download_parquet(_STJ_PARQUET_IA_URL, _STJ_PARQUET, "STJ parquet")
+    if stj_parquet is not None:
+        # qmd files query "FROM acordaos" — register under that name
+        con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_parquet}')")
+
+    processos_path = _try_download_parquet(
+        _PROCESSOS_IA_URL, _PROCESSOS_UNIFICADOS_PARQUET, "processos_unificados"
+    )
+    if processos_path is not None:
+        con.execute(
+            f"CREATE VIEW processos_unificados AS SELECT * FROM read_parquet('{processos_path}')"
+        )
+
+    documentos_path = _try_download_parquet(
+        _DOCUMENTOS_IA_URL, _PROCESSO_DOCUMENTOS_PARQUET, "processo_documentos"
+    )
+    if documentos_path is not None:
+        con.execute(
+            f"CREATE VIEW processo_documentos AS SELECT * FROM read_parquet('{documentos_path}')"
+        )
+
+    # Consolidate command writes: data/tjro_juris/<year>/tjro-juris-<year>.parquet
+    juris_files = sorted(
+        Path(__file__).parent.parent.glob("data/tjro_juris/*/tjro-juris-*.parquet")
+    )
+    if juris_files:
+        juris_list = ", ".join(f"'{p}'" for p in juris_files)
+        print(f"Using local JURIS parquets: {len(juris_files)} files")
+        con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
 
     count = 0
     for qmd in qmds:

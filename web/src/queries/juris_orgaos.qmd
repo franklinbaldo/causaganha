@@ -1,0 +1,13 @@
+---
+title: "TJRO JURIS Órgãos Julgadores"
+output: /data/juris_orgaos.json
+format: array
+---
+```{sql}
+SELECT
+  orgao,
+  COUNT(*) AS total
+FROM tjro_juris
+GROUP BY orgao
+ORDER BY total DESC;
+```

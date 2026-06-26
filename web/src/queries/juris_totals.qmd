@@ -1,0 +1,13 @@
+---
+title: "TJRO JURIS Totals"
+output: /data/juris_totals.json
+format: object
+---
+```{sql}
+SELECT
+  COUNT(*) AS total_documentos,
+  COUNT(DISTINCT tipo) AS total_tipos,
+  COUNT(DISTINCT orgao) AS total_orgaos,
+  MAX(data_julgamento) AS data_mais_recente
+FROM tjro_juris;
+```
