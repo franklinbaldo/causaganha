@@ -75,9 +75,9 @@ def clean_html(h):
     """Remove imagens base64, estilos e tags; devolve texto corrido."""
     if not h:
         return ""
-    h = re.sub(r"<img[^>]*>", " ", h)
-    h = re.sub(r"<style[\s\S]*?</style>", " ", h)
-    h = re.sub(r"<script[\s\S]*?</script>", " ", h)
+    h = re.sub(r"<img[^>]*>", " ", h, flags=re.I)
+    h = re.sub(r"<style[\s\S]*?</style>", " ", h, flags=re.I)
+    h = re.sub(r"<script[\s\S]*?</script>", " ", h, flags=re.I)
     h = re.sub(r"<[^>]+>", " ", h)
     h = htmllib.unescape(h)
     h = re.sub(r"\s+", " ", h).strip()
