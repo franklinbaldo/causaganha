@@ -72,6 +72,13 @@ _STJ_PARQUET_IA_URL = (
     "https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet"
 )
 
+_PROCESSOS_UNIFICADOS_PARQUET = (
+    Path(__file__).parent.parent / "data" / "processos_unificados.parquet"
+)
+_PROCESSO_DOCUMENTOS_PARQUET = Path(__file__).parent.parent / "data" / "processo_documentos.parquet"
+_PROCESSOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processos_unificados.parquet"
+_DOCUMENTOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processo_documentos.parquet"
+
 SQL_FENCE_RE = re.compile(
     r"```\s*\{\s*sql[^}]*\}\s*\n(.*?)\n```",
     re.DOTALL,
@@ -110,6 +117,22 @@ def ensure_stj_parquet() -> Path | None:
         return _STJ_PARQUET
     except OSError as exc:
         print(f"  WARNING: could not download STJ parquet — {exc}", file=sys.stderr)
+        return None
+
+
+def _try_download_parquet(url: str, dest: Path, label: str) -> Path | None:
+    """Download parquet from IA if not present locally; return path or None."""
+    if dest.exists():
+        print(f"Using local {label}: {dest}")
+        return dest
+    print(f"Downloading {label} from IA: {url}")
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        with urllib.request.urlopen(url, timeout=120) as resp:
+            dest.write_bytes(resp.read())
+        return dest
+    except OSError as exc:
+        print(f"  WARNING: could not download {label} — {exc}", file=sys.stderr)
         return None
 
 
@@ -180,6 +203,22 @@ def render_all() -> int:
         print(f"Using STJ parquet: {stj_parquet}")
         # qmd files query "FROM acordaos" — register under that name
         con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_parquet}')")
+
+    processos_path = _try_download_parquet(
+        _PROCESSOS_IA_URL, _PROCESSOS_UNIFICADOS_PARQUET, "processos_unificados"
+    )
+    if processos_path is not None:
+        con.execute(
+            f"CREATE VIEW processos_unificados AS SELECT * FROM read_parquet('{processos_path}')"
+        )
+
+    documentos_path = _try_download_parquet(
+        _DOCUMENTOS_IA_URL, _PROCESSO_DOCUMENTOS_PARQUET, "processo_documentos"
+    )
+    if documentos_path is not None:
+        con.execute(
+            f"CREATE VIEW processo_documentos AS SELECT * FROM read_parquet('{documentos_path}')"
+        )
 
     # Consolidate command writes: data/tjro_juris/<year>/tjro-juris-<year>.parquet
     juris_files = sorted(
