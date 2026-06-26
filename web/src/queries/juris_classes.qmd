@@ -3,7 +3,7 @@ title: "TJRO JURIS Classes Judiciais"
 output: /data/juris_classes.json
 format: array
 ---
-```sql
+```{sql}
 SELECT
   classe_judicial,
   COUNT(*) AS total

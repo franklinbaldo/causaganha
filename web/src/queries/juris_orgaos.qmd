@@ -3,7 +3,7 @@ title: "TJRO JURIS Órgãos Julgadores"
 output: /data/juris_orgaos.json
 format: array
 ---
-```sql
+```{sql}
 SELECT
   orgao,
   COUNT(*) AS total

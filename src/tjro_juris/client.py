@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import html as htmllib
 import re
+from urllib.parse import urlencode
 
 import httpx
 import structlog
@@ -40,16 +41,14 @@ def clean_html(html: str) -> str:
 
 
 def search(tipo: str, from_: int = 0, size: int = PAGE_SIZE, texto: str = "") -> dict:
-    """POST to JURIS endpoint. tipo MUST be wrapped in list."""
+    """POST to JURIS endpoint. tipo MUST be wrapped in list (string crashes server)."""
     body: dict = {
+        "token": "",
+        "tipo": [tipo],
+        "texto": texto,
         "from": from_,
         "size": size,
-        "fields": {"tipo": [tipo]},
-        "sort": [],
-        "token": "",
     }
-    if texto:
-        body["fields"]["ds_modelo_documento"] = texto
 
     log.debug("juris_search", tipo=tipo, from_=from_, size=size)
     with httpx.Client(timeout=30) as client:
@@ -73,3 +72,26 @@ def get_aggregations() -> dict:
         resp = client.get(url, headers={"Accept": "application/json", "User-Agent": _UA})
         resp.raise_for_status()
         return resp.json()
+
+
+PORTAL_URL = "https://juris.tjro.jus.br/jurisprudencia/"
+
+
+def doc_url(
+    id_processo_documento: int | str | None,
+    *,
+    sistema_origem: str = "",
+    tipo: str = "",
+    id_documento_principal: int | str | None = None,
+) -> str:
+    """Build portal URL with all required query parameters."""
+    if id_processo_documento is None:
+        return ""
+    params: dict[str, str] = {"id": str(id_processo_documento)}
+    if sistema_origem:
+        params["sistema_origem"] = sistema_origem
+    if tipo:
+        params["tipo"] = tipo
+    if id_documento_principal is not None:
+        params["id_documento_principal"] = str(id_documento_principal)
+    return f"{PORTAL_URL}?{urlencode(params)}"

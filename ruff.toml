@@ -72,7 +72,7 @@ ignore = [
 "src/tjro_juris/manifest.py" = ["D100", "D101", "D102", "D107", "TC003", "E501"]
 "src/tjro_juris/dedup.py" = ["S608", "D100", "TC003"]
 "src/tjro_juris/client.py" = ["D100", "D103"]
-"src/tjro_juris/crawler.py" = ["D100", "D103", "TC003", "DTZ003", "DTZ011", "PLR2004"]
+"src/tjro_juris/crawler.py" = ["D100", "D103", "TC003", "DTZ003", "DTZ011", "PLR2004", "E501", "PERF401"]
 "src/tjro_juris/archive.py" = ["D100", "D103", "PLC0415", "ASYNC240", "TC003"]
 
 # ── causaganha CLI ────────────────────────────────────────────────────────

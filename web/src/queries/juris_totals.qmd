@@ -3,7 +3,7 @@ title: "TJRO JURIS Totals"
 output: /data/juris_totals.json
 format: object
 ---
-```sql
+```{sql}
 SELECT
   COUNT(*) AS total_documentos,
   COUNT(DISTINCT tipo) AS total_tipos,

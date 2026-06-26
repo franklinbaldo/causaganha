@@ -64,6 +64,11 @@ LOCAL_MANIFEST = Path(__file__).parent.parent / "data" / "sync-manifest.csv"
 # lack them will skip gracefully (those queries will fail with a missing-view error).
 DEV_RATINGS_DIR = Path(__file__).parent.parent / "data" / "parquets"
 
+# Optional parquet views for STJ and TJRO JURIS corpora.
+# When the consolidated parquets are present locally (after running the
+# respective ingestão pipelines), these views power stj_* and juris_* queries.
+_STJ_PARQUET = Path(__file__).parent.parent / "data" / "stj" / "stj-acordaos.parquet"
+
 SQL_FENCE_RE = re.compile(
     r"```\s*\{\s*sql[^}]*\}\s*\n(.*?)\n```",
     re.DOTALL,
@@ -151,6 +156,16 @@ def render_all() -> int:
         con.execute(
             f"CREATE VIEW ratings_history AS SELECT * FROM read_parquet('{ratings_history_path}')"
         )
+
+    if _STJ_PARQUET.exists():
+        print(f"Using local STJ parquet: {_STJ_PARQUET}")
+        con.execute(f"CREATE VIEW stj_acordaos AS SELECT * FROM read_parquet('{_STJ_PARQUET}')")
+
+    juris_files = sorted(Path(__file__).parent.parent.glob("data/tjro_juris/*/*-dedup.parquet"))
+    if juris_files:
+        juris_list = ", ".join(f"'{p}'" for p in juris_files)
+        print(f"Using local JURIS parquets: {len(juris_files)} files")
+        con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
 
     count = 0
     for qmd in qmds:
