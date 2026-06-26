@@ -50,7 +50,7 @@ async def upload_file(local_path: Path, year: int, remote_name: str) -> None:
     headers = {
         "Authorization": auth,
         "Content-Type": "application/octet-stream",
-        "x-amz-auto-make-bucket": "1",
+        "x-archive-auto-make-bucket": "1",
         "x-archive-meta-mediatype": IA_ITEM_METADATA_TEMPLATE["mediatype"],
         "x-archive-meta-subject": IA_ITEM_METADATA_TEMPLATE["subject"],
         "x-archive-meta-description": IA_ITEM_METADATA_TEMPLATE["description"],

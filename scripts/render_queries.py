@@ -105,21 +105,6 @@ def parse_qmd(path: Path) -> tuple[dict[str, Any], str]:
     return frontmatter, sql
 
 
-def ensure_stj_parquet() -> Path | None:
-    """Return local STJ parquet path, downloading from IA if absent."""
-    if _STJ_PARQUET.exists():
-        return _STJ_PARQUET
-    print(f"Downloading STJ parquet from IA: {_STJ_PARQUET_IA_URL}")
-    _STJ_PARQUET.parent.mkdir(parents=True, exist_ok=True)
-    try:
-        with urllib.request.urlopen(_STJ_PARQUET_IA_URL, timeout=120) as resp:
-            _STJ_PARQUET.write_bytes(resp.read())
-        return _STJ_PARQUET
-    except OSError as exc:
-        print(f"  WARNING: could not download STJ parquet — {exc}", file=sys.stderr)
-        return None
-
-
 def _try_download_parquet(url: str, dest: Path, label: str) -> Path | None:
     """Download parquet from IA if not present locally; return path or None."""
     if dest.exists():
@@ -198,9 +183,8 @@ def render_all() -> int:
             f"CREATE VIEW ratings_history AS SELECT * FROM read_parquet('{ratings_history_path}')"
         )
 
-    stj_parquet = ensure_stj_parquet()
+    stj_parquet = _try_download_parquet(_STJ_PARQUET_IA_URL, _STJ_PARQUET, "STJ parquet")
     if stj_parquet is not None:
-        print(f"Using STJ parquet: {stj_parquet}")
         # qmd files query "FROM acordaos" — register under that name
         con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_parquet}')")
 

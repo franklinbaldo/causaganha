@@ -29,7 +29,7 @@ def _build_upload_headers(ia_key: str, ia_secret: str, content_type: str) -> dic
     return {
         "Authorization": _build_auth_header(ia_key, ia_secret),
         "Content-Type": content_type,
-        "x-amz-auto-make-bucket": "1",
+        "x-archive-auto-make-bucket": "1",
         "x-archive-meta-mediatype": "data",
         "x-archive-meta-subject": "STJ;acórdãos;primeira seção;direito brasileiro",
         "x-archive-meta-title": "STJ Acórdãos — Primeira Seção",

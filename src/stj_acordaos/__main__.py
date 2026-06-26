@@ -136,7 +136,6 @@ def upload(
             ia_status="uploaded" if ok else "",
             n_registros=0,
         )
-        manifest.save()
 
     # Upload consolidated parquet
     typer.echo(f"Uploading {parquet_path.name} to IA item stj-acordaos-primeira-secao …")

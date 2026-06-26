@@ -138,7 +138,7 @@ GROUP BY nr_processo
 """
 
 _JURIS_AGG_SQL = """
-WITH ranked AS (
+WITH cleaned AS (
     SELECT
         regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
         id_documento,
@@ -147,9 +147,15 @@ WITH ranked AS (
         orgao,
         relator,
         classe_judicial,
-        url_portal,
+        url_portal
+    FROM tjro_juris
+    WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
+),
+ranked AS (
+    SELECT
+        *,
         ROW_NUMBER() OVER (
-            PARTITION BY regexp_replace(nr_processo, '[^0-9]', '', 'g')
+            PARTITION BY nr_processo
             ORDER BY
                 CASE tipo
                     WHEN 'ACÓRDÃO' THEN 1
@@ -158,20 +164,18 @@ WITH ranked AS (
                 END,
                 data_julgamento DESC NULLS LAST
         ) AS rn
-    FROM tjro_juris
-    WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
+    FROM cleaned
 ),
 principal AS (
     SELECT * FROM ranked WHERE rn = 1
 ),
 agg AS (
     SELECT
-        regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
+        nr_processo,
         COUNT(*)::INTEGER        AS juris_n_documentos,
         list(DISTINCT tipo)      AS juris_tipos,
-        MAX(data_julgamento)     AS juris_data_julgamento,
-    FROM tjro_juris
-    WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
+        MAX(data_julgamento)     AS juris_data_julgamento
+    FROM cleaned
     GROUP BY nr_processo
 )
 SELECT
