@@ -90,6 +90,7 @@ dev = [
 causaganha = "causaganha.cli:app"
 djen-backup = "djen_backup.__main__:app"
 stj-acordaos = "stj_acordaos.__main__:app"
+tjro-juris = "tjro_juris.__main__:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
