@@ -23,7 +23,9 @@ def _make_client() -> httpx.Client:
     return httpx.Client(
         timeout=120,
         follow_redirects=True,
-        headers={"User-Agent": "causaganha/stj-backup (+https://github.com/franklinbaldo/causaganha)"},
+        headers={
+            "User-Agent": "causaganha/stj-backup (+https://github.com/franklinbaldo/causaganha)"
+        },
     )
 
 

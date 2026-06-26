@@ -63,5 +63,10 @@ def dedup_acordaos(input_paths: list[Path], output_path: Path) -> int:
     finally:
         con.close()
 
-    log.info("stj_dedup_complete", input_count=len(input_paths), output_count=count, dest=str(output_path))
+    log.info(
+        "stj_dedup_complete",
+        input_count=len(input_paths),
+        output_count=count,
+        dest=str(output_path),
+    )
     return count

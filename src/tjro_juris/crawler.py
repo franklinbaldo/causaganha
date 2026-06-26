@@ -32,7 +32,9 @@ def _extract_doc(raw: dict) -> dict:
     sistema = src.get("sistema_origem", "")
     tipo_val = src.get("tipo", "")
 
-    url = doc_url(id_doc, sistema_origem=sistema, tipo=tipo_val, id_documento_principal=id_principal)
+    url = doc_url(
+        id_doc, sistema_origem=sistema, tipo=tipo_val, id_documento_principal=id_principal
+    )
 
     return {
         "id_documento": int(id_doc) if id_doc is not None else None,
@@ -109,7 +111,7 @@ def crawl_all(
     """
     if end_year_month is None:
         end_year_month = datetime.now(UTC).strftime("%Y-%m")
-    for tipo in (tipos or TIPOS):
+    for tipo in tipos or TIPOS:
         log.info("crawl_tipo_start", tipo=tipo)
         buckets = crawl_tipo_by_month(tipo)
         for year_month in _iter_year_months(start_year, end_year_month):

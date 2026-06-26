@@ -62,7 +62,12 @@ class ManifestSTJ:
             if len(parts) < 6:  # noqa: PLR2004
                 continue
             arquivo, tipo, data_extracao, ia_status, n_registros_str, updated_at = (
-                parts[0], parts[1], parts[2], parts[3], parts[4], parts[5],
+                parts[0],
+                parts[1],
+                parts[2],
+                parts[3],
+                parts[4],
+                parts[5],
             )
             try:
                 n_registros = int(n_registros_str)
