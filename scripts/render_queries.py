@@ -159,9 +159,13 @@ def render_all() -> int:
 
     if _STJ_PARQUET.exists():
         print(f"Using local STJ parquet: {_STJ_PARQUET}")
-        con.execute(f"CREATE VIEW stj_acordaos AS SELECT * FROM read_parquet('{_STJ_PARQUET}')")
+        # qmd files query "FROM acordaos" — register under that name
+        con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{_STJ_PARQUET}')")
 
-    juris_files = sorted(Path(__file__).parent.parent.glob("data/tjro_juris/*/*-dedup.parquet"))
+    # Consolidate command writes: data/tjro_juris/<year>/tjro-juris-<year>.parquet
+    juris_files = sorted(
+        Path(__file__).parent.parent.glob("data/tjro_juris/*/tjro-juris-*.parquet")
+    )
     if juris_files:
         juris_list = ", ".join(f"'{p}'" for p in juris_files)
         print(f"Using local JURIS parquets: {len(juris_files)} files")

@@ -70,26 +70,24 @@ def _normalize_date(dt_raw: str) -> str | None:
 
 
 def _to_row(src: dict) -> dict:
-    """Map raw JURIS _source dict to canonical parquet schema."""
-    orgao_val = src.get("ds_orgao_julgador_colegiado") or src.get("ds_orgao_julgador") or ""
-    relator_val = src.get("nome_relator_acordao") or src.get("ds_nome") or ""
-    doc_id = src.get("id_processo_documento")
-    url_portal = f"https://juris.tjro.jus.br/jurisprudencia/{doc_id}" if doc_id else ""
-    dt_raw = src.get("dtjulgamento") or ""
-    data_julgamento = _normalize_date(dt_raw)
+    """Map a crawler-normalized doc to canonical parquet schema.
 
+    Accepts the dict produced by crawler._extract_doc() which already uses
+    canonical field names (id_documento, classe_judicial, orgao, etc.).
+    """
+    dt_raw = src.get("data_julgamento") or ""
     return {
-        "id_documento": doc_id,
+        "id_documento": src.get("id_documento"),
         "nr_processo": src.get("nr_processo") or "",
         "tipo": src.get("tipo") or "",
-        "classe_judicial": src.get("ds_classe_judicial") or "",
-        "orgao": orgao_val,
-        "relator": relator_val,
+        "classe_judicial": src.get("classe_judicial") or "",
+        "orgao": src.get("orgao") or "",
+        "relator": src.get("relator") or "",
         "sistema_origem": src.get("sistema_origem") or "",
-        "data_julgamento": data_julgamento,
+        "data_julgamento": _normalize_date(dt_raw),
         "texto_limpo": src.get("texto_limpo") or clean_html(src.get("ds_modelo_documento") or ""),
-        "url_portal": url_portal,
-        "extraido_em": datetime.now(UTC).isoformat(),
+        "url_portal": src.get("url_portal") or "",
+        "extraido_em": src.get("extraido_em") or datetime.now(UTC).isoformat(),
     }
 
 
@@ -152,10 +150,8 @@ def crawl(
         end_year_month = None
 
     for tipo_name, year_month, docs in crawl_all(
-        start_year=start_year, end_year_month=end_year_month
+        start_year=start_year, end_year_month=end_year_month, tipos=tipos_to_crawl
     ):
-        if tipo_name not in tipos_to_crawl:
-            continue
         if not docs:
             continue
 
