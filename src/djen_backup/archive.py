@@ -250,7 +250,7 @@ async def upload_zip(
 
     # Extract date string from filename: djen-YYYY-MM-DD-TRIBUNAL.zip
     stem_parts = zip_path.stem.split("-")
-    date_str = f"{stem_parts[1]}-{stem_parts[2]}-{stem_parts[3]}" if len(stem_parts) >= 4 else ""  # noqa: PLR2004
+    date_str = f"{stem_parts[1]}-{stem_parts[2]}-{stem_parts[3]}" if len(stem_parts) >= 4 else ""
 
     lock = await _lock_for(item_id)
     if try_lock and lock.locked():
