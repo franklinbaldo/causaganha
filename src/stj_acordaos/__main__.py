@@ -101,9 +101,13 @@ def upload(
         typer.echo("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", err=True)
         raise typer.Exit(1)
 
-    # Dedup before uploading
+    # Collect all JSON sources: extracted from ZIP + monthly downloads
     extract_dir = data_dir / "extracted"
-    json_files = sorted(extract_dir.glob("*.json")) if extract_dir.exists() else []
+    zip_dir = data_dir / "zips"
+    json_files = sorted(
+        list(extract_dir.glob("*.json") if extract_dir.exists() else [])
+        + list(zip_dir.glob("*.json") if zip_dir.exists() else [])
+    )
     if json_files:
         typer.echo(f"Deduplicating {len(json_files)} JSON files → {parquet_path} …")
         count = dedup_acordaos(json_files, parquet_path)
@@ -116,11 +120,28 @@ def upload(
         typer.echo(f"ERROR: Parquet not found at {parquet_path}.", err=True)
         raise typer.Exit(1)
 
+    manifest = ManifestSTJ(manifest_path)
+    manifest.load()
+
+    # Upload original source files (ZIPs + monthly JSONs)
+    all_sources = sorted(zip_dir.glob("*") if zip_dir.exists() else [])
+    for src in all_sources:
+        typer.echo(f"Uploading source {src.name} …")
+        ok = upload_parquet(src, ia_key, ia_secret)
+        tipo_src = "zip" if src.suffix == ".zip" else "json"
+        manifest.upsert(
+            arquivo=src.name,
+            tipo=tipo_src,
+            data_extracao="",
+            ia_status="uploaded" if ok else "",
+            n_registros=0,
+        )
+        manifest.save()
+
+    # Upload consolidated parquet
     typer.echo(f"Uploading {parquet_path.name} to IA item stj-acordaos-primeira-secao …")
     ok = upload_parquet(parquet_path, ia_key, ia_secret)
 
-    manifest = ManifestSTJ(manifest_path)
-    manifest.load()
     manifest.upsert(
         arquivo=parquet_path.name,
         tipo="parquet",

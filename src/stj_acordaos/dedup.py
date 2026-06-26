@@ -34,12 +34,15 @@ def dedup_acordaos(input_paths: list[Path], output_path: Path) -> int:
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Build a quoted, comma-separated list of glob-safe paths for DuckDB
-    path_list = ", ".join(f"'{p}'" for p in input_paths)
-
     con = duckdb.connect()
     try:
-        # Load all JSON files, dedup by id keeping the row with the latest data_extracao
+        # Load each JSON file individually, injecting _source_file so we can derive
+        # a synthetic data_extracao from the filename (the real JSON rows don't carry
+        # an extraction-date field — that date lives only in the filename/manifest).
+        union_parts = " UNION ALL ".join(
+            f"SELECT *, '{p.name}' AS _source_file FROM read_json('{p}', auto_detect=true)"
+            for p in input_paths
+        )
         con.execute(f"""
             CREATE TABLE acordaos AS
             SELECT *
@@ -47,13 +50,14 @@ def dedup_acordaos(input_paths: list[Path], output_path: Path) -> int:
                 SELECT *,
                     ROW_NUMBER() OVER (
                         PARTITION BY id
-                        ORDER BY data_extracao DESC NULLS LAST
+                        ORDER BY _source_file DESC NULLS LAST
                     ) AS _rn
-                FROM read_json([{path_list}], auto_detect=true, union_by_name=true)
+                FROM ({union_parts})
             )
             WHERE _rn = 1
         """)
         con.execute("ALTER TABLE acordaos DROP COLUMN _rn")
+        con.execute("ALTER TABLE acordaos DROP COLUMN _source_file")
         count: int = con.execute("SELECT COUNT(*) FROM acordaos").fetchone()[0]
         con.execute(f"COPY acordaos TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     finally:
