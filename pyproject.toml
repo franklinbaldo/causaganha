@@ -117,3 +117,18 @@ filterwarnings = [
 ]
 
 # Ruff config is in ruff.toml (takes precedence over pyproject.toml)
+
+[tool.uv]
+# Ensure uv resolves wheels for Linux x86_64 (CI runner) and macOS (dev).
+# Without this, uv may pick a greenlet release that only ships macOS/Windows
+# wheels and fails to install on Linux (manylinux_2_39+).
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin'",
+    "sys_platform == 'win32'",
+]
+
+constraint-dependencies = [
+    # greenlet 3.5.3 has no Linux wheel — cap until a fix is released.
+    "greenlet!=3.5.3",
+]
