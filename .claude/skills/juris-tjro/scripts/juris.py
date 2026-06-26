@@ -47,7 +47,7 @@ TIPOS_VALIDOS = [
 # ----------------------------------------------------------------------------
 def _post(path, body, timeout=60):
     data = json.dumps(body).encode("utf-8")
-    req = urllib.request.Request(
+    req = urllib.request.Request(  # noqa: S310
         BASE + path,
         data=data,
         method="POST",
@@ -57,7 +57,7 @@ def _post(path, body, timeout=60):
             "User-Agent": UA,
         },
     )
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310
         return json.loads(r.read().decode("utf-8"))
 
 
@@ -65,8 +65,8 @@ def _get(path, params=None, timeout=60):
     url = BASE + path
     if params:
         url += "?" + urllib.parse.urlencode(params)
-    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=timeout) as r:
+    req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": UA})  # noqa: S310
+    with urllib.request.urlopen(req, timeout=timeout) as r:  # noqa: S310
         return json.loads(r.read().decode("utf-8"))
 
 
@@ -440,7 +440,7 @@ def main(argv=None):
         body = ""
         try:
             body = e.read().decode("utf-8", "replace")[:300]
-        except Exception:
+        except OSError:
             pass
         print(f"Erro HTTP {e.code} ao consultar a API. {body}", file=sys.stderr)
         return 1
