@@ -276,20 +276,6 @@ ORDER BY nr_processo
 """
 
 _DOCUMENTOS_SQL = """
--- DJEN documents (one row per publication date)
-SELECT
-    nr_processo,
-    'djen'           AS fonte,
-    numero_publicacao::VARCHAR AS id_documento,
-    'PUBLICAÇÃO'     AS tipo,
-    data_publicacao::DATE AS data,
-    ''               AS url,
-    left(conteudo, 500) AS resumo
-FROM manifest_docs
-WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
-
-UNION ALL
-
 -- JURIS documents
 SELECT
     regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
@@ -372,8 +358,26 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         )
 
     # Build aggregation CTEs
+    # DJEN: the sync-manifest is a caderno-level index (tribunal x date); it has no
+    # numero_processo column. A future "comunicacoes" parquet (individual publication
+    # records) would enable the DJEN contribution. Skip gracefully when absent.
     print("Building DJEN aggregation…")
-    con.execute(f"CREATE TEMP TABLE djen_agg AS {_DJEN_AGG_SQL}")
+    manifest_cols = {row[0] for row in con.execute("DESCRIBE manifest").fetchall()}
+    if "numero_processo" in manifest_cols and "data_publicacao" in manifest_cols:
+        con.execute(f"CREATE TEMP TABLE djen_agg AS {_DJEN_AGG_SQL}")
+    else:
+        print(
+            "  SKIP: manifest lacks numero_processo/data_publicacao — "
+            "DJEN contribution requires a comunicacoes parquet (not yet generated)",
+            file=sys.stderr,
+        )
+        con.execute(
+            "CREATE TEMP TABLE djen_agg AS "
+            "SELECT NULL::VARCHAR AS nr_processo, NULL::DATE AS djen_primeira_pub, "
+            "NULL::DATE AS djen_ultima_pub, NULL::INTEGER AS djen_n_publicacoes, "
+            "NULL::VARCHAR[] AS djen_tribunais "
+            "WHERE FALSE"
+        )
     djen_count = con.execute("SELECT COUNT(*) FROM djen_agg").fetchone()[0]
     print(f"  {djen_count:,} DJEN processes")
 
@@ -403,35 +407,15 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         f"COPY processos_unificados TO '{_PARQUET_UNIFICADOS}' (FORMAT PARQUET, COMPRESSION ZSTD)"
     )
 
-    # Build processo_documentos — requires manifest with row-level columns
-    # Check which columns exist in manifest
-    manifest_cols = {row[0] for row in con.execute("DESCRIBE manifest").fetchall()}
-    has_docs_cols = {"numero_processo", "data_publicacao"}.issubset(manifest_cols)
-
-    if has_docs_cols:
-        # Build manifest_docs view with conteudo fallback
-        conteudo_expr = "conteudo" if "conteudo" in manifest_cols else "''::VARCHAR AS conteudo"
-        numero_pub_expr = "numero_publicacao" if "numero_publicacao" in manifest_cols else "rowid"
-        con.execute(
-            f"CREATE VIEW manifest_docs AS "
-            f"SELECT nr_processo, {numero_pub_expr} AS numero_publicacao, "
-            f"data_publicacao, {conteudo_expr} AS conteudo "
-            f"FROM manifest"
-        )
-        print("Writing processo_documentos.parquet…")
-        con.execute(
-            f"COPY ({_DOCUMENTOS_SQL}) TO '{_PARQUET_DOCUMENTOS}' "
-            "(FORMAT PARQUET, COMPRESSION ZSTD)"
-        )
-        doc_count = con.execute(
-            f"SELECT COUNT(*) FROM read_parquet('{_PARQUET_DOCUMENTOS}')"
-        ).fetchone()[0]
-        print(f"  {doc_count:,} document rows")
-    else:
-        print(
-            "  SKIP processo_documentos: manifest lacks nr_processo/data_publicacao columns",
-            file=sys.stderr,
-        )
+    # Build processo_documentos (JURIS + STJ only; DJEN requires a future comunicacoes parquet)
+    print("Writing processo_documentos.parquet…")
+    con.execute(
+        f"COPY ({_DOCUMENTOS_SQL}) TO '{_PARQUET_DOCUMENTOS}' (FORMAT PARQUET, COMPRESSION ZSTD)"
+    )
+    doc_count = con.execute(
+        f"SELECT COUNT(*) FROM read_parquet('{_PARQUET_DOCUMENTOS}')"
+    ).fetchone()[0]
+    print(f"  {doc_count:,} document rows")
 
     if upload:
         upload_to_ia(_PARQUET_UNIFICADOS, "processos_unificados.parquet")
