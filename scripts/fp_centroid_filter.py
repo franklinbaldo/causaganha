@@ -178,7 +178,7 @@ class FPCentroidFilter:
 
     def _get_model(self):  # type: ignore[return]
         if self._model is None:
-            from sentence_transformers import SentenceTransformer  # noqa: PLC0415
+            from sentence_transformers import SentenceTransformer
 
             self._model = SentenceTransformer(self._model_name)
         return self._model

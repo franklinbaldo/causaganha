@@ -297,7 +297,7 @@ def _label_text(texto: str) -> dict[str, list[list[int]]] | None:
 
 def _clean_llm_records(parquet_path: Path) -> list[dict]:
     """Load LLM-labeled parquet, apply P0 cleanup, return OPF records."""
-    import ibis  # noqa: PLC0415
+    import ibis
 
     t = ibis.read_parquet(parquet_path)
     df = t.filter(t.texto.notnull()).execute()

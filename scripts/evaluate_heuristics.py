@@ -139,8 +139,8 @@ async def evaluate_ml_ensemble(
     labels: list[str],
 ) -> None:
     """Load ML ensemble, embed benchmark texts, and evaluate."""
-    from causaganha.analysis.local_embedder import LocalEmbedder  # noqa: PLC0415
-    from causaganha.analysis.ml_ensemble import EmbeddingEnsemble  # noqa: PLC0415
+    from causaganha.analysis.local_embedder import LocalEmbedder
+    from causaganha.analysis.ml_ensemble import EmbeddingEnsemble
 
     ensemble_path = Path("data/ml_ensemble.joblib")
     if not ensemble_path.exists():
