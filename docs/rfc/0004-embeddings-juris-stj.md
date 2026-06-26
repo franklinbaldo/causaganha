@@ -81,8 +81,29 @@ Espelho de acórdão do STJ ({siglaClasse}, tema {tema}, relator {ministroRelato
 
 ## 5. Identificação e deduplicação
 
-O `texto_id` existente é UUID v5 derivado do conteúdo textual — garante que
-o mesmo acórdão não gera embedding duplicado mesmo se reprocessado.
+O `texto_id` existente é UUID v5 derivado do conteúdo textual. Para DJEN isso
+é suficiente, mas para JURIS/STJ introduz um problema: decisões de tema
+repetitivo frequentemente compartilham texto idêntico ou quase idêntico. Como
+`EmbeddingStorage.insert_embeddings()` deleta todas as linhas com o mesmo
+`texto_id` antes de inserir, dois documentos distintos com texto igual teriam o
+mesmo `texto_id` — o segundo sobrescreveria silenciosamente o primeiro,
+perdendo metadados de fonte.
+
+**Solução**: usar um `doc_id` composto de `(fonte, id_documento)` como
+identificador primário do embedding, separando identidade de conteúdo de
+identidade de documento:
+
+```python
+# doc_id: identidade do documento (fonte + id único da fonte)
+doc_id = uuid5(NAMESPACE, f"{fonte}:{id_documento}")
+
+# content_hash: UUID v5 do texto (para dedup de conteúdo dentro da mesma fonte)
+content_hash = uuid5(NAMESPACE, texto)
+```
+
+A chave primária da tabela passa a ser `(doc_id, chunk_index)`. O campo
+`content_hash` fica como coluna auxiliar para detectar documentos com texto
+idêntico sem suprimi-los.
 
 Campos de metadados adicionais a persistir junto ao embedding:
 

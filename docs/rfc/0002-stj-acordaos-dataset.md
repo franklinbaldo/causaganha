@@ -137,7 +137,11 @@ o volume menor).
 2. Download incremental
    ├── Recurso ZIP (20220507.zip — acervo completo até mai/2022):
    │   ├── GET URL → salva .zip local
-   │   ├── zipfile.extractall() → extrai JSON(s) internos
+   │   ├── Extração segura: validar cada membro antes de extrair —
+   │   │     rejeitar caminhos absolutos ou com `..`; extrair apenas
+   │   │     arquivos `.json`; usar `zipfile.Path` ou iterar
+   │   │     `ZipFile.namelist()` com allowlist de extensões em vez de
+   │   │     `zipfile.extractall()` direto.
    │   └── Registra no manifest com tipo="zip"
    └── Recursos JSON mensais:
        └── GET URL → salva .json local
