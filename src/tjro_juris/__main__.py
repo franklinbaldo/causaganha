@@ -1,4 +1,25 @@
-"""TJRO JURIS CLI — crawl, upload, status, consolidate."""
+"""TJRO JURIS CLI — crawl, upload, status, consolidate.
+
+Manual execution
+----------------
+Crawl JURIS into monthly parquets (optionally windowed by year and tipo)::
+
+    uv run tjro-juris crawl data/tjro-juris --ano 2024 --tipo "ACÓRDÃO" --tipo "SENTENÇA"
+
+Upload pending parquets to the yearly ``tjro-juris-{year}`` IA items
+(requires ``IAS3_ACCESS_KEY`` / ``IAS3_SECRET_KEY`` in the environment)::
+
+    uv run --env-file ~/workspace/.env tjro-juris upload data/tjro-juris
+
+Show manifest status / consolidate a year into a single deduplicated parquet::
+
+    uv run tjro-juris status data/tjro-juris
+    uv run tjro-juris consolidate data/tjro-juris 2024
+
+In CI, ``.github/workflows/stj-tjro-sync.yml`` runs the same commands with
+secrets injected. It is ``workflow_dispatch`` only (no cron) — trigger it
+manually from the Actions tab.
+"""
 
 from __future__ import annotations
 
