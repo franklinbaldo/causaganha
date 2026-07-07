@@ -136,7 +136,7 @@ The frontend declares its data needs via Quarto-compatible `.qmd` files in [web/
 To add a new view:
 
 1. Create `web/src/queries/my_view.qmd` with frontmatter and a SQL block
-2. Add a typed loader in [web/src/lib/queryData.ts](web/src/lib/queryData.ts)
+2. Add a Zod schema + registry entry in [web/src/lib/data/contracts.ts](web/src/lib/data/contracts.ts) (pages load it via `loadContract('my_view')`)
 3. `uv run python scripts/render_queries.py` generates the JSON
 
 See [web/src/queries/README.md](web/src/queries/README.md) for the full contract.

@@ -27,7 +27,7 @@ The canonical sync engine is in `src/djen_backup/`. Key concepts:
 
 The frontend declares its data needs via `.qmd` files in `web/src/queries/`. Each has YAML frontmatter (`output: /data/foo.json`, `format: array|object`) and a SQL block. Backend script `scripts/render_queries.py` executes them against the manifest and writes JSON to `web/public/data/`.
 
-**When frontend needs a new dataset:** add a `.qmd`, add a typed loader in `web/src/lib/queryData.ts`, done. Python backend doesn't care.
+**When frontend needs a new dataset:** add a `.qmd`, add a Zod schema + registry entry in `web/src/lib/data/contracts.ts`, load it com `loadContract('name')` de `web/src/lib/data`, done. Python backend doesn't care.
 
 ## Running things
 

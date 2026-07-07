@@ -1,13 +1,13 @@
 import type { APIRoute } from 'astro';
 import { TRIBUNAIS } from '../lib/tribunais';
-import { readJson } from '../lib/readJson';
+import { readJson, type CacheBackfillFile } from '../lib/readJson';
 
 export const GET: APIRoute = ({ site }) => {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
   const BASE_URL = new URL(basePath, site).toString().replace(/\/$/, '');
   const sitemapUrls: string[] = [];
   const now = new Date().toISOString();
-  const backfill = readJson<any>('cache/backfill.json');
+  const backfill = readJson<CacheBackfillFile>('cache/backfill.json');
 
   // Static pages
   const staticPages = [
@@ -44,7 +44,7 @@ export const GET: APIRoute = ({ site }) => {
     `);
   });
 
-  ((backfill?.tribunal_stats ?? []) as any[]).sort((a, b) => Number(b.data_rate_pct ?? 0) - Number(a.data_rate_pct ?? 0)).slice(0, 12).forEach((item) => {
+  [...(backfill?.tribunal_stats ?? [])].sort((a, b) => Number(b.data_rate_pct ?? 0) - Number(a.data_rate_pct ?? 0)).slice(0, 12).forEach((item) => {
     const slug = String(item.tribunal ?? '').toLowerCase();
     if (!slug) return;
     sitemapUrls.push(`

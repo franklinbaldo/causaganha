@@ -1,9 +1,9 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import TribunalCalendar from '../components/TribunalCalendar.svelte';
-import { readJson } from '../lib/readJson';
+import { readJson, type IaSnapshot } from '../lib/readJson';
 
-const iaSnapshot = readJson<any>('ia-snapshot.json');
+const iaSnapshot = readJson<IaSnapshot>('ia-snapshot.json');
 const snap = iaSnapshot?.summary ?? {};
 const totalZips = snap.total_zips ?? 0;
 const totalTribunals = snap.tribunals_total ?? 95;
