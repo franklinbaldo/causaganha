@@ -488,12 +488,16 @@ async def run_pipeline(
     _ia_upload_running = False
 
     async def _upload_manifest_background() -> None:
+        # Phase 2 (docs/planning/manifest-source-of-truth.md §4.2): the
+        # periodic 10-min flush emits an immutable manifest-log/ segment with
+        # only the rows mutated since the last flush — it no longer rewrites
+        # the canonical sync-manifest.csv on IA.
         nonlocal _ia_upload_running
         if _ia_upload_running:
             return
         _ia_upload_running = True
         try:
-            if await manifest.upload_to_ia(config.ia_auth):
+            if await manifest.upload_segment_to_ia(config.ia_auth):
                 await manifest.upload_summary_to_ia(config.ia_auth)
         except (httpx.HTTPError, OSError) as exc:
             log.warning("manifest_upload_background_failed", error=str(exc))
@@ -706,8 +710,13 @@ async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
     summary = SyncSummary()
     abort_event = asyncio.Event()
     manifest = SyncManifest()
-    await manifest.load_from_ia()
+    # Local disk cache first (fast warm start), then IA on top: the parquet
+    # base + un-compacted segments merge field-level last-write-wins by
+    # updated_at, so corrections landed between runs (probe/drain/compactor)
+    # are not clobbered by a stale disk cache. In the CSV fallback path the
+    # merge only trusts ia_status=uploaded, matching the old behaviour.
     manifest.load_from_disk(config.manifest_file)
+    await manifest.load_from_ia()
     counts_init = manifest.counts()
     summary.initial_uploaded, summary.initial_absent, summary.initial_unknown = (
         counts_init.uploaded,
@@ -732,7 +741,9 @@ async def run_sync(config: SyncConfig) -> tuple[int, SyncSummary]:
         pass
     finally:
         manifest.save_to_disk(config.manifest_file)
-        if not config.dry_run and await manifest.upload_to_ia(config.ia_auth):
+        # Final flush: remaining dirty rows go out as one last immutable
+        # segment (Phase 2) — the canonical CSV is never rewritten here.
+        if not config.dry_run and await manifest.upload_segment_to_ia(config.ia_auth):
             await manifest.upload_summary_to_ia(config.ia_auth)
 
     summary.final_counts = manifest.counts()

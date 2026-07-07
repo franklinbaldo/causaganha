@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, NamedTuple
 if TYPE_CHECKING:
     from pathlib import Path
 
+import anyio
 import httpx
 import structlog
 
@@ -19,8 +20,10 @@ log = structlog.get_logger()
 
 IA_STATE_ITEM = "causaganha-dashboard"
 IA_MANIFEST_FILENAME = "sync-manifest.csv"
+IA_PARQUET_FILENAME = "sync-manifest.parquet"
 _IA_DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
 _IA_S3_URL = f"https://s3.us.archive.org/{IA_STATE_ITEM}/{{}}"
+_IA_FILES_METADATA_URL = f"https://archive.org/metadata/{IA_STATE_ITEM}/files"
 
 HEADER = "tribunal,date,ia_status,djen_status,djen_raw,updated_at"
 
@@ -46,6 +49,28 @@ def interpret_djen_raw(djen_raw: str) -> str:
         return "absent"
     # Everything else (403, 5xx, timeouts, etc.) — transient, leave unknown
     return ""
+
+
+def _raise_unless_ok(status_code: int, filename: str) -> None:
+    """Raise when an IA download did not return HTTP 200 (satisfies TRY301)."""
+    if status_code != 200:
+        msg = f"IA download of {filename} returned HTTP {status_code}"
+        raise RuntimeError(msg)
+
+
+def _read_parquet_rows(path: str) -> list[tuple]:
+    """Read all manifest rows from a local parquet file (runs in a thread)."""
+    import duckdb
+
+    con = duckdb.connect()
+    try:
+        return con.execute(
+            "SELECT tribunal, date, ia_status, djen_status, djen_raw, updated_at"
+            " FROM read_parquet(?)",
+            [path],
+        ).fetchall()
+    finally:
+        con.close()
 
 
 class ManifestCounts(NamedTuple):
@@ -89,6 +114,12 @@ class SyncManifest:
         self._counts_tally: dict[str, int] | None = None
         # Cache of (tribunal, year) pairs that have uploaded entries
         self._uploaded_items: set[tuple[str, int]] | None = None
+        # Keys mutated by mark_* since the last successful segment flush.
+        # Loads (parquet/CSV/segments) never dirty entries — only fresh
+        # observations do. Phase 2: persistence emits only these rows as an
+        # immutable manifest-log/ segment instead of rewriting the CSV.
+        self._dirty: set[str] = set()
+        self._run_id: str | None = None
 
     def __len__(self) -> int:
         """Return number of manifest entries."""
@@ -191,6 +222,7 @@ class SyncManifest:
                     entry.updated_at = now
                     self._adjust_counts(old_cat, "uploaded")
                     self._track_uploaded(tribunal, d.year)
+                    self._dirty.add(k)
                     changed += 1
         return changed
 
@@ -209,6 +241,7 @@ class SyncManifest:
                 entry.djen_status = interpret_djen_raw(raw)
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._adjust_counts(old_cat, self._categorize(entry))
+                self._dirty.add(k)
 
     async def mark_djen_available(self, tribunal: str, d: date) -> None:
         """Shortcut: mark djen_raw=200 → status=available."""
@@ -229,6 +262,7 @@ class SyncManifest:
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._adjust_counts(old_cat, "uploaded")
                 self._track_uploaded(tribunal, d.year)
+                self._dirty.add(k)
 
     # ── Query methods ────────────────────────────────────────────────
 
@@ -537,6 +571,176 @@ class SyncManifest:
                 updated_at=updated_at,
             )
 
+    # ── Segment persistence (Phase 2, plan §4.2) ─────────────────────
+    #
+    # Writers no longer rewrite the canonical CSV on IA. Each flush emits
+    # only the rows mutated since the previous flush (dirty tracking) as an
+    # immutable, uniquely-named CSV segment under manifest-log/. The
+    # compactor (scripts/render_manifest_parquet.py) absorbs segments into
+    # the parquet base and prunes them.
+
+    @property
+    def dirty_count(self) -> int:
+        """Number of entries mutated since the last successful segment flush."""
+        return len(self._dirty)
+
+    def _serialize_rows(self, keys: set[str]) -> str:
+        from djen_backup.segments import SEGMENT_HEADER
+
+        lines = [SEGMENT_HEADER]
+        entries = sorted(
+            (self._entries[k] for k in keys if k in self._entries),
+            key=lambda e: (e.tribunal, e.date),
+        )
+        for e in entries:
+            lines.append(
+                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},"
+                f"{e.djen_raw},{e.updated_at}"
+            )
+        return "\n".join(lines) + "\n"
+
+    def to_segment_csv(self) -> str:
+        """Serialize only the dirty rows (header + mutated entries)."""
+        return self._serialize_rows(set(self._dirty))
+
+    async def upload_segment_to_ia(self, auth: str, *, writer: str = "engine") -> bool:
+        """Flush dirty rows as a new immutable manifest-log/ segment on IA.
+
+        Snapshot-and-clear under the lock: rows re-marked while the upload
+        is in flight stay dirty for the next flush. On failure the snapshot
+        is merged back so no observation is ever dropped (at-least-once;
+        compaction upserts are idempotent). Returns True when there was
+        nothing to flush or the upload succeeded.
+        """
+        from djen_backup.archive import put_ia_bytes
+        from djen_backup.segments import SEGMENT_DIR, default_run_id, segment_name
+
+        async with self._lock:
+            if not self._dirty:
+                return True
+            pending = self._dirty
+            self._dirty = set()
+            content = self._serialize_rows(pending).encode("utf-8")
+
+        if self._run_id is None:
+            self._run_id = default_run_id()
+        name = segment_name(writer, self._run_id)
+        url = _IA_S3_URL.format(f"{SEGMENT_DIR}/{name}")
+        headers = {
+            "Authorization": auth,
+            "Content-Type": "text/csv",
+            "x-amz-auto-make-bucket": "1",
+            "x-archive-meta-mediatype": "data",
+        }
+        ok = False
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await put_ia_bytes(client, url, content, headers)
+                if resp.status_code < 400:
+                    ok = True
+                    log.info("manifest_segment_uploaded", name=name, rows=len(pending))
+                else:
+                    log.warning("manifest_segment_upload_failed", status=resp.status_code)
+        except (httpx.HTTPError, httpx.RequestError) as exc:
+            log.warning("manifest_segment_upload_error", error=str(exc))
+
+        if not ok:
+            async with self._lock:
+                self._dirty |= pending
+        return ok
+
+    # ── Event merge (parquet base + segments, last-write-wins) ──────
+
+    def apply_event(
+        self,
+        tribunal: str,
+        d: date,
+        *,
+        ia_status: str = "",
+        djen_status: str = "",
+        djen_raw: str = "",
+        updated_at: str = "",
+    ) -> None:
+        """Apply one upsert event with field-level last-write-wins semantics.
+
+        Empty fields mean "no change" (plan §4.1 — partial events allowed).
+        ``ia_status='uploaded'`` is monotonic: a verified archive fact is
+        applied regardless of timestamps and never reverted. DJEN fields only
+        apply when the event is not older than the entry (ISO timestamps
+        compare lexicographically; an entry without ``updated_at`` loses).
+        Never dirties the entry — loaded state is not a new observation.
+        """
+        tribunal = tribunal.upper()
+        djen_status, djen_raw = self._normalize_event(djen_status, djen_raw)
+
+        k = self._key(tribunal, d)
+        entry = self._entries.get(k)
+        if entry is None:
+            entry = ManifestEntry(
+                tribunal=tribunal,
+                date=d,
+                ia_status=ia_status,
+                djen_status=djen_status,
+                djen_raw=djen_raw,
+                updated_at=updated_at,
+            )
+            self._entries[k] = entry
+            return
+
+        newer = updated_at >= (entry.updated_at or "")
+        if ia_status == "uploaded" and entry.ia_status != "uploaded":
+            entry.ia_status = "uploaded"
+            entry.updated_at = max(entry.updated_at, updated_at)
+        if (djen_status or djen_raw) and newer:
+            entry.djen_status = djen_status
+            entry.djen_raw = djen_raw
+            entry.updated_at = max(entry.updated_at, updated_at)
+
+    @staticmethod
+    def _normalize_event(djen_status: str, djen_raw: str) -> tuple[str, str]:
+        """Normalize event vocabulary for the engine's in-memory model.
+
+        - ``confirmed`` is a parquet/drain-only refinement of ``available``;
+          the engine's flows (``entries_needing_upload``, ``_categorize``)
+          only know ``available``.
+        - An ``absent`` verdict with a bare 200 raw contradicts itself
+          (``interpret_djen_raw('200')`` derives available). Rewrite the raw
+          to the ``no_publications`` sentinel so the row re-derives to
+          absent from the raw alone (plan §5 Fase 1 self-consistency).
+        """
+        if djen_status == "confirmed":
+            djen_status = "available"
+        if djen_status == "absent" and (djen_raw == "200" or djen_raw.startswith("200:")):
+            djen_raw = "no_publications"
+        return djen_status, djen_raw
+
+    def apply_segment_csv(self, text: str) -> int:
+        """Apply a manifest-log segment (6-col event CSV). Returns rows applied."""
+        applied = 0
+        for line in text.splitlines():
+            line = line.strip()
+            if not line or line.startswith("tribunal"):
+                continue
+            parts = line.split(",")
+            if len(parts) < 6:
+                continue
+            try:
+                d = date.fromisoformat(parts[1])
+            except ValueError:
+                continue
+            self.apply_event(
+                parts[0],
+                d,
+                ia_status=parts[2],
+                djen_status=parts[3],
+                djen_raw=parts[4],
+                updated_at=parts[5],
+            )
+            applied += 1
+        if applied:
+            self._invalidate_caches()
+        return applied
+
     # ── Disk persistence ─────────────────────────────────────────────
 
     def save_to_disk(self, path: Path) -> None:
@@ -555,8 +759,87 @@ class SyncManifest:
     # ── IA persistence ───────────────────────────────────────────────
 
     async def load_from_ia(self) -> int:
-        """Download manifest from IA. Falls back to legacy zip-inventory.txt."""
-        # Try new manifest first
+        """Load state from IA: parquet base + un-compacted manifest-log segments.
+
+        Phase 2 read path (plan §5): the compacted ``sync-manifest.parquet``
+        is the base (it is the verified-correct materialization — see
+        CLAUDE.md Correctness), and any segments the compactor has not yet
+        absorbed are replayed on top, field-level last-write-wins by
+        ``updated_at``. The legacy CSV is only read as a FALLBACK when the
+        parquet is unavailable (bootstrap / IA outage).
+        """
+        try:
+            return await self._load_from_parquet_and_segments()
+        except (httpx.HTTPError, httpx.RequestError, OSError, RuntimeError, ValueError) as exc:
+            log.warning("manifest_parquet_load_failed_falling_back_to_csv", error=str(exc))
+        return await self._load_from_ia_csv_fallback()
+
+    async def _load_from_parquet_and_segments(self) -> int:
+        import tempfile
+
+        before = len(self._entries)
+        async with httpx.AsyncClient(timeout=120, follow_redirects=True) as client:
+            resp = await client.get(_IA_DOWNLOAD_URL.format(IA_PARQUET_FILENAME))
+            _raise_unless_ok(resp.status_code, IA_PARQUET_FILENAME)
+
+            with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
+                tmp.write(resp.content)
+                tmp_path = tmp.name
+            try:
+                rows = await asyncio.to_thread(_read_parquet_rows, tmp_path)
+            finally:
+                await anyio.Path(tmp_path).unlink(missing_ok=True)
+
+            for tribunal, d, ia_status, djen_status, djen_raw, updated_at in rows:
+                self.apply_event(
+                    tribunal,
+                    d,
+                    ia_status=ia_status or "",
+                    djen_status=djen_status or "",
+                    djen_raw=djen_raw or "",
+                    updated_at=updated_at or "",
+                )
+            log.info("manifest_loaded_from_parquet", rows=len(rows))
+
+            segment_names = await self._list_pending_segments(client)
+            applied = 0
+            for name in sorted(segment_names):
+                seg_resp = await client.get(_IA_DOWNLOAD_URL.format(name))
+                if seg_resp.status_code != 200:
+                    log.warning("segment_download_failed", name=name, status=seg_resp.status_code)
+                    continue
+                applied += self.apply_segment_csv(seg_resp.text)
+            if segment_names:
+                log.info("manifest_segments_replayed", segments=len(segment_names), events=applied)
+
+        self._invalidate_caches()
+        return len(self._entries) - before
+
+    @staticmethod
+    async def _list_pending_segments(client: httpx.AsyncClient) -> list[str]:
+        """List manifest-log/ segments not yet compacted (plan §4.3)."""
+        from djen_backup.segments import SEGMENT_COMPACTED_DIR, SEGMENT_DIR
+
+        resp = await client.get(_IA_FILES_METADATA_URL)
+        if resp.status_code != 200:
+            return []
+        try:
+            files = resp.json().get("result", [])
+        except ValueError:
+            return []
+        names: list[str] = []
+        for f in files:
+            name = f.get("name", "") if isinstance(f, dict) else ""
+            if (
+                name.startswith(f"{SEGMENT_DIR}/")
+                and not name.startswith(f"{SEGMENT_COMPACTED_DIR}/")
+                and name.endswith(".csv")
+            ):
+                names.append(name)
+        return names
+
+    async def _load_from_ia_csv_fallback(self) -> int:
+        """Legacy read path: canonical CSV, then zip-inventory.txt."""
         for filename in (IA_MANIFEST_FILENAME, "zip-inventory.txt"):
             url = _IA_DOWNLOAD_URL.format(filename)
             try:
@@ -576,7 +859,12 @@ class SyncManifest:
         return 0
 
     async def upload_to_ia(self, auth: str) -> bool:
-        """Merge-then-upload: re-download remote, merge, upload."""
+        """LEGACY full-CSV merge-then-upload — no longer called by the engine.
+
+        Phase 2 writers emit manifest-log/ segments instead (see
+        ``upload_segment_to_ia``). Kept for manual recovery tooling until
+        Phase 3 retires the CSV entirely.
+        """
         from djen_backup.archive import put_ia_bytes
 
         # Re-download and merge to prevent race conditions
