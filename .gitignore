@@ -95,3 +95,6 @@ logs/
 
 # segmenter v7 gold-build scratch (PII OCR + intermediate labels; never commit)
 data/segmenter_work/
+
+# Claude Code subagent worktrees (transient)
+.claude/worktrees/
