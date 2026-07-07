@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import quote
 
 import httpx
 
@@ -25,15 +26,28 @@ def _build_auth_header(ia_key: str, ia_secret: str) -> str:
     return f"LOW {ia_key}:{ia_secret}"
 
 
+def _meta_value(value: str) -> str:
+    """Encode an IA metadata header value.
+
+    HTTP header values must be ASCII (httpx raises ``UnicodeEncodeError``
+    otherwise). IA's S3 API accepts non-ASCII metadata via its
+    ``uri(<percent-encoded>)`` convention — the same one used by the
+    official ``internetarchive`` library.
+    """
+    if value.isascii():
+        return value
+    return f"uri({quote(value, safe='')})"
+
+
 def _build_upload_headers(ia_key: str, ia_secret: str, content_type: str) -> dict[str, str]:
     return {
         "Authorization": _build_auth_header(ia_key, ia_secret),
         "Content-Type": content_type,
         "x-archive-auto-make-bucket": "1",
         "x-archive-meta-mediatype": "data",
-        "x-archive-meta-subject": "STJ;acórdãos;primeira seção;direito brasileiro",
-        "x-archive-meta-title": "STJ Acórdãos — Primeira Seção",
-        "x-archive-meta-description": (
+        "x-archive-meta-subject": _meta_value("STJ;acórdãos;primeira seção;direito brasileiro"),
+        "x-archive-meta-title": _meta_value("STJ Acórdãos — Primeira Seção"),
+        "x-archive-meta-description": _meta_value(
             "Espelhos de acórdãos da Primeira Seção do Superior Tribunal de Justiça (STJ), "
             "obtidos via portal de dados abertos."
         ),
