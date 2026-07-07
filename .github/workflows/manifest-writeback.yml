@@ -13,12 +13,6 @@
 name: "Phase 1: Manifest Write-back"
 
 on:
-  push:
-    branches:
-      - claude/epic-clarke-9uaaQ
-    paths:
-      - 'scripts/manifest_writeback.py'
-      - '.github/workflows/manifest-writeback.yml'
   workflow_dispatch:
     inputs:
       dry_run:

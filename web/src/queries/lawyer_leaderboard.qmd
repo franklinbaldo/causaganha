@@ -3,6 +3,7 @@ title: "Leaderboard de Advogados"
 description: "Ranking de advogados com base no sistema de pontuação OpenSkill."
 output: /data/lawyer_leaderboard.json
 format: array
+optional: true
 ---
 
 Leaderboard dos advogados no tribunal com base no rating conservador (mu - 3 * sigma).

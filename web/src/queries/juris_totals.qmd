@@ -2,6 +2,7 @@
 title: "TJRO JURIS Totals"
 output: /data/juris_totals.json
 format: object
+optional: true
 ---
 ```{sql}
 SELECT

@@ -3,7 +3,11 @@
 # ============================================================================
 #
 # Manifest-driven sync: checks IA + DJEN, downloads missing ZIPs, uploads.
-# State persisted in sync-manifest.csv (cached between runs + uploaded to IA).
+# Phase 2 (docs/planning/manifest-source-of-truth.md): state is read from
+# sync-manifest.parquet + un-compacted manifest-log/ segments on IA; writes
+# are emitted as immutable manifest-log/ segments (dirty rows only) — the
+# canonical CSV is no longer rewritten. The local data/sync-manifest.csv is
+# kept purely as a warm-start cache between runs.
 # ============================================================================
 
 name: Collect ZIPs

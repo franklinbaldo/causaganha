@@ -70,7 +70,9 @@ jobs:
           uv sync --no-dev
           mkdir -p web/public/cache web/public/data
           # Render .qmd query contracts → JSON in web/public/data/
-          uv run python scripts/render_queries.py
+          # --strict (RFC 0007): a required contract that fails to render
+          # aborts the deploy; optional contracts only warn.
+          uv run python scripts/render_queries.py --strict
           # Legacy caches — kept during migration to .qmd contracts
           uv run python scripts/generate_cache_from_manifest.py
           uv run python scripts/generate_homepage_widgets.py \

@@ -1,4 +1,24 @@
-"""CLI for the STJ acórdãos ingestão pipeline."""
+"""CLI for the STJ acórdãos ingestão pipeline.
+
+Manual execution
+----------------
+Discover + download all resources (ZIPs + monthly JSONs) and extract safely::
+
+    uv run stj-acordaos download --data-dir data/stj --manifest-path data/stj/stj-manifest.csv
+
+Dedup extracted JSONs into a parquet and upload sources + parquet to IA
+(requires ``IA_ACCESS_KEY`` / ``IA_SECRET_KEY`` in the environment)::
+
+    uv run --env-file ~/workspace/.env stj-acordaos upload --data-dir data/stj
+
+Show manifest summary::
+
+    uv run stj-acordaos status
+
+In CI, ``.github/workflows/stj-tjro-sync.yml`` runs the same commands with
+secrets injected. It is ``workflow_dispatch`` only (no cron) — trigger it
+manually from the Actions tab.
+"""
 
 from __future__ import annotations
 
