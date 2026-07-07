@@ -3,6 +3,7 @@ title: "STJ Acórdãos — Totais"
 description: "Contagens gerais dos acórdãos da Primeira Seção do STJ."
 output: /data/stj_totals.json
 format: object
+optional: true
 ---
 
 Totais agregados: número total de acórdãos, temas distintos e data da decisão mais recente.

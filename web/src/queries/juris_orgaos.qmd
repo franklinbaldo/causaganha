@@ -2,6 +2,7 @@
 title: "TJRO JURIS Órgãos Julgadores"
 output: /data/juris_orgaos.json
 format: array
+optional: true
 ---
 ```{sql}
 SELECT

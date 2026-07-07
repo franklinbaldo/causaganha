@@ -1,6 +1,7 @@
 ---
 output: /data/processos_multi_fonte.json
 format: array
+optional: true
 ---
 
 Processos presentes em mais de uma fonte (DJEN × JURIS × STJ).

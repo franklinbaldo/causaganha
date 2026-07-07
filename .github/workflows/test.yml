@@ -41,6 +41,11 @@ jobs:
         # committed *.ipynb must match `marimo export ipynb`. Fails if a
         # generated Jupyter notebook is stale (regenerate with --fix).
         run: uv run python scripts/check_notebooks_synced.py
+      - name: Validate query contracts (.qmd)
+        # RFC 0007: static validation of web/src/queries/*.qmd — required
+        # frontmatter fields + SQL executed against synthetic schemas derived
+        # from the same view registry the render uses. No network needed.
+        run: uv run python scripts/render_queries.py --check
       - name: Auto-fix linting issues
         if: failure() && github.event_name == 'pull_request' && endsWith(github.actor, '[bot]')
         run: |
