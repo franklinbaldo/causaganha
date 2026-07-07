@@ -14,9 +14,10 @@ tribunais — capa (classe, assuntos, órgão julgador, grau, datas, sigilo) e *
 movimentação** (tabelas processuais unificadas) — indexados em Elasticsearch, um índice
 por tribunal (`api_publica_tjro`, `api_publica_stj`, …). **Não há inteiro teor.**
 
-Para o causaganha isso é a peça que faltava no RFC 0005: DJEN dá a *publicação*, JURIS/STJ
-dão o *teor*, e o DataJud dá a **capa canônica e a tramitação** — tudo unido pelo número
-CNJ de 20 dígitos. Com ele, `processos_unificados` ganha classe/assunto/órgão oficiais,
+Para o causaganha isso é a peça que faltava no RFC 0005: o DJEN dá a *publicação* — e,
+na maioria dos casos, o **próprio teor da comunicação** publicada —, JURIS/STJ dão o
+*teor curado das decisões* (acórdãos, ementas, votos), e o DataJud dá a **capa canônica
+e a tramitação** — tudo unido pelo número CNJ de 20 dígitos. Com ele, `processos_unificados` ganha classe/assunto/órgão oficiais,
 data de ajuizamento e o estado da tramitação (sentença, trânsito em julgado, baixa).
 
 ## 2. Princípio de escopo: enriquecer, não rastrear
@@ -85,7 +86,8 @@ limit do CNJ é a restrição dominante.
 
 ## 4. O que NÃO fazer
 
-- **Não buscar teor** — o DataJud não tem; teor continua vindo de JURIS/STJ.
+- **Não buscar teor** — o DataJud não tem; teor continua vindo do DJEN (texto das
+  comunicações publicadas, na maioria dos casos) e de JURIS/STJ (decisões curadas).
 - **Não espelhar acervo** — só CNJs conhecidos (+ facetas agregadas).
 - **Não tratar HTTP 200 como sucesso sem inspecionar o corpo** (rejeição do ES vem em 200).
 - **Não usar campos `text` crus** em sort/term/agg — sempre `.keyword`.
