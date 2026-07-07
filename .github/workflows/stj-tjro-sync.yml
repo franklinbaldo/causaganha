@@ -2,8 +2,10 @@
 # STJ & TJRO SYNC — Manual ingestion of STJ acórdãos and TJRO JURIS corpus
 # ============================================================================
 #
-# workflow_dispatch ONLY (no cron): these sources change slowly and the
-# crawls are polite/slow — trigger runs manually from the Actions tab.
+# Hourly cron + workflow_dispatch. Scheduled runs are incremental: both
+# CLIs dedup against their IA manifests, and the TJRO crawl is limited to
+# the current year (full/backfill crawls stay available via dispatch).
+# The concurrency group queues (not cancels) if a previous run overruns.
 #
 # Two independent jobs:
 #   stj  — `stj-acordaos download` + `stj-acordaos upload` (CKAN → dedup → IA)
@@ -13,6 +15,8 @@
 name: STJ & TJRO Sync
 
 on:
+  schedule:
+    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       run_stj:
@@ -47,7 +51,8 @@ concurrency:
 jobs:
   stj:
     name: STJ acórdãos (download + upload)
-    if: ${{ inputs.run_stj }}
+    # inputs.* is empty on schedule events — gate must pass for cron runs
+    if: ${{ github.event_name == 'schedule' || inputs.run_stj }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: dev
@@ -90,7 +95,8 @@ jobs:
 
   tjro:
     name: TJRO JURIS (crawl + upload)
-    if: ${{ inputs.run_tjro }}
+    # inputs.* is empty on schedule events — gate must pass for cron runs
+    if: ${{ github.event_name == 'schedule' || inputs.run_tjro }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: dev
@@ -110,6 +116,11 @@ jobs:
         run: |
           ANO="${{ inputs.tjro_ano }}"
           TIPOS="${{ inputs.tjro_tipos }}"
+
+          # Scheduled runs stay incremental: restrict to the current year
+          if [ "${{ github.event_name }}" = "schedule" ] && [ -z "$ANO" ]; then
+            ANO="$(date -u +%Y)"
+          fi
 
           CMD="uv run --no-dev tjro-juris crawl data/tjro-juris"
           if [ -n "$ANO" ]; then
