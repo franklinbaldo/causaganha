@@ -158,6 +158,7 @@ os JSONs gerados com Zod no build do Astro (Zod já é dependência do web).
 |---|---|
 | **47 alertas Dependabot na branch default (11 high, 28 moderate, 8 low)** — triar; a poda do §2 (torch/transformers/boto3 etc.) deve eliminar boa parte | github.com/franklinbaldo/causaganha/security/dependabot |
 | Matriz de teste degenerada `tribunal: [tjro]` no CI | `.github/workflows/test.yml` |
+| `check_notebooks_synced.py` compara o metadado `marimo_version` embutido no `.ipynb` — todo bump de patch do marimo no lock quebra o CI sem mudança real (aconteceu neste PR: 0.23.11→0.23.13); ignorar esse campo na comparação | `scripts/check_notebooks_synced.py` |
 | `ia-practicality-probe` roda toda segunda para sempre — ainda gera decisão? | cron semanal ativo |
 | `data/` com 9,2 MB / 236 arquivos versionados (benchmark + segmenter samples) — usados, mas candidatos a item no IA em vez de git | `data/benchmark/`, `data/segmenter_samples/` |
 | `permissions: contents: write` amplo no CI de PR | `test.yml` |
