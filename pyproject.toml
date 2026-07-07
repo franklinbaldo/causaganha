@@ -55,12 +55,8 @@ classify = [
     "litellm>=1.40.0",
 ]
 ner = [
-    # BERT-based NER for judicial entities (LeNER-Br)
-    "transformers>=4.40.0",
+    # Decision segmenter training (scripts/train_decision_segmenter.py)
     "torch>=2.2.0",
-    "accelerate>=0.30.0",
-    # Deterministic entity ruler (EntityRuler — uses blank tokenizer only)
-    "spacy>=3.7.0",
 ]
 dev = [
     "pre-commit>=4.2.0",
