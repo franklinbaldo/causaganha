@@ -29,8 +29,6 @@ dependencies = [
     "structlog>=24.1",
     "tenacity>=9.1",
     "click>=8.1", # for djen_backup CLI
-    "boto3>=1.35.0", # S3 Glacier cold storage only (cold_storage.py) — NOT for Internet Archive uploads (use httpx)
-    "fpdf>=1.7.2",
     "numpy>=2.0.0",
     "holidays>=0.40.0",
     "pyyaml>=6.0.3",
@@ -39,19 +37,9 @@ dependencies = [
     "aiohttp>=3.9.0",
 ]
 
-[project.optional-dependencies]
-embeddings = [
-    "lancedb>=0.4.0",
-]
-
 [dependency-groups]
 classify = [
-    # Local embedding model (EmbeddingGemma-300M, e5-small, etc.)
-    "sentence-transformers>=3.0.0",
-    # ML classifiers trained on top of embeddings
-    "scikit-learn>=1.5.0",
-    "joblib>=1.4.0",
-    # LLM abstraction layer (fallback + sampling)
+    # LLM abstraction layer used by analysis/llm_analyzer.py
     "litellm>=1.40.0",
 ]
 ner = [
@@ -69,7 +57,6 @@ dev = [
     "ruff>=0.12.0",
     "pip-audit>=2.7.2",
     "safety>=3.2.0",
-    "dbt-duckdb~=1.9",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings[python]>=1.0.0",
@@ -83,7 +70,6 @@ dev = [
 ]
 
 [project.scripts]
-causaganha = "causaganha.cli:app"
 djen-backup = "djen_backup.__main__:app"
 stj-acordaos = "stj_acordaos.__main__:app"
 tjro-juris = "tjro_juris.__main__:app"
