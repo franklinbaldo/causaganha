@@ -46,6 +46,23 @@ export const dailyUploadRowSchema = z.object({
 export const dailyUploadsSchema = z.array(dailyUploadRowSchema);
 export type DailyUploadRow = z.infer<typeof dailyUploadRowSchema>;
 
+/** datajud_classes.qmd — format: array */
+export const datajudClasseRowSchema = z.object({
+  classe_nome: z.string(),
+  total: z.number(),
+});
+export const datajudClassesSchema = z.array(datajudClasseRowSchema);
+export type DatajudClasseRow = z.infer<typeof datajudClasseRowSchema>;
+
+/** datajud_totals.qmd — format: object (aggregates over empty set → NULL max) */
+export const datajudTotalsSchema = z.object({
+  total_processos: z.number(),
+  total_registros: z.number(),
+  total_tribunais: z.number(),
+  ultima_atualizacao: isoDate.nullable(),
+});
+export type DatajudTotals = z.infer<typeof datajudTotalsSchema>;
+
 /** juris_classes.qmd — format: array */
 export const jurisClasseRowSchema = z.object({
   classe_judicial: z.string().nullable(),
@@ -191,6 +208,8 @@ export const contracts = {
   consolidation_status: { output: 'data/consolidation_status.json', schema: consolidationStatusSchema },
   court_reliability: { output: 'data/court_reliability.json', schema: courtReliabilitySchema },
   daily_uploads: { output: 'data/daily_uploads.json', schema: dailyUploadsSchema },
+  datajud_classes: { output: 'data/datajud_classes.json', schema: datajudClassesSchema },
+  datajud_totals: { output: 'data/datajud_totals.json', schema: datajudTotalsSchema },
   juris_classes: { output: 'data/juris_classes.json', schema: jurisClassesSchema },
   juris_orgaos: { output: 'data/juris_orgaos.json', schema: jurisOrgaosSchema },
   juris_totals: { output: 'data/juris_totals.json', schema: jurisTotalsSchema },

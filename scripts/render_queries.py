@@ -63,8 +63,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
 from djen_backup.manifest import HEADER as _MANIFEST_HEADER
 from scripts.reconcile_processos import (
+    _DATAJUD_AGG_SQL,
     _DJEN_AGG_SQL,
     _DOCUMENTOS_SQL,
     _JURIS_AGG_SQL,
@@ -259,6 +261,17 @@ def _register_processo_documentos(con: duckdb.DuckDBPyConnection) -> bool:
     return True
 
 
+def _register_datajud_capa(con: duckdb.DuckDBPyConnection) -> bool:
+    # datajud enrich writes: data/datajud/datajud-capa-{tribunal}.parquet
+    datajud_files = sorted(ROOT.glob("data/datajud/datajud-capa-*.parquet"))
+    if not datajud_files:
+        return False
+    datajud_list = ", ".join(f"'{p}'" for p in datajud_files)
+    print(f"Using local DataJud capa parquets: {len(datajud_files)} files")
+    con.execute(f"CREATE VIEW datajud_capa AS SELECT * FROM read_parquet([{datajud_list}])")
+    return True
+
+
 def _register_tjro_juris(con: duckdb.DuckDBPyConnection) -> bool:
     # Consolidate command writes: data/tjro_juris/<year>/tjro-juris-<year>.parquet
     juris_files = sorted(ROOT.glob("data/tjro_juris/*/tjro-juris-*.parquet"))
@@ -334,6 +347,11 @@ def _synthetic_tjro_juris(con: duckdb.DuckDBPyConnection) -> None:
     con.register("tjro_juris", _TJRO_JURIS_SCHEMA.empty_table())
 
 
+def _synthetic_datajud_capa(con: duckdb.DuckDBPyConnection) -> None:
+    """Empty datajud_capa from the producer's own parquet schema (datajud CLI)."""
+    con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
+
+
 def _reconcile_sources_connection() -> duckdb.DuckDBPyConnection:
     """Scratch connection with empty inputs + aggregation views of reconcile_processos.
 
@@ -349,9 +367,11 @@ def _reconcile_sources_connection() -> duckdb.DuckDBPyConnection:
     )
     _synthetic_tjro_juris(scratch)
     _synthetic_acordaos(scratch)
+    _synthetic_datajud_capa(scratch)
     scratch.execute(f"CREATE VIEW djen_agg AS {_DJEN_AGG_SQL}")
     scratch.execute(f"CREATE VIEW juris_agg AS {_JURIS_AGG_SQL}")
     scratch.execute(f"CREATE VIEW stj_agg AS {_STJ_AGG_SQL}")
+    scratch.execute(f"CREATE VIEW datajud_agg AS {_DATAJUD_AGG_SQL}")
     return scratch
 
 
@@ -382,6 +402,7 @@ VIEW_SPECS: tuple[ViewSpec, ...] = (
     ),
     ViewSpec("processo_documentos", _register_processo_documentos, _synthetic_processo_documentos),
     ViewSpec("tjro_juris", _register_tjro_juris, _synthetic_tjro_juris),
+    ViewSpec("datajud_capa", _register_datajud_capa, _synthetic_datajud_capa),
 )
 
 
