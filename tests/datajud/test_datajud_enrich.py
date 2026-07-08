@@ -202,6 +202,42 @@ def test_enrich_reads_cnjs_from_source_parquets(tmp_path: Path):
     assert route.call_count == 1
 
 
+def test_enrich_reads_cnjs_from_tjro_juris_source_parquet(tmp_path: Path):
+    """CNJs from data/tjro-juris/<year>/tjro-juris-<year>.parquet are found.
+
+    That's the real hyphenated layout the crawler writes — not the
+    underscore directory a stale glob would look for.
+    """
+    sources_dir = tmp_path / "data"
+    juris_dir = sources_dir / "tjro-juris" / "2024"
+    juris_dir.mkdir(parents=True)
+    con = duckdb.connect()
+    con.execute(
+        f"""
+        COPY (SELECT '{CNJ}' AS nr_processo)
+        TO '{juris_dir / "tjro-juris-2024.parquet"}' (FORMAT PARQUET)
+        """
+    )
+    con.close()
+
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(200, json=_payload([_source("G1", 111)]))
+        result = runner.invoke(
+            app,
+            [
+                "enrich",
+                "--data-dir",
+                str(tmp_path / "datajud"),
+                "--sources-dir",
+                str(sources_dir),
+                "--skip-upload",
+            ],
+        )
+
+    assert result.exit_code == 0, result.output
+    assert route.call_count == 1  # would be 0 (no CNJs found) before the glob fix
+
+
 def test_enrich_rate_limit_exhaustion_is_a_nominal_error(tmp_path: Path, monkeypatch):
     import datajud.__main__ as cli
 

@@ -3,9 +3,11 @@
 The same CNJ legitimately appears in separate documents per grau (the ES
 ``_id`` encodes ``{TRIBUNAL}_{classe}_{grau}_{orgao}_{numero}``), so the
 natural key is ``(numeroProcesso, grau, orgaoJulgador.codigo)`` — never the
-CNJ alone. Between versions of the same document, the most recent
-``dataHoraUltimaAtualizacao`` wins; on ties the later occurrence (i.e. the
-freshly fetched row) wins.
+CNJ alone. Not every tribunal populates ``orgaoJulgador.codigo``; when it is
+missing, the órgão's ``nome`` is used instead so two genuinely distinct
+órgãos with no ``codigo`` don't collapse onto the same key. Between versions
+of the same document, the most recent ``dataHoraUltimaAtualizacao`` wins; on
+ties the later occurrence (i.e. the freshly fetched row) wins.
 """
 
 from __future__ import annotations
@@ -19,12 +21,18 @@ if TYPE_CHECKING:
     from datajud.models import ProcessoCapa
 
 
-CapaKey = tuple[str, str, int | None]
+CapaKey = tuple[str, str, int | str | None]
+
+
+def _orgao_key_part(codigo: int | None, nome: str | None) -> int | str:
+    """``codigo`` when present, else a namespaced ``nome`` fallback."""
+    return codigo if codigo is not None else f"nome:{nome or ''}"
 
 
 def capa_row_key(row: dict) -> CapaKey:
     """Natural key of a capa parquet row."""
-    return (row["numero_processo"], row["grau"], row["orgao_julgador_codigo"])
+    org = _orgao_key_part(row["orgao_julgador_codigo"], row.get("orgao_julgador"))
+    return (row["numero_processo"], row["grau"], org)
 
 
 def dedup_capas(capas: Iterable[ProcessoCapa]) -> list[ProcessoCapa]:

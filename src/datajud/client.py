@@ -129,6 +129,18 @@ def is_es_rejection(payload: object) -> bool:
     )
 
 
+def is_es_error(payload: object) -> bool:
+    """True when an HTTP 200 body carries ANY Elasticsearch error.
+
+    Status code is not a verdict (see :func:`is_es_rejection`): a 200 can
+    still carry ``{"error": {...}}`` for non-transient failures too (e.g.
+    ``query_shard_exception``, a malformed query). Those are NOT retried —
+    only the queue-full flavor is — but they must never be silently treated
+    as a normal (empty) result either.
+    """
+    return isinstance(payload, dict) and "error" in payload
+
+
 def retry_wait(backoff_base: float) -> tenacity.wait_exponential:
     """Exponential backoff (base doubling, capped at 30s) for both flavors."""
     return tenacity.wait_exponential(multiplier=backoff_base, max=30)
@@ -235,6 +247,10 @@ class DataJudClient:
             log.warning("datajud_es_rejection", tribunal=self.tribunal)
             msg = "es_rejected_execution_exception (ES search queue full)"
             raise _TransientRejectionError(msg)
+        if is_es_error(payload):
+            log.error("datajud_es_error", tribunal=self.tribunal, error=payload.get("error"))
+            msg = f"DataJud returned an Elasticsearch error in HTTP 200: {payload.get('error')}"
+            raise DataJudError(msg)
         return payload
 
     # ── Batch CNJ lookup ─────────────────────────────────────────────────

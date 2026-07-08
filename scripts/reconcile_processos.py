@@ -24,6 +24,8 @@ from typing import Any
 
 import duckdb
 
+from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
+
 
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
@@ -239,7 +241,7 @@ _UNIFICADOS_SQL = """
 WITH
     base AS (
         SELECT
-            COALESCE(d.nr_processo, j.nr_processo, s.nr_processo) AS nr_processo,
+            COALESCE(d.nr_processo, j.nr_processo, s.nr_processo, dj.nr_processo) AS nr_processo,
             d.djen_primeira_pub,
             d.djen_ultima_pub,
             d.djen_n_publicacoes,
@@ -259,21 +261,32 @@ WITH
             s.stj_ementa,
             s.stj_data_decisao,
             s.stj_data_publicacao,
+            -- DataJud enrichment (RFC 0010) — NULL/false when the capa is absent
+            dj.classe_oficial,
+            dj.assuntos,
+            dj.orgao_julgador,
+            dj.grau,
+            dj.data_ajuizamento,
+            dj.ultima_atualizacao,
+            (dj.nr_processo IS NOT NULL) AS tem_datajud,
             (CASE WHEN d.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
              CASE WHEN j.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
-             CASE WHEN s.nr_processo IS NOT NULL THEN 1 ELSE 0 END)::INTEGER AS n_fontes,
+             CASE WHEN s.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
+             CASE WHEN dj.nr_processo IS NOT NULL THEN 1 ELSE 0 END)::INTEGER AS n_fontes,
             list_filter(
-                ['djen', 'juris', 'stj'],
+                ['djen', 'juris', 'stj', 'datajud'],
                 x -> (
-                    (x = 'djen'  AND d.nr_processo IS NOT NULL) OR
-                    (x = 'juris' AND j.nr_processo IS NOT NULL) OR
-                    (x = 'stj'   AND s.nr_processo IS NOT NULL)
+                    (x = 'djen'    AND d.nr_processo IS NOT NULL) OR
+                    (x = 'juris'   AND j.nr_processo IS NOT NULL) OR
+                    (x = 'stj'     AND s.nr_processo IS NOT NULL) OR
+                    (x = 'datajud' AND dj.nr_processo IS NOT NULL)
                 )
             ) AS fontes,
             NOW() AS updated_at
         FROM djen_agg d
-        FULL OUTER JOIN juris_agg j USING (nr_processo)
-        FULL OUTER JOIN stj_agg   s USING (nr_processo)
+        FULL OUTER JOIN juris_agg   j USING (nr_processo)
+        FULL OUTER JOIN stj_agg     s USING (nr_processo)
+        FULL OUTER JOIN datajud_agg dj USING (nr_processo)
     )
 SELECT
     base.nr_processo,
@@ -300,19 +313,17 @@ SELECT
     stj_ementa,
     stj_data_decisao,
     stj_data_publicacao,
-    -- DataJud enrichment (RFC 0010) — NULL/false when the capa is absent
-    dj.classe_oficial,
-    dj.assuntos,
-    dj.orgao_julgador,
-    dj.grau,
-    dj.data_ajuizamento,
-    dj.ultima_atualizacao,
-    (dj.nr_processo IS NOT NULL) AS tem_datajud,
+    classe_oficial,
+    assuntos,
+    orgao_julgador,
+    grau,
+    data_ajuizamento,
+    ultima_atualizacao,
+    tem_datajud,
     fontes,
     n_fontes,
     updated_at
 FROM base
-LEFT JOIN datajud_agg dj ON dj.nr_processo = base.nr_processo
 ORDER BY base.nr_processo
 """
 
@@ -432,27 +443,43 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
     stj_count = con.execute("SELECT COUNT(*) FROM stj_agg").fetchone()[0]
     print(f"  {stj_count:,} STJ processes (with valid CNJ number)")
 
-    # DataJud capa (optional enrichment) — join only when the parquet exists;
-    # without it the datajud columns are NULL and tem_datajud is false.
+    # DataJud capa (optional enrichment) — join only when the parquet exists
+    # AND has the columns _DATAJUD_AGG_SQL needs; without it the datajud
+    # columns are NULL and tem_datajud is false. The empty fallback is
+    # derived from the producer's own pyarrow schema (datajud.archive.
+    # CAPA_SCHEMA) rather than hand-typed, so it can't drift from it — same
+    # pattern as scripts/render_queries.py's _synthetic_datajud_capa.
     print("Building DataJud aggregation…")
+    _datajud_required_cols = {
+        "numero_processo",
+        "classe_nome",
+        "assuntos",
+        "orgao_julgador",
+        "grau",
+        "data_ajuizamento",
+        "ultima_atualizacao",
+    }
     datajud_files = datajud_parquet_files()
     if datajud_files:
         datajud_list = ", ".join(f"'{p}'" for p in datajud_files)
         print(f"  Registering DataJud capa view: {len(datajud_files)} parquet file(s)")
         con.execute(f"CREATE VIEW datajud_capa AS SELECT * FROM read_parquet([{datajud_list}])")
+        datajud_cols = {row[0] for row in con.execute("DESCRIBE datajud_capa").fetchall()}
+        if not _datajud_required_cols <= datajud_cols:
+            missing = sorted(_datajud_required_cols - datajud_cols)
+            print(
+                f"  SKIP: datajud-capa-*.parquet missing column(s) {missing} — "
+                "DataJud enrichment will be empty (incompatible/partial parquet?)",
+                file=sys.stderr,
+            )
+            con.execute("DROP VIEW datajud_capa")
+            con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
     else:
         print(
             "  SKIP: no datajud-capa-*.parquet found — DataJud enrichment will be empty",
             file=sys.stderr,
         )
-        con.execute(
-            "CREATE VIEW datajud_capa AS "
-            "SELECT NULL::VARCHAR AS numero_processo, NULL::VARCHAR AS classe_nome, "
-            "NULL::VARCHAR AS assuntos, NULL::VARCHAR AS orgao_julgador, "
-            "NULL::VARCHAR AS grau, NULL::VARCHAR AS data_ajuizamento, "
-            "NULL::VARCHAR AS ultima_atualizacao "
-            "WHERE FALSE"
-        )
+        con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
     con.execute(f"CREATE TEMP TABLE datajud_agg AS {_DATAJUD_AGG_SQL}")
     datajud_count = con.execute("SELECT COUNT(*) FROM datajud_agg").fetchone()[0]
     print(f"  {datajud_count:,} DataJud processes")

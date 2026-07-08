@@ -33,7 +33,9 @@ from pathlib import Path
 from typing import Annotated
 
 import httpx
+import structlog
 import typer
+from pydantic import ValidationError
 
 from datajud import archive
 from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudClient, DataJudError
@@ -41,6 +43,8 @@ from datajud.dedup import capa_row_key, dedup_capas, merge_capa_rows, merge_movi
 from datajud.manifest import STATUS_OK, ManifestDataJud
 from datajud.models import ProcessoCapa, normalizar_cnj
 
+
+log = structlog.get_logger()
 
 app = typer.Typer(
     name="datajud",
@@ -73,7 +77,7 @@ def _source_selects(sources_dir: Path) -> list[str]:
     unificados = sources_dir / "processos_unificados.parquet"
     if unificados.exists():
         selects.append(f"SELECT nr_processo AS cnj FROM read_parquet('{unificados}')")
-    juris_files = sorted(sources_dir.glob("tjro_juris/*/tjro-juris-*.parquet"))
+    juris_files = sorted(sources_dir.glob("tjro-juris/*/tjro-juris-*.parquet"))
     if juris_files:
         juris_list = ", ".join(f"'{p}'" for p in juris_files)
         selects.append(f"SELECT nr_processo AS cnj FROM read_parquet([{juris_list}])")
@@ -151,7 +155,17 @@ def _read_parquet_rows(path: Path) -> list[dict]:
 async def _fetch_capas(cnjs: list[str], tribunal: str, batch_size: int) -> list[ProcessoCapa]:
     async with DataJudClient(tribunal=tribunal, batch_size=batch_size) as client:
         sources = await client.fetch_processos(cnjs)
-    return [ProcessoCapa.from_source(source) for source in sources]
+    capas: list[ProcessoCapa] = []
+    for source in sources:
+        try:
+            capas.append(ProcessoCapa.from_source(source))
+        except ValidationError as exc:
+            log.warning(
+                "datajud_malformed_document",
+                error=str(exc),
+                numero_processo=source.get("numeroProcesso"),
+            )
+    return capas
 
 
 def _persist(
@@ -250,16 +264,20 @@ def enrich(
     typer.echo(f"  {n_capa:,} capa rows → {capa_path}")
     typer.echo(f"  {n_mov:,} movimento rows → {mov_path}")
 
+    # Mark the manifest fresh only after a successful upload (or an explicit
+    # --skip-upload) — otherwise a failed IA push would be indistinguishable
+    # from a completed one, and needs_refresh() would skip these CNJs for up
+    # to max_age_days before the upload is ever retried.
+    if skip_upload:
+        typer.echo("Skipping IA upload (--skip-upload).")
+    else:
+        _upload([capa_path, mov_path], tribunal, ia_key, ia_secret)
+
     found = Counter(capa.cnj for capa in capas)
     for consulted in pending:
         manifest.upsert(consulted, tribunal, docs=found.get(consulted, 0), status=STATUS_OK)
     manifest.save_local(_manifest_path(data_dir))
     typer.echo(f"Manifest saved ({len(manifest)} entries).")
-
-    if skip_upload:
-        typer.echo("Skipping IA upload (--skip-upload).")
-        return
-    _upload([capa_path, mov_path], tribunal, ia_key, ia_secret)
 
 
 @app.command()

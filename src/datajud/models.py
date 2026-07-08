@@ -174,9 +174,16 @@ class ProcessoCapa(BaseModel):
         """Normalized 20-digit CNJ (or the raw value when non-standard)."""
         return normalizar_cnj(self.numero_processo) or self.numero_processo
 
-    def dedup_key(self) -> tuple[str, str, int | None]:
-        """Natural key: (numeroProcesso, grau, orgaoJulgador.codigo)."""
-        return (self.cnj, self.grau, self.orgao_julgador.codigo)
+    def dedup_key(self) -> tuple[str, str, int | str | None]:
+        """Natural key: (numeroProcesso, grau, orgaoJulgador.codigo or nome).
+
+        Falls back to a namespaced ``nome`` when ``codigo`` is absent (not
+        every tribunal populates it), so two distinct órgãos both missing
+        ``codigo`` don't collapse onto the same key (see dedup.py).
+        """
+        codigo = self.orgao_julgador.codigo
+        org = codigo if codigo is not None else f"nome:{self.orgao_julgador.nome or ''}"
+        return (self.cnj, self.grau, org)
 
     def assuntos_str(self) -> str:
         """Distinct assunto names joined with '; ' (order preserved)."""

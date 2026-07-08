@@ -22,6 +22,22 @@ def _capa(grau: str, orgao: int, atualizacao: str, classe: str = "AC") -> Proces
     )
 
 
+def _capa_sem_codigo(
+    grau: str, orgao_nome: str, atualizacao: str, classe: str = "AC"
+) -> ProcessoCapa:
+    """A capa where the tribunal didn't populate orgaoJulgador.codigo."""
+    return ProcessoCapa.from_source(
+        {
+            "numeroProcesso": CNJ,
+            "tribunal": "TJRO",
+            "grau": grau,
+            "classe": {"codigo": 1, "nome": classe},
+            "orgaoJulgador": {"codigo": None, "nome": orgao_nome},
+            "dataHoraUltimaAtualizacao": atualizacao,
+        }
+    )
+
+
 # ── dedup_capas ──────────────────────────────────────────────────────────
 
 
@@ -62,6 +78,19 @@ def test_different_orgao_same_grau_are_distinct_documents():
     a = _capa("G1", 111, "2026-01-01T00:00:00Z")
     b = _capa("G1", 999, "2026-01-01T00:00:00Z")
     assert len(dedup_capas([a, b])) == 2
+
+
+def test_different_orgao_nome_with_null_codigo_are_not_collapsed():
+    """A tribunal that doesn't populate orgaoJulgador.codigo must not merge.
+
+    Two genuinely distinct órgãos onto the same (numeroProcesso, grau) key —
+    the nome fallback distinguishes them.
+    """
+    a = _capa_sem_codigo("G1", "1ª Vara Cível", "2026-01-01T00:00:00Z")
+    b = _capa_sem_codigo("G1", "2ª Vara Criminal", "2026-01-01T00:00:00Z")
+    result = dedup_capas([a, b])
+    assert len(result) == 2
+    assert {c.orgao_julgador.nome for c in result} == {"1ª Vara Cível", "2ª Vara Criminal"}
 
 
 # ── merge_capa_rows (incremental re-runs) ────────────────────────────────

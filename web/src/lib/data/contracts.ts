@@ -124,6 +124,8 @@ export const processoMultiFonteRowSchema = z.object({
   stj_classe: z.string().nullable(),
   stj_relator: z.string().nullable(),
   stj_data_decisao: isoDate.nullable(),
+  tem_datajud: z.boolean(),
+  classe_oficial: z.string().nullable(),
 });
 export const processosMultiFonteSchema = z.array(processoMultiFonteRowSchema);
 export type ProcessoMultiFonteRow = z.infer<typeof processoMultiFonteRowSchema>;

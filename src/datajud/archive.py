@@ -151,36 +151,36 @@ def upload_parquet(file_path: Path, tribunal: str, ia_key: str, ia_secret: str) 
         item=item_id(tribunal),
     )
 
-    for attempt in range(_MAX_RETRIES + 1):
-        try:
-            with httpx.Client(timeout=300) as client:
+    with httpx.Client(timeout=300) as client:
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
                 resp = client.put(url, content=content, headers=headers)
-        except (httpx.HTTPError, httpx.RequestError) as exc:
-            log.warning("datajud_upload_http_error", attempt=attempt, error=str(exc))
-            if attempt >= _MAX_RETRIES:
+            except (httpx.HTTPError, httpx.RequestError) as exc:
+                log.warning("datajud_upload_http_error", attempt=attempt, error=str(exc))
+                if attempt >= _MAX_RETRIES:
+                    return False
+                continue
+
+            if resp.status_code == HTTP_OK:
+                log.info("datajud_upload_complete", file=file_path.name, item=item_id(tribunal))
+                return True
+
+            if resp.status_code not in _RETRIABLE:
+                log.warning(
+                    "datajud_upload_failed_non_retriable",
+                    status=resp.status_code,
+                    file=file_path.name,
+                )
                 return False
-            continue
 
-        if resp.status_code == HTTP_OK:
-            log.info("datajud_upload_complete", file=file_path.name, item=item_id(tribunal))
-            return True
-
-        if resp.status_code not in _RETRIABLE:
             log.warning(
-                "datajud_upload_failed_non_retriable",
+                "datajud_upload_retriable_error",
+                attempt=attempt,
                 status=resp.status_code,
                 file=file_path.name,
             )
-            return False
-
-        log.warning(
-            "datajud_upload_retriable_error",
-            attempt=attempt,
-            status=resp.status_code,
-            file=file_path.name,
-        )
-        if attempt >= _MAX_RETRIES:
-            break
+            if attempt >= _MAX_RETRIES:
+                break
 
     log.warning("datajud_upload_exhausted_retries", file=file_path.name)
     return False

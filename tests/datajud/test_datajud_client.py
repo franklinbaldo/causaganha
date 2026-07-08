@@ -20,8 +20,10 @@ from datajud.client import (
     PUBLIC_API_KEY,
     DataJudAuthError,
     DataJudClient,
+    DataJudError,
     DataJudRateLimitError,
     get_api_key,
+    is_es_error,
     is_es_rejection,
     retry_wait,
     search_endpoint,
@@ -114,6 +116,33 @@ def test_is_es_rejection_detects_the_200_flavor():
     assert is_es_rejection(OK_BODY) is False
     assert is_es_rejection(None) is False
     assert is_es_rejection({"error": "string error"}) is False
+
+
+# ── Non-rejection ES errors inside an HTTP 200 body ──────────────────────
+# A 200 can carry an ES error that is NOT the queue-full flavor (e.g. a
+# malformed query, a shard failure). That must never be silently treated as
+# a normal (empty) result — is_es_rejection() alone can't tell, since it
+# only recognizes "rejected_execution".
+
+
+def test_is_es_error_detects_any_error_body():
+    assert is_es_error(ES_REJECTION_BODY) is True
+    other_error = {"error": {"root_cause": [{"type": "query_shard_exception"}]}}
+    assert is_es_error(other_error) is True
+    assert is_es_error(OK_BODY) is False
+    assert is_es_error(None) is False
+
+
+async def test_non_rejection_es_error_in_200_raises_nominally_not_silently_empty():
+    other_error = {"error": {"root_cause": [{"type": "query_shard_exception"}]}, "status": 400}
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(200, json=other_error)
+        async with _client() as client:
+            with pytest.raises(DataJudError, match="query_shard_exception"):
+                await client.search({"query": {"match_all": {}}})
+
+    # Non-transient ES error: NOT retried (unlike the rejected_execution flavor).
+    assert route.call_count == 1
 
 
 async def test_es_rejection_in_200_is_retried_then_succeeds():
