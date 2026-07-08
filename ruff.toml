@@ -75,6 +75,12 @@ ignore = [
 "src/tjro_juris/crawler.py" = ["D100", "D103", "TC003", "DTZ003", "DTZ011", "PLR2004", "E501", "PERF401"]
 "src/tjro_juris/archive.py" = ["D100", "D103", "PLC0415", "ASYNC240", "TC003"]
 
+# ── datajud ───────────────────────────────────────────────────────────────
+# PLC0415: lazy duckdb imports inside CLI helpers — standard pattern.
+# FBT001/FBT002: boolean CLI flags are idiomatic Typer.
+# S608: f-string SQL over internal parquet paths only (no user input).
+"src/datajud/__main__.py" = ["PLC0415", "FBT001", "FBT002", "S608"]
+
 # ── Lazy / conditional imports in library modules ─────────────────────────
 # These modules defer expensive imports to avoid slowing every process start.
 "src/causaganha/pipeline/ia_s3.py" = ["E402", "S608", "S324", "D100", "E501", "PLR2004"]

@@ -6,8 +6,12 @@ Pipeline:
   2. Load JURIS from tjro-juris-<year>.parquet files — GROUP BY nr_processo
   3. Load STJ from stj-acordaos.parquet — filter to CNJ numbers only
   4. Full outer join the three aggregations in DuckDB
-  5. Write processos_unificados.parquet + processo_documentos.parquet
-  6. Upload both to IA item causaganha-dashboard
+  5. Optional DataJud enrichment (RFC 0010): LEFT JOIN the official capa
+     (classe_oficial, assuntos, orgao_julgador, grau, data_ajuizamento,
+     ultima_atualizacao, tem_datajud) when datajud-capa-*.parquet exists —
+     without it the columns are NULL/false and behaviour is unchanged
+  6. Write processos_unificados.parquet + processo_documentos.parquet
+  7. Upload both to IA item causaganha-dashboard
 """
 
 from __future__ import annotations
@@ -19,6 +23,8 @@ from pathlib import Path
 from typing import Any
 
 import duckdb
+
+from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
 
 
 ROOT = Path(__file__).parent.parent
@@ -34,6 +40,9 @@ _LOCAL_MANIFEST = DATA_DIR / "sync-manifest.csv"
 
 _STJ_PARQUET = DATA_DIR / "stj" / "stj-acordaos.parquet"
 _STJ_IA_URL = f"{_IA_BASE}/stj-acordaos-primeira-secao/stj-acordaos.parquet"
+
+# DataJud capa parquets (datajud enrich CLI, RFC 0010) — optional enrichment.
+_DATAJUD_DIR = DATA_DIR / "datajud"
 
 
 # ── CNJ normalisation ──────────────────────────────────────────────────────────
@@ -84,6 +93,10 @@ def ensure_stj_parquet() -> Path | None:
 
 def juris_parquet_files() -> list[Path]:
     return sorted(ROOT.glob("data/tjro_juris/*/tjro-juris-*.parquet"))
+
+
+def datajud_parquet_files() -> list[Path]:
+    return sorted(_DATAJUD_DIR.glob("datajud-capa-*.parquet"))
 
 
 # ── IA upload ──────────────────────────────────────────────────────────────────
@@ -207,11 +220,28 @@ WHERE length(regexp_replace("numeroProcesso", '[^0-9]', '', 'g')) = 20
 GROUP BY nr_processo
 """
 
+# DataJud capa is a per-(numero, grau, orgao) table; collapse to one row per
+# CNJ preferring the most recently updated document (usually the highest grau
+# reached). data_ajuizamento takes the earliest — the original filing.
+_DATAJUD_AGG_SQL = """
+SELECT
+    numero_processo AS nr_processo,
+    FIRST(classe_nome ORDER BY ultima_atualizacao DESC NULLS LAST) AS classe_oficial,
+    FIRST(assuntos ORDER BY ultima_atualizacao DESC NULLS LAST) AS assuntos,
+    FIRST(orgao_julgador ORDER BY ultima_atualizacao DESC NULLS LAST) AS orgao_julgador,
+    FIRST(grau ORDER BY ultima_atualizacao DESC NULLS LAST) AS grau,
+    MIN(data_ajuizamento) AS data_ajuizamento,
+    MAX(ultima_atualizacao) AS ultima_atualizacao
+FROM datajud_capa
+WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
+GROUP BY numero_processo
+"""
+
 _UNIFICADOS_SQL = """
 WITH
     base AS (
         SELECT
-            COALESCE(d.nr_processo, j.nr_processo, s.nr_processo) AS nr_processo,
+            COALESCE(d.nr_processo, j.nr_processo, s.nr_processo, dj.nr_processo) AS nr_processo,
             d.djen_primeira_pub,
             d.djen_ultima_pub,
             d.djen_n_publicacoes,
@@ -231,28 +261,39 @@ WITH
             s.stj_ementa,
             s.stj_data_decisao,
             s.stj_data_publicacao,
+            -- DataJud enrichment (RFC 0010) — NULL/false when the capa is absent
+            dj.classe_oficial,
+            dj.assuntos,
+            dj.orgao_julgador,
+            dj.grau,
+            dj.data_ajuizamento,
+            dj.ultima_atualizacao,
+            (dj.nr_processo IS NOT NULL) AS tem_datajud,
             (CASE WHEN d.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
              CASE WHEN j.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
-             CASE WHEN s.nr_processo IS NOT NULL THEN 1 ELSE 0 END)::INTEGER AS n_fontes,
+             CASE WHEN s.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
+             CASE WHEN dj.nr_processo IS NOT NULL THEN 1 ELSE 0 END)::INTEGER AS n_fontes,
             list_filter(
-                ['djen', 'juris', 'stj'],
+                ['djen', 'juris', 'stj', 'datajud'],
                 x -> (
-                    (x = 'djen'  AND d.nr_processo IS NOT NULL) OR
-                    (x = 'juris' AND j.nr_processo IS NOT NULL) OR
-                    (x = 'stj'   AND s.nr_processo IS NOT NULL)
+                    (x = 'djen'    AND d.nr_processo IS NOT NULL) OR
+                    (x = 'juris'   AND j.nr_processo IS NOT NULL) OR
+                    (x = 'stj'     AND s.nr_processo IS NOT NULL) OR
+                    (x = 'datajud' AND dj.nr_processo IS NOT NULL)
                 )
             ) AS fontes,
             NOW() AS updated_at
         FROM djen_agg d
-        FULL OUTER JOIN juris_agg j USING (nr_processo)
-        FULL OUTER JOIN stj_agg   s USING (nr_processo)
+        FULL OUTER JOIN juris_agg   j USING (nr_processo)
+        FULL OUTER JOIN stj_agg     s USING (nr_processo)
+        FULL OUTER JOIN datajud_agg dj USING (nr_processo)
     )
 SELECT
-    nr_processo,
+    base.nr_processo,
     -- Build display mask inline (20 digits → NNNNNNN-DD.AAAA.J.TR.OOOO)
-    (nr_processo[1:7] || '-' || nr_processo[8:9] || '.' ||
-     nr_processo[10:13] || '.' || nr_processo[14:14] || '.' ||
-     nr_processo[15:16] || '.' || nr_processo[17:20]) AS nr_processo_mascara,
+    (base.nr_processo[1:7] || '-' || base.nr_processo[8:9] || '.' ||
+     base.nr_processo[10:13] || '.' || base.nr_processo[14:14] || '.' ||
+     base.nr_processo[15:16] || '.' || base.nr_processo[17:20]) AS nr_processo_mascara,
     djen_primeira_pub,
     djen_ultima_pub,
     djen_n_publicacoes,
@@ -272,11 +313,18 @@ SELECT
     stj_ementa,
     stj_data_decisao,
     stj_data_publicacao,
+    classe_oficial,
+    assuntos,
+    orgao_julgador,
+    grau,
+    data_ajuizamento,
+    ultima_atualizacao,
+    tem_datajud,
     fontes,
     n_fontes,
     updated_at
 FROM base
-ORDER BY nr_processo
+ORDER BY base.nr_processo
 """
 
 _DOCUMENTOS_SQL = """
@@ -395,6 +443,47 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
     stj_count = con.execute("SELECT COUNT(*) FROM stj_agg").fetchone()[0]
     print(f"  {stj_count:,} STJ processes (with valid CNJ number)")
 
+    # DataJud capa (optional enrichment) — join only when the parquet exists
+    # AND has the columns _DATAJUD_AGG_SQL needs; without it the datajud
+    # columns are NULL and tem_datajud is false. The empty fallback is
+    # derived from the producer's own pyarrow schema (datajud.archive.
+    # CAPA_SCHEMA) rather than hand-typed, so it can't drift from it — same
+    # pattern as scripts/render_queries.py's _synthetic_datajud_capa.
+    print("Building DataJud aggregation…")
+    _datajud_required_cols = {
+        "numero_processo",
+        "classe_nome",
+        "assuntos",
+        "orgao_julgador",
+        "grau",
+        "data_ajuizamento",
+        "ultima_atualizacao",
+    }
+    datajud_files = datajud_parquet_files()
+    if datajud_files:
+        datajud_list = ", ".join(f"'{p}'" for p in datajud_files)
+        print(f"  Registering DataJud capa view: {len(datajud_files)} parquet file(s)")
+        con.execute(f"CREATE VIEW datajud_capa AS SELECT * FROM read_parquet([{datajud_list}])")
+        datajud_cols = {row[0] for row in con.execute("DESCRIBE datajud_capa").fetchall()}
+        if not _datajud_required_cols <= datajud_cols:
+            missing = sorted(_datajud_required_cols - datajud_cols)
+            print(
+                f"  SKIP: datajud-capa-*.parquet missing column(s) {missing} — "
+                "DataJud enrichment will be empty (incompatible/partial parquet?)",
+                file=sys.stderr,
+            )
+            con.execute("DROP VIEW datajud_capa")
+            con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
+    else:
+        print(
+            "  SKIP: no datajud-capa-*.parquet found — DataJud enrichment will be empty",
+            file=sys.stderr,
+        )
+        con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
+    con.execute(f"CREATE TEMP TABLE datajud_agg AS {_DATAJUD_AGG_SQL}")
+    datajud_count = con.execute("SELECT COUNT(*) FROM datajud_agg").fetchone()[0]
+    print(f"  {datajud_count:,} DataJud processes")
+
     # Full outer join → processos_unificados
     print("Running full outer join…")
     con.execute(f"CREATE TEMP TABLE processos_unificados AS {_UNIFICADOS_SQL}")
@@ -430,6 +519,7 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         "djen": djen_count,
         "juris": juris_count,
         "stj": stj_count,
+        "datajud": datajud_count,
         "total": total,
         "multi_fonte": multi,
     }

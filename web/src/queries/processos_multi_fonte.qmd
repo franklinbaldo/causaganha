@@ -4,7 +4,7 @@ format: array
 optional: true
 ---
 
-Processos presentes em mais de uma fonte (DJEN × JURIS × STJ).
+Processos presentes em mais de uma fonte (DJEN × JURIS × STJ × DataJud).
 
 ```{sql}
 SELECT
@@ -24,7 +24,9 @@ SELECT
     stj_tema,
     stj_classe,
     stj_relator,
-    stj_data_decisao
+    stj_data_decisao,
+    tem_datajud,
+    classe_oficial
 FROM processos_unificados
 WHERE n_fontes >= 2
 ORDER BY n_fontes DESC, djen_ultima_pub DESC NULLS LAST
