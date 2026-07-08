@@ -4,7 +4,7 @@
 * **Proponente:** Franklin Baldo + Claude
 * **Data:** 2026-06-01
 * **Status:** **Decisão tomada** — substitui o trio CSV + upload-deltas + Parquet.
-  Fase 0 ✅, Fase 1 ✅, Fase 2 ✅, **Fase 3 ✅ (2026-07-08, PR #TBD)** — ver §5 para o
+  Fase 0 ✅, Fase 1 ✅, Fase 2 ✅, **Fase 3 ✅ (2026-07-08, PR #800)** — ver §5 para o
   resumo de cada fase.
 * **Apoia-se em:** verificação ao vivo contra o DJEN (abaixo).
 * **Progresso (§5):** Fase 0 ✅ · Fase 1 ✅ (2026-07-07, PR #798) · Fase 2 ✅ (2026-07-07, PR #798 —
@@ -171,7 +171,7 @@ Fases incrementais — cada uma é segura e entrega valor isolado:
   workflows; aposentar `to_csv`/persist como fonte. (Exportar CSV sob demanda, se algum consumidor
   externo precisar, vira um derivado opcional do Parquet.)
 
-  **Concluída em 2026-07-08 (PR #TBD).** `SyncManifest.load_from_ia()` (`src/djen_backup/manifest.py`)
+  **Concluída em 2026-07-08 (PR #800).** `SyncManifest.load_from_ia()` (`src/djen_backup/manifest.py`)
   não tem mais fallback para o CSV canônico: tenta o parquet base + segmentos com retry limitado
   (3 tentativas, backoff) e, se esgotar, loga erro e retorna 0 (degradação graciosa, engine não
   crasha). `upload_to_ia()` (escrita legada do CSV inteiro) e `_load_from_ia_csv_fallback()` foram
