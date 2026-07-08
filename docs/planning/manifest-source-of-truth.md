@@ -5,6 +5,14 @@
 * **Data:** 2026-06-01
 * **Status:** **Decisão tomada** — substitui o trio CSV + upload-deltas + Parquet.
 * **Apoia-se em:** verificação ao vivo contra o DJEN (abaixo).
+* **Progresso (§5):** Fase 0 ✅ · Fase 1 ✅ (2026-07-07, PR #798) · Fase 2 ✅ (2026-07-07, PR #798 —
+  engine/drain/probe emitem só segmentos `manifest-log/`; leitura é parquet+segmentos com
+  fallback CSV) · Fase 3 **em execução** (2026-07-08) — remove o fallback CSV de leitura, a
+  escrita legada (`upload_to_ia`), a escrita-de-volta automática do compactor, e migra os
+  últimos leitores diretos do CSV canônico (`backfill_probe.py`, `generate_cache_from_manifest.py`,
+  `render_queries.py`, `reconcile_processos.py`, `download-state` action e os workflows que
+  fazem `curl` do CSV) para `sync-manifest.parquet`. `scripts/manifest_writeback.py` (ferramenta
+  de correção histórica pontual da Fase 1, já executada) é aposentado.
 
 ---
 
