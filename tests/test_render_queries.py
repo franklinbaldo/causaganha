@@ -35,27 +35,41 @@ def _write_qmd(
     return path
 
 
-def _manifest_specs(manifest_csv: Path) -> tuple[rq.ViewSpec, ...]:
-    """A specs tuple that registers only the manifest, from a local CSV."""
+def _manifest_specs(manifest_parquet: Path) -> tuple[rq.ViewSpec, ...]:
+    """A specs tuple that registers only the manifest, from a local parquet."""
 
     def register(con) -> bool:
-        con.execute(
-            f"CREATE VIEW manifest AS SELECT * FROM read_csv_auto('{manifest_csv}', header=true)"
-        )
+        con.execute(f"CREATE VIEW manifest AS SELECT * FROM read_parquet('{manifest_parquet}')")
         return True
 
     return (rq.ViewSpec("manifest", register, rq.VIEW_SPECS[0].synthetic),)
 
 
 @pytest.fixture
-def manifest_csv(tmp_path: Path) -> Path:
-    csv = tmp_path / "sync-manifest.csv"
-    csv.write_text(
-        "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
-        "tjro,2025-01-02,uploaded,available,200,2025-01-02T12:00:00+00:00\n",
-        encoding="utf-8",
-    )
-    return csv
+def manifest_parquet(tmp_path: Path) -> Path:
+    """A local sync-manifest.parquet with the same schema as the canonical IA file."""
+    import duckdb
+
+    path = tmp_path / "sync-manifest.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-02', 'uploaded', 'available', '200', "
+            "'2025-01-02T12:00:00+00:00')"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
 
 
 # ── parse_qmd / frontmatter ────────────────────────────────────────────────────
@@ -165,7 +179,7 @@ def test_synthetic_views_cover_all_registered_views():
 # ── render_all (--strict semantics) ────────────────────────────────────────────
 
 
-def test_render_writes_json_output(tmp_path, manifest_csv):
+def test_render_writes_json_output(tmp_path, manifest_parquet):
     queries = tmp_path / "queries"
     queries.mkdir()
     public = tmp_path / "public"
@@ -176,13 +190,13 @@ def test_render_writes_json_output(tmp_path, manifest_csv):
         output="/data/totals.json",
         fmt="object",
     )
-    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_csv))
+    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
     assert count == 1
     assert failures == []
     assert (public / "data" / "totals.json").exists()
 
 
-def test_render_missing_required_source_is_failure(tmp_path, manifest_csv):
+def test_render_missing_required_source_is_failure(tmp_path, manifest_parquet):
     queries = tmp_path / "queries"
     queries.mkdir()
     public = tmp_path / "public"
@@ -192,14 +206,14 @@ def test_render_missing_required_source_is_failure(tmp_path, manifest_csv):
         "SELECT * FROM absent_view",
         output="/data/needs_view.json",
     )
-    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_csv))
+    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
     assert count == 0
     assert len(failures) == 1
     assert "needs_view.qmd" in failures[0]
     assert not (public / "data" / "needs_view.json").exists()
 
 
-def test_render_missing_optional_source_warns_not_fails(tmp_path, manifest_csv, capsys):
+def test_render_missing_optional_source_warns_not_fails(tmp_path, manifest_parquet, capsys):
     queries = tmp_path / "queries"
     queries.mkdir()
     public = tmp_path / "public"
@@ -210,7 +224,7 @@ def test_render_missing_optional_source_warns_not_fails(tmp_path, manifest_csv, 
         output="/data/opt.json",
         optional=True,
     )
-    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_csv))
+    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
     assert count == 0
     assert failures == []
     captured = capsys.readouterr()
@@ -218,11 +232,11 @@ def test_render_missing_optional_source_warns_not_fails(tmp_path, manifest_csv, 
     assert "/data/opt.json not generated" in captured.err
 
 
-def test_render_invalid_frontmatter_is_failure(tmp_path, manifest_csv):
+def test_render_invalid_frontmatter_is_failure(tmp_path, manifest_parquet):
     queries = tmp_path / "queries"
     queries.mkdir()
     _write_qmd(queries, "nofm.qmd", "SELECT 1", output=None, fmt=None)
-    _, failures = rq.render_all(queries, tmp_path / "public", _manifest_specs(manifest_csv))
+    _, failures = rq.render_all(queries, tmp_path / "public", _manifest_specs(manifest_parquet))
     assert any("nofm.qmd" in f for f in failures)
 
 
@@ -241,18 +255,18 @@ def test_main_check_exit_nonzero_on_invalid(tmp_path, monkeypatch):
     assert rq.main(["--check"]) == 1
 
 
-def test_main_strict_exit_nonzero_on_required_failure(tmp_path, monkeypatch, manifest_csv):
+def test_main_strict_exit_nonzero_on_required_failure(tmp_path, monkeypatch, manifest_parquet):
     queries = tmp_path / "queries"
     queries.mkdir()
     _write_qmd(queries, "req.qmd", "SELECT * FROM absent_view", output="/data/req.json")
     monkeypatch.setattr(rq, "QUERIES_DIR", queries)
     monkeypatch.setattr(rq, "PUBLIC_DIR", tmp_path / "public")
-    monkeypatch.setattr(rq, "VIEW_SPECS", _manifest_specs(manifest_csv))
+    monkeypatch.setattr(rq, "VIEW_SPECS", _manifest_specs(manifest_parquet))
     assert rq.main(["--strict"]) == 1
     assert rq.main([]) == 0  # non-strict stays lenient
 
 
-def test_main_strict_exit_zero_when_only_optional_missing(tmp_path, monkeypatch, manifest_csv):
+def test_main_strict_exit_zero_when_only_optional_missing(tmp_path, monkeypatch, manifest_parquet):
     queries = tmp_path / "queries"
     queries.mkdir()
     _write_qmd(
@@ -271,5 +285,5 @@ def test_main_strict_exit_zero_when_only_optional_missing(tmp_path, monkeypatch,
     )
     monkeypatch.setattr(rq, "QUERIES_DIR", queries)
     monkeypatch.setattr(rq, "PUBLIC_DIR", tmp_path / "public")
-    monkeypatch.setattr(rq, "VIEW_SPECS", _manifest_specs(manifest_csv))
+    monkeypatch.setattr(rq, "VIEW_SPECS", _manifest_specs(manifest_parquet))
     assert rq.main(["--strict"]) == 0

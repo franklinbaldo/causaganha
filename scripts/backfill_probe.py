@@ -5,7 +5,7 @@ Purpose:  Spot rows where the manifest's recorded status disagrees with what the
           DJEN proxy returns right now.
 Problem:  Manifest categories (absent/unknown/403/timeout) can be stale or wrong
           (e.g. 403 rate-limits mislabeled as absent); we need a live audit.
-Strategy: Pull the canonical manifest from IA, sample entries per category, re-probe
+Strategy: Pull the manifest parquet from IA, sample entries per category, re-probe
           the DJEN proxy live, and print a side-by-side comparison. Sampling keeps
           the probe cheap while still surfacing systemic drift.
 Status:   production diagnostic — runs in the backfill-probe workflow, which
@@ -27,19 +27,20 @@ for stream in (sys.stdout, sys.stderr):
             stream.reconfigure(errors="replace")
 
 import asyncio
-import csv
-import io
 import os
 import random
 import sys
+import tempfile
 from collections import Counter, defaultdict
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from typing import Any
 
+import duckdb
 import httpx
 
 
-MANIFEST_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
+MANIFEST_PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
 DJEN_PROXY_FALLBACK = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
 SAMPLE_PER_CATEGORY = 8
@@ -101,17 +102,48 @@ def _ia_auth_header() -> str | None:
     return f"LOW {access}:{secret}"
 
 
+def _read_manifest_parquet_rows(path: str) -> list[tuple]:
+    """Read all manifest rows from a local parquet file (runs in a thread)."""
+    con = duckdb.connect()
+    try:
+        return con.execute(
+            "SELECT tribunal, date, ia_status, djen_status, djen_raw, updated_at"
+            " FROM read_parquet(?)",
+            [path],
+        ).fetchall()
+    finally:
+        con.close()
+
+
 async def _fetch_manifest(client: httpx.AsyncClient) -> list[dict[str, str]]:
-    """Download sync-manifest.csv from IA and parse it."""
+    """Download sync-manifest.parquet from IA and parse it into row dicts."""
     headers: dict[str, str] = {}
     auth = _ia_auth_header()
     if auth:
         headers["Authorization"] = auth
 
-    resp = await client.get(MANIFEST_URL, headers=headers, timeout=120.0)
+    resp = await client.get(MANIFEST_PARQUET_URL, headers=headers, timeout=120.0)
     resp.raise_for_status()
-    reader = csv.DictReader(io.StringIO(resp.text))
-    return list(reader)
+
+    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
+        tmp.write(resp.content)
+        tmp_path = tmp.name
+    try:
+        rows = await asyncio.to_thread(_read_manifest_parquet_rows, tmp_path)
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    return [
+        {
+            "tribunal": tribunal or "",
+            "date": date.isoformat() if date is not None else "",
+            "ia_status": ia_status or "",
+            "djen_status": djen_status or "",
+            "djen_raw": djen_raw or "",
+            "updated_at": updated_at or "",
+        }
+        for tribunal, date, ia_status, djen_status, djen_raw, updated_at in rows
+    ]
 
 
 def _classify(djen_raw: str) -> str:
@@ -201,7 +233,7 @@ async def main() -> int:
     _print_header("BACKFILL PROBE — config")
     print(f"started_utc:    {started}")
     print(f"proxy_base:     {proxy}")
-    print(f"manifest_url:   {MANIFEST_URL}")
+    print(f"manifest_url:   {MANIFEST_PARQUET_URL}")
     print(f"ia_auth_set:    {auth_present}")
     print(f"sample/cat:     {SAMPLE_PER_CATEGORY}")
     print(f"concurrency:    {CONCURRENCY}")

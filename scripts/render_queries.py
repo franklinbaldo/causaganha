@@ -76,8 +76,8 @@ from tjro_juris.__main__ import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA
 
 QUERIES_DIR = ROOT / "web" / "src" / "queries"
 PUBLIC_DIR = ROOT / "web" / "public"
-MANIFEST_CSV_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
-LOCAL_MANIFEST = ROOT / "data" / "sync-manifest.csv"
+MANIFEST_PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
+LOCAL_MANIFEST_PARQUET = ROOT / "data" / "sync-manifest.parquet"
 
 # Local dev/CI fallback: exported parquet snapshots from the ratings pipeline.
 # Views are only registered when the files exist; contracts that depend on
@@ -169,20 +169,6 @@ def _try_download_parquet(url: str, dest: Path, label: str) -> Path | None:
     return dest
 
 
-def ensure_manifest() -> Path:
-    """Ensure a manifest CSV is available locally."""
-    if LOCAL_MANIFEST.exists():
-        print(f"Using local manifest: {LOCAL_MANIFEST}")
-        return LOCAL_MANIFEST
-
-    print(f"Downloading manifest from {MANIFEST_CSV_URL}...")
-    LOCAL_MANIFEST.parent.mkdir(parents=True, exist_ok=True)
-    with urllib.request.urlopen(MANIFEST_CSV_URL, timeout=120) as resp:
-        LOCAL_MANIFEST.write_bytes(resp.read())
-    print(f"  saved to {LOCAL_MANIFEST} ({LOCAL_MANIFEST.stat().st_size:,} bytes)")
-    return LOCAL_MANIFEST
-
-
 # ── View registry ──────────────────────────────────────────────────────────────
 # Single source of truth for the data sources available to .qmd SQL, in BOTH
 # modes: `register` wires the real data for rendering; `synthetic` creates an
@@ -203,10 +189,10 @@ def _register_view_from_parquet(con: duckdb.DuckDBPyConnection, name: str, path:
 
 
 def _register_manifest(con: duckdb.DuckDBPyConnection) -> bool:
-    manifest_path = ensure_manifest()
-    con.execute(
-        f"CREATE VIEW manifest AS SELECT * FROM read_csv_auto('{manifest_path}', header=true)"
-    )
+    path = _try_download_parquet(MANIFEST_PARQUET_URL, LOCAL_MANIFEST_PARQUET, "manifest")
+    if path is None:
+        return False
+    _register_view_from_parquet(con, "manifest", path)
     return True
 
 
