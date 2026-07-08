@@ -8,18 +8,20 @@ hundreds of movements; the capa stays light for joins):
 
 Both go to the IA item ``datajud-{tribunal}`` via httpx (NOT boto3 — IA
 wants ``x-archive-meta-*`` headers), with the ``uri(...)`` percent-encode
-convention for non-ASCII metadata values, mirroring stj_acordaos/archive.py.
+convention for non-ASCII metadata values (see
+``causaganha.pipeline.ia_s3.meta_value``).
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from urllib.parse import quote
 
 import httpx
 import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
+
+from causaganha.pipeline.ia_s3 import meta_value as _meta_value
 
 
 if TYPE_CHECKING:
@@ -101,19 +103,6 @@ def _write_parquet(rows: list[dict], schema: pa.Schema, path: Path) -> int:
 
 
 # ── IA upload ────────────────────────────────────────────────────────────
-
-
-def _meta_value(value: str) -> str:
-    """Encode an IA metadata header value.
-
-    HTTP header values must be ASCII (httpx raises ``UnicodeEncodeError``
-    otherwise). IA's S3 API accepts non-ASCII metadata via its
-    ``uri(<percent-encoded>)`` convention — the same one used by the
-    official ``internetarchive`` library.
-    """
-    if value.isascii():
-        return value
-    return f"uri({quote(value, safe='')})"
 
 
 def _build_upload_headers(ia_key: str, ia_secret: str, tribunal: str) -> dict[str, str]:

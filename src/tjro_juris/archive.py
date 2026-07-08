@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from urllib.parse import quote
 
 import anyio
 import httpx
@@ -37,19 +36,6 @@ def _item_id(year: int) -> str:
     return f"{IA_ITEM_PREFIX}-{year}"
 
 
-def _meta_value(value: str) -> str:
-    """Encode an IA metadata header value.
-
-    HTTP header values must be ASCII (httpx raises ``UnicodeEncodeError``
-    otherwise). IA's S3 API accepts non-ASCII metadata via its
-    ``uri(<percent-encoded>)`` convention — the same one used by the
-    official ``internetarchive`` library.
-    """
-    if value.isascii():
-        return value
-    return f"uri({quote(value, safe='')})"
-
-
 async def upload_file(local_path: Path, year: int, remote_name: str) -> None:
     """Upload local_path to tjro-juris-{year} IA item as remote_name."""
     auth = ia_s3.get_ia_s3_auth()
@@ -65,9 +51,9 @@ async def upload_file(local_path: Path, year: int, remote_name: str) -> None:
         "Authorization": auth,
         "Content-Type": "application/octet-stream",
         "x-archive-auto-make-bucket": "1",
-        "x-archive-meta-mediatype": _meta_value(IA_ITEM_METADATA_TEMPLATE["mediatype"]),
-        "x-archive-meta-subject": _meta_value(IA_ITEM_METADATA_TEMPLATE["subject"]),
-        "x-archive-meta-description": _meta_value(IA_ITEM_METADATA_TEMPLATE["description"]),
+        "x-archive-meta-mediatype": ia_s3.meta_value(IA_ITEM_METADATA_TEMPLATE["mediatype"]),
+        "x-archive-meta-subject": ia_s3.meta_value(IA_ITEM_METADATA_TEMPLATE["subject"]),
+        "x-archive-meta-description": ia_s3.meta_value(IA_ITEM_METADATA_TEMPLATE["description"]),
     }
 
     async with httpx.AsyncClient(timeout=120) as client:

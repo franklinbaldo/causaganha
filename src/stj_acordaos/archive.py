@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
-from urllib.parse import quote
 
 import httpx
+
+from causaganha.pipeline.ia_s3 import meta_value as _meta_value
 
 
 if TYPE_CHECKING:
@@ -24,19 +25,6 @@ _RETRIABLE = frozenset({408, 429, 500, 502, 503, 504})
 
 def _build_auth_header(ia_key: str, ia_secret: str) -> str:
     return f"LOW {ia_key}:{ia_secret}"
-
-
-def _meta_value(value: str) -> str:
-    """Encode an IA metadata header value.
-
-    HTTP header values must be ASCII (httpx raises ``UnicodeEncodeError``
-    otherwise). IA's S3 API accepts non-ASCII metadata via its
-    ``uri(<percent-encoded>)`` convention — the same one used by the
-    official ``internetarchive`` library.
-    """
-    if value.isascii():
-        return value
-    return f"uri({quote(value, safe='')})"
 
 
 def _build_upload_headers(ia_key: str, ia_secret: str, content_type: str) -> dict[str, str]:
