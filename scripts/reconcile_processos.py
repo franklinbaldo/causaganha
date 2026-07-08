@@ -35,8 +35,8 @@ _PARQUET_DOCUMENTOS = DATA_DIR / "processo_documentos.parquet"
 
 _IA_BASE = "https://archive.org/download"
 _IA_ITEM_DASHBOARD = "causaganha-dashboard"
-_IA_MANIFEST_CSV_URL = f"{_IA_BASE}/{_IA_ITEM_DASHBOARD}/sync-manifest.csv"
-_LOCAL_MANIFEST = DATA_DIR / "sync-manifest.csv"
+_IA_MANIFEST_PARQUET_URL = f"{_IA_BASE}/{_IA_ITEM_DASHBOARD}/sync-manifest.parquet"
+_LOCAL_MANIFEST_PARQUET = DATA_DIR / "sync-manifest.parquet"
 
 _STJ_PARQUET = DATA_DIR / "stj" / "stj-acordaos.parquet"
 _STJ_IA_URL = f"{_IA_BASE}/stj-acordaos-primeira-secao/stj-acordaos.parquet"
@@ -74,10 +74,10 @@ def _download(url: str, dest: Path, label: str) -> Path:
 
 
 def ensure_manifest() -> Path:
-    if _LOCAL_MANIFEST.exists():
-        print(f"Using local manifest: {_LOCAL_MANIFEST}")
-        return _LOCAL_MANIFEST
-    return _download(_IA_MANIFEST_CSV_URL, _LOCAL_MANIFEST, "sync-manifest.csv")
+    if _LOCAL_MANIFEST_PARQUET.exists():
+        print(f"Using local manifest: {_LOCAL_MANIFEST_PARQUET}")
+        return _LOCAL_MANIFEST_PARQUET
+    return _download(_IA_MANIFEST_PARQUET_URL, _LOCAL_MANIFEST_PARQUET, "sync-manifest.parquet")
 
 
 def ensure_stj_parquet() -> Path | None:
@@ -369,9 +369,7 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
     con = duckdb.connect()
 
     # Register manifest view
-    con.execute(
-        f"CREATE VIEW manifest AS SELECT * FROM read_csv_auto('{manifest_path}', header=true)"
-    )
+    con.execute(f"CREATE VIEW manifest AS SELECT * FROM read_parquet('{manifest_path}')")
 
     # Register JURIS view (union of consolidated yearly parquets)
     if juris_files:

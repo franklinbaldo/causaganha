@@ -2,8 +2,9 @@
 
 Covers dirty-only segment emission, unique immutable segment names, the
 field-level last-write-wins merge (base + segments), the snapshot/restore
-semantics of ``upload_segment_to_ia``, and the CSV fallback when the parquet
-base is unavailable (docs/planning/manifest-source-of-truth.md §4/§5).
+semantics of ``upload_segment_to_ia``, and the retry-then-give-up behavior
+when the parquet base is unavailable — with no CSV fallback (Phase 3, see
+docs/planning/manifest-source-of-truth.md §4/§5).
 """
 
 from __future__ import annotations
@@ -255,18 +256,25 @@ async def test_load_from_ia_merges_parquet_base_and_pending_segments(tmp_path: P
 
 @pytest.mark.asyncio
 @respx.mock
-async def test_load_from_ia_falls_back_to_csv_when_parquet_missing() -> None:
-    respx.get(f"{DL}/sync-manifest.parquet").respond(404)
-    respx.get(f"{DL}/sync-manifest.csv").respond(
-        200,
-        text=(
-            "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
-            "TJSP,2024-01-02,uploaded,available,200,2024-01-01T00:00:00+00:00\n"
-        ),
-    )
+async def test_load_from_ia_gives_up_after_retries_without_touching_csv(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Phase 3: no CSV fallback. All retries fail → return 0.
+
+    The canonical CSV route is deliberately left unmocked — if the code ever
+    reached for it, respx would raise for an unmocked route, which would
+    fail this test. That absence of a mock IS the assertion that the CSV is
+    never touched.
+    """
+    route = respx.get(f"{DL}/sync-manifest.parquet").respond(404)
+
+    async def _no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr("djen_backup.manifest.asyncio.sleep", _no_sleep)
 
     m = SyncManifest()
     loaded = await m.load_from_ia()
 
-    assert loaded == 1
-    assert m.get_status("TJSP", date(2024, 1, 2)).ia_status == "uploaded"
+    assert loaded == 0
+    assert route.call_count == SyncManifest._LOAD_FROM_IA_RETRIES

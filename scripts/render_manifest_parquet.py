@@ -1,24 +1,23 @@
 #!/usr/bin/env python3
 """Compact the manifest event log into sync-manifest.parquet and upload to IA.
 
-Phase 2 of docs/planning/manifest-source-of-truth.md (§4.3): this is the
-single-writer *compaction* job.
+Phase 3 of docs/planning/manifest-source-of-truth.md (§4.3, §5): this is the
+single-writer *compaction* job. The canonical CSV is retired — the parquet
+base is the sole source of truth, with no CSV bootstrap fallback.
 
 Base:     the current ``sync-manifest.parquet`` on IA (the compacted base).
-          Falls back to the legacy ``sync-manifest.csv`` when no parquet
-          exists yet (bootstrap).
+          If it does not exist, compaction cannot proceed (no CSV fallback).
 Events:   1. legacy ``upload-deltas-*.csv`` files (5-col, drain/probe of old
              deploys) — merged via the historical set-based rules;
           2. new ``manifest-log/*.csv`` segments (6-col upsert events from
              engine/drain/probe) — merged field-by-field, last-write-wins
-             by ``updated_at``;
-          3. the legacy CSV itself is replayed as low-priority events
-             (strictly-newer-wins) so an in-flight old engine deploy that
-             still rewrites the CSV cannot lose data during rollout.
+             by ``updated_at``.
 Output:   a NEW ``sync-manifest.parquet`` base uploaded atomically (single
           PUT replaces the object), after which absorbed manifest-log
           segments are pruned — moved to ``manifest-log/compacted/`` for
-          audit/replay, never deleted outright.
+          audit/replay, never deleted outright. A CSV export can still be
+          produced on demand via ``MANIFEST_COMPACT_WRITEBACK`` (see
+          ``write_back_csv``), but it is no longer read by anything.
 
 Correctness: ``djen_raw`` stays the raw transport code. Rows whose verdict is
 ``absent`` while the raw still says ``200`` (legacy body-blind checker) are
@@ -56,7 +55,6 @@ from causaganha.pipeline.ia_s3 import create_upload_client, upload_to_ia
 
 
 IA_ITEM = "causaganha-dashboard"
-MANIFEST_CSV_URL = f"https://archive.org/download/{IA_ITEM}/sync-manifest.csv"
 MANIFEST_PARQUET_URL = f"https://archive.org/download/{IA_ITEM}/sync-manifest.parquet"
 IA_FILES_METADATA_URL = f"https://archive.org/metadata/{IA_ITEM}/files"
 IA_DOWNLOAD_BASE = f"https://archive.org/download/{IA_ITEM}"
@@ -82,20 +80,6 @@ _CSV_TYPES = (
 # ---------------------------------------------------------------------------
 
 
-def ensure_csv() -> Path | None:
-    """Fetch the legacy CSV from IA (straggler protection during rollout)."""
-    LOCAL_CSV.parent.mkdir(parents=True, exist_ok=True)
-    print(f"Downloading legacy CSV from {MANIFEST_CSV_URL}...")
-    try:
-        with urllib.request.urlopen(MANIFEST_CSV_URL, timeout=120) as resp:
-            LOCAL_CSV.write_bytes(resp.read())
-    except (urllib.error.URLError, OSError) as exc:
-        print(f"  warning: could not fetch legacy CSV: {exc}")
-        return None
-    print(f"  fetched {LOCAL_CSV.stat().st_size:,} bytes")
-    return LOCAL_CSV
-
-
 def ensure_base_parquet() -> Path | None:
     """Fetch the current parquet base from IA; None when it doesn't exist yet."""
     LOCAL_BASE_PARQUET.parent.mkdir(parents=True, exist_ok=True)
@@ -104,7 +88,7 @@ def ensure_base_parquet() -> Path | None:
         with urllib.request.urlopen(MANIFEST_PARQUET_URL, timeout=120) as resp:
             LOCAL_BASE_PARQUET.write_bytes(resp.read())
     except (urllib.error.URLError, OSError) as exc:
-        print(f"  no parquet base available ({exc}) — bootstrapping from CSV")
+        print(f"  no parquet base available ({exc})")
         return None
     print(f"  fetched {LOCAL_BASE_PARQUET.stat().st_size:,} bytes")
     return LOCAL_BASE_PARQUET
@@ -167,25 +151,14 @@ def download_segments(names: list[str]) -> list[tuple[str, Path]]:
 # ---------------------------------------------------------------------------
 
 
-def _load_base(
-    con: duckdb.DuckDBPyConnection, base_parquet: Path | None, csv_path: Path | None
-) -> str:
-    """Create the ``manifest`` table from the parquet base (or CSV bootstrap)."""
-    if base_parquet is not None:
-        con.execute(
-            f"""
-            CREATE TABLE manifest AS
-            SELECT tribunal::VARCHAR AS tribunal, date::DATE AS date,
-                   ia_status::VARCHAR AS ia_status, djen_status::VARCHAR AS djen_status,
-                   djen_raw::VARCHAR AS djen_raw, updated_at::VARCHAR AS updated_at
-            FROM read_parquet('{base_parquet}')
-            """
-        )
-        if csv_path is not None:
-            _merge_csv_lww(con, csv_path)
-        return "parquet"
-    if csv_path is None:
-        msg = "neither parquet base nor legacy CSV available — cannot compact"
+def _load_base(con: duckdb.DuckDBPyConnection, base_parquet: Path | None) -> str:
+    """Create the ``manifest`` table from the parquet base.
+
+    Phase 3: there is no CSV fallback. If the parquet base is unavailable,
+    compaction cannot proceed.
+    """
+    if base_parquet is None:
+        msg = "parquet base indisponível — sem fallback CSV na Fase 3"
         raise RuntimeError(msg)
     con.execute(
         f"""
@@ -193,72 +166,10 @@ def _load_base(
         SELECT tribunal::VARCHAR AS tribunal, date::DATE AS date,
                ia_status::VARCHAR AS ia_status, djen_status::VARCHAR AS djen_status,
                djen_raw::VARCHAR AS djen_raw, updated_at::VARCHAR AS updated_at
-        FROM read_csv_auto('{csv_path}', header=true, types={_CSV_TYPES})
+        FROM read_parquet('{base_parquet}')
         """
     )
-    return "csv"
-
-
-def _merge_csv_lww(con: duckdb.DuckDBPyConnection, csv_path: Path) -> None:
-    """Replay the legacy CSV as low-priority events over the parquet base.
-
-    Rollout compatibility: an in-flight OLD engine deploy still merge-uploads
-    the full CSV, and those observations exist nowhere else. Strictly-newer
-    ``updated_at`` wins; ``ia_status='uploaded'`` (a verified archive fact) is
-    always kept. Once no old engine writes the CSV anymore, its timestamps
-    freeze and this merge becomes a no-op.
-    """
-    try:
-        con.execute(
-            f"""
-            CREATE TABLE legacy_csv AS
-            SELECT tribunal::VARCHAR AS tribunal, date::DATE AS date,
-                   ia_status::VARCHAR AS ia_status, djen_status::VARCHAR AS djen_status,
-                   djen_raw::VARCHAR AS djen_raw, updated_at::VARCHAR AS updated_at
-            FROM read_csv_auto('{csv_path}', header=true, types={_CSV_TYPES})
-            """
-        )
-    except (duckdb.Error, OSError) as exc:
-        print(f"  warning: could not read legacy CSV for merge: {exc}")
-        return
-
-    updated = con.execute(
-        """
-        UPDATE manifest SET
-            ia_status = CASE
-                WHEN manifest.ia_status = 'uploaded' THEN manifest.ia_status
-                ELSE c.ia_status END,
-            djen_status = c.djen_status,
-            djen_raw = c.djen_raw,
-            updated_at = c.updated_at
-        FROM legacy_csv c
-        WHERE manifest.tribunal = c.tribunal AND manifest.date = c.date
-          AND coalesce(c.updated_at, '') > coalesce(manifest.updated_at, '')
-        """
-    ).fetchone()[0]
-    uploaded = con.execute(
-        """
-        UPDATE manifest SET ia_status = 'uploaded'
-        FROM legacy_csv c
-        WHERE manifest.tribunal = c.tribunal AND manifest.date = c.date
-          AND c.ia_status = 'uploaded'
-          AND (manifest.ia_status IS NULL OR manifest.ia_status != 'uploaded')
-        """
-    ).fetchone()[0]
-    inserted = con.execute(
-        """
-        INSERT INTO manifest
-        SELECT c.* FROM legacy_csv c
-        LEFT JOIN manifest m ON m.tribunal = c.tribunal AND m.date = c.date
-        WHERE m.tribunal IS NULL
-        """
-    ).fetchone()[0]
-    con.execute("DROP TABLE legacy_csv")
-    if updated or uploaded or inserted:
-        print(
-            f"  legacy CSV straggler merge: {updated} newer rows + "
-            f"{uploaded} uploaded flags + {inserted} new rows"
-        )
+    return "parquet"
 
 
 def _apply_deltas(con: duckdb.DuckDBPyConnection, delta_urls: list[str]) -> tuple[int, int, int]:
@@ -456,7 +367,6 @@ def _normalize_manifest(con: duckdb.DuckDBPyConnection) -> None:
 
 def render_parquet(
     base_parquet: Path | None,
-    csv_path: Path | None,
     delta_urls: list[str],
     segment_paths: list[str],
     *,
@@ -466,7 +376,7 @@ def render_parquet(
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
 
-    base_kind = _load_base(con, base_parquet, csv_path)
+    base_kind = _load_base(con, base_parquet)
     print(f"  base: {base_kind}")
 
     _apply_deltas(con, delta_urls)
@@ -613,7 +523,6 @@ def main() -> None:
     dry_run = _env_truthy("MANIFEST_DRY_RUN")
 
     base_parquet = ensure_base_parquet()
-    csv = ensure_csv()
 
     names = fetch_ia_file_names()
     delta_urls = fetch_delta_urls(names)
@@ -624,7 +533,6 @@ def main() -> None:
 
     parquet = render_parquet(
         base_parquet,
-        csv,
         delta_urls,
         [str(p) for _, p in absorbed],
         write_back=write_back,

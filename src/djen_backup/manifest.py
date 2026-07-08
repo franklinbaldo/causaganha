@@ -19,7 +19,6 @@ import structlog
 log = structlog.get_logger()
 
 IA_STATE_ITEM = "causaganha-dashboard"
-IA_MANIFEST_FILENAME = "sync-manifest.csv"
 IA_PARQUET_FILENAME = "sync-manifest.parquet"
 _IA_DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
 _IA_S3_URL = f"https://s3.us.archive.org/{IA_STATE_ITEM}/{{}}"
@@ -757,22 +756,48 @@ class SyncManifest:
         return count
 
     # ── IA persistence ───────────────────────────────────────────────
+    #
+    # Phase 3 (plan §5): the canonical CSV is retired entirely. The only
+    # read path is parquet base + un-compacted manifest-log segments; there
+    # is no CSV fallback. A transient parquet outage is handled with a
+    # bounded retry, then graceful degradation (return 0, engine keeps
+    # running with whatever local disk cache it already has).
+
+    _LOAD_FROM_IA_RETRIES = 3
+    _LOAD_FROM_IA_RETRY_BACKOFF_S = 2.0
 
     async def load_from_ia(self) -> int:
         """Load state from IA: parquet base + un-compacted manifest-log segments.
 
-        Phase 2 read path (plan §5): the compacted ``sync-manifest.parquet``
-        is the base (it is the verified-correct materialization — see
-        CLAUDE.md Correctness), and any segments the compactor has not yet
-        absorbed are replayed on top, field-level last-write-wins by
-        ``updated_at``. The legacy CSV is only read as a FALLBACK when the
-        parquet is unavailable (bootstrap / IA outage).
+        Phase 3 read path (plan §5): the compacted ``sync-manifest.parquet``
+        is the sole source of truth (it is the verified-correct
+        materialization — see CLAUDE.md Correctness), and any segments the
+        compactor has not yet absorbed are replayed on top, field-level
+        last-write-wins by ``updated_at``. Retries a bounded number of times
+        on transient failure; never falls back to the retired CSV.
         """
-        try:
-            return await self._load_from_parquet_and_segments()
-        except (httpx.HTTPError, httpx.RequestError, OSError, RuntimeError, ValueError) as exc:
-            log.warning("manifest_parquet_load_failed_falling_back_to_csv", error=str(exc))
-        return await self._load_from_ia_csv_fallback()
+        last_exc: Exception | None = None
+        for attempt in range(1, self._LOAD_FROM_IA_RETRIES + 1):
+            try:
+                return await self._load_from_parquet_and_segments()
+            except (
+                httpx.HTTPError,
+                httpx.RequestError,
+                OSError,
+                RuntimeError,
+                ValueError,
+            ) as exc:
+                last_exc = exc
+                log.warning(
+                    "manifest_parquet_load_attempt_failed",
+                    attempt=attempt,
+                    max_attempts=self._LOAD_FROM_IA_RETRIES,
+                    error=str(exc),
+                )
+                if attempt < self._LOAD_FROM_IA_RETRIES:
+                    await asyncio.sleep(self._LOAD_FROM_IA_RETRY_BACKOFF_S * attempt)
+        log.error("manifest_parquet_load_failed", error=str(last_exc))
+        return 0
 
     async def _load_from_parquet_and_segments(self) -> int:
         import tempfile
@@ -837,64 +862,6 @@ class SyncManifest:
             ):
                 names.append(name)
         return names
-
-    async def _load_from_ia_csv_fallback(self) -> int:
-        """Legacy read path: canonical CSV, then zip-inventory.txt."""
-        for filename in (IA_MANIFEST_FILENAME, "zip-inventory.txt"):
-            url = _IA_DOWNLOAD_URL.format(filename)
-            try:
-                async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                    resp = await client.get(url)
-                    if resp.status_code == 200:
-                        count = self.load_from_csv(resp.text)
-                        log.info(
-                            "manifest_loaded_from_ia",
-                            filename=filename,
-                            size=len(resp.text),
-                            loaded=count,
-                        )
-                        return count
-            except (httpx.HTTPError, httpx.RequestError) as exc:
-                log.warning("manifest_download_failed", filename=filename, error=str(exc))
-        return 0
-
-    async def upload_to_ia(self, auth: str) -> bool:
-        """LEGACY full-CSV merge-then-upload — no longer called by the engine.
-
-        Phase 2 writers emit manifest-log/ segments instead (see
-        ``upload_segment_to_ia``). Kept for manual recovery tooling until
-        Phase 3 retires the CSV entirely.
-        """
-        from djen_backup.archive import put_ia_bytes
-
-        # Re-download and merge to prevent race conditions
-        url_dl = _IA_DOWNLOAD_URL.format(IA_MANIFEST_FILENAME)
-        try:
-            async with httpx.AsyncClient(timeout=30, follow_redirects=True) as client:
-                resp = await client.get(url_dl)
-                if resp.status_code == 200:
-                    self.load_from_csv(resp.text)
-        except (httpx.HTTPError, httpx.RequestError) as exc:
-            log.warning("manifest_merge_download_failed", error=str(exc))
-
-        url_up = _IA_S3_URL.format(IA_MANIFEST_FILENAME)
-        content = self.to_csv().encode("utf-8")
-        headers = {
-            "Authorization": auth,
-            "Content-Type": "text/csv",
-            "x-amz-auto-make-bucket": "1",
-            "x-archive-meta-mediatype": "data",
-        }
-        try:
-            async with httpx.AsyncClient(timeout=60) as client:
-                resp = await put_ia_bytes(client, url_up, content, headers)
-                if resp.status_code < 400:
-                    log.info("manifest_uploaded_to_ia", entries=len(self._entries))
-                    return True
-                log.warning("manifest_upload_failed", status=resp.status_code)
-        except (httpx.HTTPError, httpx.RequestError) as exc:
-            log.warning("manifest_upload_error", error=str(exc))
-        return False
 
     async def upload_summary_to_ia(self, auth: str) -> bool:
         """Upload compact JSON summary for the webapp."""
