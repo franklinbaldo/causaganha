@@ -73,11 +73,20 @@ jobs:
             || echo '{"current_date":null,"processed_zips":[],"completed_dates":[]}' > data/consolidate-checkpoint.json
           echo "Checkpoint state:"
           cat data/consolidate-checkpoint.json | python3 -m json.tool 2>/dev/null || cat data/consolidate-checkpoint.json
-          # Download sync-manifest.csv so consolidate.py can discover ZIPs without
-          # requiring a fresh manifest.parquet (avoids slow per-tribunal IA API fallback)
-          curl -sSfL -o data/sync-manifest.csv \
-            "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
-            || echo 'tribunal,date,ia_status,djen_status,djen_raw,updated_at' > data/sync-manifest.csv
+          # Download sync-manifest.parquet (the canonical source, Phase 3) and
+          # export it to the local CSV so consolidate.py can discover ZIPs
+          # without requiring a fresh manifest.parquet (avoids slow
+          # per-tribunal IA API fallback). No code change needed downstream —
+          # consolidate.py still reads the local CSV.
+          HEADER='tribunal,date,ia_status,djen_status,djen_raw,updated_at'
+          if curl -sSfL -o data/sync-manifest.parquet \
+            "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"; then
+            pip install --quiet duckdb
+            python3 -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")" \
+              || echo "$HEADER" > data/sync-manifest.csv
+          else
+            echo "$HEADER" > data/sync-manifest.csv
+          fi
           echo "Sync manifest entries: $(tail -n +2 data/sync-manifest.csv | wc -l)"
           # Download existing consolidation manifest so update_consolidation_manifest()
           # merges into it rather than overwriting with a single-run snapshot.
