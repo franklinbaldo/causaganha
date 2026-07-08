@@ -1,7 +1,7 @@
-"""Phase 2 tests for the manifest compactor (scripts/render_manifest_parquet.py).
+"""Phase 3 tests for the manifest compactor (scripts/render_manifest_parquet.py).
 
-The compactor's new contract (docs/planning/manifest-source-of-truth.md §4.3):
-base = the current sync-manifest.parquet (CSV only as bootstrap fallback);
+The compactor's contract (docs/planning/manifest-source-of-truth.md §4.3, §5):
+base = the current sync-manifest.parquet, no CSV fallback;
 events = legacy upload-deltas + new manifest-log/ segments, merged
 field-by-field last-write-wins by ``updated_at``; absorbed segments are
 pruned (archived to manifest-log/compacted/, then deleted from manifest-log/)
@@ -85,7 +85,7 @@ def test_apply_segments_field_level_last_write_wins(tmp_path):
     )
 
     con = duckdb.connect()
-    assert rmp._load_base(con, base, None) == "parquet"
+    assert rmp._load_base(con, base) == "parquet"
     uploaded, djen, inserted = rmp._apply_segments(con, [seg1, seg2])
 
     rows = {
@@ -117,58 +117,13 @@ def test_normalize_manifest_rewrites_contradictory_absent_200(tmp_path):
         ],
     )
     con = duckdb.connect()
-    rmp._load_base(con, base, None)
+    rmp._load_base(con, base)
     rmp._normalize_manifest(con)
 
     rows = dict(con.execute("SELECT tribunal, djen_raw FROM manifest").fetchall())
     assert rows["TJSP"] == "no_publications"  # absent+200 → sentinel
     assert rows["TJBA"] == "404"  # genuine absent untouched
     assert rows["TJRO"] == "200"  # available keeps its raw
-
-
-def test_load_base_falls_back_to_csv_bootstrap(tmp_path):
-    rmp = _load_render_module()
-    csv = tmp_path / "sync-manifest.csv"
-    csv.write_text(
-        "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
-        "TJSP,2024-01-02,uploaded,available,200,2024-01-01\n",
-        encoding="utf-8",
-    )
-    con = duckdb.connect()
-    assert rmp._load_base(con, None, csv) == "csv"
-    assert con.execute("SELECT count(*) FROM manifest").fetchone()[0] == 1
-
-
-def test_merge_csv_lww_only_strictly_newer_rows_win(tmp_path):
-    rmp = _load_render_module()
-    base = _make_base_parquet(tmp_path / "base.parquet", BASE_ROWS)
-    csv = tmp_path / "sync-manifest.csv"
-    csv.write_text(
-        "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
-        # STALE legacy row (older ts): the ~79K false-available case — must lose
-        "TJSP,2024-01-02,,available,200,2024-01-20\n"
-        # newer straggler from an in-flight old engine → wins
-        "TJRO,2024-01-02,,absent,no_publications,2024-03-01\n"
-        # equal ts → no-op (avoids re-flattening parquet refinements)
-        "TJBA,2024-01-02,uploaded,available,200,2024-01-15\n"
-        # row unknown to the base → inserted
-        "TJMG,2024-01-08,,available,200,2024-03-01\n",
-        encoding="utf-8",
-    )
-
-    con = duckdb.connect()
-    rmp._load_base(con, base, csv)
-
-    rows = {
-        r[0]: (r[1], r[2], r[3], r[4])
-        for r in con.execute(
-            "SELECT tribunal, ia_status, djen_status, djen_raw, updated_at FROM manifest"
-        ).fetchall()
-    }
-    assert rows["TJSP"][3] == "2024-02-01"  # stale CSV row did not win
-    assert rows["TJRO"][1:3] == ("absent", "no_publications")  # newer straggler won
-    assert rows["TJBA"] == ("uploaded", "available", "200", "2024-01-15")
-    assert rows["TJMG"][1:3] == ("available", "200")  # inserted
 
 
 def test_segment_and_delta_listing_filters():
