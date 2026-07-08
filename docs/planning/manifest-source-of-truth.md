@@ -4,6 +4,8 @@
 * **Proponente:** Franklin Baldo + Claude
 * **Data:** 2026-06-01
 * **Status:** **Decisão tomada** — substitui o trio CSV + upload-deltas + Parquet.
+  Fase 0 ✅, Fase 1 ✅, Fase 2 ✅, **Fase 3 ✅ (2026-07-08, PR #TBD)** — ver §5 para o
+  resumo de cada fase.
 * **Apoia-se em:** verificação ao vivo contra o DJEN (abaixo).
 * **Progresso (§5):** Fase 0 ✅ · Fase 1 ✅ (2026-07-07, PR #798) · Fase 2 ✅ (2026-07-07, PR #798 —
   engine/drain/probe emitem só segmentos `manifest-log/`; leitura é parquet+segmentos com
@@ -168,6 +170,24 @@ Fases incrementais — cada uma é segura e entrega valor isolado:
 - **Fase 3 — remover o CSV.** Tirar as referências a `sync-manifest.csv` dos ~27 arquivos / 7
   workflows; aposentar `to_csv`/persist como fonte. (Exportar CSV sob demanda, se algum consumidor
   externo precisar, vira um derivado opcional do Parquet.)
+
+  **Concluída em 2026-07-08 (PR #TBD).** `SyncManifest.load_from_ia()` (`src/djen_backup/manifest.py`)
+  não tem mais fallback para o CSV canônico: tenta o parquet base + segmentos com retry limitado
+  (3 tentativas, backoff) e, se esgotar, loga erro e retorna 0 (degradação graciosa, engine não
+  crasha). `upload_to_ia()` (escrita legada do CSV inteiro) e `_load_from_ia_csv_fallback()` foram
+  removidos; `scripts/drain_unknowns.py` migrou para `upload_segment_to_ia()`. O compactor
+  (`scripts/render_manifest_parquet.py`) perdeu o bootstrap-a-partir-do-CSV (`ensure_csv`/
+  `_merge_csv_lww`) — sem parquet base, levanta `RuntimeError` em vez de tentar o CSV. Os últimos
+  quatro leitores do CSV canônico (`scripts/render_queries.py`, `scripts/backfill_probe.py`,
+  `scripts/generate_cache_from_manifest.py`, `scripts/reconcile_processos.py`) migraram para ler
+  `sync-manifest.parquet` via DuckDB. Os workflows que baixavam o CSV diretamente
+  (`.github/actions/download-state`, `consolidate-parquet.yml`, `roundtrip-check.yml`) agora baixam
+  o parquet e exportam para o CSV local via DuckDB, preservando os consumidores local-only
+  (`append_manifest.py`, `generate_catalog.py`, `consolidate.py`) sem nenhuma mudança de código. O
+  write-back automático do CSV a cada 30 min foi desligado (`MANIFEST_COMPACT_WRITEBACK` removido do
+  cron em `render-manifest-parquet.yml`) — `write_back_csv()` continua disponível para quem quiser
+  rodar manualmente. `scripts/manifest_writeback.py` e `.github/workflows/manifest-writeback.yml`
+  (ferramenta de correção pontual da Fase 1, já executada em produção) foram removidos.
 
 ---
 

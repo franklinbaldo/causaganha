@@ -2,7 +2,7 @@
 # BACKFILL PROBE — Investigate sync-manifest vs DJEN proxy inconsistencies
 # ============================================================================
 #
-# Manual-only workflow. Pulls sync-manifest.csv from IA, samples entries by
+# Manual-only workflow. Pulls sync-manifest.parquet from IA, samples entries by
 # category (absent / unknown / available / 403 / timeout), and re-probes the
 # DJEN proxy live to surface drift. Job exits non-zero by design so the run
 # is flagged failed and the report stays attached to a visible failure.
