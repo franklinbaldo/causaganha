@@ -16,8 +16,7 @@ Show manifest summary::
     uv run stj-acordaos status
 
 In CI, ``.github/workflows/stj-tjro-sync.yml`` runs the same commands with
-secrets injected. It is ``workflow_dispatch`` only (no cron) — trigger it
-manually from the Actions tab.
+secrets injected, hourly plus ``workflow_dispatch``.
 """
 
 from __future__ import annotations
@@ -38,6 +37,24 @@ _DEFAULT_DATA_DIR = Path("data/stj")
 _DEFAULT_MANIFEST = _DEFAULT_DATA_DIR / "stj-manifest.csv"
 _DEFAULT_EXTRACT_DIR = _DEFAULT_DATA_DIR / "extracted"
 _DEFAULT_PARQUET = _DEFAULT_DATA_DIR / "stj-acordaos.parquet"
+
+
+def _classify_resource(fmt: str, url: str) -> str | None:
+    """Classify a CKAN resource as "zip" or "json"; None when neither.
+
+    The STJ dataset carries auxiliary resources (e.g. a "dicionário de
+    dados" CSV) that are not acórdãos data — downloading those as if they
+    were JSON produces a file DuckDB's ``read_json`` chokes on later. Only
+    resources explicitly declared zip/json (by CKAN ``format`` or URL
+    suffix) are downloaded; anything else is skipped.
+    """
+    fmt = fmt.lower()
+    url_lower = url.lower()
+    if fmt == "zip" or url_lower.endswith(".zip"):
+        return "zip"
+    if fmt == "json" or url_lower.endswith(".json"):
+        return "json"
+    return None
 
 
 @app.command()
@@ -72,7 +89,10 @@ def download(
             typer.echo(f"  SKIP {name}: no URL", err=True)
             continue
 
-        tipo = "zip" if fmt == "zip" or url.lower().endswith(".zip") else "json"
+        tipo = _classify_resource(fmt, url)
+        if tipo is None:
+            typer.echo(f"  SKIP {name}: unrecognized format {fmt!r} (not zip/json)", err=True)
+            continue
         dest = zip_dir / f"{name}.{tipo}"
 
         typer.echo(f"→ Downloading {name} ({tipo}) …")
