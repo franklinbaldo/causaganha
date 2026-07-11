@@ -64,8 +64,11 @@ dev = [
     "mkdocs-minify-plugin>=0.8.0",
     "playwright>=1.58.0",
     # marimo notebooks (notebooks/*.py) + ipynb export used by the
-    # notebook-sync CI check (scripts/check_notebooks_synced.py)
-    "marimo>=0.23.8",
+    # notebook-sync CI check (scripts/check_notebooks_synced.py). uv.lock is
+    # gitignored, so this is the only thing pinning the version anywhere —
+    # exact-pinned because even patch bumps change ipynb export bytes and
+    # break that check (hit twice now: 0.23.11->0.23.13, then ->0.23.14).
+    "marimo==0.23.14",
     "nbformat>=5.10.4",
 ]
 

@@ -82,7 +82,7 @@ def export_table_sync(
         msg = f"unknown table for export: {table_name!r}"
         raise ValueError(msg)
     order_keys = _TABLE_ORDER_KEYS[table_name]
-    copy_source = f"(SELECT * FROM {table_name} ORDER BY {order_keys})"  # noqa: S608
+    copy_source = f"(SELECT * FROM {table_name} ORDER BY {order_keys})"
     con.raw_sql(
         f"COPY {copy_source} TO '{output_path}' ({copy_opts})",
     )

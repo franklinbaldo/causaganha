@@ -66,7 +66,7 @@ def fetch_pending_batch(
           {seen_filter}
         ORDER BY random()
         LIMIT ?
-        """,  # noqa: S608
+        """,
         (parquet_url, batch_size),
     ).fetchall()
     return [(r[0], r[1]) for r in rows]

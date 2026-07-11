@@ -93,7 +93,7 @@ def _try_download_unificados(sources_dir: Path) -> None:
     typer.echo(f"No local sources — trying {_UNIFICADOS_IA_URL}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with urllib.request.urlopen(_UNIFICADOS_IA_URL, timeout=180) as resp:  # noqa: S310 — fixed archive.org URL
+        with urllib.request.urlopen(_UNIFICADOS_IA_URL, timeout=180) as resp:
             dest.write_bytes(resp.read())
     except OSError as exc:
         typer.echo(f"  WARNING: could not download processos_unificados — {exc}", err=True)
