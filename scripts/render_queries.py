@@ -346,10 +346,11 @@ def _reconcile_sources_connection() -> duckdb.DuckDBPyConnection:
     so --check can never drift from what the reconcile pipeline actually writes.
     """
     scratch = duckdb.connect()
-    # The reconcile pipeline reads a publication-level manifest (one row per
-    # numero_processo/publication) — distinct from the sync-manifest CSV view.
+    # The reconcile pipeline reads every consolidated comunicacoes.parquet
+    # (one row per DJEN publication) — distinct from the sync-manifest view.
     scratch.execute(
-        "CREATE TABLE manifest (numero_processo VARCHAR, data_publicacao DATE, tribunal VARCHAR)"
+        "CREATE TABLE comunicacoes "
+        "(numero_processo VARCHAR, data_disponibilizacao DATE, tribunal VARCHAR)"
     )
     _synthetic_tjro_juris(scratch)
     _synthetic_acordaos(scratch)

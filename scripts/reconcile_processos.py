@@ -2,7 +2,8 @@
 """Reconcile DJEN x TJRO JURIS x STJ into processos_unificados.
 
 Pipeline:
-  1. Load DJEN from sync-manifest parquet — GROUP BY nr_processo
+  1. Load DJEN from every consolidated comunicacoes.parquet (discovered via the
+     causaganha-catalog manifest) — GROUP BY nr_processo
   2. Load JURIS from tjro-juris-<year>.parquet files — GROUP BY nr_processo
   3. Load STJ from stj-acordaos.parquet — filter to CNJ numbers only
   4. Full outer join the three aggregations in DuckDB
@@ -35,8 +36,7 @@ _PARQUET_DOCUMENTOS = DATA_DIR / "processo_documentos.parquet"
 
 _IA_BASE = "https://archive.org/download"
 _IA_ITEM_DASHBOARD = "causaganha-dashboard"
-_IA_MANIFEST_PARQUET_URL = f"{_IA_BASE}/{_IA_ITEM_DASHBOARD}/sync-manifest.parquet"
-_LOCAL_MANIFEST_PARQUET = DATA_DIR / "sync-manifest.parquet"
+_IA_CATALOG_MANIFEST_URL = f"{_IA_BASE}/causaganha-catalog/manifest.parquet"
 
 _STJ_PARQUET = DATA_DIR / "stj" / "stj-acordaos.parquet"
 _STJ_IA_URL = f"{_IA_BASE}/stj-acordaos-primeira-secao/stj-acordaos.parquet"
@@ -73,11 +73,25 @@ def _download(url: str, dest: Path, label: str) -> Path:
     return dest
 
 
-def ensure_manifest() -> Path:
-    if _LOCAL_MANIFEST_PARQUET.exists():
-        print(f"Using local manifest: {_LOCAL_MANIFEST_PARQUET}")
-        return _LOCAL_MANIFEST_PARQUET
-    return _download(_IA_MANIFEST_PARQUET_URL, _LOCAL_MANIFEST_PARQUET, "sync-manifest.parquet")
+def comunicacoes_parquet_urls(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """URLs of every consolidated comunicacoes.parquet, from the IA catalog.
+
+    consolidate-parquet.yml uploads one comunicacoes.parquet per consolidated
+    date (item djen-YYYY-MM-DD); causaganha-catalog/manifest.parquet is the
+    index of every such file across every item, kept fresh by
+    update-catalog.yml. Querying it (instead of e.g. listing IA items
+    directly) keeps this in sync with whatever has actually been consolidated
+    without hand-enumerating dates.
+    """
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT ia_url FROM read_parquet(?) WHERE table_name = 'comunicacoes'",
+            [_IA_CATALOG_MANIFEST_URL],
+        ).fetchall()
+    except duckdb.Error as exc:
+        print(f"  WARNING: could not read IA catalog manifest — {exc}", file=sys.stderr)
+        return []
+    return sorted(r[0] for r in rows)
 
 
 def ensure_stj_parquet() -> Path | None:
@@ -141,11 +155,11 @@ def _ia_credentials() -> str | None:
 _DJEN_AGG_SQL = """
 SELECT
     regexp_replace(numero_processo, '[^0-9]', '', 'g') AS nr_processo,
-    MIN(data_publicacao)::DATE  AS djen_primeira_pub,
-    MAX(data_publicacao)::DATE  AS djen_ultima_pub,
-    COUNT(*)::INTEGER           AS djen_n_publicacoes,
-    list(DISTINCT tribunal)     AS djen_tribunais
-FROM manifest
+    MIN(data_disponibilizacao)::DATE  AS djen_primeira_pub,
+    MAX(data_disponibilizacao)::DATE  AS djen_ultima_pub,
+    COUNT(*)::INTEGER                 AS djen_n_publicacoes,
+    list(DISTINCT tribunal)           AS djen_tribunais
+FROM comunicacoes
 WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
 GROUP BY nr_processo
 """
@@ -362,14 +376,33 @@ ORDER BY nr_processo, data DESC NULLS LAST
 
 
 def reconcile(*, upload: bool = True) -> dict[str, Any]:
-    manifest_path = ensure_manifest()
     stj_path = ensure_stj_parquet()
     juris_files = juris_parquet_files()
 
     con = duckdb.connect()
+    con.execute("INSTALL httpfs; LOAD httpfs;")
 
-    # Register manifest view
-    con.execute(f"CREATE VIEW manifest AS SELECT * FROM read_parquet('{manifest_path}')")
+    # Register DJEN comunicacoes view (union of every consolidated date, read
+    # straight off IA — there's no single local cache file for this, unlike
+    # STJ/JURIS, since it's one small parquet per consolidated date).
+    comunicacoes_urls = comunicacoes_parquet_urls(con)
+    if comunicacoes_urls:
+        url_list = ", ".join(f"'{u}'" for u in comunicacoes_urls)
+        print(f"Registering DJEN comunicacoes view: {len(comunicacoes_urls)} parquet file(s)")
+        con.execute(
+            f"CREATE VIEW comunicacoes AS SELECT * FROM read_parquet([{url_list}], "
+            "union_by_name=true)"
+        )
+    else:
+        print(
+            "WARNING: no comunicacoes.parquet in the IA catalog — DJEN contribution will be empty",
+            file=sys.stderr,
+        )
+        con.execute(
+            "CREATE VIEW comunicacoes AS "
+            "SELECT NULL::VARCHAR AS numero_processo, NULL::DATE AS data_disponibilizacao, "
+            "NULL::VARCHAR AS tribunal WHERE FALSE"
+        )
 
     # Register JURIS view (union of consolidated yearly parquets)
     if juris_files:
@@ -408,26 +441,8 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         )
 
     # Build aggregation CTEs
-    # DJEN: the sync-manifest is a caderno-level index (tribunal x date); it has no
-    # numero_processo column. A future "comunicacoes" parquet (individual publication
-    # records) would enable the DJEN contribution. Skip gracefully when absent.
     print("Building DJEN aggregation…")
-    manifest_cols = {row[0] for row in con.execute("DESCRIBE manifest").fetchall()}
-    if "numero_processo" in manifest_cols and "data_publicacao" in manifest_cols:
-        con.execute(f"CREATE TEMP TABLE djen_agg AS {_DJEN_AGG_SQL}")
-    else:
-        print(
-            "  SKIP: manifest lacks numero_processo/data_publicacao — "
-            "DJEN contribution requires a comunicacoes parquet (not yet generated)",
-            file=sys.stderr,
-        )
-        con.execute(
-            "CREATE TEMP TABLE djen_agg AS "
-            "SELECT NULL::VARCHAR AS nr_processo, NULL::DATE AS djen_primeira_pub, "
-            "NULL::DATE AS djen_ultima_pub, NULL::INTEGER AS djen_n_publicacoes, "
-            "NULL::VARCHAR[] AS djen_tribunais "
-            "WHERE FALSE"
-        )
+    con.execute(f"CREATE TEMP TABLE djen_agg AS {_DJEN_AGG_SQL}")
     djen_count = con.execute("SELECT COUNT(*) FROM djen_agg").fetchone()[0]
     print(f"  {djen_count:,} DJEN processes")
 
@@ -498,7 +513,9 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         f"COPY processos_unificados TO '{_PARQUET_UNIFICADOS}' (FORMAT PARQUET, COMPRESSION ZSTD)"
     )
 
-    # Build processo_documentos (JURIS + STJ only; DJEN requires a future comunicacoes parquet)
+    # Build processo_documentos (JURIS + STJ only — DJEN's per-process rollup
+    # already lives in processos_unificados via djen_agg; adding individual
+    # DJEN communications here would need a join through textos for a resumo)
     print("Writing processo_documentos.parquet…")
     con.execute(
         f"COPY ({_DOCUMENTOS_SQL}) TO '{_PARQUET_DOCUMENTOS}' (FORMAT PARQUET, COMPRESSION ZSTD)"
