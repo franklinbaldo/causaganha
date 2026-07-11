@@ -54,7 +54,9 @@ ignore = [
 # PLW2901: loop variable reassignment in CSV parser (strip idiom).
 # PERF401: list.append in CSV serializer — clarity over micro-optimisation.
 # E501: long IA metadata strings; re-wrapping would harm readability.
-"src/stj_acordaos/__main__.py" = ["B008", "PLC0415", "D101", "D102", "D103", "D107", "FBT001", "FBT003"]
+# BLE001: blind except around a single resource's download/extract in a batch
+# CLI loop — one bad ZIP shouldn't abort the whole run.
+"src/stj_acordaos/__main__.py" = ["B008", "PLC0415", "D101", "D102", "D103", "D107", "FBT001", "FBT003", "BLE001"]
 "src/stj_acordaos/manifest.py" = ["D107", "D105", "PLW2901", "PERF401"]
 # S608: f-string SQL with DuckDB — path_list is internal (no user input).
 # E501: long log line; splitting would obscure the structured-logging pattern.
@@ -79,7 +81,8 @@ ignore = [
 # PLC0415: lazy duckdb imports inside CLI helpers — standard pattern.
 # FBT001/FBT002: boolean CLI flags are idiomatic Typer.
 # S608: f-string SQL over internal parquet paths only (no user input).
-"src/datajud/__main__.py" = ["PLC0415", "FBT001", "FBT002", "S608"]
+# S310: urlopen against a fixed archive.org URL constant, not user input.
+"src/datajud/__main__.py" = ["PLC0415", "FBT001", "FBT002", "S608", "S310"]
 
 # ── Lazy / conditional imports in library modules ─────────────────────────
 # These modules defer expensive imports to avoid slowing every process start.
@@ -99,6 +102,8 @@ ignore = [
 "src/causaganha/consolidate/manifest_reader.py" = ["S608"]
 "src/causaganha/consolidate/validation.py" = ["S608"]
 "src/causaganha/consolidate/consolidation_manifest.py" = ["S608"]
+"src/causaganha/consolidate/exporter.py" = ["S608"]
+"src/djen_backup/probe.py" = ["S608"]
 "src/causaganha/analysis/llm_analyzer.py" = ["ANN401", "ARG002", "C901", "E501", "PLR0912", "PLR0915"]
 "src/causaganha/analysis/models.py" = ["E501"]
 "src/causaganha/consolidate/cli.py" = ["C901", "E501", "PLR0912", "PLR0915"]

@@ -98,7 +98,7 @@ def download(
         typer.echo(f"→ Downloading {name} ({tipo}) …")
         try:
             download_resource(url, dest)
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             typer.echo(f"  ERROR: {exc}", err=True)
             continue
 
@@ -108,7 +108,7 @@ def download(
             try:
                 extracted = extract_zip(dest, extract_dir)
                 n_extracted = len(extracted)
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:
                 typer.echo(f"  Extract ERROR: {exc}", err=True)
 
         manifest.upsert(
