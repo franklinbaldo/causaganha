@@ -30,7 +30,7 @@ on:
       deadline_minutes:
         description: 'Deadline in minutes'
         required: false
-        default: '12'
+        default: '165'
 
 permissions:
   contents: read
@@ -44,7 +44,11 @@ jobs:
   consolidate:
     name: Consolidate ZIPs → Parquet
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A single backfill date already takes ~13-14 min (measured), so the previous
+    # 15min/12min pair left almost no margin — the loop never got past 1 date/run,
+    # and any slowdown killed the job outright (6 of the last 10 scheduled runs were
+    # cancelled by the timeout). Both numbers need headroom over per-date runtime.
+    timeout-minutes: 180
     environment: dev
 
     env:
@@ -106,7 +110,7 @@ jobs:
           DATE="${{ github.event.inputs.date || '' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
           FORCE="${{ github.event.inputs.force || 'false' }}"
-          DEADLINE="${{ github.event.inputs.deadline_minutes || '12' }}"
+          DEADLINE="${{ github.event.inputs.deadline_minutes || '165' }}"
 
           CMD="uv run python scripts/pipeline/consolidate.py"
 
