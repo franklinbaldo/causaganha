@@ -11,12 +11,14 @@ from typing import TYPE_CHECKING
 
 import httpx
 import pytest
+from typer.testing import CliRunner
 
 from stj_acordaos.__main__ import (
     _already_uploaded,
     _classify_resource,
     _download_one,
     _restore_manifest_best_effort,
+    app,
 )
 from stj_acordaos.client import STJWAFBlockedError
 from stj_acordaos.manifest import ManifestSTJ
@@ -195,3 +197,97 @@ def test_restore_manifest_survives_transient_ia_error(
 
     _restore_manifest_best_effort(manifest_path)  # must not raise
     assert not manifest_path.exists()
+
+
+# ── upload: nothing-new-to-do must not be an error ───────────────────────
+
+runner = CliRunner()
+
+
+def test_upload_with_everything_already_uploaded_is_a_clean_noop(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: this must be a clean no-op, not an upload error.
+
+    A blank runner that skipped every download (all resources already
+    uploaded+unchanged per the manifest) has neither fresh JSON files nor a
+    local consolidated parquet — `dedup_acordaos` was never invoked, so
+    there's nothing to re-dedupe, and the parquet was never restored from
+    IA. IA already has the correct parquet from the run that produced it,
+    so this is not "ERROR: No JSON files and no existing parquet to upload."
+    """
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    manifest_path = data_dir / "stj-manifest.csv"
+    manifest = ManifestSTJ(manifest_path)
+    manifest.upsert("20260531.json.json", "json", "2026-05-31", "uploaded", 12)
+    manifest.upsert("stj-acordaos.parquet", "parquet", "", "uploaded", 0)
+    manifest.save()
+
+    def _boom(*_args: object, **_kwargs: object) -> bool:
+        msg = "upload_parquet must not be called when there is nothing new"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("stj_acordaos.archive.upload_parquet", _boom)
+
+    result = runner.invoke(
+        app,
+        [
+            "upload",
+            "--data-dir",
+            str(data_dir),
+            "--parquet-path",
+            str(data_dir / "stj-acordaos.parquet"),
+            "--manifest-path",
+            str(manifest_path),
+            "--ia-key",
+            "k",
+            "--ia-secret",
+            "s",
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "Nothing new to upload" in result.output
+
+
+def test_upload_with_pending_entries_but_no_local_data_is_an_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """If the manifest says something is genuinely pending but there's no
+    local JSON and no local parquet to build one from, that IS an error —
+    distinguishes the graceful no-op above from real data loss.
+    """
+    data_dir = tmp_path / "data"
+    data_dir.mkdir()
+    manifest_path = data_dir / "stj-manifest.csv"
+    manifest = ManifestSTJ(manifest_path)
+    manifest.upsert("20260630.json.json", "json", "2026-06-30", "", 0)  # pending
+    manifest.save()
+
+    monkeypatch.setattr(
+        "stj_acordaos.archive.upload_parquet",
+        lambda *a, **k: (_ for _ in ()).throw(  # noqa: ARG005
+            AssertionError("must not upload with nothing to send")
+        ),
+    )
+
+    result = runner.invoke(
+        app,
+        [
+            "upload",
+            "--data-dir",
+            str(data_dir),
+            "--parquet-path",
+            str(data_dir / "stj-acordaos.parquet"),
+            "--manifest-path",
+            str(manifest_path),
+            "--ia-key",
+            "k",
+            "--ia-secret",
+            "s",
+        ],
+    )
+
+    assert result.exit_code != 0
+    assert "No JSON files and no existing parquet" in result.output

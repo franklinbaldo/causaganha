@@ -207,6 +207,9 @@ def upload(
         typer.echo("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", err=True)
         raise typer.Exit(1)
 
+    manifest = ManifestSTJ(manifest_path)
+    manifest.load()
+
     # Collect all JSON sources: extracted from ZIP + monthly downloads
     extract_dir = data_dir / "extracted"
     zip_dir = data_dir / "zips"
@@ -219,15 +222,16 @@ def upload(
         count = dedup_acordaos(json_files, parquet_path)
         typer.echo(f"  {count:,} records after dedup.")
     elif not parquet_path.exists():
-        typer.echo("ERROR: No JSON files and no existing parquet to upload.", err=True)
-        raise typer.Exit(1)
-
-    if not parquet_path.exists():
-        typer.echo(f"ERROR: Parquet not found at {parquet_path}.", err=True)
-        raise typer.Exit(1)
-
-    manifest = ManifestSTJ(manifest_path)
-    manifest.load()
+        # No local JSONs (every resource was already uploaded+unchanged and
+        # `download` skipped it) and no local parquet (a blank runner never
+        # restores it). If the manifest agrees nothing is pending, IA already
+        # has the correct parquet from a prior run — there is genuinely
+        # nothing to do, not an error.
+        if manifest.get_pending_uploads():
+            typer.echo("ERROR: No JSON files and no existing parquet to upload.", err=True)
+            raise typer.Exit(1)
+        typer.echo("Nothing new to upload — all resources already on IA.")
+        return
 
     # Upload original source files (ZIPs + monthly JSONs). Preserve the
     # entry's data_extracao/n_registros stamped by `download` — the download
