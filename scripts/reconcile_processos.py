@@ -100,6 +100,16 @@ class SourceLoad:
     rows: int = 0
 
 
+class SourceDataError(Exception):
+    """A source's parquet file(s) could not be read (corrupt/invalid/truncated).
+
+    Distinct from httpx/OSError (transport failures) and duckdb.Error (raised
+    directly by SQL execution) — this is raised by our own validation step so
+    callers can catch exactly "the bytes we have are not usable parquet"
+    without swallowing unrelated programming errors.
+    """
+
+
 def _cache_dir() -> Path:
     return Path(os.environ.get("RECONCILE_CACHE_DIR", "") or str(DATA_DIR / "reconcile-cache"))
 
@@ -135,28 +145,82 @@ def formatar_cnj(n: str) -> str:
 # ── Data acquisition ───────────────────────────────────────────────────────────
 
 
-def _download(url: str, dest: Path, label: str) -> Path:
+def _is_valid_parquet(path: Path) -> bool:
+    """Cheap structural check: can DuckDB even open this as parquet?
+
+    Does not guarantee the *content* is semantically correct (e.g. expected
+    columns) — callers that care about that still validate downstream. This
+    only catches "not parquet at all" / truncated-file corruption.
+    """
+    con = duckdb.connect()
+    try:
+        con.execute(f"SELECT 1 FROM read_parquet('{path}') LIMIT 0")
+    except duckdb.Error:
+        return False
+    else:
+        return True
+    finally:
+        con.close()
+
+
+def _quarantine(path: Path) -> None:
+    """Remove an invalid *cached* file so future runs re-fetch instead of reusing it.
+
+    Only ever called on files under our own cache directory — never on a
+    local parquet the operator placed there themselves (see
+    ensure_juris_parquets / ensure_datajud_parquets / ensure_stj_parquet,
+    which never route operator-provided local files through this).
+    """
+    try:
+        path.unlink(missing_ok=True)
+        print(f"  quarantined invalid cache file: {path}", file=sys.stderr)
+    except OSError as exc:
+        print(f"  WARNING: could not remove invalid cache file {path} — {exc}", file=sys.stderr)
+
+
+def _atomic_download(client: httpx.Client, url: str, dest: Path, label: str) -> None:
+    """Download url to dest atomically: write to dest.part, then rename in place.
+
+    A crash or truncated transfer never leaves a partial/corrupt file at
+    `dest` itself — only a stray `.part` file, which is never treated as a
+    cache hit (see _fetch_cached). Raises SourceDataError if the completed
+    download is not readable as parquet.
+    """
     print(f"Downloading {label} from {url}")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with httpx.Client(timeout=180, follow_redirects=True) as client:
-        resp = client.get(url)
-        resp.raise_for_status()
-        dest.write_bytes(resp.content)
+    tmp = dest.with_name(dest.name + ".part")
+    resp = client.get(url)
+    resp.raise_for_status()
+    tmp.write_bytes(resp.content)
+    if not _is_valid_parquet(tmp):
+        tmp.unlink(missing_ok=True)
+        msg = f"downloaded file from {url} is not valid parquet"
+        raise SourceDataError(msg)
+    tmp.replace(dest)
     print(f"  saved to {dest} ({dest.stat().st_size:,} bytes)")
+
+
+def _download(url: str, dest: Path, label: str) -> Path:
+    with httpx.Client(timeout=180, follow_redirects=True) as client:
+        _atomic_download(client, url, dest, label)
     return dest
 
 
 def _fetch_cached(client: httpx.Client, url: str, dest: Path, label: str) -> Path:
-    """Download url to dest unless a previous run already cached it."""
+    """Download url to dest unless a previous run already cached a valid copy.
+
+    A cached file that fails validation (corrupt / truncated by an
+    interrupted earlier run) is quarantined and re-fetched immediately —
+    it is never silently treated as good just because it exists and is
+    non-empty.
+    """
     if dest.exists() and dest.stat().st_size > 0:
-        print(f"  cached: {dest}")
-        return dest
-    print(f"Downloading {label} from {url}")
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    resp = client.get(url)
-    resp.raise_for_status()
-    dest.write_bytes(resp.content)
-    print(f"  saved to {dest} ({dest.stat().st_size:,} bytes)")
+        if _is_valid_parquet(dest):
+            print(f"  cached: {dest}")
+            return dest
+        print(f"  cached file failed validation, re-fetching: {dest}", file=sys.stderr)
+        _quarantine(dest)
+    _atomic_download(client, url, dest, label)
     return dest
 
 
@@ -199,7 +263,7 @@ def ensure_stj_parquet() -> tuple[Path | None, SourceLoad]:
         return _STJ_PARQUET, SourceLoad("stj", STATUS_LOADED_LOCAL, str(_STJ_PARQUET))
     try:
         path = _download(_STJ_IA_URL, _STJ_PARQUET, "STJ parquet")
-    except (httpx.HTTPError, OSError) as exc:
+    except (httpx.HTTPError, OSError, SourceDataError) as exc:
         print(f"  WARNING: could not download STJ parquet — {exc}", file=sys.stderr)
         return None, SourceLoad("stj", STATUS_UNAVAILABLE, f"IA download failed: {exc}")
     return path, SourceLoad("stj", STATUS_LOADED_REMOTE, _STJ_IA_URL)
@@ -280,7 +344,7 @@ def ensure_juris_parquets() -> tuple[list[Path], bool, SourceLoad]:
     print(f"No local JURIS parquets — trying IA items {_JURIS_ITEM_PREFIX}-{{year}}")
     try:
         remote, needs_dedup = fetch_juris_from_ia()
-    except (httpx.HTTPError, OSError) as exc:
+    except (httpx.HTTPError, OSError, SourceDataError) as exc:
         return [], False, SourceLoad("juris", STATUS_UNAVAILABLE, f"IA fetch failed: {exc}")
     if remote:
         detail = f"{len(remote)} parquet file(s) from IA {_JURIS_ITEM_PREFIX}-* items"
@@ -326,7 +390,7 @@ def ensure_datajud_parquets() -> tuple[list[Path], SourceLoad]:
     print(f"No local DataJud capa parquets — trying IA item(s) {tribs}")
     try:
         remote = fetch_datajud_from_ia()
-    except (httpx.HTTPError, OSError) as exc:
+    except (httpx.HTTPError, OSError, SourceDataError) as exc:
         return [], SourceLoad("datajud", STATUS_UNAVAILABLE, f"IA fetch failed: {exc}")
     if remote:
         detail = f"{len(remote)} parquet file(s) from IA ({tribs})"
@@ -668,21 +732,81 @@ def _build_report(
 # ── Main pipeline ──────────────────────────────────────────────────────────────
 
 
+def _empty_comunicacoes_view(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("DROP VIEW IF EXISTS comunicacoes")
+    con.execute(
+        "CREATE VIEW comunicacoes AS "
+        "SELECT NULL::VARCHAR AS numero_processo, NULL::DATE AS data_disponibilizacao, "
+        "NULL::VARCHAR AS tribunal WHERE FALSE"
+    )
+
+
+def _empty_juris_view(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("DROP VIEW IF EXISTS tjro_juris")
+    con.execute(
+        "CREATE VIEW tjro_juris AS "
+        "SELECT NULL::VARCHAR AS nr_processo, NULL::INTEGER AS id_documento, "
+        "NULL::VARCHAR AS tipo, NULL::DATE AS data_julgamento, "
+        "NULL::VARCHAR AS orgao, NULL::VARCHAR AS relator, "
+        "NULL::VARCHAR AS classe_judicial, NULL::VARCHAR AS url_portal, "
+        "NULL::VARCHAR AS texto_limpo "
+        "WHERE FALSE"
+    )
+
+
+def _empty_acordaos_view(con: duckdb.DuckDBPyConnection) -> None:
+    con.execute("DROP VIEW IF EXISTS acordaos")
+    con.execute(
+        "CREATE VIEW acordaos AS "
+        'SELECT NULL::VARCHAR AS "numeroProcesso", NULL::VARCHAR AS id, '
+        'NULL::VARCHAR AS "siglaClasse", NULL::VARCHAR AS "ministroRelator", '
+        'NULL::VARCHAR AS "tema", NULL::VARCHAR AS "teseJuridica", '
+        'NULL::VARCHAR AS "ementa", NULL::DATE AS "dataDecisao", '
+        'NULL::DATE AS "dataPublicacao" '
+        "WHERE FALSE"
+    )
+
+
+def _quarantine_if_cached(files: list[Path], load: SourceLoad) -> None:
+    """Quarantine *files* only when they came from our own IA-fetch cache.
+
+    Never touches a local parquet the operator placed there themselves
+    (status loaded_local) — only STATUS_LOADED_REMOTE means these paths are
+    under _cache_dir(), populated by _fetch_cached/_download.
+    """
+    if load.status != STATUS_LOADED_REMOTE:
+        return
+    for path in files:
+        _quarantine(path)
+
+
 def _register_djen(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     """Register the DJEN comunicacoes view.
 
     Union of every consolidated date, read straight off IA — there's no single
     local cache file for this, unlike STJ/JURIS, since it's one small parquet
-    per consolidated date.
+    per consolidated date. A read failure here (e.g. one corrupt date among
+    many) makes the WHOLE DJEN source unavailable for this run rather than
+    crashing the reconciliation — the other sources still contribute.
     """
     comunicacoes_urls = comunicacoes_parquet_urls(con)
     if comunicacoes_urls:
         url_list = ", ".join(f"'{u}'" for u in comunicacoes_urls)
         print(f"Registering DJEN comunicacoes view: {len(comunicacoes_urls)} parquet file(s)")
-        con.execute(
-            f"CREATE VIEW comunicacoes AS SELECT * FROM read_parquet([{url_list}], "
-            "union_by_name=true)"
-        )
+        try:
+            con.execute(
+                f"CREATE VIEW comunicacoes AS SELECT * FROM read_parquet([{url_list}], "
+                "union_by_name=true)"
+            )
+            con.execute("SELECT COUNT(*) FROM comunicacoes")  # force read now, not mid-aggregation
+        except duckdb.Error as exc:
+            print(f"  WARNING: DJEN parquet(s) unreadable — {exc}", file=sys.stderr)
+            _empty_comunicacoes_view(con)
+            detail = (
+                f"parquet read failed for {len(comunicacoes_urls)} comunicacoes file(s) via IA "
+                f"catalog: {type(exc).__name__}: {exc}"
+            )
+            return SourceLoad("djen", STATUS_UNAVAILABLE, detail)
         detail = f"{len(comunicacoes_urls)} comunicacoes parquet(s) via IA catalog"
         return SourceLoad("djen", STATUS_LOADED_REMOTE, detail)
 
@@ -696,70 +820,83 @@ def _register_djen(con: duckdb.DuckDBPyConnection) -> SourceLoad:
         "WARNING: no comunicacoes.parquet available — DJEN contribution will be empty",
         file=sys.stderr,
     )
-    con.execute(
-        "CREATE VIEW comunicacoes AS "
-        "SELECT NULL::VARCHAR AS numero_processo, NULL::DATE AS data_disponibilizacao, "
-        "NULL::VARCHAR AS tribunal WHERE FALSE"
-    )
+    _empty_comunicacoes_view(con)
     return load
 
 
 def _register_juris(con: duckdb.DuckDBPyConnection) -> SourceLoad:
-    """Register the JURIS view (yearly consolidated parquets, or IA fallback)."""
+    """Register the JURIS view (yearly consolidated parquets, or IA fallback).
+
+    A read failure (corrupt/invalid parquet) makes JURIS unavailable for this
+    run — the typed-empty fallback view is (re)created so the rest of the
+    pipeline (aggregation, join) proceeds unaffected, and IA-cached files
+    implicated in the failure are quarantined so the NEXT run re-fetches
+    instead of hitting the same wall forever.
+    """
     juris_files, needs_dedup, load = ensure_juris_parquets()
     if juris_files:
         juris_list = ", ".join(f"'{p}'" for p in juris_files)
         print(f"Registering JURIS view: {len(juris_files)} parquet file(s)")
-        if needs_dedup:
-            # Monthly shards straight from IA may overlap between crawls —
-            # dedup by id_documento exactly like tjro_juris.dedup.consolidate_year.
-            con.execute(
-                "CREATE VIEW tjro_juris AS "
-                "SELECT * EXCLUDE (_rn) FROM ("
-                "  SELECT *, ROW_NUMBER() OVER ("
-                "    PARTITION BY id_documento ORDER BY extraido_em DESC NULLS LAST"
-                "  ) AS _rn "
-                f"  FROM read_parquet([{juris_list}], union_by_name=true) "
-                "  WHERE id_documento IS NOT NULL"
-                ") WHERE _rn = 1"
-            )
-        else:
-            con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
+        try:
+            if needs_dedup:
+                # Monthly shards straight from IA may overlap between crawls —
+                # dedup by id_documento exactly like
+                # tjro_juris.dedup.consolidate_year. Rows with a null
+                # id_documento (extraction bug) are excluded rather than
+                # collapsed together under a shared null key.
+                con.execute(
+                    "CREATE VIEW tjro_juris AS "
+                    "SELECT * EXCLUDE (_rn) FROM ("
+                    "  SELECT *, ROW_NUMBER() OVER ("
+                    "    PARTITION BY id_documento ORDER BY extraido_em DESC NULLS LAST"
+                    "  ) AS _rn "
+                    f"  FROM read_parquet([{juris_list}], union_by_name=true) "
+                    "  WHERE id_documento IS NOT NULL"
+                    ") WHERE _rn = 1"
+                )
+            else:
+                con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
+            con.execute("SELECT COUNT(*) FROM tjro_juris")  # force read now, not mid-aggregation
+        except duckdb.Error as exc:
+            print(f"  WARNING: JURIS parquet(s) unreadable — {exc}", file=sys.stderr)
+            _quarantine_if_cached(juris_files, load)
+            _empty_juris_view(con)
+            files_desc = ", ".join(str(p) for p in juris_files)
+            detail = f"parquet read failed for [{files_desc}]: {type(exc).__name__}: {exc}"
+            return SourceLoad("juris", STATUS_UNAVAILABLE, detail)
         return load
 
     print(
         "WARNING: no JURIS parquets found — JURIS contribution will be empty",
         file=sys.stderr,
     )
-    con.execute(
-        "CREATE VIEW tjro_juris AS "
-        "SELECT NULL::VARCHAR AS nr_processo, NULL::INTEGER AS id_documento, "
-        "NULL::VARCHAR AS tipo, NULL::DATE AS data_julgamento, "
-        "NULL::VARCHAR AS orgao, NULL::VARCHAR AS relator, "
-        "NULL::VARCHAR AS classe_judicial, NULL::VARCHAR AS url_portal, "
-        "NULL::VARCHAR AS texto_limpo "
-        "WHERE FALSE"
-    )
+    _empty_juris_view(con)
     return load
 
 
 def _register_stj(con: duckdb.DuckDBPyConnection) -> SourceLoad:
+    """Register the STJ acordaos view (local file or IA fallback).
+
+    A read failure makes STJ unavailable for this run instead of crashing
+    the reconciliation; an IA-cached file implicated in the failure is
+    quarantined so the next run re-fetches.
+    """
     stj_path, load = ensure_stj_parquet()
     if stj_path is not None:
         print(f"Registering STJ view: {stj_path}")
-        con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_path}')")
+        try:
+            con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_path}')")
+            con.execute("SELECT COUNT(*) FROM acordaos")  # force read now, not mid-aggregation
+        except duckdb.Error as exc:
+            print(f"  WARNING: STJ parquet unreadable ({stj_path}) — {exc}", file=sys.stderr)
+            _quarantine_if_cached([stj_path], load)
+            _empty_acordaos_view(con)
+            detail = f"parquet read failed for {stj_path}: {type(exc).__name__}: {exc}"
+            return SourceLoad("stj", STATUS_UNAVAILABLE, detail)
         return load
 
     print("WARNING: STJ parquet unavailable — STJ contribution will be empty", file=sys.stderr)
-    con.execute(
-        "CREATE VIEW acordaos AS "
-        'SELECT NULL::VARCHAR AS "numeroProcesso", NULL::VARCHAR AS id, '
-        'NULL::VARCHAR AS "siglaClasse", NULL::VARCHAR AS "ministroRelator", '
-        'NULL::VARCHAR AS "tema", NULL::VARCHAR AS "teseJuridica", '
-        'NULL::VARCHAR AS "ementa", NULL::DATE AS "dataDecisao", '
-        'NULL::DATE AS "dataPublicacao" '
-        "WHERE FALSE"
-    )
+    _empty_acordaos_view(con)
     return load
 
 
@@ -771,7 +908,9 @@ def _register_datajud(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     empty fallback is derived from the producer's own pyarrow schema
     (datajud.archive.CAPA_SCHEMA) rather than hand-typed, so it can't drift
     from it — same pattern as scripts/render_queries.py's
-    _synthetic_datajud_capa.
+    _synthetic_datajud_capa. A read failure (corrupt/invalid parquet) makes
+    DataJud unavailable for this run rather than crashing the reconciliation;
+    an IA-cached file implicated in the failure is quarantined.
     """
     _datajud_required_cols = {
         "numero_processo",
@@ -786,8 +925,17 @@ def _register_datajud(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     if datajud_files:
         datajud_list = ", ".join(f"'{p}'" for p in datajud_files)
         print(f"  Registering DataJud capa view: {len(datajud_files)} parquet file(s)")
-        con.execute(f"CREATE VIEW datajud_capa AS SELECT * FROM read_parquet([{datajud_list}])")
-        datajud_cols = {row[0] for row in con.execute("DESCRIBE datajud_capa").fetchall()}
+        try:
+            con.execute(f"CREATE VIEW datajud_capa AS SELECT * FROM read_parquet([{datajud_list}])")
+            datajud_cols = {row[0] for row in con.execute("DESCRIBE datajud_capa").fetchall()}
+        except duckdb.Error as exc:
+            print(f"  WARNING: DataJud parquet(s) unreadable — {exc}", file=sys.stderr)
+            con.execute("DROP VIEW IF EXISTS datajud_capa")
+            _quarantine_if_cached(datajud_files, load)
+            con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
+            files_desc = ", ".join(str(p) for p in datajud_files)
+            detail = f"parquet read failed for [{files_desc}]: {type(exc).__name__}: {exc}"
+            return SourceLoad("datajud", STATUS_UNAVAILABLE, detail)
         if _datajud_required_cols <= datajud_cols:
             return load
         missing = sorted(_datajud_required_cols - datajud_cols)

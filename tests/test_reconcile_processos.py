@@ -316,6 +316,137 @@ class TestUnavailableSources:
         assert any("'datajud'" in w for w in report["validation"]["warnings"])
 
 
+class TestCorruptedParquetHandling:
+    """duckdb.Error / SourceDataError boundaries: bad bytes must not crash the
+    whole reconciliation, must not poison the cache, and must not affect
+    unrelated sources or unrelated processos.
+    """
+
+    def test_corrupted_remote_fallback_makes_source_unavailable_report_written(
+        self, isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        comunicacoes = _comunicacoes_parquet(fixtures / "comunicacoes.parquet")
+        catalog = _catalog_parquet(fixtures / "catalog.parquet", [comunicacoes])
+        monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
+
+        with respx.mock() as router:
+            router.get(rp._STJ_IA_URL).respond(200, content=b"not a parquet file at all")
+            _mock_juris_remote(router, fixtures)
+            _mock_datajud_remote(router, fixtures)
+            stats = rp.reconcile(upload=False)  # must not raise, must still write a report
+
+        assert stats["stj"] == 0
+        report = json.loads((rp.DATA_DIR / rp._REPORT_NAME).read_text(encoding="utf-8"))
+        assert report["sources"]["stj"]["status"] == rp.STATUS_UNAVAILABLE
+        assert "not valid parquet" in report["sources"]["stj"]["detail"]
+        # other sources are unaffected by STJ's corruption
+        assert report["sources"]["djen"]["status"] == rp.STATUS_LOADED_REMOTE
+        assert report["sources"]["juris"]["status"] == rp.STATUS_LOADED_REMOTE
+        assert report["sources"]["datajud"]["status"] == rp.STATUS_LOADED_REMOTE
+        # the corrupt download must never be promoted to the final cache path
+        assert not rp._STJ_PARQUET.exists()
+
+    def test_already_corrupted_cache_file_is_not_treated_as_valid(
+        self, isolated_dirs: Path
+    ) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        cache_path = tmp_path / "cache" / "datajud" / rp._datajud_capa_name("tjro")
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        cache_path.write_bytes(b"garbage left over from a crashed earlier run")
+
+        with respx.mock() as router:
+            _mock_datajud_remote(router, fixtures)
+            download_route = router.routes[-1]
+            paths = rp.fetch_datajud_from_ia()
+
+        # the invalid cache file was rejected and re-fetched, not reused
+        assert download_route.call_count == 1
+        assert rp._is_valid_parquet(paths[0])
+
+    def test_null_id_documento_discarded_without_merging_distinct_processos(
+        self, isolated_dirs: Path
+    ) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        shard = _juris_parquet(
+            fixtures / "2024-01-ACORDAO.parquet",
+            f"(NULL, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto null-1', 'https://juris/null1', '2024-01-31T00:00:00'),"
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00'),"
+            f"(NULL, '{CNJ_DJEN_DJ}', 'SENTENÇA', 'Apelação', '1a Vara', 'Juiz B', 'PJE',"
+            " '2024-02-10', 'texto null-2', 'https://juris/null2', '2024-02-28T00:00:00')",
+        )
+        with respx.mock() as router:
+            router.get(host="archive.org", path="/advancedsearch.php").respond(
+                200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
+            )
+            router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+                200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+            ).respond(200, content=shard.read_bytes())
+
+            con = duckdb.connect()
+            try:
+                load = rp._register_juris(con)
+                rows = con.execute(
+                    "SELECT nr_processo, id_documento FROM tjro_juris ORDER BY nr_processo"
+                ).fetchall()
+            finally:
+                con.close()
+
+        assert load.status == rp.STATUS_LOADED_REMOTE
+        # Both null-id_documento rows are discarded outright — in particular the
+        # one for CNJ_DJEN_DJ must NOT survive by merging under a shared NULL
+        # key with CNJ_ALL's null row.
+        assert rows == [(CNJ_ALL, 1)]
+
+    def test_one_invalid_source_does_not_block_other_valid_sources(
+        self, isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        comunicacoes = _comunicacoes_parquet(fixtures / "comunicacoes.parquet")
+        catalog = _catalog_parquet(fixtures / "catalog.parquet", [comunicacoes])
+        monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
+
+        with respx.mock() as router:
+            _mock_stj_remote(router, fixtures)
+            _mock_datajud_remote(router, fixtures)
+            # JURIS's only shard is corrupted — the source becomes unavailable,
+            # but DJEN/STJ/DataJud must still load and contribute normally.
+            router.get(host="archive.org", path="/advancedsearch.php").respond(
+                200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
+            )
+            router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+                200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+            ).respond(200, content=b"definitely not parquet")
+
+            stats = rp.reconcile(upload=False)  # must not raise
+
+        assert stats["juris"] == 0
+        assert stats["djen"] == 2
+        assert stats["stj"] == 1
+        assert stats["datajud"] == 2
+        report = json.loads((rp.DATA_DIR / rp._REPORT_NAME).read_text(encoding="utf-8"))
+        assert report["sources"]["juris"]["status"] == rp.STATUS_UNAVAILABLE
+        assert report["sources"]["djen"]["status"] == rp.STATUS_LOADED_REMOTE
+        assert report["sources"]["stj"]["status"] == rp.STATUS_LOADED_REMOTE
+        assert report["sources"]["datajud"]["status"] == rp.STATUS_LOADED_REMOTE
+
+
 class TestValidateCoverage:
     def test_zero_plus_unavailable_expected_is_error(self) -> None:
         sources = {"juris": rp.SourceLoad("juris", rp.STATUS_UNAVAILABLE, "no IA items", rows=0)}
