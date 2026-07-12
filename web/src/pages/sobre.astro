@@ -28,7 +28,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     <article>
       <h2>Metodologia</h2>
       <p>
-        O sistema opera através de um pipeline automatizado no GitHub Actions com três cadências: a cada 20 minutos um robô consulta o DJEN para descobrir e baixar novos cadernos; a cada 15 minutos outro robô esvazia a fila dos arquivos já confirmados, enviando-os ao Internet Archive; e diariamente os ZIPs do dia anterior são consolidados em tabelas Parquet por (tribunal, ano), também publicadas no Internet Archive. Toda a evolução do estado é registrada num único manifesto CSV (<code>sync-manifest.csv</code>) também arquivado, garantindo que o histórico nunca se perca mesmo que os sistemas de origem fiquem indisponíveis.
+        O sistema opera através de um pipeline automatizado no GitHub Actions com três cadências: a cada 20 minutos um robô consulta o DJEN para descobrir e baixar novos cadernos; a cada 15 minutos outro robô esvazia a fila dos arquivos já confirmados, enviando-os ao Internet Archive; e diariamente os ZIPs do dia anterior são consolidados em tabelas Parquet por (tribunal, ano), também publicadas no Internet Archive. Toda a evolução do estado é registrada num manifesto canônico (<code>sync-manifest.parquet</code>, compactado de um log de eventos append-only) também arquivado, garantindo que o histórico nunca se perca mesmo que os sistemas de origem fiquem indisponíveis.
       </p>
     </article>
 

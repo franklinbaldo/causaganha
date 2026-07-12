@@ -4,36 +4,29 @@ import PageHeader from '../components/PageHeader.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import TribunalCompareCard from '../components/TribunalCompareCard.astro';
 import EmptyState from '../components/EmptyState.svelte';
-import { readArchiveSnapshot } from '../lib/readJson';
+import { loadContract } from '../lib/data';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const iaSnapshot = readArchiveSnapshot();
 
-const grouped = new Map<string, { tribunal: string; zipCount: number; earliestDate: string; latestDate: string }>();
-
-if (iaSnapshot?.items) {
-  for (const item of Object.values(iaSnapshot.items)) {
-    if (!item.tribunal) continue;
-    const previous = grouped.get(item.tribunal) ?? { tribunal: item.tribunal, zipCount: 0, earliestDate: '', latestDate: '' };
-    previous.zipCount += item.zip_count ?? 0;
-    if (!previous.earliestDate || (item.earliest_date && item.earliest_date < previous.earliestDate)) {
-      previous.earliestDate = item.earliest_date;
-    }
-    if (!previous.latestDate || (item.latest_date && item.latest_date > previous.latestDate)) {
-      previous.latestDate = item.latest_date;
-    }
-    grouped.set(item.tribunal, previous);
-  }
-}
+// Per-tribunal metrics from the tribunal_coverage query contract — same
+// canonical manifest as site-status.json (no legacy cache/backfill snapshot).
+const coverage = (await loadContract('tribunal_coverage')) ?? [];
 
 // Sort by date span (longest archive first) — volume alone is a misleading proxy for usefulness
-const tribunais = Array.from(grouped.values()).sort((a, b) => {
-  const spanA = a.earliestDate && a.latestDate
-    ? new Date(a.latestDate).getTime() - new Date(a.earliestDate).getTime() : 0;
-  const spanB = b.earliestDate && b.latestDate
-    ? new Date(b.latestDate).getTime() - new Date(b.earliestDate).getTime() : 0;
-  return spanB - spanA;
-}).slice(0, 12);
+const tribunais = coverage
+  .filter(row => row.uploaded > 0 && row.earliest_upload && row.latest_upload)
+  .map(row => ({
+    tribunal: row.tribunal,
+    zipCount: row.uploaded,
+    earliestDate: row.earliest_upload as string,
+    latestDate: row.latest_upload as string,
+  }))
+  .sort((a, b) => {
+    const spanA = new Date(a.latestDate).getTime() - new Date(a.earliestDate).getTime();
+    const spanB = new Date(b.latestDate).getTime() - new Date(b.earliestDate).getTime();
+    return spanB - spanA;
+  })
+  .slice(0, 12);
 ---
 
 <Layout title="Comparador de Tribunais — CausaGanha" description="Compare cobertura e volume de publicações entre tribunais.">
@@ -48,7 +41,7 @@ const tribunais = Array.from(grouped.values()).sort((a, b) => {
           {tribunais.map((tribunal) => <TribunalCompareCard {...tribunal} />)}
         </div>
       ) : (
-        <EmptyState title="Sem snapshot disponível" message="Não foi possível carregar dados agregados para comparação de tribunais." />
+        <EmptyState title="Sem dados de cobertura" message="O contrato tribunal_coverage ainda não foi renderizado — rode scripts/render_queries.py para gerar os dados de comparação." />
       )}
     </section>
   </div>
