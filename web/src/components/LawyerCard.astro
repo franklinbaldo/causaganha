@@ -15,7 +15,7 @@ const href = `${import.meta.env.BASE_URL.replace(/\/?$/, '/')}advogados/${stats.
 <article>
   <h3>{stats.tribunal}</h3>
   <ul>
-    <li><strong>Dias com dados:</strong> {stats.daysWithData.toLocaleString('pt-BR')} de {stats.daysTotal.toLocaleString('pt-BR')}</li>
+    <li><strong>Dias arquivados:</strong> {stats.daysWithData.toLocaleString('pt-BR')} de {stats.daysTotal.toLocaleString('pt-BR')} rastreados</li>
     <li><strong>Cobertura:</strong> {stats.dataRatePct.toFixed(1)}%</li>
   </ul>
   <footer>

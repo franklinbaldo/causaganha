@@ -5,7 +5,7 @@ import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import TribunalDetail from '../../components/TribunalDetail.svelte';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
 import { loadBuildTimeData } from '../../lib/buildTimeData';
-import type { IaSnapshot } from '../../lib/readJson';
+import { loadContract } from '../../lib/data';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -20,21 +20,15 @@ const { tribunalCode } = Astro.props;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 const data = loadBuildTimeData();
-const iaSnapshot = data.iaSnapshot as IaSnapshot | null;
 
-// Snapshot stats for this tribunal
-let zipCount = 0;
-let latestDate = '';
-let earliestDate = '';
-if (iaSnapshot?.items) {
-  for (const item of Object.values(iaSnapshot.items)) {
-    if (item.tribunal === tribunalCode) {
-      zipCount += item.zip_count;
-      if (!latestDate || item.latest_date > latestDate) latestDate = item.latest_date;
-      if (!earliestDate || item.earliest_date < earliestDate) earliestDate = item.earliest_date;
-    }
-  }
-}
+// Contagens do contrato canônico tribunal_coverage (sync-manifest.parquet) —
+// substitui o archive_snapshot legado de cache/backfill.json para os números
+// exibidos em metadados/OG. zipCount = pares (tribunal × dia) com ZIP no IA.
+const coverageRow = ((await loadContract('tribunal_coverage')) ?? [])
+  .find(row => row.tribunal.toUpperCase() === tribunalCode.toUpperCase());
+const zipCount = coverageRow?.uploaded ?? 0;
+const earliestDate = coverageRow?.earliest_upload ?? '';
+const latestDate = coverageRow?.latest_upload ?? '';
 
 const tribunalNames: Record<string, string> = {
   STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justiça', TST: 'Tribunal Superior do Trabalho',
@@ -42,7 +36,7 @@ const tribunalNames: Record<string, string> = {
 };
 const fullName = tribunalNames[tribunalCode] || tribunalCode;
 const ogDesc = zipCount > 0
-  ? `${zipCount} publicações arquivadas de ${earliestDate} a ${latestDate}`
+  ? `${zipCount} ZIPs de diários arquivados (pares tribunal × dia) de ${earliestDate} a ${latestDate}`
   : `Publicações judiciais do ${tribunalCode} arquivadas no Internet Archive`;
 
 // Regenerate the OG image SVG from live snapshot data — but only during
@@ -56,7 +50,7 @@ if (import.meta.env.PROD && zipCount > 0) {
   <text x="80" y="120" font-family="system-ui,sans-serif" font-size="24" fill="#94a3b8">CausaGanha</text>
   <text x="80" y="200" font-family="system-ui,sans-serif" font-size="72" font-weight="bold" fill="#3b82f6">${tribunalCode}</text>
   <text x="80" y="260" font-family="system-ui,sans-serif" font-size="28" fill="#cbd5e1">${fullName}</text>
-  <text x="80" y="360" font-family="monospace" font-size="48" font-weight="bold" fill="#f8fafc">${zipCount.toLocaleString('pt-BR')} publicações</text>
+  <text x="80" y="360" font-family="monospace" font-size="48" font-weight="bold" fill="#f8fafc">${zipCount.toLocaleString('pt-BR')} ZIPs arquivados</text>
   <text x="80" y="420" font-family="system-ui,sans-serif" font-size="24" fill="#64748b">${earliestDate ? earliestDate + ' a ' + latestDate : 'Internet Archive'}</text>
   <text x="80" y="520" font-family="system-ui,sans-serif" font-size="20" fill="#475569">Dados públicos do Diário de Justiça Eletrônico Nacional</text>
   <text x="80" y="555" font-family="system-ui,sans-serif" font-size="18" fill="#334155">franklinbaldo.github.io/causaganha</text>

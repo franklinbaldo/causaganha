@@ -1,13 +1,17 @@
 import type { APIRoute } from 'astro';
 import { TRIBUNAIS } from '../lib/tribunais';
-import { readJson, type CacheBackfillFile } from '../lib/readJson';
+import { loadContract } from '../lib/data';
+import { topAdvogadosTribunals } from '../lib/advogadosCoverage';
 
-export const GET: APIRoute = ({ site }) => {
+export const GET: APIRoute = async ({ site }) => {
   const basePath = import.meta.env.BASE_URL.replace(/\/$/, '');
   const BASE_URL = new URL(basePath, site).toString().replace(/\/$/, '');
   const sitemapUrls: string[] = [];
   const now = new Date().toISOString();
-  const backfill = readJson<CacheBackfillFile>('cache/backfill.json');
+  // Mesma fonte e mesma seleção de advogados/[tribunal].astro (getStaticPaths):
+  // contrato canônico tribunal_coverage — o sitemap lista exatamente as rotas
+  // que o build gera, nem mais (links quebrados) nem menos.
+  const advogadosTribunals = topAdvogadosTribunals(await loadContract('tribunal_coverage'));
 
   // Static pages
   const staticPages = [
@@ -44,9 +48,8 @@ export const GET: APIRoute = ({ site }) => {
     `);
   });
 
-  [...(backfill?.tribunal_stats ?? [])].sort((a, b) => Number(b.data_rate_pct ?? 0) - Number(a.data_rate_pct ?? 0)).slice(0, 12).forEach((item) => {
-    const slug = String(item.tribunal ?? '').toLowerCase();
-    if (!slug) return;
+  advogadosTribunals.forEach((item) => {
+    const slug = item.tribunal.toLowerCase();
     sitemapUrls.push(`
   <url>
     <loc>${BASE_URL}/advogados/${slug}</loc>
