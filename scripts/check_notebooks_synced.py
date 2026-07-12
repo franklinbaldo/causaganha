@@ -89,6 +89,20 @@ def export_ipynb(notebook: Path, out: Path) -> None:
         raw.unlink(missing_ok=True)
 
 
+def _comparable(path: Path) -> str:
+    """Serialized notebook with only ``metadata.marimo.marimo_version`` dropped.
+
+    ``marimo export ipynb`` stamps the installed marimo version into the
+    notebook metadata, so a plain byte comparison fails on every marimo patch
+    bump even when the actual export is unchanged. Ignore that one field —
+    and nothing else — by re-serializing both sides through nbformat after
+    removing it.
+    """
+    nb = nbformat.read(path, as_version=nbformat.NO_CONVERT)
+    nb.metadata.get("marimo", {}).pop("marimo_version", None)
+    return nbformat.writes(nb)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
@@ -120,7 +134,7 @@ def main() -> int:
             export_ipynb(nb, fresh)
             if not committed.exists():
                 missing.append(committed.name)
-            elif committed.read_bytes() != fresh.read_bytes():
+            elif _comparable(committed) != _comparable(fresh):
                 stale.append(committed.name)
             else:
                 print(f"✅ {committed.name} in sync with {nb.name}")
