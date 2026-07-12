@@ -18,7 +18,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
       </svg>
     </a>
-    <a href={BASE + 'dados'}>Documentação</a>
+    {/* A antiga rota /dados ("Dados Abertos", alimentada pelos snapshots
+        legados manifest-summary/ia-snapshot) não existe mais — o link
+        apontava para 404. Estatísticas canônicas vivem em /stats. */}
+    <a href={BASE + 'stats'}>Indicadores</a>
   </nav>
   <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Inspirado no modernismo brasileiro</p>
 </footer>
