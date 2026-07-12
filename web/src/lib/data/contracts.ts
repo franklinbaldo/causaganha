@@ -130,6 +130,49 @@ export const processoMultiFonteRowSchema = z.object({
 export const processosMultiFonteSchema = z.array(processoMultiFonteRowSchema);
 export type ProcessoMultiFonteRow = z.infer<typeof processoMultiFonteRowSchema>;
 
+/**
+ * site_status.qmd — format: object.
+ *
+ * Canonical global metrics + per-source freshness. `sources` is keyed by data
+ * source; only `djen` exists today (the sync-manifest is the sole canonical
+ * manifest) — new sources are added as new keys without breaking consumers.
+ * Freshness thresholds live in the .qmd (48h) and in siteStatus.ts (7-day
+ * build staleness limit).
+ */
+export const siteStatusFreshnessSchema = z.enum([
+  'atualizado',
+  'atrasado',
+  'indisponivel',
+  'desconhecido',
+]);
+export type SiteStatusFreshness = z.infer<typeof siteStatusFreshnessSchema>;
+
+export const siteStatusSourceSchema = z.object({
+  /** Pares (tribunal × dia) com ZIP confirmado no Internet Archive. */
+  zips_archived: z.number(),
+  /** Total de pares (tribunal × dia) rastreados no manifesto. */
+  pairs_total: z.number(),
+  tribunals_with_data: z.number(),
+  tribunals_total: z.number(),
+  coverage_pct: z.number().nullable(),
+  /** Primeira data rastreada no manifesto (uploaded ou não). */
+  earliest_tracked_date: isoDate.nullable(),
+  earliest_upload_date: isoDate.nullable(),
+  latest_upload_date: isoDate.nullable(),
+  /** max(updated_at) do manifesto, ISO-8601 UTC. */
+  last_activity_at: z.string().nullable(),
+  freshness: siteStatusFreshnessSchema,
+});
+export type SiteStatusSource = z.infer<typeof siteStatusSourceSchema>;
+
+export const siteStatusSchema = z.object({
+  generated_at: z.string(),
+  sources: z.object({
+    djen: siteStatusSourceSchema,
+  }),
+});
+export type SiteStatus = z.infer<typeof siteStatusSchema>;
+
 /** stats_coverage.qmd — format: object (aggregates over empty window → NULLs) */
 export const statsCoverageSchema = z.object({
   avg_coverage: z.number().nullable(),
@@ -217,6 +260,7 @@ export const contracts = {
   juris_totals: { output: 'data/juris_totals.json', schema: jurisTotalsSchema },
   lawyer_leaderboard: { output: 'data/lawyer_leaderboard.json', schema: lawyerLeaderboardSchema },
   processos_multi_fonte: { output: 'data/processos_multi_fonte.json', schema: processosMultiFonteSchema },
+  site_status: { output: 'data/site-status.json', schema: siteStatusSchema },
   stats_coverage: { output: 'data/stats_coverage.json', schema: statsCoverageSchema },
   stj_relatores: { output: 'data/stj_relatores.json', schema: stjRelatoresSchema },
   stj_temas: { output: 'data/stj_temas.json', schema: stjTemasSchema },

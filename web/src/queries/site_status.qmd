@@ -1,0 +1,65 @@
+---
+title: "Site Status"
+description: "Canonical global metrics and per-source freshness for the public dashboard."
+output: /data/site-status.json
+format: object
+---
+
+Artefato canônico de status do site. **Todas** as métricas globais exibidas no
+frontend (homepage, publicações, indicadores) devem vir deste JSON — nunca de
+números hardcoded nem de snapshots paralelos (`ia-snapshot.json` /
+`manifest-summary.json`), que historicamente divergiam do manifesto canônico.
+
+Estrutura extensível por fonte: hoje só `sources.djen` (o único manifesto
+canônico é o `sync-manifest.parquet`); outras fontes (stj, tjro_juris,
+datajud) entram como novas chaves em `sources` quando ganharem um manifesto
+próprio — o frontend valida chaves conhecidas e ignora as demais.
+
+Semântica de frescor (`freshness`), calculada em tempo de render a partir de
+`max(updated_at)` do manifesto (limiar: **48 horas**):
+
+- `atualizado`   — última atividade de sync há ≤ 48 horas
+- `atrasado`     — última atividade de sync há > 48 horas
+- `desconhecido` — manifesto sem nenhum `updated_at` preenchido
+- `indisponivel` — reservado ao frontend: fonte/JSON ausente (nunca emitido
+  pelo SQL; ver `web/src/lib/data/siteStatus.ts`)
+
+Além disso, `generated_at` permite ao build recusar artefatos obsoletos
+(> 7 dias — ver `loadSiteStatus()`).
+
+Terminologia: `zips_archived` conta **pares (tribunal × dia)** com upload
+confirmado no Internet Archive — "ZIPs arquivados". Não confundir com
+"comunicações processuais" (registros individuais dentro dos ZIPs) nem com
+"processos únicos" (CNJs distintos).
+
+Nota de tipo: `updated_at` é VARCHAR (ISO-8601 UTC) no parquet real e
+TIMESTAMP no schema sintético do `--check`; o `CAST → nullif → try_cast`
+abaixo aceita ambos.
+
+```{sql}
+WITH activity AS (
+  SELECT max(try_cast(nullif(CAST(updated_at AS VARCHAR), '') AS TIMESTAMP)) AS last_activity
+  FROM manifest
+)
+SELECT
+  strftime(now() AT TIME ZONE 'UTC', '%Y-%m-%dT%H:%M:%SZ') AS generated_at,
+  {
+    'djen': {
+      'zips_archived': COUNT(*) FILTER (WHERE ia_status = 'uploaded'),
+      'pairs_total': COUNT(*),
+      'tribunals_with_data': COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded'),
+      'tribunals_total': COUNT(DISTINCT tribunal),
+      'coverage_pct': ROUND(100.0 * COUNT(*) FILTER (WHERE ia_status = 'uploaded') / NULLIF(COUNT(*), 0), 1),
+      'earliest_tracked_date': CAST(MIN(date) AS VARCHAR),
+      'earliest_upload_date': CAST(MIN(date) FILTER (WHERE ia_status = 'uploaded') AS VARCHAR),
+      'latest_upload_date': CAST(MAX(date) FILTER (WHERE ia_status = 'uploaded') AS VARCHAR),
+      'last_activity_at': strftime((SELECT last_activity FROM activity), '%Y-%m-%dT%H:%M:%SZ'),
+      'freshness': CASE
+        WHEN (SELECT last_activity FROM activity) IS NULL THEN 'desconhecido'
+        WHEN date_diff('hour', (SELECT last_activity FROM activity), now() AT TIME ZONE 'UTC') <= 48 THEN 'atualizado'
+        ELSE 'atrasado'
+      END
+    }
+  } AS sources
+FROM manifest;
+```
