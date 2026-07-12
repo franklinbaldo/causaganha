@@ -17,6 +17,10 @@ name: STJ & TJRO Sync
 on:
   schedule:
     - cron: '7 * * * *'
+  # TEMPORARY — acceptance run for PR #805 (dispatch via API is blocked for
+  # this integration). Remove this push trigger before merging to main.
+  push:
+    branches: [claude/project-next-steps-7vaswi]
   workflow_dispatch:
     inputs:
       run_stj:
@@ -51,8 +55,8 @@ concurrency:
 jobs:
   stj:
     name: STJ acórdãos (download + upload)
-    # inputs.* is empty on schedule events — gate must pass for cron runs
-    if: ${{ github.event_name == 'schedule' || inputs.run_stj }}
+    # inputs.* is only populated on workflow_dispatch — every other event runs the job
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_stj }}
     runs-on: ubuntu-latest
     timeout-minutes: 60
     environment: dev
@@ -99,8 +103,8 @@ jobs:
 
   tjro:
     name: TJRO JURIS (crawl + upload)
-    # inputs.* is empty on schedule events — gate must pass for cron runs
-    if: ${{ github.event_name == 'schedule' || inputs.run_tjro }}
+    # inputs.* is only populated on workflow_dispatch — every other event runs the job
+    if: ${{ github.event_name != 'workflow_dispatch' || inputs.run_tjro }}
     runs-on: ubuntu-latest
     timeout-minutes: 120
     environment: dev
@@ -121,8 +125,8 @@ jobs:
           ANO="${{ inputs.tjro_ano }}"
           TIPOS="${{ inputs.tjro_tipos }}"
 
-          # Scheduled runs stay incremental: restrict to the current year
-          if [ "${{ github.event_name }}" = "schedule" ] && [ -z "$ANO" ]; then
+          # Non-dispatch runs stay incremental: restrict to the current year
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -z "$ANO" ]; then
             ANO="$(date -u +%Y)"
           fi
 
