@@ -135,6 +135,11 @@ export interface SourceFreshness {
  *  - sucesso > 48h (ou nunca, mas com tentativas registradas) → 'atrasado'
  *  - nenhum timestamp válido  → 'desconhecido'
  *
+ * Timestamps no futuro além de MAX_FUTURE_SKEW_MS nunca contam como
+ * recentes: a guarda de skew do generated_at não cobre os timestamps
+ * por-fonte, então um last_success_at absurdamente futuro renderizaria
+ * 'atualizado' para sempre sem esta checagem.
+ *
  * `failingRecently` marca o caso "atrasado com atividade recente": tentativa
  * ≤ 48h mas sem sucesso ≤ 48h — falha contínua, jamais 'atualizado'.
  */
@@ -148,10 +153,14 @@ export function evaluateSourceFreshness(
   if (success === null && attempt === null) {
     return { freshness: 'desconhecido', failingRecently: false };
   }
-  if (success !== null && now - success <= FRESHNESS_THRESHOLD_MS) {
+  const isRecent = (ts: number): boolean => {
+    const age = now - ts;
+    return age >= -MAX_FUTURE_SKEW_MS && age <= FRESHNESS_THRESHOLD_MS;
+  };
+  if (success !== null && isRecent(success)) {
     return { freshness: 'atualizado', failingRecently: false };
   }
-  const attemptRecent = attempt !== null && now - attempt <= FRESHNESS_THRESHOLD_MS;
+  const attemptRecent = attempt !== null && isRecent(attempt);
   return { freshness: 'atrasado', failingRecently: attemptRecent };
 }
 
