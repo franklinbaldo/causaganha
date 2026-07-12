@@ -36,13 +36,15 @@ def dedup_acordaos(input_paths: list[Path], output_path: Path) -> int:
 
     con = duckdb.connect()
     try:
-        # Load each JSON file individually, injecting _source_file so we can derive
-        # a synthetic data_extracao from the filename (the real JSON rows don't carry
-        # an extraction-date field — that date lives only in the filename/manifest).
-        union_parts = " UNION ALL ".join(
-            f"SELECT *, '{p.name}' AS _source_file FROM read_json('{p}', auto_detect=true)"
-            for p in input_paths
-        )
+        # union_by_name=true is required: the STJ dataset's JSON schema has
+        # drifted across years (some monthly files carry columns others
+        # don't — e.g. a relator field added later), and a plain positional
+        # UNION ALL across per-file read_json() calls raises a DuckDB
+        # BinderException the moment two files disagree on column count.
+        # filename=true gives us the source file per row (used below to
+        # derive a synthetic data_extracao — the real JSON rows don't carry
+        # an extraction-date field, only the filename/manifest does).
+        paths_sql = ", ".join(f"'{p}'" for p in input_paths)
         con.execute(f"""
             CREATE TABLE acordaos AS
             SELECT *
@@ -50,14 +52,16 @@ def dedup_acordaos(input_paths: list[Path], output_path: Path) -> int:
                 SELECT *,
                     ROW_NUMBER() OVER (
                         PARTITION BY id
-                        ORDER BY _source_file DESC NULLS LAST
+                        ORDER BY filename DESC NULLS LAST
                     ) AS _rn
-                FROM ({union_parts})
+                FROM read_json(
+                    [{paths_sql}], auto_detect=true, union_by_name=true, filename=true
+                )
             )
             WHERE _rn = 1
         """)
         con.execute("ALTER TABLE acordaos DROP COLUMN _rn")
-        con.execute("ALTER TABLE acordaos DROP COLUMN _source_file")
+        con.execute("ALTER TABLE acordaos DROP COLUMN filename")
         count: int = con.execute("SELECT COUNT(*) FROM acordaos").fetchone()[0]
         con.execute(f"COPY acordaos TO '{output_path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     finally:

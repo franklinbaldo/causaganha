@@ -85,6 +85,25 @@ def test_helper_columns_are_dropped(tmp_path: Path) -> None:
     assert set(rows[0].keys()) == {"id", "ementa"}
 
 
+def test_heterogeneous_schemas_across_files_do_not_crash(tmp_path: Path) -> None:
+    """Regression: the real STJ dataset's JSON schema drifts across years —
+    some monthly files carry a column (e.g. relator) that others lack. A
+    plain positional UNION ALL raises a DuckDB BinderException the moment
+    two files disagree on column count; union_by_name must paper over it.
+    """
+    f1 = tmp_path / "acordaos-2022-01.json"
+    f2 = tmp_path / "acordaos-2024-01.json"
+    _write_json(f1, [{"id": "A1", "ementa": "sem relator"}])
+    _write_json(f2, [{"id": "A2", "ementa": "com relator", "relator": "Min. Fulano"}])
+    out = tmp_path / "out.parquet"
+
+    assert dedup_acordaos([f1, f2], out) == 2
+    rows = _read_parquet(out)
+    by_id = {r["id"]: r for r in rows}
+    assert by_id["A1"]["relator"] is None
+    assert by_id["A2"]["relator"] == "Min. Fulano"
+
+
 def test_idempotent_rerun_produces_same_result(tmp_path: Path) -> None:
     f1 = tmp_path / "acordaos-2024-01.json"
     f2 = tmp_path / "acordaos-2024-02.json"

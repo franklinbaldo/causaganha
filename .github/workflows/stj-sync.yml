@@ -1,0 +1,83 @@
+# ============================================================================
+# STJ SYNC — Ingestion of STJ acórdãos (Primeira Seção) to Internet Archive
+# ============================================================================
+#
+# workflow_dispatch only — NO cron. The STJ WAF blocks GitHub-hosted runner
+# IP ranges persistently (confirmed via authenticated CI logs: every
+# scheduled attempt fails with STJWAFBlockedError after 4 retries). A GitHub-
+# hosted runner cannot out-retry an IP-range block, so a cron here would be
+# pure noise, not signal — trigger manually until a self-hosted runner,
+# proxy, or other infrastructure with a non-blocked egress IP is available.
+# Runs are incremental: the CLI restores its manifest from IA and skips
+# resources already uploaded with unchanged last_modified. A WAF block fails
+# fast (STJWAFBlockedError) instead of grinding through every remaining
+# resource.
+#
+# Split from the former stj-tjro-sync.yml so a TJRO failure can't mask an
+# STJ failure (and vice versa) — see tjro-sync.yml for the other corpus.
+# ============================================================================
+
+name: STJ Sync
+
+on:
+  workflow_dispatch:
+    inputs:
+      skip_upload:
+        description: 'Skip IA upload (download only, dry run)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: stj-sync
+  cancel-in-progress: false
+
+jobs:
+  stj:
+    name: STJ acórdãos (download + upload)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    environment: dev
+
+    env:
+      IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      # The STJ WAF intermittently 403-blocks GitHub-hosted runner IP ranges
+      # while the API stays up for everyone else. The download step retries
+      # 403/429/5xx with exponential backoff and raises STJWAFBlockedError
+      # with an explicit diagnosis when the block persists (stj_acordaos/client.py).
+      - name: Download STJ resources
+        run: |
+          uv run --no-dev stj-acordaos download \
+            --data-dir data/stj \
+            --manifest-path data/stj/stj-manifest.csv
+
+      - name: Dedup + upload to Internet Archive
+        if: ${{ !inputs.skip_upload }}
+        run: |
+          uv run --no-dev stj-acordaos upload \
+            --data-dir data/stj \
+            --manifest-path data/stj/stj-manifest.csv
+
+      - name: Show manifest status
+        if: always()
+        run: uv run --no-dev stj-acordaos status --manifest-path data/stj/stj-manifest.csv
+
+      - name: Upload manifest artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: stj-manifest
+          path: data/stj/stj-manifest.csv
+          if-no-files-found: ignore

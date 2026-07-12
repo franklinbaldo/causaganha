@@ -19,7 +19,11 @@ log = structlog.get_logger()
 IA_ITEM_ID = "stj-acordaos-primeira-secao"
 _IA_S3_BASE = f"https://s3.us.archive.org/{IA_ITEM_ID}"
 
+MANIFEST_REMOTE_NAME = "stj-manifest.csv"
+MANIFEST_DOWNLOAD_URL = f"https://archive.org/download/{IA_ITEM_ID}/{MANIFEST_REMOTE_NAME}"
+
 HTTP_OK = 200
+_HTTP_NOT_FOUND = 404
 _RETRIABLE = frozenset({408, 429, 500, 502, 503, 504})
 
 
@@ -40,6 +44,25 @@ def _build_upload_headers(ia_key: str, ia_secret: str, content_type: str) -> dic
             "obtidos via portal de dados abertos."
         ),
     }
+
+
+def fetch_manifest(dest: Path) -> bool:
+    """Restore the STJ manifest CSV from IA into *dest* (public read).
+
+    Returns True when restored; False when the manifest is not on IA yet
+    (first-ever run / item not created). Transport errors and non-404 HTTP
+    errors raise — a flaky network must not silently look like "no manifest"
+    (which would re-download and re-upload everything).
+    """
+    resp = httpx.get(MANIFEST_DOWNLOAD_URL, follow_redirects=True, timeout=60)
+    if resp.status_code == _HTTP_NOT_FOUND:
+        log.info("stj_manifest_not_on_ia", url=MANIFEST_DOWNLOAD_URL)
+        return False
+    resp.raise_for_status()
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(resp.content)
+    log.info("stj_manifest_restored_from_ia", url=MANIFEST_DOWNLOAD_URL, bytes=len(resp.content))
+    return True
 
 
 def upload_parquet(file_path: Path, ia_key: str, ia_secret: str) -> bool:

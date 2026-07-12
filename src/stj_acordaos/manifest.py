@@ -127,6 +127,10 @@ class ManifestSTJ:
 
     # ── Query ────────────────────────────────────────────────────────────
 
+    def get(self, arquivo: str) -> ManifestSTJEntry | None:
+        """Return the entry for *arquivo*, or None when unknown."""
+        return self._entries.get(arquivo)
+
     def get_pending_uploads(self) -> list[ManifestSTJEntry]:
         """Return entries that have been downloaded but not yet uploaded to IA."""
         return [e for e in self._entries.values() if e.ia_status != "uploaded"]

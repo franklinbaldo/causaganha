@@ -5,13 +5,19 @@ on:
   push:
     branches: [main]
 
+# Default to read-only; jobs that need more declare it themselves.
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      # The "Auto-fix linting issues" step commits and pushes lint fixes back
+      # to bot PRs, which requires write access to repo contents. No other
+      # job needs more than read.
+      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
@@ -67,6 +73,11 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
+        # Single-tribunal on purpose: run-tests just exports TRIBUNAL as an
+        # env var, but nothing in tests/ or src/ reads it today — pytest runs
+        # the exact same suite regardless of the value, so adding tribunals
+        # would only duplicate identical CI runs. Extend this matrix once
+        # tests actually parameterize on TRIBUNAL (e.g. per-tribunal fixtures).
         tribunal: [tjro]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6

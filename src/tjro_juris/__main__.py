@@ -2,9 +2,10 @@
 
 Manual execution
 ----------------
-Crawl JURIS into monthly parquets (optionally windowed by year and tipo)::
+Crawl JURIS into monthly parquets (optionally windowed by year/month and tipo)::
 
     uv run tjro-juris crawl data/tjro-juris --ano 2024 --tipo "ACÓRDÃO" --tipo "SENTENÇA"
+    uv run tjro-juris crawl data/tjro-juris --mes 2026-07   # incremental (current month)
 
 Upload pending parquets to the yearly ``tjro-juris-{year}`` IA items
 (requires ``IAS3_ACCESS_KEY`` / ``IAS3_SECRET_KEY`` in the environment)::
@@ -16,9 +17,12 @@ Show manifest status / consolidate a year into a single deduplicated parquet::
     uv run tjro-juris status data/tjro-juris
     uv run tjro-juris consolidate data/tjro-juris 2024
 
-In CI, ``.github/workflows/stj-tjro-sync.yml`` runs the same commands with
-secrets injected. It is ``workflow_dispatch`` only (no cron) — trigger it
-manually from the Actions tab.
+When no local manifest exists, ``crawl``/``upload`` first try to restore it
+from the public IA item (``tjro-juris``); ``upload`` pushes it back so
+scheduled runs on blank runners stay incremental.
+
+In CI, ``.github/workflows/tjro-sync.yml`` runs the same commands hourly
+(scheduled runs crawl only the current month) plus ``workflow_dispatch``.
 """
 
 from __future__ import annotations
@@ -67,8 +71,63 @@ _PARQUET_SCHEMA = pa.schema(
 )
 
 
+_MES_RE = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
+
+
 def _manifest_path(data_dir: Path) -> Path:
     return data_dir / _MANIFEST_NAME
+
+
+def _load_manifest(data_dir: Path) -> ManifestJuris:
+    """Load the local manifest, restoring it from IA when absent.
+
+    A blank runner (CI) starts with no local state; without the restore every
+    scheduled run would re-crawl and re-upload everything. The restore is
+    best-effort: IA can return a transient error (observed: 503, not 404, for
+    an item that has simply never been created yet) for reasons that have
+    nothing to do with whether a manifest actually exists. Failing to
+    restore only costs a redundant re-crawl of already-uploaded windows —
+    no data is lost — so it must never abort the whole run.
+    """
+    path = _manifest_path(data_dir)
+    if not path.exists():
+        try:
+            ia_archive.download_manifest(path)
+        except httpx.HTTPError as exc:
+            log.warning("manifest_restore_failed", error=str(exc))
+    return ManifestJuris.load_local(path)
+
+
+def _should_skip_window(
+    manifest: ManifestJuris, current_ym: str, tipo_name: str, year_month: str
+) -> bool:
+    """Skip a (tipo, year_month) window the manifest already records as uploaded.
+
+    The current month is never skipped: JURIS keeps publishing into it, so it
+    must always be re-crawled even if a previous run already uploaded it.
+    """
+    if year_month >= current_ym:
+        return False
+    entry = manifest.get(tipo_name, year_month)
+    return entry is not None and entry.ia_status == "uploaded"
+
+
+def _crawl_bounds(
+    ano: int | None, mes: str | None, now: datetime
+) -> tuple[int, str | None, str | None]:
+    """Resolve (start_year, end_year_month, start_year_month) for the crawl."""
+    if mes is not None and ano is not None:
+        msg = "--mes and --ano are mutually exclusive"
+        raise typer.BadParameter(msg)
+    if mes is not None:
+        if not _MES_RE.fullmatch(mes):
+            msg = f"--mes must be AAAA-MM, got {mes!r}"
+            raise typer.BadParameter(msg)
+        return int(mes[:4]), mes, mes
+    if ano is not None:
+        end = f"{ano:04d}-12" if ano < now.year else now.strftime("%Y-%m")
+        return ano, end, None
+    return 2010, None, None
 
 
 def _parquet_path(data_dir: Path, tipo: str, year_month: str) -> Path:
@@ -154,21 +213,37 @@ def crawl(
         list[str] | None, typer.Option("--tipo", "-t", help="Filter to these tipos")
     ] = None,
     ano: Annotated[int | None, typer.Option("--ano", "-a", help="Only crawl this year")] = None,
+    mes: Annotated[
+        str | None,
+        typer.Option(
+            "--mes",
+            "-m",
+            help="Only crawl this month (AAAA-MM) — incremental mode for scheduled runs",
+        ),
+    ] = None,
 ) -> None:
-    """Crawl JURIS and save as parquet files per (tipo, mes_ano)."""
-    manifest = ManifestJuris.load_local(_manifest_path(data_dir))
+    """Crawl JURIS and save as parquet files per (tipo, mes_ano).
+
+    Windows already uploaded to IA (per the manifest, restored from IA when
+    no local copy exists) are skipped, except the current month, which is
+    always re-crawled to pick up newly published documents.
+    """
+    manifest = _load_manifest(data_dir)
     tipos_to_crawl = tipo or TIPOS
 
     now = datetime.now(UTC)
-    if ano is not None:
-        start_year = ano
-        end_year_month: str | None = f"{ano:04d}-12" if ano < now.year else now.strftime("%Y-%m")
-    else:
-        start_year = 2010
-        end_year_month = None
+    current_ym = now.strftime("%Y-%m")
+    start_year, end_year_month, start_year_month = _crawl_bounds(ano, mes, now)
+
+    def _skip(tipo_name: str, year_month: str) -> bool:
+        return _should_skip_window(manifest, current_ym, tipo_name, year_month)
 
     for tipo_name, year_month, docs in crawl_all(
-        start_year=start_year, end_year_month=end_year_month, tipos=tipos_to_crawl
+        start_year=start_year,
+        end_year_month=end_year_month,
+        tipos=tipos_to_crawl,
+        start_year_month=start_year_month,
+        skip=_skip,
     ):
         if not docs:
             continue
@@ -194,8 +269,8 @@ def crawl(
 def upload(
     data_dir: Annotated[Path, typer.Argument(help="Directory with parquet files")],
 ) -> None:
-    """Upload parquets to Internet Archive."""
-    manifest = ManifestJuris.load_local(_manifest_path(data_dir))
+    """Upload parquets (and the manifest) to Internet Archive."""
+    manifest = _load_manifest(data_dir)
     pending = manifest.pending_upload()
 
     async def _upload_all() -> None:
@@ -220,6 +295,11 @@ def upload(
 
     asyncio.run(_upload_all())
     manifest.save_local(_manifest_path(data_dir))
+    try:
+        asyncio.run(ia_archive.upload_manifest(_manifest_path(data_dir)))
+    except (httpx.HTTPError, RuntimeError) as exc:
+        # Non-fatal: parquets are already on IA; the next run just re-uploads.
+        log.warning("manifest_upload_failed", error=str(exc))
     log.info("upload_done", pending=len(pending))
 
 
