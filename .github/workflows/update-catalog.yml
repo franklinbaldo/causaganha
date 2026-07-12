@@ -61,6 +61,14 @@ jobs:
         env:
           IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
           IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+          # Sources whose UNAVAILABILITY (not loaded at all, local or IA)
+          # fails this step. JURIS and DataJud are deliberately excluded for
+          # now: no tjro-juris-*/datajud-* IA items exist yet (their upload
+          # pipelines have never landed data on IA), so requiring them would
+          # hard-fail every catalog run. Their absence still surfaces as
+          # ::warning annotations on every run. Add juris,datajud here as
+          # soon as those uploads produce real IA items.
+          RECONCILE_EXPECTED_SOURCES: djen,stj
         run: |
           echo "Reconciling processos_unificados..."
           uv run python scripts/reconcile_processos.py

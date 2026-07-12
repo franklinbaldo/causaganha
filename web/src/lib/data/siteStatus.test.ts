@@ -143,6 +143,39 @@ describe('evaluateSourceFreshness', () => {
     expect(sf).toEqual({ freshness: 'atualizado', failingRecently: false });
   });
 
+  it('success in the future beyond clock skew → never atualizado', () => {
+    const sf = evaluateSourceFreshness(
+      {
+        last_attempt_at: iso(NOW - FRESHNESS_THRESHOLD_MS - 24 * HOUR),
+        last_success_at: iso(NOW + MAX_FUTURE_SKEW_MS + 60_000),
+      },
+      NOW,
+    );
+    expect(sf).toEqual({ freshness: 'atrasado', failingRecently: false });
+  });
+
+  it('success slightly in the future (within clock skew) → atualizado', () => {
+    const sf = evaluateSourceFreshness(
+      {
+        last_attempt_at: iso(NOW - HOUR),
+        last_success_at: iso(NOW + MAX_FUTURE_SKEW_MS - 60_000),
+      },
+      NOW,
+    );
+    expect(sf).toEqual({ freshness: 'atualizado', failingRecently: false });
+  });
+
+  it('attempt in the future beyond clock skew does not count as recent activity', () => {
+    const sf = evaluateSourceFreshness(
+      {
+        last_attempt_at: iso(NOW + MAX_FUTURE_SKEW_MS + 60_000),
+        last_success_at: iso(NOW - FRESHNESS_THRESHOLD_MS - 24 * HOUR),
+      },
+      NOW,
+    );
+    expect(sf).toEqual({ freshness: 'atrasado', failingRecently: false });
+  });
+
   it('recent attempt + old success → atrasado with failingRecently (continuous failure is visible)', () => {
     const sf = evaluateSourceFreshness(
       {
