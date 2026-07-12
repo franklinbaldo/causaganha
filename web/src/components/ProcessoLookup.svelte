@@ -39,6 +39,11 @@
 
   let conn = null;
   let cancelled = false;
+  // Monotonic id of the in-flight search. Any async result (processo or
+  // documentos) whose captured generation no longer matches the current one
+  // belongs to a search the user has since superseded — it's discarded
+  // instead of overwriting newer state (see search()/loadDocumentos()).
+  let searchGeneration = 0;
 
   const fontesResumo = $derived(processo ? completude(processo.fontes) : null);
   const documentosVazio = $derived(
@@ -63,22 +68,28 @@
     }
   }
 
-  async function loadDocumentos(digits, offset) {
+  async function loadDocumentos(digits, offset, generation = searchGeneration) {
     documentosStatus = 'loading';
     documentosError = null;
+    let stmt;
     try {
-      const stmt = await conn.prepare(buildProcessoDocumentosSql());
+      stmt = await conn.prepare(buildProcessoDocumentosSql());
       const result = await stmt.query(digits, DOCUMENTOS_PAGE_SIZE + 1, offset);
-      await stmt.close();
       const rawRows = result.toArray().map((row) => row.toJSON());
       const { items, hasMore } = paginate(rawRows.map(mapDocumentoRow), DOCUMENTOS_PAGE_SIZE);
+
+      if (generation !== searchGeneration) return; // a newer search superseded this one
+
       documentos = offset === 0 ? items : [...documentos, ...items];
       documentosHasMore = hasMore;
       documentosOffset = offset;
       documentosStatus = 'ready';
     } catch (err) {
+      if (generation !== searchGeneration) return;
       documentosStatus = 'error';
       documentosError = err instanceof Error ? err.message : String(err);
+    } finally {
+      await stmt?.close();
     }
   }
 
@@ -88,6 +99,10 @@
   }
 
   async function search(rawInput, { updateUrl = true } = {}) {
+    // Every call — including invalid/empty input — claims a new generation,
+    // so a still-in-flight older search can never clobber whatever the user
+    // triggered next (see the generation checks below and in loadDocumentos).
+    const generation = ++searchGeneration;
     const kind = classifyCnjInput(rawInput);
 
     if (kind === 'empty') {
@@ -124,16 +139,19 @@
       await init();
     }
     if (dbStatus !== 'ready') {
+      if (generation !== searchGeneration) return;
       status = 'source_unavailable';
       queryError = dbError ?? 'DuckDB-WASM não inicializou.';
       return;
     }
 
+    let stmt;
     try {
-      const stmt = await conn.prepare(buildProcessoUnificadoSql());
+      stmt = await conn.prepare(buildProcessoUnificadoSql());
       const result = await stmt.query(digits);
-      await stmt.close();
       const rows = result.toArray().map((row) => row.toJSON());
+
+      if (generation !== searchGeneration) return; // a newer search superseded this one
 
       if (rows.length === 0) {
         status = 'not_found';
@@ -144,11 +162,20 @@
       processo = mapProcessoRow(rows[0]);
       lastQueriedCnj = digits;
       status = 'found';
-      await loadDocumentos(digits, 0);
     } catch (err) {
+      if (generation !== searchGeneration) return;
       status = 'source_unavailable';
       queryError = err instanceof Error ? err.message : String(err);
+      return;
+    } finally {
+      await stmt?.close();
     }
+
+    // Only reached when the processo query above landed on 'found' for this
+    // still-current generation (both 'not_found' and the catch block return
+    // earlier). Pin the generation explicitly — a documentos response for a
+    // since-superseded search must never land on screen.
+    await loadDocumentos(digits, 0, generation);
   }
 
   function handleSubmit(e) {
