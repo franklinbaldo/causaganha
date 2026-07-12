@@ -14,6 +14,15 @@
  * Usado por advogados.astro, advogados/[tribunal].astro (getStaticPaths) e
  * sitemap.xml.ts — a lista de rotas geradas e a lista exibida/indexada são,
  * por construção, a mesma.
+ *
+ * LIMITAÇÃO CONHECIDA: a seleção ordena por cobertura de ARQUIVO (ZIPs no
+ * IA), não pela quantidade de registros de advogados/OAB processados para
+ * cada tribunal — essas são tabelas diferentes. Um tribunal com ótima
+ * cobertura de ZIPs pode ter poucos advogados processados, e vice-versa.
+ * Enquanto o contrato não expuser métricas próprias de advogados (ex.:
+ * advogados_rows, advogados_with_oab, unique_advogados), a página está
+ * medindo disponibilidade de arquivo como proxy de disponibilidade de dados
+ * de advogados — não são a mesma coisa.
  */
 import type { TribunalCoverageRow } from './data/contracts';
 

@@ -47,7 +47,7 @@ const avgCoverage = tribunalStats.length
       <>
         <section class="auto-grid">
           <StatCard title="Tribunais exibidos" value={tribunalStats.length} subtitle="Com melhor cobertura de arquivo" />
-          <StatCard title="Cobertura média" value={`${avgCoverage.toFixed(1)}%`} subtitle="Dias arquivados / dias rastreados" tone="info" />
+          <StatCard title={`Cobertura média (${tribunalStats.length} exibidos)`} value={`${avgCoverage.toFixed(1)}%`} subtitle="Média simples dos tribunais listados abaixo — não é a cobertura geral do acervo" tone="info" />
           <StatCard title="Fonte" value="Manifesto canônico" subtitle={`Contrato tribunal_coverage · gerado em ${generatedAtLabel}`} />
         </section>
 
