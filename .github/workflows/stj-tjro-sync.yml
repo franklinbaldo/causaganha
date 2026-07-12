@@ -2,26 +2,9 @@
 # STJ & TJRO SYNC — Manual ingestion of STJ acórdãos and TJRO JURIS corpus
 # ============================================================================
 #
-# workflow_dispatch only — NO cron. The hourly `schedule:` this workflow
-# previously ran was itself a deviation from RFC 0008 (docs/rfc/0008-testes-
-# operacionalizacao-stj-tjro.md), which specified workflow_dispatch-only
-# "until the owner turns cron on after successful manual runs" — that never
-# happened before the schedule was added, and the result was 30+ consecutive
-# hourly failures (2026-07-10 through 2026-07-12) with no successful
-# scheduled run in between. Root causes for those specific failures (not
-# infra-only): STJ's dedup step hit a DuckDB `BinderException` from a
-# positional `UNION ALL` breaking on cross-year JSON schema drift; TJRO's
-# crawl hit HTTP 500s from `juris-back.tjro.jus.br` consistent with a stale
-# API contract. Both are fixed, along with a genuine GitHub-Actions-runner
-# network block for TJRO (ConnectTimeout) and a suspected WAF block for STJ,
-# in PR #805, which also splits this file into `stj-sync.yml` /
-# `tjro-sync.yml` (both workflow_dispatch-only) and updates RFC 0008
-# accordingly. This change only removes the predictably-red cron from the
-# file that is live on `main` today, so the two sources stop failing hourly
-# in the meantime — it does not re-litigate PR #805's WAF/network diagnosis.
-#
-# Operational rule (per the RFC): only re-add a `schedule:` trigger after
-# two consecutive green workflow_dispatch runs, with owner sign-off.
+# Manual-only while STJ/TJRO ingestion is being stabilized.
+# Per RFC 0008, restore a schedule only after successful supervised runs
+# and explicit owner approval.
 #
 # Two independent jobs:
 #   stj  — `stj-acordaos download` + `stj-acordaos upload` (CKAN → dedup → IA)
