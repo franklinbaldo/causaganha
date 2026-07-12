@@ -44,7 +44,7 @@ The SQL runs against the views registered by `scripts/render_queries.py`
 
 | View                 | Source                                              |
 |----------------------|-----------------------------------------------------|
-| manifest             | sync-manifest CSV (tribunal, date, ia_status, djen_status, djen_raw, updated_at) |
+| manifest             | sync-manifest.parquet (tribunal, date, ia_status, djen_status, djen_raw, updated_at) |
 | lawyer_ratings       | data/parquets/lawyer_ratings.parquet (ratings pipeline) |
 | ratings_history      | data/parquets/ratings_history.parquet               |
 | acordaos             | STJ acórdãos parquet (local or IA download)         |
