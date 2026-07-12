@@ -2,9 +2,24 @@
 # TJRO SYNC — Ingestion of the TJRO JURIS corpus to Internet Archive
 # ============================================================================
 #
-# Hourly cron + workflow_dispatch. Scheduled runs are incremental: the CLI
-# restores its manifest from IA, crawls ONLY the current month (--mes), and
-# skips (tipo, month) windows already uploaded. Full/backfill crawls stay
+# workflow_dispatch only — NO cron, provisionally, pending investigation.
+# Two consecutive acceptance runs on GitHub-hosted runners failed identically
+# with ConnectTimeout on the very first request to
+# juris-back.tjro.jus.br/search/varios_parametros/, after exhausting all 4
+# retry attempts with backoff (~2m20s each). The same request succeeds
+# immediately (HTTP 200, ~200ms connect) from a different network path, so
+# JURIS itself is healthy — this looks like the same class of problem as
+# STJ's WAF block (an infra-level block/drop against GitHub's IP ranges),
+# just manifesting as a connection failure instead of an HTTP 403. Applying
+# the owner's STJ policy symmetrically: a GitHub-hosted runner cannot
+# out-retry a network-level block, so an hourly cron here would be noise,
+# not signal, until this is confirmed intermittent vs. persistent (or a
+# self-hosted runner / proxy is available). Trigger manually until then;
+# re-enabling the schedule is a one-line change once resolved.
+#
+# Scheduled-style runs are incremental when dispatched: the CLI restores its
+# manifest from IA, crawls ONLY the current month (--mes), and skips
+# (tipo, month) windows already uploaded. Full/backfill crawls stay
 # available via dispatch (tjro_ano / tjro_mes / tjro_tipos inputs).
 #
 # Split from the former stj-tjro-sync.yml so an STJ failure can't mask a
@@ -14,8 +29,6 @@
 name: TJRO Sync
 
 on:
-  schedule:
-    - cron: '7 * * * *'
   # TEMPORARY — acceptance run for PR #805 (dispatch via API is blocked for
   # this integration). Remove this push trigger before merging to main.
   push:

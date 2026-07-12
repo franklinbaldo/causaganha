@@ -42,9 +42,18 @@ classificação de status HTTP.
   `STJWAFBlockedError` após 4 tentativas), e um runner hospedado não consegue vencer
   esse bloqueio via retry, então um cron aqui seria ruído, não sinal; religar cron
   fica condicionado a runner próprio, proxy ou outra infraestrutura com egress não
-  bloqueado — e `tjro-sync.yml` — cron horário, crawl incremental do mês corrente
-  (o bloqueio do JURIS era um bug de contrato de API, já corrigido, não um bloqueio
-  de infraestrutura) — para que a falha de um corpus não mascare o outro.)*
+  bloqueado — e `tjro-sync.yml` — crawl incremental do mês corrente quando disparado.
+  O bloqueio original do JURIS era um bug de contrato de API (já corrigido e
+  verificado ao vivo), mas duas rodadas de aceite consecutivas no GitHub Actions
+  revelaram um SEGUNDO problema, desta vez de infraestrutura: `ConnectTimeout`
+  idêntico logo na primeira requisição, esgotando as 4 tentativas com backoff
+  (~2min20s cada), enquanto a mesma chamada responde em ~200ms de outra rede —
+  o JURIS está saudável, o bloqueio parece mirar a faixa de IP dos runners do
+  GitHub, mesma categoria do WAF do STJ, mecanismo diferente (conexão não
+  completa, em vez de 403 explícito). Por ora `tjro-sync.yml` também ficou
+  **`workflow_dispatch` apenas, sem cron**, provisoriamente, até confirmar se o
+  bloqueio é intermitente ou persistente — para que a falha de um corpus não
+  mascare o outro.)*
 - Documentar no README de cada módulo (docstring do `__main__`) o comando de execução
   manual com `uv run`.
 
