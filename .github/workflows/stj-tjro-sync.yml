@@ -69,22 +69,9 @@ jobs:
           dev: "false"
 
       # The STJ WAF intermittently 403-blocks GitHub-hosted runner IP ranges
-      # while the API stays up for everyone else. This probe makes that
-      # failure mode obvious in the log at a glance; the download step then
-      # retries 403/429/5xx with exponential backoff (see stj_acordaos/client.py).
-      - name: Preflight — probe STJ CKAN reachability
-        run: |
-          STATUS=$(curl -sS -o /dev/null -w '%{http_code}' --max-time 30 \
-            -A 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' \
-            'https://dadosabertos.web.stj.jus.br/api/3/action/package_show?id=a96a175b-a54b-4bfd-82b8-fcd7cc0200bc' \
-            || echo '000')
-          echo "STJ CKAN preflight HTTP status: ${STATUS}"
-          if [ "${STATUS}" = "403" ]; then
-            echo "::warning title=STJ WAF 403::STJ WAF is blocking this runner's IP (HTTP 403). The download step retries with backoff but may still fail. The API itself is healthy from other networks — if this recurs, a self-hosted runner or proxy is needed."
-          elif [ "${STATUS}" != "200" ]; then
-            echo "::warning title=STJ preflight ${STATUS}::Unexpected status ${STATUS} probing the STJ CKAN API from this runner."
-          fi
-
+      # while the API stays up for everyone else. The download step retries
+      # 403/429/5xx with exponential backoff and raises STJWAFBlockedError
+      # with an explicit diagnosis when the block persists (stj_acordaos/client.py).
       - name: Download STJ resources
         run: |
           uv run --no-dev stj-acordaos download \
