@@ -13,12 +13,6 @@
 name: "Phase 0.7: Roundtrip Equivalence Check"
 
 on:
-  push:
-    branches:
-      - claude/epic-clarke-9uaaQ
-    paths:
-      - 'scripts/roundtrip_check.py'
-      - '.github/workflows/roundtrip-check.yml'
   workflow_dispatch:
     inputs:
       date:
@@ -55,8 +49,13 @@ jobs:
       - name: Download sync-manifest from IA
         run: |
           mkdir -p data
-          curl -sSfL -o data/sync-manifest.csv \
-            "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
+          # Phase 3: the canonical source on IA is the parquet — download it
+          # and export to the local CSV downstream steps still read. No
+          # fallback (matches prior behavior: fail hard if unavailable).
+          curl -sSfL -o data/sync-manifest.parquet \
+            "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
+          pip install --quiet duckdb
+          python3 -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")"
           echo "Manifest rows: $(tail -n +2 data/sync-manifest.csv | wc -l)"
 
       - name: Run roundtrip equivalence check

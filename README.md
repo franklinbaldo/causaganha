@@ -28,21 +28,21 @@ The repository has two main runtime surfaces:
 ```mermaid
 flowchart LR
     DJEN[DJEN API] -->|ZIP files| djenbackup["djen-backup\nsync engine"]
-    djenbackup -->|uploads| IA[("Internet Archive\nsync-manifest.csv")]
+    djenbackup -->|uploads| IA[("Internet Archive\nsync-manifest.parquet")]
     IA -->|ZIPs| consolidate[consolidate-parquet]
     consolidate -->|Parquet tables| catalog[update-catalog]
     catalog -->|JSON data| web["Deploy Web\nAstro + Svelte"]
     web -->|GitHub Pages| dashboard[Public Dashboard]
 ```
 
-1. **djen-backup** — manifest-driven sync engine. Tracks every `(tribunal, date)` pair in a single CSV (`sync-manifest.csv`) stored on Internet Archive. Workers check DJEN availability, download ZIPs, upload to IA, and record raw response codes (404, 400, 403, timeout, etc.) for accurate status tracking.
+1. **djen-backup** — manifest-driven sync engine. Tracks every `(tribunal, date)` pair via an append-only log of segments compacted into `sync-manifest.parquet` on Internet Archive. Workers check DJEN availability, download ZIPs, upload to IA, and record raw response codes (404, 400, 403, timeout, etc.) for accurate status tracking.
 2. **Consolidate Parquet** — converts complete daily ZIP batches into Parquet tables.
 3. **Update Catalog** — refreshes metadata used by downstream consumers.
 4. **Deploy Web** — renders query contracts (`.qmd` files in `web/src/queries/`) to JSON and publishes the Astro site to GitHub Pages.
 
 ### Sync manifest
 
-The source of truth for what's been archived is `sync-manifest.csv` at `https://archive.org/download/causaganha-dashboard/sync-manifest.csv`. Each row:
+The source of truth for what's been archived is `sync-manifest.parquet` at `https://archive.org/download/causaganha-dashboard/sync-manifest.parquet`. It is the compacted base of an append-only event log (`manifest-log/*.csv` segments written by the engine/drain/probe, absorbed every 30 min by `scripts/render_manifest_parquet.py`). Each row:
 
 ```csv
 tribunal,date,ia_status,djen_status,djen_raw,updated_at
@@ -50,7 +50,7 @@ TJSP,2025-01-15,uploaded,,200,2026-04-14T10:00:00
 TJSP,2025-01-16,,absent,404,2026-04-14T10:01:00
 ```
 
-The engine periodically (every 10 min) uploads the manifest and a compact `manifest-summary.json` to IA, so progress is never lost to crashes.
+The engine periodically (every 10 min) uploads a segment of the mutated rows and a compact `manifest-summary.json` to IA, so progress is never lost to crashes. The legacy `sync-manifest.csv` is retired as a source of truth; it can still be produced as a derived export on demand (`MANIFEST_COMPACT_WRITEBACK=1` when running the compactor) for tooling that hasn't migrated.
 
 ### GitHub Actions workflows
 
@@ -58,7 +58,7 @@ The engine periodically (every 10 min) uploads the manifest and a compact `manif
 |---|---|---|
 | [collect-zips.yml](.github/workflows/collect-zips.yml) | Every 20 min | Check DJEN + download + upload to IA |
 | [upload-backlog.yml](.github/workflows/upload-backlog.yml) | Every 15 min | Drain confirmed-available ZIPs (no DJEN checks) |
-| [render-manifest-parquet.yml](.github/workflows/render-manifest-parquet.yml) | Every 30 min | Snapshot the manifest to Parquet |
+| [render-manifest-parquet.yml](.github/workflows/render-manifest-parquet.yml) | Every 30 min | Compact manifest-log segments into the sync-manifest.parquet base |
 | [consolidate-parquet.yml](.github/workflows/consolidate-parquet.yml) | Daily 07:00 UTC | Convert ZIPs → Parquet |
 | [update-catalog.yml](.github/workflows/update-catalog.yml) | After consolidate | Refresh catalog metadata |
 | [deploy-web.yml](.github/workflows/deploy-web.yml) | Push to `main` (`web/`) + after catalog | Build + deploy dashboard |
@@ -136,7 +136,7 @@ The frontend declares its data needs via Quarto-compatible `.qmd` files in [web/
 To add a new view:
 
 1. Create `web/src/queries/my_view.qmd` with frontmatter and a SQL block
-2. Add a typed loader in [web/src/lib/queryData.ts](web/src/lib/queryData.ts)
+2. Add a Zod schema + registry entry in [web/src/lib/data/contracts.ts](web/src/lib/data/contracts.ts) (pages load it via `loadContract('my_view')`)
 3. `uv run python scripts/render_queries.py` generates the JSON
 
 See [web/src/queries/README.md](web/src/queries/README.md) for the full contract.

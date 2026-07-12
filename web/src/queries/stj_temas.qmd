@@ -1,0 +1,17 @@
+---
+title: "STJ Acórdãos — Temas"
+description: "Top 50 temas por volume de acórdãos."
+output: /data/stj_temas.json
+format: array
+optional: true
+---
+
+Ranking dos 50 temas jurídicos com maior número de acórdãos na Primeira Seção.
+
+```{sql}
+SELECT tema, COUNT(*) AS total
+FROM acordaos
+GROUP BY tema
+ORDER BY total DESC
+LIMIT 50
+```

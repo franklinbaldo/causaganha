@@ -1,10 +1,11 @@
 """Batched upload-only drain mode.
 
 Bypasses the full SyncManifest cold-start. Queries the remote
-``sync-manifest.parquet`` (rendered from the canonical CSV) via DuckDB
-httpfs, fetches small batches of pending entries, drains them through
-the existing download/upload helpers, and writes a per-run delta CSV
-that gets uploaded to IA at exit.
+``sync-manifest.parquet`` (the compacted base) via DuckDB httpfs, fetches
+small batches of pending entries, drains them through the existing
+download/upload helpers, and writes a per-run immutable manifest-log/
+segment that gets uploaded to IA at exit (Phase 2 of
+docs/planning/manifest-source-of-truth.md — formerly ``upload-deltas-*``).
 
 Designed for the upload-backlog workflow: full-manifest load takes
 ~2 min on cold start; this path takes ~5 s and lets workers start
@@ -16,15 +17,18 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import time
-from datetime import UTC, date, datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import anyio
 import duckdb
 import httpx
 import structlog
 
-from causaganha.pipeline.ia_s3 import create_upload_client, upload_to_ia
+
+if TYPE_CHECKING:
+    from datetime import date
+
+from causaganha.pipeline.ia_s3 import create_upload_client
 from djen_backup.archive import (
     CircuitBreaker,
     ItemBusyError,
@@ -33,13 +37,14 @@ from djen_backup.archive import (
     upload_zip,
 )
 from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
+from djen_backup.segments import SegmentWriter, absent_raw_code, segment_name
+from djen_backup.segments import upload_segment as _upload_segment
 
 
 log = structlog.get_logger()
 
 PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
 IA_DASHBOARD_ITEM = "causaganha-dashboard"
-_MIN_CSV_SIZE = 50
 
 
 def fetch_pending_batch(
@@ -74,39 +79,6 @@ def fetch_pending_batch(
     return [(r[0], r[1]) for r in rows]
 
 
-class DeltaWriter:
-    """Append-only CSV of (tribunal, date, ia_status, djen_status, updated_at)."""
-
-    def __init__(self, path: Path) -> None:
-        """Initialize the DeltaWriter.
-
-        Args:
-            path: Path to write the CSV to.
-        """
-        self.path = path
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text("tribunal,date,ia_status,djen_status,updated_at\n", encoding="utf-8")
-        self.count = 0
-        self.absent_count = 0
-        self._lock = asyncio.Lock()
-
-    async def mark_uploaded(self, tribunal: str, d: date) -> None:
-        """Record a successful upload to Internet Archive."""
-        ts = datetime.now(UTC).isoformat(timespec="seconds")
-        async with self._lock:
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(f"{tribunal},{d.isoformat()},uploaded,,{ts}\n")
-            self.count += 1
-
-    async def mark_absent(self, tribunal: str, d: date) -> None:
-        """Record a DJEN 404 so the parquet stops treating this entry as pending."""
-        ts = datetime.now(UTC).isoformat(timespec="seconds")
-        async with self._lock:
-            with self.path.open("a", encoding="utf-8") as f:
-                f.write(f"{tribunal},{d.isoformat()},,absent,{ts}\n")
-            self.absent_count += 1
-
-
 async def _drain_one(
     tribunal: str,
     d: date,
@@ -114,9 +86,9 @@ async def _drain_one(
     upload_client: httpx.AsyncClient,
     djen_proxy_url: str,
     breaker: CircuitBreaker,
-    delta_writer: DeltaWriter,
+    delta_writer: SegmentWriter,
 ) -> None:
-    """Process a single (tribunal, date) pair: fetch URL, download, upload, log delta."""
+    """Process a single (tribunal, date) pair: fetch URL, download, upload, log event."""
     item_id = get_ia_item_id(tribunal, d)
     zip_path: Path | None = None
     try:
@@ -137,9 +109,11 @@ async def _drain_one(
                 return
             except ItemBusyError:
                 await asyncio.sleep(0.5 * (attempt + 1))
-    except DJENNotFoundError:
-        log.debug("drain_skip_404", tribunal=tribunal, date=d.isoformat())
-        await delta_writer.mark_absent(tribunal, d)
+    except DJENNotFoundError as exc:
+        # Verified absence — record the raw transport code alongside the
+        # verdict (404/400, or no_publications for 200 "Sem comunicações").
+        log.debug("drain_skip_absent", tribunal=tribunal, date=d.isoformat())
+        await delta_writer.mark_absent(tribunal, d, absent_raw_code(exc.status_code))
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.debug("drain_skip_error", tribunal=tribunal, date=d.isoformat(), error=str(exc))
     finally:
@@ -154,7 +128,7 @@ async def _drain_worker(
     upload_client: httpx.AsyncClient,
     djen_proxy_url: str,
     breaker: CircuitBreaker,
-    delta_writer: DeltaWriter,
+    delta_writer: SegmentWriter,
     deadline: float,
 ) -> None:
     """Worker: pulls (tribunal, date) pairs from queue, processes each."""
@@ -181,13 +155,8 @@ async def _drain_worker(
 
 
 async def upload_delta(delta_path: Path, ia_auth: str) -> bool:
-    """Upload delta CSV to Internet Archive."""
-    stat = await anyio.Path(delta_path).stat()
-    if stat.st_size <= _MIN_CSV_SIZE:  # only header
-        return False
-    target = f"upload-deltas/{delta_path.name}"
-    async with create_upload_client(ia_auth) as client:
-        return await upload_to_ia(client, IA_DASHBOARD_ITEM, delta_path, target)
+    """Upload the run's segment to manifest-log/ on IA (skips header-only files)."""
+    return await _upload_segment(delta_path, ia_auth)
 
 
 async def drain(
@@ -201,8 +170,8 @@ async def drain(
 ) -> int:
     """Run the batched drain loop. Returns number of uploads completed."""
     deadline = time.monotonic() + deadline_seconds
-    delta_path = Path(f"data/upload-deltas-{int(time.time())}.csv")
-    delta_writer = DeltaWriter(delta_path)
+    delta_path = Path("data") / segment_name("drain")
+    delta_writer = SegmentWriter(delta_path)
     breaker = CircuitBreaker(threshold=5, recovery_timeout=30.0)
 
     duck = duckdb.connect()
@@ -266,7 +235,7 @@ async def drain(
             ),
         )
 
-    if delta_writer.count > 0:
+    if delta_writer.count + delta_writer.absent_count > 0:
         try:
             ok = await upload_delta(delta_path, ia_auth)
             log.info("delta_uploaded" if ok else "delta_upload_failed", count=delta_writer.count)

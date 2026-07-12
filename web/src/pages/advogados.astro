@@ -4,24 +4,25 @@ import PageHeader from '../components/PageHeader.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 import LawyerCard from '../components/LawyerCard.astro';
 import StatCard from '../components/StatCard.astro';
-import { readJson } from '../lib/readJson';
+import { loadContract } from '../lib/data';
+import { readJson, type CacheBackfillFile } from '../lib/readJson';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const backfill = readJson<any>('cache/backfill.json');
+const backfill = readJson<CacheBackfillFile>('cache/backfill.json');
 const tribunalStats = (backfill?.tribunal_stats ?? [])
-  .map((item: any) => ({
-    tribunal: item.tribunal,
+  .map((item) => ({
+    tribunal: item.tribunal ?? '',
     dataRatePct: Number(item.data_rate_pct ?? 0),
     daysWithData: Number(item.days_with_data ?? 0),
     daysTotal: Number(item.days_total ?? 0),
   }))
-  .sort((a: any, b: any) => b.dataRatePct - a.dataRatePct)
+  .sort((a, b) => b.dataRatePct - a.dataRatePct)
   .slice(0, 12);
 const avgCoverage = tribunalStats.length
-  ? tribunalStats.reduce((sum: number, item: any) => sum + item.dataRatePct, 0) / tribunalStats.length
+  ? tribunalStats.reduce((sum, item) => sum + item.dataRatePct, 0) / tribunalStats.length
   : 0;
 
-const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
+const leaderboard = (await loadContract('lawyer_leaderboard')) ?? [];
 ---
 
 <Layout title="Advogados — CausaGanha" description="Cobertura por tribunal para exploração de dados de advogados/OAB no acervo público.">
@@ -60,7 +61,7 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
               </tr>
             </thead>
             <tbody>
-              {leaderboard.map((row: any, i: number) => (
+              {leaderboard.map((row, i) => (
                 <tr>
                   <td class="col-rank">
                     {i === 0 ? '🥇' : i === 1 ? '🥈' : i === 2 ? '🥉' : `${i + 1}º`}
@@ -92,7 +93,7 @@ const leaderboard = readJson<any[]>('data/lawyer_leaderboard.json') ?? [];
 
     <h2 class="section-heading">Cobertura dos Tribunais</h2>
     <section class="auto-grid">
-      {tribunalStats.map((stats: { tribunal: string; dataRatePct: number; daysWithData: number; daysTotal: number }) => <LawyerCard stats={stats} />)}
+      {tribunalStats.map((stats) => <LawyerCard stats={stats} />)}
     </section>
   </div>
 </Layout>

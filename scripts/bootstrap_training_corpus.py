@@ -85,7 +85,7 @@ def run_opf_inference(texts: list[str], *, device: int = -1) -> list[list[dict]]
     Each span: {"label": str, "start": int, "end": int, "text": str}
     Uses OPF's native Python API (opf._api.OPF) instead of HuggingFace pipeline.
     """
-    from opf._api import OPF  # noqa: PLC0415
+    from opf._api import OPF
 
     device_str = "cpu" if device < 0 else "cuda"
     logger.info("loading_opf_model", device=device_str)
@@ -215,7 +215,7 @@ def call_haiku_batch(
     max_retries: int = 3,
 ) -> dict[str, str]:
     """Call Claude Haiku to classify person spans. Returns {index: label}."""
-    import httpx  # noqa: PLC0415
+    import httpx
 
     prompt = _build_haiku_prompt(spans, section_hints)
 
@@ -354,7 +354,7 @@ def load_texts(input_path: Path, limit: int | None = None) -> list[dict]:
                     uid = rec.get("id", str(hash(texto[:200])))
                     rows.append({"id": str(uid), "texto": texto})
     else:
-        import ibis  # noqa: PLC0415
+        import ibis
 
         t = ibis.read_parquet(input_path)
         col = "texto" if "texto" in t.columns else "text"
@@ -379,7 +379,7 @@ def _merge_and_write(
     args: argparse.Namespace,
 ) -> int:
     """Merge all label sources, split, and write training JSONL."""
-    from collections import Counter  # noqa: PLC0415
+    from collections import Counter
 
     logger.info("merging_labels")
     records: list[dict] = []

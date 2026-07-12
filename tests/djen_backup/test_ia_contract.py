@@ -141,11 +141,7 @@ async def test_run_sync_dry_run(monkeypatch: pytest.MonkeyPatch) -> None:
 
         raise DJENNotFoundError(status_code=404, reason="Not Found")
 
-    async def _upload_to_ia(self: SyncManifest, auth: str) -> bool:
-        return True
-
     monkeypatch.setattr(SyncManifest, "load_from_ia", _load_from_ia)
-    monkeypatch.setattr(SyncManifest, "upload_to_ia", _upload_to_ia)
     monkeypatch.setattr(engine_module, "get_tribunal_list", _get_tribunal_list)
     monkeypatch.setattr(archive_module, "fetch_ia_existing", _fetch_ia_existing)
     monkeypatch.setattr(engine_module, "get_caderno_url", _get_caderno_url)

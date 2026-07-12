@@ -30,7 +30,7 @@ on:
       deadline_minutes:
         description: 'Deadline in minutes'
         required: false
-        default: '12'
+        default: '165'
 
 permissions:
   contents: read
@@ -44,7 +44,11 @@ jobs:
   consolidate:
     name: Consolidate ZIPs → Parquet
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # A single backfill date already takes ~13-14 min (measured), so the previous
+    # 15min/12min pair left almost no margin — the loop never got past 1 date/run,
+    # and any slowdown killed the job outright (6 of the last 10 scheduled runs were
+    # cancelled by the timeout). Both numbers need headroom over per-date runtime.
+    timeout-minutes: 180
     environment: dev
 
     env:
@@ -73,11 +77,20 @@ jobs:
             || echo '{"current_date":null,"processed_zips":[],"completed_dates":[]}' > data/consolidate-checkpoint.json
           echo "Checkpoint state:"
           cat data/consolidate-checkpoint.json | python3 -m json.tool 2>/dev/null || cat data/consolidate-checkpoint.json
-          # Download sync-manifest.csv so consolidate.py can discover ZIPs without
-          # requiring a fresh manifest.parquet (avoids slow per-tribunal IA API fallback)
-          curl -sSfL -o data/sync-manifest.csv \
-            "https://archive.org/download/causaganha-dashboard/sync-manifest.csv" \
-            || echo 'tribunal,date,ia_status,djen_status,djen_raw,updated_at' > data/sync-manifest.csv
+          # Download sync-manifest.parquet (the canonical source, Phase 3) and
+          # export it to the local CSV so consolidate.py can discover ZIPs
+          # without requiring a fresh manifest.parquet (avoids slow
+          # per-tribunal IA API fallback). No code change needed downstream —
+          # consolidate.py still reads the local CSV.
+          HEADER='tribunal,date,ia_status,djen_status,djen_raw,updated_at'
+          if curl -sSfL -o data/sync-manifest.parquet \
+            "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"; then
+            pip install --quiet duckdb
+            python3 -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")" \
+              || echo "$HEADER" > data/sync-manifest.csv
+          else
+            echo "$HEADER" > data/sync-manifest.csv
+          fi
           echo "Sync manifest entries: $(tail -n +2 data/sync-manifest.csv | wc -l)"
           # Download existing consolidation manifest so update_consolidation_manifest()
           # merges into it rather than overwriting with a single-run snapshot.
@@ -97,7 +110,7 @@ jobs:
           DATE="${{ github.event.inputs.date || '' }}"
           DRY_RUN="${{ github.event.inputs.dry_run || 'false' }}"
           FORCE="${{ github.event.inputs.force || 'false' }}"
-          DEADLINE="${{ github.event.inputs.deadline_minutes || '12' }}"
+          DEADLINE="${{ github.event.inputs.deadline_minutes || '165' }}"
 
           CMD="uv run python scripts/pipeline/consolidate.py"
 

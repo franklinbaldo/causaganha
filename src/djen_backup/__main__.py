@@ -443,8 +443,8 @@ def upload(
     deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
     max_items: int = typer.Option(0, help="Stop after N successful uploads."),
     workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),  # noqa: FBT001, FBT003
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),  # noqa: FBT001, FBT003
+    fail_fast: bool = typer.Option(True, help="Stop on first error."),
+    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
 ) -> None:
     """Upload already-discovered available entries (backlog drain)."""
     _run_pipeline(
@@ -474,7 +474,7 @@ def drain(
         14, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
     ),
     *,
-    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),  # noqa: FBT003
+    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),
 ) -> None:
     """Batched upload-only drain via remote sync-manifest.parquet (no full manifest load)."""
     env_result = _load_local_env()
@@ -522,7 +522,7 @@ def probe(
         13, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
     ),
     *,
-    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),  # noqa: FBT003
+    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),
 ) -> None:
     """Probe DJEN availability for pending entries — no download, no IA upload.
 
@@ -576,7 +576,7 @@ def probe(
 def reset(
     tribunal: str | None = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
     *,
-    reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),  # noqa: FBT003
+    reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),
     manifest_file: Path = typer.Option(
         Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
     ),

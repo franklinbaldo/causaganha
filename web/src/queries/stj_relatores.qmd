@@ -1,0 +1,17 @@
+---
+title: "STJ Acórdãos — Relatores"
+description: "Top 20 ministros relatores por volume de acórdãos."
+output: /data/stj_relatores.json
+format: array
+optional: true
+---
+
+Ranking dos 20 ministros relatores com maior número de acórdãos na Primeira Seção.
+
+```{sql}
+SELECT ministroRelator, COUNT(*) AS total
+FROM acordaos
+GROUP BY ministroRelator
+ORDER BY total DESC
+LIMIT 20
+```

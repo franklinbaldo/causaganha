@@ -6,10 +6,11 @@ Purpose:  Push the "unknown" bucket of the manifest forward by classifying rows
 Problem:  The full collect-zips path (Phase 0 IA discovery + engine plumbing) was
           breaching the GitHub Actions timeout (see PR #677), so unknowns piled up
           and never got a real status.
-Strategy: Pull the canonical manifest from IA, classify every unknown row in
-          parallel directly against the DJEN proxy, then merge and upload once.
+Strategy: Pull the manifest (parquet base + segments) from IA, classify every
+          unknown row in parallel directly against the DJEN proxy, then flush
+          the mutated rows as an immutable manifest-log/ segment.
           Safe to re-run: only writes djen_raw where it is currently empty, and
-          upload re-downloads-and-merges to avoid clobbering concurrent updates.
+          segments never clobber concurrent writers (each gets a unique name).
 Status:   ops workaround — runs via the drain-unknowns workflow while the engine
           timeout is unresolved. RFC: fold back into the engine once #677 is fixed,
           or keep as a deliberate lightweight side-channel? Comments welcome.
@@ -224,7 +225,7 @@ async def main() -> int:
                     continue
                 last_upload = asyncio.get_event_loop().time()
                 try:
-                    if await manifest.upload_to_ia(auth):
+                    if await manifest.upload_segment_to_ia(auth, writer="drain-unknowns"):
                         print(f"  [periodic] uploaded manifest after {processed} processed")
                 except (httpx.HTTPError, OSError) as exc:
                     print(f"  [periodic] upload failed: {exc!r}")
@@ -250,7 +251,7 @@ async def main() -> int:
 
     print()
     print("Final upload to IA…")
-    ok = await manifest.upload_to_ia(auth)
+    ok = await manifest.upload_segment_to_ia(auth, writer="drain-unknowns")
     if ok:
         await manifest.upload_summary_to_ia(auth)
         print("Final upload OK.")

@@ -1,9 +1,12 @@
 name: Render Manifest Parquet
 
-# Read-optimized companion to sync-manifest.csv. Engine writes go to the CSV;
-# this workflow renders a column-compressed Parquet (~22× smaller) and uploads
-# to IA so dashboards + the upload-backlog drain can fetch via DuckDB httpfs
-# without downloading the full 8MB CSV every cold start.
+# Manifest COMPACTION (Phase 3, docs/planning/manifest-source-of-truth.md §4.3, §5).
+# Single writer of the sync-manifest.parquet base: absorbs the immutable
+# manifest-log/*.csv segments (engine/drain/probe) plus legacy upload-deltas,
+# uploads the new base, then prunes absorbed segments to manifest-log/compacted/.
+# The concurrency group serializes compaction runs (plan §4.3). The legacy
+# sync-manifest.csv is retired as a source and no longer auto-exported here —
+# set MANIFEST_COMPACT_WRITEBACK=1 manually to produce it on demand.
 
 on:
   schedule:

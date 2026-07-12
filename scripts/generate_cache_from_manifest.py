@@ -34,22 +34,23 @@ for stream in (sys.stdout, sys.stderr):
             stream.reconfigure(errors="replace")
 
 import argparse
-import csv
 import json
 import subprocess
+import tempfile
 import urllib.request
 from collections import defaultdict
 from datetime import UTC, date, datetime, timedelta
-from io import StringIO
 from pathlib import Path
 from typing import Any
+
+import duckdb
 
 
 IA_DASHBOARD_ITEM = "causaganha-dashboard"
 
 
 MANIFEST_SUMMARY_URL = "https://archive.org/download/causaganha-dashboard/manifest-summary.json"
-MANIFEST_CSV_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.csv"
+MANIFEST_PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
 OUTPUT_DIR = Path(__file__).parent.parent / "web" / "public"
 CACHE_DIR = OUTPUT_DIR / "cache"
 
@@ -63,12 +64,37 @@ def fetch_summary() -> dict[str, Any]:
     return data
 
 
-def fetch_manifest_csv() -> list[dict[str, str]]:
-    """Download full manifest CSV for date-level detail."""
-    print(f"Fetching {MANIFEST_CSV_URL}...")
-    with urllib.request.urlopen(MANIFEST_CSV_URL, timeout=120) as resp:
-        text = resp.read().decode("utf-8")
-    rows = list(csv.DictReader(StringIO(text)))
+def fetch_manifest_parquet() -> list[dict[str, str]]:
+    """Download full manifest parquet for date-level detail."""
+    print(f"Fetching {MANIFEST_PARQUET_URL}...")
+    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
+        with urllib.request.urlopen(MANIFEST_PARQUET_URL, timeout=120) as resp:
+            tmp.write(resp.read())
+        tmp_path = tmp.name
+    try:
+        con = duckdb.connect()
+        try:
+            raw_rows = con.execute(
+                "SELECT tribunal, date, ia_status, djen_status, djen_raw, updated_at"
+                " FROM read_parquet(?)",
+                [tmp_path],
+            ).fetchall()
+        finally:
+            con.close()
+    finally:
+        Path(tmp_path).unlink(missing_ok=True)
+
+    rows = [
+        {
+            "tribunal": tribunal or "",
+            "date": d.isoformat() if d is not None else "",
+            "ia_status": ia_status or "",
+            "djen_status": djen_status or "",
+            "djen_raw": djen_raw or "",
+            "updated_at": updated_at or "",
+        }
+        for tribunal, d, ia_status, djen_status, djen_raw, updated_at in raw_rows
+    ]
     print(f"  {len(rows)} rows")
     return rows
 
@@ -347,7 +373,7 @@ def main() -> None:
     args = parser.parse_args()
 
     summary = fetch_summary()
-    rows = fetch_manifest_csv()
+    rows = fetch_manifest_parquet()
 
     print("\nGenerating cache files...")
     written: list[Path] = []

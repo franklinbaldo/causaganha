@@ -1,0 +1,34 @@
+---
+output: /data/processos_multi_fonte.json
+format: array
+optional: true
+---
+
+Processos presentes em mais de uma fonte (DJEN × JURIS × STJ × DataJud).
+
+```{sql}
+SELECT
+    nr_processo,
+    nr_processo_mascara,
+    n_fontes,
+    fontes,
+    djen_n_publicacoes,
+    djen_primeira_pub,
+    djen_ultima_pub,
+    juris_n_documentos,
+    juris_classe,
+    juris_orgao,
+    juris_relator,
+    juris_data_julgamento,
+    juris_url,
+    stj_tema,
+    stj_classe,
+    stj_relator,
+    stj_data_decisao,
+    tem_datajud,
+    classe_oficial
+FROM processos_unificados
+WHERE n_fontes >= 2
+ORDER BY n_fontes DESC, djen_ultima_pub DESC NULLS LAST
+LIMIT 500
+```

@@ -29,37 +29,22 @@ dependencies = [
     "structlog>=24.1",
     "tenacity>=9.1",
     "click>=8.1", # for djen_backup CLI
-    "boto3>=1.35.0", # S3 Glacier cold storage only (cold_storage.py) — NOT for Internet Archive uploads (use httpx)
-    "fpdf>=1.7.2",
     "numpy>=2.0.0",
     "holidays>=0.40.0",
     "pyyaml>=6.0.3",
     "aiolimiter>=1.2.1",
     "anyio>=4.0",
-]
-
-[project.optional-dependencies]
-embeddings = [
-    "lancedb>=0.4.0",
+    "aiohttp>=3.9.0",
 ]
 
 [dependency-groups]
 classify = [
-    # Local embedding model (EmbeddingGemma-300M, e5-small, etc.)
-    "sentence-transformers>=3.0.0",
-    # ML classifiers trained on top of embeddings
-    "scikit-learn>=1.5.0",
-    "joblib>=1.4.0",
-    # LLM abstraction layer (fallback + sampling)
+    # LLM abstraction layer used by analysis/llm_analyzer.py
     "litellm>=1.40.0",
 ]
 ner = [
-    # BERT-based NER for judicial entities (LeNER-Br)
-    "transformers>=4.40.0",
+    # Decision segmenter training (scripts/train_decision_segmenter.py)
     "torch>=2.2.0",
-    "accelerate>=0.30.0",
-    # Deterministic entity ruler (EntityRuler — uses blank tokenizer only)
-    "spacy>=3.7.0",
 ]
 dev = [
     "pre-commit>=4.2.0",
@@ -72,7 +57,6 @@ dev = [
     "ruff>=0.12.0",
     "pip-audit>=2.7.2",
     "safety>=3.2.0",
-    "dbt-duckdb~=1.9",
     "mkdocs>=1.6.1",
     "mkdocs-material>=9.7.0",
     "mkdocstrings[python]>=1.0.0",
@@ -80,14 +64,19 @@ dev = [
     "mkdocs-minify-plugin>=0.8.0",
     "playwright>=1.58.0",
     # marimo notebooks (notebooks/*.py) + ipynb export used by the
-    # notebook-sync CI check (scripts/check_notebooks_synced.py)
-    "marimo>=0.23.8",
+    # notebook-sync CI check (scripts/check_notebooks_synced.py). uv.lock is
+    # gitignored, so this is the only thing pinning the version anywhere —
+    # exact-pinned because even patch bumps change ipynb export bytes and
+    # break that check (hit twice now: 0.23.11->0.23.13, then ->0.23.14).
+    "marimo==0.23.14",
     "nbformat>=5.10.4",
 ]
 
 [project.scripts]
-causaganha = "causaganha.cli:app"
 djen-backup = "djen_backup.__main__:app"
+stj-acordaos = "stj_acordaos.__main__:app"
+tjro-juris = "tjro_juris.__main__:app"
+datajud = "datajud.__main__:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -114,3 +103,18 @@ filterwarnings = [
 ]
 
 # Ruff config is in ruff.toml (takes precedence over pyproject.toml)
+
+[tool.uv]
+# Ensure uv resolves wheels for Linux x86_64 (CI runner) and macOS (dev).
+# Without this, uv may pick a greenlet release that only ships macOS/Windows
+# wheels and fails to install on Linux (manylinux_2_39+).
+required-environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64'",
+    "sys_platform == 'darwin'",
+    "sys_platform == 'win32'",
+]
+
+constraint-dependencies = [
+    # greenlet 3.5.3 has no Linux wheel — cap until a fix is released.
+    "greenlet!=3.5.3",
+]

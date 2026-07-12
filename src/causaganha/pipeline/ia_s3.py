@@ -17,6 +17,7 @@ import configparser
 import hashlib
 import os
 from pathlib import Path
+from urllib.parse import quote
 
 import anyio
 import httpx
@@ -72,6 +73,24 @@ def get_ia_s3_auth() -> str | None:
         if access and secret:
             return f"LOW {access}:{secret}"
     return None
+
+
+# ---------------------------------------------------------------------------
+# Metadata header encoding
+# ---------------------------------------------------------------------------
+
+
+def meta_value(value: str) -> str:
+    """Encode an IA ``x-archive-meta-*`` header value.
+
+    HTTP header values must be ASCII (httpx raises ``UnicodeEncodeError``
+    otherwise). IA's S3 API accepts non-ASCII metadata via its
+    ``uri(<percent-encoded>)`` convention — the same one used by the
+    official ``internetarchive`` library.
+    """
+    if value.isascii():
+        return value
+    return f"uri({quote(value, safe='')})"
 
 
 # ---------------------------------------------------------------------------

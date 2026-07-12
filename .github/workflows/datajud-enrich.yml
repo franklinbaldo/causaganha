@@ -1,0 +1,85 @@
+# ============================================================================
+# DATAJUD ENRICH — Enrichment of known CNJs with official metadata
+# ============================================================================
+#
+# Daily cron (RFC 0010 §3.4 — owner decision after manual rounds) plus
+# workflow_dispatch for ad-hoc runs. The CNJ's rate limit is the dominant
+# constraint, so the schedule stays daily with a per-run CNJ limit rather
+# than hourly like stj-tjro-sync.yml.
+#
+# One job:
+#   enrich — `datajud enrich` (source CNJs → DataJud capa+movimentos → IA)
+# ============================================================================
+
+name: DataJud Enrich
+
+on:
+  schedule:
+    - cron: '13 5 * * *'
+  workflow_dispatch:
+    inputs:
+      tribunal:
+        description: 'Sigla do índice DataJud (ex.: tjro, stj, tjsp)'
+        required: false
+        default: 'tjro'
+      limite:
+        description: 'Máximo de CNJs a consultar neste run (0 = sem limite)'
+        required: false
+        default: '500'
+      skip_upload:
+        description: 'Skip IA upload (consulta + parquet apenas, dry run)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: datajud-enrich
+  cancel-in-progress: false
+
+jobs:
+  enrich:
+    name: DataJud enrich (consulta + upload)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: dev
+
+    env:
+      IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+      # Optional: rotated public key override (see datajud-wiki.cnj.jus.br)
+      DATAJUD_API_KEY: ${{ secrets.DATAJUD_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Enrich CNJs with DataJud metadata
+        run: |
+          TRIBUNAL="${{ inputs.tribunal }}"
+          LIMITE="${{ inputs.limite }}"
+
+          CMD="uv run --no-dev datajud enrich --tribunal ${TRIBUNAL:-tjro} --limit ${LIMITE:-500}"
+          if [ "${{ inputs.skip_upload }}" = "true" ]; then
+            CMD="$CMD --skip-upload"
+          fi
+
+          echo "Running: $CMD"
+          eval "$CMD"
+
+      - name: Show manifest status
+        if: always()
+        run: uv run --no-dev datajud status --data-dir data/datajud
+
+      - name: Upload manifest artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: datajud-manifest
+          path: data/datajud/datajud-manifest.csv
+          if-no-files-found: ignore

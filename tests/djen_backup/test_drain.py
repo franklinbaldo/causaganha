@@ -1,6 +1,6 @@
 """Tests for the batched-drain mode (``djen_backup.drain``).
 
-Covers ``DeltaWriter`` (append-only CSV), ``_drain_one`` (single-pair
+Covers ``SegmentWriter`` (append-only segment CSV), ``_drain_one`` (single-pair
 flow: already-on-IA short-circuit, happy path, DJEN 404 skip, transport
 error skip, ``ItemBusyError`` retry loop), and ``drain`` deadline behaviour.
 """
@@ -18,25 +18,26 @@ import pytest
 from djen_backup import drain as drain_module
 from djen_backup.archive import CircuitBreaker, ItemBusyError
 from djen_backup.djen import DJENNotFoundError
-from djen_backup.drain import DeltaWriter, _drain_one, drain
+from djen_backup.drain import _drain_one, drain
+from djen_backup.segments import SEGMENT_HEADER, SegmentWriter
 
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 
-# ── DeltaWriter ──────────────────────────────────────────────────────
+# ── SegmentWriter ────────────────────────────────────────────────────
 
 
 @pytest.mark.asyncio
 async def test_delta_writer_appends_rows(tmp_path: Path) -> None:
     path = tmp_path / "delta.csv"
-    writer = DeltaWriter(path)
+    writer = SegmentWriter(path)
     await writer.mark_uploaded("TJSP", date(2024, 1, 2))
     await writer.mark_uploaded("TJBA", date(2024, 1, 3))
 
     lines = path.read_text(encoding="utf-8").splitlines()
-    assert lines[0] == "tribunal,date,ia_status,djen_status,updated_at"
+    assert lines[0] == SEGMENT_HEADER
     assert len(lines) == 3
     assert lines[1].startswith("TJSP,2024-01-02,uploaded,")
     assert lines[2].startswith("TJBA,2024-01-03,uploaded,")
@@ -57,7 +58,7 @@ async def test_drain_one_skips_when_already_on_ia(
     monkeypatch.setattr(drain_module, "download_zip", _async_raise(AssertionError("must not call")))
     monkeypatch.setattr(drain_module, "upload_zip", _async_raise(AssertionError("must not call")))
 
-    writer = DeltaWriter(tmp_path / "delta.csv")
+    writer = SegmentWriter(tmp_path / "delta.csv")
     await _drain_one(
         "TJSP",
         date(2024, 1, 2),
@@ -81,7 +82,7 @@ async def test_drain_one_happy_path(tmp_path: Path, monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(drain_module, "download_zip", _async_return(raw_zip))
     monkeypatch.setattr(drain_module, "upload_zip", _ia_hit)
 
-    writer = DeltaWriter(tmp_path / "delta.csv")
+    writer = SegmentWriter(tmp_path / "delta.csv")
     await _drain_one(
         "TJSP",
         date(2024, 1, 2),
@@ -107,7 +108,7 @@ async def test_drain_one_swallows_djen_not_found(
         _async_raise(DJENNotFoundError(status_code=404, reason="missing")),
     )
 
-    writer = DeltaWriter(tmp_path / "delta.csv")
+    writer = SegmentWriter(tmp_path / "delta.csv")
     await _drain_one(
         "TJSP",
         date(2024, 1, 2),
@@ -118,7 +119,12 @@ async def test_drain_one_swallows_djen_not_found(
         delta_writer=writer,
     )
 
-    assert writer.count == 0  # silent skip
+    assert writer.count == 0  # no upload happened
+    # The verified absence is recorded as an event with the raw HTTP code —
+    # never a derived category in djen_raw, never a bare 200.
+    assert writer.absent_count == 1
+    body = (tmp_path / "delta.csv").read_text(encoding="utf-8")
+    assert "TJSP,2024-01-02,,absent,404," in body
 
 
 @pytest.mark.asyncio
@@ -132,7 +138,7 @@ async def test_drain_one_swallows_transport_error(
         _async_raise(httpx.ConnectError("network down")),
     )
 
-    writer = DeltaWriter(tmp_path / "delta.csv")
+    writer = SegmentWriter(tmp_path / "delta.csv")
     await _drain_one(
         "TJSP",
         date(2024, 1, 2),
@@ -166,7 +172,7 @@ async def test_drain_one_retries_busy_then_succeeds(
     monkeypatch.setattr(drain_module, "download_zip", _async_return(raw_zip))
     monkeypatch.setattr(drain_module, "upload_zip", _upload)
 
-    writer = DeltaWriter(tmp_path / "delta.csv")
+    writer = SegmentWriter(tmp_path / "delta.csv")
     await _drain_one(
         "TJSP",
         date(2024, 1, 2),

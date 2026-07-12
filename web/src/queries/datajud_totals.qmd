@@ -1,0 +1,19 @@
+---
+title: "DataJud — Totais"
+description: "Cobertura do enriquecimento DataJud: CNJs com capa oficial, por tribunal."
+output: /data/datajud_totals.json
+format: object
+optional: true
+---
+
+Totais do acervo DataJud arquivado: processos distintos enriquecidos, registros
+por grau, tribunais cobertos e atualização mais recente.
+
+```{sql}
+SELECT
+  COUNT(DISTINCT numero_processo) AS total_processos,
+  COUNT(*) AS total_registros,
+  COUNT(DISTINCT tribunal) AS total_tribunais,
+  MAX(ultima_atualizacao) AS ultima_atualizacao
+FROM datajud_capa;
+```
