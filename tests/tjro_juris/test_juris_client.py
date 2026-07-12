@@ -2,6 +2,9 @@
 
 Error discipline (CLAUDE.md): 403 and timeouts are transport failures and
 must RAISE — they must never be interpreted as "no documents" (absent).
+
+Contract (2026-07): filters are nested under ``fields`` with ES ``.raw``
+keyword subfields; free text is ``fields.query``; aggregations are POST.
 """
 
 from __future__ import annotations
@@ -13,7 +16,15 @@ import httpx
 import pytest
 import respx
 
-from tjro_juris.client import ENDPOINT, PAGE_SIZE, clean_html, doc_url, get_aggregations, search
+from tjro_juris.client import (
+    AGGREGATIONS_ENDPOINT,
+    ENDPOINT,
+    PAGE_SIZE,
+    clean_html,
+    doc_url,
+    get_aggregations,
+    search,
+)
 
 
 # ── clean_html ───────────────────────────────────────────────────────────
@@ -74,8 +85,8 @@ def test_doc_url_omits_empty_optional_params() -> None:
 # ── search ───────────────────────────────────────────────────────────────
 
 
-def test_search_wraps_tipo_in_list_and_returns_payload() -> None:
-    """The JURIS backend crashes if ``tipo`` is a bare string — must be a list."""
+def test_search_sends_tipo_raw_list_under_fields() -> None:
+    """The tipo goes to ``fields["tipo.raw"]`` and MUST be wrapped in a list."""
     payload = {"hits": {"hits": [{"_source": {"id_processo_documento": 1}}]}}
     with respx.mock() as router:
         route = router.post(ENDPOINT).respond(200, json=payload)
@@ -83,10 +94,42 @@ def test_search_wraps_tipo_in_list_and_returns_payload() -> None:
 
     assert data == payload
     body = json.loads(route.calls.last.request.content)
-    assert body["tipo"] == ["ACÓRDÃO"]
+    assert body["fields"]["tipo.raw"] == ["ACÓRDÃO"]
     assert body["from"] == 400
     assert body["size"] == PAGE_SIZE
-    assert body["texto"] == ""
+    assert body["sort"] == [{"dtjulgamento": "desc"}, {"_score": "desc"}]
+    # top-level legacy keys must be gone — they now crash the server (500)
+    assert "tipo" not in body
+    assert "texto" not in body
+    assert "token" not in body
+
+
+def test_search_omits_empty_optional_fields() -> None:
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
+        search("VOTO")
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["fields"] == {"tipo.raw": ["VOTO"]}
+
+
+def test_search_maps_texto_to_query_field() -> None:
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
+        search("SENTENÇA", texto="improbidade administrativa")
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["fields"]["query"] == "improbidade administrativa"
+
+
+def test_search_maps_date_window_to_dtjulgamento_fields() -> None:
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
+        search("EMENTA", date_start="2026-06-01", date_end="2026-06-30")
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["fields"]["dtjulgamento_inicio"] == "2026-06-01"
+    assert body["fields"]["dtjulgamento_fim"] == "2026-06-30"
 
 
 def test_search_403_raises_never_returns_empty() -> None:
@@ -115,16 +158,19 @@ def test_search_500_raises() -> None:
 # ── get_aggregations ─────────────────────────────────────────────────────
 
 
-def test_get_aggregations_returns_json() -> None:
+def test_get_aggregations_posts_fields_body() -> None:
+    """Aggregations moved to POST (GET now returns 405)."""
+    payload = {"aggregations": {"tipos_documentos": {"buckets": []}}}
     with respx.mock() as router:
-        router.get("https://juris-back.tjro.jus.br/search/agregacoes").respond(
-            200, json={"tipos": {"ACÓRDÃO": 10}}
-        )
-        assert get_aggregations() == {"tipos": {"ACÓRDÃO": 10}}
+        route = router.post(AGGREGATIONS_ENDPOINT).respond(200, json=payload)
+        assert get_aggregations() == payload
+
+    body = json.loads(route.calls.last.request.content)
+    assert body == {"fields": {}}
 
 
 def test_get_aggregations_403_raises() -> None:
     with respx.mock() as router:
-        router.get("https://juris-back.tjro.jus.br/search/agregacoes").respond(403)
+        router.post(AGGREGATIONS_ENDPOINT).respond(403)
         with pytest.raises(httpx.HTTPStatusError):
             get_aggregations()
