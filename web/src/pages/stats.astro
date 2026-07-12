@@ -2,8 +2,8 @@
 import Layout from '../layouts/Layout.astro';
 import PageHeader from '../components/PageHeader.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
-import ManifestStatus from '../components/ManifestStatus.svelte';
 import StatCard from '../components/StatCard.astro';
+import EmptyState from '../components/EmptyState.svelte';
 import { loadContract } from '../lib/data';
 import {
   loadSiteStatus,
@@ -25,6 +25,22 @@ const djen = siteStatus.sources.djen;
 const statsCoverage = await loadContract('stats_coverage');
 const courtReliability = (await loadContract('court_reliability')) ?? [];
 const weeklyPattern = (await loadContract('weekly_pattern')) ?? [];
+// Cobertura por tribunal: contrato canônico tribunal_coverage, renderizado do
+// mesmo sync-manifest.parquet que o site-status. Substitui o antigo
+// componente ManifestStatus, que buscava manifest-summary.json direto do IA
+// em runtime — um snapshot paralelo que historicamente divergia do manifesto
+// canônico (ver web/src/queries/site_status.qmd). A visão "por ano" do
+// componente antigo não tem equivalente canônico ainda; se voltar, deve
+// nascer como um novo contrato .qmd, não de um snapshot paralelo.
+const tribunalCoverage = (await loadContract('tribunal_coverage')) ?? [];
+const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
+
+function coverageTone(pct: number): string {
+  if (pct >= 80) return 'success';
+  if (pct >= 40) return 'warning';
+  if (pct > 0) return 'error';
+  return 'muted';
+}
 
 const totalTribunals = djen.tribunals_total;
 // Frescor derivado do último SUCESSO (não da última tentativa) — falhas
@@ -155,13 +171,59 @@ const base = import.meta.env.BASE_URL;
       </div>
     </article>
 
-    <!-- Per-tribunal coverage from live IA manifest -->
+    <!-- Per-tribunal coverage from the canonical tribunal_coverage contract -->
     <article>
       <header>
-        <strong>Cobertura por tribunal e ano</strong>
-        <small data-tone="muted">Dados ao vivo do manifesto canônico em archive.org</small>
+        <strong>Cobertura por tribunal</strong>
+        <small data-tone="muted">Contrato tribunal_coverage, renderizado do manifesto canônico (sync-manifest.parquet) · gerado em {generatedAtLabel}</small>
       </header>
-      <ManifestStatus client:load />
+      {tribunalCoverage.length > 0 ? (
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Tribunal</th>
+                <th>ZIPs no IA</th>
+                <th>Pendente</th>
+                <th>Ausente</th>
+                <th>Desconhecido</th>
+                <th>Cobertura</th>
+                <th>Período arquivado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tribunalCoverage.map(t => {
+                const pct = t.coverage_pct ?? 0;
+                return (
+                  <tr>
+                    <td><strong>{t.tribunal}</strong></td>
+                    <td><code>{t.uploaded.toLocaleString('pt-BR')}</code></td>
+                    <td data-tone="warning"><code>{t.pending.toLocaleString('pt-BR')}</code></td>
+                    <td data-tone="muted"><code>{t.absent.toLocaleString('pt-BR')}</code></td>
+                    <td data-tone={t.unknown ? 'error' : undefined}><code>{t.unknown ? t.unknown.toLocaleString('pt-BR') : ''}</code></td>
+                    <td>
+                      <progress value={pct} max="100" data-tone={coverageTone(pct)} aria-label={`${t.tribunal}: ${pct}%`}></progress>
+                      <span data-tone={coverageTone(pct)}>{pct}%</span>
+                    </td>
+                    <td>
+                      {t.earliest_upload ? (
+                        <small>{t.earliest_upload} → {t.latest_upload}</small>
+                      ) : (
+                        <span data-tone="muted">—</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <EmptyState
+          title="Dados de cobertura indisponíveis"
+          message="O contrato tribunal_coverage ainda não foi renderizado neste build — rode `uv run python scripts/render_queries.py` para gerar web/public/data/tribunal_coverage.json a partir do manifesto canônico."
+        />
+      )}
     </article>
   </div>
 </Layout>

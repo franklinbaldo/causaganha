@@ -5,31 +5,24 @@ import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import AlertBanner from '../../components/AlertBanner.svelte';
 import StatCard from '../../components/StatCard.astro';
 import EmptyState from '../../components/EmptyState.svelte';
-import { readJson, type CacheBackfillFile } from '../../lib/readJson';
+import { loadContract } from '../../lib/data';
+import { loadSiteStatus, formatUtcDateTime } from '../../lib/data/siteStatus';
+import { topAdvogadosTribunals } from '../../lib/advogadosCoverage';
 
-const backfill = readJson<CacheBackfillFile>('cache/backfill.json');
-const tribunalStats = (backfill?.tribunal_stats ?? [])
-  .map((item) => ({
-    tribunal: String(item.tribunal ?? '').toUpperCase(),
-    dataRatePct: Number(item.data_rate_pct ?? 0),
-    daysWithData: Number(item.days_with_data ?? 0),
-    daysTotal: Number(item.days_total ?? 0),
-  }))
-  .filter((item) => item.tribunal)
-  .sort((a, b) => b.dataRatePct - a.dataRatePct)
-  .slice(0, 12);
-
-export function getStaticPaths() {
-  const backfillData = readJson<CacheBackfillFile>('cache/backfill.json');
-  const entries = (backfillData?.tribunal_stats ?? [])
-    .map((item) => ({ slug: String(item.tribunal ?? '').toLowerCase(), rate: Number(item.data_rate_pct ?? 0) }))
-    .filter((item) => item.slug.length > 0)
-    .sort((a, b) => b.rate - a.rate)
-    .slice(0, 12)
-    .map((item) => item.slug);
-
-  return entries.map((tribunal: string) => ({ params: { tribunal } }));
+// Mesma fonte e mesma seleção da página /advogados: contrato canônico
+// tribunal_coverage (ver lib/advogadosCoverage.ts). O snapshot legado
+// cache/backfill.json foi aposentado desta rota.
+export async function getStaticPaths() {
+  const coverage = await loadContract('tribunal_coverage');
+  return topAdvogadosTribunals(coverage).map((item) => ({
+    params: { tribunal: item.tribunal.toLowerCase() },
+  }));
 }
+
+const siteStatus = await loadSiteStatus();
+const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
+const coverage = await loadContract('tribunal_coverage');
+const tribunalStats = topAdvogadosTribunals(coverage);
 
 const { tribunal } = Astro.params;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
@@ -50,16 +43,16 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
 
     <AlertBanner
       level="info"
-      title="Detalhe baseado em dados existentes"
-      message="Este detalhe é focado no que já existe no snapshot de backfill: cobertura por tribunal e query pronta para localizar OABs reais no explorador."
+      title="Detalhe baseado no manifesto canônico"
+      message={`Cobertura calculada do contrato tribunal_coverage (manifesto sync-manifest.parquet), gerado em ${generatedAtLabel}, com query pronta para localizar OABs reais no explorador.`}
     />
 
     {entry ? (
       <>
         <section class="auto-grid">
           <StatCard title="Tribunal" value={entry.tribunal} />
-          <StatCard title="Cobertura" value={`${entry.dataRatePct.toFixed(1)}%`} tone="info" />
-          <StatCard title="Dias com dados" value={`${entry.daysWithData} / ${entry.daysTotal}`} />
+          <StatCard title="Cobertura" value={`${entry.dataRatePct.toFixed(1)}%`} subtitle="ZIPs arquivados / dias rastreados" tone="info" />
+          <StatCard title="Dias arquivados" value={`${entry.daysWithData.toLocaleString('pt-BR')} / ${entry.daysTotal.toLocaleString('pt-BR')}`} subtitle="Pares tribunal × dia com ZIP no IA" />
         </section>
 
         <article>
@@ -74,7 +67,7 @@ const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\
     ) : (
       <EmptyState
         title="Tribunal não encontrado"
-        message="Não há snapshot de cobertura para este identificador no build atual."
+        message="Não há dados de cobertura para este identificador no contrato tribunal_coverage deste build."
         actionHref={BASE + 'advogados'}
         actionLabel="Voltar para Advogados"
       />

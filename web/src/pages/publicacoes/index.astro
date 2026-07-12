@@ -1,7 +1,7 @@
 ---
 import Layout from '../../layouts/Layout.astro';
 import PublicationSearch from '../../components/PublicationSearch.svelte';
-import { loadSiteStatus } from '../../lib/data/siteStatus';
+import { loadSiteStatus, formatUtcDateTime } from '../../lib/data/siteStatus';
 
 // Métricas globais do artefato canônico site-status.json (contrato
 // site_status, renderizado do sync-manifest.parquet) — mesma fonte da
@@ -11,6 +11,7 @@ const djen = siteStatus.sources.djen;
 const totalZips = djen.zips_archived;
 const tribunalsWithData = djen.tribunals_with_data;
 const sinceYear = (djen.earliest_upload_date ?? '').slice(0, 4) || null;
+const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
 
 function fmt(n: number): string {
   return n.toLocaleString('pt-BR');
@@ -35,6 +36,7 @@ function fmt(n: number): string {
         {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados (pares tribunal × dia)' : 'ZIPs arquivados'} de {tribunalsWithData} tribunais{sinceYear ? ` desde ${sinceYear}` : ''}.
         Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte, ou texto livre.
       </p>
+      <p class="page-head__meta">Métricas do manifesto canônico · geradas em {generatedAtLabel}</p>
     </div>
   </section>
 
@@ -64,5 +66,12 @@ function fmt(n: number): string {
 <style>
   .publication-search-section {
     padding: var(--s-7) 0 var(--s-9);
+  }
+
+  .page-head__meta {
+    margin-top: var(--s-2);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    color: var(--fg-muted);
   }
 </style>
