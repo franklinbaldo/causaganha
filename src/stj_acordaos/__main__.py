@@ -143,6 +143,23 @@ def _download_one(
     typer.echo(f"  Done ({n_extracted} files extracted).")
 
 
+def _restore_manifest_best_effort(manifest_path: Path) -> None:
+    """Restore the manifest from IA when absent; never abort the run on failure.
+
+    IA can return a transient error (observed: 503, not 404, for an item
+    that has simply never been created yet) for reasons unrelated to whether
+    a manifest actually exists. Failing to restore only costs redundant
+    re-downloads of already-uploaded resources — no data is lost — so it
+    must never abort the run.
+    """
+    if manifest_path.exists():
+        return
+    try:
+        fetch_manifest(manifest_path)
+    except httpx.HTTPError as exc:
+        typer.echo(f"WARNING: manifest restore failed ({exc}); starting fresh.", err=True)
+
+
 @app.command()
 def download(
     data_dir: Path = typer.Option(_DEFAULT_DATA_DIR, help="Directory to store downloads."),
@@ -154,8 +171,7 @@ def download(
     (per the manifest, restored from IA when no local copy exists) are
     skipped, keeping scheduled runs on blank runners incremental.
     """
-    if not manifest_path.exists():
-        fetch_manifest(manifest_path)
+    _restore_manifest_best_effort(manifest_path)
     manifest = ManifestSTJ(manifest_path)
     manifest.load()
 

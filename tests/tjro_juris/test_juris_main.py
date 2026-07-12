@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
+import httpx
 import pytest
 import typer
 
@@ -134,4 +135,27 @@ def test_load_manifest_starts_empty_when_ia_has_no_manifest_either(
 ) -> None:
     monkeypatch.setattr("tjro_juris.__main__.ia_archive.download_manifest", lambda _dest: False)
     manifest = _load_manifest(tmp_path)
+    assert manifest.all_entries() == []
+
+
+def test_load_manifest_survives_transient_ia_error_starts_empty(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IA can 503 (not 404) for an item that was simply never created — must not crash.
+
+    Regression: the first acceptance run of this branch died here — a brand
+    new, never-uploaded IA item returned 503 from archive.org's download
+    endpoint, and the uncaught HTTPStatusError aborted the entire crawl.
+    """
+    request = httpx.Request("GET", "https://archive.org/download/tjro-juris/x.csv")
+    response = httpx.Response(503, request=request)
+
+    def _flaky(_dest: Path) -> bool:
+        msg = "503"
+        raise httpx.HTTPStatusError(msg, request=request, response=response)
+
+    monkeypatch.setattr("tjro_juris.__main__.ia_archive.download_manifest", _flaky)
+
+    manifest = _load_manifest(tmp_path)  # must not raise
+
     assert manifest.all_entries() == []

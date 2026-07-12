@@ -82,11 +82,19 @@ def _load_manifest(data_dir: Path) -> ManifestJuris:
     """Load the local manifest, restoring it from IA when absent.
 
     A blank runner (CI) starts with no local state; without the restore every
-    scheduled run would re-crawl and re-upload everything.
+    scheduled run would re-crawl and re-upload everything. The restore is
+    best-effort: IA can return a transient error (observed: 503, not 404, for
+    an item that has simply never been created yet) for reasons that have
+    nothing to do with whether a manifest actually exists. Failing to
+    restore only costs a redundant re-crawl of already-uploaded windows —
+    no data is lost — so it must never abort the whole run.
     """
     path = _manifest_path(data_dir)
     if not path.exists():
-        ia_archive.download_manifest(path)
+        try:
+            ia_archive.download_manifest(path)
+        except httpx.HTTPError as exc:
+            log.warning("manifest_restore_failed", error=str(exc))
     return ManifestJuris.load_local(path)
 
 

@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING
 import httpx
 import pytest
 
-from stj_acordaos.__main__ import _already_uploaded, _classify_resource, _download_one
+from stj_acordaos.__main__ import (
+    _already_uploaded,
+    _classify_resource,
+    _download_one,
+    _restore_manifest_best_effort,
+)
 from stj_acordaos.client import STJWAFBlockedError
 from stj_acordaos.manifest import ManifestSTJ
 
@@ -150,3 +155,43 @@ def test_download_one_stj_waf_blocked_error_propagates_fail_fast(
     monkeypatch.setattr("stj_acordaos.__main__.download_resource", _blocked)
     with pytest.raises(STJWAFBlockedError):
         _download_one(_resource(), manifest, tmp_path, tmp_path)
+
+
+# ── _restore_manifest_best_effort ────────────────────────────────────────
+
+
+def test_restore_manifest_skips_when_local_copy_exists(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    manifest_path = tmp_path / "stj-manifest.csv"
+    manifest_path.write_text("arquivo,tipo\na.zip,zip\n")
+
+    def _boom(_dest: Path) -> None:
+        msg = "fetch_manifest must not be called when a local manifest already exists"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("stj_acordaos.__main__.fetch_manifest", _boom)
+    _restore_manifest_best_effort(manifest_path)  # must not raise
+
+
+def test_restore_manifest_survives_transient_ia_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """IA can 503 (not 404) for an item that was simply never created — must not crash.
+
+    Regression: the first acceptance run of this branch died here — a brand
+    new, never-uploaded IA item returned 503 from archive.org's download
+    endpoint, and the uncaught HTTPStatusError aborted the entire download.
+    """
+    manifest_path = tmp_path / "stj-manifest.csv"
+    request = httpx.Request("GET", "https://archive.org/download/stj-acordaos-primeira-secao/x")
+    response = httpx.Response(503, request=request)
+
+    def _flaky(_dest: Path) -> None:
+        msg = "503"
+        raise httpx.HTTPStatusError(msg, request=request, response=response)
+
+    monkeypatch.setattr("stj_acordaos.__main__.fetch_manifest", _flaky)
+
+    _restore_manifest_best_effort(manifest_path)  # must not raise
+    assert not manifest_path.exists()
