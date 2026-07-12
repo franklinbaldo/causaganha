@@ -1,0 +1,46 @@
+---
+import Layout from '../layouts/Layout.astro';
+import PageHeader from '../components/PageHeader.astro';
+import Breadcrumbs from '../components/Breadcrumbs.astro';
+import ProcessoLookup from '../components/ProcessoLookup.svelte';
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+---
+
+<Layout
+  title="Consultar Processo — CausaGanha"
+  description="Dossiê unificado de um processo (CNJ) reconciliado entre DJEN, JURIS (TJRO), STJ e DataJud."
+>
+  <PageHeader backHref={BASE} backLabel="Início" tile="consultas" title="Consultar Processo" subtitle="Cole um número CNJ para ver o que o acervo reconciliado já sabe sobre ele" />
+
+  <div class="container">
+    <Breadcrumbs crumbs={[
+      { label: 'Início', href: BASE },
+      { label: 'Consultar Processo' },
+    ]} />
+
+    <section>
+      <p>
+        Esta página consulta, diretamente no seu navegador via <strong>DuckDB-WASM</strong>, os dois
+        parquets de reconciliação hospedados no Internet Archive
+        (<code>processos_unificados.parquet</code> e <code>processo_documentos.parquet</code>,
+        item <a href="https://archive.org/details/causaganha-dashboard" target="_blank" rel="noopener noreferrer">causaganha-dashboard</a>).
+        Nenhum dado é enviado a servidores externos.
+      </p>
+      <p class="meta-text" data-tone="muted">
+        Cada CNJ é reconciliado a partir de até quatro fontes independentes — DJEN, JURIS (TJRO),
+        STJ e DataJud — sem fundir dados conflitantes: cada bloco abaixo indica explicitamente de
+        qual fonte ele vem, e a ausência de uma fonte é mostrada como tal, não omitida.
+      </p>
+    </section>
+
+    <ProcessoLookup client:only="svelte" />
+
+    <footer>
+      <small data-tone="muted">
+        Dados reconciliados via scripts/reconcile_processos.py. O DuckDB-WASM executa no
+        navegador — seus dados não saem do seu dispositivo.
+      </small>
+    </footer>
+  </div>
+</Layout>
