@@ -15,15 +15,30 @@ Show manifest summary::
 
     uv run stj-acordaos status
 
-In CI, ``.github/workflows/stj-tjro-sync.yml`` runs the same commands with
-secrets injected, hourly plus ``workflow_dispatch``.
+When no local manifest exists, ``download`` first tries to restore it from
+the public IA item so already-uploaded, unchanged resources are skipped;
+``upload`` pushes the manifest back to IA.
+
+In CI, ``.github/workflows/stj-sync.yml`` runs the same commands with
+secrets injected, daily plus ``workflow_dispatch``.
 """
 
 from __future__ import annotations
 
+import zipfile
 from pathlib import Path
 
+import httpx
 import typer
+
+from stj_acordaos.archive import fetch_manifest
+from stj_acordaos.client import (
+    STJWAFBlockedError,
+    download_resource,
+    extract_zip,
+    get_resource_list,
+)
+from stj_acordaos.manifest import ManifestSTJ
 
 
 app = typer.Typer(
@@ -57,15 +72,90 @@ def _classify_resource(fmt: str, url: str) -> str | None:
     return None
 
 
+def _already_uploaded(manifest: ManifestSTJ, dest_name: str, last_modified: str) -> bool:
+    """True when *dest_name* is already on IA, unchanged since *last_modified*."""
+    existing = manifest.get(dest_name)
+    return (
+        existing is not None
+        and existing.ia_status == "uploaded"
+        and existing.data_extracao == last_modified
+    )
+
+
+def _download_one(
+    resource: dict,
+    manifest: ManifestSTJ,
+    zip_dir: Path,
+    extract_dir: Path,
+) -> None:
+    """Download, extract and record a single CKAN resource.
+
+    Raises ``STJWAFBlockedError`` upward unchanged (fail-fast: once the WAF
+    has blocked this runner, every further request will fail too — the
+    caller must not keep grinding through the remaining resources).
+    """
+    url: str = resource.get("url", "")
+    name: str = resource.get("name", "") or resource.get("id", "unknown")
+    fmt: str = (resource.get("format") or "").lower()
+    last_modified: str = resource.get("last_modified") or resource.get("created") or ""
+
+    if not url:
+        typer.echo(f"  SKIP {name}: no URL", err=True)
+        return
+
+    tipo = _classify_resource(fmt, url)
+    if tipo is None:
+        typer.echo(f"  SKIP {name}: unrecognized format {fmt!r} (not zip/json)", err=True)
+        return
+    dest = zip_dir / f"{name}.{tipo}"
+
+    if _already_uploaded(manifest, dest.name, last_modified):
+        typer.echo(f"  SKIP {name}: already uploaded to IA (unchanged since {last_modified})")
+        return
+
+    typer.echo(f"→ Downloading {name} ({tipo}) …")
+    try:
+        download_resource(url, dest)
+    except STJWAFBlockedError:
+        typer.echo("  FATAL: STJ WAF blocked this runner — aborting.", err=True)
+        raise
+    except (httpx.HTTPError, OSError) as exc:
+        typer.echo(f"  ERROR: {exc}", err=True)
+        return
+
+    n_extracted = 0
+    if tipo == "zip":
+        typer.echo(f"  Extracting {dest.name} …")
+        try:
+            extracted = extract_zip(dest, extract_dir)
+            n_extracted = len(extracted)
+        except (zipfile.BadZipFile, OSError) as exc:
+            typer.echo(f"  Extract ERROR: {exc}", err=True)
+
+    manifest.upsert(
+        arquivo=dest.name,
+        tipo=tipo,
+        data_extracao=last_modified,
+        ia_status="",
+        n_registros=n_extracted,
+    )
+    manifest.save()
+    typer.echo(f"  Done ({n_extracted} files extracted).")
+
+
 @app.command()
 def download(
     data_dir: Path = typer.Option(_DEFAULT_DATA_DIR, help="Directory to store downloads."),
     manifest_path: Path = typer.Option(_DEFAULT_MANIFEST, help="Path to stj-manifest.csv."),
 ) -> None:
-    """Discover resources, download ZIPs + JSONs, and extract safely."""
-    from stj_acordaos.client import download_resource, extract_zip, get_resource_list
-    from stj_acordaos.manifest import ManifestSTJ
+    """Discover resources, download ZIPs + JSONs, and extract safely.
 
+    Resources already uploaded to IA with an unchanged ``last_modified``
+    (per the manifest, restored from IA when no local copy exists) are
+    skipped, keeping scheduled runs on blank runners incremental.
+    """
+    if not manifest_path.exists():
+        fetch_manifest(manifest_path)
     manifest = ManifestSTJ(manifest_path)
     manifest.load()
 
@@ -80,46 +170,7 @@ def download(
     extract_dir.mkdir(parents=True, exist_ok=True)
 
     for resource in resources:
-        url: str = resource.get("url", "")
-        name: str = resource.get("name", "") or resource.get("id", "unknown")
-        fmt: str = (resource.get("format") or "").lower()
-        last_modified: str = resource.get("last_modified") or resource.get("created") or ""
-
-        if not url:
-            typer.echo(f"  SKIP {name}: no URL", err=True)
-            continue
-
-        tipo = _classify_resource(fmt, url)
-        if tipo is None:
-            typer.echo(f"  SKIP {name}: unrecognized format {fmt!r} (not zip/json)", err=True)
-            continue
-        dest = zip_dir / f"{name}.{tipo}"
-
-        typer.echo(f"→ Downloading {name} ({tipo}) …")
-        try:
-            download_resource(url, dest)
-        except Exception as exc:
-            typer.echo(f"  ERROR: {exc}", err=True)
-            continue
-
-        n_extracted = 0
-        if tipo == "zip":
-            typer.echo(f"  Extracting {dest.name} …")
-            try:
-                extracted = extract_zip(dest, extract_dir)
-                n_extracted = len(extracted)
-            except Exception as exc:
-                typer.echo(f"  Extract ERROR: {exc}", err=True)
-
-        manifest.upsert(
-            arquivo=dest.name,
-            tipo=tipo,
-            data_extracao=last_modified,
-            ia_status="",
-            n_registros=n_extracted,
-        )
-        manifest.save()
-        typer.echo(f"  Done ({n_extracted} files extracted).")
+        _download_one(resource, manifest, zip_dir, extract_dir)
 
     typer.echo(f"\nManifest saved to {manifest_path} ({len(manifest)} entries).")
 
@@ -135,7 +186,6 @@ def upload(
     """Upload the deduplicated parquet file to Internet Archive."""
     from stj_acordaos.archive import upload_parquet
     from stj_acordaos.dedup import dedup_acordaos
-    from stj_acordaos.manifest import ManifestSTJ
 
     if not ia_key or not ia_secret:
         typer.echo("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", err=True)
@@ -163,18 +213,21 @@ def upload(
     manifest = ManifestSTJ(manifest_path)
     manifest.load()
 
-    # Upload original source files (ZIPs + monthly JSONs)
+    # Upload original source files (ZIPs + monthly JSONs). Preserve the
+    # entry's data_extracao/n_registros stamped by `download` — the download
+    # skip compares data_extracao against CKAN's last_modified.
     all_sources = sorted(zip_dir.glob("*") if zip_dir.exists() else [])
     for src in all_sources:
         typer.echo(f"Uploading source {src.name} …")
         ok = upload_parquet(src, ia_key, ia_secret)
         tipo_src = "zip" if src.suffix == ".zip" else "json"
+        existing = manifest.get(src.name)
         manifest.upsert(
             arquivo=src.name,
             tipo=tipo_src,
-            data_extracao="",
+            data_extracao=existing.data_extracao if existing else "",
             ia_status="uploaded" if ok else "",
-            n_registros=0,
+            n_registros=existing.n_registros if existing else 0,
         )
 
     # Upload consolidated parquet
@@ -190,6 +243,12 @@ def upload(
     )
     manifest.save()
 
+    # Push the manifest itself so a blank runner can restore it next run.
+    typer.echo(f"Uploading {manifest_path.name} to IA …")
+    manifest_ok = upload_parquet(manifest_path, ia_key, ia_secret)
+    if not manifest_ok:
+        typer.echo("WARNING: manifest upload failed (next run re-downloads).", err=True)
+
     if ok:
         typer.echo("Upload complete.")
     else:
@@ -202,8 +261,6 @@ def status(
     manifest_path: Path = typer.Option(_DEFAULT_MANIFEST, help="Path to stj-manifest.csv."),
 ) -> None:
     """Show a summary of the STJ manifest."""
-    from stj_acordaos.manifest import ManifestSTJ
-
     manifest = ManifestSTJ(manifest_path)
     count = manifest.load()
 

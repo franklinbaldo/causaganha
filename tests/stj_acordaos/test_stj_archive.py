@@ -9,7 +9,7 @@ import httpx
 import pytest
 import respx
 
-from stj_acordaos.archive import IA_ITEM_ID, upload_parquet
+from stj_acordaos.archive import IA_ITEM_ID, MANIFEST_DOWNLOAD_URL, fetch_manifest, upload_parquet
 
 
 if TYPE_CHECKING:
@@ -95,3 +95,33 @@ def test_upload_timeout_then_success(parquet_file: Path) -> None:
         assert upload_parquet(parquet_file, "k", "s") is True
 
     assert route.call_count == 2
+
+
+# ── fetch_manifest (blank-runner incrementality) ──────────────────────────
+
+
+def test_fetch_manifest_restores_from_ia(tmp_path: Path) -> None:
+    dest = tmp_path / "stj-manifest.csv"
+    with respx.mock() as router:
+        router.get(MANIFEST_DOWNLOAD_URL).respond(200, content=b"arquivo,tipo\na.zip,zip\n")
+        assert fetch_manifest(dest) is True
+    assert dest.read_bytes() == b"arquivo,tipo\na.zip,zip\n"
+
+
+def test_fetch_manifest_missing_on_ia_returns_false_not_raise(tmp_path: Path) -> None:
+    """First-ever run: the manifest hasn't been uploaded yet — not an error."""
+    dest = tmp_path / "stj-manifest.csv"
+    with respx.mock() as router:
+        router.get(MANIFEST_DOWNLOAD_URL).respond(404)
+        assert fetch_manifest(dest) is False
+    assert not dest.exists()
+
+
+def test_fetch_manifest_server_error_raises_not_treated_as_absent(tmp_path: Path) -> None:
+    """A flaky network must not silently look like 'no manifest' (re-download everything)."""
+    dest = tmp_path / "stj-manifest.csv"
+    with respx.mock() as router:
+        router.get(MANIFEST_DOWNLOAD_URL).respond(503)
+        with pytest.raises(httpx.HTTPStatusError):
+            fetch_manifest(dest)
+    assert not dest.exists()

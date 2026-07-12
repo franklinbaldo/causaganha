@@ -93,3 +93,45 @@ async def test_upload_file_without_credentials_raises_runtime_error(
     monkeypatch.setattr(archive.ia_s3, "get_ia_s3_auth", lambda: None)
     with pytest.raises(RuntimeError, match="credentials"):
         await archive.upload_file(parquet_file, 2024, "x.parquet")
+
+
+# ── manifest restore/push (blank-runner incrementality) ──────────────────
+
+
+def test_download_manifest_restores_from_ia(tmp_path: Path) -> None:
+    dest = tmp_path / "tjro-juris-manifest.csv"
+    with respx.mock() as router:
+        router.get(archive.MANIFEST_DOWNLOAD_URL).respond(200, content=b"arquivo,tipo\na,zip\n")
+        assert archive.download_manifest(dest) is True
+    assert dest.read_bytes() == b"arquivo,tipo\na,zip\n"
+
+
+def test_download_manifest_missing_on_ia_returns_false_not_raise(tmp_path: Path) -> None:
+    """First-ever run: the manifest item doesn't exist yet — not an error."""
+    dest = tmp_path / "tjro-juris-manifest.csv"
+    with respx.mock() as router:
+        router.get(archive.MANIFEST_DOWNLOAD_URL).respond(404)
+        assert archive.download_manifest(dest) is False
+    assert not dest.exists()
+
+
+def test_download_manifest_server_error_raises_not_treated_as_absent(tmp_path: Path) -> None:
+    """A flaky network must not silently look like 'no manifest' (re-crawl everything)."""
+    dest = tmp_path / "tjro-juris-manifest.csv"
+    with respx.mock() as router:
+        router.get(archive.MANIFEST_DOWNLOAD_URL).respond(503)
+        with pytest.raises(httpx.HTTPStatusError):
+            archive.download_manifest(dest)
+    assert not dest.exists()
+
+
+@pytest.mark.usefixtures("_fake_auth")
+async def test_upload_manifest_puts_to_dedicated_item(tmp_path: Path) -> None:
+    manifest_file = tmp_path / "tjro-juris-manifest.csv"
+    manifest_file.write_bytes(b"arquivo,tipo\na,zip\n")
+    with respx.mock() as router:
+        route = router.put(
+            f"https://s3.us.archive.org/{archive.MANIFEST_ITEM_ID}/{archive.MANIFEST_REMOTE_NAME}"
+        ).respond(200)
+        await archive.upload_manifest(manifest_file)
+    assert route.calls.last.request.content == b"arquivo,tipo\na,zip\n"

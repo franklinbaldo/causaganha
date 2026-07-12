@@ -1,0 +1,109 @@
+# ============================================================================
+# TJRO SYNC — Ingestion of the TJRO JURIS corpus to Internet Archive
+# ============================================================================
+#
+# Hourly cron + workflow_dispatch. Scheduled runs are incremental: the CLI
+# restores its manifest from IA, crawls ONLY the current month (--mes), and
+# skips (tipo, month) windows already uploaded. Full/backfill crawls stay
+# available via dispatch (tjro_ano / tjro_mes / tjro_tipos inputs).
+#
+# Split from the former stj-tjro-sync.yml so an STJ failure can't mask a
+# TJRO failure (and vice versa) — see stj-sync.yml for the other corpus.
+# ============================================================================
+
+name: TJRO Sync
+
+on:
+  schedule:
+    - cron: '7 * * * *'
+  # TEMPORARY — acceptance run for PR #805 (dispatch via API is blocked for
+  # this integration). Remove this push trigger before merging to main.
+  push:
+    branches: [claude/project-next-steps-7vaswi]
+  workflow_dispatch:
+    inputs:
+      tjro_ano:
+        description: 'Only crawl this year (--ano, e.g. 2024) — optional'
+        required: false
+      tjro_mes:
+        description: 'Only crawl this month (--mes, AAAA-MM) — optional, mutually exclusive with tjro_ano'
+        required: false
+      tjro_tipos:
+        description: 'Comma-separated tipos (--tipo), e.g. "ACÓRDÃO,SENTENÇA" — optional'
+        required: false
+      skip_upload:
+        description: 'Skip IA upload (crawl only, dry run)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tjro-sync
+  cancel-in-progress: false
+
+jobs:
+  tjro:
+    name: TJRO JURIS (crawl + upload)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    environment: dev
+
+    env:
+      IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Crawl JURIS
+        run: |
+          ANO="${{ inputs.tjro_ano }}"
+          MES="${{ inputs.tjro_mes }}"
+          TIPOS="${{ inputs.tjro_tipos }}"
+
+          # Non-dispatch runs (cron / temporary push) are incremental:
+          # crawl only the current month. The manifest restore + window
+          # skip in the CLI make this cheap on a blank runner.
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -z "$ANO" ] && [ -z "$MES" ]; then
+            MES="$(date -u +%Y-%m)"
+          fi
+
+          CMD="uv run --no-dev tjro-juris crawl data/tjro-juris"
+          if [ -n "$ANO" ]; then
+            CMD="$CMD --ano $ANO"
+          fi
+          if [ -n "$MES" ]; then
+            CMD="$CMD --mes $MES"
+          fi
+          if [ -n "$TIPOS" ]; then
+            IFS=',' read -ra TIPO_LIST <<< "$TIPOS"
+            for t in "${TIPO_LIST[@]}"; do
+              CMD="$CMD --tipo \"$t\""
+            done
+          fi
+
+          echo "Running: $CMD"
+          eval "$CMD"
+
+      - name: Upload parquets to Internet Archive
+        if: ${{ !inputs.skip_upload }}
+        run: uv run --no-dev tjro-juris upload data/tjro-juris
+
+      - name: Show manifest status
+        if: always()
+        run: uv run --no-dev tjro-juris status data/tjro-juris
+
+      - name: Upload manifest artifact
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: tjro-juris-manifest
+          path: data/tjro-juris/tjro-juris-manifest.csv
+          if-no-files-found: ignore

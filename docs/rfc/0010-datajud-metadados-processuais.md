@@ -83,7 +83,7 @@ DataJud. Tipos correspondentes em `web/src/lib/data/contracts.ts` (RFC 0009).
 Workflow `datajud-enrich.yml` roda em cron diário (`13 5 * * *`, ligado pelo owner após
 rodadas manuais) mais `workflow_dispatch` para runs ad-hoc (inputs: tribunal, limite de
 CNJs, janela de re-consulta). A cadência ficou diária — não horária como o
-`stj-tjro-sync.yml` — porque o rate limit do CNJ é a restrição dominante; o limite de
+`tjro-sync.yml` (ex-`stj-tjro-sync.yml`) — porque o rate limit do CNJ é a restrição dominante; o limite de
 CNJs por run controla o volume de cada execução.
 
 ## 4. O que NÃO fazer

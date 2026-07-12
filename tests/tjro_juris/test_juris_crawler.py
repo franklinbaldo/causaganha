@@ -9,10 +9,13 @@ import pytest
 from tjro_juris import crawler
 from tjro_juris.client import MAX_RESULT_WINDOW, PAGE_SIZE
 from tjro_juris.crawler import (
+    JurisWindowOverflowError,
+    _exceeds_window,
     _extract_doc,
     _iter_year_months,
     _month_bounds,
     _split_range,
+    _total,
     crawl_all,
     fetch_tipo_month,
     fetch_tipo_window,
@@ -138,9 +141,17 @@ def _fake_search_windows(
         *,
         date_start: str | None = None,
         date_end: str | None = None,
+        extra_fields: dict | None = None,
     ) -> dict:
         calls.append(
-            {"tipo": tipo, "from_": from_, "size": size, "start": date_start, "end": date_end}
+            {
+                "tipo": tipo,
+                "from_": from_,
+                "size": size,
+                "start": date_start,
+                "end": date_end,
+                "extra_fields": extra_fields,
+            }
         )
         pages = windows.get((date_start, date_end), {})
         total = sum(len(v) for v in pages.values())
@@ -181,18 +192,168 @@ def test_fetch_window_empty_probe_makes_single_request(monkeypatch: pytest.Monke
     assert len(calls) == 1  # only the probe
 
 
-def test_fetch_window_never_exceeds_result_window(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Page requests must keep from_ + size <= MAX_RESULT_WINDOW (server 500s past it)."""
-    window = ("2024-03-01", "2024-03-01")  # single day: cannot split further
-    pages = {f: [_hit(f + i) for i in range(PAGE_SIZE)] for f in range(0, 12_000, PAGE_SIZE)}
-    calls, fake = _fake_search_windows({window: pages})
-    monkeypatch.setattr(crawler, "search", fake)
+def test_total_extracts_value_and_relation() -> None:
+    assert _total({"hits": {"total": {"value": 42, "relation": "eq"}}}) == (42, "eq")
+    assert _total({"hits": {"total": {"value": 10_000, "relation": "gte"}}}) == (10_000, "gte")
+    # bare-int / missing-total shapes default to an exact zero
+    assert _total({"hits": {"total": 7}}) == (7, "eq")
+    assert _total({"hits": {}}) == (0, "eq")
 
-    docs = fetch_tipo_window("SENTENÇA", *window)
 
-    assert len(docs) == MAX_RESULT_WINDOW  # truncated at the window cap
-    page_calls = [c for c in calls if c["size"] > 1]
-    assert all(c["from_"] + c["size"] <= MAX_RESULT_WINDOW for c in page_calls)
+def test_exceeds_window_treats_any_non_eq_relation_as_exceeding() -> None:
+    """A 'gte' relation means the real total is UNKNOWN — never treat it as exact."""
+    assert _exceeds_window(MAX_RESULT_WINDOW + 1, "eq") is True
+    assert _exceeds_window(MAX_RESULT_WINDOW, "eq") is False
+    assert _exceeds_window(1, "gte") is True  # small value, but relation says "at least"
+    assert _exceeds_window(0, "eq") is False
+
+
+def _fake_orgao_search(
+    day: str,
+    day_total: int,
+    orgao_totals: dict[str, int],
+    orgao_docs: dict[str, list[dict]],
+    *,
+    day_relation: str = "eq",
+) -> object:
+    """Fake ``search`` serving a single-day window subdivision by órgão.
+
+    - probe with no ``extra_fields`` (or an órgão not in ``orgao_totals``)
+      returns the day/órgão total.
+    - page requests (size > 1) with an órgão filter return that órgão's docs.
+    """
+
+    def _fake(
+        tipo: str,
+        from_: int = 0,
+        size: int = PAGE_SIZE,
+        texto: str = "",
+        *,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        extra_fields: dict | None = None,
+    ) -> dict:
+        assert (date_start, date_end) == (day, day)
+        orgao = (extra_fields or {}).get("ds_orgao_julgador.raw", [None])[0]
+        if size == 1:  # probe
+            if orgao is None:
+                return {"hits": {"total": {"value": day_total, "relation": day_relation}}}
+            total = orgao_totals.get(orgao, 0)
+            return {"hits": {"total": {"value": total, "relation": "eq"}}}
+        # page fetch — always for a specific órgão
+        docs = orgao_docs.get(orgao, [])
+        return _es_response(docs[from_ : from_ + size], total=len(docs))
+
+    return _fake
+
+
+def test_single_day_overflow_subdivides_by_orgao_when_buckets_cover_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A single day over the ES cap is split by órgão, never truncated."""
+    day = "2024-03-01"
+    orgao_docs = {
+        "1ª Câmara Cível": [_hit(i, dtjulgamento=day) for i in range(6_000)],
+        "2ª Câmara Cível": [_hit(6_000 + i, dtjulgamento=day) for i in range(4_500)],
+    }
+    orgao_totals = {k: len(v) for k, v in orgao_docs.items()}
+    day_total = sum(orgao_totals.values())
+    fake_search = _fake_orgao_search(day, day_total, orgao_totals, orgao_docs)
+    monkeypatch.setattr(crawler, "search", fake_search)
+    monkeypatch.setattr(
+        crawler,
+        "get_aggregations",
+        lambda fields=None: {  # noqa: ARG005
+            "aggregations": {"orgaos_julgadores": {"buckets": [{"key": k} for k in orgao_totals]}}
+        },
+    )
+
+    docs = fetch_tipo_window("SENTENÇA", day, day)
+
+    assert len(docs) == day_total
+    assert {d["id_documento"] for d in docs} == set(range(day_total))
+
+
+def test_single_day_overflow_raises_when_no_orgao_buckets_available(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    day = "2024-03-01"
+    fake_search = _fake_orgao_search(day, MAX_RESULT_WINDOW + 500, {}, {})
+    monkeypatch.setattr(crawler, "search", fake_search)
+    monkeypatch.setattr(crawler, "get_aggregations", lambda fields=None: {"aggregations": {}})  # noqa: ARG005
+
+    with pytest.raises(JurisWindowOverflowError, match="no orgaos_julgadores buckets"):
+        fetch_tipo_window("SENTENÇA", day, day)
+
+
+def test_single_day_overflow_raises_when_an_orgao_bucket_itself_exceeds_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    day = "2024-03-01"
+    orgao_totals = {"Vara Única": MAX_RESULT_WINDOW + 1}
+    fake_search = _fake_orgao_search(day, MAX_RESULT_WINDOW + 1, orgao_totals, {})
+    monkeypatch.setattr(crawler, "search", fake_search)
+    monkeypatch.setattr(
+        crawler,
+        "get_aggregations",
+        lambda fields=None: {  # noqa: ARG005
+            "aggregations": {"orgaos_julgadores": {"buckets": [{"key": "Vara Única"}]}}
+        },
+    )
+
+    with pytest.raises(JurisWindowOverflowError, match="no further subdivision axis"):
+        fetch_tipo_window("SENTENÇA", day, day)
+
+
+def test_single_day_overflow_raises_when_orgao_buckets_do_not_cover_the_total(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Buckets summing to less than the day total would silently drop documents — raise instead."""
+    day = "2024-03-01"
+    day_total = MAX_RESULT_WINDOW + 1_000
+    orgao_totals = {"1ª Câmara Cível": 6_000}  # covers only 6,000 of day_total
+    fake_search = _fake_orgao_search(day, day_total, orgao_totals, {})
+    monkeypatch.setattr(crawler, "search", fake_search)
+    monkeypatch.setattr(
+        crawler,
+        "get_aggregations",
+        lambda fields=None: {  # noqa: ARG005
+            "aggregations": {"orgaos_julgadores": {"buckets": [{"key": "1ª Câmara Cível"}]}}
+        },
+    )
+
+    with pytest.raises(JurisWindowOverflowError, match="the remainder would be silently lost"):
+        fetch_tipo_window("SENTENÇA", day, day)
+
+
+def test_multi_day_window_with_gte_relation_splits_even_under_the_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 'gte' total on a multi-day window still bisects — the real total is unknown."""
+    full = ("2024-03-01", "2024-03-02")
+    left = ("2024-03-01", "2024-03-01")
+    right = ("2024-03-02", "2024-03-02")
+    windows = {
+        left: {0: [_hit(1, dtjulgamento="2024-03-01")]},
+        right: {0: [_hit(2, dtjulgamento="2024-03-02")]},
+    }
+    calls, fake = _fake_search_windows(windows)
+
+    def _fake_with_gte_probe(*args: object, **kwargs: object) -> dict:
+        date_start = kwargs.get("date_start")
+        date_end = kwargs.get("date_end")
+        if (date_start, date_end) == full:
+            # value is comfortably under the cap, but relation says "at least"
+            return {"hits": {"total": {"value": 5, "relation": "gte"}, "hits": []}}
+        return fake(*args, **kwargs)
+
+    monkeypatch.setattr(crawler, "search", _fake_with_gte_probe)
+
+    docs = fetch_tipo_window("SENTENÇA", *full)
+
+    assert [d["id_documento"] for d in docs] == [1, 2]
+    full_pages = [c for c in calls if (c["start"], c["end"]) == full and c["size"] > 1]
+    assert full_pages == []
 
 
 def test_fetch_window_splits_when_total_exceeds_cap(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -228,6 +389,7 @@ def test_fetch_window_supports_results_key_shape(monkeypatch: pytest.MonkeyPatch
         *,
         date_start: str | None = None,
         date_end: str | None = None,
+        extra_fields: dict | None = None,
     ) -> dict:
         if size == 1:
             return {"hits": {"total": {"value": 2}, "hits": [_hit(1)]}}

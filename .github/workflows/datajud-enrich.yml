@@ -5,7 +5,7 @@
 # Daily cron (RFC 0010 §3.4 — owner decision after manual rounds) plus
 # workflow_dispatch for ad-hoc runs. The CNJ's rate limit is the dominant
 # constraint, so the schedule stays daily with a per-run CNJ limit rather
-# than hourly like stj-tjro-sync.yml.
+# than hourly like tjro-sync.yml.
 #
 # One job:
 #   enrich — `datajud enrich` (source CNJs → DataJud capa+movimentos → IA)

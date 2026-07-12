@@ -16,15 +16,23 @@ import httpx
 import pytest
 import respx
 
+from tjro_juris import client as client_mod
 from tjro_juris.client import (
     AGGREGATIONS_ENDPOINT,
     ENDPOINT,
+    MAX_ATTEMPTS,
     PAGE_SIZE,
     clean_html,
     doc_url,
     get_aggregations,
     search,
 )
+
+
+@pytest.fixture(autouse=True)
+def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Retry backoff must never actually sleep during tests."""
+    monkeypatch.setattr(client_mod, "_sleep", lambda _s: None)
 
 
 # ── clean_html ───────────────────────────────────────────────────────────
@@ -97,7 +105,11 @@ def test_search_sends_tipo_raw_list_under_fields() -> None:
     assert body["fields"]["tipo.raw"] == ["ACÓRDÃO"]
     assert body["from"] == 400
     assert body["size"] == PAGE_SIZE
-    assert body["sort"] == [{"dtjulgamento": "desc"}, {"_score": "desc"}]
+    assert body["sort"] == [
+        {"dtjulgamento": "desc"},
+        {"_score": "desc"},
+        {"id_processo_documento": "asc"},
+    ]
     # top-level legacy keys must be gone — they now crash the server (500)
     assert "tipo" not in body
     assert "texto" not in body
@@ -132,27 +144,67 @@ def test_search_maps_date_window_to_dtjulgamento_fields() -> None:
     assert body["fields"]["dtjulgamento_fim"] == "2026-06-30"
 
 
-def test_search_403_raises_never_returns_empty() -> None:
-    """403 is rate-limiting/WAF — it must raise, never look like zero hits."""
+def test_search_403_raises_immediately_never_retried() -> None:
+    """403 is rate-limiting/WAF — raises on the FIRST attempt, never retried, never absent."""
     with respx.mock() as router:
-        router.post(ENDPOINT).respond(403)
+        route = router.post(ENDPOINT).respond(403)
         with pytest.raises(httpx.HTTPStatusError) as exc_info:
             search("SENTENÇA")
     assert exc_info.value.response.status_code == 403
+    assert route.call_count == 1
 
 
-def test_search_timeout_propagates() -> None:
+def test_search_extra_fields_merged_into_fields() -> None:
+    """``extra_fields`` (used to slice by órgão julgador) merges into ``fields``."""
     with respx.mock() as router:
-        router.post(ENDPOINT).mock(side_effect=httpx.ReadTimeout("timed out"))
-        with pytest.raises(httpx.ReadTimeout):
+        route = router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
+        search("ACÓRDÃO", extra_fields={"ds_orgao_julgador.raw": ["1ª Câmara Cível"]})
+
+    body = json.loads(route.calls.last.request.content)
+    assert body["fields"]["ds_orgao_julgador.raw"] == ["1ª Câmara Cível"]
+    assert body["fields"]["tipo.raw"] == ["ACÓRDÃO"]
+
+
+def test_search_retries_transport_error_then_succeeds() -> None:
+    """A transient connect timeout is retried; a later success is returned."""
+    payload = {"hits": {"hits": [{"_source": {"id_processo_documento": 1}}]}}
+    with respx.mock() as router:
+        route = router.post(ENDPOINT)
+        route.side_effect = [
+            httpx.ConnectTimeout("timed out"),
+            httpx.ConnectTimeout("timed out"),
+            httpx.Response(200, json=payload),
+        ]
+        data = search("VOTO")
+    assert data == payload
+    assert route.call_count == 3
+
+
+def test_search_persistent_transport_error_raises_after_max_attempts() -> None:
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).mock(side_effect=httpx.ConnectTimeout("timed out"))
+        with pytest.raises(httpx.ConnectTimeout):
             search("VOTO")
+    assert route.call_count == MAX_ATTEMPTS
 
 
-def test_search_500_raises() -> None:
+def test_search_retries_5xx_then_succeeds() -> None:
+    payload = {"hits": {"hits": []}}
     with respx.mock() as router:
-        router.post(ENDPOINT).respond(500)
+        route = router.post(ENDPOINT)
+        route.side_effect = [httpx.Response(500), httpx.Response(200, json=payload)]
+        data = search("EMENTA")
+    assert data == payload
+    assert route.call_count == 2
+
+
+def test_search_persistent_500_raises_after_max_attempts() -> None:
+    """Persistent 5xx still raises — the original contract-break symptom."""
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(500)
         with pytest.raises(httpx.HTTPStatusError):
             search("EMENTA")
+    assert route.call_count == MAX_ATTEMPTS
 
 
 # ── get_aggregations ─────────────────────────────────────────────────────
@@ -169,8 +221,18 @@ def test_get_aggregations_posts_fields_body() -> None:
     assert body == {"fields": {}}
 
 
-def test_get_aggregations_403_raises() -> None:
+def test_get_aggregations_narrows_by_fields() -> None:
     with respx.mock() as router:
-        router.post(AGGREGATIONS_ENDPOINT).respond(403)
+        route = router.post(AGGREGATIONS_ENDPOINT).respond(200, json={"aggregations": {}})
+        get_aggregations({"tipo.raw": ["VOTO"]})
+
+    body = json.loads(route.calls.last.request.content)
+    assert body == {"fields": {"tipo.raw": ["VOTO"]}}
+
+
+def test_get_aggregations_403_raises_immediately() -> None:
+    with respx.mock() as router:
+        route = router.post(AGGREGATIONS_ENDPOINT).respond(403)
         with pytest.raises(httpx.HTTPStatusError):
             get_aggregations()
+    assert route.call_count == 1

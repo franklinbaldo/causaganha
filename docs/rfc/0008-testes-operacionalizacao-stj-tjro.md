@@ -36,7 +36,15 @@ classificação de status HTTP.
 - Novo workflow `stj-tjro-sync.yml` com **`workflow_dispatch` apenas** (sem cron neste
   RFC): jobs `stj-acordaos` e `tjro-juris` chamando os CLIs com parâmetros de janela.
   Ligar cron é decisão do owner após rodadas manuais bem-sucedidas — basta acrescentar
-  `schedule:` depois.
+  `schedule:` depois. *(Atualização 2026-07: o workflow foi dividido em `stj-sync.yml`
+  — apenas `workflow_dispatch`, sem cron: o WAF do STJ bloqueia de forma persistente
+  as faixas de IP dos runners do GitHub (confirmado em log autenticado de CI —
+  `STJWAFBlockedError` após 4 tentativas), e um runner hospedado não consegue vencer
+  esse bloqueio via retry, então um cron aqui seria ruído, não sinal; religar cron
+  fica condicionado a runner próprio, proxy ou outra infraestrutura com egress não
+  bloqueado — e `tjro-sync.yml` — cron horário, crawl incremental do mês corrente
+  (o bloqueio do JURIS era um bug de contrato de API, já corrigido, não um bloqueio
+  de infraestrutura) — para que a falha de um corpus não mascare o outro.)*
 - Documentar no README de cada módulo (docstring do `__main__`) o comando de execução
   manual com `uv run`.
 
