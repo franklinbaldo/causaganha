@@ -133,19 +133,18 @@ export type ProcessoMultiFonteRow = z.infer<typeof processoMultiFonteRowSchema>;
 /**
  * site_status.qmd — format: object.
  *
- * Canonical global metrics + per-source freshness. `sources` is keyed by data
- * source; only `djen` exists today (the sync-manifest is the sole canonical
- * manifest) — new sources are added as new keys without breaking consumers.
- * Freshness thresholds live in the .qmd (48h) and in siteStatus.ts (7-day
- * build staleness limit).
+ * Canonical global metrics + per-source sync health. `sources` is keyed by
+ * data source; only `djen` exists today (the sync-manifest is the sole
+ * canonical manifest) — new sources are added as new keys without breaking
+ * consumers.
+ *
+ * The JSON carries raw timestamps (last_attempt_at / last_success_at);
+ * freshness ('atualizado' | 'atrasado' | 'desconhecido') is DERIVED at build
+ * time in siteStatus.ts from last_success_at — never trusted from the
+ * artifact, so a bot stuck on 403s (fresh attempts, stale successes) cannot
+ * keep the dashboard green.
  */
-export const siteStatusFreshnessSchema = z.enum([
-  'atualizado',
-  'atrasado',
-  'indisponivel',
-  'desconhecido',
-]);
-export type SiteStatusFreshness = z.infer<typeof siteStatusFreshnessSchema>;
+const isoDateTime = z.iso.datetime({ offset: true });
 
 export const siteStatusSourceSchema = z.object({
   /** Pares (tribunal × dia) com ZIP confirmado no Internet Archive. */
@@ -159,14 +158,23 @@ export const siteStatusSourceSchema = z.object({
   earliest_tracked_date: isoDate.nullable(),
   earliest_upload_date: isoDate.nullable(),
   latest_upload_date: isoDate.nullable(),
-  /** max(updated_at) do manifesto, ISO-8601 UTC. */
-  last_activity_at: z.string().nullable(),
-  freshness: siteStatusFreshnessSchema,
+  /** Pares onde o DJEN confirmou não haver publicação (404/400/"Sem comunicações"). */
+  absent_confirmed: z.number(),
+  /** Pares com caderno confirmado no DJEN (200 + URL) mas sem ZIP no IA. */
+  pending_real: z.number(),
+  /** Pares cuja última resposta foi inconclusiva (403/5xx/timeout/network). */
+  errors_transient: z.number(),
+  /** Pares nunca verificados (sem resposta DJEN nem upload). */
+  never_checked: z.number(),
+  /** max(updated_at) do manifesto — qualquer tentativa, inclusive falhas. */
+  last_attempt_at: isoDateTime.nullable(),
+  /** max(updated_at) restrito a tentativas conclusivas (ver site_status.qmd). */
+  last_success_at: isoDateTime.nullable(),
 });
 export type SiteStatusSource = z.infer<typeof siteStatusSourceSchema>;
 
 export const siteStatusSchema = z.object({
-  generated_at: z.string(),
+  generated_at: isoDateTime,
   sources: z.object({
     djen: siteStatusSourceSchema,
   }),

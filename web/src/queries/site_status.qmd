@@ -1,6 +1,6 @@
 ---
 title: "Site Status"
-description: "Canonical global metrics and per-source freshness for the public dashboard."
+description: "Canonical global metrics and per-source sync health for the public dashboard."
 output: /data/site-status.json
 format: object
 ---
@@ -15,17 +15,39 @@ canônico é o `sync-manifest.parquet`); outras fontes (stj, tjro_juris,
 datajud) entram como novas chaves em `sources` quando ganharem um manifesto
 próprio — o frontend valida chaves conhecidas e ignora as demais.
 
-Semântica de frescor (`freshness`), calculada em tempo de render a partir de
-`max(updated_at)` do manifesto (limiar: **48 horas**):
+Saúde do sync — dois timestamps distintos por fonte:
 
-- `atualizado`   — última atividade de sync há ≤ 48 horas
-- `atrasado`     — última atividade de sync há > 48 horas
-- `desconhecido` — manifesto sem nenhum `updated_at` preenchido
-- `indisponivel` — reservado ao frontend: fonte/JSON ausente (nunca emitido
-  pelo SQL; ver `web/src/lib/data/siteStatus.ts`)
+- `last_attempt_at` — `max(updated_at)` do manifesto: qualquer resposta muda
+  `updated_at`, **inclusive falhas** (403, 5xx, timeout). Mede atividade do
+  bot, não saúde.
+- `last_success_at` — `max(updated_at)` restrito a tentativas **conclusivas**
+  (upload confirmado no IA ou veredito DJEN: disponível/ausente). Um bot que
+  só coleciona 403 mantém `last_attempt_at` fresco mas **não** move
+  `last_success_at`.
+
+O estado de frescor (`atualizado` / `atrasado` / `desconhecido`) **não** é
+emitido por este SQL: é derivado em tempo de build a partir de
+`last_success_at` (limiar de 48h) por `evaluateSourceFreshness()` em
+`web/src/lib/data/siteStatus.ts` — assim uma falha contínua nunca mantém o
+site "verde", e o cálculo usa o relógio do build, não o do render.
+
+Decomposição das lacunas (pares sem ZIP no IA), derivada de `djen_raw` — o
+mesmo critério de `interpret_djen_raw()` em `src/djen_backup/manifest.py`:
+
+- `absent_confirmed` — DJEN confirmou que **não há publicação** (404, 400 em
+  feriados, ou 200 com corpo "Sem comunicações" → `no_publications`). **Não**
+  é lacuna de cobertura: não existe caderno a arquivar.
+- `pending_real`     — DJEN confirmou que o caderno existe (200 com URL) mas o
+  ZIP ainda não está no IA.
+- `errors_transient` — última resposta foi inconclusiva (403/5xx/timeout/
+  network); pode ou não existir caderno.
+- `never_checked`    — nunca obtivemos resposta do DJEN nem upload.
+
+A "Lacuna" honesta do dashboard é `pending_real + errors_transient +
+never_checked` — nunca inclui `absent_confirmed`.
 
 Além disso, `generated_at` permite ao build recusar artefatos obsoletos
-(> 7 dias — ver `loadSiteStatus()`).
+(> 7 dias) ou vindos do futuro (> 5 min de skew) — ver `loadSiteStatus()`.
 
 Terminologia: `zips_archived` conta **pares (tribunal × dia)** com upload
 confirmado no Internet Archive — "ZIPs arquivados". Não confundir com
@@ -34,32 +56,55 @@ confirmado no Internet Archive — "ZIPs arquivados". Não confundir com
 
 Nota de tipo: `updated_at` é VARCHAR (ISO-8601 UTC) no parquet real e
 TIMESTAMP no schema sintético do `--check`; o `CAST → nullif → try_cast`
-abaixo aceita ambos.
+abaixo aceita ambos. `djen_raw`/`ia_status` são VARCHAR em ambos.
 
 ```{sql}
-WITH activity AS (
-  SELECT max(try_cast(nullif(CAST(updated_at AS VARCHAR), '') AS TIMESTAMP)) AS last_activity
+-- Tentativa CONCLUSIVA = o sync chegou a um veredito (espelha
+-- interpret_djen_raw() em src/djen_backup/manifest.py):
+--   ia_status = 'uploaded'                        → ZIP confirmado no IA
+--   djen_raw = '200' ou '200:<detalhe>'           → DJEN respondeu com URL (disponível)
+--   djen_raw IN ('404','400','no_publications')   → ausência confirmada
+-- Qualquer outro djen_raw (403, 5xx, 'timeout', 'network') é transitório e
+-- NUNCA conta como sucesso — só como tentativa.
+-- Espaço de valores real de djen_raw no sync-manifest.parquet (2026-07-12):
+--   'no_publications' 79.997 · '404' 38.680 · '200' 31.801 ·
+--   NULL 11.833 (uploads descobertos via IA, sem check DJEN) · '400' 1.153
+WITH classified AS (
+  SELECT
+    tribunal,
+    date,
+    coalesce(CAST(ia_status AS VARCHAR), '') = 'uploaded' AS uploaded,
+    coalesce(CAST(djen_raw AS VARCHAR), '') AS raw,
+    coalesce(
+      CAST(djen_raw AS VARCHAR) = '200' OR CAST(djen_raw AS VARCHAR) LIKE '200:%',
+      false
+    ) AS raw_available,
+    coalesce(CAST(djen_raw AS VARCHAR), '') IN ('404', '400', 'no_publications') AS raw_absent,
+    try_cast(nullif(CAST(updated_at AS VARCHAR), '') AS TIMESTAMP) AS updated_ts
   FROM manifest
 )
 SELECT
   strftime(now() AT TIME ZONE 'UTC', '%Y-%m-%dT%H:%M:%SZ') AS generated_at,
   {
     'djen': {
-      'zips_archived': COUNT(*) FILTER (WHERE ia_status = 'uploaded'),
+      'zips_archived': COUNT(*) FILTER (WHERE uploaded),
       'pairs_total': COUNT(*),
-      'tribunals_with_data': COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded'),
+      'tribunals_with_data': COUNT(DISTINCT tribunal) FILTER (WHERE uploaded),
       'tribunals_total': COUNT(DISTINCT tribunal),
-      'coverage_pct': ROUND(100.0 * COUNT(*) FILTER (WHERE ia_status = 'uploaded') / NULLIF(COUNT(*), 0), 1),
+      'coverage_pct': ROUND(100.0 * COUNT(*) FILTER (WHERE uploaded) / NULLIF(COUNT(*), 0), 1),
       'earliest_tracked_date': CAST(MIN(date) AS VARCHAR),
-      'earliest_upload_date': CAST(MIN(date) FILTER (WHERE ia_status = 'uploaded') AS VARCHAR),
-      'latest_upload_date': CAST(MAX(date) FILTER (WHERE ia_status = 'uploaded') AS VARCHAR),
-      'last_activity_at': strftime((SELECT last_activity FROM activity), '%Y-%m-%dT%H:%M:%SZ'),
-      'freshness': CASE
-        WHEN (SELECT last_activity FROM activity) IS NULL THEN 'desconhecido'
-        WHEN date_diff('hour', (SELECT last_activity FROM activity), now() AT TIME ZONE 'UTC') <= 48 THEN 'atualizado'
-        ELSE 'atrasado'
-      END
+      'earliest_upload_date': CAST(MIN(date) FILTER (WHERE uploaded) AS VARCHAR),
+      'latest_upload_date': CAST(MAX(date) FILTER (WHERE uploaded) AS VARCHAR),
+      'absent_confirmed': COUNT(*) FILTER (WHERE NOT uploaded AND raw_absent),
+      'pending_real': COUNT(*) FILTER (WHERE NOT uploaded AND raw_available),
+      'errors_transient': COUNT(*) FILTER (WHERE NOT uploaded AND raw <> '' AND NOT raw_available AND NOT raw_absent),
+      'never_checked': COUNT(*) FILTER (WHERE NOT uploaded AND raw = ''),
+      'last_attempt_at': strftime(MAX(updated_ts), '%Y-%m-%dT%H:%M:%SZ'),
+      'last_success_at': strftime(
+        MAX(updated_ts) FILTER (WHERE uploaded OR raw_available OR raw_absent),
+        '%Y-%m-%dT%H:%M:%SZ'
+      )
     }
   } AS sources
-FROM manifest;
+FROM classified;
 ```
