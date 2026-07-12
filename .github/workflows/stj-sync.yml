@@ -20,10 +20,6 @@
 name: STJ Sync
 
 on:
-  # TEMPORARY — acceptance run for PR #805 (dispatch via API is blocked for
-  # this integration). Remove this push trigger before merging to main.
-  push:
-    branches: [claude/project-next-steps-7vaswi]
   workflow_dispatch:
     inputs:
       skip_upload:
