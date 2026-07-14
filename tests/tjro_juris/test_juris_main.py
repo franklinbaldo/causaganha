@@ -22,36 +22,53 @@ if TYPE_CHECKING:
 
 def test_crawl_bounds_defaults_to_full_history() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    assert _crawl_bounds(None, None, now) == (2010, None, None)
+    assert _crawl_bounds(None, None, None, now) == (2010, None, None)
 
 
 def test_crawl_bounds_mes_narrows_to_a_single_month() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    assert _crawl_bounds(None, "2026-07", now) == (2026, "2026-07", "2026-07")
+    assert _crawl_bounds(None, "2026-07", None, now) == (2026, "2026-07", "2026-07")
 
 
 def test_crawl_bounds_mes_rejects_bad_format() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
     with pytest.raises(typer.BadParameter, match="AAAA-MM"):
-        _crawl_bounds(None, "2026-13", now)
+        _crawl_bounds(None, "2026-13", None, now)
     with pytest.raises(typer.BadParameter, match="AAAA-MM"):
-        _crawl_bounds(None, "not-a-month", now)
+        _crawl_bounds(None, "not-a-month", None, now)
 
 
 def test_crawl_bounds_mes_and_ano_are_mutually_exclusive() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
     with pytest.raises(typer.BadParameter, match="mutually exclusive"):
-        _crawl_bounds(2026, "2026-07", now)
+        _crawl_bounds(2026, "2026-07", None, now)
 
 
 def test_crawl_bounds_ano_past_year_ends_in_december() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    assert _crawl_bounds(2020, None, now) == (2020, "2020-12", None)
+    assert _crawl_bounds(2020, None, None, now) == (2020, "2020-12", None)
 
 
 def test_crawl_bounds_ano_current_year_ends_at_current_month() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    assert _crawl_bounds(2026, None, now) == (2026, "2026-07", None)
+    assert _crawl_bounds(2026, None, None, now) == (2026, "2026-07", None)
+
+
+def test_crawl_bounds_desde_ano_overrides_default_start() -> None:
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    assert _crawl_bounds(None, None, 1988, now) == (1988, None, None)
+
+
+def test_crawl_bounds_desde_ano_mutually_exclusive_with_ano() -> None:
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    with pytest.raises(typer.BadParameter, match="mutually exclusive"):
+        _crawl_bounds(2020, None, 1988, now)
+
+
+def test_crawl_bounds_desde_ano_mutually_exclusive_with_mes() -> None:
+    now = datetime(2026, 7, 12, tzinfo=UTC)
+    with pytest.raises(typer.BadParameter, match="mutually exclusive"):
+        _crawl_bounds(None, "2026-07", 1988, now)
 
 
 # ── _should_skip_window ──────────────────────────────────────────────────

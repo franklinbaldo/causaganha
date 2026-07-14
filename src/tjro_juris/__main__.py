@@ -112,12 +112,22 @@ def _should_skip_window(
     return entry is not None and entry.ia_status == "uploaded"
 
 
+_DEFAULT_START_YEAR = 2010
+
+# JURIS's own data goes further back than the crawler's original hardcoded
+# default: live probes (2026-07-14) found DECISÃO from 1989, ACÓRDÃO from
+# 1991, and SENTENÇA from 2007 — years before the old start_year=2010 default
+# silently never crawled. --desde-ano lets a full backfill start earlier
+# without changing the default (incremental/scheduled runs stay cheap).
+
+
 def _crawl_bounds(
-    ano: int | None, mes: str | None, now: datetime
+    ano: int | None, mes: str | None, desde_ano: int | None, now: datetime
 ) -> tuple[int, str | None, str | None]:
     """Resolve (start_year, end_year_month, start_year_month) for the crawl."""
-    if mes is not None and ano is not None:
-        msg = "--mes and --ano are mutually exclusive"
+    exclusive = [v is not None for v in (ano, mes, desde_ano)]
+    if sum(exclusive) > 1:
+        msg = "--ano, --mes and --desde-ano are mutually exclusive"
         raise typer.BadParameter(msg)
     if mes is not None:
         if not _MES_RE.fullmatch(mes):
@@ -127,7 +137,9 @@ def _crawl_bounds(
     if ano is not None:
         end = f"{ano:04d}-12" if ano < now.year else now.strftime("%Y-%m")
         return ano, end, None
-    return 2010, None, None
+    if desde_ano is not None:
+        return desde_ano, None, None
+    return _DEFAULT_START_YEAR, None, None
 
 
 def _parquet_path(data_dir: Path, tipo: str, year_month: str) -> Path:
@@ -221,6 +233,16 @@ def crawl(
             help="Only crawl this month (AAAA-MM) — incremental mode for scheduled runs",
         ),
     ] = None,
+    desde_ano: Annotated[
+        int | None,
+        typer.Option(
+            "--desde-ano",
+            help=(
+                f"Full backfill starting from this year instead of the default "
+                f"({_DEFAULT_START_YEAR}). Mutually exclusive with --ano/--mes."
+            ),
+        ),
+    ] = None,
 ) -> None:
     """Crawl JURIS and save as parquet files per (tipo, mes_ano).
 
@@ -233,7 +255,7 @@ def crawl(
 
     now = datetime.now(UTC)
     current_ym = now.strftime("%Y-%m")
-    start_year, end_year_month, start_year_month = _crawl_bounds(ano, mes, now)
+    start_year, end_year_month, start_year_month = _crawl_bounds(ano, mes, desde_ano, now)
 
     def _skip(tipo_name: str, year_month: str) -> bool:
         return _should_skip_window(manifest, current_ym, tipo_name, year_month)
@@ -265,6 +287,16 @@ def crawl(
     log.info("crawl_done")
 
 
+_UPLOAD_INTERVAL_S = 1.0
+# IA's S3-compatible endpoint 503s ("Slow Down") under sustained upload
+# volume even WITH per-file retry/backoff (see tjro_juris.archive) — observed
+# live during the historical backfill, where a whole year's worth of
+# monthly parquets landed back-to-back with zero delay between PUTs. A
+# small self-imposed pause between uploads mirrors the crawler's own
+# _REQUEST_INTERVAL rate-limiting and cuts how often the retry path is
+# needed at all, instead of just reacting to it after the fact.
+
+
 @app.command()
 def upload(
     data_dir: Annotated[Path, typer.Argument(help="Directory with parquet files")],
@@ -274,7 +306,9 @@ def upload(
     pending = manifest.pending_upload()
 
     async def _upload_all() -> None:
-        for entry in pending:
+        for i, entry in enumerate(pending):
+            if i > 0:
+                await asyncio.sleep(_UPLOAD_INTERVAL_S)
             pq_path = _parquet_path(data_dir, entry.tipo, entry.mes_ano)
             if not await anyio.Path(pq_path).exists():
                 log.warning("parquet_not_found", path=str(pq_path))

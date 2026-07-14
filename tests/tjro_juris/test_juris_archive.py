@@ -5,6 +5,7 @@ No real network: respx intercepts the PUT to s3.us.archive.org.
 
 from __future__ import annotations
 
+import asyncio
 from typing import TYPE_CHECKING
 from urllib.parse import unquote
 
@@ -17,6 +18,21 @@ from tjro_juris import archive
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+
+@pytest.fixture(autouse=True)
+def _fast_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Eliminate tenacity's real backoff delay in _put_object's retry.
+
+    Mirrors tests/djen_backup/conftest.py's _fast_sleep — without this, the
+    retry-exhausted tests below would really sleep ~1+2+4+8s per attempt.
+    """
+    real_sleep = asyncio.sleep
+
+    async def _instant_sleep(_delay: float, *args: object, **kwargs: object) -> None:
+        await real_sleep(0)
+
+    monkeypatch.setattr(asyncio, "sleep", _instant_sleep)
 
 
 @pytest.fixture
@@ -69,22 +85,58 @@ async def test_upload_file_uses_yearly_item_naming(parquet_file: Path) -> None:
 
 @pytest.mark.usefixtures("_fake_auth")
 async def test_upload_file_raises_on_http_error_status(parquet_file: Path) -> None:
-    """A 403/5xx must raise so the caller keeps the entry pending — never 'uploaded'."""
+    """A non-retryable 4xx (403) must raise immediately, after a single attempt."""
     with respx.mock() as router:
-        router.put(url__startswith="https://s3.us.archive.org/").respond(403)
+        route = router.put(url__startswith="https://s3.us.archive.org/").respond(403)
         with pytest.raises(httpx.HTTPStatusError) as exc_info:
             await archive.upload_file(parquet_file, 2024, "x.parquet")
     assert exc_info.value.response.status_code == 403
+    assert route.call_count == 1
 
 
 @pytest.mark.usefixtures("_fake_auth")
-async def test_upload_file_timeout_propagates(parquet_file: Path) -> None:
+async def test_upload_file_timeout_propagates_after_retries_exhausted(
+    parquet_file: Path,
+) -> None:
+    """A persistent connect timeout retries (it's a RequestError) then still raises."""
     with respx.mock() as router:
-        router.put(url__startswith="https://s3.us.archive.org/").mock(
+        route = router.put(url__startswith="https://s3.us.archive.org/").mock(
             side_effect=httpx.ConnectTimeout("timed out")
         )
         with pytest.raises(httpx.ConnectTimeout):
             await archive.upload_file(parquet_file, 2024, "x.parquet")
+    assert route.call_count == 5  # stop_after_attempt(5)
+
+
+@pytest.mark.usefixtures("_fake_auth")
+async def test_upload_file_retries_503_slow_down_then_succeeds(parquet_file: Path) -> None:
+    """The bug this regresses: a single 503 must not permanently fail the upload.
+
+    IA's S3-compatible endpoint returns 503 "Slow Down" under sustained
+    upload volume (observed live during the historical backfill) — without
+    retry, every one of these silently stayed 'pending' until some
+    much-later, unrelated call happened to retry it.
+    """
+    with respx.mock() as router:
+        route = router.put(url__startswith="https://s3.us.archive.org/")
+        route.side_effect = [
+            httpx.Response(503),
+            httpx.Response(503),
+            httpx.Response(200),
+        ]
+        await archive.upload_file(parquet_file, 2024, "x.parquet")
+    assert route.call_count == 3
+
+
+@pytest.mark.usefixtures("_fake_auth")
+async def test_upload_file_raises_after_persistent_503(parquet_file: Path) -> None:
+    """5 consecutive 503s (stop_after_attempt(5)) still raise — not a silent success."""
+    with respx.mock() as router:
+        route = router.put(url__startswith="https://s3.us.archive.org/").respond(503)
+        with pytest.raises(httpx.HTTPStatusError) as exc_info:
+            await archive.upload_file(parquet_file, 2024, "x.parquet")
+    assert exc_info.value.response.status_code == 503
+    assert route.call_count == 5
 
 
 async def test_upload_file_without_credentials_raises_runtime_error(

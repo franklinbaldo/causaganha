@@ -40,6 +40,9 @@ on:
       tjro_mes:
         description: 'Only crawl this month (--mes, AAAA-MM) — optional, mutually exclusive with tjro_ano'
         required: false
+      tjro_desde_ano:
+        description: 'Full backfill from this year instead of the 2010 default (--desde-ano, e.g. 1988) — optional, mutually exclusive with tjro_ano/tjro_mes. A full run this old is long; prefer running it locally (unblocked network, no 120min job cap) — see docs/planning or ask before dispatching this in CI.'
+        required: false
       tjro_tipos:
         description: 'Comma-separated tipos (--tipo), e.g. "ACÓRDÃO,SENTENÇA" — optional'
         required: false
@@ -81,12 +84,13 @@ jobs:
         run: |
           ANO="${{ inputs.tjro_ano }}"
           MES="${{ inputs.tjro_mes }}"
+          DESDE_ANO="${{ inputs.tjro_desde_ano }}"
           TIPOS="${{ inputs.tjro_tipos }}"
 
           # Non-dispatch runs (cron / temporary push) are incremental:
           # crawl only the current month. The manifest restore + window
           # skip in the CLI make this cheap on a blank runner.
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -z "$ANO" ] && [ -z "$MES" ]; then
+          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -z "$ANO" ] && [ -z "$MES" ] && [ -z "$DESDE_ANO" ]; then
             MES="$(date -u +%Y-%m)"
           fi
 
@@ -96,6 +100,9 @@ jobs:
           fi
           if [ -n "$MES" ]; then
             CMD="$CMD --mes $MES"
+          fi
+          if [ -n "$DESDE_ANO" ]; then
+            CMD="$CMD --desde-ano $DESDE_ANO"
           fi
           if [ -n "$TIPOS" ]; then
             IFS=',' read -ra TIPO_LIST <<< "$TIPOS"
