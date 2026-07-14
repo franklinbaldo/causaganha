@@ -16,7 +16,7 @@
 
 import createClient, { type Client, type Middleware } from "openapi-fetch";
 import type { paths } from "./djen-types.gen";
-import { getApiV1ComunicacaoResponse } from "./djen-zod.gen";
+import { GetApiV1ComunicacaoResponse } from "./djen-zod.gen";
 
 // ---------- base URLs ------------------------------------------------------
 
@@ -434,7 +434,7 @@ export async function searchComunicacoes(
       // live API response and the spec declared in djen.yml so deviations are
       // visible in the browser console without breaking existing behaviour.
       if (!Array.isArray(body) && body !== undefined) {
-        const parseResult = getApiV1ComunicacaoResponse.safeParse(body);
+        const parseResult = GetApiV1ComunicacaoResponse.safeParse(body);
         if (!parseResult.success) {
           console.warn("[djen] Response schema mismatch:", parseResult.error.issues);
         }
