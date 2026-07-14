@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais';
-  import { toDateString } from '../lib/dateUtils';
+  import { toDateString, daysBetweenIso, latestIsoDate } from '../lib/dateUtils';
   import Heatmap from './Heatmap.svelte';
   import { calculateVelocityAndRegression } from '../lib/velocityCalc';
   import DateDetail from './DateDetail.svelte';
@@ -69,16 +69,9 @@
   // ao vivo do IA — mesmo padrão estático de /stats e /advogados (issue #809).
   let coverageSet = $derived(new Set(initialUploadedDates));
   let absentSet = $derived(new Set(initialAbsentDates));
-  let tribunalStartDate = $derived(initialStartDate ?? undefined);
+  let tribunalStartDate = $derived(initialStartDate);
 
-  let activeDate = $derived.by(() => {
-    if (hashState.date) return hashState.date;
-    let latest: string | null = null;
-    for (const d of initialUploadedDates) {
-      if (!latest || d > latest) latest = d;
-    }
-    return latest;
-  });
+  let activeDate = $derived(hashState.date || latestIsoDate(initialUploadedDates));
 
   let today = $derived(toDateString(new Date()));
   let targetRange = $derived({ start: "2024-01-01", end: today });
@@ -93,40 +86,37 @@
     window.location.href = `${baseUrl}publicacoes/${encodeURIComponent(newTribunal.toLowerCase())}`;
   }
 
-  let expectedDays = $derived.by(() => {
-    if (!tribunalStartDate) return 0;
-    const start = new Date(tribunalStartDate + "T00:00:00Z");
-    const end = new Date(targetRange.end + "T00:00:00Z");
-    if (start <= end) {
-      return Math.floor((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    }
-    return 0;
-  });
+  let expectedDays = $derived(
+    tribunalStartDate ? Math.max(0, daysBetweenIso(tribunalStartDate, targetRange.end) + 1) : 0
+  );
 
   let absentCount = $derived(absentSet.size);
   let actualMissingDays = $derived(Math.max(0, expectedDays - coverageSet.size - absentCount));
 
-  // Heurística de "pipeline parado": nenhum dia arquivado ou confirmado
-  // ausente nos últimos 60 dias do target range. Sem fonte canônica para o
-  // estado real do pipeline (cursor de varredura) — isso é estado de
-  // execução do engine, não dado arquivado, então não há contrato .qmd
-  // possível para ele; o bloco de "cursor atual" foi removido (nunca teve
-  // dado real em produção, ver PR).
+  // "Pipeline parado" fica indisponível sem uma data de referência: nenhum
+  // dia arquivado ou confirmado ausente nos últimos STOPPED_THRESHOLD_DAYS
+  // dias do target range. Sem fonte canônica para o estado real do pipeline
+  // (cursor de varredura) — isso é estado de execução do engine, não dado
+  // arquivado, então não há contrato .qmd possível para ele; o bloco de
+  // "cursor atual" foi removido (nunca teve dado real em produção, ver PR).
+  const STOPPED_THRESHOLD_DAYS = 60;
   let isStopped = $derived.by(() => {
-    let latest: string | null = null;
-    for (const d of initialUploadedDates) if (!latest || d > latest) latest = d;
-    for (const d of initialAbsentDates) if (!latest || d > latest) latest = d;
+    const latest = latestIsoDate(initialUploadedDates, initialAbsentDates);
     if (!latest) return false;
-    const latestDate = new Date(latest + "T00:00:00Z");
-    const end = new Date(targetRange.end + "T00:00:00Z");
-    const daysSince = Math.floor((end.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
-    return daysSince > 60;
+    return daysBetweenIso(latest, targetRange.end) > STOPPED_THRESHOLD_DAYS;
   });
 
-  let completionPct = $derived(expectedDays > 0 ? ((coverageSet.size + absentCount) / expectedDays) * 100 : 0);
-  let genesisDate = $derived(tribunalStartDate);
+  // Clampado a [0, 100]: coverageSet/absentSet podem conter datas fora da
+  // janela [tribunalStartDate, targetRange.end] (tribunal_start_dates.json é
+  // um arquivo curado, pode não refletir o início real rastreado no
+  // manifesto), o que sem o clamp renderiria porcentagens acima de 100%.
+  let completionPct = $derived(
+    expectedDays > 0
+      ? Math.min(100, Math.round(((coverageSet.size + absentCount) / expectedDays) * 1000) / 10)
+      : 0
+  );
 
-  let velocityMetrics = $derived(calculateVelocityAndRegression(coverageSet, targetRange.end, tribunalStartDate));
+  let velocityMetrics = $derived(calculateVelocityAndRegression(coverageSet, targetRange.end, tribunalStartDate ?? undefined));
 
   let dynamicEtaDays = $derived.by(() => {
     let eta: number | null = null;
@@ -276,7 +266,7 @@
       {completionStatusText}
       {etaText}
       {actualMissingDays}
-      {genesisDate}
+      genesisDate={tribunalStartDate}
     />
 
     {#if tribunalAttentionCards.length > 0}
@@ -318,7 +308,7 @@
           <h4>Informações do Pipeline</h4>
           <dl>
             <dt>Data inicial do tribunal</dt>
-            <dd><strong>{genesisDate || "Desconhecida"}</strong></dd>
+            <dd><strong>{tribunalStartDate || "Desconhecida"}</strong></dd>
           </dl>
 
           {#if isStopped}

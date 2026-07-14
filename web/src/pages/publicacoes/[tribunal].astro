@@ -34,13 +34,16 @@ const latestDate = coverageRow?.latest_upload ?? '';
 // iaSnapshot legados (cache/backfill.json), que historicamente divergiam do
 // manifesto canônico (issue #809). Filtrado por tribunal aqui em build-time
 // para não embarcar o contrato inteiro (todos os tribunais) no HTML da página.
+// loadContract('tribunal_calendar') é cacheado por processo (web/src/lib/data/index.ts) —
+// o array completo (todos os tribunais) só é lido/parseado/validado uma vez
+// para as ~96 páginas geradas por getStaticPaths, não uma vez por página.
 const calendarRows = (await loadContract('tribunal_calendar')) ?? [];
-const uploadedDates = calendarRows
-  .filter(row => row.tribunal.toUpperCase() === tribunalUpper && row.status === 'uploaded')
-  .map(row => row.date);
-const absentDates = calendarRows
-  .filter(row => row.tribunal.toUpperCase() === tribunalUpper && row.status === 'absent')
-  .map(row => row.date);
+const uploadedDates: string[] = [];
+const absentDates: string[] = [];
+for (const row of calendarRows) {
+  if (row.tribunal.toUpperCase() !== tribunalUpper) continue;
+  (row.status === 'uploaded' ? uploadedDates : absentDates).push(row.date);
+}
 
 // tribunal_start_dates.json é um arquivo estático curado (data de gênese por
 // tribunal — não derivável do manifesto, que só rastreia datas a partir de
