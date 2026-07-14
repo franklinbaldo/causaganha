@@ -5,9 +5,11 @@
 > systems). The default is **integral preservation**: content is not removed
 > because a requester finds a lawful judicial publication inconvenient, old,
 > or reputationally harmful. Correction, restriction, or removal happens only
-> on objective grounds — the official source changed the publication, a
-> competent authority ordered it, or the project itself introduced a
-> processing error. Discoverability is part of the mission: the project
+> on objective grounds — the project itself introduced a processing error,
+> or a competent authority ordered it. Later changes at the official source
+> (correction, unpublication, supervening secrecy) are recorded as
+> provenance metadata, not grounds for removal: preserving the history of
+> what was actually published is the archive's function. Discoverability is part of the mission: the project
 > does not degrade the findability of lawful public acts, and does not
 > claim control it does not have over material deposited with the Internet
 > Archive — a US nonprofit library under its own jurisdiction and
@@ -40,9 +42,10 @@ de acesso público — comunicações cuja publicação produz efeitos legais
 (intimação, contagem de prazos) e cuja publicidade decorre de decisão do
 próprio Poder Judiciário. Essa circunstância fundamenta a finalidade
 arquivística do projeto. Ela não dispensa a observância das restrições
-legais de publicidade (ex.: segredo de justiça) nem das correções
-posteriores promovidas pela fonte oficial. Sobre o âmbito de aplicação da
-LGPD, ver Seção 3.
+legais de publicidade **na coleta**: o que a fonte oficial não publicou não
+entra no acervo (Seção 2). Alterações posteriores da fonte são tratadas
+como proveniência, não como retirada (Seção 4). Sobre o âmbito de aplicação
+da LGPD, ver Seção 3.
 
 ## 2. O que o projeto deliberadamente NÃO coleta
 
@@ -69,7 +72,8 @@ magistrados. A posição do projeto:
   fundado no mero decurso do tempo (Tema 786). Idade da publicação,
   constrangimento ou impacto reputacional, por si sós, **não são fundamento
   para remoção** do acervo. Excessos concretos têm os remédios ordinários —
-  dirigidos, em primeiro lugar, à fonte oficial.
+  e, quando devam alcançar o acervo, chegam ao projeto na forma de
+  determinação de autoridade competente (Seção 4).
 - **Âmbito de aplicação da LGPD.** O projeto é mantido por pessoa natural,
   em caráter cidadão, sem qualquer finalidade econômica. O entendimento do
   projeto é que esse tratamento está **fora do âmbito de aplicação da
@@ -106,19 +110,27 @@ hipóteses objetivas:
 1. **Erro do próprio projeto:** corrupção, duplicação, associação ao
    processo ou tribunal incorreto, falha de extração ou inclusão de conteúdo
    que não constava da publicação oficial;
-2. **Alteração pela fonte oficial:** correção, despublicação, anonimização,
-   decretação de segredo de justiça ou outra restrição determinada pelo
-   tribunal ou órgão responsável;
-3. **Determinação de autoridade competente:** ordem judicial ou
+2. **Determinação de autoridade competente:** ordem judicial ou
    administrativa aplicável ao projeto.
 
+**Alterações posteriores na fonte oficial** (correção, despublicação,
+anonimização, decretação superveniente de segredo de justiça) **não
+retiram, por si sós, conteúdo do acervo**. Preservar o registro histórico
+do que foi efetivamente publicado em cada data — inclusive quando a fonte
+depois o altera ou suprime — é precisamente a função do arquivo,
+resguardando seu eventual valor probatório e de auditoria. Quando
+detectadas, alterações da fonte são **anotadas como metadados de
+proveniência**, sem reescrever o registro original. Se uma restrição
+superveniente deve alcançar também o acervo, isso virá por determinação de
+autoridade competente dirigida ao projeto (hipótese 2).
+
 Não há hipótese de restrição por juízo próprio do projeto sobre gravidade,
-sensibilidade ou dano. **O projeto não avalia mérito**: se o conteúdo
-permanece publicado pela fonte oficial e não há determinação de autoridade
-competente, ele permanece no acervo. Quem entende que uma publicação
-oficial é indevida deve dirigir-se à fonte oficial ou ao Poder Judiciário —
-se a situação for de fato grave, é dali que virá a correção (hipótese 2) ou
-a ordem (hipótese 3), e o projeto as cumprirá com naturalidade.
+sensibilidade ou dano. **O projeto não avalia mérito**: existindo o
+registro histórico e não havendo determinação de autoridade competente,
+ele permanece no acervo. Quem entende que uma publicação oficial é indevida
+deve dirigir-se ao Poder Judiciário — se a situação for de fato grave, é
+dali que virá a ordem (hipótese 2), e o projeto a cumprirá com
+naturalidade.
 
 Restrições de descobribilidade **não são adotadas**: tornar atos públicos
 localizáveis é a razão de ser do projeto (Seção 7).
@@ -133,7 +145,7 @@ localizáveis é a razão de ser do projeto (Seção 7).
   <https://github.com/franklinbaldo/causaganha/issues> com o título
   `[Revisão de dados]`.
 - **O que informar:** tribunal, data da publicação, identificação do trecho
-  (número do processo, se houver) e a hipótese objetiva invocada (1–3).
+  (número do processo, se houver) e a hipótese objetiva invocada (1–2).
 - **Prazo alvo de primeira resposta:** 15 dias.
 
 As providências adotadas e sua fundamentação genérica são registradas de
@@ -191,8 +203,8 @@ acervo.
   exatamente o que este acervo preserva.
 - O projeto **não pratica restrições de descobribilidade por iniciativa
   própria**. Alterações no acervo ocorrem exclusivamente nas hipóteses
-  objetivas da Seção 4 (erro do próprio projeto, alteração pela fonte
-  oficial ou determinação de autoridade competente).
+  objetivas da Seção 4 (erro do próprio projeto ou determinação de
+  autoridade competente).
 
 ## 8. Licenciamento
 
@@ -222,8 +234,10 @@ dataset, porque isso preserva a auditabilidade que motiva o projeto.
   legais (prazos, intimações), vale a publicação original no DJEN/tribunal.
 - Preservar publicações oficiais de acesso público é atividade lícita e de
   interesse público. O projeto responde pelos seus próprios erros de
-  processamento (Seção 4, hipótese 1) e pela sincronização com a fonte
-  oficial (hipótese 2) — não pelo teor dos atos judiciais que preserva.
+  processamento (Seção 4, hipótese 1) e pelo cumprimento de determinações
+  de autoridade competente (hipótese 2) — não pelo teor dos atos judiciais
+  que preserva, nem por refletir alterações que a fonte fizer depois: o
+  registro histórico é o produto.
 - O projeto não garante completude: a cobertura real, os atrasos e as
   lacunas conhecidas são expostos no próprio dashboard — a incerteza faz
   parte do produto.
