@@ -236,13 +236,13 @@ The main CI workflow is [test.yml](.github/workflows/test.yml). It currently run
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup, rules, PR checklist
 - [FRONTEND.md](FRONTEND.md) — frontend design system and architecture
 - [web/src/queries/README.md](web/src/queries/README.md) — query contract spec
-- [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — data governance: personal data, correction/removal requests, retention, dataset licensing
+- [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — data governance: preservation-first policy, objective correction/restriction criteria, retention, indexing, dataset licensing
 
 If a doc disagrees with code or workflow files, trust the code and update the doc in the same change.
 
 ## License
 
 - **Code:** [MIT](LICENSE).
-- **Data:** the archived publications are official judicial acts, which are not subject to copyright under Brazilian law (Lei 9.610/98, art. 8º, IV). The project's derived datasets and metadata (consolidated Parquet, sync manifest, dashboard aggregates) are dedicated to the public domain via [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+- **Data:** the texts of judicial decisions and other official acts are not subject to copyright under Brazilian law (Lei 9.610/98, art. 8º, IV); this statement does not automatically extend to third-party works reproduced inside publications, nor does it affect privacy or data-protection rights. Whatever rights the project itself holds over its derived datasets and metadata (consolidated Parquet, sync manifest, dashboard aggregates) are released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-See [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for the full data-governance policy, including how to request correction or removal review.
+See [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for the full data-governance policy — preservation by default, with correction/restriction only on objective grounds (source change, competent authority, or a processing error by the project itself).

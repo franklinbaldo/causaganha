@@ -28,11 +28,17 @@ real do código e o plano de ação priorizado.
    público e camada de dados estruturados do DJEN; dependências mortas
    (`openskill`, `pydantic-ai`) removidas; `google-genai` isolada no grupo
    `lab` — primeiro passo concreto da fronteira "Lab" proposta pela revisão.
-2. **Governança**: `docs/GOVERNANCE.md` cobre coleta, dados pessoais,
-   procedimento de correção/remoção/desindexação (com prazo alvo), retenção,
-   indexação e licenciamento em duas camadas (código MIT; publicações como
-   atos oficiais em domínio público; datasets derivados em CC0 1.0). README
-   e página Sobre linkam a política.
+2. **Governança**: `docs/GOVERNANCE.md` adota preservação integral como
+   regra — correção, restrição ou remoção apenas em hipóteses objetivas
+   (erro do próprio projeto, alteração pela fonte oficial, determinação de
+   autoridade competente, quarentena cautelar diante de indício grave de
+   divulgação indevida). Desindexação é tratada como controle de
+   descobribilidade, distinto de remoção (alinhado à Resolução CNJ 121;
+   sem "direito ao esquecimento" genérico, conforme STF Tema 786). Cobre
+   ainda retenção, canais (privado para casos sensíveis) e licenciamento em
+   duas camadas (código MIT; textos de atos oficiais sem proteção autoral,
+   art. 8º, IV, Lei 9.610/98; direitos do projeto sobre datasets derivados
+   em CC0 1.0). README e página Sobre linkam a política.
 
 ## Plano de ação para o restante (em ordem)
 
