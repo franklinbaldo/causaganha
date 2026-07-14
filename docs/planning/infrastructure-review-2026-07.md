@@ -34,11 +34,15 @@ real do código e o plano de ação priorizado.
    autoridade competente, quarentena cautelar diante de indício grave de
    divulgação indevida). Desindexação é tratada como controle de
    descobribilidade, distinto de remoção (alinhado à Resolução CNJ 121;
-   sem "direito ao esquecimento" genérico, conforme STF Tema 786). Cobre
-   ainda retenção, canais (privado para casos sensíveis) e licenciamento em
-   duas camadas (código MIT; textos de atos oficiais sem proteção autoral,
-   art. 8º, IV, Lei 9.610/98; direitos do projeto sobre datasets derivados
-   em CC0 1.0). README e página Sobre linkam a política.
+   sem "direito ao esquecimento" genérico, conforme STF Tema 786). Registra
+   a posição do projeto sobre o âmbito da LGPD (art. 4º, I — pessoa natural,
+   fins não econômicos; com argumento subsidiário no art. 7º, §§ 3º–4º) e a
+   custódia das cópias primárias no Internet Archive, sob jurisdição e
+   políticas próprias. Cobre ainda retenção, canais (privado para casos
+   sensíveis) e licenciamento em duas camadas (código MIT; textos de atos
+   oficiais sem proteção autoral, art. 8º, IV, Lei 9.610/98; direitos do
+   projeto sobre datasets derivados em CC0 1.0). README e página Sobre
+   linkam a política.
 
 ## Plano de ação para o restante (em ordem)
 

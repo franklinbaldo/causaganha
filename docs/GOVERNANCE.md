@@ -9,7 +9,12 @@
 > competent authority ordered it, or the project itself introduced a
 > processing error. De-indexing from general search engines is a
 > discoverability control, not removal, and does not affect the archive.
-> This document states the policy; it is not legal advice.
+> Primary copies are deposited with the Internet Archive, a US nonprofit
+> library under its own jurisdiction and preservation/takedown policies.
+> The project is maintained by a private individual on a non-commercial
+> basis and takes the position that the LGPD does not apply to this
+> processing (art. 4º, I), while voluntarily adopting the safeguards
+> described here. This document states the policy; it is not legal advice.
 
 Este documento define a posição do projeto sobre o ciclo de vida legal dos
 dados que ele preserva. Ele complementa a documentação técnica (README,
@@ -33,9 +38,10 @@ Todo o material de origem é obtido de canais oficiais de publicação judicial
 de acesso público — comunicações cuja publicação produz efeitos legais
 (intimação, contagem de prazos) e cuja publicidade decorre de decisão do
 próprio Poder Judiciário. Essa circunstância fundamenta a finalidade
-arquivística do projeto, mas não afasta a observância da LGPD, das
-restrições legais de publicidade nem de correções posteriores promovidas
-pela fonte oficial.
+arquivística do projeto. Ela não dispensa a observância das restrições
+legais de publicidade (ex.: segredo de justiça) nem das correções
+posteriores promovidas pela fonte oficial. Sobre o âmbito de aplicação da
+LGPD, ver Seção 3.
 
 ## 2. O que o projeto deliberadamente NÃO coleta
 
@@ -63,8 +69,19 @@ magistrados. A posição do projeto:
   constrangimento ou impacto reputacional, por si sós, **não são fundamento
   para remoção** do acervo. Excessos concretos têm os remédios ordinários —
   dirigidos, em primeiro lugar, à fonte oficial.
+- **Âmbito de aplicação da LGPD.** O projeto é mantido por pessoa natural,
+  em caráter cidadão, sem qualquer finalidade econômica. O entendimento do
+  projeto é que esse tratamento está **fora do âmbito de aplicação da
+  LGPD**, por força do seu art. 4º, I (tratamento realizado por pessoa
+  natural para fins exclusivamente particulares e não econômicos). Ainda
+  que se entendesse a lei aplicável, o tratamento encontraria amparo na
+  publicidade oficial dos dados e na finalidade arquivística de interesse
+  público (LGPD, art. 7º, §§ 3º e 4º) — e as garantias desta política
+  seriam exatamente as mesmas. As salvaguardas aqui descritas são adotadas
+  por escolha do projeto, como boa prática, e **não constituem admissão de
+  obrigação legal**.
 - O que o projeto controla diretamente é a **descobribilidade** do acervo
-  por buscadores gerais (Seção 6) — uma salvaguarda de desenho, distinta da
+  por buscadores gerais (Seção 7) — uma salvaguarda de desenho, distinta da
   integridade do arquivo.
 
 ## 4. Correção, restrição e desindexação
@@ -119,14 +136,36 @@ aplicáveis (ex.: Resolução CNJ 121).
 As providências adotadas e sua fundamentação genérica são registradas de
 maneira auditável, sem reproduzir o conteúdo protegido.
 
-## 5. Retenção
+## 5. Custódia no Internet Archive e jurisdição
+
+As cópias primárias dos ZIPs e dos datasets consolidados são depositadas no
+**Internet Archive**, biblioteca digital sem fins lucrativos sediada nos
+Estados Unidos, com jurisdição própria e políticas próprias de preservação,
+acesso e remoção.
+
+Consequências práticas dessa custódia:
+
+- Uma vez depositado, o material passa a ser regido **também** pelas
+  políticas do Internet Archive. O projeto não controla unilateralmente a
+  permanência ou remoção de itens lá arquivados.
+- As hipóteses da Seção 4 aplicam-se ao que o projeto controla diretamente:
+  os datasets derivados que ele gera, o site e a indexação das suas
+  páginas. Para os itens depositados no Internet Archive, remoções seguem
+  os procedimentos de takedown do próprio Internet Archive; quando uma
+  hipótese objetiva da Seção 4 se confirmar, o projeto coopera com o
+  solicitante nesses procedimentos.
+- Essa separação é deliberada: a custódia por uma biblioteca independente,
+  em outra jurisdição, protege o acervo contra pressões informais e contra
+  o ponto único de falha que seria o próprio mantenedor.
+
+## 6. Retenção
 
 A missão do projeto é **preservação de longo prazo**: publicações oficiais
 são efêmeras na origem e o acervo existe para que permaneçam verificáveis.
 A retenção padrão é, portanto, **indefinida**, ressalvadas as hipóteses
-objetivas da Seção 4.
+objetivas da Seção 4 e as políticas do Internet Archive (Seção 5).
 
-## 6. Indexação por buscadores
+## 7. Indexação por buscadores
 
 O projeto distingue quatro camadas, que não precisam de regras idênticas:
 preservação no acervo, consulta interna, busca nominal e indexação por
@@ -143,7 +182,7 @@ decisões evitem a busca por nome quando possível.
   gerais. Hoje o texto integral vive nos ZIPs/Parquet no Internet Archive,
   não em páginas HTML do site.
 
-## 7. Licenciamento
+## 8. Licenciamento
 
 Duas camadas distintas — não confundir:
 
@@ -163,7 +202,7 @@ Duas camadas distintas — não confundir:
 Pedimos (sem exigir) que reutilizações citem a fonte e a data de geração do
 dataset, porque isso preserva a auditabilidade que motiva o projeto.
 
-## 8. Papel e responsabilidade
+## 9. Papel e responsabilidade
 
 - O CausaGanha é um **arquivo de atos oficiais**, não a fonte oficial nem o
   autor do conteúdo. A decisão sobre a publicidade de cada ato, e a
