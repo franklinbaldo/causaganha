@@ -12,6 +12,7 @@ from tjro_juris.crawler import (
     JurisWindowOverflowError,
     _exceeds_window,
     _extract_doc,
+    _int_or_none,
     _iter_year_months,
     _month_bounds,
     _split_range,
@@ -39,6 +40,15 @@ def _hit(doc_id: int, **extra: object) -> dict:
         "sistema_origem": "pje2instancia",
         "dtjulgamento": "2024-03-15",
         "ds_modelo_documento": "<p>EMENTA: teste</p>",
+        "id_processo": 999,
+        "cd_assunto_trf": "3372",
+        "ds_assunto_trf": "Homicídio Qualificado",
+        "cd_classe_judicial": "417",
+        "nivel_sigilo_processo": 0,
+        "grau_jurisdicao": 2,
+        "ds_md5_documento": "abc123",
+        "id_orgao_julgador": 22,
+        "id_orgao_julgador_colegiado": 12,
     }
     src.update(extra)
     return {"_source": src}
@@ -65,6 +75,35 @@ def test_extract_doc_maps_all_fields() -> None:
     assert "id=42" in doc["url_portal"]
     assert "id_documento_principal=7" in doc["url_portal"]
     assert doc["extraido_em"]  # timestamp stamped
+    assert doc["id_processo"] == 999
+    assert doc["cd_assunto_trf"] == "3372"
+    assert doc["ds_assunto_trf"] == "Homicídio Qualificado"
+    assert doc["cd_classe_judicial"] == "417"
+    assert doc["nivel_sigilo_processo"] == 0
+    assert doc["grau_jurisdicao"] == 2
+    assert doc["ds_md5_documento"] == "abc123"
+    assert doc["id_orgao_julgador"] == 22
+    assert doc["id_orgao_julgador_colegiado"] == 12
+
+
+def test_extract_doc_new_fields_default_when_missing() -> None:
+    doc = _extract_doc({"_source": {"tipo": "VOTO"}})
+    assert doc["id_processo"] is None
+    assert doc["cd_assunto_trf"] == ""
+    assert doc["ds_assunto_trf"] == ""
+    assert doc["cd_classe_judicial"] == ""
+    assert doc["nivel_sigilo_processo"] is None
+    assert doc["grau_jurisdicao"] is None
+    assert doc["ds_md5_documento"] == ""
+    assert doc["id_orgao_julgador"] is None
+    assert doc["id_orgao_julgador_colegiado"] is None
+
+
+def test_int_or_none_handles_none_empty_string_and_numeric_string() -> None:
+    assert _int_or_none(None) is None
+    assert _int_or_none("") is None
+    assert _int_or_none(5) == 5
+    assert _int_or_none("5") == 5
 
 
 def test_extract_doc_orgao_falls_back_to_non_colegiado() -> None:

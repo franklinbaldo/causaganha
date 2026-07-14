@@ -57,8 +57,23 @@ class JurisWindowOverflowError(RuntimeError):
     """
 
 
+def _int_or_none(value: object) -> int | None:
+    """Coerce a raw ES field to int, tolerating None/empty-string (both observed live)."""
+    if value is None or value == "":
+        return None
+    return int(value)
+
+
 def _extract_doc(raw: dict) -> dict:
-    """Normalize a raw JURIS hit into a flat, cleaned dict."""
+    """Normalize a raw JURIS hit into a flat, cleaned dict.
+
+    Captures the subset of the ~29 raw ES fields with clear analytical value
+    beyond the original 11 (case grouping, subject classification, secrecy
+    flag, content hash, instance level, stable órgão IDs) — see the
+    2026-07-14 field audit. Deliberately excludes clearly redundant/
+    low-value fields (``dtjulgamento_str`` duplicates ``dtjulgamento``,
+    ``datarodape``/``cod_ini`` are display-only, etc).
+    """
     src = raw.get("_source", raw)
     orgao = src.get("ds_orgao_julgador_colegiado") or src.get("ds_orgao_julgador", "")
     relator = src.get("nome_relator_acordao") or src.get("ds_nome", "")
@@ -83,6 +98,15 @@ def _extract_doc(raw: dict) -> dict:
         "texto_limpo": clean_html(src.get("ds_modelo_documento", "") or ""),
         "url_portal": url,
         "extraido_em": datetime.now(UTC).isoformat(),
+        "id_processo": _int_or_none(src.get("id_processo")),
+        "cd_assunto_trf": src.get("cd_assunto_trf") or "",
+        "ds_assunto_trf": src.get("ds_assunto_trf") or "",
+        "cd_classe_judicial": src.get("cd_classe_judicial") or "",
+        "nivel_sigilo_processo": _int_or_none(src.get("nivel_sigilo_processo")),
+        "grau_jurisdicao": _int_or_none(src.get("grau_jurisdicao")),
+        "ds_md5_documento": src.get("ds_md5_documento") or "",
+        "id_orgao_julgador": _int_or_none(src.get("id_orgao_julgador")),
+        "id_orgao_julgador_colegiado": _int_or_none(src.get("id_orgao_julgador_colegiado")),
     }
 
 
