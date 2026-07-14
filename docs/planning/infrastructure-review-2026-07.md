@@ -73,6 +73,26 @@ real do código e o plano de ação priorizado.
    semântica de status (`djen.py`, `manifest.py`), migrações de schema,
    fronteiras de segurança (relay), e `docs/GOVERNANCE.md`.
 
+## Retratação do revisor (2ª rodada)
+
+Após a reorientação da política de governança, o revisor externo retratou
+três sugestões da primeira rodada e aprovou o PR como está:
+
+1. **Retirada por mudança na fonte** — reconheceu que confundia o estado
+   atual do processo com o fato histórico da publicação; alterações
+   posteriores da fonte são proveniência, não borracha.
+2. **`noindex` geral** — reconheceu que tratava descobribilidade como dano
+   colateral quando ela é o produto, e que a Resolução CNJ 121 obriga os
+   serviços de consulta dos tribunais, não arquivos independentes.
+3. **Linguagem hesitante sobre a LGPD** — reconheceu que a seção é uma
+   declaração de posição jurídica do projeto, não um parecer; a existência
+   de interpretações contrárias não obriga a adotar antecipadamente a mais
+   restritiva.
+
+Síntese adotada como princípio de abertura da política: "O projeto preserva
+o registro público produzido pelo Estado; não reavalia, não higieniza e não
+reescreve esse registro por iniciativa própria."
+
 ## O que a revisão acerta em espírito
 
 > "Its next stage should be defined by subtraction, consistency and

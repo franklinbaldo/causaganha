@@ -1,5 +1,9 @@
 # Governança de Dados / Data Governance
 
+> **O projeto preserva o registro público produzido pelo Estado; não
+> reavalia, não higieniza e não reescreve esse registro por iniciativa
+> própria.**
+
 > **English summary:** CausaGanha preserves Brazilian judicial publications
 > obtained from official public publication channels (DJEN and court
 > systems). The default is **integral preservation**: content is not removed
