@@ -68,6 +68,7 @@ The engine periodically (every 10 min) uploads a segment of the mutated rows and
 | [drain-unknowns.yml](.github/workflows/drain-unknowns.yml) | Manual | Re-check `unknown` rows, push manifest to IA |
 | [backfill-probe.yml](.github/workflows/backfill-probe.yml) | Manual / push | Probe DJEN proxy + manifest drift |
 | [recover-manifest.yml](.github/workflows/recover-manifest.yml) | Manual | Restore the manifest from cache/artifact |
+| [canary.yml](.github/workflows/canary.yml) | Daily 10:00 UTC | End-to-end check against the real deployed system (see [docs/SERVICE_OBJECTIVES.md](docs/SERVICE_OBJECTIVES.md)) |
 | [test.yml](.github/workflows/test.yml) | PR / push | Lint, notebook sync, test, build |
 
 ## Gotchas
@@ -237,6 +238,7 @@ The main CI workflow is [test.yml](.github/workflows/test.yml). It currently run
 - [FRONTEND.md](FRONTEND.md) — frontend design system and architecture
 - [web/src/queries/README.md](web/src/queries/README.md) — query contract spec
 - [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — data governance: preservation-first policy, objective correction/restriction criteria, retention, indexing, dataset licensing
+- [docs/SERVICE_OBJECTIVES.md](docs/SERVICE_OBJECTIVES.md) — operational SLOs (freshness, sanity, live DJEN check) and how the daily canary verifies them
 
 If a doc disagrees with code or workflow files, trust the code and update the doc in the same change.
 

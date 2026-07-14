@@ -61,17 +61,43 @@ real do código e o plano de ação priorizado.
    exclusivamente de um novo contrato `tribunal_calendar.qmd` derivado do
    manifesto canônico; `buildTimeData.ts`/`useDashboard.svelte.ts`/
    `QueryProvider.svelte` (o stack legado) foram deletados.
-3. **Canário de ponta a ponta:** um par (tribunal, data) pequeno e conhecido
-   atravessando coleta → IA → manifesto → Parquet → `render_queries` →
-   leitura via browser (Playwright já está nas dev-deps). Roda agendado, não
-   por PR; falha alto quando a fronteira real driftar do stub do CI. **Ainda
-   pendente** — decisão de produto (frequência do cron batendo em DJEN/IA ao
-   vivo, canal de alerta) que cabe ao mantenedor, não a um PR autônomo.
-4. **Objetivos de serviço explícitos:** atraso máximo publicação→arquivo,
-   idade máxima do status público, alerta quando a coleta funciona mas a
-   geração de status não. O painel de status já existe; falta o alarme.
-   **Ainda pendente**, mesma razão do item 3 (canal de notificação e
-   thresholds são decisão do mantenedor).
+3. ~~**Canário de ponta a ponta**~~ **Feito.** `.github/workflows/canary.yml`
+   + `scripts/canary_check.py`, diário às 10:00 UTC (após a cadeia
+   consolidate→catalog→deploy-web). Decisões tomadas para reduzir risco a
+   quase zero (documentadas em detalhe no comentário do commit e em
+   `docs/SERVICE_OBJECTIVES.md`):
+   - **Sem round-trip sintético novo.** Em vez de inventar um par
+     (tribunal, data) para atravessar coleta→IA→manifesto→Parquet→browser
+     num único job, o canário verifica dois sinais independentes e baratos:
+     (a) frescor/sanidade do `site-status.json` público real e (b) **um**
+     lookup ao vivo do DJEN (`get_caderno_url`) para TJRO no último dia útil
+     — não uma nova simulação, o mesmo caminho que a coleta em produção usa
+     (proxy, mesma função Python).
+   - **Tribunal:** TJRO — o mais documentado no próprio repositório
+     (exemplo de nomenclatura de item IA no CLAUDE.md, exemplo de SQL em
+     `site_status.qmd`).
+   - **Data:** último dia útil brasileiro (via `holidays.Brazil()`, já
+     dependência existente) — evita falso-positivo em fim de semana/feriado,
+     quando DJEN responde 400/404 legitimamente.
+   - **Classificação de resultado:** disponível ou ausente (404/400/200
+     sem URL) → sucesso, prova que o parser ainda distingue corretamente o
+     caso historicamente problemático; 403 (rate-limit CloudFront) → aviso,
+     nunca falha, conforme a regra do CLAUDE.md; qualquer outra exceção →
+     falha real.
+   - **Canal de alerta:** nenhum novo. A notificação padrão do GitHub
+     Actions para falha de workflow agendado é o mecanismo — zero segredos
+     novos, zero integração nova.
+4. ~~**Objetivos de serviço explícitos**~~ **Feito**, em
+   `docs/SERVICE_OBJECTIVES.md`. Decisão chave: o limiar de frescor (48h)
+   **não é um número novo** — é `FRESHNESS_THRESHOLD_MS`, já estabelecido em
+   `web/src/lib/data/siteStatus.ts` para decidir "atualizado" vs "atrasado"
+   no próprio dashboard. O canário passou a alarmar ativamente sobre
+   exatamente o que o site já considerava obsoleto passivamente, em vez de
+   inventar um SLO paralelo. O atraso publicação→arquivo (24h, alinhado à
+   cadência diária real do pipeline) fica registrado como meta declarada,
+   não automatizada — o dado bruto (`pending_real`) já existe em
+   `site-status.json`, falta só o alarme; deixado para not implementar às
+   pressas sem confirmar o limiar com o mantenedor.
 5. ~~**Subtração contínua**~~ **Primeiro passo feito neste PR** — ver
    "Auditoria de `scripts/`" abaixo. Removido `scripts/upload_to_ia.py`
    (órfão: seu próprio docstring alegava ser "invocado por collect-zips.yml
