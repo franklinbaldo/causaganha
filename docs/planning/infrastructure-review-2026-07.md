@@ -30,11 +30,10 @@ real do código e o plano de ação priorizado.
    `lab` — primeiro passo concreto da fronteira "Lab" proposta pela revisão.
 2. **Governança**: `docs/GOVERNANCE.md` adota preservação integral como
    regra — correção, restrição ou remoção apenas em hipóteses objetivas
-   (erro do próprio projeto, alteração pela fonte oficial, determinação de
-   autoridade competente, quarentena cautelar diante de indício grave de
-   divulgação indevida — esta limitada às superfícies que o projeto
-   controla). Descobribilidade é tratada como parte da missão, não como
-   risco: nenhum `noindex` ou limitação de busca como regra geral, e nenhum
+   (erro do próprio projeto, alteração pela fonte oficial ou determinação
+   de autoridade competente — sem nenhuma hipótese de juízo próprio do
+   projeto sobre gravidade ou dano). Descobribilidade é tratada como parte
+   da missão, não como risco: nenhum `noindex` ou limitação de busca como regra geral, e nenhum
    compromisso sobre superfícies fora do controle do projeto (o texto
    integral vive no Internet Archive). Sem "direito ao esquecimento"
    genérico, conforme STF Tema 786. Registra a posição do projeto sobre o

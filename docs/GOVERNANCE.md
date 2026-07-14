@@ -110,37 +110,30 @@ hipóteses objetivas:
    decretação de segredo de justiça ou outra restrição determinada pelo
    tribunal ou órgão responsável;
 3. **Determinação de autoridade competente:** ordem judicial ou
-   administrativa aplicável ao projeto;
-4. **Indício grave de divulgação indevida:** quando houver indícios
-   objetivos de que dado sigiloso ou protegido foi publicado acidentalmente,
-   o conteúdo poderá ser cautelarmente restringido **nas superfícies que o
-   projeto efetivamente controla** (site e datasets derivados) enquanto o
-   projeto solicita confirmação à fonte oficial. A restrição permanente
-   seguirá a resposta oficial ou determinação da autoridade competente.
+   administrativa aplicável ao projeto.
 
-Restrições de descobribilidade **não são adotadas como regra geral**:
-tornar atos públicos localizáveis é a razão de ser do projeto (Seção 7). A
-medida cautelar da hipótese 4 é pontual, e mesmo quando aplicada preserva,
-sempre que possível, a consulta por número do processo, tribunal e data.
+Não há hipótese de restrição por juízo próprio do projeto sobre gravidade,
+sensibilidade ou dano. **O projeto não avalia mérito**: se o conteúdo
+permanece publicado pela fonte oficial e não há determinação de autoridade
+competente, ele permanece no acervo. Quem entende que uma publicação
+oficial é indevida deve dirigir-se à fonte oficial ou ao Poder Judiciário —
+se a situação for de fato grave, é dali que virá a correção (hipótese 2) ou
+a ordem (hipótese 3), e o projeto as cumprirá com naturalidade.
 
-Pedidos envolvendo crianças e adolescentes, vítimas, violência doméstica,
-saúde ou possível quebra de sigilo receberão **análise prioritária e
-cautelar, sem presunção automática de remoção**. A análise verificará
-especialmente a situação atual na fonte oficial e as restrições legais
-aplicáveis (ex.: Resolução CNJ 121).
+Restrições de descobribilidade **não são adotadas**: tornar atos públicos
+localizáveis é a razão de ser do projeto (Seção 7).
 
 ### Canais
 
-- **Solicitações sensíveis** (sigilo, dados protegidos, situações da lista
-  prioritária acima): canal privado, por e-mail —
-  <franklinbaldo+causaganha@gmail.com>. Não exponha o conteúdo sensível em
-  espaços públicos do repositório.
+- **Solicitações que envolvam alegação de sigilo ou dados protegidos:**
+  canal privado, por e-mail — <franklinbaldo+causaganha@gmail.com>. Não
+  exponha o conteúdo sensível em espaços públicos do repositório.
 - **Erros ordinários de qualidade de dados** (tribunal/data errados,
   duplicação, arquivo corrompido): issue pública em
   <https://github.com/franklinbaldo/causaganha/issues> com o título
   `[Revisão de dados]`.
 - **O que informar:** tribunal, data da publicação, identificação do trecho
-  (número do processo, se houver) e a hipótese objetiva invocada (1–4).
+  (número do processo, se houver) e a hipótese objetiva invocada (1–3).
 - **Prazo alvo de primeira resposta:** 15 dias.
 
 As providências adotadas e sua fundamentação genérica são registradas de
@@ -196,10 +189,10 @@ acervo.
   Judiciário a evitar busca nominal); ela não impõe essas restrições a
   arquivos independentes — e a publicidade dos atos que ela reconhece é
   exatamente o que este acervo preserva.
-- A única restrição de descobribilidade praticada pelo projeto é a
-  **cautelar e pontual** da Seção 4, hipótese 4 (indício grave de
-  divulgação indevida), aplicada às superfícies que o projeto efetivamente
-  controla.
+- O projeto **não pratica restrições de descobribilidade por iniciativa
+  própria**. Alterações no acervo ocorrem exclusivamente nas hipóteses
+  objetivas da Seção 4 (erro do próprio projeto, alteração pela fonte
+  oficial ou determinação de autoridade competente).
 
 ## 8. Licenciamento
 
