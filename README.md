@@ -236,9 +236,13 @@ The main CI workflow is [test.yml](.github/workflows/test.yml). It currently run
 - [CONTRIBUTING.md](CONTRIBUTING.md) — setup, rules, PR checklist
 - [FRONTEND.md](FRONTEND.md) — frontend design system and architecture
 - [web/src/queries/README.md](web/src/queries/README.md) — query contract spec
+- [docs/GOVERNANCE.md](docs/GOVERNANCE.md) — data governance: personal data, correction/removal requests, retention, dataset licensing
 
 If a doc disagrees with code or workflow files, trust the code and update the doc in the same change.
 
 ## License
 
-MIT
+- **Code:** [MIT](LICENSE).
+- **Data:** the archived publications are official judicial acts, which are not subject to copyright under Brazilian law (Lei 9.610/98, art. 8º, IV). The project's derived datasets and metadata (consolidated Parquet, sync manifest, dashboard aggregates) are dedicated to the public domain via [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
+
+See [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for the full data-governance policy, including how to request correction or removal review.

@@ -1,0 +1,69 @@
+# Resposta à revisão de infraestrutura — julho/2026
+
+Uma revisão externa detalhada avaliou o projeto como "um excelente projeto de
+infraestrutura pública dentro de um monorepo de pesquisa um tanto crescido
+demais", com nota alta para a tese e a arquitetura de arquivamento e notas
+baixas para coerência do repositório, confiabilidade operacional e governança
+de dados. Este documento registra a triagem das alegações contra o estado
+real do código e o plano de ação priorizado.
+
+## Verificação das alegações
+
+| Alegação da revisão | Estado verificado (2026-07-14) |
+| --- | --- |
+| Descrição do `pyproject.toml` ainda fala em "OpenSkill rating system" | **Confirmado.** Corrigido neste PR. |
+| `openskill` e `pydantic-ai` são dependências de runtime | **Confirmado — e piores que o alegado: nenhum arquivo do repositório as importa.** Removidas neste PR. |
+| `google-genai` é dependência essencial | **Parcialmente stale.** Só é importada por 5 scripts experimentais (`scripts/pipeline/embed*.py`, `analyze_with_rag.py`, `batch_embed_decisions.py`, `index_ground_truth.py`); nenhum workflow agendado os executa. Movida para o dependency group `lab` neste PR. |
+| CLI principal ainda expõe `analyze`, `score`, `groundtruth` | **Stale.** O único entry point de `causaganha` hoje é `consolidate` (`src/causaganha/consolidate/cli.py`). Os conceitos citados sobrevivem apenas em `scripts/` e em `src/causaganha/analysis/`. |
+| README ainda vende "Legal Intelligence Platform" | **Stale.** O README já descreve o arquivo DJEN. O texto "About" do GitHub, porém, **está desatualizado** (configuração do repositório, não versionada — ação manual do mantenedor). |
+| ~265 violações de estilo pré-existentes tratadas como advisory no CI | **Confirmado** (`.github/workflows/test.yml`). |
+| Ausência de política de governança de dados, correção/remoção, retenção e licença dos datasets distinta do MIT | **Confirmado.** `sobre.astro` tinha um parágrafo de licença, nada sobre correção/remoção/retenção. Criado `docs/GOVERNANCE.md` neste PR, com link no README e na página Sobre. |
+| Issue #809: dois números de cobertura conflitantes na mesma página | **Confirmado como aberto.** Fora do escopo deste PR — ver plano abaixo. |
+| `scripts/` é uma segunda camada de aplicação | **Confirmado** (44 arquivos misturando operação, migração e experimento). |
+| Build do frontend usa dados sintéticos; nada prova o sistema implantado de ponta a ponta | **Confirmado.** Não existe canário de integração real. |
+
+## O que este PR entrega (prioridades 1 e 4 da revisão)
+
+1. **Identidade**: `pyproject.toml` agora descreve o projeto como arquivo
+   público e camada de dados estruturados do DJEN; dependências mortas
+   (`openskill`, `pydantic-ai`) removidas; `google-genai` isolada no grupo
+   `lab` — primeiro passo concreto da fronteira "Lab" proposta pela revisão.
+2. **Governança**: `docs/GOVERNANCE.md` cobre coleta, dados pessoais,
+   procedimento de correção/remoção/desindexação (com prazo alvo), retenção,
+   indexação e licenciamento em duas camadas (código MIT; publicações como
+   atos oficiais em domínio público; datasets derivados em CC0 1.0). README
+   e página Sobre linkam a política.
+
+## Plano de ação para o restante (em ordem)
+
+1. **Ação manual do mantenedor (5 min):** atualizar o "About" do repositório
+   no GitHub — remover "Legal Intelligence Platform / predictive automation",
+   descrever o arquivo público do DJEN.
+2. **#809 — eliminar o caminho legado de dados em `/publicacoes/[tribunal]`**
+   (P0 já registrado). Critério de pronto: toda métrica pública carrega
+   fonte, timestamp de geração e status de completude; nenhuma página lê os
+   caches legados.
+3. **Canário de ponta a ponta:** um par (tribunal, data) pequeno e conhecido
+   atravessando coleta → IA → manifesto → Parquet → `render_queries` →
+   leitura via browser (Playwright já está nas dev-deps). Roda agendado, não
+   por PR; falha alto quando a fronteira real driftar do stub do CI.
+4. **Objetivos de serviço explícitos:** atraso máximo publicação→arquivo,
+   idade máxima do status público, alerta quando a coleta funciona mas a
+   geração de status não. O painel de status já existe; falta o alarme.
+5. **Subtração contínua:** triagem de `scripts/` em três destinos —
+   `ops/` (produto suportado, referenciado por workflow), `migrations/`
+   (one-shot, candidato a remoção após executado), `lab/` (experimental,
+   deps no grupo `lab`). Regra da revisão adotada: PR de produto que toca uma
+   área remove pelo menos um caminho obsoleto daquela área.
+6. **Revisão humana obrigatória em áreas estreitas** via `CODEOWNERS`:
+   semântica de status (`djen.py`, `manifest.py`), migrações de schema,
+   fronteiras de segurança (relay), e `docs/GOVERNANCE.md`.
+
+## O que a revisão acerta em espírito
+
+> "Its next stage should be defined by subtraction, consistency and
+> operational boredom — not by adding more intelligence features."
+
+Adotado como critério de triagem de novas features: se não torna o arquivo
+mais completo, mais auditável ou mais barato de operar, vai para o Lab ou
+não entra.
