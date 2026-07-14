@@ -93,6 +93,14 @@ Síntese adotada como princípio de abertura da política: "O projeto preserva
 o registro público produzido pelo Estado; não reavalia, não higieniza e não
 reescreve esse registro por iniciativa própria."
 
+A política cobre também a **camada analítica** (classificação de quem
+ganhou/perdeu e indicadores por advogado — a segunda metade do nome do
+projeto), com a distinção de responsabilidade correspondente: a camada de
+arquivo responde pela fidelidade ao que o Estado publicou; a analítica,
+pela correção do que o próprio projeto calculou (erro de classificação ou
+atribuição é hipótese 1, corrigível por demonstração objetiva contra o
+registro; indicador desfavorável não gera direito à remoção).
+
 ## O que a revisão acerta em espírito
 
 > "Its next stage should be defined by subtraction, consistency and

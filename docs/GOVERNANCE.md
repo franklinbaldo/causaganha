@@ -21,6 +21,12 @@
 > maintained by a private individual on a non-commercial basis and takes
 > the position that the LGPD does not apply to this processing (art. 4º,
 > I), a position reinforced by the law's own foundations and exemptions.
+> The project also computes derived analytics — case-outcome
+> classification and per-lawyer indicators — exclusively from the public
+> record: these are declared statistical estimates with open methodology,
+> an unfavorable indicator is not grounds for removal, and analytical
+> errors (misclassification, misattribution) are the project's own errors,
+> corrected on objective demonstration against the record.
 > This document states the policy; it is not legal advice.
 
 Este documento define a posição do projeto sobre o ciclo de vida legal dos
@@ -48,7 +54,7 @@ próprio Poder Judiciário. Essa circunstância fundamenta a finalidade
 arquivística do projeto. Ela não dispensa a observância das restrições
 legais de publicidade **na coleta**: o que a fonte oficial não publicou não
 entra no acervo (Seção 2). Alterações posteriores da fonte são tratadas
-como proveniência, não como retirada (Seção 4). Sobre o âmbito de aplicação
+como proveniência, não como retirada (Seção 5). Sobre o âmbito de aplicação
 da LGPD, ver Seção 3.
 
 ## 2. O que o projeto deliberadamente NÃO coleta
@@ -69,15 +75,16 @@ magistrados. A posição do projeto:
   art. 93, IX; CPC, art. 189). O CausaGanha preserva fielmente o que a fonte
   oficial publicou; ele não é o autor nem o editor do conteúdo.
 - O projeto **não enriquece** as publicações com dados pessoais de outras
-  fontes, não constrói perfis de pessoas naturais e não vende dados. Sua
-  finalidade é arquivística e de interesse público, compatível com a
+  fontes e não vende dados. Os indicadores analíticos que produz (Seção 4)
+  derivam exclusivamente do próprio registro público. Sua finalidade é
+  arquivística, informacional e de interesse público, compatível com a
   finalidade que justificou a publicação original.
 - O Supremo Tribunal Federal rejeitou um "direito ao esquecimento" genérico
   fundado no mero decurso do tempo (Tema 786). Idade da publicação,
   constrangimento ou impacto reputacional, por si sós, **não são fundamento
   para remoção** do acervo. Excessos concretos têm os remédios ordinários —
   e, quando devam alcançar o acervo, chegam ao projeto na forma de
-  determinação de autoridade competente (Seção 4).
+  determinação de autoridade competente (Seção 5).
 - **Âmbito de aplicação da LGPD.** O projeto é mantido por pessoa natural,
   em caráter cidadão, sem qualquer finalidade econômica. O entendimento do
   projeto é que esse tratamento está **fora do âmbito de aplicação da
@@ -99,9 +106,47 @@ magistrados. A posição do projeto:
   projeto, como boa prática, e **não constituem admissão de obrigação
   legal**.
 - A **descobribilidade** do acervo é parte da missão do projeto, não um
-  dano a mitigar (Seção 7).
+  dano a mitigar (Seção 8).
 
-## 4. Correção, restrição e desindexação
+## 4. Camada analítica: classificação de resultados e indicadores
+
+Além de preservar publicações, o projeto produz — hoje sob a fronteira
+experimental "Lab" — **análises derivadas**: classificação do resultado
+das causas (quem ganhou, quem perdeu) e indicadores estatísticos de
+atuação por advogado, calculados exclusivamente a partir do registro
+público preservado no acervo. É a segunda metade do nome do projeto, e
+esta política aplica-se a ela com a mesma lógica:
+
+- **Mesma matéria-prima, nenhum enriquecimento externo.** Os indicadores
+  derivam somente dos atos oficiais do acervo. O projeto não cruza esses
+  dados com fontes externas sobre pessoas naturais, não usa dados
+  cadastrais privados e não comercializa indicadores.
+- **Natureza declarada: estimativa, não julgamento.** A classificação de
+  resultados é feita por métodos automatizados (heurísticas, modelos de
+  linguagem) e é falível. Superfícies que exibam indicadores devem
+  declarar a metodologia — que é código aberto e auditável neste
+  repositório — e a natureza estimativa dos números. Indicadores não são
+  medição oficial de qualidade profissional.
+- **Análise legítima do registro público.** Calcular e publicar
+  estatísticas sobre a atuação de advogados em processos públicos é
+  exercício de liberdade de informação e de pesquisa sobre dados que o
+  Estado tornou públicos — a mesma base que ampara estudos acadêmicos e
+  jornalismo de dados sobre o Judiciário. **Um indicador desfavorável não
+  gera direito à remoção**, pelas mesmas razões da Seção 5: o projeto não
+  gerencia reputações, nem para baixo nem para cima.
+- **Erro analítico é erro do projeto.** Aqui a responsabilidade difere da
+  camada de arquivo: a classificação e a atribuição são produto do
+  projeto, não do Estado. Resultado classificado incorretamente, causa
+  atribuída ao advogado errado (homônimos, OAB incorreta) ou erro de
+  cálculo são a **hipótese 1 da Seção 5**: demonstrado o erro contra o
+  registro público, corrige-se — verificação objetiva, sem juízo de
+  mérito.
+
+Em síntese: a camada de arquivo responde pela **fidelidade ao que o Estado
+publicou**; a camada analítica responde pela **correção do que o próprio
+projeto calculou**. Nenhuma das duas negocia remoção por desconforto.
+
+## 5. Correção, restrição e desindexação
 
 A regra geral do CausaGanha é a **preservação integral das publicações
 oficiais**. O projeto não remove ou altera uma publicação apenas a pedido do
@@ -137,7 +182,7 @@ dali que virá a ordem (hipótese 2), e o projeto a cumprirá com
 naturalidade.
 
 Restrições de descobribilidade **não são adotadas**: tornar atos públicos
-localizáveis é a razão de ser do projeto (Seção 7).
+localizáveis é a razão de ser do projeto (Seção 8).
 
 ### Canais
 
@@ -145,7 +190,8 @@ localizáveis é a razão de ser do projeto (Seção 7).
   canal privado, por e-mail — <franklinbaldo+causaganha@gmail.com>. Não
   exponha o conteúdo sensível em espaços públicos do repositório.
 - **Erros ordinários de qualidade de dados** (tribunal/data errados,
-  duplicação, arquivo corrompido): issue pública em
+  duplicação, arquivo corrompido, resultado de causa classificado
+  incorretamente, causa atribuída ao advogado errado): issue pública em
   <https://github.com/franklinbaldo/causaganha/issues> com o título
   `[Revisão de dados]`.
 - **O que informar:** tribunal, data da publicação, identificação do trecho
@@ -155,7 +201,7 @@ localizáveis é a razão de ser do projeto (Seção 7).
 As providências adotadas e sua fundamentação genérica são registradas de
 maneira auditável, sem reproduzir o conteúdo protegido.
 
-## 5. Custódia no Internet Archive e jurisdição
+## 6. Custódia no Internet Archive e jurisdição
 
 As cópias primárias dos ZIPs e dos datasets consolidados são depositadas no
 **Internet Archive**, biblioteca digital sem fins lucrativos sediada nos
@@ -167,24 +213,24 @@ Consequências práticas dessa custódia:
 - Uma vez depositado, o material passa a ser regido **também** pelas
   políticas do Internet Archive. O projeto não controla unilateralmente a
   permanência ou remoção de itens lá arquivados.
-- As hipóteses da Seção 4 aplicam-se ao que o projeto controla diretamente:
+- As hipóteses da Seção 5 aplicam-se ao que o projeto controla diretamente:
   os datasets derivados que ele gera, o site e a indexação das suas
   páginas. Para os itens depositados no Internet Archive, remoções seguem
   os procedimentos de takedown do próprio Internet Archive; quando uma
-  hipótese objetiva da Seção 4 se confirmar, o projeto coopera com o
+  hipótese objetiva da Seção 5 se confirmar, o projeto coopera com o
   solicitante nesses procedimentos.
 - Essa separação é deliberada: a custódia por uma biblioteca independente,
   em outra jurisdição, protege o acervo contra pressões informais e contra
   o ponto único de falha que seria o próprio mantenedor.
 
-## 6. Retenção
+## 7. Retenção
 
 A missão do projeto é **preservação de longo prazo**: publicações oficiais
 são efêmeras na origem e o acervo existe para que permaneçam verificáveis.
 A retenção padrão é, portanto, **indefinida**, ressalvadas as hipóteses
-objetivas da Seção 4 e as políticas do Internet Archive (Seção 5).
+objetivas da Seção 5 e as políticas do Internet Archive (Seção 6).
 
-## 7. Indexação e descobribilidade
+## 8. Indexação e descobribilidade
 
 A descobribilidade é **parte da missão**, não um risco a mitigar. O
 CausaGanha existe para tornar publicações oficiais localizáveis e
@@ -195,7 +241,7 @@ acervo.
 - O **site** publica agregados e metadados de cobertura, e suas páginas são
   indexáveis.
 - O **texto integral** das publicações vive nos ZIPs e tabelas Parquet
-  depositados no Internet Archive (Seção 5). A indexação e o acesso a esse
+  depositados no Internet Archive (Seção 6). A indexação e o acesso a esse
   material são regidos pelas políticas do próprio Internet Archive — o
   projeto **não controla, e por isso não promete controlar**, como
   buscadores tratam o material lá depositado. Esta política não assume
@@ -207,10 +253,10 @@ acervo.
   exatamente o que este acervo preserva.
 - O projeto **não pratica restrições de descobribilidade por iniciativa
   própria**. Alterações no acervo ocorrem exclusivamente nas hipóteses
-  objetivas da Seção 4 (erro do próprio projeto ou determinação de
+  objetivas da Seção 5 (erro do próprio projeto ou determinação de
   autoridade competente).
 
-## 8. Licenciamento
+## 9. Licenciamento
 
 Duas camadas distintas — não confundir:
 
@@ -223,14 +269,15 @@ Duas camadas distintas — não confundir:
     publicações nem afasta direitos relativos à privacidade, proteção de
     dados, honra ou imagem.
   - **Datasets derivados e metadados do projeto** (Parquet consolidado,
-    manifesto, agregados do dashboard): os direitos que eventualmente
+    manifesto, agregados do dashboard, indicadores analíticos da Seção 4):
+    os direitos que eventualmente
     pertençam ao próprio projeto sobre esses materiais são disponibilizados
     sob [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
 Pedimos (sem exigir) que reutilizações citem a fonte e a data de geração do
 dataset, porque isso preserva a auditabilidade que motiva o projeto.
 
-## 9. Papel e responsabilidade
+## 10. Papel e responsabilidade
 
 - O CausaGanha é um **arquivo de atos oficiais**, não a fonte oficial nem o
   autor do conteúdo. A decisão sobre a publicidade de cada ato, e a
@@ -238,10 +285,10 @@ dataset, porque isso preserva a auditabilidade que motiva o projeto.
   legais (prazos, intimações), vale a publicação original no DJEN/tribunal.
 - Preservar publicações oficiais de acesso público é atividade lícita e de
   interesse público. O projeto responde pelos seus próprios erros de
-  processamento (Seção 4, hipótese 1) e pelo cumprimento de determinações
-  de autoridade competente (hipótese 2) — não pelo teor dos atos judiciais
-  que preserva, nem por refletir alterações que a fonte fizer depois: o
-  registro histórico é o produto.
+  processamento e de análise (Seções 4 e 5, hipótese 1) e pelo cumprimento
+  de determinações de autoridade competente (hipótese 2) — não pelo teor
+  dos atos judiciais que preserva, nem por refletir alterações que a fonte
+  fizer depois: o registro histórico é o produto.
 - O projeto não garante completude: a cobertura real, os atrasos e as
   lacunas conhecidas são expostos no próprio dashboard — a incerteza faz
   parte do produto.
