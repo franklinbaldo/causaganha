@@ -22,6 +22,7 @@ from tjro_juris.client import (
     ENDPOINT,
     MAX_ATTEMPTS,
     PAGE_SIZE,
+    JurisBlockedError,
     clean_html,
     doc_url,
     get_aggregations,
@@ -151,6 +152,22 @@ def test_search_403_raises_immediately_never_retried() -> None:
         with pytest.raises(httpx.HTTPStatusError) as exc_info:
             search("SENTENÇA")
     assert exc_info.value.response.status_code == 403
+    assert route.call_count == 1
+
+
+def test_search_raises_juris_blocked_error_on_stic_block_page() -> None:
+    """A 200 carrying TJRO's STIC block page (not JSON) must raise a clear,
+    diagnosable error instead of an opaque JSONDecodeError — and never retry,
+    since the block is IP-level, not a transient blip.
+    """
+    block_page = (
+        '<!DOCTYPE html><html lang="pt-br"><head>'
+        "<title>STIC - Página Bloqueada</title></head><body></body></html>"
+    )
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(200, html=block_page)
+        with pytest.raises(JurisBlockedError):
+            search("ACÓRDÃO")
     assert route.call_count == 1
 
 

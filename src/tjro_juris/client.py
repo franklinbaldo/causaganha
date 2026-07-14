@@ -61,6 +61,26 @@ MAX_ATTEMPTS = 4
 _BASE_DELAY_S = 2.0
 _HTTP_SERVER_ERROR = 500
 
+# TJRO's STIC anti-abuse system blocks an offending IP by returning HTTP 200
+# with an HTML "Página Bloqueada" page instead of the expected JSON — observed
+# live (2026-07-14) after ~10h of sustained crawling from one machine during
+# the historical backfill. A bare `resp.json()` on this body raised an opaque
+# JSONDecodeError instead of a diagnosable error, and crashed several years'
+# worth of crawl near-instantly (indistinguishable from a random transient
+# blip) before this was caught.
+_BLOCKED_PAGE_MARKER = "Página Bloqueada"
+
+
+class JurisBlockedError(RuntimeError):
+    """TJRO's STIC anti-abuse system blocked this network's IP.
+
+    Never retried automatically (see ``_post_checked``) — this is an IP-level
+    block with an unknown cooldown, not a transient blip; blindly retrying
+    just wastes requests against a wall. Route through ``common.relay``
+    (``RELAY_URL``/``RELAY_TOKEN``) from a different network instead.
+    """
+
+
 _UA = "Mozilla/5.0 (causaganha/tjro-juris)"
 _HEADERS = {
     "Content-Type": "application/json",
@@ -149,9 +169,21 @@ def _retrying[T](op: Callable[[], T], url: str, *, max_attempts: int = MAX_ATTEM
 
 
 def _post_checked(url: str, body: dict) -> dict:
-    """POST *body* to *url* on the shared client; raise for error statuses."""
+    """POST *body* to *url* on the shared client; raise for error statuses.
+
+    Raises :class:`JurisBlockedError` — not retried — when the response is a
+    200 carrying TJRO's STIC block page instead of JSON.
+    """
     resp = _CLIENT.post(url, json=body)
     resp.raise_for_status()
+    if _BLOCKED_PAGE_MARKER in resp.text[:2000]:
+        msg = (
+            f"JURIS blocked: HTTP 200 but body is TJRO's STIC block page, not "
+            f"JSON, from {url}. This network's IP has been blocked by TJRO's "
+            "anti-abuse system — not a transient blip. Route through "
+            "common.relay (RELAY_URL/RELAY_TOKEN) from a different network."
+        )
+        raise JurisBlockedError(msg)
     return resp.json()
 
 
