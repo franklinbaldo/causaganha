@@ -2,22 +2,16 @@
 # TJRO SYNC — Ingestion of the TJRO JURIS corpus to Internet Archive
 # ============================================================================
 #
-# workflow_dispatch only — NO cron, provisionally, pending investigation.
 # Four consecutive acceptance runs on GitHub-hosted runners failed
 # identically with ConnectTimeout on the very first request to
-# juris-back.tjro.jus.br/search/varios_parametros/, after exhausting all 4
-# retry attempts with backoff (~2m20s each). The same request succeeds
-# immediately (HTTP 200, ~200ms connect) from a different network path, and
-# a full live crawl from that same path (all 7 tipos, current month, 12,853
-# docs, 0 duplicates/nulls) completed cleanly — JURIS itself and this code
-# are both healthy. This looks like the same class of problem as STJ's WAF
-# block (an infra-level block/drop against GitHub's IP ranges), just
-# manifesting as a connection failure instead of an HTTP 403. Applying the
-# owner's STJ policy symmetrically: a GitHub-hosted runner cannot out-retry
-# a network-level block, so an hourly cron here would be noise, not signal,
-# until this is confirmed intermittent vs. persistent (or a self-hosted
-# runner / proxy is available). Trigger manually until then; re-enabling
-# the schedule is a one-line change once resolved.
+# juris-back.tjro.jus.br/search/varios_parametros/. The same request
+# succeeds immediately (HTTP 200, ~200ms connect) from a different network
+# path — same class of problem as STJ's WAF block (an infra-level
+# block/drop against GitHub's IP ranges). The crawl step now routes through
+# a Cloud Run function relay (southamerica-east1, validated live
+# 2026-07-13 — see deployment/relay/) via RELAY_URL/RELAY_TOKEN (see
+# common.relay), scoped to the crawl step only — upload to IA isn't blocked
+# and doesn't go through the relay.
 #
 # Scheduled-style runs are incremental when dispatched: the CLI restores its
 # manifest from IA, crawls ONLY the current month (--mes), and skips
@@ -74,6 +68,9 @@ jobs:
           dev: "false"
 
       - name: Crawl JURIS
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
         run: |
           ANO="${{ inputs.tjro_ano }}"
           MES="${{ inputs.tjro_mes }}"

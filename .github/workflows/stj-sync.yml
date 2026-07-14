@@ -2,12 +2,14 @@
 # STJ SYNC — Ingestion of STJ acórdãos (Primeira Seção) to Internet Archive
 # ============================================================================
 #
-# workflow_dispatch only — NO cron. The STJ WAF blocks GitHub-hosted runner
-# IP ranges persistently (confirmed via authenticated CI logs: every
-# scheduled attempt fails with STJWAFBlockedError after 4 retries). A GitHub-
-# hosted runner cannot out-retry an IP-range block, so a cron here would be
-# pure noise, not signal — trigger manually until a self-hosted runner,
-# proxy, or other infrastructure with a non-blocked egress IP is available.
+# The STJ WAF blocks GitHub-hosted runner IP ranges persistently (confirmed
+# via authenticated CI logs: every scheduled attempt failed with
+# STJWAFBlockedError after 4 retries). A GitHub-hosted runner cannot
+# out-retry an IP-range block, so downloads route through a Cloud Run
+# function relay (southamerica-east1, validated live 2026-07-13 — see
+# deployment/relay/) via RELAY_URL/RELAY_TOKEN, set only on the download
+# step (see common.relay). Upload to IA never goes through the relay — it
+# isn't blocked and doesn't need to be.
 # Runs are incremental: the CLI restores its manifest from IA and skips
 # resources already uploaded with unchanged last_modified. A WAF block fails
 # fast (STJWAFBlockedError) instead of grinding through every remaining
@@ -57,7 +59,12 @@ jobs:
       # while the API stays up for everyone else. The download step retries
       # 403/429/5xx with exponential backoff and raises STJWAFBlockedError
       # with an explicit diagnosis when the block persists (stj_acordaos/client.py).
+      # RELAY_URL/RELAY_TOKEN route the request through the Cloud Run relay
+      # instead — scoped to this step only, never the upload step below.
       - name: Download STJ resources
+        env:
+          RELAY_URL: ${{ secrets.RELAY_URL }}
+          RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
         run: |
           uv run --no-dev stj-acordaos download \
             --data-dir data/stj \

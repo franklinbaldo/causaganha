@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING
 import httpx
 import structlog
 
+from common.relay import relay_transport_from_env
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -56,8 +58,18 @@ class STJWAFBlockedError(httpx.HTTPStatusError):
 
 
 def _make_client() -> httpx.Client:
-    """Create a configured synchronous HTTP client."""
-    return httpx.Client(timeout=120, follow_redirects=True, headers=_BROWSER_HEADERS)
+    """Create a configured synchronous HTTP client.
+
+    Routes through the relay (see ``common.relay``) when ``RELAY_URL``/
+    ``RELAY_TOKEN`` are set — used in CI, where the STJ WAF blocks GitHub
+    runner IP ranges. Direct connection otherwise (local/dev default).
+    """
+    return httpx.Client(
+        timeout=120,
+        follow_redirects=True,
+        headers=_BROWSER_HEADERS,
+        transport=relay_transport_from_env(),
+    )
 
 
 def _sleep(seconds: float) -> None:
