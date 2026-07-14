@@ -32,11 +32,14 @@ real do código e o plano de ação priorizado.
    regra — correção, restrição ou remoção apenas em hipóteses objetivas
    (erro do próprio projeto, alteração pela fonte oficial, determinação de
    autoridade competente, quarentena cautelar diante de indício grave de
-   divulgação indevida). Desindexação é tratada como controle de
-   descobribilidade, distinto de remoção (alinhado à Resolução CNJ 121;
-   sem "direito ao esquecimento" genérico, conforme STF Tema 786). Registra
-   a posição do projeto sobre o âmbito da LGPD (art. 4º, I — pessoa natural,
-   fins não econômicos; com argumento subsidiário no art. 7º, §§ 3º–4º) e a
+   divulgação indevida — esta limitada às superfícies que o projeto
+   controla). Descobribilidade é tratada como parte da missão, não como
+   risco: nenhum `noindex` ou limitação de busca como regra geral, e nenhum
+   compromisso sobre superfícies fora do controle do projeto (o texto
+   integral vive no Internet Archive). Sem "direito ao esquecimento"
+   genérico, conforme STF Tema 786. Registra a posição do projeto sobre o
+   âmbito da LGPD (art. 4º, I — pessoa natural, fins não econômicos;
+   reforçada pelo art. 2º, III, art. 4º, II e art. 7º, §§ 3º–4º e IX) e a
    custódia das cópias primárias no Internet Archive, sob jurisdição e
    políticas próprias. Cobre ainda retenção, canais (privado para casos
    sensíveis) e licenciamento em duas camadas (código MIT; textos de atos

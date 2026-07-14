@@ -7,14 +7,15 @@
 > or reputationally harmful. Correction, restriction, or removal happens only
 > on objective grounds — the official source changed the publication, a
 > competent authority ordered it, or the project itself introduced a
-> processing error. De-indexing from general search engines is a
-> discoverability control, not removal, and does not affect the archive.
-> Primary copies are deposited with the Internet Archive, a US nonprofit
-> library under its own jurisdiction and preservation/takedown policies.
-> The project is maintained by a private individual on a non-commercial
-> basis and takes the position that the LGPD does not apply to this
-> processing (art. 4º, I), while voluntarily adopting the safeguards
-> described here. This document states the policy; it is not legal advice.
+> processing error. Discoverability is part of the mission: the project
+> does not degrade the findability of lawful public acts, and does not
+> claim control it does not have over material deposited with the Internet
+> Archive — a US nonprofit library under its own jurisdiction and
+> preservation policies, where the primary copies live. The project is
+> maintained by a private individual on a non-commercial basis and takes
+> the position that the LGPD does not apply to this processing (art. 4º,
+> I), a position reinforced by the law's own foundations and exemptions.
+> This document states the policy; it is not legal advice.
 
 Este documento define a posição do projeto sobre o ciclo de vida legal dos
 dados que ele preserva. Ele complementa a documentação técnica (README,
@@ -73,16 +74,24 @@ magistrados. A posição do projeto:
   em caráter cidadão, sem qualquer finalidade econômica. O entendimento do
   projeto é que esse tratamento está **fora do âmbito de aplicação da
   LGPD**, por força do seu art. 4º, I (tratamento realizado por pessoa
-  natural para fins exclusivamente particulares e não econômicos). Ainda
-  que se entendesse a lei aplicável, o tratamento encontraria amparo na
-  publicidade oficial dos dados e na finalidade arquivística de interesse
-  público (LGPD, art. 7º, §§ 3º e 4º) — e as garantias desta política
-  seriam exatamente as mesmas. As salvaguardas aqui descritas são adotadas
-  por escolha do projeto, como boa prática, e **não constituem admissão de
-  obrigação legal**.
-- O que o projeto controla diretamente é a **descobribilidade** do acervo
-  por buscadores gerais (Seção 7) — uma salvaguarda de desenho, distinta da
-  integridade do arquivo.
+  natural para fins exclusivamente particulares e não econômicos). Esse
+  entendimento é reforçado por outras previsões da própria lei:
+  - a liberdade de informação, de comunicação e de opinião é **fundamento**
+    da LGPD, não exceção a ela (art. 2º, III);
+  - a lei exclui do seu âmbito o tratamento para fins exclusivamente
+    **jornalísticos e acadêmicos** (art. 4º, II) — naturezas que o trabalho
+    de documentação e pesquisa sobre atos judiciais públicos compartilha;
+  - o tratamento de dados **tornados públicos** por determinação legal é
+    expressamente contemplado, considerada a finalidade e o interesse
+    público que justificaram sua disponibilização (art. 7º, §§ 3º e 4º);
+  - subsidiariamente, o **legítimo interesse** (art. 7º, IX) ampara o
+    tratamento para finalidade arquivística e de apoio à pesquisa.
+  Em qualquer dessas leituras, o resultado é o mesmo: a lei não restringe
+  este trabalho. As salvaguardas desta política são adotadas por escolha do
+  projeto, como boa prática, e **não constituem admissão de obrigação
+  legal**.
+- A **descobribilidade** do acervo é parte da missão do projeto, não um
+  dano a mitigar (Seção 7).
 
 ## 4. Correção, restrição e desindexação
 
@@ -104,14 +113,15 @@ hipóteses objetivas:
    administrativa aplicável ao projeto;
 4. **Indício grave de divulgação indevida:** quando houver indícios
    objetivos de que dado sigiloso ou protegido foi publicado acidentalmente,
-   o conteúdo poderá ser cautelarmente desindexado enquanto o projeto
-   solicita confirmação à fonte oficial. A restrição permanente seguirá a
-   resposta oficial ou determinação da autoridade competente.
+   o conteúdo poderá ser cautelarmente restringido **nas superfícies que o
+   projeto efetivamente controla** (site e datasets derivados) enquanto o
+   projeto solicita confirmação à fonte oficial. A restrição permanente
+   seguirá a resposta oficial ou determinação da autoridade competente.
 
-A **desindexação por buscadores gerais não equivale à remoção do acervo**.
-O projeto poderá adotar `noindex` ou limitar buscas nominais como
-salvaguarda geral, preservando a consulta por número do processo, tribunal,
-data e demais critérios diretamente relacionados ao ato judicial.
+Restrições de descobribilidade **não são adotadas como regra geral**:
+tornar atos públicos localizáveis é a razão de ser do projeto (Seção 7). A
+medida cautelar da hipótese 4 é pontual, e mesmo quando aplicada preserva,
+sempre que possível, a consulta por número do processo, tribunal e data.
 
 Pedidos envolvendo crianças e adolescentes, vítimas, violência doméstica,
 saúde ou possível quebra de sigilo receberão **análise prioritária e
@@ -165,22 +175,31 @@ são efêmeras na origem e o acervo existe para que permaneçam verificáveis.
 A retenção padrão é, portanto, **indefinida**, ressalvadas as hipóteses
 objetivas da Seção 4 e as políticas do Internet Archive (Seção 5).
 
-## 7. Indexação por buscadores
+## 7. Indexação e descobribilidade
 
-O projeto distingue quatro camadas, que não precisam de regras idênticas:
-preservação no acervo, consulta interna, busca nominal e indexação por
-buscadores gerais. É a mesma distinção que o CNJ faz na Resolução 121, que
-reconhece a publicidade de nomes e decisões mas orienta que bases de
-decisões evitem a busca por nome quando possível.
+A descobribilidade é **parte da missão**, não um risco a mitigar. O
+CausaGanha existe para tornar publicações oficiais localizáveis e
+verificáveis; o projeto não adota medidas de desenho para dificultar o
+encontro de atos públicos lícitos — fazê-lo contrariaria a razão de ser do
+acervo.
 
-- O **dashboard** e as páginas de navegação são indexáveis (são agregados e
-  metadados de cobertura, não texto integral de publicações).
-- Páginas HTML que exibam **texto integral** de publicações com dados
-  pessoais usarão `noindex` por padrão. Essa medida não remove o conteúdo do
-  acervo nem impede sua consulta por número do processo, tribunal, data ou
-  navegação interna; apenas evita a indexação indiscriminada por buscadores
-  gerais. Hoje o texto integral vive nos ZIPs/Parquet no Internet Archive,
-  não em páginas HTML do site.
+- O **site** publica agregados e metadados de cobertura, e suas páginas são
+  indexáveis.
+- O **texto integral** das publicações vive nos ZIPs e tabelas Parquet
+  depositados no Internet Archive (Seção 5). A indexação e o acesso a esse
+  material são regidos pelas políticas do próprio Internet Archive — o
+  projeto **não controla, e por isso não promete controlar**, como
+  buscadores tratam o material lá depositado. Esta política não assume
+  compromissos sobre superfícies que não estão sob controle do projeto.
+- A Resolução CNJ 121 disciplina os serviços de consulta **dos próprios
+  tribunais** (é ela, por exemplo, que orienta bases de decisões do
+  Judiciário a evitar busca nominal); ela não impõe essas restrições a
+  arquivos independentes — e a publicidade dos atos que ela reconhece é
+  exatamente o que este acervo preserva.
+- A única restrição de descobribilidade praticada pelo projeto é a
+  **cautelar e pontual** da Seção 4, hipótese 4 (indício grave de
+  divulgação indevida), aplicada às superfícies que o projeto efetivamente
+  controla.
 
 ## 8. Licenciamento
 
