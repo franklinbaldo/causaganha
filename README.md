@@ -12,11 +12,14 @@ Live dashboard: [https://franklinbaldo.github.io/causaganha/](https://franklinba
 
 ## What the project does
 
+The supported product is the **archive**:
+
 - Collects DJEN ZIPs continuously and archives them on Internet Archive.
 - Consolidates daily raw data into structured Parquet tables.
 - Maintains a catalog and dashboard cache for public browsing.
-- Includes Python workflows for collection, analysis, scoring, archival, and backfill.
 - Ships an Astro + Svelte frontend for public exploration.
+
+Experimental analysis — case-outcome classification, per-lawyer indicators, embeddings, and model training — lives under the **Lab** boundary (`scripts/` experiments and the `lab` dependency group). It is derived from the archived public record and is not part of the core runtime. See [docs/GOVERNANCE.md](docs/GOVERNANCE.md) §4 for how the analytical layer is governed.
 
 ## Current architecture
 
@@ -85,7 +88,14 @@ uv run pytest -q
 
 ## Python CLIs
 
-Two CLI entrypoints:
+Registered entry points (`pyproject.toml` `[project.scripts]`):
+
+| Command | Purpose |
+|---|---|
+| `djen-backup` | DJEN sync engine (check + download + upload to IA) |
+| `stj-acordaos` | STJ acórdãos collection |
+| `tjro-juris` | TJRO jurisprudence collection |
+| `datajud` | DataJud process metadata enrichment |
 
 ### `djen-backup` — sync engine
 
@@ -110,13 +120,7 @@ Subcommand modes:
 
 All modes persist the manifest to IA every 10 minutes. See `uv run djen-backup --help`.
 
-### `causaganha` — data pipeline CLI
-
-Available top-level commands include: `collect`, `analyze`, `score`, `db`, `export-parquet`, `export-status`, `backfill`, `archival`, `groundtruth`, `parquet`, `catalog`.
-
-```bash
-uv run causaganha --help
-```
+Parquet consolidation is a module CLI (`python -m causaganha.consolidate`), not a registered console script.
 
 ## Web frontend
 
@@ -188,14 +192,10 @@ tests/                   Pytest and pytest-bdd suites
 
 Important Python package areas:
 
-- [src/causaganha/analysis](src/causaganha/analysis)
-- [src/causaganha/archival](src/causaganha/archival)
-- [src/causaganha/catalog](src/causaganha/catalog)
-- [src/causaganha/clients](src/causaganha/clients)
-- [src/causaganha/compliance](src/causaganha/compliance)
-- [src/causaganha/pipeline](src/causaganha/pipeline)
-- [src/causaganha/scoring](src/causaganha/scoring)
-- [src/causaganha/storage](src/causaganha/storage)
+- [src/causaganha/consolidate](src/causaganha/consolidate) — ZIP → Parquet consolidation CLI (`python -m causaganha.consolidate`)
+- [src/causaganha/storage](src/causaganha/storage) — schema and DuckDB connection
+- [src/causaganha/pipeline](src/causaganha/pipeline) — IA S3 upload helpers
+- [src/causaganha/analysis](src/causaganha/analysis) — experimental analysis (Lab)
 
 ## Development commands
 
@@ -213,7 +213,7 @@ cd web && npm ci && npm run lint && npm test && npm run build
 
 Start from [.env.example](.env.example). Common variables include:
 
-- `GEMINI_API_KEY` — LLM analysis (`analyze`)
+- `GEMINI_API_KEY` — LLM analysis (Lab; `src/causaganha/analysis`)
 - `JINA_API_KEY` — API embeddings (Jina provider)
 - `EMBEDDING_PROVIDER` / `EMBEDDING_PROVIDER_PRIORITY`
 - `IA_ACCESS_KEY` / `IA_SECRET_KEY`
@@ -245,4 +245,4 @@ If a doc disagrees with code or workflow files, trust the code and update the do
 - **Code:** [MIT](LICENSE).
 - **Data:** the texts of judicial decisions and other official acts are not subject to copyright under Brazilian law (Lei 9.610/98, art. 8º, IV); this statement does not automatically extend to third-party works reproduced inside publications, nor does it affect privacy or data-protection rights. Whatever rights the project itself holds over its derived datasets and metadata (consolidated Parquet, sync manifest, dashboard aggregates) are released under [CC0 1.0](https://creativecommons.org/publicdomain/zero/1.0/).
 
-See [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for the full data-governance policy — preservation by default, with correction/restriction only on objective grounds (source change, competent authority, or a processing error by the project itself).
+See [docs/GOVERNANCE.md](docs/GOVERNANCE.md) for the full data-governance policy — preservation by default, with correction or restriction only on objective grounds: a processing error introduced by the project, or a determination from a competent authority. Later changes at the official source are recorded as provenance, not treated as grounds for removal.
