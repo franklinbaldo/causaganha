@@ -19,13 +19,13 @@
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",
-    "@astrojs/svelte": "^8.1.1",
+    "@astrojs/svelte": "^9.0.1",
     "@duckdb/duckdb-wasm": "^1.33.1-dev20.0",
     "@observablehq/plot": "^0.6.0",
     "@picocss/pico": "^2.1.1",
     "@tanstack/svelte-query": "^6.1.14",
-    "astro": "^6.3.7",
-    "dompurify": "^3.4.0",
+    "astro": "^7.0.9",
+    "dompurify": "^3.4.11",
     "openapi-fetch": "^0.17.0",
     "svelte": "^5.56.3",
     "zod": "^4.0.0"
@@ -36,7 +36,7 @@
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",
     "@eslint/js": "^9.39.1",
-    "@sveltejs/vite-plugin-svelte": "^6.2.4",
+    "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tanstack/svelte-query-devtools": "^6.1.14",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.3.1",
@@ -44,10 +44,10 @@
     "globals": "^16.5.0",
     "jsdom": "^26.0.0",
     "openapi-typescript": "^7.13.0",
-    "orval": "^7.10.0",
+    "orval": "^8.21.0",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
-    "vite": "^7.3.2",
+    "vite": "^8.1.4",
     "vitest": "^4.1.2"
   }
 }
