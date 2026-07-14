@@ -57,6 +57,14 @@ _STRIP_HEADERS = frozenset(
     }
 )
 
+# httpx's client transparently gunzips the upstream response into
+# `.content` — the bytes we return are already decoded. Forwarding the
+# upstream's original Content-Encoding header alongside that decoded body
+# makes the CALLER's httpx try to gunzip it a second time and raise
+# DecodingError. Response-only: request-side Content-Encoding (basically
+# never sent by these crawlers) is left alone.
+_RESPONSE_STRIP_HEADERS = _STRIP_HEADERS | {"content-encoding"}
+
 _RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
 # One shared client for the function instance's lifetime — connection reuse
@@ -131,6 +139,8 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
     )
 
     response_headers = {
-        key: value for key, value in upstream.headers.items() if key.lower() not in _STRIP_HEADERS
+        key: value
+        for key, value in upstream.headers.items()
+        if key.lower() not in _RESPONSE_STRIP_HEADERS
     }
     return (upstream.content, upstream.status_code, response_headers)
