@@ -52,26 +52,110 @@ real do código e o plano de ação priorizado.
 
 1. **Ação manual do mantenedor (5 min):** atualizar o "About" do repositório
    no GitHub — remover "Legal Intelligence Platform / predictive automation",
-   descrever o arquivo público do DJEN.
-2. **#809 — eliminar o caminho legado de dados em `/publicacoes/[tribunal]`**
-   (P0 já registrado). Critério de pronto: toda métrica pública carrega
-   fonte, timestamp de geração e status de completude; nenhuma página lê os
-   caches legados.
-3. **Canário de ponta a ponta:** um par (tribunal, data) pequeno e conhecido
-   atravessando coleta → IA → manifesto → Parquet → `render_queries` →
-   leitura via browser (Playwright já está nas dev-deps). Roda agendado, não
-   por PR; falha alto quando a fronteira real driftar do stub do CI.
-4. **Objetivos de serviço explícitos:** atraso máximo publicação→arquivo,
-   idade máxima do status público, alerta quando a coleta funciona mas a
-   geração de status não. O painel de status já existe; falta o alarme.
-5. **Subtração contínua:** triagem de `scripts/` em três destinos —
-   `ops/` (produto suportado, referenciado por workflow), `migrations/`
-   (one-shot, candidato a remoção após executado), `lab/` (experimental,
-   deps no grupo `lab`). Regra da revisão adotada: PR de produto que toca uma
-   área remove pelo menos um caminho obsoleto daquela área.
-6. **Revisão humana obrigatória em áreas estreitas** via `CODEOWNERS`:
-   semântica de status (`djen.py`, `manifest.py`), migrações de schema,
-   fronteiras de segurança (relay), e `docs/GOVERNANCE.md`.
+   descrever o arquivo público do DJEN. **Ainda pendente** — é configuração
+   do repositório, não versionada; nenhum PR alcança isso.
+2. ~~**#809 — eliminar o caminho legado de dados em
+   `/publicacoes/[tribunal]`**~~ **Feito.** Resolvida por PR #817
+   (`fix(web): migrate /publicacoes/[tribunal] off the legacy live-IA data
+   path`), mergeada antes mesmo deste PR — `TribunalDetail.svelte` agora lê
+   exclusivamente de um novo contrato `tribunal_calendar.qmd` derivado do
+   manifesto canônico; `buildTimeData.ts`/`useDashboard.svelte.ts`/
+   `QueryProvider.svelte` (o stack legado) foram deletados.
+3. ~~**Canário de ponta a ponta**~~ **Feito.** `.github/workflows/canary.yml`
+   + `scripts/canary_check.py`, diário às 10:00 UTC (após a cadeia
+   consolidate→catalog→deploy-web). Decisões tomadas para reduzir risco a
+   quase zero (documentadas em detalhe no comentário do commit e em
+   `docs/SERVICE_OBJECTIVES.md`):
+   - **Sem round-trip sintético novo.** Em vez de inventar um par
+     (tribunal, data) para atravessar coleta→IA→manifesto→Parquet→browser
+     num único job, o canário verifica dois sinais independentes e baratos:
+     (a) frescor/sanidade do `site-status.json` público real e (b) **um**
+     lookup ao vivo do DJEN (`get_caderno_url`) para TJRO no último dia útil
+     — não uma nova simulação, o mesmo caminho que a coleta em produção usa
+     (proxy, mesma função Python).
+   - **Tribunal:** TJRO — o mais documentado no próprio repositório
+     (exemplo de nomenclatura de item IA no CLAUDE.md, exemplo de SQL em
+     `site_status.qmd`).
+   - **Data:** último dia útil brasileiro (via `holidays.Brazil()`, já
+     dependência existente) — evita falso-positivo em fim de semana/feriado,
+     quando DJEN responde 400/404 legitimamente.
+   - **Classificação de resultado:** disponível ou ausente (404/400/200
+     sem URL) → sucesso, prova que o parser ainda distingue corretamente o
+     caso historicamente problemático; 403 (rate-limit CloudFront) → aviso,
+     nunca falha, conforme a regra do CLAUDE.md; qualquer outra exceção →
+     falha real.
+   - **Canal de alerta:** nenhum novo. A notificação padrão do GitHub
+     Actions para falha de workflow agendado é o mecanismo — zero segredos
+     novos, zero integração nova.
+4. ~~**Objetivos de serviço explícitos**~~ **Feito**, em
+   `docs/SERVICE_OBJECTIVES.md`. Decisão chave: o limiar de frescor (48h)
+   **não é um número novo** — é `FRESHNESS_THRESHOLD_MS`, já estabelecido em
+   `web/src/lib/data/siteStatus.ts` para decidir "atualizado" vs "atrasado"
+   no próprio dashboard. O canário passou a alarmar ativamente sobre
+   exatamente o que o site já considerava obsoleto passivamente, em vez de
+   inventar um SLO paralelo. O atraso publicação→arquivo (24h, alinhado à
+   cadência diária real do pipeline) fica registrado como meta declarada,
+   não automatizada — o dado bruto (`pending_real`) já existe em
+   `site-status.json`, falta só o alarme; deixado para not implementar às
+   pressas sem confirmar o limiar com o mantenedor.
+5. ~~**Subtração contínua**~~ **Primeiro passo feito neste PR** — ver
+   "Auditoria de `scripts/`" abaixo. Removido `scripts/upload_to_ia.py`
+   (órfão: seu próprio docstring alegava ser "invocado por collect-zips.yml
+   e consolidate-parquet.yml", mas esses workflows na verdade chamam
+   `causaganha.pipeline.ia_s3.upload_to_ia`, uma função diferente — zero
+   imports, zero testes, zero referências reais). A separação física
+   completa em `lab/`/`migrations/` fica para um PR dedicado (ver
+   ressalva de acoplamento abaixo).
+6. ~~**Revisão humana obrigatória em áreas estreitas**~~ **Feito neste PR**
+   — `.github/CODEOWNERS` cobre semântica de status (`djen.py`,
+   `manifest.py`), contratos de schema/consolidação (`consolidate/`,
+   `web/src/queries/`, `contracts.ts`), o relay de segurança
+   (`deployment/relay/`) e `docs/GOVERNANCE.md`. O arquivo é inerte até o
+   mantenedor ativar "Require review from Code Owners" na proteção de
+   branch — ação de configuração do GitHub, não de código.
+
+## Auditoria de `scripts/` (fase 1 da subtração)
+
+Dos 44 arquivos/diretórios em `scripts/`, 23 são referenciados por algum
+workflow (`ops`, produto suportado). Os 17 arquivos + 4 subdiretórios
+restantes foram auditados individualmente (referências em outros scripts,
+testes, docs) e classificados:
+
+- **`lab`** (experimental — embeddings, LLM, treinamento, benchmark de
+  schema): `analyze_with_rag.py`, `annotate_with_llm.py`,
+  `batch_embed_decisions.py`, `build_segmenter_training_parquet.py`,
+  `classify_from_batch_embeddings.py`, `ensemble_compare.py`,
+  `evaluate_regex_segmenter.py`, `index_ground_truth.py`,
+  `ref_normativa_prepass.py`, `reconstruct_regions.py`,
+  `segment_decision.py`, `scripts/benchmarks/*` (4 arquivos).
+- **`migration`/dev-tool** (manutenção pontual, não recorrente, não
+  experimental): `setup_dev.sh`, `snapshot_parquets_for_rollback.py`,
+  `vendor_pje_swagger.py`, `scripts/db/*` (2 arquivos),
+  `scripts/dev/*` (5 arquivos).
+- **Borderline, confirmar com o mantenedor antes de mover:**
+  `build_gold_benchmark.py` (dataset-building, mas é invocado pelo script
+  `ops` `daily_benchmark_update.py` via mensagem de erro/instrução, não
+  import — mover exige atualizar essa referência textual);
+  `stress_test_djen.py` (diagnóstico manual, mas importado por
+  `src/djen_backup/__main__.py`); `scripts/web/generate-data.py` (tem
+  teste dedicado mas nenhum workflow o chama — verificar se está
+  realmente morto antes de mover).
+- **Dead, removido neste PR:** `upload_to_ia.py`.
+
+**Ressalva de acoplamento que bloqueia um move mecânico agora:**
+`segment_decision.py` importa de `reconstruct_regions.py` e
+`ref_normativa_prepass.py` (ambos candidatos a `lab`), e várias dessas
+scripts (`annotate_with_llm.py`, `build_segmenter_training_parquet.py`,
+`evaluate_regex_segmenter.py`, `reconstruct_regions.py`) importam de
+`prepare_privacy_filter_dataset.py` — que é `ops` (referenciado por
+workflow). Mover só os arquivos `lab` para `scripts/lab/` sem mover
+`prepare_privacy_filter_dataset.py` mantém essas importações funcionando
+(fica em `scripts/` top-level), mas qualquer PR de subtração física precisa
+atualizar `from scripts.X import` para `from scripts.lab.X import` nos
+arquivos movidos entre si, mais os testes (`tests/test_*.py` que importam
+esses módulos por caminho) e `vulture_whitelist.py`. Não fiz esse move
+neste PR para não arriscar quebrar import paths sem verificação completa de
+teste — registrado aqui para execução deliberada.
 
 ## Retratação do revisor (2ª rodada)
 

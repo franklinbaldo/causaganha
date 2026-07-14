@@ -1,0 +1,68 @@
+# ============================================================================
+# CANARY — Prove the deployed system works, not just that it builds
+# ============================================================================
+#
+# CI (test.yml) only proves the frontend builds against synthetic stub data.
+# This is the one job that checks the real, deployed system: the public
+# site-status.json is fresh (same 48h SLO the dashboard itself already uses
+# via evaluateSourceFreshness()) and sane, and a live DJEN lookup for a
+# stable tribunal still resolves to a definitive verdict. A single daily
+# run, timed after the consolidate -> catalog -> deploy-web chain settles.
+#
+# Failure here is the alert: GitHub's default failure notification to the
+# repo owner is the channel — no new secrets, no new integration.
+# ============================================================================
+
+name: Canary
+
+on:
+  schedule:
+    - cron: '0 10 * * *'  # 10:00 UTC — after the 07:00 consolidate -> catalog -> deploy-web chain
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    name: End-to-end canary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Run canary check
+        run: uv run python scripts/canary_check.py --summary-file /tmp/canary-report.json
+
+      - name: Canary Summary
+        if: always()
+        run: |
+          echo "## Canary" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/canary-report.json ]; then
+            uv run python -c "
+          import json
+          report = json.load(open('/tmp/canary-report.json'))
+          print(f'Target: {report[\"tribunal\"]} / {report[\"target_date\"]}')
+          print()
+          if report['failures']:
+              print('### Failures')
+              for f in report['failures']:
+                  print(f'- {f}')
+          if report['warnings']:
+              print('### Warnings')
+              for w in report['warnings']:
+                  print(f'- {w}')
+          if not report['failures'] and not report['warnings']:
+              print('All checks passed.')
+          " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No canary report generated" >> $GITHUB_STEP_SUMMARY
+          fi

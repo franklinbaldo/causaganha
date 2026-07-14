@@ -1,0 +1,21 @@
+# Narrow ownership for architecturally/legally significant areas.
+# GitHub only requests these reviews if branch protection enables
+# "Require review from Code Owners" — this file alone does not block merges.
+
+# DJEN status semantics (raw HTTP code vs derived availability verdict) —
+# see CLAUDE.md "Correctness" section before touching these.
+/src/djen_backup/djen.py            @franklinbaldo
+/src/djen_backup/manifest.py        @franklinbaldo
+
+# Manifest schema / consolidation contracts — changes here ripple into
+# every .qmd query contract and the frontend's Zod schemas.
+/src/causaganha/consolidate/        @franklinbaldo
+/web/src/queries/                   @franklinbaldo
+/web/src/lib/data/contracts.ts      @franklinbaldo
+
+# Security-sensitive network boundary (Cloud Run relay: allowlist, auth,
+# header handling for STJ/TJRO access from GitHub runners).
+/deployment/relay/                  @franklinbaldo
+
+# Data-governance and licensing policy.
+/docs/GOVERNANCE.md                 @franklinbaldo
