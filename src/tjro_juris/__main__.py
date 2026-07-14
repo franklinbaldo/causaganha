@@ -287,6 +287,16 @@ def crawl(
     log.info("crawl_done")
 
 
+_UPLOAD_INTERVAL_S = 1.0
+# IA's S3-compatible endpoint 503s ("Slow Down") under sustained upload
+# volume even WITH per-file retry/backoff (see tjro_juris.archive) — observed
+# live during the historical backfill, where a whole year's worth of
+# monthly parquets landed back-to-back with zero delay between PUTs. A
+# small self-imposed pause between uploads mirrors the crawler's own
+# _REQUEST_INTERVAL rate-limiting and cuts how often the retry path is
+# needed at all, instead of just reacting to it after the fact.
+
+
 @app.command()
 def upload(
     data_dir: Annotated[Path, typer.Argument(help="Directory with parquet files")],
@@ -296,7 +306,9 @@ def upload(
     pending = manifest.pending_upload()
 
     async def _upload_all() -> None:
-        for entry in pending:
+        for i, entry in enumerate(pending):
+            if i > 0:
+                await asyncio.sleep(_UPLOAD_INTERVAL_S)
             pq_path = _parquet_path(data_dir, entry.tipo, entry.mes_ano)
             if not await anyio.Path(pq_path).exists():
                 log.warning("parquet_not_found", path=str(pq_path))
