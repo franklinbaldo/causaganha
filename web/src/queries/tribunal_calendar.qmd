@@ -1,0 +1,24 @@
+---
+title: "Tribunal Calendar"
+description: "Per (tribunal, date) archival status — uploaded or confirmed-absent."
+output: /data/tribunal_calendar.json
+format: array
+---
+
+Status dia-a-dia por tribunal, usado pelo calendário/heatmap de
+`/publicacoes/[tribunal]` e pela exportação CSV de cobertura. Restrito a
+`uploaded`/`absent` — dias `pending`/`unknown` não têm estado a exibir no
+calendário e só inflariam o payload.
+
+```{sql}
+SELECT
+  tribunal,
+  date,
+  CASE
+    WHEN ia_status = 'uploaded' THEN 'uploaded'
+    WHEN djen_status = 'absent' THEN 'absent'
+  END AS status
+FROM manifest
+WHERE ia_status = 'uploaded' OR djen_status = 'absent'
+ORDER BY tribunal, date;
+```

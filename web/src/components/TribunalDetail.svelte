@@ -1,8 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais';
-  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
-  import QueryProvider from './QueryProvider.svelte';
   import { toDateString } from '../lib/dateUtils';
   import Heatmap from './Heatmap.svelte';
   import { calculateVelocityAndRegression } from '../lib/velocityCalc';
@@ -38,23 +36,17 @@
 
   interface TribunalDetailProps {
     tribunalCode: string;
-    initialCoverage: Record<string, string[]> | null;
-    initialEtas: Record<string, any> | null;
-    initialTargetRange: { start: string; end: string } | null;
-    initialStartDates: Record<string, string> | null;
-    initialQualityScores: Record<string, any> | null;
+    initialUploadedDates: string[];
+    initialAbsentDates: string[];
+    initialStartDate: string | null;
   }
 
   let {
     tribunalCode,
-    initialCoverage,
-    initialEtas,
-    initialTargetRange,
-    initialStartDates,
-    initialQualityScores,
+    initialUploadedDates,
+    initialAbsentDates,
+    initialStartDate,
   }: TribunalDetailProps = $props();
-
-  const dashboard = useDashboardWithPolling();
 
   let selectedTribunal = $state(tribunalCode.toUpperCase());
   let hashState = $state<HashState>({ date: null, page: null, seq: null });
@@ -72,35 +64,24 @@
     };
   });
 
-  let allData = $derived(dashboard.data);
-
-  let coverage = $derived(allData?.tribunalCoverage ?? initialCoverage ?? {});
-  let absentCoverage = $derived(allData?.tribunalAbsentCoverage ?? {});
-  let etas = $derived(allData?.tribunalEtas ?? initialEtas ?? {});
-  let startDates = $derived(allData?.tribunalStartDates ?? initialStartDates ?? {});
-  let qualityScores = $derived(allData?.tribunalQualityScores ?? initialQualityScores ?? {});
-  let iaSnapshot = $derived(allData?.iaSnapshot);
+  // Fonte única: contrato canônico tribunal_calendar (sync-manifest.parquet),
+  // já filtrado por tribunal em build-time por [tribunal].astro. Sem polling
+  // ao vivo do IA — mesmo padrão estático de /stats e /advogados (issue #809).
+  let coverageSet = $derived(new Set(initialUploadedDates));
+  let absentSet = $derived(new Set(initialAbsentDates));
+  let tribunalStartDate = $derived(initialStartDate ?? undefined);
 
   let activeDate = $derived.by(() => {
-    let date = hashState.date;
-    if (!date && iaSnapshot?.items) {
-      for (const item of Object.values(iaSnapshot.items)) {
-        if (item.tribunal === selectedTribunal) {
-          if (!date || item.latest_date > date) {
-            date = item.latest_date;
-          }
-        }
-      }
+    if (hashState.date) return hashState.date;
+    let latest: string | null = null;
+    for (const d of initialUploadedDates) {
+      if (!latest || d > latest) latest = d;
     }
-    return date;
+    return latest;
   });
 
-  let backfillTargetRange = $derived(allData?.targetRange ?? initialTargetRange);
   let today = $derived(toDateString(new Date()));
-  let targetRange = $derived({
-    start: backfillTargetRange?.start || "2024-01-01",
-    end: backfillTargetRange?.end || today,
-  });
+  let targetRange = $derived({ start: "2024-01-01", end: today });
 
   const BASE = import.meta.env.BASE_URL;
   const baseUrl = BASE.endsWith('/') ? BASE : BASE + '/';
@@ -112,22 +93,6 @@
     window.location.href = `${baseUrl}publicacoes/${encodeURIComponent(newTribunal.toLowerCase())}`;
   }
 
-  let snapshotDates = $derived.by(() => {
-    const dates = new Set<string>();
-    if (iaSnapshot?.items) {
-      for (const item of Object.values(iaSnapshot.items)) {
-        if (item.tribunal === selectedTribunal) {
-          item.dates.forEach((d: string) => dates.add(d));
-        }
-      }
-    }
-    return dates;
-  });
-
-  let selectedCoverage = $derived(snapshotDates.size > 0 ? snapshotDates : new Set(coverage[selectedTribunal] || []));
-  let selectedEtaData = $derived(etas[selectedTribunal] || { missing_days: null, velocity_14d: 0, eta_days: null });
-  let tribunalStartDate = $derived(startDates[selectedTribunal] || selectedEtaData.genesis_date);
-
   let expectedDays = $derived.by(() => {
     if (!tribunalStartDate) return 0;
     const start = new Date(tribunalStartDate + "T00:00:00Z");
@@ -138,21 +103,33 @@
     return 0;
   });
 
-  let actualMissingDays = $derived(
-    selectedEtaData.missing_days !== null
-      ? selectedEtaData.missing_days
-      : Math.max(0, expectedDays - selectedCoverage.size)
-  );
+  let absentCount = $derived(absentSet.size);
+  let actualMissingDays = $derived(Math.max(0, expectedDays - coverageSet.size - absentCount));
 
-  let isStopped = $derived(selectedEtaData.stopped || false);
-  let cursorDate = $derived(selectedEtaData.cursor_date);
-  let completionPct = $derived(selectedEtaData.completion_pct || 0);
-  let genesisDate = $derived(selectedEtaData.genesis_date || tribunalStartDate);
+  // Heurística de "pipeline parado": nenhum dia arquivado ou confirmado
+  // ausente nos últimos 60 dias do target range. Sem fonte canônica para o
+  // estado real do pipeline (cursor de varredura) — isso é estado de
+  // execução do engine, não dado arquivado, então não há contrato .qmd
+  // possível para ele; o bloco de "cursor atual" foi removido (nunca teve
+  // dado real em produção, ver PR).
+  let isStopped = $derived.by(() => {
+    let latest: string | null = null;
+    for (const d of initialUploadedDates) if (!latest || d > latest) latest = d;
+    for (const d of initialAbsentDates) if (!latest || d > latest) latest = d;
+    if (!latest) return false;
+    const latestDate = new Date(latest + "T00:00:00Z");
+    const end = new Date(targetRange.end + "T00:00:00Z");
+    const daysSince = Math.floor((end.getTime() - latestDate.getTime()) / (1000 * 60 * 60 * 24));
+    return daysSince > 60;
+  });
 
-  let velocityMetrics = $derived(calculateVelocityAndRegression(selectedCoverage, targetRange.end, tribunalStartDate));
+  let completionPct = $derived(expectedDays > 0 ? ((coverageSet.size + absentCount) / expectedDays) * 100 : 0);
+  let genesisDate = $derived(tribunalStartDate);
+
+  let velocityMetrics = $derived(calculateVelocityAndRegression(coverageSet, targetRange.end, tribunalStartDate));
 
   let dynamicEtaDays = $derived.by(() => {
-    let eta = selectedEtaData.eta_days;
+    let eta: number | null = null;
     if (velocityMetrics && velocityMetrics.currentVelocity > 0 && actualMissingDays > 0) {
       eta = Math.ceil(actualMissingDays / (velocityMetrics.currentVelocity / 7));
     }
@@ -172,12 +149,8 @@
   let isComplete = $derived(actualMissingDays === 0 && expectedDays > 0);
   let statusColor = $derived(isComplete ? "value-success" : "value-warning");
 
-  let absentList = $derived(absentCoverage[selectedTribunal] || []);
-  let absentSet = $derived(new Set(absentList));
-
-  let totalForBar = $derived(actualMissingDays + selectedCoverage.size + (selectedEtaData.absent_days_count || 0));
-  let absentCount = $derived(selectedEtaData.absent_days_count || 0);
-  let syncedPct = $derived(totalForBar > 0 ? (selectedCoverage.size / totalForBar) * 100 : 0);
+  let totalForBar = $derived(actualMissingDays + coverageSet.size + absentCount);
+  let syncedPct = $derived(totalForBar > 0 ? (coverageSet.size / totalForBar) * 100 : 0);
   let completionStatusText = $derived(isComplete ? "Concluído" : "Em andamento");
 
   let tribunalAttentionCards = $derived(buildTribunalAttentionCards({
@@ -185,7 +158,7 @@
     missingDays: actualMissingDays,
     absentCount,
     expectedDays,
-    coverageSize: selectedCoverage.size,
+    coverageSize: coverageSet.size,
     completionPct,
     velocityRegressionPct: velocityMetrics?.regressionDrop,
     isStopped,
@@ -195,19 +168,10 @@
 
   let iaYear = $derived(activeDate ? parseInt(activeDate.substring(0, 4)) : new Date().getFullYear());
 
-  let qualityScore = $derived(qualityScores[selectedTribunal]);
-  let qualityTone = $derived.by(() => {
-    if (!qualityScore) return '';
-    if (qualityScore.grade === 'A') return 'success';
-    if (qualityScore.grade === 'B') return 'info';
-    if (qualityScore.grade === 'C') return 'warning';
-    return 'error';
-  });
-
   function exportCsv() {
     const rows = ["data,status"];
-    snapshotDates.forEach(d => rows.push(`${d},coletado`));
-    absentSet.forEach(d => rows.push(`${d},ausente`));
+    initialUploadedDates.forEach(d => rows.push(`${d},coletado`));
+    initialAbsentDates.forEach(d => rows.push(`${d},ausente`));
     const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -237,7 +201,6 @@
   }
 </script>
 
-<QueryProvider>
 {#if !hashReady && typeof window !== 'undefined'}
   <p aria-busy="true">Carregando...</p>
 {:else}
@@ -263,14 +226,6 @@
 
     <hgroup>
       <h1>{selectedTribunal}</h1>
-      {#if qualityScore}
-        <mark
-          data-tone={qualityTone}
-          title={`Completude: ${qualityScore.completeness}%\nRecência: ${qualityScore.recency}%\nConsistência: ${qualityScore.consistency}%`}
-        >
-          Qualidade: {qualityScore.grade}
-        </mark>
-      {/if}
     </hgroup>
     <div>
       <div class="tribunal-switcher">
@@ -315,7 +270,7 @@
     <TribunalStatsBar
       {completionPct}
       {syncedPct}
-      coverageSize={selectedCoverage.size}
+      coverageSize={coverageSet.size}
       {absentCount}
       {statusColor}
       {completionStatusText}
@@ -346,7 +301,7 @@
         globalStartDateStr={targetRange.start}
         globalEndDateStr={targetRange.end}
         tribunalStartDateStr={tribunalStartDate}
-        coverageSet={selectedCoverage}
+        {coverageSet}
         tribunalName={selectedTribunal}
         baseUrl={baseUrl}
         velocityMetrics={{
@@ -364,11 +319,6 @@
           <dl>
             <dt>Data inicial do tribunal</dt>
             <dd><strong>{genesisDate || "Desconhecida"}</strong></dd>
-
-            {#if cursorDate && !isStopped}
-              <dt>Cursor de varredura atual</dt>
-              <dd><strong class="value-primary">{cursorDate}</strong></dd>
-            {/if}
           </dl>
 
           {#if isStopped}
@@ -407,4 +357,3 @@
     {/if}
   </div>
 {/if}
-</QueryProvider>

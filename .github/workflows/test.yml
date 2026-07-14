@@ -117,6 +117,7 @@ jobs:
           echo '[{"court":"placeholder","collected":0,"absent":0,"total":0,"rate":0}]' > web/public/data/court_reliability.json
           echo '[{"day_idx":0,"name":"Dom","avg":0,"days_count":0},{"day_idx":1,"name":"Seg","avg":0,"days_count":0},{"day_idx":2,"name":"Ter","avg":0,"days_count":0},{"day_idx":3,"name":"Qua","avg":0,"days_count":0},{"day_idx":4,"name":"Qui","avg":0,"days_count":0},{"day_idx":5,"name":"Sex","avg":0,"days_count":0},{"day_idx":6,"name":"Sab","avg":0,"days_count":0}]' > web/public/data/weekly_pattern.json
           echo '[{"tribunal":"PLACEHOLDER","uploaded":1,"pending":0,"absent":0,"unknown":0,"total":1,"coverage_pct":100.0,"earliest_upload":"2026-01-01","latest_upload":"2026-01-01"}]' > web/public/data/tribunal_coverage.json
+          echo '[{"tribunal":"PLACEHOLDER","date":"2026-01-01","status":"uploaded"}]' > web/public/data/tribunal_calendar.json
       - name: Lint
         run: npm run lint
       - name: Test

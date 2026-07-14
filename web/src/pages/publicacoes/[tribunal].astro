@@ -4,8 +4,8 @@ import PageHeader from '../../components/PageHeader.astro';
 import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import TribunalDetail from '../../components/TribunalDetail.svelte';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
-import { loadBuildTimeData } from '../../lib/buildTimeData';
 import { loadContract } from '../../lib/data';
+import { readJson } from '../../lib/readJson';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -18,17 +18,36 @@ export function getStaticPaths() {
 
 const { tribunalCode } = Astro.props;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-
-const data = loadBuildTimeData();
+const tribunalUpper = tribunalCode.toUpperCase();
 
 // Contagens do contrato canônico tribunal_coverage (sync-manifest.parquet) —
 // substitui o archive_snapshot legado de cache/backfill.json para os números
 // exibidos em metadados/OG. zipCount = pares (tribunal × dia) com ZIP no IA.
 const coverageRow = ((await loadContract('tribunal_coverage')) ?? [])
-  .find(row => row.tribunal.toUpperCase() === tribunalCode.toUpperCase());
+  .find(row => row.tribunal.toUpperCase() === tribunalUpper);
 const zipCount = coverageRow?.uploaded ?? 0;
 const earliestDate = coverageRow?.earliest_upload ?? '';
 const latestDate = coverageRow?.latest_upload ?? '';
+
+// Calendário dia-a-dia do contrato canônico tribunal_calendar (mesmo
+// sync-manifest.parquet) — substitui tribunalCoverage/tribunalAbsentCoverage/
+// iaSnapshot legados (cache/backfill.json), que historicamente divergiam do
+// manifesto canônico (issue #809). Filtrado por tribunal aqui em build-time
+// para não embarcar o contrato inteiro (todos os tribunais) no HTML da página.
+const calendarRows = (await loadContract('tribunal_calendar')) ?? [];
+const uploadedDates = calendarRows
+  .filter(row => row.tribunal.toUpperCase() === tribunalUpper && row.status === 'uploaded')
+  .map(row => row.date);
+const absentDates = calendarRows
+  .filter(row => row.tribunal.toUpperCase() === tribunalUpper && row.status === 'absent')
+  .map(row => row.date);
+
+// tribunal_start_dates.json é um arquivo estático curado (data de gênese por
+// tribunal — não derivável do manifesto, que só rastreia datas a partir de
+// quando o tribunal entrou em operação). Lido em build-time, nunca em
+// runtime — não é o tipo de "snapshot paralelo" que a issue #809 mira.
+const tribunalStartDates = readJson<Record<string, string>>('tribunal_start_dates.json') ?? {};
+const startDate = tribunalStartDates[tribunalUpper] ?? null;
 
 const tribunalNames: Record<string, string> = {
   STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justiça', TST: 'Tribunal Superior do Trabalho',
@@ -81,11 +100,9 @@ const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.sit
     <TribunalDetail
       client:only="svelte"
       tribunalCode={tribunalCode}
-      initialCoverage={data?.tribunalCoverage}
-      initialEtas={data?.tribunalEtas}
-      initialTargetRange={data?.targetRange}
-      initialStartDates={data?.tribunalStartDates}
-      initialQualityScores={data?.tribunalQualityScores}
+      initialUploadedDates={uploadedDates}
+      initialAbsentDates={absentDates}
+      initialStartDate={startDate}
     />
   </div>
 </Layout>

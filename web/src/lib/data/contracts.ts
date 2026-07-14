@@ -228,6 +228,15 @@ export const totalsSchema = z.object({
 });
 export type Totals = z.infer<typeof totalsSchema>;
 
+/** tribunal_calendar.qmd — format: array */
+export const tribunalCalendarRowSchema = z.object({
+  tribunal: z.string(),
+  date: isoDate,
+  status: z.enum(['uploaded', 'absent']),
+});
+export const tribunalCalendarSchema = z.array(tribunalCalendarRowSchema);
+export type TribunalCalendarRow = z.infer<typeof tribunalCalendarRowSchema>;
+
 /** tribunal_coverage.qmd — format: array */
 export const tribunalCoverageRowSchema = z.object({
   tribunal: z.string(),
@@ -274,6 +283,7 @@ export const contracts = {
   stj_temas: { output: 'data/stj_temas.json', schema: stjTemasSchema },
   stj_totals: { output: 'data/stj_totals.json', schema: stjTotalsSchema },
   totals: { output: 'data/totals.json', schema: totalsSchema },
+  tribunal_calendar: { output: 'data/tribunal_calendar.json', schema: tribunalCalendarSchema },
   tribunal_coverage: { output: 'data/tribunal_coverage.json', schema: tribunalCoverageSchema },
   weekly_pattern: { output: 'data/weekly_pattern.json', schema: weeklyPatternSchema },
 } as const satisfies Record<string, { output: string; schema: z.ZodType }>;
