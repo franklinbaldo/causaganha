@@ -17,11 +17,18 @@
 #
 # Split from the former stj-tjro-sync.yml so a TJRO failure can't mask an
 # STJ failure (and vice versa) — see tjro-sync.yml for the other corpus.
+#
+# Cron reactivated 2026-07-14 after a live workflow_dispatch run through the
+# relay came back green with real data (51 manifest entries). 07:00 UTC =
+# 04:00 BR, outside business hours; distinct from tjro-sync.yml's 09:00 UTC
+# so the two crawls don't overlap on the relay.
 # ============================================================================
 
 name: STJ Sync
 
 on:
+  schedule:
+    - cron: "0 7 * * *"
   workflow_dispatch:
     inputs:
       skip_upload:
