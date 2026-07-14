@@ -5,6 +5,15 @@ import TribunalDetail from '../TribunalDetail.svelte';
 
 const feature = await loadFeature('features/tribunal-detail.feature');
 
+// tribunalStartDate/coverage are relative to "today" (expectedDays counts
+// from initialStartDate to the current date), so scenarios build dates
+// relative to now instead of hardcoding a fixed calendar window.
+function isoDaysAgo(n: number): string {
+  const d = new Date();
+  d.setUTCDate(d.getUTCDate() - n);
+  return d.toISOString().split('T')[0];
+}
+
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   let props: any;
 
@@ -15,11 +24,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   function makeProps(code: string) {
     return {
       tribunalCode: code,
-      initialCoverage: {},
-      initialEtas: {},
-      initialTargetRange: { start: '2024-01-01', end: '2024-12-31' },
-      initialStartDates: {},
-      initialQualityScores: {},
+      initialUploadedDates: [] as string[],
+      initialAbsentDates: [] as string[],
+      initialStartDate: null as string | null,
     };
   }
 
@@ -83,17 +90,11 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('Highlight tribunal coverage gap state', ({ Given, When, Then, And }) => {
     Given('tribunal "STF" has 12 missing days and 4 absent days', () => {
       props = makeProps('STF');
-      props.initialCoverage = { STF: ['2024-01-01', '2024-01-02'] };
-      props.initialEtas = {
-        STF: {
-          missing_days: 12,
-          absent_days_count: 4,
-          completion_pct: 14,
-          eta_days: 21,
-          genesis_date: '2024-01-01',
-        },
-      };
-      props.initialStartDates = { STF: '2024-01-01' };
+      // expectedDays = 18 (17 days ago .. today); 2 uploaded + 4 absent
+      // leaves 18 - 2 - 4 = 12 missing days.
+      props.initialStartDate = isoDaysAgo(17);
+      props.initialUploadedDates = [isoDaysAgo(17), isoDaysAgo(16)];
+      props.initialAbsentDates = [isoDaysAgo(15), isoDaysAgo(14), isoDaysAgo(13), isoDaysAgo(12)];
     });
 
     When('the tribunal detail page loads', () => {
@@ -114,17 +115,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   Scenario('Highlight tribunal anomaly state', ({ Given, When, Then, And }) => {
     Given('tribunal "STJ" has low completion coverage', () => {
       props = makeProps('STJ');
-      props.initialCoverage = { STJ: ['2024-01-01'] };
-      props.initialEtas = {
-        STJ: {
-          missing_days: 0,
-          absent_days_count: 0,
-          completion_pct: 20,
-          eta_days: null,
-          genesis_date: '2024-01-01',
-        },
-      };
-      props.initialStartDates = { STJ: '2024-01-01' };
+      // expectedDays = 10 (9 days ago .. today); 1 uploaded day → 10% completion.
+      props.initialStartDate = isoDaysAgo(9);
+      props.initialUploadedDates = [isoDaysAgo(9)];
     });
 
     When('the tribunal detail page loads', () => {

@@ -48,6 +48,17 @@ function parseContract<K extends ContractName>(
   return result.data as ContractData<K>;
 }
 
+// Per-(publicDir, name) cache of in-flight/completed loads. A dynamic route
+// like publicacoes/[tribunal].astro calls loadContract() once per generated
+// page (one per tribunal) with the same default publicDir — without this,
+// a large shared contract (e.g. tribunal_calendar, one row per tribunal ×
+// date) would be re-read, re-parsed and re-Zod-validated from scratch on
+// every single page of the build. Keyed by publicDir so tests using distinct
+// temp directories (see index.test.ts) never share a cached result.
+// Process-lifetime only — `astro dev` needs a restart to pick up a
+// regenerated contract JSON, which is an acceptable trade for build-time cost.
+const buildTimeCache = new Map<string, Promise<unknown>>();
+
 /**
  * Build-time loader (Node only). Reads from `<publicDir>/<output>`.
  *
@@ -57,22 +68,31 @@ function parseContract<K extends ContractName>(
  *   (fresh checkout / stub build).
  * @throws When the file exists but is malformed or fails schema validation.
  */
-export async function loadContractBuildTime<K extends ContractName>(
+export function loadContractBuildTime<K extends ContractName>(
   name: K,
   publicDir = './public',
 ): Promise<ContractData<K> | null> {
-  const [{ readFileSync }, { resolve }] = await Promise.all([
-    import('node:fs'),
-    import('node:path'),
-  ]);
-  const filePath = resolve(publicDir, contracts[name].output);
-  let raw: string;
-  try {
-    raw = readFileSync(filePath, 'utf-8');
-  } catch {
-    return null; // missing file → pages keep their EmptyState behaviour
-  }
-  return parseContract(name, raw);
+  const cacheKey = `${publicDir}::${name}`;
+  const cached = buildTimeCache.get(cacheKey);
+  if (cached) return cached as Promise<ContractData<K> | null>;
+
+  const promise = (async (): Promise<ContractData<K> | null> => {
+    const [{ readFileSync }, { resolve }] = await Promise.all([
+      import('node:fs'),
+      import('node:path'),
+    ]);
+    const filePath = resolve(publicDir, contracts[name].output);
+    let raw: string;
+    try {
+      raw = readFileSync(filePath, 'utf-8');
+    } catch {
+      return null; // missing file → pages keep their EmptyState behaviour
+    }
+    return parseContract(name, raw);
+  })();
+
+  buildTimeCache.set(cacheKey, promise);
+  return promise;
 }
 
 /**
