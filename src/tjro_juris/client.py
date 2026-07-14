@@ -31,6 +31,8 @@ from urllib.parse import urlencode
 import httpx
 import structlog
 
+from common.relay import relay_transport_from_env
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -81,10 +83,15 @@ _SORT_RECENT = [
 # One shared client for the whole crawl: connection reuse (keep-alive) makes a
 # multi-thousand-request crawl far less likely to hit connect timeouts than
 # opening a fresh TCP+TLS handshake per request.
+#
+# transport routes through the relay (see common.relay) when RELAY_URL/
+# RELAY_TOKEN are set — used in CI, where runner egress ConnectTimeouts on
+# juris-back.tjro.jus.br. Direct connection otherwise (local/dev default).
 _CLIENT = httpx.Client(
     timeout=30,
     headers=_HEADERS,
     limits=httpx.Limits(max_connections=4, max_keepalive_connections=2),
+    transport=relay_transport_from_env(),
 )
 
 
