@@ -21,20 +21,34 @@
 #
 # Usage:
 #   scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH_SIZE]
-#   scripts/train_on_colab.sh T4 3 1           # defaults
+#   scripts/train_on_colab.sh T4 1 1           # defaults
 #   scripts/train_on_colab.sh A100 5 16
 #
-# NOTE ON T4 MEMORY (verified empirically, not guessed):
+# NOTE ON T4 GPU MEMORY (verified empirically, not guessed):
 # opf runs a FULL fine-tune of a 1.5B-param model with full-precision AdamW
 # (no LoRA / gradient-checkpointing / 8-bit-optimizer flag exists in opf). The
-# model + optimizer state + gradients alone consume ~14GB — a fixed cost
-# independent of batch size. On a T4 (16GB) this means:
+# model + optimizer state + gradients alone consume ~14GB of VRAM — a fixed
+# cost independent of batch size. On a T4 (16GB VRAM) this means:
 #   - batch_size >= 2 OOMs in the attention forward pass (confirmed).
 #   - batch_size=1 + PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DOES fit
 #     and trains through to a checkpoint (confirmed: train_loss ~0.81,
 #     val_token_accuracy ~0.93 on the smoke set). This script sets that env var.
 # batch_size is NOT the lever for bigger runs — GPU VRAM is. For real training
 # raise the batch only on a bigger GPU (L4 24GB / A100 40GB).
+#
+# NOTE ON T4 HOST RAM (verified empirically — a SEPARATE ceiling from VRAM):
+# Even with the GPU-memory fix above, epochs=3 dies with SIGKILL (-9) partway
+# through epoch 2, on HOST RAM (not GPU) — confirmed by sampling /proc/meminfo
+# during the run: usage sits ~3GB through epoch 1, then spikes 3GB->12.4GB in
+# ~18s right around epoch completion and hits the T4 runtime's ~13GB host-RAM
+# ceiling. Ruled out: wandb overhead (still -9 with WANDB_API_KEY unset).
+# Suspected but NOT verified: opf's checkpoint-save path (writing a 1.5B-param
+# safetensors + optimizer state) may serialize through host RAM. Confirming
+# that needs reading opf's save code, not another GPU run. Until fixed or
+# understood, default epochs=1, which completes cleanly end-to-end. Multi-epoch
+# real training will need either a fix upstream, a high-RAM Colab runtime, or
+# per-epoch checkpointing changes — don't raise epochs on a T4 without one of
+# those.
 #
 # What it does:
 #   1. provisions a GPU session named "seg-train"
@@ -55,7 +69,7 @@
 set -euo pipefail
 
 GPU="${1:-T4}"
-EPOCHS="${2:-3}"
+EPOCHS="${2:-1}"
 BATCH_SIZE="${3:-1}"
 SESSION="seg-train"
 DATA_DIR="data/segmenter_splits"
