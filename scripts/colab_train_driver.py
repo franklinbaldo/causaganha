@@ -7,12 +7,17 @@ echoed. The W&B key is never read here — the caller runs ``wandb login``
 first (writes ``~/.netrc``); this driver only calls ``wandb.init``/``log``/
 ``finish``.
 
-The actual train+eval loop, command construction, and macro-F1 computation
-live in ``opf_shared.py`` (uploaded alongside this file) — shared with the
-Kaggle driver (``kaggle_train_kernel.py``) and the local runner
-(``train_decision_segmenter.py``) so there is exactly one implementation.
-This file is provider glue: W&B lifecycle, data/code lineage, checkpoint
-packaging (``colab download`` refuses directories).
+The actual train+eval loop (``train_and_eval``), opf command construction,
+and macro-F1 computation live in ``opf_shared.py`` (uploaded alongside this
+file). Both remote drivers — this one and Kaggle's
+``kaggle_train_kernel_body.py`` — call that same orchestration function, so
+there is exactly one remote-training run loop. ``train_decision_segmenter.py``
+(the local runner) shares only the command builders and the metric
+computation from opf_shared.py; it keeps its own orchestration (structlog
+logging, non-streamed subprocess.run) — "one implementation" describes the
+remote path, not all three callers uniformly. This file is provider glue:
+W&B lifecycle, data/code lineage, checkpoint packaging (``colab download``
+refuses directories).
 
 Exit status: ``main() -> int`` and ``raise SystemExit(main())`` — the caller
 reads the printed ``=== DRIVER EXIT CODE: N ===`` marker because a Colab cell

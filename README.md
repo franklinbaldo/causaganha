@@ -184,7 +184,9 @@ providers sharing one training implementation (`scripts/opf_shared.py`):
 - **Kaggle** (batch job) — `scripts/train_on_kaggle.sh --smoke [EPOCHS] [BATCH]`
   via the [Kaggle CLI](https://github.com/Kaggle/kaggle-api). Publishes
   `data/segmenter_splits/` as a private Kaggle Dataset, pushes a GPU kernel
-  (T4 — the only accelerator documented in the CLI's SDK), and polls to
+  (defaults to T4; other accelerator identifiers exist server-side but
+  aren't enumerable from the installed CLI — verify against Kaggle's own
+  docs/UI before using a different one), and polls to
   completion/error. One-time setup: `uv tool install kaggle` + an API token
   at kaggle.com/settings, either saved to `~/.kaggle/kaggle.json` or exported
   as `KAGGLE_KEY` — the account username is resolved from the token

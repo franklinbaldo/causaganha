@@ -35,14 +35,18 @@
 # GATING: same as train_on_colab.sh — without --smoke, the readiness gates
 # (G1-G5) are enforced locally before anything is pushed to Kaggle.
 #
-# GPU: only NvidiaTeslaT4, NvidiaTeslaP100, and Tpu1VmV38 are documented in
-# the CLI's own SDK (kagglesdk/kernels/types/kernels_api_service.py — "the
-# allowed names are in an enum not currently included in kagglesdk"). No
-# A100/L4 — an earlier draft of this script wrongly assumed those existed;
-# verified false against source before writing this. T4 is the default and
-# only supported value here; the memory notes in train_on_colab.sh (batch
-# size / host-RAM ceiling) are opf-specific, not Colab-specific, and likely
-# apply here too but have NOT been verified on Kaggle's T4 allocation.
+# GPU: the CLI's own source (kaggle_api_extended.py) states outright that
+# "the allowed [machine_shape] names are in an enum not currently included
+# in kagglesdk" — i.e. the full accelerator list is server-side, not
+# something the installed client can enumerate. The kagglesdk docstring
+# happens to show NvidiaTeslaT4/NvidiaTeslaP100/Tpu1VmV38 as EXAMPLES, not an
+# exhaustive list (an earlier draft of this script mistook it for one — do
+# not repeat that mistake; verify against Kaggle's own current docs/UI before
+# trusting any specific accelerator name beyond T4, which is confirmed
+# working here). NvidiaTeslaT4 is the default and only value this script
+# uses; the memory notes in train_on_colab.sh (batch size / host-RAM
+# ceiling) are opf-specific, not Colab-specific, and likely apply here too
+# but have NOT been verified on Kaggle's T4 allocation.
 #
 # What it does:
 #   1. enforces the readiness gates locally (unless --smoke)
@@ -127,8 +131,13 @@ fi
 
 REPO_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 DATASET_SLUG="causaganha-segmenter-splits"
-RUN_ID="$(date +%s)"
-KERNEL_SLUG="causaganha-segmenter-train-${RUN_ID}"
+# Stable, not timestamped: unlike Colab (a live VM session, where reusing a
+# name risks colliding with an orphaned one), pushing to the same Kaggle
+# kernel slug just creates a new version (real history, not a collision) —
+# and a stable slug is required for the documented "attach the W&B secret
+# once" flow, since the secret attaches to a specific kernel that must
+# already exist before you can attach anything to it.
+KERNEL_SLUG="causaganha-segmenter-train"
 
 echo "==> W&B on Kaggle comes from a kernel Secret (Add-ons -> Secrets in the"
 echo "    kernel editor), never from a local env var — the driver installs wandb"
@@ -137,6 +146,10 @@ echo "    secret is attached can't be known before the kernel actually runs."
 
 echo "==> publishing gold splits as Kaggle Dataset $KAGGLE_USERNAME/$DATASET_SLUG"
 cp "$DATA_DIR"/{train.jsonl,val.jsonl,test.jsonl,label_space.json} "$DATASET_DIR/"
+# CC0-1.0 is deliberate project policy, not a casual default — see
+# docs/GOVERNANCE.md #9: the project's own rights over derived datasets
+# (aggregates/indicators derived from the archived public record, which
+# these training splits are) are released under CC0 1.0.
 cat > "$DATASET_DIR/dataset-metadata.json" <<JSON
 {
   "id": "$KAGGLE_USERNAME/$DATASET_SLUG",
@@ -144,7 +157,21 @@ cat > "$DATASET_DIR/dataset-metadata.json" <<JSON
   "licenses": [{"name": "CC0-1.0"}]
 }
 JSON
-if kaggle datasets metadata "$KAGGLE_USERNAME/$DATASET_SLUG" >/dev/null 2>&1; then
+# Existence check via the Python API, not the CLI: `kaggle datasets metadata`
+# downloads dataset-metadata.json to cwd as a side effect (verified against
+# --help — "Location to download... Defaults to current working directory"),
+# which would have littered the repo root. The suggested alternative,
+# `kaggle datasets status`, doesn't work as a bash exit-code check either —
+# verified live: it prints an error but still exits 0 for a NONEXISTENT
+# dataset, indistinguishable from success. The Python API's dataset_status()
+# raises a real exception in that case (confirmed live), so that's what
+# actually distinguishes "exists" from "doesn't".
+if uv run --no-project --with kaggle python3 -c "
+from kaggle.api.kaggle_api_extended import KaggleApi
+api = KaggleApi()
+api.authenticate()
+api.dataset_status('$KAGGLE_USERNAME/$DATASET_SLUG')
+" >/dev/null 2>&1; then
   # --keep-tabular: without it Kaggle auto-converts "tabular-looking" files to
   # CSV on upload, which would corrupt our JSONL.
   kaggle datasets version -p "$DATASET_DIR" -m "sync $REPO_COMMIT" --keep-tabular --dir-mode skip

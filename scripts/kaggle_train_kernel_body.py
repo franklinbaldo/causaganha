@@ -25,6 +25,7 @@ directory-download restriction here, unlike Colab).
 from __future__ import annotations  # KAGGLE_STRIP_THIS_LINE
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -52,7 +53,11 @@ WANDB_VERSION_PIN = globals().get("WANDB_VERSION_PIN", "0.28.0")
 # mount under /kaggle/input/datasets/<owner>/<slug>/.
 DATA = Path("/kaggle/input/datasets") / DATASET_OWNER / DATASET_SLUG
 OUT = Path("/kaggle/working")
-_ENV = {"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"}
+# dict(os.environ, ...), NOT a bare dict: subprocess.Popen's env= REPLACES the
+# whole environment rather than merging, which would have stripped PATH, CUDA
+# library paths, HF cache config, etc. (real bug, caught in review — the Colab
+# driver already did this correctly; this file didn't).
+_ENV = dict(os.environ, PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True")
 
 
 def _install_pinned_deps() -> None:

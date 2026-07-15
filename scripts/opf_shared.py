@@ -1,11 +1,14 @@
 """Shared opf command construction, run orchestration, and metric reporting.
 
-Single source of truth for how CausaGanha invokes ``opf train`` / ``opf eval``,
-how a run is streamed + logged, and how the canonical macro F1 is computed
-from opf's metrics JSON. Used by the local runner
-(``train_decision_segmenter.py``) and every remote-GPU driver (Colab's
-``colab_train_driver.py``, Kaggle's ``kaggle_train_kernel.py``) so a CLI
-change, a metric correction, or a bugfix in the run loop is made ONCE.
+Single source of truth for how CausaGanha invokes ``opf train`` / ``opf eval``
+and how the canonical macro F1 is computed from opf's metrics JSON — every
+caller (the local runner, Colab, Kaggle) shares these, so a CLI flag change
+or a metric correction is made once. The run-orchestration loop
+(``train_and_eval``, streamed logging) is additionally shared by both
+remote-GPU drivers (Colab's ``colab_train_driver.py``, Kaggle's
+``kaggle_train_kernel_body.py``); the local runner
+(``train_decision_segmenter.py``) keeps its own orchestration (structlog,
+non-streamed) and only consumes the command builders + metrics from here.
 
 STDLIB-ONLY on purpose: remote drivers upload/inline this file onto a bare
 runtime where no repo dependency (structlog, torch, ibis) is installed.
