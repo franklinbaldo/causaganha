@@ -59,6 +59,19 @@ export function classifyCnjInput(raw: string): CnjInputStatus {
   return isValidCnj(stripCnjMask(trimmed)) ? 'valid' : 'invalid';
 }
 
+/**
+ * Decide para onde a busca da home deve ir: um CNJ válido tem o dossiê
+ * reconciliado (DJEN + JURIS + STJ + DataJud) em /processo, mais completo do
+ * que a busca DJEN-only de /publicacoes. Retorna a URL de redirecionamento,
+ * ou null quando a entrada não é um CNJ válido — nesse caso o chamador deixa
+ * o formulário seguir o fluxo padrão (GET para /publicacoes).
+ */
+export function buildHeroSearchRedirect(raw: string, processoHref: string): string | null {
+  if (classifyCnjInput(raw) !== 'valid') return null;
+  const digits = normalizeCnj(raw);
+  return `${processoHref}?cnj=${encodeURIComponent(formatCnj(digits))}`;
+}
+
 // ── URL compartilhável (?cnj=...) ──────────────────────────────────────────
 
 const CNJ_PARAM = 'cnj';

@@ -15,6 +15,7 @@
     searchParamsToQuery,
     hasAnyQueryValue,
   } from '../lib/searchQueryString';
+  import { formatCnj } from '../lib/processoCnj';
   import PublicationCard from './PublicationCard.svelte';
   import SmartSearchInput from './SmartSearchInput.svelte';
   import SearchFilters from './SearchFilters.svelte';
@@ -113,6 +114,16 @@
   });
 
   const smart = $derived(smartParseInput(preparedInput));
+  // Este formulário só consulta o DJEN. Quando o input é um CNJ válido, o
+  // dossiê reconciliado em /processo tem mais fontes (DJEN + JURIS + STJ +
+  // DataJud) do que esta busca sozinha — por isso o link em vez de fundir
+  // as duas UIs.
+  const BASE_URL = import.meta.env.BASE_URL;
+  const processoHref = $derived.by(() => {
+    if (smart.kind !== 'processo' || !smart.patch.numeroProcesso) return null;
+    const base = BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`;
+    return `${base}processo?cnj=${encodeURIComponent(formatCnj(smart.patch.numeroProcesso))}`;
+  });
   const effectiveQuery = $derived<DjenComunicacaoQuery>({ ...filters, ...smart.patch });
   const criteriaFilters = $derived({
     siglaTribunal: filters.siglaTribunal,
@@ -499,6 +510,13 @@
     submitLabel={status === 'loading' ? 'Buscando…' : cooldownRemaining > 0 ? `Aguarde ${cooldownRemaining}s` : 'Buscar'}
   />
 
+  {#if processoHref}
+    <p class="processo-hint" data-tone="info">
+      Isto busca só no DJEN. Para ver este processo reconciliado com JURIS (TJRO), STJ e DataJud,
+      <a href={processoHref}>abra o dossiê completo →</a>
+    </p>
+  {/if}
+
   <section aria-label="Filtros ativos">
     <strong>Filtros ativos</strong>
     {#if activeFilterChips.length > 0}
@@ -654,6 +672,12 @@
 
 
 <style>
+  .processo-hint {
+    margin: 0.5rem 0 0;
+    font-size: 0.875rem;
+    color: var(--fg-muted, var(--color-content-tertiary));
+  }
+
   .criteria-summary {
     margin-block: 1rem;
     padding: 1rem;
