@@ -91,7 +91,11 @@ echo "==> resolving Kaggle username from credentials"
 # account's username on its own (verified — the KGAT_-prefixed token format
 # is self-describing). Requires KAGGLE_KEY (or ~/.kaggle/kaggle.json) to
 # already be set in the environment this script runs in.
-KAGGLE_USERNAME="$(python3 -c "
+# uv run --with kaggle: the `kaggle` executable comes from `uv tool install`
+# (an isolated tool env), which does NOT make the importable `kaggle` package
+# visible to a bare system `python3` — verified live (this failed once with
+# ModuleNotFoundError before adding --with kaggle here and below).
+KAGGLE_USERNAME="$(uv run --no-project --with kaggle python3 -c "
 from kaggle.api.kaggle_api_extended import KaggleApi
 api = KaggleApi()
 api.authenticate()
@@ -188,7 +192,7 @@ echo "==> pushing kernel $KAGGLE_USERNAME/$KERNEL_SLUG (GPU=$GPU)"
 kaggle kernels push -p "$KERNEL_DIR" --accelerator "$GPU" --timeout 3600
 
 echo "==> polling for completion (QUEUED -> RUNNING -> COMPLETE/ERROR)"
-python3 - "$KAGGLE_USERNAME/$KERNEL_SLUG" <<'PY'
+uv run --no-project --with kaggle python3 - "$KAGGLE_USERNAME/$KERNEL_SLUG" <<'PY'
 import sys, time
 from kaggle.api.kaggle_api_extended import KaggleApi
 from kagglesdk.kernels.types.kernels_enums import KernelWorkerStatus
