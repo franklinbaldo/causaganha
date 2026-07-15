@@ -37,6 +37,7 @@ from opf_shared import compute_macro_f1, train_and_eval  # KAGGLE_STRIP_THIS_LIN
 # Fallback values so this file is independently syntax-checkable; the real
 # run always has these overwritten by the generated CONFIG block.
 DATASET_SLUG = globals().get("DATASET_SLUG", "causaganha-segmenter-splits")
+DATASET_OWNER = globals().get("DATASET_OWNER", "unknown")
 EPOCHS = globals().get("EPOCHS", 1)
 BATCH = globals().get("BATCH", 1)
 GPU = globals().get("GPU", "NvidiaTeslaT4")
@@ -46,7 +47,10 @@ REPO_COMMIT = globals().get("REPO_COMMIT", "unknown")
 WANDB_VERSION_PIN = globals().get("WANDB_VERSION_PIN", "0.28.0")
 # ---------------------------------------------------------------------------
 
-DATA = Path("/kaggle/input") / DATASET_SLUG
+# Verified live (a diagnostic os.listdir kernel), NOT the flat
+# /kaggle/input/<slug>/ path an earlier draft assumed: attached datasets
+# mount under /kaggle/input/datasets/<owner>/<slug>/.
+DATA = Path("/kaggle/input/datasets") / DATASET_OWNER / DATASET_SLUG
 OUT = Path("/kaggle/working")
 _ENV = {"PYTORCH_CUDA_ALLOC_CONF": "expandable_segments:True"}
 
