@@ -64,6 +64,13 @@ assert torch.cuda.is_available(), "no GPU on runtime"
 print("GPU:", torch.cuda.get_device_name(0))
 PY
 
+echo "==> preparing remote directories"
+colab exec -s "$SESSION" <<PY
+import os
+os.makedirs("$REMOTE_DATA", exist_ok=True)
+os.makedirs("$REMOTE_OUT", exist_ok=True)
+PY
+
 echo "==> uploading artifact set"
 for f in train.jsonl val.jsonl test.jsonl label_space.json; do
   colab upload -s "$SESSION" "$DATA_DIR/$f" "$REMOTE_DATA/$f"
