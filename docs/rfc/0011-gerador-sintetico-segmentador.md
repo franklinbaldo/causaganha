@@ -1,81 +1,110 @@
 # RFC 0011 — Gerador sintético estrutural para o Decision Segmenter
 
 - **Status:** Proposto
-- **Data:** 2026-07-15
+- **Data:** 2026-07-15 (revisado na mesma data após review)
 - **Relacionado:** RFC 0001 (diagnóstico do fine-tuning v7), ADR 0010 (Rebuild
-  Segmenter Pipeline v7), PR #792 (treino headless Colab/Kaggle)
-- **Escopo:** geração de dados sintéticos de treino para o segmentador de
-  decisões (OPF, âncoras BIOES) — arquitetura do gerador, hard negatives,
-  separação gold/sintético, protocolo experimental e escopo de primeira
-  implementação.
+  Segmenter Pipeline v7), PR #792 (treino headless Colab/Kaggle + W&B),
+  docs/GOVERNANCE.md (política de dados)
+- **Escopo:** dados sintéticos como fonte de treino de primeira classe para o
+  segmentador de decisões (OPF, âncoras BIOES) — arquitetura do gerador, hard
+  negatives, identidades fictícias, proveniência, invariantes anti-vazamento,
+  protocolo experimental e fases de implementação.
 
 ## 1. Resumo executivo
 
-É tecnicamente viável — e particularmente adequado a este segmentador —
-aumentar o corpus de treino com documentos sintéticos, porque o modelo não
-tenta compreender a decisão inteira: ele aprende **âncoras curtas e
-fronteiras estruturais** (`ementa_inicio`, `resultado`, `voto_inicio`,
-`acordao_decisorio_fim`, ...). O guideline atual privilegia explicitamente
-cues de 1–5 palavras e offsets mecânicos, não anotação de parágrafos.
+**Dados sintéticos são uma fonte de treino de primeira classe para este
+segmentador — não um suplemento provisório enquanto o gold escala, nem um
+recurso a ser tolerado com desconfiança.** O corpus sintético pode
+legitimamente exceder o real em contagem de documentos (1:1, 5:1, 10:1 ou
+mais, conforme os experimentos indicarem). Um modelo de produção pode ser
+treinado majoritariamente em exemplos sintéticos, desde que avaliado
+inteiramente em documentos reais.
 
-A proposta central: **não** gerar "uma sentença completa com rótulos" num
-único prompt de LLM. Em vez disso, um **gerador híbrido estrutural** em três
-camadas, onde o programa (não o LLM) controla estrutura, âncoras e offsets:
+A tarefa é excepcionalmente adequada a isso (§2): o modelo aprende **âncoras
+curtas e fronteiras estruturais**, não raciocínio jurídico. Um gerador
+determinístico produz exemplos frequentemente **mais informativos** que a
+amostragem passiva da distribuição real — especialmente para classes
+estruturalmente raras, condições de fronteira difíceis, negativos
+adversariais e combinações ausentes do seed.
 
-1. um **plano abstrato** (`DocumentSpec`) decide tipo, seções, resultado e
-   perfil de ruído;
-2. conteúdo interno das seções pode vir de LLM (fase 2) ou de phrase banks
-   gramaticais (fase 1), sem poder de decisão sobre rótulos;
-3. um **renderer determinístico** insere as âncoras e registra os offsets no
-   momento da inserção — `text[start:end]` é garantidamente igual ao anchor,
-   como o guideline exige.
+O papel dos dados reais não diminui — muda de natureza (§3): o gold real
+**define e audita a ontologia, calibra o gerador e fornece a validação e o
+teste**. Os gates G1–G5 continuam contando somente gold real; validação e
+teste continuam exclusivamente reais; `voto_*`/`acordao_decisorio_*`
+continuam exigindo suporte gold genuíno (ADR 0010). O que o sintético não
+pode substituir é a **avaliação** real e a **calibração** contínua — não o
+volume de treino.
 
-O valor real está nos **hard negatives** (a mesma expressão aparecendo onde
-NÃO deve ser marcada) e no reforço das classes estruturalmente raras
-(`preliminar_*`, `custas_*`, `honorarios_*`, `voto_*`,
-`acordao_decisorio_*`) — exatamente as que o RFC 0001 diagnosticou como
-inaprendíveis no seed atual. Sintético **nunca** conta para os gates G1–G5
-nem entra em validação/teste.
+Arquitetura (§4, preservada): geração em três camadas onde o programa — não
+o LLM — controla estrutura, âncoras e offsets iniciais. Treino real-only
+**não é o modelo preferido presumido**: é um baseline entre vários regimes
+comparados empiricamente (§12), com seleção de configuração feita em
+**validação real** e o **teste real travado** até a configuração congelar.
 
-O gerador é ancorado no corpus real que o projeto já coleta: os
-`textos.parquet` de produção calibram a distribuição estrutural, os phrase
-banks e o perfil de ruído (§4-bis.1), e um **juiz LLM** compara documentos
-sintéticos com reais para realimentar o gerador — nunca os rótulos, e nunca
-como substituto do critério de aceitação no teste real (§4-bis.2).
+## 2. Por que esta tarefa tem valor esperado incomum para sintético
 
-Uma terceira técnica, mais barata e mais segura que gerar do zero: **aumentar
-por regex os próprios documentos gold reais já anotados** (capitalização,
-espaçamento, sinônimos fora dos spans rotulados — §4-bis.4), preservando os
-offsets. Não exige LLM na versão base, é o experimento de menor custo do
-protocolo (§7, Run E) e serve como fase 0 antes mesmo do gerador estrutural.
+O segmentador não é solicitado a produzir raciocínio jurídico correto nem a
+decidir casos. Ele aprende:
 
-## 2. Contexto e motivação
+- âncoras estruturais curtas (cues de 1–5 palavras, como o guideline manda);
+- fronteiras de seção de documento;
+- fórmulas operativas controladas;
+- a distinção entre âncoras positivas e hard negatives;
+- padrões estruturais de sentença/acórdão;
+- invariância a ruído de extração.
 
-O RFC 0001 diagnosticou três problemas que invalidariam um treino sério com
-o seed atual: `preliminar_*` só existe no test set; o val set cobre 17/25
-categorias; e o volume (20 docs, 189 spans, 1 tribunal) dá variância enorme
-a qualquer F1. Os gates G1–G5 (em `prepare_privacy_filter_dataset.py`)
-bloqueiam corretamente o treino real até o corpus escalar.
+Para esse alvo, a geração determinística tem propriedades que a coleta
+passiva não tem:
 
-Escalar o gold real é o caminho principal e continua obrigatório — o ADR
-0010 afirma que `voto_*`/`acordao_decisorio_*` precisam de acórdãos
-genuínos. Mas a coleta+anotação de gold é lenta, e as classes raras são
-raras *estruturalmente* (uma decisão tem no máximo um `acordao_decisorio_*`;
-muitas não têm preliminar nem capítulo de custas). Um gerador sintético pode
-aumentar a exposição do modelo a essas estruturas **enquanto** o gold real
-escala, sem contaminar a medição.
+1. **Rótulos exatos por construção** — o renderer registra offsets no
+   momento da inserção (§4.3); não há custo de anotação nem erro de offset
+   na origem.
+2. **Estruturas raras geradas deliberadamente** em vez de esperar ocorrência
+   natural — `preliminar_*`, `custas_*`, `voto_*` etc. aparecem com a
+   frequência que o treino precisar, não com a frequência que o DJEN der.
+3. **Minimal pairs controlados** — a mesma frase de superfície colocada em
+   contexto positivo e negativo (§5), o contraste mais informativo possível
+   para o modelo.
+4. **Combinações ausentes do seed** representadas (acórdão com preliminar +
+   voto vencido + honorários, por exemplo — pode não existir nos 20 docs).
+5. **Balanceamento de classe controlado**, impossível num corpus natural.
+6. **Ruído de extração variado sistematicamente**, cobrindo o espaço de
+   artefatos em vez de amostrá-lo.
+7. **Pré-treino sintético** pode dar competência estrutural ampla antes do
+   fine-tuning real (Run B, §12).
 
-A literatura de legal NLP indica que augmentação generativa ajuda em regime
-de poucos dados, mas que paráfrase simples não captura a complexidade da
-linguagem jurídica — diversidade contextual e geração condicionada importam.
-Também é conhecido o risco de colapso ao treinar recursivamente em dados
-sintéticos: misturar continuamente dados humanos reais é a proteção
-essencial. Este RFC incorpora ambas as lições como restrições de design
-(§6, §7).
+O RFC 0001 diagnosticou exatamente as lacunas que isso ataca: `preliminar_*`
+só no test set, val cobrindo 17/25 categorias, 1–4 spans por classe rara no
+corpus inteiro. Coletar e anotar gold real resolve isso lentamente; o
+gerador resolve a *exposição de treino* imediatamente — e o gold real
+continua resolvendo o que só ele pode (§3).
 
-## 3. Arquitetura do gerador
+## 3. O papel dos dados reais genuínos
 
-### 3.1 Camada 1 — plano abstrato (`DocumentSpec`)
+Real e sintético têm papéis distintos; nenhum torna o outro secundário:
+
+- **Definir o que estrutura válida realmente é** — a ontologia nasce e é
+  auditada contra documentos reais;
+- **Descobrir variantes de superfície novas** — phrase banks crescem a
+  partir do observado, não do imaginado;
+- **Calibrar frequências e estilos** (§6.1) — o gerador é recalibrado
+  conforme novo gold real é anotado;
+- **Detectar pontos cegos do gerador** — erro em validação real que o
+  sintético não cobre é sinal de recalibração;
+- **Validar e testar generalização real** — exclusividade absoluta do real.
+
+Compromissos mantidos sem exceção:
+
+- G1–G5 contam **somente gold real pristino** — volume sintético não compra
+  cobertura de corpus;
+- validação e teste são **somente reais**;
+- `voto_*` e `acordao_decisorio_*` exigem suporte gold genuíno (ADR 0010);
+- anotação de gold real continua continuamente;
+- o gerador é recalibrado a partir do gold novo.
+
+## 4. Arquitetura do gerador (três camadas)
+
+### 4.1 Camada 1 — plano abstrato (`DocumentSpec`)
 
 ```python
 DocumentSpec(
@@ -93,39 +122,22 @@ DocumentSpec(
 )
 ```
 
-O plano controla: sentença vs. acórdão; presença e ordem das seções;
-decisão monocrática vs. colegiada; preliminares; honorários e custas;
-valores; presença de ementa/relatório/voto/encerramento; variações
-tipográficas e ruído de extração. Amostragem com seed explícito.
+Controla: sentença vs. acórdão; presença e ordem de seções; decisão
+monocrática vs. colegiada; preliminares; honorários/custas; valores;
+variações tipográficas e ruído. Amostragem com seed explícito.
 
-### 3.2 Camada 2 — conteúdo interno (sem poder sobre rótulos)
+### 4.2 Camada 2 — conteúdo interno (sem poder sobre rótulos)
 
-O conteúdo factual/argumentativo de cada seção é preenchido **sem decidir
-rótulos e sem tocar em offsets**:
+O conteúdo factual/argumentativo de cada seção é preenchido sem decidir
+rótulos nem tocar offsets — phrase banks gramaticais na fase 1, LLM na
+fase 2 (§14), trechos reais em registros híbridos (§6.2). Requisitos:
+identidades fictícias por padrão (§7), números processuais sintéticos,
+valores amostrados, áreas jurídicas e estilos variados.
 
-```json
-{
-  "facts": "A autora afirma que...",
-  "preliminary_reasoning": "A alegação de cerceamento...",
-  "merits_reasoning": "Os documentos demonstram...",
-  "holding": "dar parcial provimento ao recurso"
-}
-```
+### 4.3 Camada 3 — renderer determinístico
 
-Requisitos do conteúdo: partes fictícias; números processuais sintéticos;
-valores amostrados; áreas jurídicas variadas; estilos de redação e níveis
-de formalidade diferentes.
-
-Na **fase 1**, este conteúdo vem de phrase banks gramaticais (sem LLM). Na
-**fase 2**, um LLM gera o conteúdo interno — mas as âncoras e os labels
-permanecem sob controle determinístico do renderer.
-
-### 3.3 Camada 3 — renderer determinístico
-
-O programa, não o LLM, escolhe e posiciona as âncoras (`EMENTA:`,
-`RELATÓRIO`, `É o relatório.`, `VOTO`, `Ante o exposto`, `dou parcial
-provimento ao recurso`, `ACORDAM os Desembargadores...`, `à unanimidade.`,
-`Publique-se.`), registrando cada offset no momento da inserção:
+O programa escolhe e posiciona as âncoras, registrando cada offset no
+momento da inserção:
 
 ```python
 start = len(buffer)
@@ -134,406 +146,466 @@ end = len(buffer)
 labels.append({"category": "dispositivo_abertura", "start": start, "end": end})
 ```
 
-Assim `text[start:end] == anchor` por construção — a classe de bug nº 1 da
-anotação (offsets desalinhados) é impossível.
-
-## 4. Hard negatives — onde está o valor
-
-Documentos "perfeitos" e previsíveis produziriam um modelo frágil. O gerador
-deve criar situações em que a expressão-âncora aparece mas **não** deve ser
-marcada — seguindo exatamente os pontos mais difíceis do esquema atual
-(um único `dispositivo_abertura` operativo; `resultado` só no verbo
-operativo; distinção entre dispositivo individual e decisório colegiado):
-
-- jurisprudência citada contendo "ante o exposto";
-- voto que reproduz o resultado da sentença recorrida;
-- vários valores monetários, mas só um `valor_condenacao`;
-- "julgo procedente" dentro do relatório, descrevendo a sentença anterior;
-- "Decido" no início do mérito (não é `dispositivo_abertura`);
-- dois votos, mas somente um decisório colegiado;
-- ementa sem a palavra literal "EMENTA";
-- relatório sem "É o relatório";
-- seção iniciada sem o `_fim` correspondente;
-- "por maioria" / "à unanimidade" dentro de citações;
-- cabeçalhos repetidos por quebra de página.
-
-## 4-bis. Ancoragem no corpus real (parquets) e juiz LLM
-
-Duas extensões que amarram o gerador à distribuição real em vez de deixá-lo
-inventar um "estilo de gerador" próprio. Ambas usam ativos que o projeto já
-tem: os `textos.parquet` de produção no Internet Archive
-(`{TRIBUNAL}-{date}-textos.parquet`, gerados pelo consolidate — o prep
-script já tem um modo bootstrap que lê parquet) e a infraestrutura de
-subagentes LLM da anotação.
-
-### 4-bis.1 Parquets reais como distribuição de referência
-
-Em vez de calibrar phrase banks e `DocumentSpec` "de cabeça", extrair
-estatísticas do corpus real:
-
-- **distribuição estrutural**: frequência real de seções (quantas decisões
-  têm preliminar? capítulo de custas? voto vencido?), comprimentos típicos
-  por seção, ordem das seções por tribunal/tipo;
-- **superfície real**: variantes reais de abertura de dispositivo, fórmulas
-  de encerramento, formatos de cabeçalho — minerados do corpus, não
-  inventados (alimentam os phrase banks §5.2 com formas que ocorrem de
-  verdade e suas frequências);
-- **perfil de ruído real**: os artefatos de extração do DJEN observados
-  (quebras, hifenização, Unicode) calibram `noise_profile` em vez de
-  mutações arbitrárias.
-
-**Variante "conteúdo real, estrutura sintética":** preencher a camada 2 com
-trechos reais dos parquets (fatos/fundamentação reais) e deixar o renderer
-inserir as âncoras. Ganha realismo linguístico de graça — mas exige uma
-salvaguarda obrigatória: **texto real pode conter âncoras reais** ("ante o
-exposto" no meio de uma fundamentação citada), que virariam rótulos ausentes
-(falso negativo de treino). Todo trecho real importado passa por um scrub:
-detectar ocorrências das expressões-âncora no trecho e (a) descartar o
-trecho, (b) neutralizá-lo, ou (c) promovê-lo deliberadamente a hard negative
-(§4) — nunca ignorar. O validador (§8 `validators.py`) verifica isso
-mecanicamente.
-
-### 4-bis.2 Juiz LLM comparando sintético vs. real
-
-Um passo de julgamento discriminativo entre a geração e o treino: pares
-(documento sintético, documento real do parquet de mesmo tipo/tribunal) são
-apresentados a um juiz LLM que responde, por dimensão — plausibilidade
-estrutural, registro/formalidade, vocabulário jurídico, artefatos de
-geração ("cheiro de sintético") — onde o sintético diverge do real.
-
-- **O veredito melhora o GERADOR, não os rótulos**: feedback vira ajuste de
-  phrase banks, pesos do `DocumentSpec` e perfis de mutação
-  (`generator_version` incrementa). O juiz nunca toca em offsets/labels,
-  que permanecem do renderer por construção.
-- **Filtro barato, não critério de aceitação**: documentos que o juiz marca
-  como flagrantemente irreais podem ser descartados antes do treino, mas o
-  critério final continua sendo o §7 — sintético só é mantido quando
-  melhora o teste real. O juiz reduz o custo de chegar lá; não substitui a
-  medição.
-- **Sem ciclo com o segmentador**: o juiz é um LLM generalista comparando
-  texto, não o segmentador avaliando os próprios dados de treino — a regra
-  §6.3 permanece intacta.
-- **Execução por subagentes** (um por lote/dimensão de julgamento), conforme
-  a skill `llm-work-via-subagents`, com os erros do juiz decorrelacionados
-  do gerador (prompts/framings distintos), no mesmo espírito do ensemble de
-  verificação da anotação gold.
-
-Registrar o veredito na proveniência (§6):
-
-```json
-"info": {
-  "judge_score": {"estrutura": 0.9, "registro": 0.7, "vocabulario": 0.8},
-  "judge_version": "v1",
-  "judged_against": "TJRO-2025-03-14-textos"
-}
-```
-
-### 4-bis.3 LiteLLM como camada de acesso a modelos
-
-Tanto o conteúdo de LLM da fase 2 (§3.2) quanto o juiz (§4-bis.2) usam
-**LiteLLM** como camada de abstração de provedor — já é dependência do
-projeto (`litellm>=1.40.0`, grupo `classify`) e já é o padrão estabelecido
-em `scripts/annotate_with_llm.py` (anotação assistida por LLM) e
-`src/causaganha/analysis/llm_analyzer.py`. Este RFC não introduz um novo
-padrão de acesso a LLM — reusa o existente:
-
-- **Convenção de model string**: `openrouter/<provider>/<model>[:free]`
-  (ex.: `openrouter/google/gemma-3-27b-it:free`), igual ao
-  `annotate_with_llm.py`;
-- **Cadeia de fallback + rotação de chave**: `llm_analyzer.py` já implementa
-  fallback entre modelos (Gemini → OpenRouter free-tier) e rotação de
-  múltiplas chaves via `GEMINI_API_KEYS`/`GEMINI_API_KEY`,
-  `OPENROUTER_API_KEY` — o juiz herda essa resiliência em vez de reimplementar
-  retry próprio, relevante porque o volume de pares julgados (§4-bis.2) é
-  maior que o de anotação;
-- **`litellm.drop_params = True`** para tolerar parâmetros específicos de
-  modelo sem quebrar entre provedores, igual ao script existente;
-- Modelos do gerador (fase 2, §3.2) e do juiz (§4-bis.2) devem ser
-  **famílias diferentes** quando possível (o mesmo raciocínio da
-  decorrelação de erros do juiz, §4-bis.2) — um modelo não deve validar o
-  próprio estilo de geração.
-- Custo/limite de requisições por rodada de geração+julgamento é uma
-  variável de execução (via LiteLLM's usage tracking), não uma decisão de
-  arquitetura — mas informa a questão em aberto §10.7 (amostragem do juiz).
-
-### 4-bis.4 Aumento por regex de documentos reais (categoria "augmented")
-
-Uma terceira fonte de dados, mais barata que a geração completa (§3): em vez
-de sintetizar um documento novo, **perturbar mecanicamente um documento gold
-real já anotado** — capitalização, quebras de linha/espaçamento, sinônimos
-— preservando a estrutura e o conteúdo real. Não exige LLM na versão base
-(regex + tabela de sinônimos); pode ganhar uma variante assistida por LLM
-depois, reusando a camada §4-bis.3.
-
-**A restrição que domina o design: toda mutação precisa preservar ou
-recalcular os offsets dos spans já anotados.** Isso é mais rígido do que a
-mutação de documentos sintéticos (§5.2), onde o renderer ainda não fixou o
-texto final — aqui o documento **já tem** `label: [{category, start, end}]`
-corretos contra o texto original, e a mutação não pode invalidá-los:
-
-- **Capitalização** (upper/lower/title): preserva o comprimento da string
-  — offsets intocados, mutação trivialmente segura.
-- **Quebras de linha / espaçamento** (colapsar espaços duplos, inserir
-  quebra de página, normalizar `\r\n`): muda o comprimento — a função de
-  mutação precisa retornar não só o texto novo mas o **delta de deslocamento
-  por posição**, e todo offset após o ponto de mutação é recalculado. Isto é
-  trabalho novo — `opf_annotate.py` hoje só valida offsets, não os desloca
-  (confirmado antes de escrever esta seção); `mutations.py` (§8) precisa
-  desse utilitário de shift, compartilhado entre a mutação de texto
-  sintético (§5.2) e a de texto real (aqui).
-- **Sinônimos**: a mutação mais perigosa das três, por duas razões
-  independentes:
-  1. **muda o comprimento** (mesmo tratamento de shift acima);
-  2. **pode corromper a própria âncora que o modelo precisa aprender.**
-     Trocar uma palavra *dentro* de um span rotulado só é seguro se o
-     resultado for uma variante reconhecida da âncora (i.e., já listada em
-     `phrase_banks.py`, §5.2) — caso contrário o rótulo aponta para um texto
-     que não é mais um exemplo válido da categoria. **Regra padrão: sinônimo
-     só troca palavras *fora* dos spans rotulados** (na região não anotada
-     do documento). Trocar *dentro* de um span é um modo avançado opcional,
-     só permitido quando o resultado é verificado contra `phrase_banks.py`
-     — na prática, uma forma de *alimentar* o phrase bank a partir de
-     variação real, não de gerar rótulos novos livremente.
-  3. Requer um **recurso de sinônimos jurídicos controlado**, não um
-     tesauro genérico de PT-BR: termos jurídicos frequentemente parecem
-     sinônimos superficiais mas não são intercambiáveis (`procedente` /
-     `improcedente` não são sinônimos apesar de semanticamente próximos;
-     `sentença` e `acórdão` não são intercambiáveis apesar de ambos serem
-     "decisões"). O recurso inicial deve ser uma lista curada pequena e de
-     alta precisão (formas de dispositivo, conectivos, verbos de decisão já
-     presentes em `phrase_banks.py`), não uma biblioteca de sinônimos de
-     propósito geral.
-
-**Proveniência — categoria própria, nem `synthetic` nem gold puro:**
-
-```json
-{
-  "text": "...",
-  "label": [...],
-  "info": {
-    "id": "augmented_tjro_000017_v3",
-    "source_doc_id": "tjro_gold_000017",
-    "synthetic": false,
-    "augmented": true,
-    "augmentation": ["case_upper", "whitespace_collapse", "synonym_outside_span"],
-    "augmentation_seed": 20394
-  }
-}
-```
-
-**Regras de contagem, herdadas do §6 sem exceção:** `augmented` **não**
-conta para os gates G1–G5 (só o documento-fonte pristino conta — do
-contrário volume se ganha de graça, mecanicamente, sem novo dado real) e
-**não** entra em validação/teste (mesmo risco de otimismo espúrio que o
-sintético — o modelo aprenderia a sobreviver ao próprio estilo de
-augmentation). `augmented` fica no mesmo compartimento de treino que
-`synthetic`, sujeito ao mesmo protocolo de aceitação do §7.
-
-**Por que vale a pena mesmo sendo mais restrito que a síntese completa:**
-o conteúdo é 100% real (herda a distribuição de linguagem/estrutura sem
-risco de "cheiro de sintético", diferente de §3), então é um ponto de
-partida mais barato e mais seguro que a geração completa — plausivelmente
-uma **fase 0**, antes até do gerador estrutural, já que reaproveita
-diretamente os 20 documentos gold existentes e o tooling de validação de
-offset que este RFC já precisa construir para §4-bis.1.
-
-## 5. Perfis documentais e variação de superfície
-
-### 5.1 Famílias mínimas
-
-**Sentenças:** cível tradicional; Juizado Especial; execução fiscal;
-previdenciária; (trabalhista, se o escopo ampliar); curta sem relatório;
-extinção sem mérito; homologação; procedência parcial; capítulos separados
-de mérito/custas/honorários.
-
-**Acórdãos:** ementa moderna estruturada; antigo em texto corrido; Turma
-Recursal; unânime; por maioria; voto vencido; preliminar + mérito; acórdão
-que apenas mantém a sentença; voto longo + decisório curto; múltiplos votos.
-
-### 5.2 Phrase banks e mutações
-
-```python
-DISPOSITIVO_OPENINGS = [
-    "Ante o exposto", "Diante do exposto", "Pelo exposto",
-    "Posto isso", "Por essas razões",
-]
-RESULT_PATTERNS = {
-    "procedente": ["julgo procedente o pedido",
-                   "acolho os pedidos formulados",
-                   "reconheço a procedência da pretensão"],
-    "improcedente": ["julgo improcedentes os pedidos",
-                     "rejeito a pretensão inicial"],
-    "appeal_denied": ["nego provimento ao recurso",
-                      "conheço do recurso e lhe nego provimento"],
-}
-```
-
-Mutações pós-render (perfil `noise_profile`): caixa alta; ausência de
-acentos; espaços duplicados; hífens estranhos; quebras de página; cabeçalhos
-no meio do texto; numeração automática; caracteres Unicode trocados; OCR
-moderado; pontuação inconsistente; nomes de seção com e sem dois-pontos.
-As mutações devem **recalcular/preservar offsets** — validador obrigatório.
-
-## 6. Separação rigorosa entre gold e sintético
+**Garantia precisa do que isso dá — e do que não dá:** a colocação
+*inicial* é exata por construção (`text[start:end] == anchor` no momento do
+render). Isso **não** torna erros de offset impossíveis dali em diante —
+toda transformação posterior (mutações §11, fictionalização §7) precisa
+preservar ou recalcular os rótulos, e a **validação mecânica final é
+obrigatória** para todo registro, sempre (`opf_annotate.py validate` +
+invariantes §11). Sequência preferida quando possível:
 
 ```text
-data/segmenter_splits/      # somente gold real (inalterado)
-data/segmenter_synthetic/   # documentos gerados
+gerar/mutar conteúdo não rotulado
+→ inserir âncoras rotuladas finais
+→ registrar offsets
+→ validador final
 ```
 
-Proveniência explícita em cada registro:
+Mutações pós-render continuam permitidas, mas só via o contrato de
+transformação com edit-map (§11).
+
+O LLM **nunca** decide offsets ou rótulos finais, em nenhuma fase.
+
+## 5. Hard negatives como produto principal de treino
+
+O gerador deve produzir **minimal pairs controlados** — o contraste que
+nenhuma coleta passiva fornece de forma balanceada:
+
+```text
+Positivo:
+Ante o exposto, julgo procedente o pedido.
+
+Negativo:
+A sentença recorrida registrou: "Ante o exposto, julgo procedente o pedido."
+```
+
+Famílias de negativos obrigatórias (seguem os pontos mais difíceis do
+esquema: um único `dispositivo_abertura` operativo; `resultado` só no verbo
+operativo; dispositivo individual ≠ decisório colegiado):
+
+- fórmulas de resultado dentro do relatório (descrevendo a sentença anterior);
+- resultados citados de precedentes;
+- valores monetários que não são `valor_condenacao`;
+- "Decido" fora da seção operativa;
+- cabeçalhos duplicados (quebra de página);
+- frases de ementa dentro de citações;
+- "à unanimidade"/"por maioria" fora do decisório colegiado;
+- múltiplos "Ante o exposto" com apenas um operativo;
+- resultado da instância anterior vs. resultado do recurso atual;
+- conclusão de voto individual vs. resultado colegiado;
+- ementa sem a palavra "EMENTA"; relatório sem "É o relatório";
+- seção `_inicio` sem `_fim` correspondente.
+
+Proveniência explícita e ratio controlável:
 
 ```json
 {
-  "text": "...",
-  "label": [...],
-  "info": {
-    "id": "synthetic_acordao_000042",
-    "doc_type": "acordao",
-    "synthetic": true,
-    "generator_version": "v1",
-    "template_family": "tjro_modern_ementa",
-    "seed": 482901,
-    "difficulty": "adversarial"
-  }
+  "difficulty": "adversarial",
+  "hard_negative_families": ["quoted_dispositivo", "reported_prior_outcome"]
 }
 ```
 
-Regras não negociáveis:
+O gerador expõe o ratio positivos/negativos adversariais como parâmetro —
+é uma variável experimental (§12, Run D; §16).
 
-1. **Os gates G1–G5 continuam contando somente documentos reais.** O seed de
-   20 docs ainda precisa escalar em volume, tribunais e suporte de classes
-   raras — sintético não compra passagem pelos gates.
-2. **Sintético jamais entra em validação ou teste:**
-   `train = real + synthetic; validation = real only; test = real only,
-   verified`. Caso contrário mede-se a capacidade do modelo de reconhecer o
-   estilo do próprio gerador.
-3. **Sem ciclo recursivo:** o segmentador não gera nem seleciona os dados de
-   treino da própria próxima versão. Treinar recursivamente em sintético
-   apaga as caudas da distribuição real.
-4. O manifest separa as contagens:
+## 6. Ancoragem no corpus real
 
-```json
-{
-  "real_documents": 150,
-  "synthetic_documents": 500,
-  "real_support_by_class": {},
-  "synthetic_support_by_class": {}
-}
+### 6.1 Parquets como distribuição de referência (calibração agregada)
+
+Os `textos.parquet` de produção (IA, `{TRIBUNAL}-{date}-textos.parquet`,
+gerados pelo consolidate) calibram o gerador:
+
+- **distribuição estrutural**: frequência real de seções, comprimentos,
+  ordem por tribunal/tipo;
+- **superfície real**: variantes reais de dispositivo/encerramento/cabeçalho
+  mineradas do corpus alimentam `phrase_banks.py` com formas que ocorrem de
+  verdade e suas frequências;
+- **perfil de ruído real**: artefatos de extração observados calibram
+  `noise_profile`.
+
+Distinção importante: **calibração agregada** (estatísticas, contagens,
+frequências) pode usar o corpus amplo; **reuso direto de texto** (§6.2)
+obedece às invariantes de split do §10 — texto de documentos de
+validação/teste jamais aparece em registros de treino.
+
+### 6.2 Registros híbridos (conteúdo real, estrutura sintética)
+
+Trechos reais (fatos/fundamentação) preenchem a camada 2, e o renderer
+insere as âncoras. Ganha realismo linguístico — com três salvaguardas:
+
+1. **Origem restrita**: trechos reais só podem vir de **documentos reais de
+   treino** (invariante §10.4) — nunca de documentos de validação/teste.
+2. **Scrub de âncoras**: texto real pode conter âncoras reais ("ante o
+   exposto" numa fundamentação citada) que virariam falsos negativos. Todo
+   trecho importado passa por detecção das expressões-âncora e (a) descarte,
+   (b) neutralização, ou (c) promoção deliberada a hard negative — nunca
+   ignorar. Verificado mecanicamente (`validators.py`).
+3. **Fictionalização determinística** (§7) antes do render final.
+
+## 7. Identidades fictícias por padrão
+
+Conforme docs/GOVERNANCE.md, o projeto já tem posição estabelecida sobre
+preservação e análise de publicações judiciais oficiais públicas — **PII não
+é um bloqueador em aberto** e anonimização **não é requisito legal** para
+reuso desse texto. Identidades fictícias nos dados gerados são uma escolha
+de **qualidade de dataset e anti-memorização** (o modelo não deve gastar
+capacidade memorizando nomes reais irrelevantes para a tarefa), não uma
+precaução jurídica, e não são motivo para esconder a linhagem da fonte.
+
+Para registros totalmente sintéticos: partes, advogados, magistrados e
+empresas fictícios; números OAB/processo/CPF/CNPJ sintéticos quando
+estruturalmente necessários; identidade internamente consistente (gênero,
+tratamento, pronomes coerentes ao longo do documento); `identity_seed`
+explícito e reprodutível.
+
+Para registros híbridos com trechos reais:
+
+```text
+trecho real (de documento de TREINO)
+→ substituir identidades reais selecionadas, deterministicamente
+→ gerar/preservar conteúdo estrutural
+→ inserir âncoras rotuladas
+→ registrar offsets finais
 ```
 
-## 7. Protocolo experimental
+**Não** substituir indiscriminadamente: citações legais, frases-âncora,
+valores monetários rotulados, referências processuais rotuladas, metadados
+de tribunal/estilo necessários ao realismo do template.
 
-Runs comparáveis (val/test sempre reais, nunca sintético/augmented):
+## 8. LiteLLM como camada de acesso a modelos
 
-| Run | Treino | Val/test |
+Tanto o conteúdo LLM da fase 2 quanto o juiz opcional (§9) usam **LiteLLM**
+— já é dependência do projeto (`litellm>=1.40.0`, grupo `classify`) e o
+padrão estabelecido em `scripts/annotate_with_llm.py` e
+`src/causaganha/analysis/llm_analyzer.py`. Este RFC reusa o padrão
+existente, não cria outro:
+
+- model strings `openrouter/<provider>/<model>[:free]`;
+- cadeia de fallback + rotação de chaves (`GEMINI_API_KEYS`,
+  `OPENROUTER_API_KEY`) herdada de `llm_analyzer.py`;
+- `litellm.drop_params = True`;
+- gerador e juiz em **famílias de modelo diferentes** quando possível — um
+  modelo não valida o próprio estilo de geração.
+
+## 9. Diagnósticos estatísticos primeiro; juiz LLM opcional e subordinado
+
+O juiz LLM **não é requisito** para o treino sintético inicial. Antes dele,
+implementar diagnósticos baratos e determinísticos:
+
+- acurácia de um discriminador real-vs-sintético;
+- duplicação por vizinho mais próximo / edit distance normalizada;
+- divergência de comprimento de documento, ordem de seções, frequência de
+  âncoras e vocabulário;
+- cobertura por `template_family`; frequência de hard negatives; suporte
+  por classe por tipo de fonte.
+
+Interpretação: um discriminador que separa fácil real de sintético é
+**evidência diagnóstica, não prova de inutilidade** — exemplos sintéticos
+podem diferir intencionalmente e ainda ensinar invariâncias valiosas.
+Interpretar junto com o desempenho em validação real.
+
+Quando/se adotado, o juiz LLM: identifica defeitos estilísticos e realimenta
+o **gerador** (phrase banks, pesos de `DocumentSpec`, mutações —
+`generator_version` incrementa); **nunca** edita rótulos; **nunca** acessa
+exemplos do teste travado para seleção do gerador; **nunca** substitui a
+validação real; família de modelo distinta do gerador de conteúdo (§8);
+execução por subagentes (skill `llm-work-via-subagents`). Veredito
+registrado na proveniência (`judge_score`, `judge_version`,
+`judged_against`).
+
+## 10. Invariantes anti-vazamento (não negociáveis)
+
+```text
+data/segmenter_splits/      # somente gold real pristino (inalterado)
+data/segmenter_synthetic/   # gerados: synthetic / hybrid / augmented
+```
+
+1. **Split primeiro**: documentos reais pristinos são divididos em
+   train/val/test **antes** de qualquer geração ou augmentation.
+2. Augmentation só ocorre **depois** do split; o registro aumentado
+   **herda o split do documento-pai**.
+3. Filhos do mesmo documento-fonte ficam **no mesmo split**.
+4. Trechos reais em registros híbridos/sintéticos vêm **somente de
+   documentos reais de treino**.
+5. **Nenhum texto** de documentos de validação/teste aparece no treino, por
+   nenhum caminho.
+6. Um documento usado como exemplo de avaliação travada não calibra um
+   exemplo de treino por **reuso direto de texto** (calibração agregada
+   §6.1 é permitida quando não expõe texto/rótulos de avaliação ao gerador).
+
+Validadores obrigatórios:
+
+```python
+train_source_doc_ids & val_source_doc_ids == set()
+train_source_doc_ids & test_source_doc_ids == set()
+val_source_doc_ids & test_source_doc_ids == set()
+```
+
+Mais: hashes de texto normalizado; detecção de quase-duplicatas; IDs de
+família de fonte; proveniência por trecho em registros híbridos.
+
+Regras de contagem (herdam §3): `augmented`, `synthetic` e `hybrid` não
+contam para G1–G5 e não entram em validação/teste. E permanece proibido o
+**ciclo recursivo**: o segmentador não gera nem seleciona os dados de treino
+da própria próxima versão.
+
+## 11. Correção de offsets e correção semântica (contrato de transformação)
+
+### 11.1 Contrato de transformação
+
+Toda mutação que altera texto após o render inicial retorna um edit-map:
+
+```python
+TransformationResult(
+    text=new_text,
+    labels=new_labels,   # recalculados via edit-map
+    edits=edit_map,
+)
+```
+
+Invariantes finais, verificadas para **todo** registro (gerado, aumentado ou
+híbrido), sempre:
+
+```python
+0 <= start < end <= len(text)
+text[start:end] == expected_surface
+sem spans sobrepostos
+categoria permanece semanticamente válida
+```
+
+Nota Unicode: **não assumir** que conversão de caixa preserva comprimento
+(`ß`→`SS`, ligaturas). Mesmo mutações "triviais" passam pelo contrato.
+
+### 11.2 Correção semântica: um span alinhado ainda pode ser um exemplo ruim
+
+Um offset correto sobre uma âncora corrompida é um positivo inválido.
+Classificação das mutações (aplica-se a sinônimos, ruído OCR, remoção de
+acentos, substituição Unicode, caixa, pontuação, espaços, quebras dentro de
+âncoras):
+
+- **Fora de spans rotulados**: amplamente permitido, sujeito a validação.
+- **Dentro de spans rotulados**: permitido apenas via **allowlists por
+  categoria** de variantes válidas (na prática: o resultado precisa ser uma
+  variante reconhecida em `phrase_banks.py` — o que faz da mutação interna
+  uma forma de *alimentar* o phrase bank com variação real, não de gerar
+  rótulos livres).
+- **Transformações que destroem a âncora**: permitidas somente quando (a) o
+  rótulo é removido, (b) a ocorrência vira deliberadamente hard negative, e
+  (c) o contexto resultante permanece coerente.
+
+Recurso de sinônimos: **lista jurídica curada, pequena e de alta precisão**
+(partindo das variantes de `phrase_banks.py`), nunca tesauro genérico de
+PT-BR — `procedente`/`improcedente` são próximos semanticamente e opostos
+juridicamente; `sentença`/`acórdão` não são intercambiáveis.
+
+O validador final checa: integridade de offsets; sobreposição; forma de
+superfície permitida; compatibilidade semântica categoria↔âncora
+transformada.
+
+## 12. Protocolo experimental
+
+### 12.1 Separação seleção/avaliação (regra dura)
+
+```text
+Desenvolvimento e seleção de modelo/configuração:
+    validação real
+
+Avaliação final:
+    teste real TRAVADO
+```
+
+**Toda** decisão — design do gerador, phrase banks, perfis de mutação, ratio
+sintético/real, curriculum, pesos, hiperparâmetros, parada, filtro do juiz,
+alvo de classes — usa **somente validação real**. O teste real permanece
+travado até a configuração completa congelar; é avaliado uma vez ao final.
+
+Como o corpus é pequeno no início, são permitidos: cross-validation agrupada
+repetida sobre o corpus real não-teste; reamostragem repetida train/val;
+agrupamento por tribunal/família documental; test set fixo, travado e
+verificado.
+
+### 12.2 Regimes de treino (todos são hipóteses; nenhum é o default)
+
+| Run | Regime | Val/test |
 |---|---|---|
-| A | gold real | real |
-| E | real + augmented (case/whitespace, §4-bis.4) | real |
-| B | real + sintético simples | real |
-| C | real + sintético adversarial | real |
-| D | real + sintético balanceando classes raras | real |
+| A | somente real pristino (baseline, não o preferido presumido) | real |
+| B | pré-treino sintético amplo → fine-tuning real | real |
+| C | mistura real+sintético em todo o treino (amostragem configurável) | real |
+| D | curriculum adversarial: estrutural amplo → pesado em hard negatives → estágio final real-heavy | real |
+| E | real pristino + augmented real (§11) | real |
+| F | híbrido (linguagem real de docs de treino + estrutura/identidades sintéticas) | real |
+| G | oversampling sintético dirigido a classes raras/confusas (`preliminar_*`, `custas_*`, `honorarios_*`, `voto_*`, `acordao_decisorio_*`, casos difíceis de `resultado`/`dispositivo_abertura`) | real |
 
-Run E é o experimento de menor custo (fase 0, §8) e roda antes dos demais —
-se o aumento por regex já não ajudar sobre A, é sinal de alerta antes de
-investir na geração completa.
+Ratios sintético:real explicitamente admitidos: 1:1, 5:1, 10:1 e maiores
+quando justificado. **Contagem de documentos não determina sozinha a
+influência de cada fonte** — amostragem por fonte, peso na loss, curriculum
+e exposição repetida ao real são controles separados (§13).
 
-Métricas de comparação: macro-F1; macro-F1 sem classes fáceis; F1 por
-classe; erros em `resultado`; confusão `voto_*` × `acordao_decisorio_*`;
-falsos positivos em âncoras citadas; desempenho por tribunal e tipo
-documental.
+### 12.3 Justiça experimental
 
-**Critério de aceitação: o sintético só é mantido quando melhora o teste
-real.** "Parece plausível" não é critério. (A infraestrutura de comparação
-entre runs já existe — W&B em `causaganha-segmenter`, com config/lineage por
-run, do PR #792.)
+Para cada run, controlar ou reportar: passos de otimizador; tokens totais;
+número de exposições ao real pristino; probabilidades de amostragem por
+fonte; pesos de loss por fonte; batch size; schedule de LR;
+inicialização/checkpoint; seed; estágios de curriculum. Diferenças de
+orçamento (ex.: tokens totais) são permitidas quando são **variáveis
+experimentais explícitas**, nunca confounders escondidos.
 
-## 8. Escopo da primeira implementação
+Estatística: preferencialmente 5 seeds, no mínimo 3; média e desvio; 
+comparação pareada com o baseline A; intervalos de confiança/bootstrap
+quando viável. *Nota de custo:* com os limites empíricos de T4 documentados
+no PR #792 (1 época/host-RAM), 7 regimes × 3–5 seeds é orçamento real de
+computação — o budget é variável declarada do protocolo, não detalhe.
 
-Um PR pequeno adicionaria:
+### 12.4 Métricas
+
+Primárias: macro-F1; macro-F1 excluindo categorias mecanicamente fáceis; F1
+por classe; recall de classes raras; taxa de falsos positivos em hard
+negatives; acurácia de fronteira; confusões específicas (`voto_*` ×
+`acordao_decisorio_*`; `resultado` operativo × citado/reportado;
+`dispositivo_abertura` operativo × citado). Desagregar por tribunal, tipo
+documental, `template_family`, nível de ruído e contribuição real×sintética.
+
+Avaliar também se o sintético: reduz variância entre seeds; melhora
+eficiência amostral sobre o real; reduz a quantidade de gold real anotado
+necessária para uma meta; melhora robustez a estruturas raras. **Sintético
+pode ser valioso mesmo com macro-F1 agregado estável**, se melhorar
+materialmente recall de classes raras ou falsos positivos adversariais.
+
+A infraestrutura de comparação (W&B `causaganha-segmenter`, config/lineage
+por run) vem do PR #792.
+
+## 13. Mistura e curriculum como controles de primeira classe
+
+```python
+TrainingMix(
+    pristine_real_weight=4.0,
+    augmented_real_weight=2.0,
+    synthetic_weight=1.0,
+    hybrid_weight=1.0,
+)
+```
+
+(ou probabilidades de amostragem equivalentes). Curricula candidatos:
+
+- **Synthetic-first**: sintético amplo → sintético adversarial → misto →
+  finalização real-heavy;
+- **Misto contínuo**: ratio real/sintético fixo ou agendado por batch;
+- **Curriculum de classes raras**: estrutura geral → concentração sintética
+  nas raras → fine-tuning real;
+- **Geração dirigida por falhas**: análise de erros **de validação** →
+  identificar família de confusão → gerar sintético direcionado → retreinar
+  → reavaliar em validação. Este loop usa erros de validação; **jamais** o
+  teste travado para iteração do gerador.
+
+## 14. Fases de implementação
+
+O **gerador estrutural é o produto principal** e tem prioridade conceitual.
+A augmentation mecânica é complementar — útil e barata, mas seu resultado
+não prevê o valor da geração estrutural (ensinam coisas diferentes: ruído
+vs. estruturas raras/hard negatives), então nada "espera para ver se o regex
+ajuda".
+
+**Foundation PR (pequeno, habilitador):** infraestrutura de correção
+compartilhada — validador de split por família de fonte (§10); validador
+final de spans (§11.1); contrato de transformação/edit-map; schema de
+proveniência (§15); detecção de duplicatas e quase-duplicatas.
+
+**Fase 1 — gerador estrutural determinístico (implementação principal):**
+`DocumentSpec`; renderer determinístico; famílias de template
+sentença/acórdão; phrase banks; gerador de identidades fictícias (§7);
+geração de hard negatives (§5); proveniência estrutural; calibração por
+`corpus_stats` (§6.1); integração com val/test reais; export direto para
+JSONL treinável. **Sem LLM.**
+
+**Fase 1-bis — augmented real (complementar):** augmentation controlada de
+registros reais de treino usando a mesma infraestrutura de
+transformação/proveniência. Sinônimos dependem da lista curada
+(`phrase_banks.py`) existir.
+
+**Fase 2 — híbrido e conteúdo LLM:** trechos de linguagem real (documentos
+de treino, §6.2); fictionalização determinística (§7); conteúdo de seção
+gerado por LLM (§8); variação de estilo mais ampla.
+
+**Fase 3 — juiz LLM opcional e melhoria automatizada do gerador:** somente
+depois de os diagnósticos estatísticos baratos (§9) existirem.
+
+Layout de módulos:
 
 ```text
 scripts/generate_synthetic_segmenter.py
 scripts/synthetic_segmenter/
-    specs.py          # DocumentSpec + amostragem com seed
-    renderer.py       # inserção de âncoras + registro de offsets
-    phrase_banks.py   # variações de superfície por categoria + sinônimos curados
-    corpus_stats.py   # estatísticas da distribuição real (dos textos.parquet)
-    offset_shift.py   # utilitário de deslocamento de offset após mutação de comprimento
-    mutations.py      # perfis de ruído sintético (§5.2) — usa offset_shift.py
-    augment_real.py   # aumento por regex de gold real (§4-bis.4) — usa offset_shift.py
-    validators.py     # invariantes + offsets + scrub de âncoras em texto real
-    llm_content.py    # fase 2: conteúdo interno via LiteLLM (specs.py define, não rotula)
-    llm_judge.py      # fase 2: juiz sintético-vs-real via LiteLLM (§4-bis.2/.3)
+    specs.py            # DocumentSpec + amostragem com seed
+    renderer.py         # âncoras + offsets iniciais por construção
+    phrase_banks.py     # variações por categoria + sinônimos curados
+    identities.py       # identidades fictícias determinísticas (identity_seed)
+    hard_negatives.py   # famílias de negativos + ratio controlável
+    corpus_stats.py     # calibração agregada dos textos.parquet
+    transform.py        # contrato TransformationResult/edit-map (Foundation)
+    augment_real.py     # fase 1-bis: augmentation de gold de treino
+    split_guard.py      # invariantes anti-vazamento §10 (Foundation)
+    validators.py       # invariantes finais §11 + scrub de âncoras
+    diagnostics.py      # §9: discriminador, divergências, duplicação
+    llm_content.py      # fase 2: conteúdo interno via LiteLLM
+    llm_judge.py        # fase 3: juiz opcional via LiteLLM
 tests/test_synthetic_segmenter.py
 ```
 
-**Fase 0 (mais barata, sem LLM, direto no gold existente):**
-`offset_shift.py` + `augment_real.py` (§4-bis.4) — capitalização e
-espaçamento nos 20 documentos gold já anotados. Não precisa de
-`DocumentSpec`/renderer/geração nenhuma; é o menor experimento possível do
-protocolo §7 (uma linha nova na tabela: Run E — `real + augmented
-(case/whitespace)`, val/test real) e valida o utilitário de shift de offset
-que a fase 1 também reutiliza. Sinônimo (a parte mais arriscada de §4-bis.4)
-fica para depois de `phrase_banks.py` existir, pois depende da lista
-curada.
+## 15. Categorias de proveniência
 
-**Fase 1 — geração estrutural completa, ainda sem LLM.** Um gerador
-gramatical com phrase banks já valida: formato JSONL; offsets; cobertura
-das 25 classes; invariantes da ontologia (um `dispositivo_abertura`
-operativo, `resultado` só no verbo operativo, pareamento `_inicio`/`_fim`);
-documentos sentença/acórdão; hard negatives; reprodutibilidade por seed. A
-validação mecânica reutiliza `scripts/opf_annotate.py validate`.
-`corpus_stats.py` (§4-bis.1) entra aqui — é leitura de parquet + contagem,
-sem LLM — para que os phrase banks e as frequências do `DocumentSpec`
-nasçam calibrados no corpus real em vez de "de cabeça".
+Quatro categorias, no mínimo:
 
-A fase 2 introduz (a) conteúdo de LLM dentro das seções e (b) o juiz LLM
-sintético-vs-real (§4-bis.2), mantendo âncoras e labels sob controle
-determinístico do renderer (e, se executada por agente, via subagentes
-conforme a skill `llm-work-via-subagents`, não script de API).
+| Categoria | Descrição |
+|---|---|
+| **Pristine real** | gold verificado manualmente |
+| **Augmented real** | filho transformado de um documento real pristino de treino |
+| **Fully synthetic** | gerado de specs/phrase banks/LLM, sem trecho real direto |
+| **Hybrid synthetic** | estrutura sintética contendo trechos reais de documentos de treino |
 
-## 9. Recomendação concreta
+```json
+{
+  "source_type": "hybrid_synthetic",
+  "synthetic": true,
+  "augmented": false,
+  "contains_real_text": true,
+  "source_doc_ids": ["tjro_acordao_0017"],
+  "entities_fictionalized": true,
+  "generator_version": "v2",
+  "template_family": "tjro_acordao_moderno",
+  "seed": 123,
+  "identity_seed": 456,
+  "difficulty": "adversarial",
+  "hard_negative_families": ["quoted_result"]
+}
+```
 
-Implementar primeiro o **gerador estrutural adversarial** (fase 1, sem LLM)
-e usá-lo para aumentar principalmente `preliminar_*`, `custas_*`,
-`honorarios_*`, `voto_*` e `acordao_decisorio_*` — as classes onde a
-escassez estrutural é mais danosa — sem permitir que exemplos sintéticos
-contem como gold real, e só promovendo o sintético que comprovadamente
-melhora o teste real (§7).
+A proveniência existe para: reprodutibilidade, auditabilidade, enforcement
+de split, detecção de duplicatas, debugging, avaliação por fonte e ablation
+do gerador — não primariamente como salvaguarda de privacidade.
 
-## 10. Questões em aberto
+O manifest separa contagens por categoria
+(`real_documents`/`synthetic_documents`/`augmented_documents`/
+`hybrid_documents` e suporte por classe por fonte).
 
-1. **Volume alvo por classe rara** — quantos exemplos sintéticos por classe
-   antes de saturar? (O experimento §7-D informa isso empiricamente.)
-2. **Curriculum** — misturar sintético desde a época 1 ou introduzir após
-   convergência inicial no real?
-3. **Peso amostral** — sintético com peso menor que real no treino?
-4. **Fase 2 (LLM)** — qual modelo/custo para o conteúdo interno, e como
-   auditar que o conteúdo gerado não vazou âncoras fora do controle do
-   renderer? (O validador §8 mitiga, mas a auditoria precisa ser definida.)
-5. **Estilos de outros tribunais** — as `template_family` devem antecipar
-   STJ/outros TJs já na fase 1 ou esperar gold real desses tribunais?
-6. **Amostragem dos parquets para `corpus_stats`** — estratificada por
-   tribunal/período (como o opf-finetune manda para anotação) ou o corpus
-   TJRO disponível basta para calibrar a v1?
-7. **Custo/limiar do juiz LLM** — julgar todo documento gerado ou uma
-   amostra por `template_family`? Qual score mínimo por dimensão descarta
-   um documento antes do treino?
-8. **PII em conteúdo real reaproveitado** — a variante "conteúdo real,
-   estrutura sintética" (§4-bis.1) herda texto público do DJEN; confirmar
-   que a política de GOVERNANCE.md cobre a redistribuição desses trechos
-   dentro de um dataset de treino sintético, ou se é preciso anonimizar
-   partes antes.
-9. **Recurso de sinônimos jurídicos (§4-bis.4)** — curar manualmente uma
-   lista pequena e de alta precisão (ponto de partida: extrair as próprias
-   variantes já usadas em `phrase_banks.py`, §5.2) ou usar um LLM para
-   propor candidatos com revisão humana antes de entrar na lista? Um
-   tesauro genérico de PT-BR é explicitamente rejeitado (§4-bis.4) pelo
-   risco de trocar termos que parecem sinônimos mas não são
-   intercambiáveis em contexto jurídico.
-10. **Escopo do `offset_shift.py`** — construir um utilitário genérico de
-    "aplicar N mutações e recalcular todos os spans" (mais reusável, mais
-    complexo) ou funções específicas por tipo de mutação (mais simples,
-    mais fácil de auditar cada caso)? Afeta tanto §4-bis.4 quanto o
-    `mutations.py` sintético (§5.2).
+## 16. Questões em aberto
+
+1. **Ratio sintético:real ótimo** — 1:1, 5:1, 10:1+? (Runs B/C/G informam.)
+2. **Amostragem por fonte vs. peso na loss** — qual controle domina?
+3. **Pré-treino sintético vs. mistura contínua** (Run B vs. C).
+4. **Duração do estágio final real-heavy** no curriculum adversarial (Run D).
+5. **Contagem alvo por classe rara** antes de saturar (Run G informa).
+6. **Ratio hard-negative/positivo** por família de negativo.
+7. **Cobertura de estilos de tribunal** — antecipar STJ/outros TJs nas
+   `template_family` da fase 1 ou esperar gold real deles?
+8. **Gerar `_inicio` sem `_fim` deliberadamente** (sinal de qualidade de
+   dados no esquema de pareamento) — em que proporção?
+9. **Grau de ruído de extração** — até onde degradar sem destruir âncoras.
+10. **Cadência de recalibração do gerador** conforme novo gold real chega.
+11. **Comprimento de trecho híbrido** (§6.2) — frases, parágrafos, seções?
+12. **Active learning** — usar erros de validação para escolher quais
+    documentos reais anotar em seguida?
+13. **Quais falhas de validação disparam geração sintética dirigida** (§13,
+    loop dirigido por falhas) — taxonomia de gatilhos.
+14. **Amostragem dos parquets para `corpus_stats`** — estratificada por
+    tribunal/período ou o corpus TJRO disponível basta para a v1?
+15. **Escopo do `transform.py`** — utilitário genérico de edit-map (mais
+    reusável) vs. funções por tipo de mutação (mais auditável)?
