@@ -17,9 +17,12 @@
 #
 # Prerequisites (one-time):
 #   uv tool install kaggle
-#   Get an API token: kaggle.com/settings -> Create New Token -> save as
-#   ~/.kaggle/kaggle.json (chmod 600). Set KAGGLE_USERNAME below to that
-#   account's username (needed for the dataset/kernel slug).
+#   Get an API token: kaggle.com/settings -> Create New Token. Either save it
+#   as ~/.kaggle/kaggle.json (chmod 600), or export KAGGLE_KEY (the CLI maps
+#   any KAGGLE_* env var to its config directly — verified against source).
+#   The account's username is resolved automatically from the token at
+#   runtime (verified: the KGAT_-prefixed token format is self-describing) —
+#   no separate username variable needed.
 #   Optional W&B: Kaggle has no CLI for kernel secrets — attach one manually,
 #   once, via the kernel editor: Add-ons -> Secrets -> WANDB_API_KEY. There is
 #   no equivalent of Colab's upload-key-as-file dance; Kaggle owns the secret
@@ -67,7 +70,6 @@ fi
 
 EPOCHS="${1:-1}"
 BATCH_SIZE="${2:-1}"
-KAGGLE_USERNAME="${KAGGLE_USERNAME:-}"
 DATA_DIR="data/segmenter_splits"
 OUT_DIR="models/decision_segmenter"
 KERNEL_DIR="$(mktemp -d)"
@@ -83,10 +85,24 @@ command -v kaggle >/dev/null || {
   echo "kaggle CLI not found. Install with: uv tool install kaggle" >&2
   exit 1
 }
+
+echo "==> resolving Kaggle username from credentials"
+# No KAGGLE_USERNAME needed: the API token authenticates and resolves the
+# account's username on its own (verified — the KGAT_-prefixed token format
+# is self-describing). Requires KAGGLE_KEY (or ~/.kaggle/kaggle.json) to
+# already be set in the environment this script runs in.
+KAGGLE_USERNAME="$(python3 -c "
+from kaggle.api.kaggle_api_extended import KaggleApi
+api = KaggleApi()
+api.authenticate()
+print(api.config_values.get('username', ''))
+")"
 [[ -n "$KAGGLE_USERNAME" ]] || {
-  echo "Set KAGGLE_USERNAME (your kaggle.com username) before running." >&2
+  echo "Could not resolve Kaggle username — check KAGGLE_KEY / ~/.kaggle/kaggle.json." >&2
   exit 1
 }
+echo "    authenticated as $KAGGLE_USERNAME"
+
 for f in train.jsonl val.jsonl test.jsonl label_space.json; do
   [[ -f "$DATA_DIR/$f" ]] || { echo "missing $DATA_DIR/$f" >&2; exit 1; }
 done

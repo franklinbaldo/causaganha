@@ -181,15 +181,16 @@ providers sharing one training implementation (`scripts/opf_shared.py`):
   via the [Google Colab CLI](https://github.com/googlecolab/google-colab-cli).
   One-time setup: `uv tool install google-colab-cli && colab new` (OAuth
   browser flow). Linux/macOS only — on Windows, run it inside WSL2.
-- **Kaggle** (batch job) — `KAGGLE_USERNAME=you scripts/train_on_kaggle.sh --smoke [EPOCHS] [BATCH]`
+- **Kaggle** (batch job) — `scripts/train_on_kaggle.sh --smoke [EPOCHS] [BATCH]`
   via the [Kaggle CLI](https://github.com/Kaggle/kaggle-api). Publishes
   `data/segmenter_splits/` as a private Kaggle Dataset, pushes a GPU kernel
   (T4 — the only accelerator documented in the CLI's SDK), and polls to
   completion/error. One-time setup: `uv tool install kaggle` + an API token
-  at kaggle.com/settings saved to `~/.kaggle/kaggle.json`. Optional W&B
-  tracking needs a Secret attached once via the kernel editor
-  (Add-ons → Secrets) — Kaggle owns the key, unlike Colab's file-transfer
-  workaround.
+  at kaggle.com/settings, either saved to `~/.kaggle/kaggle.json` or exported
+  as `KAGGLE_KEY` — the account username is resolved from the token
+  automatically, no separate variable needed. Optional W&B tracking needs a
+  Secret attached once via the kernel editor (Add-ons → Secrets) — Kaggle
+  owns the key, unlike Colab's file-transfer workaround.
 
 Both scripts enforce the readiness gates (G1–G5) before running unless
 `--smoke` is passed; the current seed corpus fails them by design.
