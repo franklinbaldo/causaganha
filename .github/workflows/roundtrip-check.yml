@@ -54,8 +54,7 @@ jobs:
           # fallback (matches prior behavior: fail hard if unavailable).
           curl -sSfL -o data/sync-manifest.parquet \
             "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
-          pip install --quiet duckdb
-          python3 -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")"
+          uv run --no-dev python -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")"
           echo "Manifest rows: $(tail -n +2 data/sync-manifest.csv | wc -l)"
 
       - name: Run roundtrip equivalence check

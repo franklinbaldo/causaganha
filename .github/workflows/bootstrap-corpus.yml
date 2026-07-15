@@ -58,11 +58,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           dev: "true"
-
-      - name: Install opf + transformers
-        run: |
-          uv pip install --python .venv/bin/python \
-            "opf @ git+https://github.com/openai/privacy-filter.git"
+          groups: "opf"
 
       - name: Cache OPF base checkpoint
         uses: actions/cache@v4
@@ -79,7 +75,7 @@ jobs:
           fi
           for attempt in 1 2 3 4; do
             echo "Download attempt $attempt..."
-            if uv run python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"; then
+            if uv run --no-sync python -c "from opf._common.checkpoint_download import ensure_default_checkpoint; ensure_default_checkpoint()"; then
               echo "Checkpoint downloaded successfully"
               exit 0
             fi
@@ -107,7 +103,7 @@ jobs:
 
       - name: Run OPF + heuristic (Stage 1)
         run: |
-          uv run python scripts/bootstrap_training_corpus.py \
+          uv run --no-sync python scripts/bootstrap_training_corpus.py \
             --input data/bootstrap_texts/train.jsonl \
             --target ${{ inputs.target || '500' }} \
             --device -1 \
@@ -142,7 +138,6 @@ jobs:
       - name: Upload intermediate to IA
         if: success()
         run: |
-          uv pip install --python .venv/bin/python internetarchive
           uv run ia upload causaganha-segmenter-data \
             data/intermediate.jsonl \
             --metadata="collection:opensource" \
