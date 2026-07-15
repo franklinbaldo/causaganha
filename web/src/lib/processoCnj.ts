@@ -330,17 +330,22 @@ export function mapDocumentoRow(raw: Record<string, unknown>): ProcessoDocumento
   };
 }
 
-export interface Completude {
+export interface FontesPresenca {
   presentes: Fonte[];
   ausentes: Fonte[];
-  pct: number;
 }
 
-/** Grau de completude: quantas das 4 fontes possíveis contribuíram para este CNJ. */
-export function completude(fontes: Fonte[]): Completude {
+/**
+ * Agrupa as 4 fontes possíveis entre as que contribuíram para este CNJ e as
+ * que não têm registro no dataset. Não expõe um percentual: as 4 fontes
+ * cobrem categorias diferentes de informação (ex.: nem todo processo passa
+ * pelo STJ), então a ausência de uma não é "incompletude" — é a fonte não
+ * tendo o que consultar.
+ */
+export function fontesPresenca(fontes: Fonte[]): FontesPresenca {
   const presentes = ALL_FONTES.filter((f) => fontes.includes(f));
   const ausentes = ALL_FONTES.filter((f) => !fontes.includes(f));
-  return { presentes, ausentes, pct: Math.round((presentes.length / ALL_FONTES.length) * 100) };
+  return { presentes, ausentes };
 }
 
 /** "Processo localizado, mas sem documentos associados" — distinto de "não encontrado". */

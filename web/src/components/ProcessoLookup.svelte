@@ -10,7 +10,7 @@
     buildProcessoDocumentosSql,
     buildProcessoUnificadoSql,
     classifyCnjInput,
-    completude,
+    fontesPresenca,
     formatCnj,
     isDocumentosVazio,
     mapDocumentoRow,
@@ -45,7 +45,7 @@
   // instead of overwriting newer state (see search()/loadDocumentos()).
   let searchGeneration = 0;
 
-  const fontesResumo = $derived(processo ? completude(processo.fontes) : null);
+  const fontesResumo = $derived(processo ? fontesPresenca(processo.fontes) : null);
   const documentosVazio = $derived(
     status === 'found' && documentosStatus === 'ready' && isDocumentosVazio(documentos, 0) && documentosOffset === 0,
   );
@@ -276,7 +276,7 @@
       <header class="processo-dossie__header">
         <h2>{processo.nrProcessoMascara}</h2>
         <p class="meta-text">
-          {fontesResumo.presentes.length} de {ALL_FONTES.length} fontes ({fontesResumo.pct}% de completude) ·
+          Registros encontrados em {fontesResumo.presentes.length} das {ALL_FONTES.length} fontes consultadas ·
           dataset gerado em {datasetGeneratedAtLabel}
         </p>
       </header>
@@ -286,7 +286,7 @@
         <div class="processo-dossie__fontes">
           {#each ALL_FONTES as fonte}
             <span class="badge" data-tone={processo.fontes.includes(fonte) ? 'success' : 'muted'}>
-              {FONTE_LABELS[fonte]} {processo.fontes.includes(fonte) ? '✓' : '— ausente'}
+              {FONTE_LABELS[fonte]} {processo.fontes.includes(fonte) ? '✓' : '— sem registro'}
             </span>
           {/each}
         </div>
@@ -323,7 +323,7 @@
       </article>
 
       <section aria-labelledby="documentos-title">
-        <h3 id="documentos-title">Documentos (JURIS / STJ)</h3>
+        <h3 id="documentos-title">Documentos de decisões — JURIS / STJ</h3>
 
         {#if documentosStatus === 'loading' && documentos.length === 0}
           <p aria-busy="true">Carregando documentos…</p>
@@ -337,7 +337,10 @@
         {/if}
 
         {#if documentosVazio}
-          <p class="meta-text" data-tone="muted">Processo localizado, mas sem documentos associados.</p>
+          <p class="meta-text" data-tone="muted">
+            Nenhum documento de decisão encontrado no JURIS ou no STJ para este processo.
+            As publicações do DJEN, quando existentes, aparecem no resumo acima.
+          </p>
         {/if}
 
         {#if documentos.length > 0}
