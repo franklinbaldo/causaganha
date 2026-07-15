@@ -212,6 +212,9 @@ async def _process_upload_item(
         item.path.unlink(missing_ok=True)
     except (httpx.HTTPError, OSError) as exc:
         log.warning("upload_exception", item_id=item.item_id, error=str(exc))
+        await summary.inc_error()
+        if fail_fast:
+            abort_event.set()
 
 
 # ── DJEN check + download helpers (extracted for testability) ───────
