@@ -179,6 +179,7 @@ def test_fetch_window_stops_on_short_page(monkeypatch: pytest.MonkeyPatch) -> No
     }
     calls, fake = _fake_search_windows({window: pages})
     monkeypatch.setattr(crawler, "search", fake)
+    monkeypatch.setattr(crawler, "_jittered_page_size", lambda remaining: min(PAGE_SIZE, remaining))
 
     docs = fetch_tipo_window("ACÓRDÃO", *window)
 
@@ -476,6 +477,7 @@ def test_fetch_pages_leaves_cache_behind_on_error(
         raise _BoomError(msg)
 
     monkeypatch.setattr(crawler, "search", _fake)
+    monkeypatch.setattr(crawler, "_jittered_page_size", lambda remaining: min(PAGE_SIZE, remaining))
     with pytest.raises(_BoomError):
         _fetch_pages("ACÓRDÃO", "2024-01-01", "2024-01-31", cache_dir=tmp_path)
 
