@@ -179,3 +179,68 @@ describe('ProcessoLookup — race between two searches', () => {
     expect(queryByText(CNJ_A, { exact: false })).toBeNull();
   });
 });
+
+describe('ProcessoLookup — source presence copy (no false completeness score)', () => {
+  async function searchAndResolve(cnj: string, processoOverrides: Record<string, unknown>, documentoRows: Record<string, unknown>[]) {
+    const { conn, processoDeferreds, documentosDeferreds } = makeControllableConn();
+    vi.mocked(getDuckDB).mockResolvedValue({ conn } as never);
+
+    const { getByLabelText, getByText, container } = render(ProcessoLookup);
+    const input = (await waitFor(() => getByLabelText(/Número do processo/i))) as HTMLInputElement;
+
+    await fireEvent.input(input, { target: { value: cnj } });
+    await fireEvent.click(getByText('Buscar'));
+    await waitFor(() => expect(processoDeferreds.has(cnj)).toBe(true));
+    processoDeferreds.get(cnj)!.resolve(arrowResult([{ ...processoRow(cnj), ...processoOverrides }]));
+    await waitFor(() => expect(documentosDeferreds.has(cnj)).toBe(true));
+    documentosDeferreds.get(cnj)!.resolve(arrowResult(documentoRows));
+
+    return container;
+  }
+
+  it('shows the source count without a percentage when one source is present', async () => {
+    const cnj = '00000030420248220003';
+    const container = await searchAndResolve(cnj, {}, []);
+
+    await waitFor(() => expect(container.textContent).toContain('Registros encontrados em 1 das 4 fontes consultadas'));
+    expect(container.textContent).not.toContain('% de completude');
+  });
+
+  it('shows the correct source count when multiple sources are present', async () => {
+    const cnj = '00000040520248220004';
+    const container = await searchAndResolve(
+      cnj,
+      { fontes: ['djen', 'juris'], n_fontes: 2, juris_n_documentos: 2 },
+      [documentoRow(cnj, 'DOC-MULTI')],
+    );
+
+    await waitFor(() => expect(container.textContent).toContain('Registros encontrados em 2 das 4 fontes consultadas'));
+  });
+
+  it('labels an absent source as "sem registro", never "ausente"', async () => {
+    const cnj = '00000050620248220005';
+    const container = await searchAndResolve(cnj, {}, []);
+
+    await waitFor(() => expect(container.textContent).toContain('STJ — sem registro'));
+    expect(container.textContent).not.toContain('ausente');
+  });
+
+  it('explains an empty documents section without contradicting the DJEN publications shown above', async () => {
+    const cnj = '00000060720248220006';
+    const container = await searchAndResolve(cnj, { djen_n_publicacoes: 3 }, []);
+
+    await waitFor(() => expect(container.textContent).toContain('Nenhum documento de decisão encontrado no JURIS ou no STJ'));
+    expect(container.textContent).not.toContain('sem documentos associados');
+  });
+
+  it('shows the same empty-documents message when there are no DJEN publications either', async () => {
+    const cnj = '00000070820248220007';
+    const container = await searchAndResolve(
+      cnj,
+      { fontes: ['juris'], djen_n_publicacoes: null, juris_n_documentos: 0 },
+      [],
+    );
+
+    await waitFor(() => expect(container.textContent).toContain('Nenhum documento de decisão encontrado no JURIS ou no STJ'));
+  });
+});

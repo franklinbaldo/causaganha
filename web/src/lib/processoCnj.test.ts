@@ -6,7 +6,7 @@ import {
   buildProcessoDocumentosSql,
   buildProcessoUnificadoSql,
   classifyCnjInput,
-  completude,
+  fontesPresenca,
   formatCnj,
   isDocumentosVazio,
   isValidCnj,
@@ -346,24 +346,23 @@ describe('mapDocumentoRow', () => {
   });
 });
 
-describe('completude', () => {
-  it('reports all 4 sources present at 100%', () => {
-    const c = completude(['djen', 'juris', 'stj', 'datajud']);
+describe('fontesPresenca', () => {
+  it('groups all 4 sources as present, none absent', () => {
+    const c = fontesPresenca(['djen', 'juris', 'stj', 'datajud']);
     expect(c.presentes).toEqual(ALL_FONTES);
     expect(c.ausentes).toEqual([]);
-    expect(c.pct).toBe(100);
   });
 
-  it('reports a single source at 25%, listing the other three as absent', () => {
-    const c = completude(['djen']);
+  it('groups a single present source, listing the other three as without a record — no percentage', () => {
+    const c = fontesPresenca(['djen']);
     expect(c.presentes).toEqual(['djen']);
     expect(c.ausentes).toEqual(['juris', 'stj', 'datajud']);
-    expect(c.pct).toBe(25);
+    expect(c).not.toHaveProperty('pct');
   });
 
-  it('reports zero sources at 0%', () => {
-    const c = completude([]);
-    expect(c.pct).toBe(0);
+  it('groups zero present sources, all four without a record', () => {
+    const c = fontesPresenca([]);
+    expect(c.presentes).toEqual([]);
     expect(c.ausentes).toEqual(ALL_FONTES);
   });
 });
