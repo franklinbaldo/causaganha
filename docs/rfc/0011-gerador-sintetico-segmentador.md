@@ -228,6 +228,17 @@ frequências) pode usar o corpus amplo; **reuso direto de texto** (§6.2)
 obedece às invariantes de split do §10 — texto de documentos de
 validação/teste jamais aparece em registros de treino.
 
+**Endurecimento explícito:** mesmo a calibração agregada **exclui por hash**
+os documentos já identificados como val/test antes de computar qualquer
+estatística de `corpus_stats.py` — não porque o texto vaze diretamente (não
+vaza), mas para que a alegação "teste travado" seja **inequívoca**: nenhuma
+contagem, frequência ou distribuição usada para calibrar o gerador terá sido
+influenciada, nem agregadamente, pelos documentos que medem o resultado
+final. O filtro por hash de `train_source_doc_ids ∪` (documentos ainda não
+atribuídos a nenhum split, se a calibração ocorrer antes do split de um novo
+lote de gold) é responsabilidade de `corpus_stats.py`, verificada pelo mesmo
+`split_guard.py` do §10.
+
 ### 6.2 Registros híbridos (conteúdo real, estrutura sintética)
 
 Trechos reais (fatos/fundamentação) preenchem a camada 2, e o renderer
@@ -456,20 +467,36 @@ quando viável. *Nota de custo:* com os limites empíricos de T4 documentados
 no PR #792 (1 época/host-RAM), 7 regimes × 3–5 seeds é orçamento real de
 computação — o budget é variável declarada do protocolo, não detalhe.
 
-### 12.4 Métricas
+### 12.4 Métricas — hierarquia pré-declarada, não uma lista plana
 
-Primárias: macro-F1; macro-F1 excluindo categorias mecanicamente fáceis; F1
-por classe; recall de classes raras; taxa de falsos positivos em hard
-negatives; acurácia de fronteira; confusões específicas (`voto_*` ×
-`acordao_decisorio_*`; `resultado` operativo × citado/reportado;
-`dispositivo_abertura` operativo × citado). Desagregar por tribunal, tipo
-documental, `template_family`, nível de ruído e contribuição real×sintética.
+Com muitas métricas candidatas, quase todo run "parece bem-sucedido" em
+alguma delas depois do fato. Por isso a hierarquia é fixada **antes** de
+rodar os experimentos, não escolhida depois olhando os resultados:
 
-Avaliar também se o sintético: reduz variância entre seeds; melhora
-eficiência amostral sobre o real; reduz a quantidade de gold real anotado
-necessária para uma meta; melhora robustez a estruturas raras. **Sintético
-pode ser valioso mesmo com macro-F1 agregado estável**, se melhorar
-materialmente recall de classes raras ou falsos positivos adversariais.
+1. **Endpoint primário (único, decide aceitação/rejeição por padrão):**
+   macro-F1 em validação real.
+2. **Endpoints secundários-chave (pré-registrados, não descobertos post-hoc):**
+   macro-F1 de classes raras (o subconjunto difícil fixado no item 3); taxa
+   de falsos positivos em hard negatives.
+3. **Subconjunto de classes difíceis — fixado antes dos experimentos, não
+   escolhido depois de ver quais melhoraram:** `preliminar_*`, `custas_*`,
+   `honorarios_*`, `voto_*`, `acordao_decisorio_*` (as classes que o RFC
+   0001 diagnosticou como inaprendíveis no seed).
+4. **Regra de aceitação:** um regime substitui o baseline A quando o
+   endpoint primário melhora **e** nenhum secundário-chave regride além de
+   uma margem pré-registrada; ou quando o primário fica estável e **algum**
+   secundário-chave melhora materialmente, sem regressão nos demais. Fora
+   dessas duas condições, não é aceito — "parece bem-sucedido em alguma
+   métrica" não é critério.
+
+Métricas exploratórias (reportadas, mas não decidem aceitação): macro-F1
+excluindo categorias mecanicamente fáceis; F1 por classe fora do
+subconjunto difícil; acurácia de fronteira; confusões específicas (`voto_*`
+× `acordao_decisorio_*`; `resultado` operativo × citado/reportado;
+`dispositivo_abertura` operativo × citado); desagregação por tribunal, tipo
+documental, `template_family`, nível de ruído e contribuição real×sintética;
+variância entre seeds; eficiência amostral sobre o real; redução de gold
+real anotado necessário para uma meta.
 
 A infraestrutura de comparação (W&B `causaganha-segmenter`, config/lineage
 por run) vem do PR #792.
@@ -547,6 +574,7 @@ scripts/synthetic_segmenter/
     diagnostics.py      # §9: discriminador, divergências, duplicação
     llm_content.py      # fase 2: conteúdo interno via LiteLLM
     llm_judge.py        # fase 3: juiz opcional via LiteLLM
+    compose_mix.py      # §15-bis.3: TrainingMix -> train.jsonl materializado
 tests/test_synthetic_segmenter.py
 ```
 
@@ -586,6 +614,126 @@ O manifest separa contagens por categoria
 (`real_documents`/`synthetic_documents`/`augmented_documents`/
 `hybrid_documents` e suporte por classe por fonte).
 
+## 15-bis. Armazenamento e uso em treino
+
+O RFC até aqui especifica *como gerar* dados sintéticos; esta seção
+especifica *onde eles vivem* e *como o treino de fato os consome* — uma
+lacuna real do desenho original, porque o resto do pipeline (gates,
+`opf_annotate.py`, os drivers do PR #792) só sabe lidar com arquivos
+concretos em caminhos concretos.
+
+### 15-bis.1 Decisão de armazenamento: regenerar vs. persistir
+
+Nem toda categoria de dado sintético tem o mesmo custo de armazenamento,
+porque nem toda categoria é igualmente reproduzível:
+
+- **Fully synthetic sem LLM (fase 1)** é **determinístico por construção**
+  — `generator_version` + `seed` + `DocumentSpec` reproduzem exatamente o
+  mesmo JSONL. Para este caso, **não persistir o corpus gerado como
+  artefato versionado**: persistir o gerador (código, `phrase_banks.py`,
+  git-tracked) e um manifest pequeno de quais seeds/specs compõem cada
+  "release" nomeado. O JSONL é materializado sob demanda no momento do
+  preparo de dados — igual, em espírito, ao modo `--bootstrap` que
+  `prepare_privacy_filter_dataset.py` já tem para gerar a partir de
+  parquet.
+- **Fase 2 (conteúdo LLM, híbrido, filtrado por juiz) não é perfeitamente
+  reproduzível** (mesma seed, chamada de LLM diferente ⇒ texto diferente).
+  Aqui o artefato gerado **precisa ser persistido** como dado durável, do
+  mesmo jeito que o gold: versionado, com hash, nunca regenerado
+  silenciosamente sob o mesmo `generator_version`.
+- **Augmented real** (§11) é determinístico dado o documento-fonte + a
+  seed de mutação — mesmo tratamento de "regenerar sob demanda" da fase 1,
+  desde que o documento-fonte (gold) não mude.
+
+Em nenhum caso o corpus sintético/aumentado/híbrido de tamanho não-trivial
+é **commitado no git** — seguindo a convenção já estabelecida no projeto
+(CLAUDE.md: não gerar caches a partir de fontes aleatórias; dado derivado
+grande vive fora do git). Git guarda gerador, phrase banks, lista de
+sinônimos curada e manifests pequenos; nunca o JSONL de centenas de MB.
+
+### 15-bis.2 Onde persistir o que precisa ser persistido
+
+Reusar exatamente o padrão que o PR #792 já implementou para os gold
+splits, em vez de inventar um mecanismo novo:
+
+- **Kaggle:** publicar como Kaggle Dataset privado, versionado
+  (`kaggle datasets create`/`version`, o mesmo fluxo de
+  `train_on_kaggle.sh`), mas em dataset(s) **separados** dos gold splits
+  (`causaganha-segmenter-synthetic`, por exemplo) — mantém a fronteira
+  pristine-real/gerado visível na própria organização de datasets, não só
+  no JSON de proveniência.
+- **Colab:** para corpora pequenos o suficiente, `colab upload` direto,
+  igual aos splits reais hoje; para corpora grandes (o caso esperado em
+  ratios 5:1/10:1), cache no Google Drive — o mesmo padrão de
+  "base model uma vez, artefato por run" já descrito na skill
+  `opf-finetune` (`references/colab-and-drive.md`) para o checkpoint base,
+  aplicado agora ao corpus de treino também.
+- **IA (Internet Archive):** opção de longo prazo consistente com a missão
+  de arquivo do projeto (docs/GOVERNANCE.md), especialmente para releases
+  de `generator_version` que se tornem "oficiais" o suficiente para querer
+  histórico permanente fora do controle de uma conta Kaggle/Drive pessoal.
+
+### 15-bis.3 Composição do mix de treino — o ponto de integração real
+
+O CLI do `opf` (`opf train train.jsonl --validation-dataset val.jsonl
+--label-space-json ... --output-dir ...`) aceita como argumento posicional
+um **path ou glob** de JSON/JSONL — verificado no código-fonte de
+`opf/_train/args.py` (`dataset`: "Local train dataset path or glob
+(JSON/JSONL(.gz))"), não um único arquivo obrigatório como uma leitura
+apressada do wrapper sugeriria. Isso significa que múltiplos arquivos *são*
+suportados nativamente — mas só como **pool concatenado com peso igual por
+exemplo**; não há flag de ratio/peso por fonte no parser. Um glob resolveria
+"treinar em tudo que existe", não "4x pristine real para cada 1x sintético".
+Logo, o `TrainingMix` do §13 (pesos por fonte, curriculum) continua sendo
+algo que o `opf` não entende nativamente — é um **passo de composição que
+roda antes dele**, produzindo um único `train.jsonl` materializado com a
+mistura desejada já embutida (por repetição/amostragem conforme os pesos),
+exatamente como o pipeline já faz hoje com um único `train.jsonl` pristino.
+
+Isso é `compose_mix.py`, já listado no layout de módulos do §14. Ele lê os
+pools (pristine real de `data/segmenter_splits/`, augmented/synthetic/hybrid
+de onde estiverem — regenerados ou baixados
+conforme §15-bis.1/.2), aplica os pesos/curriculum do §13, e escreve um
+`train.jsonl` + um **manifest do mix** (não confundir com o manifest de
+proveniência por documento do §15):
+
+```json
+{
+  "mix_id": "run_D_seed_3_epoch_config_v1",
+  "generator_version": "v2",
+  "weights": {"pristine_real": 4.0, "augmented_real": 2.0,
+              "synthetic": 1.0, "hybrid": 1.0},
+  "curriculum_stage": "adversarial_heavy",
+  "counts_by_source_type": {"pristine_real": 150, "synthetic": 750},
+  "source_doc_ids_pristine_real": ["..."]
+}
+```
+
+`val.jsonl`/`test.jsonl` **nunca** passam por `compose_mix.py` — permanecem
+exatamente os arquivos pristinos reais de `data/segmenter_splits/`, sem
+exceção (§12.1).
+
+O `train.jsonl` composto entra no pipeline dos drivers do PR #792
+(`train_on_colab.sh`/`train_on_kaggle.sh`, `opf_shared.train_and_eval`) sem
+nenhuma mudança de assinatura — eles já esperam `DATA/train.jsonl` como um
+arquivo; `compose_mix.py` só decide o que vai dentro dele. A lineage já
+existente nesses drivers (`input_sha256` por arquivo, logado no config do
+run do W&B) se estende naturalmente: o hash do `train.jsonl` composto entra
+como mais uma entrada, e o **manifest do mix acima é logado junto**, para
+que todo run no W&B seja rastreável até a composição exata (pesos, versão
+do gerador, seeds) que o produziu — não só até o hash de um arquivo opaco.
+
+### 15-bis.4 Retenção e versionamento
+
+- **Fase 1 determinística**: sem política de retenção necessária — é
+  regenerável a qualquer momento a partir do git; "descartar" uma versão
+  antiga é só não referenciá-la mais.
+- **Fase 2 / híbrido (persistido)**: manter um dataset/versão por
+  `generator_version` usado em algum run reportado (para auditar
+  resultados publicados); `generator_version`s claramente superadas e sem
+  run associado podem ser removidas depois de um período — critério exato
+  fica como questão em aberto (§16).
+
 ## 16. Questões em aberto
 
 1. **Ratio sintético:real ótimo** — 1:1, 5:1, 10:1+? (Runs B/C/G informam.)
@@ -609,3 +757,10 @@ O manifest separa contagens por categoria
     tribunal/período ou o corpus TJRO disponível basta para a v1?
 15. **Escopo do `transform.py`** — utilitário genérico de edit-map (mais
     reusável) vs. funções por tipo de mutação (mais auditável)?
+16. **Critério de retenção de `generator_version` persistidas** (§15-bis.4)
+    — quanto tempo manter uma versão sem run associado antes de remover do
+    Kaggle Dataset/Drive/IA?
+17. **Limiar de tamanho git vs. externo** (§15-bis.1) — a partir de quantos
+    documentos/MB um corpus deixa de fazer sentido regenerar sob demanda e
+    precisa de cache persistido mesmo na fase 1 (sem LLM), por custo de
+    tempo de geração, não só de armazenamento?
