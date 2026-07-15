@@ -43,6 +43,12 @@ banks e o perfil de ruído (§4-bis.1), e um **juiz LLM** compara documentos
 sintéticos com reais para realimentar o gerador — nunca os rótulos, e nunca
 como substituto do critério de aceitação no teste real (§4-bis.2).
 
+Uma terceira técnica, mais barata e mais segura que gerar do zero: **aumentar
+por regex os próprios documentos gold reais já anotados** (capitalização,
+espaçamento, sinônimos fora dos spans rotulados — §4-bis.4), preservando os
+offsets. Não exige LLM na versão base, é o experimento de menor custo do
+protocolo (§7, Run E) e serve como fase 0 antes mesmo do gerador estrutural.
+
 ## 2. Contexto e motivação
 
 O RFC 0001 diagnosticou três problemas que invalidariam um treino sério com
@@ -250,6 +256,87 @@ padrão de acesso a LLM — reusa o existente:
   variável de execução (via LiteLLM's usage tracking), não uma decisão de
   arquitetura — mas informa a questão em aberto §10.7 (amostragem do juiz).
 
+### 4-bis.4 Aumento por regex de documentos reais (categoria "augmented")
+
+Uma terceira fonte de dados, mais barata que a geração completa (§3): em vez
+de sintetizar um documento novo, **perturbar mecanicamente um documento gold
+real já anotado** — capitalização, quebras de linha/espaçamento, sinônimos
+— preservando a estrutura e o conteúdo real. Não exige LLM na versão base
+(regex + tabela de sinônimos); pode ganhar uma variante assistida por LLM
+depois, reusando a camada §4-bis.3.
+
+**A restrição que domina o design: toda mutação precisa preservar ou
+recalcular os offsets dos spans já anotados.** Isso é mais rígido do que a
+mutação de documentos sintéticos (§5.2), onde o renderer ainda não fixou o
+texto final — aqui o documento **já tem** `label: [{category, start, end}]`
+corretos contra o texto original, e a mutação não pode invalidá-los:
+
+- **Capitalização** (upper/lower/title): preserva o comprimento da string
+  — offsets intocados, mutação trivialmente segura.
+- **Quebras de linha / espaçamento** (colapsar espaços duplos, inserir
+  quebra de página, normalizar `\r\n`): muda o comprimento — a função de
+  mutação precisa retornar não só o texto novo mas o **delta de deslocamento
+  por posição**, e todo offset após o ponto de mutação é recalculado. Isto é
+  trabalho novo — `opf_annotate.py` hoje só valida offsets, não os desloca
+  (confirmado antes de escrever esta seção); `mutations.py` (§8) precisa
+  desse utilitário de shift, compartilhado entre a mutação de texto
+  sintético (§5.2) e a de texto real (aqui).
+- **Sinônimos**: a mutação mais perigosa das três, por duas razões
+  independentes:
+  1. **muda o comprimento** (mesmo tratamento de shift acima);
+  2. **pode corromper a própria âncora que o modelo precisa aprender.**
+     Trocar uma palavra *dentro* de um span rotulado só é seguro se o
+     resultado for uma variante reconhecida da âncora (i.e., já listada em
+     `phrase_banks.py`, §5.2) — caso contrário o rótulo aponta para um texto
+     que não é mais um exemplo válido da categoria. **Regra padrão: sinônimo
+     só troca palavras *fora* dos spans rotulados** (na região não anotada
+     do documento). Trocar *dentro* de um span é um modo avançado opcional,
+     só permitido quando o resultado é verificado contra `phrase_banks.py`
+     — na prática, uma forma de *alimentar* o phrase bank a partir de
+     variação real, não de gerar rótulos novos livremente.
+  3. Requer um **recurso de sinônimos jurídicos controlado**, não um
+     tesauro genérico de PT-BR: termos jurídicos frequentemente parecem
+     sinônimos superficiais mas não são intercambiáveis (`procedente` /
+     `improcedente` não são sinônimos apesar de semanticamente próximos;
+     `sentença` e `acórdão` não são intercambiáveis apesar de ambos serem
+     "decisões"). O recurso inicial deve ser uma lista curada pequena e de
+     alta precisão (formas de dispositivo, conectivos, verbos de decisão já
+     presentes em `phrase_banks.py`), não uma biblioteca de sinônimos de
+     propósito geral.
+
+**Proveniência — categoria própria, nem `synthetic` nem gold puro:**
+
+```json
+{
+  "text": "...",
+  "label": [...],
+  "info": {
+    "id": "augmented_tjro_000017_v3",
+    "source_doc_id": "tjro_gold_000017",
+    "synthetic": false,
+    "augmented": true,
+    "augmentation": ["case_upper", "whitespace_collapse", "synonym_outside_span"],
+    "augmentation_seed": 20394
+  }
+}
+```
+
+**Regras de contagem, herdadas do §6 sem exceção:** `augmented` **não**
+conta para os gates G1–G5 (só o documento-fonte pristino conta — do
+contrário volume se ganha de graça, mecanicamente, sem novo dado real) e
+**não** entra em validação/teste (mesmo risco de otimismo espúrio que o
+sintético — o modelo aprenderia a sobreviver ao próprio estilo de
+augmentation). `augmented` fica no mesmo compartimento de treino que
+`synthetic`, sujeito ao mesmo protocolo de aceitação do §7.
+
+**Por que vale a pena mesmo sendo mais restrito que a síntese completa:**
+o conteúdo é 100% real (herda a distribuição de linguagem/estrutura sem
+risco de "cheiro de sintético", diferente de §3), então é um ponto de
+partida mais barato e mais seguro que a geração completa — plausivelmente
+uma **fase 0**, antes até do gerador estrutural, já que reaproveita
+diretamente os 20 documentos gold existentes e o tooling de validação de
+offset que este RFC já precisa construir para §4-bis.1.
+
 ## 5. Perfis documentais e variação de superfície
 
 ### 5.1 Famílias mínimas
@@ -337,14 +424,19 @@ Regras não negociáveis:
 
 ## 7. Protocolo experimental
 
-Quatro runs comparáveis (val/test sempre reais):
+Runs comparáveis (val/test sempre reais, nunca sintético/augmented):
 
 | Run | Treino | Val/test |
 |---|---|---|
 | A | gold real | real |
+| E | real + augmented (case/whitespace, §4-bis.4) | real |
 | B | real + sintético simples | real |
 | C | real + sintético adversarial | real |
 | D | real + sintético balanceando classes raras | real |
+
+Run E é o experimento de menor custo (fase 0, §8) e roda antes dos demais —
+se o aumento por regex já não ajudar sobre A, é sinal de alerta antes de
+investir na geração completa.
 
 Métricas de comparação: macro-F1; macro-F1 sem classes fáceis; F1 por
 classe; erros em `resultado`; confusão `voto_*` × `acordao_decisorio_*`;
@@ -365,24 +457,36 @@ scripts/generate_synthetic_segmenter.py
 scripts/synthetic_segmenter/
     specs.py          # DocumentSpec + amostragem com seed
     renderer.py       # inserção de âncoras + registro de offsets
-    phrase_banks.py   # variações de superfície por categoria
+    phrase_banks.py   # variações de superfície por categoria + sinônimos curados
     corpus_stats.py   # estatísticas da distribuição real (dos textos.parquet)
-    mutations.py      # perfis de ruído, preservando offsets
+    offset_shift.py   # utilitário de deslocamento de offset após mutação de comprimento
+    mutations.py      # perfis de ruído sintético (§5.2) — usa offset_shift.py
+    augment_real.py   # aumento por regex de gold real (§4-bis.4) — usa offset_shift.py
     validators.py     # invariantes + offsets + scrub de âncoras em texto real
     llm_content.py    # fase 2: conteúdo interno via LiteLLM (specs.py define, não rotula)
     llm_judge.py      # fase 2: juiz sintético-vs-real via LiteLLM (§4-bis.2/.3)
 tests/test_synthetic_segmenter.py
 ```
 
-A primeira versão **não chama LLM**. Um gerador gramatical com phrase banks
-já valida: formato JSONL; offsets; cobertura das 25 classes; invariantes da
-ontologia (um `dispositivo_abertura` operativo, `resultado` só no verbo
-operativo, pareamento `_inicio`/`_fim`); documentos sentença/acórdão; hard
-negatives; reprodutibilidade por seed. A validação mecânica reutiliza
-`scripts/opf_annotate.py validate`. `corpus_stats.py` (§4-bis.1) já entra na
-fase 1 — é leitura de parquet + contagem, sem LLM — para que os phrase banks
-e as frequências do `DocumentSpec` nasçam calibrados no corpus real em vez
-de "de cabeça".
+**Fase 0 (mais barata, sem LLM, direto no gold existente):**
+`offset_shift.py` + `augment_real.py` (§4-bis.4) — capitalização e
+espaçamento nos 20 documentos gold já anotados. Não precisa de
+`DocumentSpec`/renderer/geração nenhuma; é o menor experimento possível do
+protocolo §7 (uma linha nova na tabela: Run E — `real + augmented
+(case/whitespace)`, val/test real) e valida o utilitário de shift de offset
+que a fase 1 também reutiliza. Sinônimo (a parte mais arriscada de §4-bis.4)
+fica para depois de `phrase_banks.py` existir, pois depende da lista
+curada.
+
+**Fase 1 — geração estrutural completa, ainda sem LLM.** Um gerador
+gramatical com phrase banks já valida: formato JSONL; offsets; cobertura
+das 25 classes; invariantes da ontologia (um `dispositivo_abertura`
+operativo, `resultado` só no verbo operativo, pareamento `_inicio`/`_fim`);
+documentos sentença/acórdão; hard negatives; reprodutibilidade por seed. A
+validação mecânica reutiliza `scripts/opf_annotate.py validate`.
+`corpus_stats.py` (§4-bis.1) entra aqui — é leitura de parquet + contagem,
+sem LLM — para que os phrase banks e as frequências do `DocumentSpec`
+nasçam calibrados no corpus real em vez de "de cabeça".
 
 A fase 2 introduz (a) conteúdo de LLM dentro das seções e (b) o juiz LLM
 sintético-vs-real (§4-bis.2), mantendo âncoras e labels sob controle
@@ -421,3 +525,15 @@ melhora o teste real (§7).
    que a política de GOVERNANCE.md cobre a redistribuição desses trechos
    dentro de um dataset de treino sintético, ou se é preciso anonimizar
    partes antes.
+9. **Recurso de sinônimos jurídicos (§4-bis.4)** — curar manualmente uma
+   lista pequena e de alta precisão (ponto de partida: extrair as próprias
+   variantes já usadas em `phrase_banks.py`, §5.2) ou usar um LLM para
+   propor candidatos com revisão humana antes de entrar na lista? Um
+   tesauro genérico de PT-BR é explicitamente rejeitado (§4-bis.4) pelo
+   risco de trocar termos que parecem sinônimos mas não são
+   intercambiáveis em contexto jurídico.
+10. **Escopo do `offset_shift.py`** — construir um utilitário genérico de
+    "aplicar N mutações e recalcular todos os spans" (mais reusável, mais
+    complexo) ou funções específicas por tipo de mutação (mais simples,
+    mais fácil de auditar cada caso)? Afeta tanto §4-bis.4 quanto o
+    `mutations.py` sintético (§5.2).
