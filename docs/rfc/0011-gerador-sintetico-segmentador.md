@@ -37,6 +37,12 @@ NÃO deve ser marcada) e no reforço das classes estruturalmente raras
 inaprendíveis no seed atual. Sintético **nunca** conta para os gates G1–G5
 nem entra em validação/teste.
 
+O gerador é ancorado no corpus real que o projeto já coleta: os
+`textos.parquet` de produção calibram a distribuição estrutural, os phrase
+banks e o perfil de ruído (§4-bis.1), e um **juiz LLM** compara documentos
+sintéticos com reais para realimentar o gerador — nunca os rótulos, e nunca
+como substituto do critério de aceitação no teste real (§4-bis.2).
+
 ## 2. Contexto e motivação
 
 O RFC 0001 diagnosticou três problemas que invalidariam um treino sério com
@@ -144,6 +150,77 @@ operativo; distinção entre dispositivo individual e decisório colegiado):
 - seção iniciada sem o `_fim` correspondente;
 - "por maioria" / "à unanimidade" dentro de citações;
 - cabeçalhos repetidos por quebra de página.
+
+## 4-bis. Ancoragem no corpus real (parquets) e juiz LLM
+
+Duas extensões que amarram o gerador à distribuição real em vez de deixá-lo
+inventar um "estilo de gerador" próprio. Ambas usam ativos que o projeto já
+tem: os `textos.parquet` de produção no Internet Archive
+(`{TRIBUNAL}-{date}-textos.parquet`, gerados pelo consolidate — o prep
+script já tem um modo bootstrap que lê parquet) e a infraestrutura de
+subagentes LLM da anotação.
+
+### 4-bis.1 Parquets reais como distribuição de referência
+
+Em vez de calibrar phrase banks e `DocumentSpec` "de cabeça", extrair
+estatísticas do corpus real:
+
+- **distribuição estrutural**: frequência real de seções (quantas decisões
+  têm preliminar? capítulo de custas? voto vencido?), comprimentos típicos
+  por seção, ordem das seções por tribunal/tipo;
+- **superfície real**: variantes reais de abertura de dispositivo, fórmulas
+  de encerramento, formatos de cabeçalho — minerados do corpus, não
+  inventados (alimentam os phrase banks §5.2 com formas que ocorrem de
+  verdade e suas frequências);
+- **perfil de ruído real**: os artefatos de extração do DJEN observados
+  (quebras, hifenização, Unicode) calibram `noise_profile` em vez de
+  mutações arbitrárias.
+
+**Variante "conteúdo real, estrutura sintética":** preencher a camada 2 com
+trechos reais dos parquets (fatos/fundamentação reais) e deixar o renderer
+inserir as âncoras. Ganha realismo linguístico de graça — mas exige uma
+salvaguarda obrigatória: **texto real pode conter âncoras reais** ("ante o
+exposto" no meio de uma fundamentação citada), que virariam rótulos ausentes
+(falso negativo de treino). Todo trecho real importado passa por um scrub:
+detectar ocorrências das expressões-âncora no trecho e (a) descartar o
+trecho, (b) neutralizá-lo, ou (c) promovê-lo deliberadamente a hard negative
+(§4) — nunca ignorar. O validador (§8 `validators.py`) verifica isso
+mecanicamente.
+
+### 4-bis.2 Juiz LLM comparando sintético vs. real
+
+Um passo de julgamento discriminativo entre a geração e o treino: pares
+(documento sintético, documento real do parquet de mesmo tipo/tribunal) são
+apresentados a um juiz LLM que responde, por dimensão — plausibilidade
+estrutural, registro/formalidade, vocabulário jurídico, artefatos de
+geração ("cheiro de sintético") — onde o sintético diverge do real.
+
+- **O veredito melhora o GERADOR, não os rótulos**: feedback vira ajuste de
+  phrase banks, pesos do `DocumentSpec` e perfis de mutação
+  (`generator_version` incrementa). O juiz nunca toca em offsets/labels,
+  que permanecem do renderer por construção.
+- **Filtro barato, não critério de aceitação**: documentos que o juiz marca
+  como flagrantemente irreais podem ser descartados antes do treino, mas o
+  critério final continua sendo o §7 — sintético só é mantido quando
+  melhora o teste real. O juiz reduz o custo de chegar lá; não substitui a
+  medição.
+- **Sem ciclo com o segmentador**: o juiz é um LLM generalista comparando
+  texto, não o segmentador avaliando os próprios dados de treino — a regra
+  §6.3 permanece intacta.
+- **Execução por subagentes** (um por lote/dimensão de julgamento), conforme
+  a skill `llm-work-via-subagents`, com os erros do juiz decorrelacionados
+  do gerador (prompts/framings distintos), no mesmo espírito do ensemble de
+  verificação da anotação gold.
+
+Registrar o veredito na proveniência (§6):
+
+```json
+"info": {
+  "judge_score": {"estrutura": 0.9, "registro": 0.7, "vocabulario": 0.8},
+  "judge_version": "v1",
+  "judged_against": "TJRO-2025-03-14-textos"
+}
+```
 
 ## 5. Perfis documentais e variação de superfície
 
@@ -261,8 +338,9 @@ scripts/synthetic_segmenter/
     specs.py          # DocumentSpec + amostragem com seed
     renderer.py       # inserção de âncoras + registro de offsets
     phrase_banks.py   # variações de superfície por categoria
+    corpus_stats.py   # estatísticas da distribuição real (dos textos.parquet)
     mutations.py      # perfis de ruído, preservando offsets
-    validators.py     # invariantes da ontologia + offsets + label space
+    validators.py     # invariantes + offsets + scrub de âncoras em texto real
 tests/test_synthetic_segmenter.py
 ```
 
@@ -271,11 +349,15 @@ já valida: formato JSONL; offsets; cobertura das 25 classes; invariantes da
 ontologia (um `dispositivo_abertura` operativo, `resultado` só no verbo
 operativo, pareamento `_inicio`/`_fim`); documentos sentença/acórdão; hard
 negatives; reprodutibilidade por seed. A validação mecânica reutiliza
-`scripts/opf_annotate.py validate`.
+`scripts/opf_annotate.py validate`. `corpus_stats.py` (§4-bis.1) já entra na
+fase 1 — é leitura de parquet + contagem, sem LLM — para que os phrase banks
+e as frequências do `DocumentSpec` nasçam calibrados no corpus real em vez
+de "de cabeça".
 
-A fase 2 introduz conteúdo de LLM dentro das seções, mantendo âncoras e
-labels sob controle determinístico do renderer (e, se executada por agente,
-via subagentes conforme a skill `llm-work-via-subagents`, não script de API).
+A fase 2 introduz (a) conteúdo de LLM dentro das seções e (b) o juiz LLM
+sintético-vs-real (§4-bis.2), mantendo âncoras e labels sob controle
+determinístico do renderer (e, se executada por agente, via subagentes
+conforme a skill `llm-work-via-subagents`, não script de API).
 
 ## 9. Recomendação concreta
 
@@ -298,3 +380,14 @@ melhora o teste real (§7).
    renderer? (O validador §8 mitiga, mas a auditoria precisa ser definida.)
 5. **Estilos de outros tribunais** — as `template_family` devem antecipar
    STJ/outros TJs já na fase 1 ou esperar gold real desses tribunais?
+6. **Amostragem dos parquets para `corpus_stats`** — estratificada por
+   tribunal/período (como o opf-finetune manda para anotação) ou o corpus
+   TJRO disponível basta para calibrar a v1?
+7. **Custo/limiar do juiz LLM** — julgar todo documento gerado ou uma
+   amostra por `template_family`? Qual score mínimo por dimensão descarta
+   um documento antes do treino?
+8. **PII em conteúdo real reaproveitado** — a variante "conteúdo real,
+   estrutura sintética" (§4-bis.1) herda texto público do DJEN; confirmar
+   que a política de GOVERNANCE.md cobre a redistribuição desses trechos
+   dentro de um dataset de treino sintético, ou se é preciso anonimizar
+   partes antes.
