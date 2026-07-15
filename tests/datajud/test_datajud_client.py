@@ -198,6 +198,11 @@ def test_api_key_env_override(monkeypatch):
     assert get_api_key() == "rotated-key"
 
 
+def test_api_key_whitespace_only_env_uses_configured_public_default(monkeypatch):
+    monkeypatch.setenv(API_KEY_ENV, "   ")
+    assert get_api_key() == DATAJUD_PUBLIC_API_KEY_DEFAULT
+
+
 async def test_authorization_header_uses_apikey_scheme():
     with respx.mock() as router:
         route = router.post(ENDPOINT).respond(200, json=OK_BODY)
