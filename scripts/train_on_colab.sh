@@ -79,29 +79,41 @@ done
 echo "==> training (epochs=$EPOCHS batch=$BATCH_SIZE)"
 colab exec -s "$SESSION" <<PY
 import subprocess, sys
-subprocess.run([sys.executable, "-m", "opf", "train",
-                "$REMOTE_DATA/train.jsonl",
-                "--validation-dataset", "$REMOTE_DATA/val.jsonl",
-                "--label-space-json", "$REMOTE_DATA/label_space.json",
-                "--output-dir", "$REMOTE_OUT/best",
-                "--device", "cuda",
-                "--epochs", "$EPOCHS",
-                "--batch-size", "$BATCH_SIZE"], check=True)
+with open("$REMOTE_OUT/train.log", "w") as log:
+    proc = subprocess.run([sys.executable, "-m", "opf", "train",
+                    "$REMOTE_DATA/train.jsonl",
+                    "--validation-dataset", "$REMOTE_DATA/val.jsonl",
+                    "--label-space-json", "$REMOTE_DATA/label_space.json",
+                    "--output-dir", "$REMOTE_OUT/best",
+                    "--device", "cuda",
+                    "--epochs", "$EPOCHS",
+                    "--batch-size", "$BATCH_SIZE"],
+                   stdout=log, stderr=subprocess.STDOUT)
+print("train exit code:", proc.returncode)
+print(open("$REMOTE_OUT/train.log").read()[-4000:])
+sys.exit(proc.returncode)
 PY
 
 echo "==> evaluating on test split"
 colab exec -s "$SESSION" <<PY
 import subprocess, sys
-subprocess.run([sys.executable, "-m", "opf", "eval",
-                "$REMOTE_DATA/test.jsonl",
-                "--checkpoint", "$REMOTE_OUT/best",
-                "--device", "cuda",
-                "--per-class",
-                "--metrics-out", "$REMOTE_OUT/metrics.json"], check=True)
+with open("$REMOTE_OUT/eval.log", "w") as log:
+    proc = subprocess.run([sys.executable, "-m", "opf", "eval",
+                    "$REMOTE_DATA/test.jsonl",
+                    "--checkpoint", "$REMOTE_OUT/best",
+                    "--device", "cuda",
+                    "--per-class",
+                    "--metrics-out", "$REMOTE_OUT/metrics.json"],
+                   stdout=log, stderr=subprocess.STDOUT)
+print("eval exit code:", proc.returncode)
+print(open("$REMOTE_OUT/eval.log").read()[-4000:])
+sys.exit(proc.returncode)
 PY
 
 echo "==> downloading checkpoint + metrics"
 mkdir -p "$OUT_DIR"
+colab download -s "$SESSION" "$REMOTE_OUT/train.log" "$OUT_DIR/train.log" || true
+colab download -s "$SESSION" "$REMOTE_OUT/eval.log" "$OUT_DIR/eval.log" || true
 colab download -s "$SESSION" "$REMOTE_OUT/best" "$OUT_DIR/best"
 colab download -s "$SESSION" "$REMOTE_OUT/metrics.json" "$OUT_DIR/metrics.json"
 
