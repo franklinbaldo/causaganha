@@ -41,6 +41,14 @@ o LLM — controla estrutura, âncoras e offsets iniciais. Treino real-only
 comparados empiricamente (§12), com seleção de configuração feita em
 **validação real** e o **teste real travado** até a configuração congelar.
 
+Armazenamento (§15-bis): o corpus persistido (fase 2/LLM em diante) grava
+**em dois lugares, não um ou outro** — o Internet Archive como fonte de
+verdade de longo prazo, e um Kaggle Dataset privado como cache operacional
+derivado dele para os drivers de treino do PR #792. Toda decisão de design
+listada neste RFC está fechada (§16): as que são escolha de engenharia têm
+resposta definitiva; as que dependem de dado empírico têm um procedimento
+de decisão e um ponto de partida concreto, não um "?" em aberto.
+
 ## 2. Por que esta tarefa tem valor esperado incomum para sintético
 
 O segmentador não é solicitado a produzir raciocínio jurídico correto nem a
@@ -651,27 +659,43 @@ Em nenhum caso o corpus sintético/aumentado/híbrido de tamanho não-trivial
 grande vive fora do git). Git guarda gerador, phrase banks, lista de
 sinônimos curada e manifests pequenos; nunca o JSONL de centenas de MB.
 
-### 15-bis.2 Onde persistir o que precisa ser persistido
+### 15-bis.2 Onde persistir o que precisa ser persistido — Kaggle E IA, não um ou outro
 
-Reusar exatamente o padrão que o PR #792 já implementou para os gold
-splits, em vez de inventar um mecanismo novo:
+**Decisão fixada:** todo `generator_version` que precisa ser persistido
+(§15-bis.1 — fase 2/LLM, híbrido) é escrito em **dois lugares**, não um com
+o outro como alternativa:
 
-- **Kaggle:** publicar como Kaggle Dataset privado, versionado
-  (`kaggle datasets create`/`version`, o mesmo fluxo de
-  `train_on_kaggle.sh`), mas em dataset(s) **separados** dos gold splits
-  (`causaganha-segmenter-synthetic`, por exemplo) — mantém a fronteira
+- **IA (Internet Archive) é a fonte de verdade de longo prazo.** Consistente
+  com a missão de arquivo do projeto (docs/GOVERNANCE.md) e com a
+  convenção já estabelecida para outros dados do projeto (CLAUDE.md: itens
+  DJEN usam `djen-{tribunal}-{year}`). Para o corpus sintético, item
+  próprio por versão do gerador:
+  `causaganha-segmenter-synthetic-{generator_version}` (ex.:
+  `causaganha-segmenter-synthetic-v2`), contendo o(s) JSONL por categoria
+  (`synthetic.jsonl`, `hybrid.jsonl`, `augmented.jsonl`) + o manifest de
+  proveniência (§15). Upload via `httpx`, não `boto3` — mesma regra de
+  `archive.py`/CLAUDE.md que já vale para os outros uploads do projeto.
+  Permanente, fora do controle de uma conta Kaggle/Colab pessoal, alinhado
+  com "preservação integral" (GOVERNANCE.md §5).
+- **Kaggle Dataset privado é o cache operacional** usado pelos drivers de
+  treino. Publicado a partir do item do IA (não editado independentemente —
+  o IA é a fonte, o Kaggle Dataset é derivado), versionado
+  (`kaggle datasets create`/`version`, mesmo fluxo de `train_on_kaggle.sh`),
+  em dataset **separado** dos gold splits
+  (`causaganha-segmenter-synthetic`) — mantém a fronteira
   pristine-real/gerado visível na própria organização de datasets, não só
   no JSON de proveniência.
-- **Colab:** para corpora pequenos o suficiente, `colab upload` direto,
-  igual aos splits reais hoje; para corpora grandes (o caso esperado em
-  ratios 5:1/10:1), cache no Google Drive — o mesmo padrão de
-  "base model uma vez, artefato por run" já descrito na skill
-  `opf-finetune` (`references/colab-and-drive.md`) para o checkpoint base,
-  aplicado agora ao corpus de treino também.
-- **IA (Internet Archive):** opção de longo prazo consistente com a missão
-  de arquivo do projeto (docs/GOVERNANCE.md), especialmente para releases
-  de `generator_version` que se tornem "oficiais" o suficiente para querer
-  histórico permanente fora do controle de uma conta Kaggle/Drive pessoal.
+- **Colab:** para corpora pequenos, `colab upload` direto a partir do
+  mesmo cache; para corpora grandes (o caso esperado em ratios 5:1/10:1),
+  cache no Google Drive — o mesmo padrão de "base model uma vez, artefato
+  por run" já descrito na skill `opf-finetune`
+  (`references/colab-and-drive.md`) para o checkpoint base, aplicado agora
+  ao corpus de treino. A cópia do Drive também deriva do item do IA.
+
+Fluxo de escrita: gerador produz o JSONL localmente → upload para o item do
+IA (fonte de verdade) → publica/atualiza o Kaggle Dataset e (se necessário)
+o cache do Drive a partir do que acabou de subir no IA. Nunca o inverso —
+nenhum cache operacional é editado sem o IA já ter a versão correspondente.
 
 ### 15-bis.3 Composição do mix de treino — o ponto de integração real
 
@@ -732,35 +756,115 @@ do gerador, seeds) que o produziu — não só até o hash de um arquivo opaco.
   `generator_version` usado em algum run reportado (para auditar
   resultados publicados); `generator_version`s claramente superadas e sem
   run associado podem ser removidas depois de um período — critério exato
-  fica como questão em aberto (§16).
+  fixado em §16.1, item 10.
 
-## 16. Questões em aberto
+## 16. Decisões e processo de fechamento
 
-1. **Ratio sintético:real ótimo** — 1:1, 5:1, 10:1+? (Runs B/C/G informam.)
-2. **Amostragem por fonte vs. peso na loss** — qual controle domina?
-3. **Pré-treino sintético vs. mistura contínua** (Run B vs. C).
-4. **Duração do estágio final real-heavy** no curriculum adversarial (Run D).
-5. **Contagem alvo por classe rara** antes de saturar (Run G informa).
-6. **Ratio hard-negative/positivo** por família de negativo.
-7. **Cobertura de estilos de tribunal** — antecipar STJ/outros TJs nas
-   `template_family` da fase 1 ou esperar gold real deles?
-8. **Gerar `_inicio` sem `_fim` deliberadamente** (sinal de qualidade de
-   dados no esquema de pareamento) — em que proporção?
-9. **Grau de ruído de extração** — até onde degradar sem destruir âncoras.
-10. **Cadência de recalibração do gerador** conforme novo gold real chega.
-11. **Comprimento de trecho híbrido** (§6.2) — frases, parágrafos, seções?
-12. **Active learning** — usar erros de validação para escolher quais
-    documentos reais anotar em seguida?
-13. **Quais falhas de validação disparam geração sintética dirigida** (§13,
-    loop dirigido por falhas) — taxonomia de gatilhos.
-14. **Amostragem dos parquets para `corpus_stats`** — estratificada por
-    tribunal/período ou o corpus TJRO disponível basta para a v1?
-15. **Escopo do `transform.py`** — utilitário genérico de edit-map (mais
-    reusável) vs. funções por tipo de mutação (mais auditável)?
-16. **Critério de retenção de `generator_version` persistidas** (§15-bis.4)
-    — quanto tempo manter uma versão sem run associado antes de remover do
-    Kaggle Dataset/Drive/IA?
-17. **Limiar de tamanho git vs. externo** (§15-bis.1) — a partir de quantos
-    documentos/MB um corpus deixa de fazer sentido regenerar sob demanda e
-    precisa de cache persistido mesmo na fase 1 (sem LLM), por custo de
-    tempo de geração, não só de armazenamento?
+Nenhuma questão fica em aberto sem resposta. Para escolhas de engenharia,
+a resposta é a decisão em si. Para escolhas que dependem de dado empírico
+que só os experimentos do §12 produzem, a resposta é o **procedimento de
+decisão + o ponto de partida concreto** — fechar a questão não significa
+inventar um número sem tê-lo medido; significa que não há mais um "?" solto,
+há um plano determinístico para chegar à resposta.
+
+### 16.1 Fechadas por decisão de engenharia (efetivas já na fase 1/Foundation)
+
+1. **Amostragem por fonte vs. peso na loss** → **amostragem por fonte**, em
+   `compose_mix.py`. `opf train` não expõe peso por exemplo/loss (verificado
+   em `opf/_train/args.py`, §15-bis.3); amostragem na composição é a única
+   via nativa e a mais simples de auditar.
+2. **Cobertura de estilos de tribunal** → fase 1 cobre **somente TJRO**
+   (único tribunal com gold hoje). `template_family` faz o design já
+   comportar extensão, mas nenhum template de STJ/outro TJ é construído
+   antes de existir gold real desse tribunal para calibrar e validar contra
+   (§3 — real audita a ontologia; sintético não define estrutura que o real
+   nunca confirmou).
+3. **Gerar `_inicio` sem `_fim` deliberadamente** → **sim**, incluído como
+   família própria de hard negative (§5), não como erro: um `_inicio` órfão
+   sem seu par é exatamente o "sinal de qualidade de dados" que o esquema
+   de pareamento já usa para detectar problemas reais de anotação — o
+   gerador deve ensinar o modelo a não assumir que todo `_inicio` implica
+   um `_fim` próximo. Proporção inicial: 1 em cada ~10 documentos que têm a
+   seção, ajustável por `DocumentSpec`.
+4. **Grau de ruído de extração** → não é escolha livre: **usa a distribuição
+   real observada em `corpus_stats.py`** (§6.1), não um valor arbitrário. A
+   pergunta original presumia uma escolha que o RFC já delega à calibração.
+5. **Cadência de recalibração do gerador** → **orientada a evento, não a
+   tempo**: recalibra sempre que um novo lote de gold real é anotado e
+   mesclado em `data/segmenter_splits/` — mesmo gatilho que já existe no
+   fluxo de anotação, sem cadência fixa adicional para manter.
+6. **Comprimento de trecho híbrido** → **nível de seção** (um parágrafo
+   inteiro de fundamentação/relatório, não frase isolada nem documento
+   completo). Frase isolada perde contexto estrutural; documento completo
+   reintroduz o risco de âncora-real-não-escrubada em excesso de superfície
+   de uma vez. Seção é o grão que a arquitetura já usa (§4.1, `sections`).
+7. **Active learning** → **sim**, extensão do mesmo loop de geração dirigida
+   por falhas (§13): erros de validação real não só disparam sintético
+   direcionado, também **priorizam quais documentos reais anotar a
+   seguir** — mesma análise de erro, duas saídas.
+8. **Escopo do `transform.py`** → **utilitário genérico de edit-map**, não
+   funções por tipo de mutação. A lógica de deslocamento de offset é
+   idêntica independente do tipo de mutação (só a transformação de string
+   muda); um utilitário único, bem testado uma vez, com funções finas por
+   tipo de mutação chamando-o — menos superfície para o mesmo bug de offset
+   reaparecer em cada mutação nova.
+9. **Limiar de tamanho git vs. externo** (§15-bis.1) → **nenhum corpus
+   sintético/aumentado/híbrido de tamanho não-trivial vai para o git**,
+   ponto — a distinção não é um limiar de tamanho, é a distinção
+   determinístico-regenerável (fase 1, nunca persistido como arquivo, só
+   como manifest de seeds) vs. não-reproduzível (fase 2+, sempre
+   persistido no IA desde o primeiro registro, §15-bis.2). Refinamento
+   possível depois: cachear localmente builds de fase 1 que demorem mais
+   que ~1 minuto para regenerar, como otimização de performance — nunca
+   como fonte de verdade.
+10. **Critério de retenção de `generator_version` persistidas**
+    (§15-bis.4) → mantida enquanto **qualquer run reportado no W&B
+    referenciar essa `generator_version`** no config (lineage já existente,
+    §15-bis.3); elegível para remoção do Kaggle Dataset/Drive quando (a)
+    nenhum run ativo/recente a referencia **e** (b) uma `generator_version`
+    mais nova a superou há mais de 90 dias. **O item do IA nunca é
+    removido** — é o arquivo permanente (§15-bis.2); só os caches
+    operacionais (Kaggle/Drive) são elegíveis para limpeza.
+
+### 16.2 Fechadas por procedimento empírico (ponto de partida definido; resposta final vem do §12)
+
+11. **Ratio sintético:real ótimo** → não decidível a priori. Ponto de
+    partida: começar em **1:1 e 5:1** como os dois primeiros pontos da
+    curva (Runs C/G), 10:1+ só se 5:1 continuar melhorando os
+    secundários-chave (§12.4) sem regredir o primário. Fechada quando os
+    Runs B/C/D/G do §12.2 produzirem a curva ratio×métrica.
+12. **Pré-treino sintético vs. mistura contínua** (Run B vs. C) → começar
+    por **C (mistura contínua)** — infraestrutura mais simples
+    (`compose_mix.py` de passo único vs. treino em dois estágios) — e só
+    investir em B se C não atingir o endpoint primário. Fechada pela
+    comparação direta B vs. C no protocolo.
+13. **Duração do estágio final real-heavy** no curriculum adversarial
+    (Run D) → ponto de partida: **últimos 20% dos passos de otimizador**
+    são real-only ou real-dominante; ajustado empiricamente pela curva de
+    validação do Run D (regride se o estágio for curto demais para
+    "reancorar" no real, satura se longo demais para diluir o ganho
+    adversarial).
+14. **Contagem alvo por classe rara** antes de saturar (Run G) → ponto de
+    partida ancorado num número que já existe no projeto: `_GATE_MIN_TRAIN_SUPPORT`
+    (10 spans/categoria, o mínimo do gate G2) é o piso absoluto para gold
+    real; para sintético o ponto de partida é **10× esse piso (100
+    exemplos/categoria rara)**, escalado por classe conforme a curva de
+    recall do Run G saturar ou não.
+15. **Ratio hard-negative/positivo** por família de negativo → ponto de
+    partida **1:1** (prática comum em treino adversarial), ajustado por
+    família conforme a taxa de falsos positivos daquela família específica
+    no Run D/relatório de erro (§13).
+16. **Quais falhas de validação disparam geração sintética dirigida** (§13)
+    → taxonomia fixada, não mais em aberto: (a) recall de uma classe rara
+    abaixo do alvo do item 14; (b) taxa de FP em hard negatives de uma
+    família específica acima de um limiar (a fixar empiricamente no
+    primeiro Run D — não há dado ainda para cravar o número); (c) confusão
+    sistemática entre duas classes específicas (ex.: `voto_*` ×
+    `acordao_decisorio_*`) acima da taxa de base do Run A. Cada gatilho
+    mapeia para uma família de geração dirigida correspondente.
+17. **Amostragem dos parquets para `corpus_stats`** → **estratificada por
+    tribunal/período**, mesmo princípio já mandado para anotação pela
+    skill `opf-finetune` (evita overfit a um formato/época). Na prática,
+    hoje **degenera para TJRO-only** porque é o único tribunal com dado —
+    a estratificação passa a ter efeito real assim que um segundo tribunal
+    entrar no corpus, sem precisar mudar o código quando isso acontecer.
