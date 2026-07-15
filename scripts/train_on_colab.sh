@@ -21,19 +21,29 @@
 #
 # Usage:
 #   scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH_SIZE]
-#   scripts/train_on_colab.sh T4 3 2           # defaults
+#   scripts/train_on_colab.sh T4 3 1           # defaults
 #   scripts/train_on_colab.sh A100 5 16
 #
-# NOTE: opf's base model is a large MoE model (~2.8GB checkpoint). batch_size=8
-# OOMs on a T4 (16GB) even for the tiny smoke-test dataset. batch_size=2 fits;
-# raise it only on a bigger GPU (A100) for real (non-smoke) training runs.
+# NOTE ON T4 MEMORY (verified empirically, not guessed):
+# opf runs a FULL fine-tune of a 1.5B-param model with full-precision AdamW
+# (no LoRA / gradient-checkpointing / 8-bit-optimizer flag exists in opf). The
+# model + optimizer state + gradients alone consume ~14GB — a fixed cost
+# independent of batch size. On a T4 (16GB) this means:
+#   - batch_size >= 2 OOMs in the attention forward pass (confirmed).
+#   - batch_size=1 + PYTORCH_CUDA_ALLOC_CONF=expandable_segments:True DOES fit
+#     and trains through to a checkpoint (confirmed: train_loss ~0.81,
+#     val_token_accuracy ~0.93 on the smoke set). This script sets that env var.
+# batch_size is NOT the lever for bigger runs — GPU VRAM is. For real training
+# raise the batch only on a bigger GPU (L4 24GB / A100 40GB).
 #
 # What it does:
 #   1. provisions a GPU session named "seg-train"
 #   2. installs opf (openai/privacy-filter) on the runtime
 #   3. uploads the frozen artifact set (data/segmenter_splits/*)
-#   4. runs `opf train` with the v7 label space
-#   5. runs `opf eval --per-class` on test.jsonl
+#   4. if WANDB_API_KEY is set: installs wandb + logs in on the runtime
+#   5. uploads and runs scripts/colab_train_driver.py, which trains + evals and
+#      (when wandb is on) streams live train_loss, pins the gold splits as an
+#      artifact, and alerts on failure — see that file
 #   6. downloads checkpoint + metrics to models/decision_segmenter/
 #   7. tears the session down
 #
@@ -46,7 +56,7 @@ set -euo pipefail
 
 GPU="${1:-T4}"
 EPOCHS="${2:-3}"
-BATCH_SIZE="${3:-2}"
+BATCH_SIZE="${3:-1}"
 SESSION="seg-train"
 DATA_DIR="data/segmenter_splits"
 OUT_DIR="models/decision_segmenter"
@@ -67,7 +77,10 @@ colab new -s "$SESSION" --gpu "$GPU"
 trap 'echo "==> stopping session"; colab stop -s "$SESSION" || true' EXIT
 
 echo "==> installing opf on the runtime"
-colab exec -s "$SESSION" <<'PY'
+# --timeout: colab exec defaults to 30s; installing opf from git + importing
+# torch takes longer, and a 30s cap surfaces as "RuntimeError: Connection was
+# lost" mid-op. Every long-running exec below sets an explicit timeout.
+colab exec -s "$SESSION" --timeout 300 <<'PY'
 import subprocess, sys
 subprocess.run([sys.executable, "-m", "pip", "install", "-q",
                 "opf @ git+https://github.com/openai/privacy-filter.git",
@@ -111,60 +124,26 @@ else
   echo "==> WANDB_API_KEY not set, skipping wandb (export it before running to enable)"
 fi
 
-echo "==> training (epochs=$EPOCHS batch=$BATCH_SIZE)"
-colab exec -s "$SESSION" <<PY
-import subprocess, sys
-with open("$REMOTE_OUT/train.log", "w") as log:
-    proc = subprocess.run([sys.executable, "-m", "opf", "train",
-                    "$REMOTE_DATA/train.jsonl",
-                    "--validation-dataset", "$REMOTE_DATA/val.jsonl",
-                    "--label-space-json", "$REMOTE_DATA/label_space.json",
-                    "--output-dir", "$REMOTE_OUT/best",
-                    "--device", "cuda",
-                    "--epochs", "$EPOCHS",
-                    "--batch-size", "$BATCH_SIZE"],
-                   stdout=log, stderr=subprocess.STDOUT)
-print("train exit code:", proc.returncode)
-print(open("$REMOTE_OUT/train.log").read()[-4000:])
-sys.exit(proc.returncode)
-PY
+echo "==> uploading training driver"
+colab upload -s "$SESSION" "$(dirname "$0")/colab_train_driver.py" "/content/colab_train_driver.py"
 
-echo "==> evaluating on test split"
-colab exec -s "$SESSION" <<PY
-import subprocess, sys
-with open("$REMOTE_OUT/eval.log", "w") as log:
-    proc = subprocess.run([sys.executable, "-m", "opf", "eval",
-                    "$REMOTE_DATA/test.jsonl",
-                    "--checkpoint", "$REMOTE_OUT/best",
-                    "--device", "cuda",
-                    "--per-class",
-                    "--metrics-out", "$REMOTE_OUT/metrics.json"],
-                   stdout=log, stderr=subprocess.STDOUT)
-print("eval exit code:", proc.returncode)
-print(open("$REMOTE_OUT/eval.log").read()[-4000:])
-sys.exit(proc.returncode)
+echo "==> training + evaluating (epochs=$EPOCHS batch=$BATCH_SIZE, wandb=$USE_WANDB)"
+# One exec runs scripts/colab_train_driver.py, which streams opf's live
+# train_loss to W&B, pins the gold splits as an artifact, and alerts on
+# failure (see that file). Config is passed as OPF_* env vars — no secret is
+# interpolated here (the key is already in ~/.netrc from `wandb login` above).
+# --timeout 1800: train+eval in one exec; the 30s default would guillotine it.
+colab exec -s "$SESSION" --timeout 1800 <<PY
+import os, runpy
+os.environ["OPF_DATA"] = "$REMOTE_DATA"
+os.environ["OPF_OUT"] = "$REMOTE_OUT"
+os.environ["OPF_EPOCHS"] = "$EPOCHS"
+os.environ["OPF_BATCH"] = "$BATCH_SIZE"
+os.environ["OPF_GPU"] = "$GPU"
+os.environ["OPF_WANDB"] = "$USE_WANDB"
+os.environ["OPF_JOB_TYPE"] = "smoke-test"
+runpy.run_path("/content/colab_train_driver.py", run_name="__main__")
 PY
-
-if [[ "$USE_WANDB" == "1" ]]; then
-  echo "==> logging results to wandb"
-  colab exec -s "$SESSION" <<PY
-import json
-import wandb
-
-run = wandb.init(project="causaganha-segmenter", job_type="smoke-test",
-                  config={"gpu": "$GPU", "epochs": $EPOCHS, "batch_size": $BATCH_SIZE})
-try:
-    with open("$REMOTE_OUT/metrics.json") as f:
-        metrics = json.load(f)
-    run.log(metrics if isinstance(metrics, dict) else {"eval_metrics": metrics})
-except FileNotFoundError:
-    print("no metrics.json to log")
-run.save("$REMOTE_OUT/train.log")
-run.save("$REMOTE_OUT/eval.log")
-print("wandb run:", run.url)
-run.finish()
-PY
-fi
 
 echo "==> downloading checkpoint + metrics"
 mkdir -p "$OUT_DIR"
