@@ -54,6 +54,14 @@ _REQUEST_INTERVAL_MIN = 1.0
 _REQUEST_INTERVAL_MAX = 3.5
 _PAGE_SIZE_JITTER = (0.7, 1.3)  # multiplied onto PAGE_SIZE, then clamped
 
+# Largest page size TJRO was empirically verified not to hard-fail on (see
+# client.py: 5000 takes ~26s/request against a 30s client timeout — risky but
+# not broken; 10000, the full ES window, 500s server-side). The jitter must
+# never push a request past this regardless of how PAGE_SIZE is configured
+# (JURIS_PAGE_SIZE is operator-tunable), or an operator's deliberately
+# sub-risky choice could still get jittered into the risky/timeout zone.
+_PAGE_SIZE_SAFE_CEILING = 5000
+
 
 def _sleep_jittered() -> None:
     time.sleep(random.uniform(_REQUEST_INTERVAL_MIN, _REQUEST_INTERVAL_MAX))  # noqa: S311
@@ -62,7 +70,7 @@ def _sleep_jittered() -> None:
 def _jittered_page_size(remaining: int) -> int:
     lo, hi = _PAGE_SIZE_JITTER
     size = int(PAGE_SIZE * random.uniform(lo, hi))  # noqa: S311
-    return max(1, min(size, remaining))
+    return max(1, min(size, remaining, _PAGE_SIZE_SAFE_CEILING))
 
 
 # Aggregation bucket used to subdivide a single-day window that exceeds the
@@ -402,8 +410,14 @@ def crawl_all(
     instead of tipo-then-chronological — a strictly monotonic scan across
     years is itself a bot signature, independent of IP/UA/timing. Coverage
     is unaffected: every window is still visited exactly once, just not in
-    scan order. Off by default so tests (and cheap incremental/scheduled
-    runs) keep a deterministic, easily-asserted order.
+    scan order. The most recent month (``end_year_month``) is always visited
+    FIRST, unshuffled, for every tipo — it's the one window callers rely on
+    never going stale (see ``_should_skip_window``: the current month is
+    never skipped), and a full historical shuffle pool is thousands of
+    windows deep, so leaving it in the random draw would make "crawled
+    today" a coin flip instead of a guarantee on any given run that hits a
+    time limit before finishing. Off by default so tests (and cheap
+    incremental/scheduled runs) keep a deterministic, easily-asserted order.
     """
     if end_year_month is None:
         end_year_month = datetime.now(UTC).strftime("%Y-%m")
@@ -414,7 +428,10 @@ def crawl_all(
         if start_year_month is None or year_month >= start_year_month
     ]
     if shuffle:
-        random.shuffle(windows)
+        latest = [w for w in windows if w[1] == end_year_month]
+        rest = [w for w in windows if w[1] != end_year_month]
+        random.shuffle(rest)
+        windows = latest + rest
     for tipo, year_month in windows:
         if skip is not None and skip(tipo, year_month):
             log.info("crawl_window_skipped", tipo=tipo, year_month=year_month)
