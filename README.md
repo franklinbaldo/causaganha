@@ -176,10 +176,13 @@ locally run `uv run marimo edit notebooks/<name>.py`, then regenerate its
 
 The segmenter can also be trained headlessly from a terminal via the
 [Google Colab CLI](https://github.com/googlecolab/google-colab-cli) —
-`scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH]` provisions a GPU runtime,
-uploads `data/segmenter_splits/`, runs `opf train` + `opf eval`, and downloads
-the checkpoint. One-time setup: `uv tool install google-colab-cli && colab new`
-(OAuth browser flow).
+`scripts/train_on_colab.sh --smoke [GPU] [EPOCHS] [BATCH]` provisions a GPU
+runtime, uploads `data/segmenter_splits/`, runs `opf train` + `opf eval`
+(optionally streamed live to W&B when `WANDB_API_KEY` is set), and downloads
+the checkpoint tarball. Without `--smoke` the readiness gates (G1–G5) are
+enforced first and the current seed corpus fails them by design. One-time
+setup: `uv tool install google-colab-cli && colab new` (OAuth browser flow).
+The Colab CLI supports Linux/macOS only — on Windows, run it inside WSL2.
 
 ## Repository structure
 

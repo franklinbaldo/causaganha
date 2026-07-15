@@ -27,6 +27,7 @@ from pathlib import Path
 import structlog
 import torch
 
+from scripts.opf_shared import build_opf_eval_cmd, build_opf_train_cmd, compute_macro_f1
 from scripts.prepare_privacy_filter_dataset import main as prep_main
 
 
@@ -61,25 +62,15 @@ def run_opf_train(
     batch_size: int = 8,
 ) -> int:
     device = _detect_device()
-    cmd = [
-        sys.executable,
-        "-m",
-        "opf",
-        "train",
-        str(train_jsonl),
-        "--validation-dataset",
-        str(val_jsonl),
-        "--label-space-json",
-        str(label_space_json),
-        "--output-dir",
-        str(output_dir),
-        "--device",
-        device,
-        "--epochs",
-        str(epochs),
-        "--batch-size",
-        str(batch_size),
-    ]
+    cmd = build_opf_train_cmd(
+        train_jsonl,
+        val_jsonl,
+        label_space_json,
+        output_dir,
+        device=device,
+        epochs=epochs,
+        batch_size=batch_size,
+    )
     logger.info("opf_train_start", cmd=" ".join(cmd), device=device)
     result = subprocess.run(cmd, check=False)
     logger.info("opf_train_done", returncode=result.returncode)
@@ -93,20 +84,7 @@ def run_opf_eval(
 ) -> dict | None:
     device = _detect_device()
     metrics_output.parent.mkdir(parents=True, exist_ok=True)
-    cmd = [
-        sys.executable,
-        "-m",
-        "opf",
-        "eval",
-        str(test_jsonl),
-        "--checkpoint",
-        str(model_dir),
-        "--device",
-        device,
-        "--per-class",
-        "--metrics-out",
-        str(metrics_output),
-    ]
+    cmd = build_opf_eval_cmd(test_jsonl, model_dir, metrics_output, device=device)
     logger.info("opf_eval_start", cmd=" ".join(cmd), device=device)
     result = subprocess.run(cmd, check=False)
     logger.info("opf_eval_done", returncode=result.returncode)
@@ -244,40 +222,18 @@ def main() -> int:
         logger.error("opf_eval_failed")
         return 1
 
-    # Report — derive category names from label_space, not hardcoded.
-    # OPF uses flat keys like "detection.span.f1" and "by_class.<label>.span.f1".
-    # Compute true macro F1 as mean of per-class F1 (not detection.span.f1 which
-    # is the aggregate and misleading under class imbalance).
-    per_class_f1s: list[float] = []
-    per_class_f1s_no_ref: list[float] = []
-    detection_f1 = metrics.get("detection.span.f1")
-    for cat in ls["span_class_names"]:
-        if cat == "O":
-            continue
-        f1 = metrics.get(f"by_class.{cat}.span.f1")
-        if f1 is not None:
-            per_class_f1s.append(f1)
-            if cat != "ref_normativa":
-                per_class_f1s_no_ref.append(f1)
-            print(f"  {cat}: F1={f1:.3f}")
-        else:
-            cat_metrics = metrics.get(cat, {})
-            if cat_metrics:
-                cf1 = cat_metrics.get("f1-score", 0)
-                per_class_f1s.append(cf1)
-                if cat != "ref_normativa":
-                    per_class_f1s_no_ref.append(cf1)
-                print(f"  {cat}: F1={cf1:.3f}")
-
-    macro_f1 = sum(per_class_f1s) / len(per_class_f1s) if per_class_f1s else (detection_f1 or 0)
-    macro_f1_no_ref = (
-        sum(per_class_f1s_no_ref) / len(per_class_f1s_no_ref) if per_class_f1s_no_ref else macro_f1
-    )
-    print(f"\nMacro F1 (mean of {len(per_class_f1s)} classes): {macro_f1:.3f}")
-    n_no_ref = len(per_class_f1s_no_ref)
-    print(f"Macro F1 excl. ref_normativa ({n_no_ref} classes): {macro_f1_no_ref:.3f}")
-    if detection_f1 is not None:
-        print(f"Detection F1 (aggregate): {detection_f1:.3f}")
+    # Report via the canonical metric implementation shared with the Colab
+    # driver (scripts/opf_shared.py): true macro F1 as mean of per-class F1,
+    # not detection.span.f1 (aggregate, misleading under class imbalance).
+    report = compute_macro_f1(metrics, ls["span_class_names"])
+    for cat, f1 in report["per_class"].items():
+        print(f"  {cat}: F1={f1:.3f}")
+    n = len(report["per_class"])
+    n_no_ref = sum(1 for c in report["per_class"] if c != "ref_normativa")
+    print(f"\nMacro F1 (mean of {n} classes): {report['macro_f1']:.3f}")
+    print(f"Macro F1 excl. ref_normativa ({n_no_ref} classes): {report['macro_f1_no_ref']:.3f}")
+    if report["detection_f1"] is not None:
+        print(f"Detection F1 (aggregate): {report['detection_f1']:.3f}")
 
     return 0
 

@@ -460,6 +460,67 @@ def _get_source_commit() -> str:
         return "unknown"
 
 
+def _count_splits(
+    gold_dir: Path,
+) -> tuple[dict[str, int], dict[str, dict[str, int]], dict[str, int]]:
+    """Count records and category spans per split (input to the gates)."""
+    split_counts: dict[str, int] = {}
+    per_split_cats: dict[str, dict[str, int]] = {}
+    cat_counts: dict[str, int] = {}
+    for split in ("train", "val", "test"):
+        jsonl = gold_dir / f"{split}.jsonl"
+        count = 0
+        split_cat: dict[str, int] = {}
+        with jsonl.open(encoding="utf-8") as f:
+            for raw in f:
+                stripped = raw.strip()
+                if not stripped:
+                    continue
+                rec = json.loads(stripped)
+                count += 1
+                for sp in rec.get("label", []):
+                    cat = sp.get("category", "")
+                    cat_counts[cat] = cat_counts.get(cat, 0) + 1
+                    split_cat[cat] = split_cat.get(cat, 0) + 1
+        split_counts[split] = count
+        per_split_cats[split] = split_cat
+    return split_counts, per_split_cats, cat_counts
+
+
+def check_gates_only(gold_dir: Path) -> int:
+    """Run the readiness gates (G1-G5) against a split dir; publish nothing.
+
+    Exit 0 = gates pass (corpus is fit for a real training run); 1 = not ready.
+    Used by scripts/train_on_colab.sh to enforce the gates before a non-smoke
+    Colab run without going through a full promote.
+    """
+    required = ["train.jsonl", "val.jsonl", "test.jsonl", "label_space.json"]
+    missing = [f for f in required if not (gold_dir / f).exists()]
+    if missing:
+        print(f"Error: {gold_dir} is missing {missing}.", file=sys.stderr)
+        return 1
+
+    ls = json.loads((gold_dir / "label_space.json").read_text(encoding="utf-8"))
+    names = ls.get("span_class_names", [])
+    if not names or names[0] != "O":
+        print("Error: invalid label space (O must be first).", file=sys.stderr)
+        return 1
+
+    split_counts, per_split_cats, _cat_counts = _count_splits(gold_dir)
+    manifest_path = gold_dir / "manifest.json"
+    manifest = (
+        json.loads(manifest_path.read_text(encoding="utf-8")) if manifest_path.exists() else {}
+    )
+    failures = _check_readiness_gates(split_counts, per_split_cats, names, manifest)
+    if failures:
+        print("GOLD NOT READY FOR TRAINING — readiness gates failed:", file=sys.stderr)
+        for msg in failures:
+            print(f"  X {msg}", file=sys.stderr)
+        return 1
+    print(f"All readiness gates pass for {gold_dir} (docs={sum(split_counts.values())}).")
+    return 0
+
+
 def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) -> int:
     """Read gold splits from git, validate, write manifest, publish."""
     required = ["train.jsonl", "val.jsonl", "test.jsonl", "label_space.json"]
@@ -494,26 +555,7 @@ def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) 
         return 1
 
     # Count records and categories (aggregate + per-split for gates)
-    split_counts: dict[str, int] = {}
-    per_split_cats: dict[str, dict[str, int]] = {}
-    cat_counts: dict[str, int] = {}
-    for split in ("train", "val", "test"):
-        jsonl = gold_dir / f"{split}.jsonl"
-        count = 0
-        split_cat: dict[str, int] = {}
-        with jsonl.open(encoding="utf-8") as f:
-            for raw in f:
-                stripped = raw.strip()
-                if not stripped:
-                    continue
-                rec = json.loads(stripped)
-                count += 1
-                for sp in rec.get("label", []):
-                    cat = sp.get("category", "")
-                    cat_counts[cat] = cat_counts.get(cat, 0) + 1
-                    split_cat[cat] = split_cat.get(cat, 0) + 1
-        split_counts[split] = count
-        per_split_cats[split] = split_cat
+    split_counts, per_split_cats, cat_counts = _count_splits(gold_dir)
 
     # Read existing manifest or create new
     existing_manifest_path = gold_dir / "manifest.json"
@@ -795,8 +837,15 @@ def main() -> int:
             "Use ONLY for development/inspection; never pass this in CI."
         ),
     )
+    parser.add_argument(
+        "--check-gates",
+        action="store_true",
+        help="Run readiness gates (G1-G5) against --gold-dir and exit 0/1; publish nothing",
+    )
     args = parser.parse_args()
 
+    if args.check_gates:
+        return check_gates_only(Path(args.gold_dir))
     if args.bootstrap:
         return bootstrap_from_parquet(
             Path(args.parquet),
