@@ -45,6 +45,29 @@ def test_manifest_fixture_load_counts_and_queries() -> None:
     assert transient.djen_status == ""
 
 
+def test_absent_status_with_bare_200_raw_is_rewritten_to_no_publications() -> None:
+    """Self-consistency guard (plan §5 Fase 1): an ``absent`` verdict paired
+    with a bare ``200`` raw contradicts itself, since ``interpret_djen_raw``
+    would otherwise re-derive ``200`` as ``available``. This is the exact
+    bug class that produced ~79K false-available legacy rows — a checker
+    that read only the HTTP 200 and never inspected the body.
+    """
+    manifest = SyncManifest()
+    manifest.apply_event(
+        "TJRO",
+        date(2026, 4, 5),
+        djen_status="absent",
+        djen_raw="200",
+        updated_at="2026-04-05T10:00:00+00:00",
+    )
+
+    entry = manifest.get_status("TJRO", date(2026, 4, 5))
+    assert entry is not None
+    assert entry.djen_raw == "no_publications"
+    assert entry.djen_status == "absent"
+    assert interpret_djen_raw(entry.djen_raw) == "absent"
+
+
 def test_segment_merge_is_field_level_last_write_wins() -> None:
     manifest = SyncManifest()
     manifest.load_from_csv(FIXTURE.read_text(encoding="utf-8"), overwrite=True)
