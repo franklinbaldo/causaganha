@@ -59,7 +59,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte —
         ou pesquise por palavra-chave. A consulta online respeita a cota pública da API DJEN; quando ela limitar requisições, você ainda pode recorrer ao arquivo histórico preservado.
       </p>
-      <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search">
+      <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
         <fieldset role="group">
           <input
             class="input hero__search-input"
@@ -195,6 +195,22 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 </Layout>
 
 <script>
+  import { classifyCnjInput, normalizeCnj, formatCnj } from '../lib/processoCnj';
+
+  // Um CNJ colado na busca da home vai direto para o dossiê reconciliado
+  // (/processo), não para a busca DJEN-only em /publicacoes — é lá que o
+  // usuário vê as quatro fontes (DJEN, JURIS, STJ, DataJud) juntas.
+  const heroForm = document.querySelector<HTMLFormElement>('.hero__search');
+  const heroInput = heroForm?.querySelector<HTMLInputElement>('input[name="texto"]');
+  heroForm?.addEventListener('submit', (e) => {
+    const raw = heroInput?.value ?? '';
+    if (classifyCnjInput(raw) !== 'valid') return;
+    e.preventDefault();
+    const digits = normalizeCnj(raw);
+    const processoHref = heroForm.dataset.processoHref ?? 'processo';
+    window.location.href = `${processoHref}?cnj=${encodeURIComponent(formatCnj(digits))}`;
+  });
+
   // Hero tiles — Bulcão-inspired ornament
   function mulberry32(seed: number) {
     return function() {
