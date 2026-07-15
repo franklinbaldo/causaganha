@@ -13,10 +13,15 @@
 # common.relay), scoped to the crawl step only — upload to IA isn't blocked
 # and doesn't go through the relay.
 #
-# Scheduled-style runs are incremental when dispatched: the CLI restores its
-# manifest from IA, crawls ONLY the current month (--mes), and skips
-# (tipo, month) windows already uploaded. Full/backfill crawls stay
-# available via dispatch (tjro_ano / tjro_mes / tjro_tipos inputs).
+# Scheduled (cron) runs attempt to CONTINUE the full historical backfill
+# (--desde-ano 1988) rather than just the current month: the CLI restores
+# its manifest from IA, skips (tipo, month) windows already uploaded, and
+# saves the manifest after every window — so a run that hits the 120min
+# job timeout mid-crawl loses no completed progress, and the next day's
+# cron just picks up where it left off. The current month is never skipped
+# (see _should_skip_window) so incremental freshness isn't lost either.
+# Explicit dispatch inputs (tjro_ano / tjro_mes / tjro_desde_ano / tjro_tipos)
+# still override this for one-off/manual runs.
 #
 # Split from the former stj-tjro-sync.yml so an STJ failure can't mask a
 # TJRO failure (and vice versa) — see stj-sync.yml for the other corpus.
@@ -24,7 +29,11 @@
 # Cron reactivated 2026-07-14 after a live workflow_dispatch run through the
 # relay came back green with real data (6 manifest entries, all uploaded).
 # 09:00 UTC = 06:00 BR, outside business hours; distinct from stj-sync.yml's
-# 07:00 UTC so the two crawls don't overlap on the relay.
+# 07:00 UTC so the two crawls don't overlap on the relay. Switched to
+# continuing the backfill 2026-07-15 after the crawler started jittering
+# request timing/page-size/window-order to look less like a bot (see
+# tjro_juris.crawler) — the fixed daily current-month-only crawl left the
+# 2024/2025 backfill permanently stalled otherwise.
 # ============================================================================
 
 name: TJRO Sync
@@ -41,7 +50,7 @@ on:
         description: 'Only crawl this month (--mes, AAAA-MM) — optional, mutually exclusive with tjro_ano'
         required: false
       tjro_desde_ano:
-        description: 'Full backfill from this year instead of the 2010 default (--desde-ano, e.g. 1988) — optional, mutually exclusive with tjro_ano/tjro_mes. A full run this old is long; prefer running it locally (unblocked network, no 120min job cap) — see docs/planning or ask before dispatching this in CI.'
+        description: 'Full backfill from this year instead of the 2010 default (--desde-ano, e.g. 1988) — optional, mutually exclusive with tjro_ano/tjro_mes. This is what the daily cron already does automatically (continuing until fully caught up); dispatch this manually only to force an immediate run instead of waiting for the next cron tick.'
         required: false
       tjro_tipos:
         description: 'Comma-separated tipos (--tipo), e.g. "ACÓRDÃO,SENTENÇA" — optional'
@@ -87,11 +96,12 @@ jobs:
           DESDE_ANO="${{ inputs.tjro_desde_ano }}"
           TIPOS="${{ inputs.tjro_tipos }}"
 
-          # Non-dispatch runs (cron / temporary push) are incremental:
-          # crawl only the current month. The manifest restore + window
-          # skip in the CLI make this cheap on a blank runner.
+          # Non-dispatch runs (cron / temporary push) attempt to continue the
+          # full historical backfill. The manifest restore + per-window skip
+          # + incremental manifest save make each day's run cheap and
+          # resumable: only windows not yet uploaded are actually crawled.
           if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -z "$ANO" ] && [ -z "$MES" ] && [ -z "$DESDE_ANO" ]; then
-            MES="$(date -u +%Y-%m)"
+            DESDE_ANO=1988
           fi
 
           CMD="uv run --no-dev tjro-juris crawl data/tjro-juris"

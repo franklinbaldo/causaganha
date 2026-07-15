@@ -15,6 +15,7 @@ from tjro_juris.crawler import (
     _extract_doc,
     _fetch_pages,
     _iter_year_months,
+    _jittered_page_size,
     _load_partial_cache,
     _month_bounds,
     _partial_cache_path,
@@ -125,6 +126,22 @@ def test_split_range_two_days() -> None:
     assert (mid, mid_next) == ("2024-03-01", "2024-03-02")
 
 
+# ── _jittered_page_size ───────────────────────────────────────────────────
+
+
+def test_jittered_page_size_never_exceeds_the_safe_ceiling(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Jitter must not push a request past the empirically-tested safe zone,
+    even when PAGE_SIZE is configured large (e.g. via JURIS_PAGE_SIZE) and
+    the upper jitter multiplier would otherwise exceed it.
+    """
+    monkeypatch.setattr(crawler, "PAGE_SIZE", 10_000)
+    monkeypatch.setattr(crawler.random, "uniform", lambda _lo, _hi: 1.3)  # max jitter multiplier
+
+    assert _jittered_page_size(remaining=MAX_RESULT_WINDOW) == crawler._PAGE_SIZE_SAFE_CEILING
+
+
 # ── fetch_tipo_window (probe + pagination + split) ───────────────────────
 
 
@@ -179,6 +196,7 @@ def test_fetch_window_stops_on_short_page(monkeypatch: pytest.MonkeyPatch) -> No
     }
     calls, fake = _fake_search_windows({window: pages})
     monkeypatch.setattr(crawler, "search", fake)
+    monkeypatch.setattr(crawler, "_jittered_page_size", lambda remaining: min(PAGE_SIZE, remaining))
 
     docs = fetch_tipo_window("ACÓRDÃO", *window)
 
@@ -476,6 +494,7 @@ def test_fetch_pages_leaves_cache_behind_on_error(
         raise _BoomError(msg)
 
     monkeypatch.setattr(crawler, "search", _fake)
+    monkeypatch.setattr(crawler, "_jittered_page_size", lambda remaining: min(PAGE_SIZE, remaining))
     with pytest.raises(_BoomError):
         _fetch_pages("ACÓRDÃO", "2024-01-01", "2024-01-31", cache_dir=tmp_path)
 
@@ -579,3 +598,32 @@ def test_crawl_all_fetches_each_tipo_month_once(monkeypatch: pytest.MonkeyPatch)
         ("VOTO", "2024-01", 1),
         ("VOTO", "2024-02", 0),
     ]
+
+
+def test_crawl_all_shuffle_still_visits_latest_month_first(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The most recent month must never be left to chance in the shuffle —
+    it's the window callers rely on being fresh every run (see
+    ``_should_skip_window``), and it's one window out of a potentially huge
+    historical pool once shuffled.
+    """
+    fetched: list[tuple[str, str]] = []
+
+    def _fake_month(tipo: str, year_month: str, cache_dir: object = None) -> list[dict]:
+        fetched.append((tipo, year_month))
+        return []
+
+    monkeypatch.setattr(crawler, "fetch_tipo_month", _fake_month)
+    monkeypatch.setattr(crawler.random, "shuffle", lambda seq: seq.reverse())
+
+    list(
+        crawl_all(
+            start_year=2020, end_year_month="2024-02", tipos=["ACÓRDÃO", "VOTO"], shuffle=True
+        )
+    )
+
+    # latest month for every tipo comes first, regardless of what the shuffle did
+    assert fetched[0] == ("ACÓRDÃO", "2024-02")
+    assert fetched[1] == ("VOTO", "2024-02")
+    # everything else still got visited exactly once
+    assert len(fetched) == 2 * len(list(_iter_year_months(2020, "2024-02")))
+    assert len(set(fetched)) == len(fetched)

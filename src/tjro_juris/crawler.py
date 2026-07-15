@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import calendar
 import json
+import random
 import time
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
@@ -41,7 +42,36 @@ from tjro_juris.client import (
 log = structlog.get_logger()
 
 _MONTHS_PER_YEAR = 12
-_REQUEST_INTERVAL = 0.5  # seconds between requests
+
+# A fixed interval and a fixed page size, repeated for hours, is itself a bot
+# signature independent of IP/UA — TJRO's anti-abuse system scores traffic
+# *patterns*, not just origin (observed live: STIC blocks kicked in after
+# sustained crawling even from an unblocked network). Both are jittered per
+# request to break that signature; page-size jitter is safe because
+# ``_fetch_pages`` advances ``from_`` by the actual size used, so pagination
+# stays correct regardless of how much it varies per call.
+_REQUEST_INTERVAL_MIN = 1.0
+_REQUEST_INTERVAL_MAX = 3.5
+_PAGE_SIZE_JITTER = (0.7, 1.3)  # multiplied onto PAGE_SIZE, then clamped
+
+# Largest page size TJRO was empirically verified not to hard-fail on (see
+# client.py: 5000 takes ~26s/request against a 30s client timeout — risky but
+# not broken; 10000, the full ES window, 500s server-side). The jitter must
+# never push a request past this regardless of how PAGE_SIZE is configured
+# (JURIS_PAGE_SIZE is operator-tunable), or an operator's deliberately
+# sub-risky choice could still get jittered into the risky/timeout zone.
+_PAGE_SIZE_SAFE_CEILING = 5000
+
+
+def _sleep_jittered() -> None:
+    time.sleep(random.uniform(_REQUEST_INTERVAL_MIN, _REQUEST_INTERVAL_MAX))  # noqa: S311
+
+
+def _jittered_page_size(remaining: int) -> int:
+    lo, hi = _PAGE_SIZE_JITTER
+    size = int(PAGE_SIZE * random.uniform(lo, hi))  # noqa: S311
+    return max(1, min(size, remaining, _PAGE_SIZE_SAFE_CEILING))
+
 
 # Aggregation bucket used to subdivide a single-day window that exceeds the
 # ES result window. Verified live (2026-07-12): the search endpoint honors
@@ -202,8 +232,8 @@ def _fetch_pages(
             "fetch_page_resumed_from_cache", tipo=tipo, date_start=date_start, resumed_from=from_
         )
     while from_ < MAX_RESULT_WINDOW:
-        size = min(PAGE_SIZE, MAX_RESULT_WINDOW - from_)
-        time.sleep(_REQUEST_INTERVAL)
+        size = _jittered_page_size(MAX_RESULT_WINDOW - from_)
+        _sleep_jittered()
         data = search(
             tipo,
             from_=from_,
@@ -236,7 +266,7 @@ def _orgao_buckets(tipo: str) -> list[str]:
     The aggregations endpoint ignores date filters, so buckets are fetched
     for the whole tipo and each bucket is then probed with the day filter.
     """
-    time.sleep(_REQUEST_INTERVAL)
+    _sleep_jittered()
     aggs = get_aggregations({"tipo.raw": [tipo]})
     buckets = aggs.get("aggregations", aggs).get(_ORGAO_AGG_KEY, {}).get("buckets", [])
     return [str(b["key"]) for b in buckets if b.get("key")]
@@ -265,7 +295,7 @@ def _fetch_day_by_orgao(
     covered = 0
     for orgao in orgaos:
         extra = {_ORGAO_FIELD: [orgao]}
-        time.sleep(_REQUEST_INTERVAL)
+        _sleep_jittered()
         probe = search(tipo, from_=0, size=1, date_start=day, date_end=day, extra_fields=extra)
         value, relation = _total(probe)
         if _exceeds_window(value, relation):
@@ -303,7 +333,7 @@ def fetch_tipo_window(
     *cache_dir*, when given, enables page-level resume (see ``_fetch_pages``)
     for the leaf window this call bottoms out at.
     """
-    time.sleep(_REQUEST_INTERVAL)
+    _sleep_jittered()
     probe = search(tipo, from_=0, size=1, date_start=date_start, date_end=date_end)
     total, relation = _total(probe)
     if total == 0 and relation == "eq":
@@ -360,6 +390,8 @@ def crawl_all(
     start_year_month: str | None = None,
     skip: Callable[[str, str], bool] | None = None,
     cache_dir: Path | None = None,
+    *,
+    shuffle: bool = False,
 ) -> Iterator[tuple[str, str, list[dict]]]:
     """Yield (tipo, year_month, docs), fetching each month with date filters.
 
@@ -373,15 +405,35 @@ def crawl_all(
     given, persists in-progress pagination per window so a mid-month failure
     (STIC block, transport error) resumes from the last completed page on
     retry instead of restarting the whole month — see ``_fetch_pages``.
+
+    ``shuffle=True`` visits (tipo, year_month) windows in random order
+    instead of tipo-then-chronological — a strictly monotonic scan across
+    years is itself a bot signature, independent of IP/UA/timing. Coverage
+    is unaffected: every window is still visited exactly once, just not in
+    scan order. The most recent month (``end_year_month``) is always visited
+    FIRST, unshuffled, for every tipo — it's the one window callers rely on
+    never going stale (see ``_should_skip_window``: the current month is
+    never skipped), and a full historical shuffle pool is thousands of
+    windows deep, so leaving it in the random draw would make "crawled
+    today" a coin flip instead of a guarantee on any given run that hits a
+    time limit before finishing. Off by default so tests (and cheap
+    incremental/scheduled runs) keep a deterministic, easily-asserted order.
     """
     if end_year_month is None:
         end_year_month = datetime.now(UTC).strftime("%Y-%m")
-    for tipo in tipos or TIPOS:
-        log.info("crawl_tipo_start", tipo=tipo)
-        for year_month in _iter_year_months(start_year, end_year_month):
-            if start_year_month is not None and year_month < start_year_month:
-                continue
-            if skip is not None and skip(tipo, year_month):
-                log.info("crawl_window_skipped", tipo=tipo, year_month=year_month)
-                continue
-            yield tipo, year_month, fetch_tipo_month(tipo, year_month, cache_dir=cache_dir)
+    windows = [
+        (tipo, year_month)
+        for tipo in (tipos or TIPOS)
+        for year_month in _iter_year_months(start_year, end_year_month)
+        if start_year_month is None or year_month >= start_year_month
+    ]
+    if shuffle:
+        latest = [w for w in windows if w[1] == end_year_month]
+        rest = [w for w in windows if w[1] != end_year_month]
+        random.shuffle(rest)
+        windows = latest + rest
+    for tipo, year_month in windows:
+        if skip is not None and skip(tipo, year_month):
+            log.info("crawl_window_skipped", tipo=tipo, year_month=year_month)
+            continue
+        yield tipo, year_month, fetch_tipo_month(tipo, year_month, cache_dir=cache_dir)

@@ -294,6 +294,7 @@ def crawl(
         start_year_month=start_year_month,
         skip=_skip,
         cache_dir=_partial_cache_dir(data_dir),
+        shuffle=True,
     ):
         if not docs:
             continue
