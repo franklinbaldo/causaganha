@@ -195,20 +195,22 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 </Layout>
 
 <script>
-  import { classifyCnjInput, normalizeCnj, formatCnj } from '../lib/processoCnj';
+  import { buildHeroSearchRedirect } from '../lib/processoCnj';
 
   // Um CNJ colado na busca da home vai direto para o dossiê reconciliado
   // (/processo), não para a busca DJEN-only em /publicacoes — é lá que o
-  // usuário vê as quatro fontes (DJEN, JURIS, STJ, DataJud) juntas.
+  // usuário vê as quatro fontes (DJEN, JURIS, STJ, DataJud) juntas. A decisão
+  // em si (buildHeroSearchRedirect) fica em lib/processoCnj para ser testável
+  // sem montar o formulário.
   const heroForm = document.querySelector<HTMLFormElement>('.hero__search');
   const heroInput = heroForm?.querySelector<HTMLInputElement>('input[name="texto"]');
   heroForm?.addEventListener('submit', (e) => {
     const raw = heroInput?.value ?? '';
-    if (classifyCnjInput(raw) !== 'valid') return;
-    e.preventDefault();
-    const digits = normalizeCnj(raw);
     const processoHref = heroForm.dataset.processoHref ?? 'processo';
-    window.location.href = `${processoHref}?cnj=${encodeURIComponent(formatCnj(digits))}`;
+    const redirect = buildHeroSearchRedirect(raw, processoHref);
+    if (!redirect) return;
+    e.preventDefault();
+    window.location.href = redirect;
   });
 
   // Hero tiles — Bulcão-inspired ornament

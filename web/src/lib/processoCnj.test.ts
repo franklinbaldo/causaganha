@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_FONTES,
   buildCnjSearchParams,
+  buildHeroSearchRedirect,
   buildProcessoDocumentosSql,
   buildProcessoUnificadoSql,
   classifyCnjInput,
@@ -73,6 +74,36 @@ describe('classifyCnjInput', () => {
   it('classifies a valid masked or unmasked CNJ as valid', () => {
     expect(classifyCnjInput('00000010220248220001')).toBe('valid');
     expect(classifyCnjInput('0000001-02.2024.8.22.0001')).toBe('valid');
+  });
+});
+
+describe('buildHeroSearchRedirect', () => {
+  it('redirects an unmasked 20-digit CNJ to /processo with a masked ?cnj=', () => {
+    expect(buildHeroSearchRedirect('00000010220248220001', '/processo')).toBe(
+      '/processo?cnj=0000001-02.2024.8.22.0001',
+    );
+  });
+
+  it('redirects a masked CNJ to /processo with the same masked ?cnj=', () => {
+    expect(buildHeroSearchRedirect('0000001-02.2024.8.22.0001', '/processo')).toBe(
+      '/processo?cnj=0000001-02.2024.8.22.0001',
+    );
+  });
+
+  it('returns null for free text, leaving the caller to submit to /publicacoes', () => {
+    expect(buildHeroSearchRedirect('mandado de segurança', '/processo')).toBeNull();
+  });
+
+  it('returns null for OAB-shaped input', () => {
+    expect(buildHeroSearchRedirect('OAB/SP 245.812', '/processo')).toBeNull();
+  });
+
+  it('returns null for malformed CNJ-like text (wrong digit count)', () => {
+    expect(buildHeroSearchRedirect('0000001-02.2024.8.22', '/processo')).toBeNull();
+  });
+
+  it('returns null for empty input', () => {
+    expect(buildHeroSearchRedirect('', '/processo')).toBeNull();
   });
 });
 
