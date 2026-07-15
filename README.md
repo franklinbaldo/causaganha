@@ -123,6 +123,19 @@ All modes persist the manifest to IA every 10 minutes. See `uv run djen-backup -
 
 Parquet consolidation is a module CLI (`python -m causaganha.consolidate`), not a registered console script.
 
+
+### `datajud` — CNJ process metadata enrichment
+
+The `datajud` CLI uses the configured public key default in `src/causaganha/config.py`; set `DATAJUD_API_KEY` in local, production, or CI environments when you need to override/rotate it without a deploy. Obtain the current public key from the CNJ DataJud access page: https://datajud-wiki.cnj.jus.br/api-publica/acesso/ or from the committed rotation log in `docs/datajud-api-keys.md`.
+
+When the CNJ rotates the key (usually visible as HTTP 401 responses), add the new public key to `docs/datajud-api-keys.md`, update local `.env` files, and rotate the CI/production secret named `DATAJUD_API_KEY`; no code change is needed. The production default lives in `src/causaganha/config.py`; the environment variable takes precedence for emergency rotation.
+
+```bash
+# Example local run with .env populated from .env.example
+uv run --env-file .env datajud enrich --tribunal tjro --skip-upload
+```
+
+
 ## Web frontend
 
 The frontend lives in [web](web) and uses:

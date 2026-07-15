@@ -127,6 +127,15 @@ TRIBUNAIS: list[str] = [
     "TRE-TO",
 ]
 
+# DataJud public API key defaults.
+#
+# The CNJ publishes this API key publicly for DataJud access. Keep the runtime
+# override in DATAJUD_API_KEY for rotation without deploys, but retain the
+# current public key here as the production default so DataJud keeps working
+# when no override is provided. When CNJ rotates the key, update this constant
+# and append the old/new values to docs/datajud-api-keys.md.
+DATAJUD_PUBLIC_API_KEY_DEFAULT = "cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
+
 # DJEN URLs: direct is the default for local runs in Brazil; proxy is opt-in.
 DJEN_DIRECT_URL = os.environ.get("DJEN_DIRECT_URL", "https://comunicaapi.pje.jus.br")
 DJEN_PROXY_URL = os.environ.get("DJEN_PROXY_URL", "https://djen-proxy-mhgmawcn3a-rj.a.run.app")

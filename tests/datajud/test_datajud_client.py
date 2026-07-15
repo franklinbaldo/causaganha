@@ -15,9 +15,9 @@ import pytest
 import respx
 import tenacity
 
+from causaganha.config import DATAJUD_PUBLIC_API_KEY_DEFAULT
 from datajud.client import (
     API_KEY_ENV,
-    PUBLIC_API_KEY,
     DataJudAuthError,
     DataJudClient,
     DataJudError,
@@ -31,6 +31,7 @@ from datajud.client import (
 
 
 ENDPOINT = search_endpoint("tjro")
+TEST_API_KEY = "test-datajud-api-key"
 
 CNJ_A = "00000010220248220001"
 CNJ_B = "00000020320248220002"
@@ -55,6 +56,7 @@ OK_BODY = {"hits": {"total": {"value": 0, "relation": "eq"}, "hits": []}}
 def _client(**kwargs: object) -> DataJudClient:
     defaults: dict = {
         "tribunal": "tjro",
+        "api_key": TEST_API_KEY,
         "backoff_base": 0.0,
         "batch_pause": 0.0,
         "requests_per_minute": 100_000,
@@ -186,9 +188,9 @@ async def test_401_raises_nominal_auth_error_without_retry():
 # ── API key resolution ───────────────────────────────────────────────────
 
 
-def test_api_key_defaults_to_public_constant(monkeypatch):
+def test_api_key_absent_uses_configured_public_default(monkeypatch):
     monkeypatch.delenv(API_KEY_ENV, raising=False)
-    assert get_api_key() == PUBLIC_API_KEY
+    assert get_api_key() == DATAJUD_PUBLIC_API_KEY_DEFAULT
 
 
 def test_api_key_env_override(monkeypatch):
@@ -196,15 +198,19 @@ def test_api_key_env_override(monkeypatch):
     assert get_api_key() == "rotated-key"
 
 
-async def test_authorization_header_uses_apikey_scheme(monkeypatch):
-    monkeypatch.delenv(API_KEY_ENV, raising=False)
+def test_api_key_whitespace_only_env_uses_configured_public_default(monkeypatch):
+    monkeypatch.setenv(API_KEY_ENV, "   ")
+    assert get_api_key() == DATAJUD_PUBLIC_API_KEY_DEFAULT
+
+
+async def test_authorization_header_uses_apikey_scheme():
     with respx.mock() as router:
         route = router.post(ENDPOINT).respond(200, json=OK_BODY)
         async with _client() as client:
             await client.search({"query": {"match_all": {}}})
 
     request = route.calls.last.request
-    assert request.headers["Authorization"] == f"APIKey {PUBLIC_API_KEY}"
+    assert request.headers["Authorization"] == f"APIKey {TEST_API_KEY}"
 
 
 # ── Batch CNJ lookup + pagination ────────────────────────────────────────

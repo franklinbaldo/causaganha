@@ -12,8 +12,8 @@ Traps handled here (mapped in production by the owner's CLI client):
 - ``track_total_hits: true`` always (otherwise totals saturate at 10000).
 - Textual fields need ``.keyword`` in sort/term/agg (the raw field is
   ``text`` and returns HTTP 400).
-- HTTP 401 → :class:`DataJudAuthError` with rotation instructions (the CNJ
-  may rotate the public key; override via the ``DATAJUD_API_KEY`` env var).
+- HTTP 401 → :class:`DataJudAuthError` with rotation instructions. Production
+  and CI usage can override the configured public default via the ``DATAJUD_API_KEY`` env var.
 - Batch CNJ lookup (``terms`` on ``numeroProcesso``, paginated) — never one
   request per CNJ. Internal rate limiting (aiolimiter) plus a pause between
   batches keeps the CNJ's ES queue happy.
@@ -31,6 +31,7 @@ import structlog
 import tenacity
 from aiolimiter import AsyncLimiter
 
+from causaganha.config import DATAJUD_PUBLIC_API_KEY_DEFAULT
 from datajud.models import normalizar_cnj
 
 
@@ -43,10 +44,6 @@ log = structlog.get_logger()
 
 BASE_URL = "https://api-publica.datajud.cnj.jus.br"
 
-# Public CNJ key — the same for everyone, documented on the DataJud wiki.
-# If it starts returning 401, fetch the current one from WIKI_ACESSO_URL and
-# set the DATAJUD_API_KEY environment variable (rotation without a deploy).
-PUBLIC_API_KEY = "cDZHYzlZa0JadVREZDJCendQbXY6SkJlTzNjLV9TRENyQk1RdnFKZGRQdw=="
 API_KEY_ENV = "DATAJUD_API_KEY"
 WIKI_ACESSO_URL = "https://datajud-wiki.cnj.jus.br/api-publica/acesso/"
 
@@ -87,7 +84,7 @@ class DataJudError(RuntimeError):
 
 
 class DataJudAuthError(DataJudError):
-    """HTTP 401 — the public API key was probably rotated by the CNJ."""
+    """Missing/rejected DataJud API key or a key rotated by the CNJ."""
 
 
 class DataJudRateLimitError(DataJudError):
@@ -99,8 +96,13 @@ class _TransientRejectionError(Exception):
 
 
 def get_api_key() -> str:
-    """Return the API key: ``DATAJUD_API_KEY`` env override or the public default."""
-    return os.environ.get(API_KEY_ENV, "") or PUBLIC_API_KEY
+    """Return the DataJud API key from env or the configured public default.
+
+    ``DATAJUD_API_KEY`` is the rotation override for CI/production. The fallback
+    lives in ``causaganha.config`` with the committed key history documented in
+    ``docs/datajud-api-keys.md``.
+    """
+    return os.environ.get(API_KEY_ENV, "").strip() or DATAJUD_PUBLIC_API_KEY_DEFAULT
 
 
 def search_endpoint(tribunal: str) -> str:
@@ -321,9 +323,9 @@ def _raise_for_status_flavor(resp: httpx.Response) -> None:
     """Classify the response status into the client's error taxonomy."""
     if resp.status_code == HTTP_UNAUTHORIZED:
         msg = (
-            "HTTP 401 from DataJud: the public API key was probably rotated "
-            f"by the CNJ. Fetch the current key at {WIKI_ACESSO_URL} and set "
-            f"the {API_KEY_ENV} environment variable."
+            "HTTP 401 from DataJud: the configured API key was rejected "
+            f"or rotated by the CNJ. Fetch the current key at {WIKI_ACESSO_URL} "
+            f"and set the {API_KEY_ENV} environment variable."
         )
         raise DataJudAuthError(msg)
     if resp.status_code == HTTP_TOO_MANY_REQUESTS:
