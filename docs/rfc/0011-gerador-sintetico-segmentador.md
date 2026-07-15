@@ -201,8 +201,7 @@ operativo; dispositivo individual ≠ decisório colegiado):
 - múltiplos "Ante o exposto" com apenas um operativo;
 - resultado da instância anterior vs. resultado do recurso atual;
 - conclusão de voto individual vs. resultado colegiado;
-- ementa sem a palavra "EMENTA"; relatório sem "É o relatório";
-- seção `_inicio` sem `_fim` correspondente.
+- ementa sem a palavra "EMENTA"; relatório sem "É o relatório".
 
 Proveniência explícita e ratio controlável:
 
@@ -237,15 +236,33 @@ obedece às invariantes de split do §10 — texto de documentos de
 validação/teste jamais aparece em registros de treino.
 
 **Endurecimento explícito:** mesmo a calibração agregada **exclui por hash**
-os documentos já identificados como val/test antes de computar qualquer
-estatística de `corpus_stats.py` — não porque o texto vaze diretamente (não
-vaza), mas para que a alegação "teste travado" seja **inequívoca**: nenhuma
-contagem, frequência ou distribuição usada para calibrar o gerador terá sido
-influenciada, nem agregadamente, pelos documentos que medem o resultado
-final. O filtro por hash de `train_source_doc_ids ∪` (documentos ainda não
-atribuídos a nenhum split, se a calibração ocorrer antes do split de um novo
-lote de gold) é responsabilidade de `corpus_stats.py`, verificada pelo mesmo
-`split_guard.py` do §10.
+os documentos de val/test — não porque o texto vaze diretamente (não vaza),
+mas para que a alegação "teste travado" seja **inequívoca**: nenhuma
+contagem, frequência ou distribuição usada para calibrar o gerador terá
+sido influenciada, nem agregadamente, pelos documentos que medem o
+resultado final.
+
+Isso é consequência direta do invariante do §10 ("split primeiro"), não uma
+exceção a ele — a expressão de uma versão anterior deste RFC (`hash-set
+malformado, sugerindo documentos "ainda não atribuídos" poderiam calibrar)
+contradizia a própria regra "split antes de qualquer geração". A ordem
+correta, sem ambiguidade:
+
+```text
+novo gold chega
+→ atribuído a train/val/test
+→ hashes congelados
+→ corpus_stats pode usar documentos de TREINO
+→ corpus_stats exclui hashes de val/test
+→ dados de treino são gerados
+```
+
+**Documentos ainda não atribuídos a um split não calibram nada** — se podem
+vir a ser val/test, calibrar com eles antes da atribuição é o mesmo furo
+que o §10 já proíbe para reuso direto de texto, só que na forma agregada. O
+filtro por hash em `corpus_stats.py` é sobre o conjunto `val_source_doc_ids
+∪ test_source_doc_ids` (já atribuído, por construção — nunca sobre
+documentos pendentes), verificado pelo mesmo `split_guard.py` do §10.
 
 ### 6.2 Registros híbridos (conteúdo real, estrutura sintética)
 
@@ -582,7 +599,10 @@ scripts/synthetic_segmenter/
     diagnostics.py      # §9: discriminador, divergências, duplicação
     llm_content.py      # fase 2: conteúdo interno via LiteLLM
     llm_judge.py        # fase 3: juiz opcional via LiteLLM
-    compose_mix.py      # §15-bis.3: TrainingMix -> train.jsonl materializado
+    compose_mix.py      # §15-bis.3: mistura ESTÁTICA -> train.jsonl (Runs C/E/F/G)
+run_staged_training.py  # §15-bis.3: curricula em estágios (Runs B/D) — fora
+                         # do escopo deste RFC; requer checkpoint-chaining
+                         # em opf_shared.py (PR #792), não em compose_mix.py
 tests/test_synthetic_segmenter.py
 ```
 
@@ -606,13 +626,60 @@ Quatro categorias, no mínimo:
   "source_doc_ids": ["tjro_acordao_0017"],
   "entities_fictionalized": true,
   "generator_version": "v2",
+  "corpus_release_id": "v2-20260715-001",
   "template_family": "tjro_acordao_moderno",
   "seed": 123,
   "identity_seed": 456,
   "difficulty": "adversarial",
-  "hard_negative_families": ["quoted_result"]
+  "hard_negative_families": ["quoted_result"],
+  "unmatched_pair": false
 }
 ```
+
+**`generator_version` ≠ identidade do lote materializado — distinção
+necessária, não redundante.** `generator_version` versiona o *código*
+(specs/renderer/phrase banks/prompts); o mesmo código pode produzir vários
+lotes diferentes (seeds diferentes, reruns de LLM não-determinísticas,
+retries). O identificador do **lote materializado de fato usado num
+experimento** é outro campo, imutável, fixado no momento da liberação do
+lote (não no momento de cada registro individual):
+
+```json
+{
+  "generator_version": "v2",
+  "corpus_release_id": "v2-20260715-001",
+  "generator_commit": "a1b2c3d",
+  "content_sha256": "…",
+  "source_snapshot_sha256": "…",
+  "model_ids": ["openrouter/google/gemma-3-27b-it:free"],
+  "prompt_version": "judge-v1"
+}
+```
+
+- `corpus_release_id` — identidade do lote materializado (o "release"),
+  não do código; item do IA, versão do Kaggle Dataset, manifest do mix
+  (§15-bis.3) e config do run no W&B referenciam **este** campo, não
+  `generator_version` sozinho — "gerador v2" não identifica os bytes
+  exatos usados num experimento reportado; `corpus_release_id` identifica.
+- `generator_commit` — commit exato do código gerador (specs, renderer,
+  phrase banks) que produziu o lote; a fase determinística depende de mais
+  do que `generator_version` + seed + `DocumentSpec` sugere — depende do
+  commit exato, dos phrase banks, do label space e do snapshot de
+  `corpus_stats.py` usados naquele momento.
+- `content_sha256` — hash do JSONL materializado do lote.
+- `source_snapshot_sha256` — para augmented/hybrid, hash do snapshot do
+  gold real (`data/segmenter_splits/`) usado como fonte; sem isso, um lote
+  "augmented v2" produzido antes e depois de o gold real mudar não é
+  distinguível.
+- `model_ids`/`prompt_version` — para conteúdo fase 2 (LLM), qual(is)
+  modelo(s) e versão de prompt geraram o conteúdo — relevante porque
+  LiteLLM (§8) pode trocar de modelo em fallback, e isso muda a
+  distribução do lote mesmo sob o mesmo `generator_version`.
+
+Todo lote **persistido** (§15-bis.1 — fase 2+) tem `corpus_release_id`
+fixado no momento em que é gravado no IA (fonte de verdade,
+§15-bis.2) e nunca reescrito depois — mudanças viram um novo
+`corpus_release_id`, nunca uma edição in-place do mesmo.
 
 A proveniência existe para: reprodutibilidade, auditabilidade, enforcement
 de split, detecção de duplicatas, debugging, avaliação por fonte e ablation
@@ -636,19 +703,22 @@ Nem toda categoria de dado sintético tem o mesmo custo de armazenamento,
 porque nem toda categoria é igualmente reproduzível:
 
 - **Fully synthetic sem LLM (fase 1)** é **determinístico por construção**
-  — `generator_version` + `seed` + `DocumentSpec` reproduzem exatamente o
-  mesmo JSONL. Para este caso, **não persistir o corpus gerado como
-  artefato versionado**: persistir o gerador (código, `phrase_banks.py`,
-  git-tracked) e um manifest pequeno de quais seeds/specs compõem cada
-  "release" nomeado. O JSONL é materializado sob demanda no momento do
-  preparo de dados — igual, em espírito, ao modo `--bootstrap` que
-  `prepare_privacy_filter_dataset.py` já tem para gerar a partir de
-  parquet.
+  — `generator_commit` (não só `generator_version` — ver §15) + `seed` +
+  `DocumentSpec` reproduzem exatamente o mesmo JSONL. Para este caso,
+  **não persistir o corpus gerado como artefato versionado**: persistir o
+  gerador (código, `phrase_banks.py`, git-tracked) e um manifest pequeno de
+  quais seeds/specs compõem cada `corpus_release_id` nomeado. O JSONL é
+  materializado sob demanda no momento do preparo de dados — igual, em
+  espírito, ao modo `--bootstrap` que `prepare_privacy_filter_dataset.py`
+  já tem para gerar a partir de parquet.
 - **Fase 2 (conteúdo LLM, híbrido, filtrado por juiz) não é perfeitamente
   reproduzível** (mesma seed, chamada de LLM diferente ⇒ texto diferente).
   Aqui o artefato gerado **precisa ser persistido** como dado durável, do
   mesmo jeito que o gold: versionado, com hash, nunca regenerado
-  silenciosamente sob o mesmo `generator_version`.
+  silenciosamente sob o mesmo `corpus_release_id` — um `generator_version`
+  pode produzir vários `corpus_release_id` (reruns, seeds diferentes); é o
+  release específico, não a versão do código, que nunca muda de conteúdo
+  depois de gravado.
 - **Augmented real** (§11) é determinístico dado o documento-fonte + a
   seed de mutação — mesmo tratamento de "regenerar sob demanda" da fase 1,
   desde que o documento-fonte (gold) não mude.
@@ -661,30 +731,41 @@ sinônimos curada e manifests pequenos; nunca o JSONL de centenas de MB.
 
 ### 15-bis.2 Onde persistir o que precisa ser persistido — Kaggle E IA, não um ou outro
 
-**Decisão fixada:** todo `generator_version` que precisa ser persistido
-(§15-bis.1 — fase 2/LLM, híbrido) é escrito em **dois lugares**, não um com
-o outro como alternativa:
+**Decisão fixada:** todo `corpus_release_id` que precisa ser persistido
+(§15-bis.1 — fase 2/LLM, híbrido; identidade de lote, não de código —
+§15) é escrito em **dois lugares**, não um com o outro como alternativa:
 
 - **IA (Internet Archive) é a fonte de verdade de longo prazo.** Consistente
   com a missão de arquivo do projeto (docs/GOVERNANCE.md) e com a
   convenção já estabelecida para outros dados do projeto (CLAUDE.md: itens
-  DJEN usam `djen-{tribunal}-{year}`). Para o corpus sintético, item
-  próprio por versão do gerador:
-  `causaganha-segmenter-synthetic-{generator_version}` (ex.:
-  `causaganha-segmenter-synthetic-v2`), contendo o(s) JSONL por categoria
-  (`synthetic.jsonl`, `hybrid.jsonl`, `augmented.jsonl`) + o manifest de
-  proveniência (§15). Upload via `httpx`, não `boto3` — mesma regra de
-  `archive.py`/CLAUDE.md que já vale para os outros uploads do projeto.
-  Permanente, fora do controle de uma conta Kaggle/Colab pessoal, alinhado
-  com "preservação integral" (GOVERNANCE.md §5).
+  DJEN usam `djen-{tribunal}-{year}`). Para o corpus sintético, item por
+  **release**, não por versão de código:
+  `causaganha-segmenter-synthetic-{corpus_release_id}` (ex.:
+  `causaganha-segmenter-synthetic-v2-20260715-001`), contendo o(s) JSONL
+  por categoria (`synthetic.jsonl`, `hybrid.jsonl`, `augmented.jsonl`) + o
+  manifest de proveniência completo (§15, com `generator_commit`,
+  `content_sha256`, `source_snapshot_sha256`). Upload via `httpx`, não
+  `boto3` — mesma regra de `archive.py`/CLAUDE.md que já vale para os
+  outros uploads do projeto. Permanente, fora do controle de uma conta
+  Kaggle/Colab pessoal, alinhado com "preservação integral"
+  (GOVERNANCE.md §5).
+- **Staging vs. promovido — só o promovido vai para o IA.** Arquivar toda
+  tentativa de geração LLM falha, parcial ou defeituosa antes de validação
+  criaria ruído arquival desnecessário. Um `corpus_release_id` só é gravado
+  no IA depois de passar pelo validador final (§11) e, se aplicável, pelos
+  diagnósticos estatísticos (§9)/juiz (opcional). Tentativas em staging
+  (pré-validação) ficam em armazenamento efêmero/local, nunca no IA — a
+  distinção staging/promovido é sobre **quando** algo vira
+  `corpus_release_id` gravável, não uma exceção à regra "todo release
+  persistido vai para os dois lugares".
 - **Kaggle Dataset privado é o cache operacional** usado pelos drivers de
-  treino. Publicado a partir do item do IA (não editado independentemente —
-  o IA é a fonte, o Kaggle Dataset é derivado), versionado
-  (`kaggle datasets create`/`version`, mesmo fluxo de `train_on_kaggle.sh`),
-  em dataset **separado** dos gold splits
-  (`causaganha-segmenter-synthetic`) — mantém a fronteira
-  pristine-real/gerado visível na própria organização de datasets, não só
-  no JSON de proveniência.
+  treino — **um dataset estável** (`causaganha-segmenter-synthetic`,
+  separado dos gold splits), onde **cada `corpus_release_id` promovido vira
+  uma versão** via `kaggle datasets version` (o versionamento nativo do
+  Kaggle já mapeia 1:1 para releases; não é preciso um dataset por release).
+  Publicado a partir do item do IA (não editado independentemente — o IA é
+  a fonte, o Kaggle Dataset é derivado), mesmo fluxo de
+  `train_on_kaggle.sh`.
 - **Colab:** para corpora pequenos, `colab upload` direto a partir do
   mesmo cache; para corpora grandes (o caso esperado em ratios 5:1/10:1),
   cache no Google Drive — o mesmo padrão de "base model uma vez, artefato
@@ -717,14 +798,44 @@ exatamente como o pipeline já faz hoje com um único `train.jsonl` pristino.
 Isso é `compose_mix.py`, já listado no layout de módulos do §14. Ele lê os
 pools (pristine real de `data/segmenter_splits/`, augmented/synthetic/hybrid
 de onde estiverem — regenerados ou baixados
-conforme §15-bis.1/.2), aplica os pesos/curriculum do §13, e escreve um
-`train.jsonl` + um **manifest do mix** (não confundir com o manifest de
-proveniência por documento do §15):
+conforme §15-bis.1/.2), aplica os pesos de mistura **estática** do §13, e
+escreve um `train.jsonl` + um **manifest do mix** (não confundir com o
+manifest de proveniência por documento do §15):
+
+**O que `compose_mix.py` cobre, e o que não cobre — precisão necessária.**
+Uma mistura estática de fontes (pesos fixos, um único `train.jsonl`, uma
+única chamada de `opf train`) é suficiente para os Runs C, E, F e G do
+§12.2 sem qualquer mudança nos drivers do PR #792. **Não é suficiente** para
+os Runs B (pré-treino sintético → fine-tuning real) e D (curriculum:
+estrutural amplo → adversarial → real-heavy) — esses são regimes **em
+estágios**, cada estágio com seu próprio `train.jsonl` (ou pesos) e
+continuando do checkpoint do estágio anterior, não uma mistura única.
+
+Verificado no código-fonte antes de escrever isto: `opf train` **já aceita**
+`--checkpoint <dir>` para continuar de um checkpoint existente ("Override
+checkpoint directory. If omitted, OPF uses ... or downloads/reuses" o
+modelo base — aceita qualquer diretório de checkpoint válido, não só o
+padrão). **Não é uma lacuna do `opf` a montante.** A lacuna real é que
+`opf_shared.build_opf_train_cmd()`/`train_and_eval()` (PR #792) não expõem
+esse parâmetro e fazem exatamente **uma** chamada de `opf train` — não há
+orquestração de múltiplos estágios hoje. Runs B/D exigem:
+
+- adicionar um parâmetro `checkpoint: Path | None` a
+  `build_opf_train_cmd`/`train_and_eval` (mudança pequena, localizada);
+- um orquestrador novo de múltiplos estágios (`run_staged_training.py` ou
+  equivalente) que chama `train_and_eval` mais de uma vez em sequência,
+  cada chamada com seu próprio `compose_mix.py` (pesos/estágio diferentes)
+  e `--checkpoint` apontando para o `output_dir` do estágio anterior.
+
+Isso é trabalho de implementação real, não coberto pelo escopo deste RFC
+(§14) — fica registrado aqui para que a Fase 1/1-bis não prometa Runs B/D
+como "só rodar `compose_mix.py`" quando na verdade precisam desse
+orquestrador novo, ainda que sobre uma capacidade do `opf` que já existe.
 
 ```json
 {
   "mix_id": "run_D_seed_3_epoch_config_v1",
-  "generator_version": "v2",
+  "corpus_release_ids": ["v2-20260715-001"],
   "weights": {"pristine_real": 4.0, "augmented_real": 2.0,
               "synthetic": 1.0, "hybrid": 1.0},
   "curriculum_stage": "adversarial_heavy",
@@ -732,6 +843,12 @@ proveniência por documento do §15):
   "source_doc_ids_pristine_real": ["..."]
 }
 ```
+
+`corpus_release_ids` (plural — um mix pode combinar mais de um release,
+ex.: sintético de um release + augmented de outro) é o que amarra o mix ao
+lote exato materializado (§15), não `generator_version`, pelo mesmo motivo:
+duas execuções do mesmo `generator_version` podem produzir releases
+diferentes.
 
 `val.jsonl`/`test.jsonl` **nunca** passam por `compose_mix.py` — permanecem
 exatamente os arquivos pristinos reais de `data/segmenter_splits/`, sem
@@ -779,13 +896,28 @@ há um plano determinístico para chegar à resposta.
    antes de existir gold real desse tribunal para calibrar e validar contra
    (§3 — real audita a ontologia; sintético não define estrutura que o real
    nunca confirmou).
-3. **Gerar `_inicio` sem `_fim` deliberadamente** → **sim**, incluído como
-   família própria de hard negative (§5), não como erro: um `_inicio` órfão
-   sem seu par é exatamente o "sinal de qualidade de dados" que o esquema
-   de pareamento já usa para detectar problemas reais de anotação — o
-   gerador deve ensinar o modelo a não assumir que todo `_inicio` implica
-   um `_fim` próximo. Proporção inicial: 1 em cada ~10 documentos que têm a
-   seção, ajustável por `DocumentSpec`.
+3. **Gerar `_inicio` sem `_fim` deliberadamente** → **sim, mas não como hard
+   negative — correção de um erro deste RFC.** A skill `opf-finetune`
+   (`references/ontology-recipes.md`) é explícita: "an unmatched `_fim`
+   closes at the next `_inicio`/EOD, an unmatched marker is a data-quality
+   signal". Isso significa duas coisas que a versão anterior deste item
+   invertia: (a) o `_inicio` **continua sendo âncora positiva válida** —
+   não é um caso a rejeitar nem a ensinar como negativo; a reconstrução da
+   região é que se adapta (fecha no próximo `_inicio`/fim de documento);
+   (b) "sinal de qualidade de dados" descreve um **QA em dado real**
+   (marcador desemparelhado sugere revisar a anotação), não uma estratégia
+   deliberada de geração sintética de negativo. Removido de `hard_negative_families`
+   (§5). O que o gerador de fato produz deliberadamente: exemplos positivos
+   normais onde a seção **genuinamente não tem `_fim`** no documento (ex.:
+   relatório sem fechamento explícito antes do voto), rotulados
+   `relatorio_inicio` positivo, sem `relatorio_fim`, e marcados
+   `"unmatched_pair": true` na proveniência — ensina a reconstrução a
+   tolerar região aberta, não ensina o modelo a desconfiar do `_inicio`.
+   Um hard negative genuíno adjacente a este caso, sim, cabe em §5: uma
+   frase com "cara" de fechamento (ex.: um fecho de seção) aparecendo em
+   outro contexto, que **não deve** receber `_fim`. Proporção inicial de
+   `unmatched_pair`: 1 em cada ~10 documentos que têm a seção, ajustável por
+   `DocumentSpec`.
 4. **Grau de ruído de extração** → não é escolha livre: **usa a distribuição
    real observada em `corpus_stats.py`** (§6.1), não um valor arbitrário. A
    pergunta original presumia uma escolha que o RFC já delega à calibração.
@@ -817,14 +949,16 @@ há um plano determinístico para chegar à resposta.
    possível depois: cachear localmente builds de fase 1 que demorem mais
    que ~1 minuto para regenerar, como otimização de performance — nunca
    como fonte de verdade.
-10. **Critério de retenção de `generator_version` persistidas**
-    (§15-bis.4) → mantida enquanto **qualquer run reportado no W&B
-    referenciar essa `generator_version`** no config (lineage já existente,
-    §15-bis.3); elegível para remoção do Kaggle Dataset/Drive quando (a)
-    nenhum run ativo/recente a referencia **e** (b) uma `generator_version`
-    mais nova a superou há mais de 90 dias. **O item do IA nunca é
-    removido** — é o arquivo permanente (§15-bis.2); só os caches
-    operacionais (Kaggle/Drive) são elegíveis para limpeza.
+10. **Critério de retenção de releases persistidos** (§15-bis.4) →
+    mantido (versão do Kaggle Dataset) enquanto **qualquer run reportado no
+    W&B referenciar esse `corpus_release_id`** no config (lineage já
+    existente, §15-bis.3 — não `generator_version`, porque vários releases
+    podem compartilhar a mesma versão de código); elegível para remoção do
+    Kaggle Dataset/Drive quando (a) nenhum run ativo/recente o referencia
+    **e** (b) um release mais novo do mesmo `generator_version` o superou
+    há mais de 90 dias. **O item do IA nunca é removido** — é o arquivo
+    permanente (§15-bis.2); só os caches operacionais (Kaggle/Drive) são
+    elegíveis para limpeza.
 
 ### 16.2 Fechadas por procedimento empírico (ponto de partida definido; resposta final vem do §12)
 
