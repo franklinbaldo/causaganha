@@ -35,9 +35,9 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Setup Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: ./.github/actions/setup
         with:
-          python-version: '3.12'
+          dev: "false"
 
       - name: Restore pipeline cache (for last_run stats)
         uses: actions/cache/restore@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
@@ -66,8 +66,6 @@ jobs:
 
       - name: Generate web data from query contracts
         run: |
-          pip install uv
-          uv sync --no-dev
           mkdir -p web/public/cache web/public/data
           # Render .qmd query contracts → JSON in web/public/data/
           # --strict (RFC 0007): a required contract that fails to render

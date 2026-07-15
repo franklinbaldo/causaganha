@@ -58,11 +58,7 @@ jobs:
       - uses: ./.github/actions/setup
         with:
           dev: "true"
-
-      - name: Install opf + transformers
-        run: |
-          uv pip install --python .venv/bin/python \
-            "opf @ git+https://github.com/openai/privacy-filter.git"
+          groups: "opf"
 
       - name: Cache OPF base checkpoint
         uses: actions/cache@v4
@@ -142,7 +138,6 @@ jobs:
       - name: Upload intermediate to IA
         if: success()
         run: |
-          uv pip install --python .venv/bin/python internetarchive
           uv run ia upload causaganha-segmenter-data \
             data/intermediate.jsonl \
             --metadata="collection:opensource" \

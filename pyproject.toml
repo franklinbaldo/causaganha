@@ -35,6 +35,10 @@ dependencies = [
 ]
 
 [dependency-groups]
+opf = [
+    # OpenAI Privacy Filter bootstrap workflow (Stage 1 CPU labeling).
+    "opf @ git+https://github.com/openai/privacy-filter.git",
+]
 classify = [
     # LLM abstraction layer used by analysis/llm_analyzer.py
     "litellm>=1.40.0",

@@ -5,6 +5,10 @@ inputs:
     description: "Install dev dependencies (default: true)"
     required: false
     default: "true"
+  groups:
+    description: "Comma-separated dependency groups to install in addition to the default project dependencies"
+    required: false
+    default: ""
 runs:
   using: composite
   steps:
@@ -14,9 +18,26 @@ runs:
     - uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5
       with:
         path: .uv
-        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}
+        key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ inputs.dev }}-${{ inputs.groups }}
     - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
       with:
         version: latest
-    - run: uv sync ${{ inputs.dev == 'true' && '--dev' || '--no-dev' }}
+    - run: |
+        set -euo pipefail
+        args=()
+        if [ "${{ inputs.dev }}" = "true" ]; then
+          args+=(--dev)
+        else
+          args+=(--no-dev)
+        fi
+        if [ -n "${{ inputs.groups }}" ]; then
+          IFS=',' read -ra groups <<< "${{ inputs.groups }}"
+          for group in "${groups[@]}"; do
+            group="${group//[[:space:]]/}"
+            if [ -n "$group" ]; then
+              args+=(--group "$group")
+            fi
+          done
+        fi
+        uv sync "${args[@]}"
       shell: bash

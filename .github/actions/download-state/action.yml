@@ -13,8 +13,7 @@ runs:
         # generate_catalog.py) still read, unchanged.
         if curl -sSfL -o data/sync-manifest.parquet \
           "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"; then
-          pip install --quiet duckdb
-          python3 -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")" \
+          uv run --no-dev python -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")" \
             || echo "$HEADER" > data/sync-manifest.csv
         else
           echo "$HEADER" > data/sync-manifest.csv
