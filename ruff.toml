@@ -92,13 +92,13 @@ ignore = [
 
 "src/djen_backup/djen.py" = ["E402"]
 
-# ── Legacy S608 / security-adjacent violations, locked in per file ────────
-# Goal: keep the narrowed `ruff check --select BLE001,S,TRY300` gate green
-# today, while blocking new violations in clean files. Fix and remove from
-# this list when touching the file. S608 here is internal query-builder
-# f-strings (DuckDB/ibis, trusted inputs); S324 is MD5 for non-crypto
-# checksums; S108 is a hardcoded tmp path (audit on cleanup); S101 is an
-# assert in archive.py that should become a real check.
+# ── Legacy full-lint exceptions, locked in per file ───────────────────────
+# CI runs the full `ruff check` as a blocking gate. Existing deviations are
+# accepted only through targeted per-file ignores with an explanation here; fix
+# and remove entries when touching the file. S608 here is internal
+# query-builder f-strings (DuckDB/ibis, trusted inputs); S324 is MD5 for
+# non-crypto checksums; S108 is a hardcoded tmp path (audit on cleanup); S101
+# is an assert in archive.py that should become a real check.
 "src/causaganha/consolidate/manifest_reader.py" = ["S608"]
 "src/causaganha/consolidate/validation.py" = ["S608"]
 "src/causaganha/consolidate/consolidation_manifest.py" = ["S608"]
