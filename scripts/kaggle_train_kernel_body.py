@@ -13,9 +13,9 @@ reader).
 Train+eval orchestration, opf command construction, and macro-F1 all live in
 opf_shared.py (shared with colab_train_driver.py and
 train_decision_segmenter.py) — this file is only Kaggle glue: locate the
-mounted dataset, read the optional W&B secret via kaggle_secrets, package
-outputs into /kaggle/working (Kaggle's automatic output directory — no
-directory-download restriction here, unlike Colab).
+mounted dataset, read the optional W&B and HF_TOKEN secrets via
+kaggle_secrets, package outputs into /kaggle/working (Kaggle's automatic
+output directory — no directory-download restriction here, unlike Colab).
 """
 
 # The next two lines are stripped by train_on_kaggle.sh at concat time (marker:
@@ -78,24 +78,26 @@ def _install_pinned_deps() -> None:
     # decides at runtime whether tracking activates, not this install step.
 
 
-def _get_wandb_key() -> str | None:
-    """Read WANDB_API_KEY from a Kaggle Secret attached to this kernel.
+def _get_kaggle_secret(name: str) -> str | None:
+    """Read a named secret attached to this kernel via Kaggle Secrets.
 
     One-time manual setup required (Kaggle has no CLI for attaching secrets):
-    kernel editor -> Add-ons -> Secrets -> add WANDB_API_KEY -> attach to this
+    kernel editor -> Add-ons -> Secrets -> add the secret -> attach to this
     kernel. Returns None if kaggle_secrets is unavailable (local dev) or the
-    secret isn't attached — training still runs, just without tracking.
+    secret isn't attached — training still runs without it either way (W&B:
+    no tracking; HF_TOKEN: unauthenticated HF Hub requests, lower rate limit,
+    slower downloads — opf's own checkpoint fetch already warns about this).
     """
     try:
         from kaggle_secrets import UserSecretsClient  # noqa: PLC0415
 
-        return UserSecretsClient().get_secret("WANDB_API_KEY")
+        return UserSecretsClient().get_secret(name)
     except Exception:
         return None
 
 
 def _init_run():
-    key = _get_wandb_key()
+    key = _get_kaggle_secret("WANDB_API_KEY")
     if not key:
         print("No WANDB_API_KEY secret attached — skipping tracking.")
         return None
@@ -180,6 +182,12 @@ def _run(run) -> int:
 
 def main() -> int:
     _install_pinned_deps()
+    hf_token = _get_kaggle_secret("HF_TOKEN")
+    if hf_token:
+        _ENV["HF_TOKEN"] = hf_token
+        print("HF_TOKEN secret attached — authenticated HF Hub downloads.")
+    else:
+        print("No HF_TOKEN secret attached — unauthenticated HF Hub downloads (opf will warn).")
     run = _init_run()
     rc = 1
     try:

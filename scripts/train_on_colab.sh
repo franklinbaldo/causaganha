@@ -22,6 +22,13 @@
 #   that gets printed), and the driver streams live metrics + records data/
 #   code lineage. If unset, tracking is skipped entirely.
 #
+# Optional: authenticated HF Hub downloads
+#   export HF_TOKEN=...   # in the shell that runs this script (never echoed)
+#   opf's checkpoint fetch warns and gets a lower rate limit on unauthenticated
+#   requests. If HF_TOKEN is set, it's transferred the same way as the wandb
+#   key (uploaded as a file, read once, deleted) and set in the training
+#   subprocess's environment.
+#
 # Usage:
 #   scripts/train_on_colab.sh --smoke [GPU] [EPOCHS] [BATCH_SIZE]   # seed-pipeline test
 #   scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH_SIZE]           # real run, gates enforced
@@ -128,9 +135,11 @@ fi
 REPO_COMMIT="$(git rev-parse --short HEAD 2>/dev/null || echo unknown)"
 
 WANDB_KEY_TMP=""
+HF_TOKEN_TMP=""
 cleanup() {
-  # The key-bearing temp file must not survive a failure between mktemp and rm.
+  # Key-bearing temp files must not survive a failure between mktemp and rm.
   [[ -n "$WANDB_KEY_TMP" ]] && rm -f "$WANDB_KEY_TMP"
+  [[ -n "$HF_TOKEN_TMP" ]] && rm -f "$HF_TOKEN_TMP"
   echo "==> stopping session"
   colab stop -s "$SESSION" || true
 }
@@ -186,6 +195,17 @@ PY
   USE_WANDB=1
 else
   echo "==> WANDB_API_KEY not set, skipping wandb (export it before running to enable)"
+fi
+
+if [[ -n "${HF_TOKEN:-}" ]]; then
+  echo "==> transferring HF_TOKEN to the runtime (authenticated HF Hub downloads)"
+  HF_TOKEN_TMP="$(mktemp)"
+  printf '%s' "$HF_TOKEN" > "$HF_TOKEN_TMP"
+  colab upload -s "$SESSION" "$HF_TOKEN_TMP" "/content/.hf_token"
+  rm -f "$HF_TOKEN_TMP"
+  HF_TOKEN_TMP=""
+else
+  echo "==> HF_TOKEN not set, skipping (opf's checkpoint download will warn and rate-limit)"
 fi
 
 echo "==> uploading training driver + shared module"

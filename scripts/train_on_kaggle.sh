@@ -23,10 +23,13 @@
 #   The account's username is resolved automatically from the token at
 #   runtime (verified: the KGAT_-prefixed token format is self-describing) —
 #   no separate username variable needed.
-#   Optional W&B: Kaggle has no CLI for kernel secrets — attach one manually,
-#   once, via the kernel editor: Add-ons -> Secrets -> WANDB_API_KEY. There is
-#   no equivalent of Colab's upload-key-as-file dance; Kaggle owns the secret
-#   and the CLI never sees it.
+#   Optional W&B / HF_TOKEN: Kaggle has no CLI for kernel secrets — attach
+#   them manually, once, via the kernel editor: Add-ons -> Secrets ->
+#   WANDB_API_KEY / HF_TOKEN. There is no equivalent of Colab's
+#   upload-key-as-file dance; Kaggle owns the secret and the CLI never sees
+#   it. HF_TOKEN authenticates opf's checkpoint download (higher rate limit);
+#   without it, downloads work but opf prints an unauthenticated-request
+#   warning.
 #
 # Usage:
 #   scripts/train_on_kaggle.sh --smoke [EPOCHS] [BATCH]   # seed-pipeline test

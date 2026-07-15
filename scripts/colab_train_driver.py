@@ -52,6 +52,14 @@ INPUT_FILES = ("train.jsonl", "val.jsonl", "test.jsonl", "label_space.json")
 # fine-tune (1.5B params + full-precision AdamW) to fit a 16GB T4.
 _ENV = dict(os.environ, PYTORCH_CUDA_ALLOC_CONF="expandable_segments:True")
 
+_HF_TOKEN_FILE = Path("/content/.hf_token")
+if _HF_TOKEN_FILE.exists():
+    _ENV["HF_TOKEN"] = _HF_TOKEN_FILE.read_text().strip()
+    _HF_TOKEN_FILE.unlink()
+    print("HF_TOKEN transferred — authenticated HF Hub downloads.")
+else:
+    print("No HF_TOKEN transferred — unauthenticated HF Hub downloads (opf will warn).")
+
 
 def _sha256(path: Path) -> str:
     h = hashlib.sha256()
