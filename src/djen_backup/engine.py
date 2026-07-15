@@ -207,11 +207,16 @@ async def _process_upload_item(
             await summary.inc_upload()
             if observer:
                 observer.on_log(f"[green]Uploaded[/green] {item.tribunal} {item.d}")
-        elif fail_fast:
-            abort_event.set()
-        item.path.unlink(missing_ok=True)
+            item.path.unlink(missing_ok=True)
+        else:
+            await summary.inc_error()
+            if fail_fast:
+                abort_event.set()
     except (httpx.HTTPError, OSError) as exc:
         log.warning("upload_exception", item_id=item.item_id, error=str(exc))
+        await summary.inc_error()
+        if fail_fast:
+            abort_event.set()
 
 
 # ── DJEN check + download helpers (extracted for testability) ───────

@@ -11,6 +11,7 @@ import asyncio
 from datetime import date
 from typing import TYPE_CHECKING
 
+import httpx
 import pytest
 
 from djen_backup import engine as engine_module
@@ -166,6 +167,7 @@ async def test_failed_upload_with_fail_fast_sets_abort(
     monkeypatch.setattr(engine_module, "upload_zip", _upload_fails)
 
     item = _staged(tmp_path)
+    summary = SyncSummary()
     abort_event = asyncio.Event()
 
     await _process_upload_item(
@@ -173,16 +175,149 @@ async def test_failed_upload_with_fail_fast_sets_abort(
         upload_client=_FakeClient(),
         upload_queue=asyncio.Queue(maxsize=4),
         manifest=manifest,
-        summary=SyncSummary(),
+        summary=summary,
         circuit_breaker=CircuitBreaker(),
         abort_event=abort_event,
         fail_fast=True,
         observer=None,
     )
 
+    assert summary.errors == 1
     assert abort_event.is_set()
     assert manifest.get_status("TJSP", date(2024, 1, 2)).ia_status != "uploaded"
-    assert not item.path.exists()
+    # Preserved for retry — this is the common transient-failure path
+    # (upload_zip returns False rather than raising), so unlinking here
+    # would silently drop the staged file without ever retrying it.
+    assert item.path.exists()
+
+
+@pytest.mark.asyncio
+async def test_failed_upload_without_fail_fast_keeps_abort_unset(
+    manifest: SyncManifest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine_module, "check_ia_file_exists", _ia_miss)
+    monkeypatch.setattr(engine_module, "upload_zip", _upload_fails)
+
+    item = _staged(tmp_path)
+    summary = SyncSummary()
+    abort_event = asyncio.Event()
+
+    await _process_upload_item(
+        item,
+        upload_client=_FakeClient(),
+        upload_queue=asyncio.Queue(maxsize=4),
+        manifest=manifest,
+        summary=summary,
+        circuit_breaker=CircuitBreaker(),
+        abort_event=abort_event,
+        fail_fast=False,
+        observer=None,
+    )
+
+    assert summary.errors == 1
+    assert not abort_event.is_set()
+    assert manifest.get_status("TJSP", date(2024, 1, 2)).ia_status != "uploaded"
+    assert item.path.exists()
+
+
+@pytest.mark.asyncio
+async def test_check_ia_exception_increments_error_sets_abort_and_preserves_file(
+    manifest: SyncManifest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(
+        engine_module,
+        "check_ia_file_exists",
+        _async_raise(httpx.ConnectError("network down")),
+    )
+    monkeypatch.setattr(
+        engine_module, "upload_zip", _async_raise(AssertionError("must not be called"))
+    )
+
+    item = _staged(tmp_path)
+    summary = SyncSummary()
+    abort_event = asyncio.Event()
+
+    await _process_upload_item(
+        item,
+        upload_client=_FakeClient(),
+        upload_queue=asyncio.Queue(maxsize=4),
+        manifest=manifest,
+        summary=summary,
+        circuit_breaker=CircuitBreaker(),
+        abort_event=abort_event,
+        fail_fast=True,
+        observer=None,
+    )
+
+    assert summary.errors == 1
+    assert abort_event.is_set()
+    assert manifest.get_status("TJSP", date(2024, 1, 2)).ia_status != "uploaded"
+    assert item.path.exists()
+
+
+@pytest.mark.asyncio
+async def test_upload_zip_exception_increments_error_sets_abort_and_preserves_file(
+    manifest: SyncManifest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine_module, "check_ia_file_exists", _ia_miss)
+    monkeypatch.setattr(
+        engine_module,
+        "upload_zip",
+        _async_raise(httpx.ReadTimeout("upload timed out")),
+    )
+
+    item = _staged(tmp_path)
+    summary = SyncSummary()
+    abort_event = asyncio.Event()
+
+    await _process_upload_item(
+        item,
+        upload_client=_FakeClient(),
+        upload_queue=asyncio.Queue(maxsize=4),
+        manifest=manifest,
+        summary=summary,
+        circuit_breaker=CircuitBreaker(),
+        abort_event=abort_event,
+        fail_fast=True,
+        observer=None,
+    )
+
+    assert summary.errors == 1
+    assert abort_event.is_set()
+    assert manifest.get_status("TJSP", date(2024, 1, 2)).ia_status != "uploaded"
+    assert item.path.exists()
+
+
+@pytest.mark.asyncio
+async def test_upload_exception_without_fail_fast_keeps_abort_unset(
+    manifest: SyncManifest, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(engine_module, "check_ia_file_exists", _ia_miss)
+    monkeypatch.setattr(
+        engine_module,
+        "upload_zip",
+        _async_raise(httpx.ConnectError("temporary network issue")),
+    )
+
+    item = _staged(tmp_path)
+    summary = SyncSummary()
+    abort_event = asyncio.Event()
+
+    await _process_upload_item(
+        item,
+        upload_client=_FakeClient(),
+        upload_queue=asyncio.Queue(maxsize=4),
+        manifest=manifest,
+        summary=summary,
+        circuit_breaker=CircuitBreaker(),
+        abort_event=abort_event,
+        fail_fast=False,
+        observer=None,
+    )
+
+    assert summary.errors == 1
+    assert not abort_event.is_set()
+    assert item.path.exists()
 
 
 # ── helpers ──────────────────────────────────────────────────────────
