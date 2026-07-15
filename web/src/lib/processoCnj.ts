@@ -348,7 +348,7 @@ export function fontesPresenca(fontes: Fonte[]): FontesPresenca {
   return { presentes, ausentes };
 }
 
-/** "Processo localizado, mas sem documentos associados" — distinto de "não encontrado". */
+/** Processo localizado, mas sem documentos JURIS/STJ — distinto de CNJ não encontrado. */
 export function isDocumentosVazio(items: unknown[], offset: number): boolean {
   return offset === 0 && items.length === 0;
 }
