@@ -1,0 +1,7 @@
+tribunal,date,ia_status,djen_status,djen_raw,updated_at
+TJSP,2026-04-01,uploaded,available,200,2026-04-01T12:00:00+00:00
+TJSP,2026-04-02,,absent,404,2026-04-02T12:00:00+00:00
+TJSP,2026-04-03,,,403,2026-04-03T12:00:00+00:00
+TJRO,2026-04-01,,available,200:https://example.test/djen.zip,2026-04-01T13:00:00+00:00
+TJRO,2026-04-02,,absent,no_publications,2026-04-02T13:00:00+00:00
+TJRO,2026-04-03,,,,
