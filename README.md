@@ -174,15 +174,25 @@ GitHub); the **Colab** links open the exported `.ipynb`. To edit a notebook
 locally run `uv run marimo edit notebooks/<name>.py`, then regenerate its
 `.ipynb` with `uv run python scripts/check_notebooks_synced.py --fix`.
 
-The segmenter can also be trained headlessly from a terminal via the
-[Google Colab CLI](https://github.com/googlecolab/google-colab-cli) —
-`scripts/train_on_colab.sh --smoke [GPU] [EPOCHS] [BATCH]` provisions a GPU
-runtime, uploads `data/segmenter_splits/`, runs `opf train` + `opf eval`
-(optionally streamed live to W&B when `WANDB_API_KEY` is set), and downloads
-the checkpoint tarball. Without `--smoke` the readiness gates (G1–G5) are
-enforced first and the current seed corpus fails them by design. One-time
-setup: `uv tool install google-colab-cli && colab new` (OAuth browser flow).
-The Colab CLI supports Linux/macOS only — on Windows, run it inside WSL2.
+The segmenter can also be trained headlessly from a terminal, via two GPU
+providers sharing one training implementation (`scripts/opf_shared.py`):
+
+- **Colab** (persistent session) — `scripts/train_on_colab.sh --smoke [GPU] [EPOCHS] [BATCH]`
+  via the [Google Colab CLI](https://github.com/googlecolab/google-colab-cli).
+  One-time setup: `uv tool install google-colab-cli && colab new` (OAuth
+  browser flow). Linux/macOS only — on Windows, run it inside WSL2.
+- **Kaggle** (batch job) — `KAGGLE_USERNAME=you scripts/train_on_kaggle.sh --smoke [EPOCHS] [BATCH]`
+  via the [Kaggle CLI](https://github.com/Kaggle/kaggle-api). Publishes
+  `data/segmenter_splits/` as a private Kaggle Dataset, pushes a GPU kernel
+  (T4 — the only accelerator documented in the CLI's SDK), and polls to
+  completion/error. One-time setup: `uv tool install kaggle` + an API token
+  at kaggle.com/settings saved to `~/.kaggle/kaggle.json`. Optional W&B
+  tracking needs a Secret attached once via the kernel editor
+  (Add-ons → Secrets) — Kaggle owns the key, unlike Colab's file-transfer
+  workaround.
+
+Both scripts enforce the readiness gates (G1–G5) before running unless
+`--smoke` is passed; the current seed corpus fails them by design.
 
 ## Repository structure
 
