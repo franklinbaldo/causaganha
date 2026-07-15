@@ -28,13 +28,13 @@ function isActive(href: string): boolean {
 }
 
 const primaryLinks = [
-  { href: BASE + 'publicacoes', label: 'Jurisprudência' },
-  { href: BASE + 'explorador', label: 'Explorador' },
+  { href: BASE + 'processo', label: 'Consultar processo' },
+  { href: BASE + 'publicacoes', label: 'Publicações' },
   { href: BASE + 'sobre', label: 'Metodologia' },
 ];
 
 const ferramentasLinks = [
-  { href: BASE + 'processo', label: 'Consultar processo' },
+  { href: BASE + 'explorador', label: 'Explorador' },
   { href: BASE + 'advogados', label: 'Advogados' },
   { href: BASE + 'comparador', label: 'Comparar tribunais' },
 ];
@@ -82,7 +82,7 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
       ))}
       <li class="desktop-only">
         <details role="list">
-          <summary aria-haspopup="listbox" class={ferramentasActive ? 'active' : ''}>Ferramentas</summary>
+          <summary aria-haspopup="listbox" class={ferramentasActive ? 'active' : ''}>Dados e ferramentas</summary>
           <ul role="listbox">
             {ferramentasLinks.map(link => (
               <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
@@ -124,7 +124,7 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
               <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
             ))}
             <li role="separator" class="drawer-divider" aria-hidden="true"></li>
-            <li class="menu-title">Ferramentas</li>
+            <li class="menu-title">Dados e ferramentas</li>
             {ferramentasLinks.map(link => (
               <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
             ))}
