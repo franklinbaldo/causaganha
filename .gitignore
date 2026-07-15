@@ -95,3 +95,7 @@ logs/
 
 # segmenter v7 gold-build scratch (PII OCR + intermediate labels; never commit)
 data/segmenter_work/
+
+# train_on_colab.sh / train_on_kaggle.sh download checkpoints + logs here
+# (GB-scale model.safetensors — never commit)
+models/decision_segmenter/
