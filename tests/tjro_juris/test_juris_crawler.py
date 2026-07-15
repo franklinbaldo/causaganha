@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from typing import TYPE_CHECKING
 
 import pytest
 
@@ -12,14 +13,21 @@ from tjro_juris.crawler import (
     JurisWindowOverflowError,
     _exceeds_window,
     _extract_doc,
+    _fetch_pages,
     _iter_year_months,
+    _load_partial_cache,
     _month_bounds,
+    _partial_cache_path,
     _split_range,
     _total,
     crawl_all,
     fetch_tipo_month,
     fetch_tipo_window,
 )
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture(autouse=True)
@@ -402,13 +410,124 @@ def test_fetch_window_supports_results_key_shape(monkeypatch: pytest.MonkeyPatch
     assert [d["id_documento"] for d in docs] == [1, 2]
 
 
+# ── _fetch_pages page-level resume (cache_dir) ────────────────────────────
+
+
+def test_partial_cache_path_unique_per_extra_fields(tmp_path: Path) -> None:
+    """Bisected/órgão sub-windows sharing a date range must not collide."""
+    p1 = _partial_cache_path(tmp_path, "ACÓRDÃO", "2024-01-01", "2024-01-01", None)
+    p2 = _partial_cache_path(
+        tmp_path, "ACÓRDÃO", "2024-01-01", "2024-01-01", {"ds_orgao_julgador.raw": ["A"]}
+    )
+    p3 = _partial_cache_path(
+        tmp_path, "ACÓRDÃO", "2024-01-01", "2024-01-01", {"ds_orgao_julgador.raw": ["B"]}
+    )
+    assert len({p1, p2, p3}) == 3
+
+
+def test_fetch_pages_deletes_cache_on_successful_completion(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def _fake(
+        tipo: str,
+        from_: int = 0,
+        size: int = PAGE_SIZE,
+        texto: str = "",
+        *,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        extra_fields: dict | None = None,
+    ) -> dict:
+        if from_ == 0:
+            return _es_response([_hit(1), _hit(2)])
+        return _es_response([])
+
+    monkeypatch.setattr(crawler, "search", _fake)
+    docs = _fetch_pages("ACÓRDÃO", "2024-01-01", "2024-01-31", cache_dir=tmp_path)
+
+    assert [d["id_documento"] for d in docs] == [1, 2]
+    cache_path = _partial_cache_path(tmp_path, "ACÓRDÃO", "2024-01-01", "2024-01-31", None)
+    assert not cache_path.exists()  # window PROVABLY complete — staging cleaned up
+
+
+def test_fetch_pages_leaves_cache_behind_on_error(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A failure mid-window must leave whatever was fetched so far on disk —
+    never silently discarded, never marked complete.
+    """
+
+    class _BoomError(RuntimeError):
+        pass
+
+    def _fake(
+        tipo: str,
+        from_: int = 0,
+        size: int = PAGE_SIZE,
+        texto: str = "",
+        *,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        extra_fields: dict | None = None,
+    ) -> dict:
+        if from_ == 0:
+            return _es_response([_hit(1)] * size)  # full page — loop continues
+        msg = "simulated STIC block"
+        raise _BoomError(msg)
+
+    monkeypatch.setattr(crawler, "search", _fake)
+    with pytest.raises(_BoomError):
+        _fetch_pages("ACÓRDÃO", "2024-01-01", "2024-01-31", cache_dir=tmp_path)
+
+    cache_path = _partial_cache_path(tmp_path, "ACÓRDÃO", "2024-01-01", "2024-01-31", None)
+    cached = _load_partial_cache(cache_path)
+    assert len(cached) == PAGE_SIZE  # exactly the one page that succeeded, not lost
+
+
+def test_fetch_pages_resumes_from_partial_cache(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A second attempt picks up at from_=len(cached docs), not from_=0 —
+    the earlier page is never re-fetched.
+    """
+    cache_path = _partial_cache_path(tmp_path, "ACÓRDÃO", "2024-01-01", "2024-01-31", None)
+    cache_path.parent.mkdir(parents=True)
+    cache_path.write_text('{"id_documento": 1, "tipo": "ACÓRDÃO"}\n', encoding="utf-8")
+
+    seen_from: list[int] = []
+
+    def _fake(
+        tipo: str,
+        from_: int = 0,
+        size: int = PAGE_SIZE,
+        texto: str = "",
+        *,
+        date_start: str | None = None,
+        date_end: str | None = None,
+        extra_fields: dict | None = None,
+    ) -> dict:
+        seen_from.append(from_)
+        if from_ == 1:
+            return _es_response([_hit(2)])
+        return _es_response([])
+
+    monkeypatch.setattr(crawler, "search", _fake)
+    docs = _fetch_pages("ACÓRDÃO", "2024-01-01", "2024-01-31", cache_dir=tmp_path)
+
+    assert seen_from[0] == 1  # resumed, did not restart at 0
+    assert [d["id_documento"] for d in docs] == [1, 2]
+    assert not cache_path.exists()  # completed normally — cleaned up
+
+
 # ── fetch_tipo_month ─────────────────────────────────────────────────────
 
 
 def test_fetch_tipo_month_uses_month_bounds(monkeypatch: pytest.MonkeyPatch) -> None:
     seen: list[tuple[str, str, str]] = []
 
-    def _fake_window(tipo: str, date_start: str, date_end: str) -> list[dict]:
+    def _fake_window(
+        tipo: str, date_start: str, date_end: str, cache_dir: object = None
+    ) -> list[dict]:
         seen.append((tipo, date_start, date_end))
         return [{"id_documento": 5, "tipo": tipo}]
 
@@ -438,7 +557,7 @@ def test_iter_year_months_crosses_year_boundary() -> None:
 def test_crawl_all_fetches_each_tipo_month_once(monkeypatch: pytest.MonkeyPatch) -> None:
     fetched: list[tuple[str, str]] = []
 
-    def _fake_month(tipo: str, year_month: str) -> list[dict]:
+    def _fake_month(tipo: str, year_month: str, cache_dir: object = None) -> list[dict]:
         fetched.append((tipo, year_month))
         if year_month == "2024-01":
             return [{"id_documento": 1, "tipo": tipo}]

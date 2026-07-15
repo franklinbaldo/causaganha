@@ -22,6 +22,7 @@ API contract (reverse-engineered from the portal's Next.js bundles, 2026-07):
 from __future__ import annotations
 
 import html as htmllib
+import os
 import random
 import re
 import time
@@ -52,7 +53,27 @@ TIPOS = [
 
 ENDPOINT = "https://juris-back.tjro.jus.br/search/varios_parametros/"
 AGGREGATIONS_ENDPOINT = "https://juris-back.tjro.jus.br/search/agregacoes"
-PAGE_SIZE = 400
+
+# Live-tested (2026-07-15): 400 (old default), 2000 and 5000 all return
+# clean 200s; 2000 is fast, 5000 takes ~26s/request (risky against client
+# timeouts), 10000 (the full ES window in one shot) 500s server-side.
+# JURIS_PAGE_SIZE env var lets this be tuned without a code change — e.g.
+# to back off to a smaller page size if bigger ones start tripping rate
+# limits/blocks.
+_DEFAULT_PAGE_SIZE = 2000
+
+
+def _resolve_page_size(env: dict[str, str]) -> int:
+    """Pure parsing helper — kept separate from the module-level read below.
+
+    Tests exercise this directly instead of reloading the module (a reload
+    rebuilds the shared httpx.Client and breaks respx interception for
+    every other test in the same session).
+    """
+    return int(env.get("JURIS_PAGE_SIZE", str(_DEFAULT_PAGE_SIZE)))
+
+
+PAGE_SIZE = _resolve_page_size(os.environ)
 
 # Elasticsearch max_result_window: requests with from + size beyond this 500.
 MAX_RESULT_WINDOW = 10_000

@@ -52,6 +52,7 @@ log = structlog.get_logger()
 app = typer.Typer(name="tjro-juris", help="TJRO JURIS scraping and archival.")
 
 _MANIFEST_NAME = "tjro-juris-manifest.csv"
+_PARTIAL_CACHE_DIRNAME = ".partial-cache"
 _MIN_DATE_LEN = 10
 
 _PARQUET_SCHEMA = pa.schema(
@@ -76,6 +77,16 @@ _MES_RE = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
 
 def _manifest_path(data_dir: Path) -> Path:
     return data_dir / _MANIFEST_NAME
+
+
+def _partial_cache_dir(data_dir: Path) -> Path:
+    """Staging area for in-progress pagination (see crawler._fetch_pages).
+
+    Lives under data_dir so it survives between crawl invocations of the
+    same --ano; never uploaded to IA, never read by anything except a
+    resumed crawl of the same window.
+    """
+    return data_dir / _PARTIAL_CACHE_DIRNAME
 
 
 def _load_manifest(data_dir: Path) -> ManifestJuris:
@@ -248,7 +259,18 @@ def crawl(
 
     Windows already uploaded to IA (per the manifest, restored from IA when
     no local copy exists) are skipped, except the current month, which is
-    always re-crawled to pick up newly published documents.
+    always re-crawled to pick up newly published documents. Windows whose
+    parquet is already on local disk (e.g. a prior attempt this same year
+    got partway through before failing) are also skipped — see
+    ``_already_crawled_locally``.
+
+    The manifest is saved after EVERY window, not just once at the end: a
+    long --ano/--desde-ano crawl that dies partway through (observed live —
+    TJRO's STIC anti-abuse system can block a sustained crawl mid-year)
+    previously lost all of that year's progress from the manifest even
+    though the parquet files were already safely on disk, forcing a full
+    re-fetch of every tipo on the next attempt. Saving incrementally means
+    a retry only has to redo whatever wasn't finished yet.
     """
     manifest = _load_manifest(data_dir)
     tipos_to_crawl = tipo or TIPOS
@@ -257,7 +279,12 @@ def crawl(
     current_ym = now.strftime("%Y-%m")
     start_year, end_year_month, start_year_month = _crawl_bounds(ano, mes, desde_ano, now)
 
+    def _already_crawled_locally(tipo_name: str, year_month: str) -> bool:
+        return _parquet_path(data_dir, tipo_name, year_month).exists()
+
     def _skip(tipo_name: str, year_month: str) -> bool:
+        if _already_crawled_locally(tipo_name, year_month):
+            return True
         return _should_skip_window(manifest, current_ym, tipo_name, year_month)
 
     for tipo_name, year_month, docs in crawl_all(
@@ -266,6 +293,7 @@ def crawl(
         tipos=tipos_to_crawl,
         start_year_month=start_year_month,
         skip=_skip,
+        cache_dir=_partial_cache_dir(data_dir),
     ):
         if not docs:
             continue
@@ -282,8 +310,8 @@ def crawl(
             n_docs=len(docs),
         )
         manifest.upsert(entry)
+        manifest.save_local(_manifest_path(data_dir))
 
-    manifest.save_local(_manifest_path(data_dir))
     log.info("crawl_done")
 
 

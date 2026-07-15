@@ -36,6 +36,28 @@ def _no_sleep(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(client_mod, "_sleep", lambda _s: None)
 
 
+# ── PAGE_SIZE (JURIS_PAGE_SIZE env override) ──────────────────────────────
+
+
+def test_page_size_defaults_to_2000_without_env_override() -> None:
+    assert PAGE_SIZE == client_mod._DEFAULT_PAGE_SIZE == 2000
+
+
+def test_resolve_page_size_defaults_when_env_var_unset() -> None:
+    assert client_mod._resolve_page_size({}) == 2000
+
+
+def test_resolve_page_size_reads_juris_page_size_override() -> None:
+    """Live-tested ceiling (2026-07-15): 2000 is fast/clean, 5000 is slow,
+    10000 500s server-side — JURIS_PAGE_SIZE lets this be tuned without a
+    code change if the backend's tolerance shifts. Tests the pure parsing
+    helper directly rather than reloading the module (a reload rebuilds
+    the shared httpx.Client and breaks respx interception for every other
+    test in this file).
+    """
+    assert client_mod._resolve_page_size({"JURIS_PAGE_SIZE": "777"}) == 777
+
+
 # ── clean_html ───────────────────────────────────────────────────────────
 
 
