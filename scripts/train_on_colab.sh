@@ -134,15 +134,16 @@ echo "==> training + evaluating (epochs=$EPOCHS batch=$BATCH_SIZE, wandb=$USE_WA
 # interpolated here (the key is already in ~/.netrc from `wandb login` above).
 # --timeout 1800: train+eval in one exec; the 30s default would guillotine it.
 colab exec -s "$SESSION" --timeout 1800 <<PY
-import os, runpy
-os.environ["OPF_DATA"] = "$REMOTE_DATA"
-os.environ["OPF_OUT"] = "$REMOTE_OUT"
-os.environ["OPF_EPOCHS"] = "$EPOCHS"
-os.environ["OPF_BATCH"] = "$BATCH_SIZE"
-os.environ["OPF_GPU"] = "$GPU"
-os.environ["OPF_WANDB"] = "$USE_WANDB"
-os.environ["OPF_JOB_TYPE"] = "smoke-test"
-runpy.run_path("/content/colab_train_driver.py", run_name="__main__")
+import os, subprocess, sys
+# Run the driver as a subprocess (not runpy) so the kernel doesn't echo the
+# module globals dict, and so the driver runs in a clean process. It inherits
+# these OPF_* vars via env; wandb auth comes from ~/.netrc.
+env = dict(os.environ,
+           OPF_DATA="$REMOTE_DATA", OPF_OUT="$REMOTE_OUT",
+           OPF_EPOCHS="$EPOCHS", OPF_BATCH="$BATCH_SIZE",
+           OPF_GPU="$GPU", OPF_WANDB="$USE_WANDB", OPF_JOB_TYPE="smoke-test")
+subprocess.run([sys.executable, "/content/colab_train_driver.py"],
+               env=env, check=False)
 PY
 
 echo "==> downloading checkpoint + metrics"
