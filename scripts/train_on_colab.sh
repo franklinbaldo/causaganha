@@ -10,6 +10,15 @@
 #   colab new          # triggers the OAuth browser flow; needs a Google account
 #                      # with Colab GPU access (Pro recommended for >T4)
 #
+# Optional: W&B run tracking
+#   export WANDB_API_KEY=...   # in the shell that runs this script (never echoed)
+#   opf itself has no wandb integration (checked README, FINETUNING.md, and a
+#   full-repo code search — no report_to/wandb hooks anywhere). If
+#   WANDB_API_KEY is set, this script installs wandb on the remote runtime,
+#   logs in by uploading the key as a file (not interpolated into any command
+#   that gets printed), and logs the final eval metrics + train/eval logs as
+#   a run after opf finishes. If unset, this step is skipped entirely.
+#
 # Usage:
 #   scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH_SIZE]
 #   scripts/train_on_colab.sh T4 3 2           # defaults
@@ -80,6 +89,28 @@ for f in train.jsonl val.jsonl test.jsonl label_space.json; do
   colab upload -s "$SESSION" "$DATA_DIR/$f" "$REMOTE_DATA/$f"
 done
 
+USE_WANDB=0
+if [[ -n "${WANDB_API_KEY:-}" ]]; then
+  echo "==> configuring wandb on the runtime"
+  WANDB_KEY_TMP="$(mktemp)"
+  printf '%s' "$WANDB_API_KEY" > "$WANDB_KEY_TMP"
+  colab upload -s "$SESSION" "$WANDB_KEY_TMP" "/content/.wandb_key"
+  rm -f "$WANDB_KEY_TMP"
+  colab exec -s "$SESSION" <<'PY'
+import subprocess, sys, os
+subprocess.run([sys.executable, "-m", "pip", "install", "-q", "wandb"], check=True)
+import wandb
+with open("/content/.wandb_key") as f:
+    key = f.read().strip()
+os.remove("/content/.wandb_key")
+wandb.login(key=key)
+print("wandb: logged in")
+PY
+  USE_WANDB=1
+else
+  echo "==> WANDB_API_KEY not set, skipping wandb (export it before running to enable)"
+fi
+
 echo "==> training (epochs=$EPOCHS batch=$BATCH_SIZE)"
 colab exec -s "$SESSION" <<PY
 import subprocess, sys
@@ -113,6 +144,27 @@ print("eval exit code:", proc.returncode)
 print(open("$REMOTE_OUT/eval.log").read()[-4000:])
 sys.exit(proc.returncode)
 PY
+
+if [[ "$USE_WANDB" == "1" ]]; then
+  echo "==> logging results to wandb"
+  colab exec -s "$SESSION" <<PY
+import json
+import wandb
+
+run = wandb.init(project="causaganha-segmenter", job_type="smoke-test",
+                  config={"gpu": "$GPU", "epochs": $EPOCHS, "batch_size": $BATCH_SIZE})
+try:
+    with open("$REMOTE_OUT/metrics.json") as f:
+        metrics = json.load(f)
+    run.log(metrics if isinstance(metrics, dict) else {"eval_metrics": metrics})
+except FileNotFoundError:
+    print("no metrics.json to log")
+run.save("$REMOTE_OUT/train.log")
+run.save("$REMOTE_OUT/eval.log")
+print("wandb run:", run.url)
+run.finish()
+PY
+fi
 
 echo "==> downloading checkpoint + metrics"
 mkdir -p "$OUT_DIR"
