@@ -152,6 +152,37 @@ else
   kaggle datasets create -p "$DATASET_DIR" --keep-tabular --dir-mode skip
 fi
 
+echo "==> waiting for dataset processing (create/version returns before it's mounted-ready)"
+# Confirmed live: pushing the kernel immediately after create/version raced
+# the dataset's own async processing — the kernel started with the dataset
+# not yet mounted (FileNotFoundError on label_space.json), even though the
+# upload itself had already completed. dataset_status returns a real
+# DatabundleVersionStatus enum (READY/FAILED are the terminal states).
+uv run --no-project --with kaggle python3 - "$KAGGLE_USERNAME/$DATASET_SLUG" <<'PY'
+import sys, time
+from kaggle.api.kaggle_api_extended import KaggleApi
+
+dataset = sys.argv[1]
+api = KaggleApi()
+api.authenticate()
+
+deadline = time.time() + 300
+last = None
+while time.time() < deadline:
+    status = api.dataset_status(dataset)
+    if status != last:
+        print(f"dataset status: {status}")
+        last = status
+    if status == "ready":
+        sys.exit(0)
+    if status == "failed":
+        print("Dataset processing failed.", file=sys.stderr)
+        sys.exit(1)
+    time.sleep(5)
+print("Timed out waiting for dataset to become ready.", file=sys.stderr)
+sys.exit(1)
+PY
+
 echo "==> generating kernel script (opf_shared.py + config + kaggle body)"
 {
   cat scripts/opf_shared.py
