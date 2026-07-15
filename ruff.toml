@@ -130,6 +130,7 @@ ignore = [
     "SIM108",           # ternary expressions not required
     "S608",             # f-string SQL (DuckDB with tmp_path, no user input)
     "TC003",            # move stdlib import into TYPE_CHECKING (too noisy with from __future__)
+    "S311",             # pseudo-random (seeded determinism tests, not crypto)
 ]
 
 # ── Scripts ────────────────────────────────────────────────────────────────
