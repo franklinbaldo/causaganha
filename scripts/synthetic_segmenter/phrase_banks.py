@@ -37,49 +37,76 @@ SINGLE_ANCHOR_PHRASES: dict[str, list[str]] = {
 # §3.1 DocumentSpec.outcome) — a different shape than the other
 # single-anchor categories, so it gets its own lookup + accessor.
 RESULTADO_PHRASES: dict[str, list[str]] = {
-    "procedente": ["julgo procedente o pedido", "acolho os pedidos formulados"],
-    "improcedente": ["julgo improcedentes os pedidos", "rejeito a pretensão inicial"],
-    "parcialmente_provido": ["dou parcial provimento ao recurso"],
-    "provido": ["dou provimento ao recurso"],
-    "negado_provimento": ["nego provimento ao recurso", "conheço do recurso e lhe nego provimento"],
+    "procedente": [
+        "julgo procedente o pedido",
+        "acolho os pedidos formulados",
+        "julgo procedente a pretensão inicial",
+    ],
+    "improcedente": [
+        "julgo improcedentes os pedidos",
+        "rejeito a pretensão inicial",
+        "julgo improcedente o pedido",
+    ],
+    "parcialmente_provido": [
+        "dou parcial provimento ao recurso",
+        "dou provimento parcial ao apelo",
+    ],
+    "provido": [
+        "dou provimento ao recurso",
+        "dou provimento ao apelo",
+    ],
+    "negado_provimento": [
+        "nego provimento ao recurso",
+        "conheço do recurso e lhe nego provimento",
+        "nego provimento ao apelo",
+    ],
 }
 
+# Every list below carries at least two variants (RFC 0011 §5.2's own
+# instruction not to invent surface forms still applies — these are all
+# register-consistent paraphrases of the same guideline-documented cue,
+# not new categories or new meanings). Single-entry lists were a Phase-1
+# seed-set artifact, not a design choice: corpus_stats.py (§6.1) is still
+# the intended long-run path for growing these from the real corpus.
 PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
     "cabecalho": {
-        "inicio": ["PODER JUDICIÁRIO"],
-        "fim": ["Vistos."],
+        "inicio": ["PODER JUDICIÁRIO", "PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA"],
+        "fim": ["Vistos.", "Vistos, etc."],
     },
     "ementa": {
         "inicio": ["EMENTA:", "EMENTA"],
-        "fim": ["RELATÓRIO"],
+        "fim": ["RELATÓRIO", "RELATÓRIO."],
     },
     "relatorio": {
-        "inicio": ["RELATÓRIO", "Trata-se de"],
-        "fim": ["É o relatório."],
+        "inicio": ["RELATÓRIO", "Trata-se de", "RELATÓRIO:"],
+        "fim": ["É o relatório.", "É o breve relatório."],
     },
     "capitulo_merito": {
         "inicio": ["DO MÉRITO", "DECIDO", "Mérito:"],
-        "fim": ["DISPOSITIVO"],
+        "fim": ["DISPOSITIVO", "DISPOSITIVO:"],
     },
     "preliminar": {
         "inicio": ["DAS PRELIMINARES", "PRELIMINAR"],
-        "fim": ["Superada a preliminar, passo ao mérito."],
+        "fim": [
+            "Superada a preliminar, passo ao mérito.",
+            "Rejeitada a preliminar, passo ao exame do mérito.",
+        ],
     },
     "honorarios": {
         "inicio": ["HONORÁRIOS:", "Dos honorários"],
-        "fim": ["fixados na forma acima."],
+        "fim": ["fixados na forma acima.", "nos termos fixados."],
     },
     "custas": {
         "inicio": ["CUSTAS:", "Das custas"],
-        "fim": ["nos termos da lei."],
+        "fim": ["nos termos da lei.", "na forma da lei processual."],
     },
     "encerramento": {
         "inicio": ["Publique-se.", "P.R.I."],
-        "fim": ["Juiz de Direito"],
+        "fim": ["Juiz de Direito", "Juiz de Direito.", "Desembargador(a) Relator(a)"],
     },
     "voto": {
         "inicio": ["VOTO", "É como voto"],
-        "fim": ["É o voto."],
+        "fim": ["É o voto.", "É como voto."],
     },
     "acordao_decisorio": {
         "inicio": ["ACORDAM os Desembargadores", "Vistos, relatados e discutidos"],
@@ -88,14 +115,17 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
 }
 
 
-def resultado_phrase(outcome: str) -> str:
-    """Return one canonical ``resultado`` surface form for ``outcome``.
+def resultado_phrase(outcome: str, *, variant: int = 0) -> str:
+    """Return one ``resultado`` surface form for ``outcome``.
 
-    Deterministic (first entry) — callers wanting variation index into
-    ``RESULTADO_PHRASES[outcome]`` themselves.
+    ``variant`` indexes into ``RESULTADO_PHRASES[outcome]`` modulo its
+    length — defaults to the first entry (backward compatible), callers
+    wanting variation (e.g. ``renderer.py`` using ``spec.seed``) pass it
+    explicitly.
     """
     try:
-        return RESULTADO_PHRASES[outcome][0]
+        variants = RESULTADO_PHRASES[outcome]
     except KeyError:
         msg = f"no resultado phrase for outcome {outcome!r}"
         raise ValueError(msg) from None
+    return variants[variant % len(variants)]

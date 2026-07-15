@@ -87,12 +87,18 @@ def _write_operative(buf: _TextBuilder, spec: DocumentSpec) -> None:
     Acórdãos get their operative result inside ``acordao_decisorio``
     instead (see module docstring).
     """
+    dispositivo_variants = SINGLE_ANCHOR_PHRASES["dispositivo_abertura"]
+    fundamentacao_variants = SINGLE_ANCHOR_PHRASES["fundamentacao_legal"]
     buf.write("Diante de todo o exposto, ")
-    buf.write_labeled(SINGLE_ANCHOR_PHRASES["dispositivo_abertura"][0], "dispositivo_abertura")
+    buf.write_labeled(
+        dispositivo_variants[spec.seed % len(dispositivo_variants)], "dispositivo_abertura"
+    )
     buf.write(", ")
-    buf.write_labeled(resultado_phrase(spec.outcome), "resultado")
-    buf.write(", nos termos ")
-    buf.write_labeled(SINGLE_ANCHOR_PHRASES["fundamentacao_legal"][0], "fundamentacao_legal")
+    buf.write_labeled(resultado_phrase(spec.outcome, variant=spec.seed), "resultado")
+    buf.write(", ")
+    buf.write_labeled(
+        fundamentacao_variants[spec.seed % len(fundamentacao_variants)], "fundamentacao_legal"
+    )
     buf.write(". ")
 
 
@@ -103,6 +109,7 @@ def _render_sentenca_simples(
     *,
     merito_body_override: str | None = None,
 ) -> None:
+    seed = spec.seed
     _write_pair_section(
         buf,
         "cabecalho",
@@ -110,6 +117,8 @@ def _render_sentenca_simples(
             f"Processo {ids.numero_processo}. Autor: {ids.autor.full_name}. "
             f"Réu: {ids.reu.full_name}."
         ),
+        inicio_variant=seed,
+        fim_variant=seed,
     )
     relatorio_body = (
         f"{ids.autor.full_name}, representado por {ids.advogado_autor} ({ids.oab_autor}), "
@@ -117,34 +126,52 @@ def _render_sentenca_simples(
     )
     if "reported_prior_outcome" in spec.hard_negative_families:
         relatorio_body += render_hard_negative("reported_prior_outcome")
-    _write_pair_section(buf, "relatorio", body=relatorio_body)
+    _write_pair_section(
+        buf, "relatorio", body=relatorio_body, inicio_variant=seed, fim_variant=seed
+    )
 
     merito_body = merito_body_override or (
         "Os documentos juntados aos autos demonstram a plausibilidade do direito alegado. "
     )
-    buf.write_labeled(PAIR_PHRASES["capitulo_merito"]["inicio"][0], "capitulo_merito_inicio")
+    capitulo_merito_phrases = PAIR_PHRASES["capitulo_merito"]
+    buf.write_labeled(
+        capitulo_merito_phrases["inicio"][seed % len(capitulo_merito_phrases["inicio"])],
+        "capitulo_merito_inicio",
+    )
     buf.write(f" {merito_body}")
     _write_operative(buf, spec)
-    buf.write_labeled(PAIR_PHRASES["capitulo_merito"]["fim"][0], "capitulo_merito_fim")
+    buf.write_labeled(
+        capitulo_merito_phrases["fim"][seed % len(capitulo_merito_phrases["fim"])],
+        "capitulo_merito_fim",
+    )
     buf.write(" ")
 
     if spec.has_monetary_award:
         honorarios_body = f"Fixo os honorários advocatícios em R$ {2000 + spec.seed % 5000},00. "
     else:
         honorarios_body = "Sem condenação em honorários advocatícios. "
-    _write_pair_section(buf, "honorarios", body=honorarios_body)
+    _write_pair_section(
+        buf, "honorarios", body=honorarios_body, inicio_variant=seed, fim_variant=seed
+    )
 
     if spec.has_costs:
         _write_pair_section(
-            buf, "custas", body="A parte sucumbente arca com as custas processuais."
+            buf,
+            "custas",
+            body="A parte sucumbente arca com as custas processuais.",
+            inicio_variant=seed,
+            fim_variant=seed,
         )
 
-    _write_pair_section(buf, "encerramento", body=f"{ids.juiz}", fim_variant=0)
+    _write_pair_section(
+        buf, "encerramento", body=f"{ids.juiz}", inicio_variant=seed, fim_variant=seed
+    )
 
 
 def _render_acordao_moderno_unanime(
     buf: _TextBuilder, spec: DocumentSpec, ids: IdentitySet
 ) -> None:
+    seed = spec.seed
     _write_pair_section(
         buf,
         "cabecalho",
@@ -152,47 +179,71 @@ def _render_acordao_moderno_unanime(
             f"Processo {ids.numero_processo}. Apelante: {ids.autor.full_name}. "
             f"Apelado: {ids.reu.full_name}."
         ),
+        inicio_variant=seed,
+        fim_variant=seed,
     )
     _write_pair_section(
         buf,
         "ementa",
         body=("APELAÇÃO CÍVEL. RESPONSABILIDADE CIVIL. DANOS MATERIAIS. RECURSO CONHECIDO."),
+        inicio_variant=seed,
+        fim_variant=seed,
     )
     relatorio_body = f"Trata-se de recurso interposto por {ids.autor.full_name}. "
     if "reported_prior_outcome" in spec.hard_negative_families:
         relatorio_body += render_hard_negative("reported_prior_outcome")
-    _write_pair_section(buf, "relatorio", body=relatorio_body)
+    _write_pair_section(
+        buf, "relatorio", body=relatorio_body, inicio_variant=seed, fim_variant=seed
+    )
 
     if spec.has_preliminar:
         _write_pair_section(
             buf,
             "preliminar",
             body="Não há nulidades ou vícios processuais a serem sanados de ofício.",
+            inicio_variant=seed,
+            fim_variant=seed,
         )
 
     voto_body = "Presentes os pressupostos de admissibilidade, conheço do recurso. "
     if "quoted_dispositivo" in spec.hard_negative_families:
         voto_body += render_hard_negative("quoted_dispositivo")
-    _write_pair_section(buf, "voto", body=voto_body)
+    _write_pair_section(buf, "voto", body=voto_body, inicio_variant=seed, fim_variant=seed)
 
+    decisorio_phrases = PAIR_PHRASES["acordao_decisorio"]
     decisorio_body_prefix = "os Desembargadores da Turma Recursal decidiram, "
-    buf.write_labeled(PAIR_PHRASES["acordao_decisorio"]["inicio"][0], "acordao_decisorio_inicio")
+    buf.write_labeled(
+        decisorio_phrases["inicio"][seed % len(decisorio_phrases["inicio"])],
+        "acordao_decisorio_inicio",
+    )
     buf.write(f", {decisorio_body_prefix}")
-    buf.write_labeled(resultado_phrase(spec.outcome), "resultado")
+    buf.write_labeled(resultado_phrase(spec.outcome, variant=seed), "resultado")
     buf.write(", ")
-    buf.write_labeled(PAIR_PHRASES["acordao_decisorio"]["fim"][0], "acordao_decisorio_fim")
+    buf.write_labeled(
+        decisorio_phrases["fim"][seed % len(decisorio_phrases["fim"])], "acordao_decisorio_fim"
+    )
     buf.write(" ")
 
     if spec.has_monetary_award:
         honorarios_body = f"Majoro os honorários recursais para R$ {3000 + spec.seed % 5000},00. "
     else:
         honorarios_body = "Sem honorários recursais. "
-    _write_pair_section(buf, "honorarios", body=honorarios_body)
+    _write_pair_section(
+        buf, "honorarios", body=honorarios_body, inicio_variant=seed, fim_variant=seed
+    )
 
     if spec.has_costs:
-        _write_pair_section(buf, "custas", body="Custas pela parte sucumbente.")
+        _write_pair_section(
+            buf,
+            "custas",
+            body="Custas pela parte sucumbente.",
+            inicio_variant=seed,
+            fim_variant=seed,
+        )
 
-    _write_pair_section(buf, "encerramento", body=f"{ids.juiz}, Relator(a)")
+    _write_pair_section(
+        buf, "encerramento", body=f"{ids.juiz}, Relator(a)", inicio_variant=seed, fim_variant=seed
+    )
 
 
 _RENDERERS = {
