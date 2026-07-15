@@ -15,8 +15,10 @@ successfully but lost documents" is worse than failing.
 from __future__ import annotations
 
 import calendar
+import json
 import time
 from datetime import UTC, date, datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 
@@ -132,15 +134,73 @@ def _split_range(date_start: str, date_end: str) -> tuple[str, str]:
     return mid.isoformat(), (mid + timedelta(days=1)).isoformat()
 
 
+def _partial_cache_path(
+    cache_dir: Path, tipo: str, date_start: str, date_end: str, extra_fields: dict | None
+) -> Path:
+    """Staging file for in-progress pagination of one (tipo, date window).
+
+    Keyed by tipo + date range + extra_fields so bisected sub-windows (and
+    órgão-julgador sub-splits, which share a date range but differ by
+    extra_fields) never collide.
+    """
+    safe_tipo = tipo.replace(" ", "_").replace("/", "_")
+    suffix = ""
+    if extra_fields:
+        raw_key = "_".join(f"{k}={v}" for k, v in sorted(extra_fields.items()))
+        suffix = "_" + "".join(c if c.isalnum() else "-" for c in raw_key)[:60]
+    return cache_dir / safe_tipo / f"{date_start}_{date_end}{suffix}.jsonl"
+
+
+def _load_partial_cache(path: Path) -> list[dict]:
+    """Docs already fetched for this window in a prior, interrupted attempt."""
+    if not path.exists():
+        return []
+    docs = []
+    with path.open(encoding="utf-8") as fh:
+        for raw_line in fh:
+            stripped = raw_line.strip()
+            if stripped:
+                docs.append(json.loads(stripped))
+    return docs
+
+
+def _append_partial_cache(path: Path, docs: list[dict]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a", encoding="utf-8") as fh:
+        for doc in docs:
+            fh.write(json.dumps(doc, ensure_ascii=False) + "\n")
+
+
 def _fetch_pages(
     tipo: str,
     date_start: str,
     date_end: str,
     extra_fields: dict | None = None,
+    cache_dir: Path | None = None,
 ) -> list[dict]:
-    """Paginate one date window, never exceeding the ES result window."""
-    results: list[dict] = []
-    from_ = 0
+    """Paginate one date window, never exceeding the ES result window.
+
+    When *cache_dir* is given, each page is appended to a staging file as
+    soon as it's fetched — so a mid-window failure (STIC block, transport
+    error) loses at most one page's worth of work on retry, not the whole
+    window. ``from_`` resumes from ``len(cached docs)`` regardless of what
+    PAGE_SIZE was used to reach that offset (ES pagination is just a count).
+    The staging file is deleted only once the window is PROVABLY complete
+    (server returned a short/empty page) — a window that errors out always
+    leaves its cache behind, on purpose, rather than risk it being mistaken
+    for a finished fetch.
+    """
+    cache_path = (
+        _partial_cache_path(cache_dir, tipo, date_start, date_end, extra_fields)
+        if cache_dir is not None
+        else None
+    )
+    results: list[dict] = _load_partial_cache(cache_path) if cache_path is not None else []
+    from_ = len(results)
+    if from_:
+        log.info(
+            "fetch_page_resumed_from_cache", tipo=tipo, date_start=date_start, resumed_from=from_
+        )
     while from_ < MAX_RESULT_WINDOW:
         size = min(PAGE_SIZE, MAX_RESULT_WINDOW - from_)
         time.sleep(_REQUEST_INTERVAL)
@@ -155,13 +215,18 @@ def _fetch_pages(
         hits = _hits(data)
         if not hits:
             break
-        results.extend(_extract_doc(raw) for raw in hits)
+        page_docs = [_extract_doc(raw) for raw in hits]
+        results.extend(page_docs)
+        if cache_path is not None:
+            _append_partial_cache(cache_path, page_docs)
         log.debug(
             "fetch_window_page", tipo=tipo, date_start=date_start, from_=from_, page_hits=len(hits)
         )
         if len(hits) < size:
             break
         from_ += size
+    if cache_path is not None:
+        cache_path.unlink(missing_ok=True)
     return results
 
 
@@ -177,7 +242,9 @@ def _orgao_buckets(tipo: str) -> list[str]:
     return [str(b["key"]) for b in buckets if b.get("key")]
 
 
-def _fetch_day_by_orgao(tipo: str, day: str, day_total: int) -> list[dict]:
+def _fetch_day_by_orgao(
+    tipo: str, day: str, day_total: int, cache_dir: Path | None = None
+) -> list[dict]:
     """Subdivide a single-day window by órgão julgador buckets.
 
     Every bucket must individually fit the ES result window, and the bucket
@@ -210,7 +277,7 @@ def _fetch_day_by_orgao(tipo: str, day: str, day_total: int) -> list[dict]:
         if value == 0:
             continue
         covered += value
-        docs.extend(_fetch_pages(tipo, day, day, extra_fields=extra))
+        docs.extend(_fetch_pages(tipo, day, day, extra_fields=extra, cache_dir=cache_dir))
 
     if covered != day_total:
         msg = (
@@ -222,7 +289,9 @@ def _fetch_day_by_orgao(tipo: str, day: str, day_total: int) -> list[dict]:
     return docs
 
 
-def fetch_tipo_window(tipo: str, date_start: str, date_end: str) -> list[dict]:
+def fetch_tipo_window(
+    tipo: str, date_start: str, date_end: str, cache_dir: Path | None = None
+) -> list[dict]:
     """Fetch all docs of ``tipo`` with dtjulgamento in [date_start, date_end].
 
     Probes the window total first (1-doc request); windows larger than the
@@ -230,6 +299,9 @@ def fetch_tipo_window(tipo: str, date_start: str, date_end: str) -> list[dict]:
     day that still exceeds the window is subdivided by órgão julgador; if
     that cannot provably cover the day, :class:`JurisWindowOverflowError`
     is raised (a truncated window must NEVER be recorded as complete).
+
+    *cache_dir*, when given, enables page-level resume (see ``_fetch_pages``)
+    for the leaf window this call bottoms out at.
     """
     time.sleep(_REQUEST_INTERVAL)
     probe = search(tipo, from_=0, size=1, date_start=date_start, date_end=date_end)
@@ -247,8 +319,8 @@ def fetch_tipo_window(tipo: str, date_start: str, date_end: str) -> list[dict]:
                 total=total,
                 relation=relation,
             )
-            left = fetch_tipo_window(tipo, date_start, mid)
-            right = fetch_tipo_window(tipo, mid_next, date_end)
+            left = fetch_tipo_window(tipo, date_start, mid, cache_dir=cache_dir)
+            right = fetch_tipo_window(tipo, mid_next, date_end, cache_dir=cache_dir)
             return left + right
         log.warning(
             "juris_window_overflow_single_day",
@@ -257,14 +329,14 @@ def fetch_tipo_window(tipo: str, date_start: str, date_end: str) -> list[dict]:
             total=total,
             relation=relation,
         )
-        return _fetch_day_by_orgao(tipo, date_start, total)
-    return _fetch_pages(tipo, date_start, date_end)
+        return _fetch_day_by_orgao(tipo, date_start, total, cache_dir=cache_dir)
+    return _fetch_pages(tipo, date_start, date_end, cache_dir=cache_dir)
 
 
-def fetch_tipo_month(tipo: str, year_month: str) -> list[dict]:
+def fetch_tipo_month(tipo: str, year_month: str, cache_dir: Path | None = None) -> list[dict]:
     """Fetch all docs of a given tipo julgados in ``year_month`` (AAAA-MM)."""
     date_start, date_end = _month_bounds(year_month)
-    docs = fetch_tipo_window(tipo, date_start, date_end)
+    docs = fetch_tipo_window(tipo, date_start, date_end, cache_dir=cache_dir)
     log.info("fetch_tipo_month_done", tipo=tipo, year_month=year_month, total=len(docs))
     return docs
 
@@ -287,6 +359,7 @@ def crawl_all(
     tipos: list[str] | None = None,
     start_year_month: str | None = None,
     skip: Callable[[str, str], bool] | None = None,
+    cache_dir: Path | None = None,
 ) -> Iterator[tuple[str, str, list[dict]]]:
     """Yield (tipo, year_month, docs), fetching each month with date filters.
 
@@ -296,7 +369,10 @@ def crawl_all(
     ``start_year_month`` (AAAA-MM) narrows the start below year granularity
     (months before it are not yielded). ``skip(tipo, year_month)`` returning
     True short-circuits a window BEFORE any request is made — used to skip
-    windows the manifest already records as complete.
+    windows the manifest already records as complete. ``cache_dir``, when
+    given, persists in-progress pagination per window so a mid-month failure
+    (STIC block, transport error) resumes from the last completed page on
+    retry instead of restarting the whole month — see ``_fetch_pages``.
     """
     if end_year_month is None:
         end_year_month = datetime.now(UTC).strftime("%Y-%m")
@@ -308,4 +384,4 @@ def crawl_all(
             if skip is not None and skip(tipo, year_month):
                 log.info("crawl_window_skipped", tipo=tipo, year_month=year_month)
                 continue
-            yield tipo, year_month, fetch_tipo_month(tipo, year_month)
+            yield tipo, year_month, fetch_tipo_month(tipo, year_month, cache_dir=cache_dir)
