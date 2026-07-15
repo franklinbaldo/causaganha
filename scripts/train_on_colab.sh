@@ -12,8 +12,12 @@
 #
 # Usage:
 #   scripts/train_on_colab.sh [GPU] [EPOCHS] [BATCH_SIZE]
-#   scripts/train_on_colab.sh T4 3 8          # defaults
+#   scripts/train_on_colab.sh T4 3 2           # defaults
 #   scripts/train_on_colab.sh A100 5 16
+#
+# NOTE: opf's base model is a large MoE model (~2.8GB checkpoint). batch_size=8
+# OOMs on a T4 (16GB) even for the tiny smoke-test dataset. batch_size=2 fits;
+# raise it only on a bigger GPU (A100) for real (non-smoke) training runs.
 #
 # What it does:
 #   1. provisions a GPU session named "seg-train"
@@ -33,7 +37,7 @@ set -euo pipefail
 
 GPU="${1:-T4}"
 EPOCHS="${2:-3}"
-BATCH_SIZE="${3:-8}"
+BATCH_SIZE="${3:-2}"
 SESSION="seg-train"
 DATA_DIR="data/segmenter_splits"
 OUT_DIR="models/decision_segmenter"
