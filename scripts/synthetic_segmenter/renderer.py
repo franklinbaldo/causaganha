@@ -96,7 +96,13 @@ def _write_operative(buf: _TextBuilder, spec: DocumentSpec) -> None:
     buf.write(". ")
 
 
-def _render_sentenca_simples(buf: _TextBuilder, spec: DocumentSpec, ids: IdentitySet) -> None:
+def _render_sentenca_simples(
+    buf: _TextBuilder,
+    spec: DocumentSpec,
+    ids: IdentitySet,
+    *,
+    merito_body_override: str | None = None,
+) -> None:
     _write_pair_section(
         buf,
         "cabecalho",
@@ -113,7 +119,7 @@ def _render_sentenca_simples(buf: _TextBuilder, spec: DocumentSpec, ids: Identit
         relatorio_body += render_hard_negative("reported_prior_outcome")
     _write_pair_section(buf, "relatorio", body=relatorio_body)
 
-    merito_body = (
+    merito_body = merito_body_override or (
         "Os documentos juntados aos autos demonstram a plausibilidade do direito alegado. "
     )
     buf.write_labeled(PAIR_PHRASES["capitulo_merito"]["inicio"][0], "capitulo_merito_inicio")
@@ -195,7 +201,9 @@ _RENDERERS = {
 }
 
 
-def render(spec: DocumentSpec) -> tuple[str, list[dict], IdentitySet]:
+def render(
+    spec: DocumentSpec, *, merito_body_override: str | None = None
+) -> tuple[str, list[dict], IdentitySet]:
     """Render ``spec`` into ``(text, labels, identities)``.
 
     ``labels`` offsets are exact by construction (RFC 0011 §4.3) — no
@@ -203,7 +211,21 @@ def render(spec: DocumentSpec) -> tuple[str, list[dict], IdentitySet]:
     ``transform.check_final_invariants`` (and, for the full mechanical
     check, ``scripts/opf_annotate.py validate``) on the result before
     treating it as a trainable record.
+
+    ``merito_body_override`` (RFC 0011 §6.2 hybrid records): replaces the
+    generic mérito filler with caller-supplied prose — e.g. a scrubbed,
+    fictionalized real excerpt (``hybrid.py``) or LLM-generated content
+    (``llm_content.py``). Only ``sentenca_simples`` has a mérito section;
+    passing this for any other template family is a caller bug, not a
+    silently-ignored no-op.
     """
+    if merito_body_override is not None and spec.template_family != "sentenca_simples":
+        msg = (
+            f"merito_body_override is only supported for sentenca_simples, "
+            f"got template_family={spec.template_family!r}"
+        )
+        raise ValueError(msg)
+
     try:
         render_fn = _RENDERERS[spec.template_family]
     except KeyError:
@@ -212,5 +234,8 @@ def render(spec: DocumentSpec) -> tuple[str, list[dict], IdentitySet]:
 
     identities = generate_identities(spec.identity_seed)
     buf = _TextBuilder()
-    render_fn(buf, spec, identities)
+    if spec.template_family == "sentenca_simples":
+        render_fn(buf, spec, identities, merito_body_override=merito_body_override)
+    else:
+        render_fn(buf, spec, identities)
     return buf.build(), buf.labels, identities
