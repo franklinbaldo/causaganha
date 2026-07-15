@@ -206,6 +206,11 @@ PY
   grep -v "KAGGLE_STRIP_THIS_LINE" scripts/kaggle_train_kernel_body.py
 } > "$KERNEL_DIR/train.py"
 
+# Deliberately no "enable_gpu" here: the SDK marks it DEPRECATED in favor of
+# machine_shape (set below via `kaggle kernels push --accelerator`), and a
+# live run with both set (enable_gpu:true + --accelerator) produced a kernel
+# with no NVIDIA driver at all despite ample GPU quota — a legacy/new-path
+# conflict is the leading hypothesis, being tested by dropping enable_gpu.
 cat > "$KERNEL_DIR/kernel-metadata.json" <<JSON
 {
   "id": "$KAGGLE_USERNAME/$KERNEL_SLUG",
@@ -214,7 +219,6 @@ cat > "$KERNEL_DIR/kernel-metadata.json" <<JSON
   "language": "python",
   "kernel_type": "script",
   "is_private": true,
-  "enable_gpu": true,
   "enable_internet": true,
   "dataset_sources": ["$KAGGLE_USERNAME/$DATASET_SLUG"]
 }
