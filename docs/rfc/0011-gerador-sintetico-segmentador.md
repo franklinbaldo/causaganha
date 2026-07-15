@@ -222,6 +222,34 @@ Registrar o veredito na proveniência (§6):
 }
 ```
 
+### 4-bis.3 LiteLLM como camada de acesso a modelos
+
+Tanto o conteúdo de LLM da fase 2 (§3.2) quanto o juiz (§4-bis.2) usam
+**LiteLLM** como camada de abstração de provedor — já é dependência do
+projeto (`litellm>=1.40.0`, grupo `classify`) e já é o padrão estabelecido
+em `scripts/annotate_with_llm.py` (anotação assistida por LLM) e
+`src/causaganha/analysis/llm_analyzer.py`. Este RFC não introduz um novo
+padrão de acesso a LLM — reusa o existente:
+
+- **Convenção de model string**: `openrouter/<provider>/<model>[:free]`
+  (ex.: `openrouter/google/gemma-3-27b-it:free`), igual ao
+  `annotate_with_llm.py`;
+- **Cadeia de fallback + rotação de chave**: `llm_analyzer.py` já implementa
+  fallback entre modelos (Gemini → OpenRouter free-tier) e rotação de
+  múltiplas chaves via `GEMINI_API_KEYS`/`GEMINI_API_KEY`,
+  `OPENROUTER_API_KEY` — o juiz herda essa resiliência em vez de reimplementar
+  retry próprio, relevante porque o volume de pares julgados (§4-bis.2) é
+  maior que o de anotação;
+- **`litellm.drop_params = True`** para tolerar parâmetros específicos de
+  modelo sem quebrar entre provedores, igual ao script existente;
+- Modelos do gerador (fase 2, §3.2) e do juiz (§4-bis.2) devem ser
+  **famílias diferentes** quando possível (o mesmo raciocínio da
+  decorrelação de erros do juiz, §4-bis.2) — um modelo não deve validar o
+  próprio estilo de geração.
+- Custo/limite de requisições por rodada de geração+julgamento é uma
+  variável de execução (via LiteLLM's usage tracking), não uma decisão de
+  arquitetura — mas informa a questão em aberto §10.7 (amostragem do juiz).
+
 ## 5. Perfis documentais e variação de superfície
 
 ### 5.1 Famílias mínimas
@@ -341,6 +369,8 @@ scripts/synthetic_segmenter/
     corpus_stats.py   # estatísticas da distribuição real (dos textos.parquet)
     mutations.py      # perfis de ruído, preservando offsets
     validators.py     # invariantes + offsets + scrub de âncoras em texto real
+    llm_content.py    # fase 2: conteúdo interno via LiteLLM (specs.py define, não rotula)
+    llm_judge.py      # fase 2: juiz sintético-vs-real via LiteLLM (§4-bis.2/.3)
 tests/test_synthetic_segmenter.py
 ```
 
