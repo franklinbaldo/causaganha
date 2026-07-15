@@ -23,23 +23,11 @@ jobs:
       - uses: ./.github/actions/setup
       - name: Check formatting
         run: uv run ruff format --check
-      - name: "Check lint (strict: security + policy)"
-        # Blocking rules: the full `S` security family (bandit port —
-        # SQL injection, URL open, subprocess, shell=True, pickle,
-        # TLS verify, hash, asserts, etc.), CLAUDE.md-banned BLE001
-        # (blind Exception), B904 (raise-from for exception chaining),
-        # and TRY300 (try/else restructure). Using the family code `S`
-        # instead of an enumerated list so future S-rule additions are
-        # automatically enforced. Legacy violations in specific files
-        # are locked in via per-file-ignores in ruff.toml so this step
-        # passes today while blocking new violations in clean files.
-        run: uv run ruff check --select S,BLE001,B904,TRY300
-      - name: "Check lint (advisory: style)"
-        # Everything else (E501, D10x, FBT003, PLR2004, PLC0415, ANN401,
-        # PERF401, etc.) — ~265 pre-existing cosmetic violations that
-        # stay visible in CI logs as non-blocking regression signal.
-        run: uv run ruff check --ignore S,BLE001,B904,TRY300
-        continue-on-error: true
+      - name: Check lint
+        # All enabled Ruff rules are blocking. Legacy exceptions are documented
+        # as targeted per-file ignores in ruff.toml instead of being hidden by
+        # a non-blocking advisory lint pass.
+        run: uv run ruff check
       - name: Check dead code
         run: uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
       - name: Check notebooks synced

@@ -239,7 +239,7 @@ Start from [.env.example](.env.example). Common variables include:
 
 The main CI workflow is [test.yml](.github/workflows/test.yml). It currently runs:
 
-1. Python formatting and lint checks
+1. Python formatting and blocking Ruff lint checks (`uv run ruff check`; legacy exceptions are tracked as targeted per-file ignores in `ruff.toml`)
 2. Dead code check with `vulture`
 3. Notebook sync check (`scripts/check_notebooks_synced.py`)
 4. Python tests

@@ -21,7 +21,7 @@ runs:
         key: ${{ runner.os }}-uv-${{ hashFiles('pyproject.toml', 'uv.lock') }}-${{ inputs.dev }}-${{ inputs.groups }}
     - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
       with:
-        version: latest
+        version: "0.7.22"
     - run: |
         set -euo pipefail
         args=()
