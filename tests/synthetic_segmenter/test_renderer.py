@@ -160,6 +160,112 @@ def test_reported_prior_outcome_hard_negative_not_labeled_resultado() -> None:
     assert categories.count("resultado") == 1
 
 
+@pytest.mark.parametrize("seed", range(10))
+def test_sentenca_produces_ref_normativa_spans(seed: int) -> None:
+    """render() bootstraps ref_normativa via regex over the rendered text
+    (2026-07-16 fix) — every synthetic doc should now carry at least one,
+    since REF_NORMATIVA_FILLER_PHRASES is spliced into the mérito body.
+    """
+    spec = sentenca_simples_spec(seed=seed)
+    _text, labels, _ids = render(spec)
+    categories = [label["category"] for label in labels]
+    assert "ref_normativa" in categories
+
+
+@pytest.mark.parametrize("seed", range(10))
+def test_acordao_produces_ref_normativa_spans(seed: int) -> None:
+    spec = acordao_moderno_unanime_spec(seed=seed)
+    _text, labels, _ids = render(spec)
+    categories = [label["category"] for label in labels]
+    assert "ref_normativa" in categories
+
+
+def test_fused_custas_honorarios_used_for_some_seeds_without_overlap() -> None:
+    """Real-corpus finding (Round B, 2026-07-16): custas+honorarios are
+    usually one fused clause. Confirm the fused path fires for at least
+    one seed and produces non-overlapping, correctly-ordered spans.
+    """
+    fused_seen = False
+    for seed in range(20):
+        spec = DocumentSpec(
+            template_family="sentenca_simples",
+            doc_type="sentenca",
+            sections=(
+                "cabecalho",
+                "relatorio",
+                "capitulo_merito",
+                "honorarios",
+                "custas",
+                "encerramento",
+            ),
+            outcome="improcedente",
+            has_monetary_award=False,
+            has_costs=True,
+            has_preliminar=False,
+            has_dissent=False,
+            noise_profile="clean",
+            seed=seed,
+            identity_seed=seed,
+        )
+        _text, labels, _ids = render(spec)
+        by_cat = {label["category"]: label for label in labels}
+        if seed % 2 == 0:
+            fused_seen = True
+            assert "custas_inicio" in by_cat
+            assert "honorarios_inicio" in by_cat
+            assert by_cat["custas_fim"]["end"] <= by_cat["honorarios_inicio"]["start"]
+    assert fused_seen
+    assert (
+        check_final_invariants(
+            *render(
+                DocumentSpec(
+                    template_family="sentenca_simples",
+                    doc_type="sentenca",
+                    sections=(
+                        "cabecalho",
+                        "relatorio",
+                        "capitulo_merito",
+                        "honorarios",
+                        "custas",
+                        "encerramento",
+                    ),
+                    outcome="improcedente",
+                    has_monetary_award=False,
+                    has_costs=True,
+                    has_preliminar=False,
+                    has_dissent=False,
+                    noise_profile="clean",
+                    seed=0,
+                    identity_seed=0,
+                )
+            )[:2]
+        )
+        == []
+    )
+
+
+def test_preliminar_in_decisorio_summary_hard_negative_not_labeled() -> None:
+    spec = DocumentSpec(
+        template_family="acordao_moderno_unanime",
+        doc_type="acordao",
+        sections=("cabecalho", "ementa", "relatorio", "voto", "acordao_decisorio", "encerramento"),
+        outcome="negado_provimento",
+        has_monetary_award=False,
+        has_costs=False,
+        has_preliminar=False,
+        has_dissent=False,
+        noise_profile="clean",
+        seed=1,
+        identity_seed=1,
+        hard_negative_families=("preliminar_in_decisorio_summary",),
+    )
+    text, labels, _ids = render(spec)
+    assert "preliminar rejeitada" in text.lower()
+    categories = [label["category"] for label in labels]
+    assert "preliminar_inicio" not in categories
+    assert check_final_invariants(text, labels) == []
+
+
 def test_render_unknown_template_family_raises() -> None:
     bad_spec = sentenca_simples_spec(seed=1)
     object.__setattr__(bad_spec, "template_family", "ghost_family")

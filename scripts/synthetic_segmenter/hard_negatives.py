@@ -7,9 +7,10 @@ callers splice the returned text into the document at an appropriate
 point and record the family name in the record's
 ``info.hard_negative_families`` (RFC 0011 §5, §15).
 
-Only two families ship in Phase 1, both directly grounded in the
-annotation guideline's anti-patterns section
-(``data/segmenter_splits/annotation_guideline_v7.md``):
+Three families ship, the first two directly grounded in the annotation
+guideline's anti-patterns section
+(``data/segmenter_splits/annotation_guideline_v7.md``), the third added
+2026-07-16 from a real-corpus audit (see below):
 
 - ``quoted_dispositivo`` — "Ante o exposto" appearing inside an acórdão's
   individual voto, where only the collegiate ``acordao_decisorio`` is
@@ -19,12 +20,25 @@ annotation guideline's anti-patterns section
   lower court's prior ruling inside the relatório, which must not be
   tagged ``resultado`` (guideline anti-pattern: "resultado is only the
   operative holding").
+- ``preliminar_in_decisorio_summary`` — the word "PRELIMINAR" appearing
+  inside the collegiate ``acordao_decisorio``'s own outcome-summary line
+  ("PRELIMINAR REJEITADA. NO MÉRITO, RECURSO NÃO PROVIDO..."), which must
+  NOT be tagged ``preliminar_inicio``. Every Round A subagent-labeling
+  prompt (2026-07-16, 20 real acórdãos) had to carry an explicit warning
+  against this exact confusion, because the pattern kept recurring in real
+  documents -- a strong signal the model needs the same discriminating
+  negative example during training, not just a written instruction to
+  human/subagent labelers.
 """
 
 from __future__ import annotations
 
 
-HARD_NEGATIVE_FAMILIES = ("quoted_dispositivo", "reported_prior_outcome")
+HARD_NEGATIVE_FAMILIES = (
+    "quoted_dispositivo",
+    "reported_prior_outcome",
+    "preliminar_in_decisorio_summary",
+)
 
 
 def quoted_dispositivo_text() -> str:
@@ -43,9 +57,15 @@ def reported_prior_outcome_text() -> str:
     )
 
 
+def preliminar_in_decisorio_summary_text() -> str:
+    """The word PRELIMINAR inside the collegiate outcome-summary line, not a real heading."""
+    return "PRELIMINAR REJEITADA. NO MÉRITO, "
+
+
 _INJECTORS = {
     "quoted_dispositivo": quoted_dispositivo_text,
     "reported_prior_outcome": reported_prior_outcome_text,
+    "preliminar_in_decisorio_summary": preliminar_in_decisorio_summary_text,
 }
 
 

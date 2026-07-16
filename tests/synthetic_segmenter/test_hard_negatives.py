@@ -27,6 +27,11 @@ def test_reported_prior_outcome_contains_the_trap_phrase() -> None:
     assert "julgou procedente" in text.lower() or "julgo procedente" in text.lower()
 
 
+def test_preliminar_in_decisorio_summary_contains_the_trap_phrase() -> None:
+    text = render_hard_negative("preliminar_in_decisorio_summary")
+    assert "preliminar" in text.lower()
+
+
 def test_unknown_family_raises() -> None:
     with pytest.raises(ValueError, match="unknown hard_negative_family"):
         render_hard_negative("not_a_real_family")

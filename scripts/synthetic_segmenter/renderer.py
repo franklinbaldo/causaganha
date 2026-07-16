@@ -21,10 +21,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from scripts.ref_normativa_prepass import extract_ref_normativa, merge_with_opf_spans
 from scripts.synthetic_segmenter.hard_negatives import render_hard_negative
 from scripts.synthetic_segmenter.identities import IdentitySet, generate_identities
 from scripts.synthetic_segmenter.phrase_banks import (
+    FUSED_CUSTAS_HONORARIOS_TEMPLATES,
     PAIR_PHRASES,
+    REF_NORMATIVA_FILLER_PHRASES,
     SINGLE_ANCHOR_PHRASES,
     resultado_phrase,
 )
@@ -81,6 +84,26 @@ def _write_pair_section(
         buf.write_labeled(fim, f"{base_name}_fim")
 
 
+def _write_fused_custas_honorarios(buf: _TextBuilder, seed: int) -> None:
+    """Write one shared custas+honorários clause (RFC 0011 §5.2 real-corpus finding).
+
+    Juizado Especial sentenças overwhelmingly fuse these two categories
+    into one sentence with no clean boundary (see
+    ``FUSED_CUSTAS_HONORARIOS_TEMPLATES``'s docstring) — this is the
+    dominant real shape, not an edge case, so it needs its own template
+    rather than reusing ``_write_pair_section`` twice independently.
+    """
+    template = FUSED_CUSTAS_HONORARIOS_TEMPLATES[seed % len(FUSED_CUSTAS_HONORARIOS_TEMPLATES)]
+    buf.write_labeled(template["custas_inicio"], "custas_inicio")
+    buf.write(" ")
+    buf.write_labeled(template["custas_fim"], "custas_fim")
+    buf.write(template["connector"])
+    buf.write_labeled(template["honorarios_inicio"], "honorarios_inicio")
+    buf.write(" ")
+    buf.write_labeled(template["honorarios_fim"], "honorarios_fim")
+    buf.write(" ")
+
+
 def _write_operative(buf: _TextBuilder, spec: DocumentSpec) -> None:
     """Write dispositivo_abertura + resultado — sentença only.
 
@@ -131,7 +154,8 @@ def _render_sentenca_simples(
     )
 
     merito_body = merito_body_override or (
-        "Os documentos juntados aos autos demonstram a plausibilidade do direito alegado. "
+        "Os documentos juntados aos autos demonstram a plausibilidade do direito alegado, "
+        f"{REF_NORMATIVA_FILLER_PHRASES[seed % len(REF_NORMATIVA_FILLER_PHRASES)]}. "
     )
     capitulo_merito_phrases = PAIR_PHRASES["capitulo_merito"]
     buf.write_labeled(
@@ -146,22 +170,30 @@ def _render_sentenca_simples(
     )
     buf.write(" ")
 
-    if spec.has_monetary_award:
-        honorarios_body = f"Fixo os honorários advocatícios em R$ {2000 + spec.seed % 5000},00. "
+    if spec.has_costs and not spec.has_monetary_award and seed % 2 == 0:
+        # Dominant real shape for exemption cases (Round B audit,
+        # 2026-07-16): one fused "Sem custas e honorários" clause, not two
+        # independent ones — see FUSED_CUSTAS_HONORARIOS_TEMPLATES.
+        _write_fused_custas_honorarios(buf, seed)
     else:
-        honorarios_body = "Sem condenação em honorários advocatícios. "
-    _write_pair_section(
-        buf, "honorarios", body=honorarios_body, inicio_variant=seed, fim_variant=seed
-    )
-
-    if spec.has_costs:
+        if spec.has_monetary_award:
+            honorarios_body = (
+                f"Fixo os honorários advocatícios em R$ {2000 + spec.seed % 5000},00. "
+            )
+        else:
+            honorarios_body = "Sem condenação em honorários advocatícios. "
         _write_pair_section(
-            buf,
-            "custas",
-            body="A parte sucumbente arca com as custas processuais.",
-            inicio_variant=seed,
-            fim_variant=seed,
+            buf, "honorarios", body=honorarios_body, inicio_variant=seed, fim_variant=seed
         )
+
+        if spec.has_costs:
+            _write_pair_section(
+                buf,
+                "custas",
+                body="A parte sucumbente arca com as custas processuais.",
+                inicio_variant=seed,
+                fim_variant=seed,
+            )
 
     _write_pair_section(
         buf, "encerramento", body=f"{ids.juiz}", inicio_variant=seed, fim_variant=seed
@@ -205,7 +237,10 @@ def _render_acordao_moderno_unanime(
             fim_variant=seed,
         )
 
-    voto_body = "Presentes os pressupostos de admissibilidade, conheço do recurso. "
+    voto_body = (
+        "Presentes os pressupostos de admissibilidade, conheço do recurso, "
+        f"{REF_NORMATIVA_FILLER_PHRASES[seed % len(REF_NORMATIVA_FILLER_PHRASES)]}. "
+    )
     if "quoted_dispositivo" in spec.hard_negative_families:
         voto_body += render_hard_negative("quoted_dispositivo")
     _write_pair_section(buf, "voto", body=voto_body, inicio_variant=seed, fim_variant=seed)
@@ -216,7 +251,10 @@ def _render_acordao_moderno_unanime(
         decisorio_phrases["inicio"][seed % len(decisorio_phrases["inicio"])],
         "acordao_decisorio_inicio",
     )
-    buf.write(f", {decisorio_body_prefix}")
+    buf.write(", ")
+    if "preliminar_in_decisorio_summary" in spec.hard_negative_families:
+        buf.write(render_hard_negative("preliminar_in_decisorio_summary"))
+    buf.write(decisorio_body_prefix)
     buf.write_labeled(resultado_phrase(spec.outcome, variant=seed), "resultado")
     buf.write(", ")
     buf.write_labeled(
@@ -224,22 +262,27 @@ def _render_acordao_moderno_unanime(
     )
     buf.write(" ")
 
-    if spec.has_monetary_award:
-        honorarios_body = f"Majoro os honorários recursais para R$ {3000 + spec.seed % 5000},00. "
+    if spec.has_costs and not spec.has_monetary_award and seed % 2 == 0:
+        _write_fused_custas_honorarios(buf, seed)
     else:
-        honorarios_body = "Sem honorários recursais. "
-    _write_pair_section(
-        buf, "honorarios", body=honorarios_body, inicio_variant=seed, fim_variant=seed
-    )
-
-    if spec.has_costs:
+        if spec.has_monetary_award:
+            honorarios_body = (
+                f"Majoro os honorários recursais para R$ {3000 + spec.seed % 5000},00. "
+            )
+        else:
+            honorarios_body = "Sem honorários recursais. "
         _write_pair_section(
-            buf,
-            "custas",
-            body="Custas pela parte sucumbente.",
-            inicio_variant=seed,
-            fim_variant=seed,
+            buf, "honorarios", body=honorarios_body, inicio_variant=seed, fim_variant=seed
         )
+
+        if spec.has_costs:
+            _write_pair_section(
+                buf,
+                "custas",
+                body="Custas pela parte sucumbente.",
+                inicio_variant=seed,
+                fim_variant=seed,
+            )
 
     _write_pair_section(
         buf, "encerramento", body=f"{ids.juiz}, Relator(a)", inicio_variant=seed, fim_variant=seed
@@ -269,6 +312,15 @@ def render(
     (``llm_content.py``). Only ``sentenca_simples`` has a mérito section;
     passing this for any other template family is a caller bug, not a
     silently-ignored no-op.
+
+    ``ref_normativa`` spans are NOT written by the template functions
+    above (they're not anchor-phrase categories — see phrase_banks.py's
+    module docstring) — they're bootstrapped here, at the end, by running
+    the SAME regex (``scripts/ref_normativa_prepass.py``) real gold uses
+    against the fully-rendered text and merging in any non-overlapping
+    matches. This keeps synthetic ``ref_normativa`` coverage architecturally
+    identical to real gold's, rather than a separate hand-maintained path
+    that could silently drift from it.
     """
     if merito_body_override is not None and spec.template_family != "sentenca_simples":
         msg = (
@@ -289,4 +341,6 @@ def render(
         render_fn(buf, spec, identities, merito_body_override=merito_body_override)
     else:
         render_fn(buf, spec, identities)
-    return buf.build(), buf.labels, identities
+    text = buf.build()
+    labels = merge_with_opf_spans(buf.labels, extract_ref_normativa(text))
+    return text, labels, identities

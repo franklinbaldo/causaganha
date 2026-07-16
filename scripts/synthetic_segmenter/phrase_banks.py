@@ -16,10 +16,20 @@ Two shapes, matching the guideline's two anchor schemes:
   ``f"{base_name}_fim"`` against ``label_space.json`` — this module only
   knows the short human name.
 
-``O`` and ``ref_normativa`` are deliberately absent: ``O`` isn't a
-labeled span, and ``ref_normativa`` is excluded from the trainable v7
-label space (RFC 0001) even though the guideline still documents it
-conceptually.
+``O`` is deliberately absent: it isn't a labeled span. ``ref_normativa``
+is ALSO absent from ``SINGLE_ANCHOR_PHRASES``/``PAIR_PHRASES`` -- but,
+unlike ``O``, it IS trained (added back to the v7 label space; see
+``prepare_privacy_filter_dataset.py``'s comment above ``SPAN_CLASS_NAMES_V7``
+for the full architecture rationale). It's absent from *this* module
+specifically because it isn't an anchor-phrase category: real gold
+sources it via a regex bootstrap (``scripts/ref_normativa_prepass.py``)
+over already-written text, not a hand-picked surface form. The same
+regex runs over synthetic filler text in ``renderer.py`` for parity --
+``REF_NORMATIVA_FILLER_PHRASES`` below supplies citation-shaped sentence
+fragments (including formats a real-corpus audit found the regex used to
+truncate: thousands-separator article numbers, spelled-out inciso/
+parágrafo/alínea) so the synthetic corpus doesn't quietly under-represent
+the same formats the regex itself used to get wrong.
 """
 
 from __future__ import annotations
@@ -30,8 +40,34 @@ SINGLE_ANCHOR_PHRASES: dict[str, list[str]] = {
     "fundamentacao_legal": [
         "nos termos do art. 932 do CPC",
         "conforme dispõe o art. 927 do CPC",
+        # Most frequent real-corpus shape (Round B audit, 2026-07-16): the
+        # reasoning tie-in sits immediately adjacent to the operative verb,
+        # as in the phrase below followed by JULGO PROCEDENTE -- every
+        # subagent-confirmed fundamentacao_legal find followed this exact
+        # "com fundamento no" pattern; every skipped candidate was a bare
+        # citation elsewhere in the reasoning, not adjacent to the verb.
+        "com fundamento no art. 487, I, do CPC",
     ],
 }
+
+# Legal-citation surface forms grounded in a real-corpus audit
+# (scripts/ref_normativa_prepass.py's fix history) -- these are the exact
+# formats a bare-\d+ / bare-char-class regex used to truncate before the
+# fix (thousands-separator article numbers, spelled-out inciso/parágrafo/
+# alínea). ``renderer.py`` splices these into filler prose so the same
+# ``extract_ref_normativa`` regex that bootstraps real gold's
+# ``ref_normativa`` spans finds an equally varied set in synthetic text --
+# without this, the synthetic corpus would silently skew toward only the
+# short "art. N do CPC" shape and under-represent the formats real
+# citations actually take.
+REF_NORMATIVA_FILLER_PHRASES: list[str] = [
+    "nos termos do art. 1.000, do CPC",
+    "com fulcro no art. 5º, inciso II, alínea b, do CPC",
+    "nos termos do art. 927, parágrafo único, do CPC",
+    "conforme o art. 924, II, do CPC",
+    "na forma do art. 55 da Lei nº 9.099/95",
+    "aplica-se a Súmula 331 do TST ao caso",
+]
 
 # resultado's surface form depends on the document's outcome (RFC 0011
 # §3.1 DocumentSpec.outcome) — a different shape than the other
@@ -110,6 +146,11 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
         # period: the real closing sentence continues past "mérito" in
         # most cases ("...mérito propriamente dito.", "...mérito, tem-se
         # que...") — same over-specification lesson as voto's fim.
+        # "Preliminar acolhida."/"afasto a preliminar suscitada..." added
+        # from the Round A audit (2026-07-16, 20 real acórdãos targeted
+        # specifically for a numbered preliminar section): closings the
+        # earlier 22-doc sample never happened to surface, but real enough
+        # to appear twice independently across 20 documents.
         "fim": [
             "Superada a preliminar, passo ao mérito.",
             "Rejeitada a preliminar, passo ao exame do mérito.",
@@ -118,6 +159,8 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
             "não conheço da preliminar.",
             "passo a apreciar o mérito",
             "passo a análise do mérito",
+            "Preliminar acolhida.",
+            "afasto a preliminar suscitada, submetendo-a ao Colegiado.",
         ],
     },
     "honorarios": {
@@ -168,6 +211,41 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
         ],
     },
 }
+
+# Real-corpus finding (Round B audit, 2026-07-16, 20 SENTENCA docs
+# targeted for both "custas" and "honorarios" mentions): Juizado Especial
+# sentencas overwhelmingly FUSE custas and honorários into one clause with
+# no clean boundary between them ("Sem custas e sem honorários advocatícios
+# nesta instância..."), not two independent clauses. That collision was
+# severe enough to produce real BIOES overlap errors when independent
+# subagents anchored both categories on the identical span. Each entry
+# below is one fused sentence, pre-split into four non-overlapping
+# fragments so ``renderer.py`` can emit ``custas_inicio``/``custas_fim``/
+# ``honorarios_inicio``/``honorarios_fim`` from ONE shared clause -- the
+# dominant real shape -- instead of two independently-generated ones.
+FUSED_CUSTAS_HONORARIOS_TEMPLATES: list[dict[str, str]] = [
+    {
+        "custas_inicio": "Sem custas",
+        "custas_fim": "processuais",
+        "connector": " e sem ",
+        "honorarios_inicio": "honorários",
+        "honorarios_fim": "advocatícios nesta instância, nos termos do art. 55 da Lei nº 9.099/95.",
+    },
+    {
+        "custas_inicio": "Isento de custas",
+        "custas_fim": "iniciais adiadas e finais",
+        "connector": " e de ",
+        "honorarios_inicio": "honorários",
+        "honorarios_fim": "advocatícios.",
+    },
+    {
+        "custas_inicio": "Incabível condenação em custas",
+        "custas_fim": "processuais",
+        "connector": " e ",
+        "honorarios_inicio": "honorários",
+        "honorarios_fim": "advocatícios nesta instância, conforme artigo 55 da Lei 9.099/95.",
+    },
+]
 
 
 def resultado_phrase(outcome: str, *, variant: int = 0) -> str:
