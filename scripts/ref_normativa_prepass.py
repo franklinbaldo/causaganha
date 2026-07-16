@@ -82,15 +82,25 @@ def merge_with_opf_spans(
     opf_spans: list[dict],
     ref_spans: list[dict],
 ) -> list[dict]:
-    """Merge OPF model spans with regex ref_normativa spans, removing overlaps."""
-    all_spans = sorted(
-        [*opf_spans, *ref_spans],
-        key=lambda s: (s["start"], -s["end"]),
-    )
-    result: list[dict] = []
-    last_end = -1
-    for sp in all_spans:
-        if sp["start"] >= last_end:
+    """Merge OPF model spans with regex ref_normativa spans, removing overlaps.
+
+    ``opf_spans`` (the model's or gold's own labels) always win — a
+    ``ref_spans`` entry is only kept if it overlaps NONE of them.
+
+    Real bug fixed here: the original implementation sorted both lists
+    together by ``(start, -end)`` and scanned greedily, which only
+    prioritizes ``opf_spans`` on an EXACT start-position tie. A regex span
+    that starts earlier than a real gold label but partially overlaps it
+    (e.g. a "custas_fim" anchor ending inside a "Lei n. 9.099/95" citation
+    the regex also matches) sorted first and silently displaced the gold
+    label — confirmed as a real occurrence, not a hypothetical, when
+    ref_normativa was added back to the trained label space and a real
+    gold document's own custas_fim span was dropped by this exact case.
+    """
+    result = sorted(opf_spans, key=lambda s: s["start"])
+    occupied = [(s["start"], s["end"]) for s in result]
+    for sp in sorted(ref_spans, key=lambda s: s["start"]):
+        if not any(sp["start"] < e and s < sp["end"] for s, e in occupied):
             result.append(sp)
-            last_end = sp["end"]
-    return result
+            occupied.append((sp["start"], sp["end"]))
+    return sorted(result, key=lambda s: s["start"])

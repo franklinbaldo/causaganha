@@ -109,3 +109,26 @@ def test_merge_keeps_non_overlapping_ref_span() -> None:
     text = "Aplica-se a Súmula 331 do TST ao caso."
     merged = merge_with_opf_spans([], extract_ref_normativa(text))
     assert any(s["category"] == "ref_normativa" for s in merged)
+
+
+def test_merge_keeps_gold_span_even_when_ref_span_starts_earlier() -> None:
+    """Regression: a real gold document's own custas_fim span was silently
+    dropped by the merge because a ref_normativa match starting a few
+    characters EARLIER (but still partially overlapping) sorted first in
+    the original (start, -end) scan — the original implementation only
+    reliably favored gold on an exact start-position tie, not on this
+    more common partial-overlap-from-an-earlier-start shape.
+    """
+    text = "Sem custas, na forma do art. 38 da Lei n. 9.099/95."
+    fim_start = text.index("9.099/95.")
+    gold_span = {"category": "custas_fim", "start": fim_start, "end": fim_start + len("9.099/95.")}
+    ref_spans = extract_ref_normativa(text)
+    # Confirm the regex genuinely produces an overlapping-but-earlier-start
+    # match here — otherwise this test wouldn't exercise the bug at all.
+    assert any(sp["start"] < gold_span["start"] < sp["end"] for sp in ref_spans), (
+        "test setup no longer reproduces an earlier-starting overlapping ref span"
+    )
+
+    merged = merge_with_opf_spans([gold_span], ref_spans)
+    kept_custas = [s for s in merged if s["category"] == "custas_fim"]
+    assert kept_custas == [gold_span]
