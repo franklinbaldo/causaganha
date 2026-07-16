@@ -100,16 +100,21 @@ class TestSegmentTextOnGold:
                     f"{base}: {n} _inicio anchors but {region_counts.get(base, 0)} regions"
                 )
 
-    def test_ref_normativa_appears_in_output_not_gold(self) -> None:
-        # Gold never labels ref_normativa (regex pre-pass owns it); after the
-        # pipeline it must be present whenever the text cites statutes.
-        found_any = False
+    def test_ref_normativa_appears_in_gold_and_pipeline_output(self) -> None:
+        # ref_normativa is now trained: bootstrapped into gold via the same
+        # regex pre-pass (scripts/ref_normativa_prepass.py), which ALSO
+        # keeps running at inference as a complementary/fallback signal —
+        # both paths must agree the category is present.
+        found_in_gold = False
+        found_in_output = False
         for rec in GOLD:
-            assert all(s["category"] != "ref_normativa" for s in rec["label"])
+            if any(s["category"] == "ref_normativa" for s in rec["label"]):
+                found_in_gold = True
             result = segment_text(rec["text"], rec["label"])
             if any(s["category"] == "ref_normativa" for s in result["spans"]):
-                found_any = True
-        assert found_any, (
+                found_in_output = True
+        assert found_in_gold, "no ref_normativa span in gold — bootstrap likely missing"
+        assert found_in_output, (
             "no ref_normativa span produced over the entire gold corpus — "
             "regex pre-pass is likely broken"
         )

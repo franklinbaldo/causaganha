@@ -53,13 +53,21 @@ logger = structlog.get_logger()
 # so second-instance decisions are first-class, not forced through the
 # sentença-shaped categories.
 #
-# ref_normativa is a single-anchor category but is handled by regex
-# pre-pass at inference time. It is kept in SINGLE_ANCHOR_CATEGORIES
-# for region reconstruction but excluded from the OPF training label
-# space (SPAN_CLASS_NAMES_V7).
+# ref_normativa is also handled by a regex pre-pass at inference time
+# (scripts/ref_normativa_prepass.py) — the regex is high-precision for
+# this pattern (article/law/súmula citations) and stays wired into
+# segment_decision.py's merge step regardless. But the OPF model is ALSO
+# trained on this category: a deployed model should be able to identify
+# every category standalone, not depend on a runtime regex correctly
+# handling every real-world citation format (the fixed thousands-
+# separator bug in ref_normativa_prepass.py is exactly the kind of case a
+# trained model could generalize past). Regex's role is therefore
+# twofold: bootstrapping training labels cheaply (it's high-precision
+# enough for that) AND remaining a complementary/fallback signal at
+# inference (merge_with_opf_spans already prefers the model span on
+# overlap — see test_ref_span_overlapping_model_span_is_dropped).
 #
-# Training label space: O + 5 trained single + 20 paired = 26 entries.
-# Full ontology: O + 6 single + 20 paired = 27 entries.
+# Training label space: O + 6 trained single + 20 paired = 27 entries.
 # ---------------------------------------------------------------------------
 
 # -- Single-anchor categories (tiling regions) --
@@ -94,11 +102,9 @@ PAIRED_CATEGORIES: list[str] = []
 for _base in _PAIRED_REGION_BASES:
     PAIRED_CATEGORIES.extend([f"{_base}_inicio", f"{_base}_fim"])
 
-_TRAINED_SINGLE = [c for c in SINGLE_ANCHOR_CATEGORIES if c != "ref_normativa"]
-
 SPAN_CLASS_NAMES_V7: list[str] = [
     "O",
-    *_TRAINED_SINGLE,
+    *SINGLE_ANCHOR_CATEGORIES,
     *PAIRED_CATEGORIES,
 ]
 

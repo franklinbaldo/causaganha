@@ -140,8 +140,15 @@ def test_spans_have_correct_format() -> None:
         assert isinstance(sp["end"], int)
 
 
-def test_v7_label_space_has_26_entries() -> None:
-    assert len(SPAN_CLASS_NAMES_V7) == 26
+def test_v7_label_space_has_27_entries() -> None:
+    # ref_normativa was added back to the trained label space: the regex
+    # pre-pass (scripts/ref_normativa_prepass.py) is high-precision and
+    # stays wired into inference as a complementary/fallback signal, but
+    # a deployed OPF model should identify every category standalone
+    # rather than depend on a runtime regex handling every real-world
+    # citation format — see prepare_privacy_filter_dataset.py's comment
+    # block above SPAN_CLASS_NAMES_V7 for the full rationale.
+    assert len(SPAN_CLASS_NAMES_V7) == 27
     assert SPAN_CLASS_NAMES_V7[0] == "O"
     assert "dispositivo_abertura" in SPAN_CLASS_NAMES_V7
     assert "cabecalho_inicio" in SPAN_CLASS_NAMES_V7
@@ -158,7 +165,7 @@ def test_v7_label_space_has_26_entries() -> None:
     assert "voto_fim" in SPAN_CLASS_NAMES_V7
     assert "acordao_decisorio_inicio" in SPAN_CLASS_NAMES_V7
     assert "acordao_decisorio_fim" in SPAN_CLASS_NAMES_V7
-    assert "ref_normativa" not in SPAN_CLASS_NAMES_V7
+    assert "ref_normativa" in SPAN_CLASS_NAMES_V7
 
 
 def test_stratified_split_preserves_categories() -> None:
@@ -214,7 +221,12 @@ def test_opf_label_space_matches_gold_artifacts() -> None:
     )
 
     assert ls["span_class_names"][0] == "O"
-    assert "ref_normativa" not in file_names
+    # ref_normativa is now trained (see test_v7_label_space_has_27_entries)
+    # — kept in the trainable label space and the gold splits, not
+    # excluded, though the regex pre-pass still runs as a complementary
+    # signal at inference (test_ref_normativa_appears_in_gold in
+    # test_segment_decision.py).
+    assert "ref_normativa" in file_names
 
     for split in ("train", "val", "test"):
         jsonl = gold / f"{split}.jsonl"

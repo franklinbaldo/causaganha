@@ -6,6 +6,7 @@
     "resultado",
     "ref_processual",
     "valor_condenacao",
+    "ref_normativa",
     "fundamentacao_legal",
     "cabecalho_inicio",
     "cabecalho_fim",

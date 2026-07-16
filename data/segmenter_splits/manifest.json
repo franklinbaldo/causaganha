@@ -27,6 +27,7 @@
     "honorarios_inicio": 6,
     "preliminar_fim": 1,
     "preliminar_inicio": 1,
+    "ref_normativa": 113,
     "ref_processual": 18,
     "relatorio_fim": 11,
     "relatorio_inicio": 12,
@@ -59,5 +60,5 @@
   "labeler": "prompt_subagents:haiku (one labeling subagent per batch, acordaos first)",
   "test_verified_by": "prompt_ensemble:strict+disambig+blind+adversarial",
   "verifier_model": "sonnet",
-  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa is intentionally NOT labeled (regex pre-pass at inference). Single-tribunal (TJRO) seed of 20 docs; scale to more tribunals/volume next."
+  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa was originally excluded (regex pre-pass at inference) but was added back to the trained label space and bootstrapped into every split via the same regex pre-pass (scripts/ref_normativa_prepass.py) against the already-verified gold text -- see git history for the architecture decision and the regex fix (thousands-separator article numbers, spelled-out inciso/paragrafo/alinea) that preceded it. Single-tribunal (TJRO) seed of 20 docs; scale to more tribunals/volume next."
 }
