@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from scripts.juris_extract_gold_candidates import (
     extract_candidate,
+    extract_dispositivo_abertura_candidate,
     extract_internal_candidate,
     extract_preliminar_candidate,
 )
@@ -297,3 +298,40 @@ def test_preliminar_candidate_passes_final_invariants() -> None:
     )
     candidate = extract_preliminar_candidate(row)
     assert check_final_invariants(candidate["text"], candidate["label"]) == []
+
+
+def test_dispositivo_abertura_matches_inside_sentenca() -> None:
+    row = _row(
+        "SENTENÇA I - RELATÓRIO Trata-se de ação. É o relatório. II - FUNDAMENTAÇÃO "
+        "A parte requerida não contestou. III - CONCLUSÃO Ante o exposto, com "
+        "fundamento no inciso I do art. 487 do CPC, JULGO PROCEDENTE o pedido."
+    )
+    candidate = extract_dispositivo_abertura_candidate(row)
+    assert candidate is not None
+    assert candidate["label"] == [
+        {
+            "category": "dispositivo_abertura",
+            "start": row["texto_limpo"].index("Ante o exposto"),
+            "end": row["texto_limpo"].index("Ante o exposto") + len("Ante o exposto"),
+        }
+    ]
+    assert candidate["info"]["doc_type"] == "sentenca"
+    assert "unmatched_pair" not in candidate["info"]
+
+
+def test_dispositivo_abertura_no_match_is_rejected() -> None:
+    row = _row("Texto qualquer sem nenhuma fórmula de dispositivo conhecida.")
+    assert extract_dispositivo_abertura_candidate(row) is None
+
+
+def test_dispositivo_abertura_passes_final_invariants() -> None:
+    row = _row("Posto isso, JULGO EXTINTO O FEITO, nos termos do art. 924, II, do CPC.")
+    candidate = extract_dispositivo_abertura_candidate(row)
+    assert check_final_invariants(candidate["text"], candidate["label"]) == []
+
+
+def test_dispositivo_abertura_offset_is_exact() -> None:
+    row = _row("Diante do exposto, JULGO IMPROCEDENTE o pedido inicial.")
+    candidate = extract_dispositivo_abertura_candidate(row)
+    lab = candidate["label"][0]
+    assert candidate["text"][lab["start"] : lab["end"]] == "Diante do exposto"

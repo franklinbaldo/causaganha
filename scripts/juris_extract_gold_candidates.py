@@ -46,7 +46,7 @@ from typing import TYPE_CHECKING
 
 import pyarrow.parquet as pq
 
-from scripts.synthetic_segmenter.phrase_banks import PAIR_PHRASES
+from scripts.synthetic_segmenter.phrase_banks import PAIR_PHRASES, SINGLE_ANCHOR_PHRASES
 from scripts.synthetic_segmenter.transform import check_final_invariants
 
 
@@ -295,6 +295,61 @@ def extract_preliminar_from_parquet(path: Path) -> Iterator[dict]:
     table = pq.read_table(str(path))
     for row in table.to_pylist():
         candidate = extract_preliminar_candidate(row)
+        if candidate is not None:
+            yield candidate
+
+
+def extract_dispositivo_abertura_candidate(row: dict) -> dict | None:
+    """Build a ``dispositivo_abertura`` candidate from a SENTENÇA-tipo document.
+
+    Single-anchor category (RFC 0011 guideline: no ``_fim`` — the region
+    extends to the next anchor or EOD), so there's no unmatched_pair
+    concept here; a match is either found or the row is skipped. Uses
+    ``SINGLE_ANCHOR_PHRASES`` directly (unambiguous everywhere it occurs
+    in real SENTENÇA text — unlike ``preliminar``, no dispositivo-outcome
+    collision was found in a real sample check before wiring this in).
+    Only sentença-tipo documents: per the guideline, an acórdão's voto
+    conclusion is never labeled dispositivo_abertura (that's the
+    ``quoted_dispositivo`` hard negative instead — see
+    ``hard_negatives.py``).
+    """
+    text = (row.get("texto_limpo") or "").strip()
+    if len(text) < _MIN_TEXT_LENGTH or _looks_noisy(text):
+        return None
+
+    match = _find_internal(text, SINGLE_ANCHOR_PHRASES["dispositivo_abertura"])
+    if match is None:
+        return None
+    _surface, start, end = match
+
+    labels = [{"category": "dispositivo_abertura", "start": start, "end": end}]
+    problems = check_final_invariants(text, labels)
+    if problems:
+        return None
+
+    info = {
+        "source": "tjro_juris",
+        "tipo": "SENTENÇA",
+        "id_documento": row.get("id_documento"),
+        "nr_processo": row.get("nr_processo"),
+        "classe_judicial": row.get("classe_judicial"),
+        "orgao": row.get("orgao"),
+        "relator": row.get("relator"),
+        # unmatched_pair deliberately omitted: dispositivo_abertura is a
+        # single-anchor category (RFC 0011 guideline) — the "pair with a
+        # missing fim" concept doesn't apply, so this field would be
+        # meaningless rather than False.
+        "doc_type": "sentenca",
+        "extraction_mode": "internal",
+    }
+    return {"text": text, "label": labels, "info": info}
+
+
+def extract_dispositivo_abertura_from_parquet(path: Path) -> Iterator[dict]:
+    """Yield dispositivo_abertura candidates from a SENTENÇA-tipo parquet file."""
+    table = pq.read_table(str(path))
+    for row in table.to_pylist():
+        candidate = extract_dispositivo_abertura_candidate(row)
         if candidate is not None:
             yield candidate
 
