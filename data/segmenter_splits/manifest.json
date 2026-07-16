@@ -1,66 +1,66 @@
 {
   "category_version": "segmenter_v7",
   "seed": 771,
-  "source": "Internet Archive djen-tjro-2025 OCR cadernos (public DJEN publications) for the original 20-doc seed; TJRO JURIS system (src/tjro_juris, real digitally-native court text, not OCR) for the 20-doc expansion batch, the 20-doc preliminar-targeted Round A batch, the 20-doc costs/fees-targeted Round B batch, the 18-doc general-volume Round C batch, and the 8-doc honorarios_fim-targeted Round D batch",
+  "source": "Internet Archive djen-tjro-2025 OCR cadernos (public DJEN publications) for the original 20-doc seed; TJRO JURIS system (src/tjro_juris, real digitally-native court text, not OCR) for the 20-doc expansion batch, the 20-doc preliminar-targeted Round A batch, the 20-doc costs/fees-targeted Round B batch, the 18-doc general-volume Round C batch, the 8-doc honorarios_fim-targeted Round D batch, and the 25-doc model-assisted-correction Round E batch (2017-07-ACORDAO.parquet)",
   "source_commit": "22e9e10ce4f5cfc9bd2ab86b13e468ebf017613d",
   "counts": {
-    "train": 74,
-    "val": 16,
-    "test": 16
+    "train": 91,
+    "val": 20,
+    "test": 20
   },
   "per_class": {
-    "acordao_decisorio_fim": 21,
-    "acordao_decisorio_inicio": 22,
-    "cabecalho_fim": 61,
-    "cabecalho_inicio": 69,
+    "acordao_decisorio_fim": 37,
+    "acordao_decisorio_inicio": 39,
+    "cabecalho_fim": 84,
+    "cabecalho_inicio": 92,
     "capitulo_merito_fim": 21,
     "capitulo_merito_inicio": 39,
     "custas_fim": 19,
-    "custas_inicio": 40,
+    "custas_inicio": 43,
     "dispositivo_abertura": 47,
-    "ementa_fim": 24,
-    "ementa_inicio": 25,
-    "encerramento_fim": 42,
-    "encerramento_inicio": 48,
-    "fundamentacao_legal": 29,
-    "honorarios_fim": 12,
-    "honorarios_inicio": 36,
+    "ementa_fim": 36,
+    "ementa_inicio": 42,
+    "encerramento_fim": 43,
+    "encerramento_inicio": 50,
+    "fundamentacao_legal": 31,
+    "honorarios_fim": 13,
+    "honorarios_inicio": 39,
     "preliminar_fim": 16,
     "preliminar_inicio": 16,
-    "ref_normativa": 824,
-    "ref_processual": 68,
-    "relatorio_fim": 42,
-    "relatorio_inicio": 58,
-    "resultado": 81,
-    "valor_condenacao": 22,
-    "voto_fim": 20,
-    "voto_inicio": 22
+    "ref_normativa": 931,
+    "ref_processual": 126,
+    "relatorio_fim": 57,
+    "relatorio_inicio": 75,
+    "resultado": 95,
+    "valor_condenacao": 30,
+    "voto_fim": 38,
+    "voto_inicio": 40
   },
-  "per_class_note": "Counts above are train-split only, matching the original convention. Round D closed the last G2 gap: honorarios_fim went from 6 to 12 in train (>=10 minimum). Candidates were pre-filtered on 'homologacao'/'acordo' co-occurring with 'honorarios' but NOT the fused 'custas e/ou honorarios' phrasing that Round B/C found dominant -- 7 of 8 candidates confirmed a genuinely separate honorarios clause with its own natural closing (the filter's one false positive was a document where 'honorarios' only appeared in case-classification metadata, not an operative clause, and was correctly left untagged rather than forced). ALL G1 and G2 gates are now clear across every split. Only G4 (waived) and G5 (volume) remain open.",
+  "per_class_note": "Counts above are train-split only, matching the original convention. Round D closed the last G2 gap: honorarios_fim went from 6 to 12 in train (>=10 minimum). Round E (25 docs, see notes) added structural-category volume across the board (e.g. acordao_decisorio_fim 21->37, cabecalho_inicio 69->92, voto_inicio 22->40) by deliberately excluding ref_normativa from its own labeling effort -- ref_normativa was already the single most abundant category (824 examples pre-Round-E, already far past any minimum) so Round E's per-document labeling budget was spent entirely on the structural anchors an audited-precision pass on this same checkpoint had just shown to be the model's weakest categories (resultado/cabecalho/voto/relatorio/acordao_decisorio pairs). Round E's ref_normativa count (931) comes only from spans the correcting subagents happened to keep/fix from the model's own predictions, not from fresh labeling. ALL G1 and G2 gates are now clear across every split.",
   "tribunals": {
-    "TJRO": 106
+    "TJRO": 131
   },
   "doc_types_total": {
-    "acordao": 46,
-    "sentenca": 80
+    "acordao": 63,
+    "sentenca": 68
   },
   "doc_types_per_split": {
     "train": {
-      "acordao": 26,
+      "acordao": 43,
       "sentenca": 48
     },
     "val": {
-      "acordao": 6,
+      "acordao": 10,
       "sentenca": 10
     },
     "test": {
-      "acordao": 6,
+      "acordao": 10,
       "sentenca": 10
     }
   },
-  "labeler": "prompt_subagents:haiku (original 20-doc seed, one labeling subagent per batch, acordaos first); prompt_subagents:general-purpose, one per document, for the 20-doc JURIS expansion batch, the 20-doc Round A preliminar-targeted batch, the 20-doc Round B costs/fees-targeted batch, the 18-doc Round C general-volume batch, and the 8-doc Round D honorarios_fim-targeted batch",
+  "labeler": "prompt_subagents:haiku (original 20-doc seed, one labeling subagent per batch, acordaos first); prompt_subagents:general-purpose, one per document, for the 20-doc JURIS expansion batch, the 20-doc Round A preliminar-targeted batch, the 20-doc Round B costs/fees-targeted batch, the 18-doc Round C general-volume batch, the 8-doc Round D honorarios_fim-targeted batch, and the 25-doc Round E model-assisted-correction batch",
   "test_verified_by": "prompt_ensemble:strict+disambig+blind+adversarial (original 20-doc seed's val+test only)",
   "verifier_model": "sonnet",
-  "verification_note": "IMPORTANT provenance distinction: the original 20-doc seed's val+test went through a decorrelated 4-role Sonnet ensemble verification pass before being trusted as eval-quality gold. The 20-doc JURIS expansion batch, the 20-doc Round A preliminar-targeted batch (tjro_juris_acordao_prelim_*), the 20-doc Round B costs/fees-targeted batch (tjro_juris_sentenca_costs_*), the 18-doc Round C general-volume batch (tjro_juris_sentenca_vol_*), and the 8-doc Round D batch (tjro_juris_sentenca_hon_*) have NOT gone through that ensemble verification -- each has single-subagent labeling (one general-purpose agent per document, each independently briefed with the full annotation guideline), mechanical validation (opf_annotate.py validate: 0 offset/overlap/label-space errors across all splits), and a manual spot-check of a sample of records by the orchestrating session (not exhaustive, not the full ensemble). Treat val/test docs from these batches as provisional-quality until they receive the same ensemble verification pass the original seed used, especially before reporting any eval metric that includes them.",
-  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa was originally excluded (regex pre-pass at inference) but was added back to the trained label space and bootstrapped into every split via the same regex pre-pass (scripts/ref_normativa_prepass.py) against the already-verified gold text -- see git history for the architecture decision and the regex fix (thousands-separator article numbers, spelled-out inciso/paragrafo/alinea) that preceded it. A second real bug was found and fixed in scripts/ref_normativa_prepass.py's merge_with_opf_spans: it only reliably favored a gold/model span over an overlapping regex span on an exact start-position tie, not on the more common case of a regex match starting earlier but still partially overlapping -- a real gold custas_fim span was being silently dropped by this before the fix. 20-doc JURIS expansion batch added 2026-07-16 (see verification_note above) via the same subagent-labeling + opf_annotate.py from-spans/validate pipeline as the original seed, sourced from src/tjro_juris rather than DJEN cadernos. A follow-up 20-doc Round A batch (also 2026-07-16) closed the preliminar_inicio/fim zero-support gap: candidates were pre-filtered from TJRO JURIS's 2024-08-ACORDAO.parquet for a literal '\\\\b1\\\\.\\\\s*PRELIMINARES?\\\\b' numbered-heading match (found via manual audit that this heading convention is real but recent -- zero hits in 2005/2008/2017 samples, 21 hits in 2024-08 alone), then subagent-labeled the same way; all 20 confirmed a genuine preliminar section, split 14/3/3 train/val/test (seed 771). A follow-up 20-doc Round B batch (also 2026-07-16) targeted custas_fim/honorarios_fim/fundamentacao_legal: candidates were pre-filtered from TJRO JURIS's 2022-02-SENTENCA.parquet for both 'custas' and 'honorarios' substring mentions (excluding the 10 sentenca ids already used in the earlier expansion batch); several subagents independently anchored custas and honorarios on the exact same fused-clause span (a genuine ambiguity in Juizado Especial boilerplate, not an agent error -- the guideline explicitly allowed it), which opf_annotate validate correctly rejected as BIOES overlaps; 13 such conflicts were resolved deterministically by keeping the first-listed span and dropping the duplicate, then the batch was split 14/3/3 with a hand-picked (not random) val/test doc selection to guarantee each weak category met its per-split minimum despite the tiny (5-20 doc) supply for some categories. An 18-doc Round C batch (also 2026-07-16) pulled a fresh, unfiltered SENTENCA sample from TJRO JURIS's 2020-10-SENTENCA.parquet (a file not used by any prior batch) purely for G5 volume, split 12/3/3 (random, seed 773) -- it produced zero new honorarios_fim, a real finding about how rare that specific closing shape is, not a labeling gap; that finding directly informed Round D's pre-filter design (also 2026-07-16), which specifically excluded the fused 'custas e/ou honorarios' phrasing and targeted homologacao-de-acordo sentencas instead, yielding 7/8 clean honorarios_fim hits and closing the last G2 gap (see per_class_note). Single-tribunal (TJRO) corpus of 106 docs; only G5 volume (needs >=150 total, currently 106) and the waived G4 multi-tribunal gate remain before this gold clears every readiness gate for a real (non --smoke) training run."
+  "verification_note": "IMPORTANT provenance distinction: the original 20-doc seed's val+test went through a decorrelated 4-role Sonnet ensemble verification pass before being trusted as eval-quality gold. The 20-doc JURIS expansion batch, the 20-doc Round A preliminar-targeted batch (tjro_juris_acordao_prelim_*), the 20-doc Round B costs/fees-targeted batch (tjro_juris_sentenca_costs_*), the 18-doc Round C general-volume batch (tjro_juris_sentenca_vol_*), the 8-doc Round D batch (tjro_juris_sentenca_hon_*), and the 25-doc Round E model-assisted-correction batch have NOT gone through that ensemble verification -- each has single-subagent labeling (one general-purpose agent per document, each independently briefed with the full annotation guideline), mechanical validation (opf_annotate.py validate: 0 offset/overlap/label-space errors across all splits), and a manual spot-check of a sample of records by the orchestrating session (not exhaustive, not the full ensemble). Round E additionally started from a trained checkpoint's own predictions plus an independent 25-subagent audit of those predictions (correct/wrong_category/wrong_boundary/false_positive verdicts, computed for a separate precision study before the correction pass began) rather than a blank annotation guideline read; each correcting subagent was instructed to keep audit-confirmed-correct spans, fix or drop flawed ones, and then do its own fresh full-document read for anything the audit hadn't touched (the audit only judged the model's own predicted spans, not the whole document). Treat val/test docs from these batches as provisional-quality until they receive the same ensemble verification pass the original seed used, especially before reporting any eval metric that includes them.",
+  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa was originally excluded (regex pre-pass at inference) but was added back to the trained label space and bootstrapped into every split via the same regex pre-pass (scripts/ref_normativa_prepass.py) against the already-verified gold text -- see git history for the architecture decision and the regex fix (thousands-separator article numbers, spelled-out inciso/paragrafo/alinea) that preceded it. A second real bug was found and fixed in scripts/ref_normativa_prepass.py's merge_with_opf_spans: it only reliably favored a gold/model span over an overlapping regex span on an exact start-position tie, not on the more common case of a regex match starting earlier but still partially overlapping -- a real gold custas_fim span was being silently dropped by this before the fix. 20-doc JURIS expansion batch added 2026-07-16 (see verification_note above) via the same subagent-labeling + opf_annotate.py from-spans/validate pipeline as the original seed, sourced from src/tjro_juris rather than DJEN cadernos. A follow-up 20-doc Round A batch (also 2026-07-16) closed the preliminar_inicio/fim zero-support gap: candidates were pre-filtered from TJRO JURIS's 2024-08-ACORDAO.parquet for a literal '\\\\b1\\\\.\\\\s*PRELIMINARES?\\\\b' numbered-heading match (found via manual audit that this heading convention is real but recent -- zero hits in 2005/2008/2017 samples, 21 hits in 2024-08 alone), then subagent-labeled the same way; all 20 confirmed a genuine preliminar section, split 14/3/3 train/val/test (seed 771). A follow-up 20-doc Round B batch (also 2026-07-16) targeted custas_fim/honorarios_fim/fundamentacao_legal: candidates were pre-filtered from TJRO JURIS's 2022-02-SENTENCA.parquet for both 'custas' and 'honorarios' substring mentions (excluding the 10 sentenca ids already used in the earlier expansion batch); several subagents independently anchored custas and honorarios on the exact same fused-clause span (a genuine ambiguity in Juizado Especial boilerplate, not an agent error -- the guideline explicitly allowed it), which opf_annotate validate correctly rejected as BIOES overlaps; 13 such conflicts were resolved deterministically by keeping the first-listed span and dropping the duplicate, then the batch was split 14/3/3 with a hand-picked (not random) val/test doc selection to guarantee each weak category met its per-split minimum despite the tiny (5-20 doc) supply for some categories. An 18-doc Round C batch (also 2026-07-16) pulled a fresh, unfiltered SENTENCA sample from TJRO JURIS's 2020-10-SENTENCA.parquet (a file not used by any prior batch) purely for G5 volume, split 12/3/3 (random, seed 773) -- it produced zero new honorarios_fim, a real finding about how rare that specific closing shape is, not a labeling gap; that finding directly informed Round D's pre-filter design (also 2026-07-16), which specifically excluded the fused 'custas e/ou honorarios' phrasing and targeted homologacao-de-acordo sentencas instead, yielding 7/8 clean honorarios_fim hits and closing the last G2 gap (see per_class_note). A 25-doc Round E batch (2026-07-16) took a different shape from A-D: 25 genuinely novel documents (2017-07-ACORDAO.parquet, a source year never touched by any prior round -- existing gold was all 2020/2022/2024) were run through the extended 10-epoch checkpoint's own inference, independently audited span-by-span by 25 subagents for a precision study (52.9% audited precision, structural pair categories the weakest), then a second wave of 25 correction subagents turned that prediction+audit pair into full corrected gold per document (keep-confirmed / fix-flawed / drop-false-positive / fresh-read-for-the-rest), all acordaos, split 17/4/4 train/val/test (random, seed 2017). Round E deliberately skipped ref_normativa as new labeling effort (see per_class_note) since it was already the most oversupplied category by a wide margin; this also means Round E's per-doc labeling cost was lower than A-D's from-scratch full reads. While reconciling Round E into this manifest, a pre-existing doc_types_total arithmetic bug was also fixed: it previously read acordao:46/sentenca:80 (sum 126) which didn't match the sum of doc_types_per_split (sum 106, matching the true total) -- corrected to acordao:38/sentenca:68 as the pre-Round-E baseline, then Round E's 25 acordaos were added on top. Single-tribunal (TJRO) corpus of 131 docs; G5 volume (needs >=150 total, currently 131) and the waived G4 multi-tribunal gate remain before this gold clears every readiness gate for a real (non --smoke) training run."
 }
