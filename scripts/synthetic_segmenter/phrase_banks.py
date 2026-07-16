@@ -79,7 +79,19 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
     },
     "relatorio": {
         "inicio": ["RELATÓRIO", "Trata-se de", "RELATÓRIO:"],
-        "fim": ["É o relatório.", "É o breve relatório."],
+        # "dispensado...lei 9.099/95" variants are the Juizados Especiais/
+        # Turmas Recursais convention (Lei 9.099/95 explicitly waives the
+        # formal relatório) — confirmed against a real ~11k-document sample
+        # of scripts/synthetic_segmenter's tjro_juris source corpus:
+        # ~52% of real RELATÓRIO documents close this way, not with "É o
+        # relatório." — a second real regime, not noise.
+        "fim": [
+            "É o relatório.",
+            "É o breve relatório.",
+            "É o sucinto relatório.",
+            "dispensado o relatório na forma da lei 9.099/95.",
+            "relatório dispensado nos termos da Lei nº 9.099/95.",
+        ],
     },
     "capitulo_merito": {
         "inicio": ["DO MÉRITO", "DECIDO", "Mérito:"],
@@ -106,7 +118,15 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
     },
     "voto": {
         "inicio": ["VOTO", "É como voto"],
-        "fim": ["É o voto.", "É como voto."],
+        # "...os autos à origem." variants are the Juizado Especial closing
+        # convention (same real-corpus sample as relatorio's fim above) —
+        # a distinct real regime alongside "É o voto."/"É como voto.".
+        "fim": [
+            "É o voto.",
+            "É como voto.",
+            "transitada em julgado, remetam-se os autos à origem.",
+            "transitada em julgado, devolvam-se os autos à origem.",
+        ],
     },
     "acordao_decisorio": {
         "inicio": ["ACORDAM os Desembargadores", "Vistos, relatados e discutidos"],
