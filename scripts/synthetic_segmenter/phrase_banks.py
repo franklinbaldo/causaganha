@@ -91,6 +91,8 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
             "É o sucinto relatório.",
             "dispensado o relatório na forma da lei 9.099/95.",
             "relatório dispensado nos termos da Lei nº 9.099/95.",
+            "Relatório dispensado, nos termos da Lei n. 9.099/95.",
+            "dispensado nos moldes do art. 38, LF nº 9.099/95, e Enunciado Cível FONAJE nº 92.",
         ],
     },
     "capitulo_merito": {
@@ -118,14 +120,18 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
     },
     "voto": {
         "inicio": ["VOTO", "É como voto"],
-        # "...os autos à origem." variants are the Juizado Especial closing
-        # convention (same real-corpus sample as relatorio's fim above) —
-        # a distinct real regime alongside "É o voto."/"É como voto.".
+        # "...os autos à origem." is the Juizado Especial closing convention
+        # (same real-corpus sample as relatorio's fim above) — deliberately
+        # NOT including the lead-in clause ("transitada em julgado,"/"Após
+        # o trânsito em julgado,"/"Com o trânsito em julgado"/"Oportunamente,"
+        # all seen verbatim in the real sample): the lead-in varies freely,
+        # only the closing "remetam-se/devolvam-se os autos à origem." is
+        # stable, and RFC 0011 §5.2's own rule is short anchors (1-5 words).
         "fim": [
             "É o voto.",
             "É como voto.",
-            "transitada em julgado, remetam-se os autos à origem.",
-            "transitada em julgado, devolvam-se os autos à origem.",
+            "remetam-se os autos à origem.",
+            "devolvam-se os autos à origem.",
         ],
     },
     "acordao_decisorio": {

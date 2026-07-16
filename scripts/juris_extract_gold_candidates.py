@@ -72,7 +72,14 @@ _NOISE_RE = re.compile(r"false false false|PT-BR X-NONE X-NONE|mso-", re.IGNOREC
 
 
 def _looks_noisy(text: str) -> bool:
-    return bool(_NOISE_RE.search(text[-200:]))
+    """Detect residual Word/OpenXML metadata anywhere in the text.
+
+    Confirmed via manual audit (not just the tail): the junk can sit right
+    after the opening heading (e.g. "RELATÓRIO Normal 0 21 false false
+    false PT-BR X-NONE X-NONE ..."), not only at the end — an
+    end-only check missed it.
+    """
+    return bool(_NOISE_RE.search(text))
 
 
 def _find_fim(text: str, fim_variants: list[str]) -> tuple[str, int, int] | None:

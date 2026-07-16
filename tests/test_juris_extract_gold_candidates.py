@@ -67,6 +67,47 @@ def test_too_short_text_is_rejected() -> None:
     assert extract_candidate(row, "VOTO") is None
 
 
+def test_noise_at_start_is_rejected_not_just_tail() -> None:
+    """Manual audit finding: Word/OpenXML metadata junk can sit right after
+    the opening heading, not only at the end — an end-only check misses it.
+    """
+    row = _row(
+        "RELATÓRIO Normal 0 21 false false false PT-BR X-NONE X-NONE LUIZ ALVES "
+        "AMORIM recorre da sentença proferida nos autos da ação. É o relatório."
+    )
+    assert extract_candidate(row, "RELATÓRIO") is None
+
+
+def test_voto_fim_matches_regardless_of_variable_lead_in() -> None:
+    """Manual audit finding: the lead-in before 'remetam-se os autos à origem.'
+    varies freely across real documents ("transitada em julgado,"/"Após o
+    trânsito em julgado,"/"Com o trânsito em julgado"/"Oportunamente,") —
+    only the closing clause is stable, so the phrase bank must not require a
+    specific lead-in.
+    """
+    variants = [
+        "VOTO Conheço do recurso. Após o trânsito em julgado, remetam-se os autos à origem.",
+        "VOTO Conheço do recurso. Com o trânsito em julgado remetam-se os autos à origem.",
+        "VOTO Conheço do recurso. Oportunamente, remetam-se os autos à origem.",
+    ]
+    for text in variants:
+        candidate = extract_candidate(_row(text), "VOTO")
+        assert candidate is not None, text
+        categories = [lab["category"] for lab in candidate["label"]]
+        assert categories == ["voto_inicio", "voto_fim"], text
+
+
+def test_relatorio_dispensation_matches_lei_n_abbreviation() -> None:
+    """Manual audit finding: 'Lei n.' (not just 'Lei nº') is the dominant
+    real abbreviation in Juizado Especial relatório-dispensation text.
+    """
+    row = _row("RELATÓRIO Relatório dispensado, nos termos da Lei n. 9.099/95.")
+    candidate = extract_candidate(row, "RELATÓRIO")
+    assert candidate is not None
+    categories = [lab["category"] for lab in candidate["label"]]
+    assert categories == ["relatorio_inicio", "relatorio_fim"]
+
+
 def test_noisy_tail_is_rejected() -> None:
     row = _row(
         "VOTO Presentes os pressupostos de admissibilidade. É como voto. "
