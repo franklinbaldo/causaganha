@@ -1,66 +1,66 @@
 {
   "category_version": "segmenter_v7",
   "seed": 771,
-  "source": "Internet Archive djen-tjro-2025 OCR cadernos (public DJEN publications) for the original 20-doc seed; TJRO JURIS system (src/tjro_juris, real digitally-native court text, not OCR) for the 20-doc expansion batch",
+  "source": "Internet Archive djen-tjro-2025 OCR cadernos (public DJEN publications) for the original 20-doc seed; TJRO JURIS system (src/tjro_juris, real digitally-native court text, not OCR) for the 20-doc expansion batch and the 20-doc preliminar-targeted Round A batch",
   "source_commit": "22e9e10ce4f5cfc9bd2ab86b13e468ebf017613d",
   "counts": {
-    "train": 28,
-    "val": 6,
-    "test": 6
+    "train": 42,
+    "val": 9,
+    "test": 9
   },
   "per_class": {
-    "acordao_decisorio_fim": 7,
-    "acordao_decisorio_inicio": 8,
-    "cabecalho_fim": 17,
-    "cabecalho_inicio": 24,
-    "capitulo_merito_fim": 1,
-    "capitulo_merito_inicio": 11,
-    "custas_fim": 3,
-    "custas_inicio": 9,
+    "acordao_decisorio_fim": 21,
+    "acordao_decisorio_inicio": 22,
+    "cabecalho_fim": 30,
+    "cabecalho_inicio": 38,
+    "capitulo_merito_fim": 13,
+    "capitulo_merito_inicio": 24,
+    "custas_fim": 4,
+    "custas_inicio": 10,
     "dispositivo_abertura": 16,
-    "ementa_fim": 11,
-    "ementa_inicio": 12,
-    "encerramento_fim": 13,
-    "encerramento_inicio": 14,
+    "ementa_fim": 24,
+    "ementa_inicio": 25,
+    "encerramento_fim": 14,
+    "encerramento_inicio": 17,
     "fundamentacao_legal": 4,
-    "honorarios_fim": 3,
-    "honorarios_inicio": 10,
-    "preliminar_fim": 0,
-    "preliminar_inicio": 0,
-    "ref_normativa": 213,
-    "ref_processual": 26,
-    "relatorio_fim": 17,
-    "relatorio_inicio": 21,
-    "resultado": 33,
-    "valor_condenacao": 5,
-    "voto_fim": 7,
-    "voto_inicio": 8
+    "honorarios_fim": 5,
+    "honorarios_inicio": 14,
+    "preliminar_fim": 14,
+    "preliminar_inicio": 14,
+    "ref_normativa": 559,
+    "ref_processual": 37,
+    "relatorio_fim": 28,
+    "relatorio_inicio": 35,
+    "resultado": 47,
+    "valor_condenacao": 15,
+    "voto_fim": 20,
+    "voto_inicio": 22
   },
-  "per_class_note": "Counts above are train-split only, matching the original convention. preliminar_inicio/fim are 0 across ALL splits (not just train) as of the 20-doc JURIS expansion batch -- none of the 20 sampled JURIS documents happened to contain a preliminar section (sampling variance, not a labeling gap); a targeted follow-up batch is needed to close this specific category.",
+  "per_class_note": "Counts above are train-split only, matching the original convention. preliminar_inicio/fim went from 0 (previous batch's sampling variance) to 14/14 train (3/3 val, 4/4 test) via the Round A batch, which deliberately pre-filtered TJRO JURIS 2024-08 ACORDAO documents for a numbered '1. PRELIMINARES' heading before subagent labeling -- see notes. Still below G2's train minimum (10): fundamentacao_legal=4, honorarios_fim=5, custas_fim=4; and G1/G2 fail in val (custas_fim=0) and test (several categories under 3) -- these were not targeted by Round A's acordao-only, preliminar-focused sample and need their own follow-up batch(es), likely from SENTENCA documents where custas/honorarios/valor_condenacao sections are more consistently present.",
   "tribunals": {
-    "TJRO": 40
+    "TJRO": 60
   },
   "doc_types_total": {
-    "acordao": 26,
+    "acordao": 46,
     "sentenca": 34
   },
   "doc_types_per_split": {
     "train": {
-      "acordao": 12,
+      "acordao": 26,
       "sentenca": 16
     },
     "val": {
-      "acordao": 3,
+      "acordao": 6,
       "sentenca": 3
     },
     "test": {
-      "acordao": 3,
+      "acordao": 6,
       "sentenca": 3
     }
   },
-  "labeler": "prompt_subagents:haiku (original 20-doc seed, one labeling subagent per batch, acordaos first); prompt_subagents:general-purpose, one per document, for the 20-doc JURIS expansion batch",
+  "labeler": "prompt_subagents:haiku (original 20-doc seed, one labeling subagent per batch, acordaos first); prompt_subagents:general-purpose, one per document, for the 20-doc JURIS expansion batch and the 20-doc Round A preliminar-targeted batch",
   "test_verified_by": "prompt_ensemble:strict+disambig+blind+adversarial (original 20-doc seed's val+test only)",
   "verifier_model": "sonnet",
-  "verification_note": "IMPORTANT provenance distinction: the original 20-doc seed's val+test went through a decorrelated 4-role Sonnet ensemble verification pass before being trusted as eval-quality gold. The 20-doc JURIS expansion batch (tjro_juris_acordao_00..09, tjro_juris_sentenca_00..09) has NOT gone through that ensemble verification -- it has single-subagent labeling (one general-purpose agent per document, each independently briefed with the full annotation guideline), mechanical validation (opf_annotate.py validate: 0 offset/overlap/label-space errors across all 231 spans), and a manual spot-check of a sample of records by the orchestrating session (not exhaustive, not the full ensemble). Treat val/test docs from this batch as provisional-quality until they receive the same ensemble verification pass the original seed used, especially before reporting any eval metric that includes them.",
-  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa was originally excluded (regex pre-pass at inference) but was added back to the trained label space and bootstrapped into every split via the same regex pre-pass (scripts/ref_normativa_prepass.py) against the already-verified gold text -- see git history for the architecture decision and the regex fix (thousands-separator article numbers, spelled-out inciso/paragrafo/alinea) that preceded it. A second real bug was found and fixed in scripts/ref_normativa_prepass.py's merge_with_opf_spans: it only reliably favored a gold/model span over an overlapping regex span on an exact start-position tie, not on the more common case of a regex match starting earlier but still partially overlapping -- a real gold custas_fim span was being silently dropped by this before the fix. 20-doc JURIS expansion batch added 2026-07-16 (see verification_note above for its provenance/verification status) via the same subagent-labeling + opf_annotate.py from-spans/validate pipeline as the original seed, sourced from src/tjro_juris (TJRO JURIS system) rather than DJEN cadernos. Single-tribunal (TJRO) corpus of 40 docs; still needs preliminar-targeted documents, multi-tribunal sourcing (G4 gate), and substantially more volume (G5 gate needs >=150 total docs) before it clears the project's own readiness gates for a real (non --smoke) training run."
+  "verification_note": "IMPORTANT provenance distinction: the original 20-doc seed's val+test went through a decorrelated 4-role Sonnet ensemble verification pass before being trusted as eval-quality gold. Both the 20-doc JURIS expansion batch and the 20-doc Round A preliminar-targeted batch (tjro_juris_acordao_prelim_*) have NOT gone through that ensemble verification -- each has single-subagent labeling (one general-purpose agent per document, each independently briefed with the full annotation guideline), mechanical validation (opf_annotate.py validate: 0 offset/overlap/label-space errors across all splits), and a manual spot-check of a sample of records by the orchestrating session (not exhaustive, not the full ensemble). Treat val/test docs from these batches as provisional-quality until they receive the same ensemble verification pass the original seed used, especially before reporting any eval metric that includes them.",
+  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa was originally excluded (regex pre-pass at inference) but was added back to the trained label space and bootstrapped into every split via the same regex pre-pass (scripts/ref_normativa_prepass.py) against the already-verified gold text -- see git history for the architecture decision and the regex fix (thousands-separator article numbers, spelled-out inciso/paragrafo/alinea) that preceded it. A second real bug was found and fixed in scripts/ref_normativa_prepass.py's merge_with_opf_spans: it only reliably favored a gold/model span over an overlapping regex span on an exact start-position tie, not on the more common case of a regex match starting earlier but still partially overlapping -- a real gold custas_fim span was being silently dropped by this before the fix. 20-doc JURIS expansion batch added 2026-07-16 (see verification_note above) via the same subagent-labeling + opf_annotate.py from-spans/validate pipeline as the original seed, sourced from src/tjro_juris rather than DJEN cadernos. A follow-up 20-doc Round A batch (also 2026-07-16) closed the preliminar_inicio/fim zero-support gap: candidates were pre-filtered from TJRO JURIS's 2024-08-ACORDAO.parquet for a literal '\\\\b1\\\\.\\\\s*PRELIMINARES?\\\\b' numbered-heading match (found via manual audit that this heading convention is real but recent -- zero hits in 2005/2008/2017 samples, 21 hits in 2024-08 alone), then subagent-labeled the same way; all 20 confirmed a genuine preliminar section, split 14/3/3 train/val/test (seed 771). Single-tribunal (TJRO) corpus of 60 docs; still needs a SENTENCA-focused follow-up batch to clear custas_fim/honorarios_fim/fundamentacao_legal G1/G2 gates, multi-tribunal sourcing (G4 gate, waived for the first training checkpoint per explicit user direction), and substantially more volume (G5 gate needs >=150 total docs) before it clears every readiness gate for a real (non --smoke) training run."
 }
