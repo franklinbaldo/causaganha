@@ -38,8 +38,18 @@ def build_opf_train_cmd(
     epochs: int,
     batch_size: int,
     python: str = sys.executable,
+    checkpoint: Path | None = None,
 ) -> list[str]:
-    return [
+    """Build the ``opf train`` command.
+
+    ``checkpoint`` (RFC 0011 §15-bis.3): resume from an existing checkpoint
+    directory instead of opf's default base model — verified against
+    ``opf/_train/args.py``'s own ``--checkpoint`` flag, which accepts any
+    valid checkpoint directory, not just the default. ``None`` (the
+    previous, only behavior) omits the flag entirely, so every existing
+    caller is unaffected.
+    """
+    cmd = [
         python,
         "-m",
         "opf",
@@ -58,6 +68,9 @@ def build_opf_train_cmd(
         "--batch-size",
         str(batch_size),
     ]
+    if checkpoint is not None:
+        cmd.extend(["--checkpoint", str(checkpoint)])
+    return cmd
 
 
 def build_opf_eval_cmd(
@@ -147,6 +160,8 @@ def train_and_eval(
     batch_size: int,
     env: dict,
     on_metric: Callable[[dict], None] | None = None,
+    checkpoint: Path | None = None,
+    train_jsonl: Path | None = None,
 ) -> dict:
     """Run opf train then eval; return a report dict, never raises on opf failure.
 
@@ -155,10 +170,23 @@ def train_and_eval(
     a 16GB T4, see train_on_colab.sh). ``on_metric`` is called with each parsed
     live metric dict during training (e.g. to stream to a tracker).
 
+    ``checkpoint`` (RFC 0011 §15-bis.3): resume training from an existing
+    checkpoint directory instead of opf's base model — the piece
+    ``run_staged_training.py`` needs to chain stages. ``None`` (default)
+    preserves every existing caller's current behavior exactly.
+
+    ``train_jsonl`` overrides ``data_dir / "train.jsonl"`` — the per-stage
+    composed mix a staged run uses (RFC 0011 §15-bis.3: each stage has its
+    own ``compose_mix()`` output). ``val.jsonl``/``label_space.json``/
+    ``test.jsonl`` always come from ``data_dir`` regardless — they are
+    never per-stage (RFC 0011 §12.1: val/test never pass through
+    ``compose_mix.py``, staged or not).
+
     Returns ``{"train_rc": int, "eval_rc": int | None, "metrics": dict | None}``.
     ``eval_rc``/``metrics`` are None if training failed (no checkpoint exists).
     """
     ckpt = out_dir / "best"
+    resolved_train_jsonl = train_jsonl if train_jsonl is not None else data_dir / "train.jsonl"
 
     def _on_line(line: str) -> None:
         if on_metric is not None:
@@ -168,13 +196,14 @@ def train_and_eval(
 
     train_rc = run_streamed(
         build_opf_train_cmd(
-            data_dir / "train.jsonl",
+            resolved_train_jsonl,
             data_dir / "val.jsonl",
             data_dir / "label_space.json",
             ckpt,
             device=device,
             epochs=epochs,
             batch_size=batch_size,
+            checkpoint=checkpoint,
         ),
         out_dir / "train.log",
         env,
