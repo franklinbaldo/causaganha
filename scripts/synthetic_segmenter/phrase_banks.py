@@ -136,7 +136,22 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
     },
     "acordao_decisorio": {
         "inicio": ["ACORDAM os Desembargadores", "Vistos, relatados e discutidos"],
-        "fim": ["à unanimidade.", "por maioria."],
+        # Uppercase variants confirmed against real ACÓRDÃO-tipo tjro_juris
+        # documents: the dispositivo summary line is routinely rendered in
+        # full caps ("...À UNANIMIDADE."), not just lowercase. The
+        # ", NOS TERMOS DO VOTO DO RELATOR." variants are a second real
+        # sentence-final pattern (comma, not period, after
+        # UNANIMIDADE/MAIORIA) confirmed in a manual audit of internally-
+        # extracted candidates — the shorter "À UNANIMIDADE."/"POR
+        # MAIORIA." variants don't match this continuation.
+        "fim": [
+            "à unanimidade.",
+            "por maioria.",
+            "À UNANIMIDADE.",
+            "POR MAIORIA.",
+            "À UNANIMIDADE, NOS TERMOS DO VOTO DO RELATOR.",
+            "POR MAIORIA, NOS TERMOS DO VOTO DO RELATOR.",
+        ],
     },
 }
 

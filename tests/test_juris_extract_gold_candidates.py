@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from scripts.juris_extract_gold_candidates import extract_candidate
+from scripts.juris_extract_gold_candidates import extract_candidate, extract_internal_candidate
 from scripts.synthetic_segmenter.transform import check_final_invariants
 
 
@@ -154,3 +154,70 @@ def test_relatorio_has_no_doc_type_guessed() -> None:
     row = _row("RELATÓRIO Trata-se de ação. É o relatório.")
     candidate = extract_candidate(row, "RELATÓRIO")
     assert "doc_type" not in candidate["info"]
+
+
+_COMPOSITE_ACORDAO_TEXT = (
+    "RELATÓRIO Trata-se de apelação cível. É o relatório. "
+    "VOTO Presentes os pressupostos de admissibilidade, conheço do recurso. É como voto. "
+    "EMENTA Direito civil. Recurso conhecido e provido. "
+    "Vistos, relatados e discutidos estes autos, acordam os magistrados da 2ª Câmara "
+    "Cível, na conformidade da ata de julgamentos, em NEGAR PROVIMENTO AO RECURSO, "
+    "À UNANIMIDADE. Porto Velho, 1 de janeiro de 2024."
+)
+
+
+def test_internal_extraction_finds_acordao_decisorio_inside_composite_document() -> None:
+    row = _row(_COMPOSITE_ACORDAO_TEXT)
+    candidate = extract_internal_candidate(row, "acordao_decisorio")
+    assert candidate is not None
+    categories = [lab["category"] for lab in candidate["label"]]
+    assert categories == ["acordao_decisorio_inicio", "acordao_decisorio_fim"]
+    assert candidate["info"]["unmatched_pair"] is False
+    assert candidate["info"]["extraction_mode"] == "internal"
+
+
+def test_internal_extraction_offsets_are_exact_mid_document() -> None:
+    row = _row(_COMPOSITE_ACORDAO_TEXT)
+    candidate = extract_internal_candidate(row, "acordao_decisorio")
+    for label in candidate["label"]:
+        surface = candidate["text"][label["start"] : label["end"]]
+        assert surface == surface.strip()
+        assert surface != ""
+    # the acordao_decisorio anchors must NOT be at the document boundaries
+    # (that would mean this collapsed to the whole-document case, not a
+    # genuine internal find).
+    assert candidate["label"][0]["start"] > 0
+
+
+def test_internal_extraction_matches_uppercase_closing() -> None:
+    row = _row(
+        "Vistos, relatados e discutidos estes autos, acordam os magistrados, "
+        "em RECURSO PROVIDO, POR MAIORIA. Porto Velho."
+    )
+    candidate = extract_internal_candidate(row, "acordao_decisorio")
+    assert candidate is not None
+    fim = next(lab for lab in candidate["label"] if lab["category"] == "acordao_decisorio_fim")
+    assert candidate["text"][fim["start"] : fim["end"]] == "POR MAIORIA."
+
+
+def test_internal_extraction_no_inicio_match_is_rejected() -> None:
+    row = _row("Texto qualquer sem nenhuma âncora de acordao_decisorio conhecida.")
+    assert extract_internal_candidate(row, "acordao_decisorio") is None
+
+
+def test_internal_extraction_missing_fim_is_unmatched_pair() -> None:
+    row = _row(
+        "Vistos, relatados e discutidos estes autos, acordam os magistrados "
+        "da Câmara em julgar o recurso, sem uma fórmula de fechamento conhecida aqui."
+    )
+    candidate = extract_internal_candidate(row, "acordao_decisorio")
+    assert candidate is not None
+    categories = [lab["category"] for lab in candidate["label"]]
+    assert categories == ["acordao_decisorio_inicio"]
+    assert candidate["info"]["unmatched_pair"] is True
+
+
+def test_internal_extraction_passes_final_invariants() -> None:
+    row = _row(_COMPOSITE_ACORDAO_TEXT)
+    candidate = extract_internal_candidate(row, "acordao_decisorio")
+    assert check_final_invariants(candidate["text"], candidate["label"]) == []

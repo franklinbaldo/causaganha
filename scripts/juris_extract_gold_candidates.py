@@ -140,11 +140,87 @@ def extract_candidate(row: dict, tipo: str) -> dict | None:
     return {"text": text, "label": labels, "info": info}
 
 
+def _find_internal(text: str, variants: list[str]) -> tuple[str, int, int] | None:
+    """Return (surface, start, end) for the earliest-occurring variant anywhere in text."""
+    best: tuple[str, int, int] | None = None
+    for variant in variants:
+        idx = text.find(variant)
+        if idx != -1 and (best is None or idx < best[1]):
+            best = (variant, idx, idx + len(variant))
+    return best
+
+
+def extract_internal_candidate(row: dict, base: str) -> dict | None:
+    """Build a candidate by searching ANYWHERE in a composite ACÓRDÃO-tipo document.
+
+    Unlike ``extract_candidate`` (whole-document-is-the-category), this is
+    for categories embedded partway through a longer real document — e.g.
+    ``acordao_decisorio``'s "Vistos, relatados e discutidos ... À
+    UNANIMIDADE." dispositivo line inside a full ACÓRDÃO text. Only safe
+    for categories whose phrase-bank variants are unambiguous substrings
+    everywhere they occur; ``preliminar`` is deliberately NOT wired
+    through this path — "PRELIMINAR" alone also appears as a dispositivo
+    outcome word ("PRELIMINAR REJEITADA"), which is not the section
+    heading this category means, and disambiguating that needs a
+    different, narrower pattern than a shared-phrase-bank substring match.
+    """
+    text = (row.get("texto_limpo") or "").strip()
+    if len(text) < _MIN_TEXT_LENGTH or _looks_noisy(text):
+        return None
+
+    phrases = PAIR_PHRASES[base]
+    inicio = _find_internal(text, phrases["inicio"])
+    if inicio is None:
+        return None
+    _inicio_surface, inicio_start, inicio_end = inicio
+
+    labels = [{"category": f"{base}_inicio", "start": inicio_start, "end": inicio_end}]
+    unmatched_pair = True
+    fim = _find_internal(text[inicio_end:], phrases["fim"])
+    if fim is not None:
+        _fim_surface, rel_start, rel_end = fim
+        labels.append(
+            {
+                "category": f"{base}_fim",
+                "start": inicio_end + rel_start,
+                "end": inicio_end + rel_end,
+            }
+        )
+        unmatched_pair = False
+
+    problems = check_final_invariants(text, labels)
+    if problems:
+        return None
+
+    info = {
+        "source": "tjro_juris",
+        "tipo": "ACÓRDÃO",
+        "id_documento": row.get("id_documento"),
+        "nr_processo": row.get("nr_processo"),
+        "classe_judicial": row.get("classe_judicial"),
+        "orgao": row.get("orgao"),
+        "relator": row.get("relator"),
+        "unmatched_pair": unmatched_pair,
+        "doc_type": "acordao",
+        "extraction_mode": "internal",
+    }
+    return {"text": text, "label": labels, "info": info}
+
+
 def extract_from_parquet(path: Path, tipo: str) -> Iterator[dict]:
     """Yield gold candidates from every usable row in a JURIS parquet file."""
     table = pq.read_table(str(path))
     for row in table.to_pylist():
         candidate = extract_candidate(row, tipo)
+        if candidate is not None:
+            yield candidate
+
+
+def extract_internal_from_parquet(path: Path, base: str) -> Iterator[dict]:
+    """Yield internal-search candidates for ``base`` from an ACÓRDÃO-tipo parquet file."""
+    table = pq.read_table(str(path))
+    for row in table.to_pylist():
+        candidate = extract_internal_candidate(row, base)
         if candidate is not None:
             yield candidate
 
