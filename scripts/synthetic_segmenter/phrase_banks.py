@@ -101,9 +101,23 @@ PAIR_PHRASES: dict[str, dict[str, list[str]]] = {
     },
     "preliminar": {
         "inicio": ["DAS PRELIMINARES", "PRELIMINAR"],
+        # Confirmed against a real 22-document sample of numbered
+        # "N. PRELIMINARES" sections inside composite ACÓRDÃO-tipo
+        # documents (only phrases that actually fired are listed — several
+        # other plausible-sounding candidates never matched a single real
+        # document and were deliberately left out). "passo a apreciar o
+        # mérito"/"passo a análise do mérito" are given WITHOUT a trailing
+        # period: the real closing sentence continues past "mérito" in
+        # most cases ("...mérito propriamente dito.", "...mérito, tem-se
+        # que...") — same over-specification lesson as voto's fim.
         "fim": [
             "Superada a preliminar, passo ao mérito.",
             "Rejeitada a preliminar, passo ao exame do mérito.",
+            "rejeito a preliminar.",
+            "Rejeito a preliminar.",
+            "não conheço da preliminar.",
+            "passo a apreciar o mérito",
+            "passo a análise do mérito",
         ],
     },
     "honorarios": {

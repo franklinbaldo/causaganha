@@ -70,6 +70,21 @@ _MIN_TEXT_LENGTH = 40
 # noise as gold.
 _NOISE_RE = re.compile(r"false false false|PT-BR X-NONE X-NONE|mso-", re.IGNORECASE)
 
+# The genuine "1. PRELIMINARES" section heading — NOT a bare "PRELIMINAR"
+# substring match, which also fires on the dispositivo outcome phrase
+# "PRELIMINAR REJEITADA" (confirmed as a real false positive in a manual
+# 22-document audit: one hit was actually inside "9.605/1998. PRELIMINARES."
+# — the digit came from an unrelated statute citation, not a real section
+# number). Restricted to a leading "1" specifically, not "\d": preliminares
+# is virtually always the FIRST numbered analysis section in a voto — a
+# real-corpus count across the same 22-document sample found 21/22 real
+# headings numbered "1." and exactly the one false positive numbered "8."
+# (from "1998."), so this restriction eliminates that false positive with
+# zero recall loss on the sample. Not a proof it can never recur (a voto
+# could in principle number preliminares differently), but the strongest
+# signal available without building a heavier disambiguator.
+_PRELIMINAR_HEADING_RE = re.compile(r"\b1\.\s*PRELIMINARES?\b")
+
 
 def _looks_noisy(text: str) -> bool:
     """Detect residual Word/OpenXML metadata anywhere in the text.
@@ -158,11 +173,11 @@ def extract_internal_candidate(row: dict, base: str) -> dict | None:
     ``acordao_decisorio``'s "Vistos, relatados e discutidos ... À
     UNANIMIDADE." dispositivo line inside a full ACÓRDÃO text. Only safe
     for categories whose phrase-bank variants are unambiguous substrings
-    everywhere they occur; ``preliminar`` is deliberately NOT wired
-    through this path — "PRELIMINAR" alone also appears as a dispositivo
-    outcome word ("PRELIMINAR REJEITADA"), which is not the section
-    heading this category means, and disambiguating that needs a
-    different, narrower pattern than a shared-phrase-bank substring match.
+    everywhere they occur; ``preliminar`` is NOT wired through this path
+    — "PRELIMINAR" alone also appears as a dispositivo outcome word
+    ("PRELIMINAR REJEITADA"), which is not the section heading this
+    category means. See ``extract_preliminar_candidate`` for the
+    dedicated, disambiguated path that category needs instead.
     """
     text = (row.get("texto_limpo") or "").strip()
     if len(text) < _MIN_TEXT_LENGTH or _looks_noisy(text):
@@ -207,11 +222,79 @@ def extract_internal_candidate(row: dict, base: str) -> dict | None:
     return {"text": text, "label": labels, "info": info}
 
 
+def extract_preliminar_candidate(row: dict) -> dict | None:
+    """Build a ``preliminar`` candidate from a composite ACÓRDÃO-tipo document.
+
+    Uses ``_PRELIMINAR_HEADING_RE`` (the "1. PRELIMINARES" section
+    heading) for ``inicio`` instead of a shared phrase-bank substring
+    match — see that regex's own comment for the real false-positive it
+    avoids. ``fim`` still uses ``PAIR_PHRASES["preliminar"]["fim"]`` via
+    the generic internal search: unlike the inicio side, those phrases
+    (e.g. "rejeito a preliminar.") are not ambiguous with anything else
+    found in these documents.
+
+    Confirmed on a real 22-document sample: this combination recovers a
+    fim for ~86% of documents with a genuine preliminar heading (~90%
+    excluding the one confirmed false-positive heading match) — the
+    remainder have no recognizable "MÉRITO" section transition at all
+    within the document and correctly fall back to ``unmatched_pair``.
+    """
+    text = (row.get("texto_limpo") or "").strip()
+    if len(text) < _MIN_TEXT_LENGTH or _looks_noisy(text):
+        return None
+
+    inicio_match = _PRELIMINAR_HEADING_RE.search(text)
+    if inicio_match is None:
+        return None
+    inicio_start, inicio_end = inicio_match.start(), inicio_match.end()
+
+    labels = [{"category": "preliminar_inicio", "start": inicio_start, "end": inicio_end}]
+    unmatched_pair = True
+    fim = _find_internal(text[inicio_end:], PAIR_PHRASES["preliminar"]["fim"])
+    if fim is not None:
+        _fim_surface, rel_start, rel_end = fim
+        labels.append(
+            {
+                "category": "preliminar_fim",
+                "start": inicio_end + rel_start,
+                "end": inicio_end + rel_end,
+            }
+        )
+        unmatched_pair = False
+
+    problems = check_final_invariants(text, labels)
+    if problems:
+        return None
+
+    info = {
+        "source": "tjro_juris",
+        "tipo": "ACÓRDÃO",
+        "id_documento": row.get("id_documento"),
+        "nr_processo": row.get("nr_processo"),
+        "classe_judicial": row.get("classe_judicial"),
+        "orgao": row.get("orgao"),
+        "relator": row.get("relator"),
+        "unmatched_pair": unmatched_pair,
+        "doc_type": "acordao",
+        "extraction_mode": "internal",
+    }
+    return {"text": text, "label": labels, "info": info}
+
+
 def extract_from_parquet(path: Path, tipo: str) -> Iterator[dict]:
     """Yield gold candidates from every usable row in a JURIS parquet file."""
     table = pq.read_table(str(path))
     for row in table.to_pylist():
         candidate = extract_candidate(row, tipo)
+        if candidate is not None:
+            yield candidate
+
+
+def extract_preliminar_from_parquet(path: Path) -> Iterator[dict]:
+    """Yield preliminar candidates from an ACÓRDÃO-tipo parquet file."""
+    table = pq.read_table(str(path))
+    for row in table.to_pylist():
+        candidate = extract_preliminar_candidate(row)
         if candidate is not None:
             yield candidate
 

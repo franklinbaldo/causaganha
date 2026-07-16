@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
-from scripts.juris_extract_gold_candidates import extract_candidate, extract_internal_candidate
+from scripts.juris_extract_gold_candidates import (
+    extract_candidate,
+    extract_internal_candidate,
+    extract_preliminar_candidate,
+)
 from scripts.synthetic_segmenter.transform import check_final_invariants
 
 
@@ -220,4 +224,76 @@ def test_internal_extraction_missing_fim_is_unmatched_pair() -> None:
 def test_internal_extraction_passes_final_invariants() -> None:
     row = _row(_COMPOSITE_ACORDAO_TEXT)
     candidate = extract_internal_candidate(row, "acordao_decisorio")
+    assert check_final_invariants(candidate["text"], candidate["label"]) == []
+
+
+def test_preliminar_numbered_heading_matches_and_finds_fim() -> None:
+    row = _row(
+        "É o relatório. VOTO 1. PRELIMINARES 1.1 Ilegitimidade passiva. O apelante alega "
+        "sua ilegitimidade. Ante o exposto, rejeito a preliminar. Presentes os requisitos "
+        "legais, conheço do apelo. 2. MÉRITO No mérito, ..."
+    )
+    candidate = extract_preliminar_candidate(row)
+    assert candidate is not None
+    categories = [lab["category"] for lab in candidate["label"]]
+    assert categories == ["preliminar_inicio", "preliminar_fim"]
+    assert candidate["info"]["unmatched_pair"] is False
+
+
+def test_preliminar_statute_citation_digit_is_not_a_false_positive() -> None:
+    """Regression for the real false positive found in a manual audit: a
+    statute citation ending in "1998." (digit 8) followed by the
+    dispositivo outcome word "PRELIMINARES." coincidentally matched a
+    naive digit-period-PRELIMINAR pattern. Restricting the heading regex
+    to a leading "1." specifically (preliminares is always the first
+    numbered analysis section — 21/22 real documents, vs. this one false
+    "8.") rejects it cleanly.
+    """
+    row = _row(
+        "EMENTA CRIME AMBIENTAL. ART. 50 DA LEI N. 9.605/1998. PRELIMINARES. "
+        "INÉPCIA DA PEÇA ACUSATÓRIA. AUSÊNCIA DE JUSTA CAUSA."
+    )
+    assert extract_preliminar_candidate(row) is None
+
+
+def test_preliminar_no_heading_is_rejected() -> None:
+    row = _row("Texto qualquer sem seção de preliminares numerada.")
+    assert extract_preliminar_candidate(row) is None
+
+
+def test_preliminar_missing_fim_is_unmatched_pair() -> None:
+    row = _row(
+        "VOTO 1. PRELIMINARES 1.1 Ilegitimidade passiva. Análise sem uma "
+        "fórmula de fechamento reconhecida aqui."
+    )
+    candidate = extract_preliminar_candidate(row)
+    assert candidate is not None
+    categories = [lab["category"] for lab in candidate["label"]]
+    assert categories == ["preliminar_inicio"]
+    assert candidate["info"]["unmatched_pair"] is True
+
+
+def test_preliminar_fim_without_trailing_period_still_matches() -> None:
+    """The real closing sentence often continues past 'mérito' (e.g.
+    '...passo a apreciar o mérito propriamente dito.') — the phrase bank
+    entry has no trailing period so it matches regardless.
+    """
+    row = _row(
+        "1. PRELIMINARES 1.1 Tempestividade. Presentes os requisitos de "
+        "admissibilidade e os pressupostos processuais, passo a apreciar o mérito "
+        "propriamente dito. 2. MÉRITO ..."
+    )
+    candidate = extract_preliminar_candidate(row)
+    assert candidate is not None
+    categories = [lab["category"] for lab in candidate["label"]]
+    assert categories == ["preliminar_inicio", "preliminar_fim"]
+    fim = candidate["label"][1]
+    assert candidate["text"][fim["start"] : fim["end"]] == "passo a apreciar o mérito"
+
+
+def test_preliminar_candidate_passes_final_invariants() -> None:
+    row = _row(
+        "1. PRELIMINARES 1.1 Tempestividade. Ante o exposto, rejeito a preliminar. 2. MÉRITO ..."
+    )
+    candidate = extract_preliminar_candidate(row)
     assert check_final_invariants(candidate["text"], candidate["label"]) == []
