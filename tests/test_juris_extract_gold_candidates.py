@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import pyarrow as pa
+import pyarrow.parquet as pq
+
 from scripts.juris_extract_gold_candidates import (
+    _load_prefiltered_rows,
     extract_candidate,
     extract_dispositivo_abertura_candidate,
+    extract_from_parquet,
     extract_internal_candidate,
     extract_preliminar_candidate,
 )
@@ -335,3 +340,124 @@ def test_dispositivo_abertura_offset_is_exact() -> None:
     candidate = extract_dispositivo_abertura_candidate(row)
     lab = candidate["label"][0]
     assert candidate["text"][lab["start"] : lab["end"]] == "Diante do exposto"
+
+
+# --------------------------------------------------------------------------
+# Arrow-side pre-filtering (_load_prefiltered_rows / extract_from_parquet)
+#
+# These write a real parquet file and confirm the column-projected,
+# length/noise-prefiltered path produces IDENTICAL candidates to running
+# the row-level extractors directly on the same source rows -- the
+# optimization must only change how many rows get materialized to Python,
+# never what gets extracted.
+# --------------------------------------------------------------------------
+
+_VALID_VOTO = "VOTO DESEMBARGADOR FULANO. Presentes os pressupostos. É como voto."
+_SHORT_VOTO = "VOTO curto."
+_NOISY_VOTO = (
+    "VOTO Normal 0 21 false false false PT-BR X-NONE X-NONE presentes os "
+    "pressupostos de admissibilidade do recurso. É como voto."
+)
+_NO_MATCH = "Texto qualquer que não começa com nenhuma âncora conhecida. É como voto."
+_PADDED_VOTO = "   VOTO DESEMBARGADOR FULANO. Presentes os pressupostos. É como voto.   "
+
+
+def _write_parquet(tmp_path, rows: list[dict], filename: str = "2020-01-VOTO.parquet"):
+    table = pa.table(
+        {
+            "id_documento": [r.get("id_documento", i) for i, r in enumerate(rows)],
+            "nr_processo": [r.get("nr_processo", "0001234-56.2020.8.22.0001") for r in rows],
+            "classe_judicial": [r.get("classe_judicial", "APELAÇÃO CÍVEL") for r in rows],
+            "orgao": [r.get("orgao", "1ª Câmara Cível") for r in rows],
+            "relator": [r.get("relator", "FULANO DE TAL") for r in rows],
+            "texto_limpo": [r["texto_limpo"] for r in rows],
+        }
+    )
+    path = tmp_path / filename
+    pq.write_table(table, path)
+    return path
+
+
+def test_load_prefiltered_rows_keeps_only_length_and_noise_survivors(tmp_path) -> None:
+    path = _write_parquet(
+        tmp_path,
+        [
+            {"texto_limpo": _VALID_VOTO},
+            {"texto_limpo": _SHORT_VOTO},
+            {"texto_limpo": _NOISY_VOTO},
+            {"texto_limpo": _NO_MATCH},
+        ],
+    )
+    rows = _load_prefiltered_rows(path)
+    texts = {r["texto_limpo"] for r in rows}
+    assert _VALID_VOTO in texts
+    assert _NO_MATCH in texts  # long enough and not noisy -- length/noise filter only
+    assert _SHORT_VOTO not in texts  # dropped: too short
+    assert not any("Normal 0 21" in t for t in texts)  # dropped: noisy
+
+
+def test_load_prefiltered_rows_strips_whitespace_like_the_python_path_did(tmp_path) -> None:
+    path = _write_parquet(tmp_path, [{"texto_limpo": _PADDED_VOTO}])
+    rows = _load_prefiltered_rows(path)
+    assert len(rows) == 1
+    assert rows[0]["texto_limpo"] == _PADDED_VOTO.strip()
+
+
+def test_load_prefiltered_rows_handles_null_texto_limpo(tmp_path) -> None:
+    table = pa.table(
+        {
+            "id_documento": [1, 2],
+            "nr_processo": ["a", "b"],
+            "classe_judicial": ["x", "y"],
+            "orgao": ["o1", "o2"],
+            "relator": ["r1", "r2"],
+            "texto_limpo": [None, _VALID_VOTO],
+        }
+    )
+    path = tmp_path / "2020-01-VOTO.parquet"
+    pq.write_table(table, path)
+    rows = _load_prefiltered_rows(path)
+    assert len(rows) == 1
+    assert rows[0]["texto_limpo"] == _VALID_VOTO
+
+
+def test_extract_from_parquet_matches_direct_row_extraction(tmp_path) -> None:
+    source_rows = [
+        _row(_VALID_VOTO),
+        _row(_SHORT_VOTO),
+        _row(_NOISY_VOTO),
+        _row(_NO_MATCH),
+        _row("VOTO Presentes os pressupostos de admissibilidade, conheço do recurso."),
+    ]
+    path = _write_parquet(tmp_path, source_rows)
+
+    via_parquet = list(extract_from_parquet(path, "VOTO"))
+    via_direct = [c for r in source_rows if (c := extract_candidate(r, "VOTO")) is not None]
+
+    assert len(via_parquet) == len(via_direct) == 2
+    parquet_texts = sorted(c["text"] for c in via_parquet)
+    direct_texts = sorted(c["text"] for c in via_direct)
+    assert parquet_texts == direct_texts
+
+
+def test_extract_from_parquet_preserves_source_metadata_fields(tmp_path) -> None:
+    path = _write_parquet(
+        tmp_path,
+        [
+            {
+                "id_documento": 999,
+                "nr_processo": "9999999-99.2020.8.22.0099",
+                "classe_judicial": "HABEAS CORPUS",
+                "orgao": "2ª Câmara Criminal",
+                "relator": "CICLANO",
+                "texto_limpo": _VALID_VOTO,
+            }
+        ],
+    )
+    candidates = list(extract_from_parquet(path, "VOTO"))
+    assert len(candidates) == 1
+    info = candidates[0]["info"]
+    assert info["id_documento"] == 999
+    assert info["nr_processo"] == "9999999-99.2020.8.22.0099"
+    assert info["orgao"] == "2ª Câmara Criminal"
+    assert info["relator"] == "CICLANO"

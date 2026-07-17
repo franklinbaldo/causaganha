@@ -44,6 +44,7 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import pyarrow.compute as pc
 import pyarrow.parquet as pq
 
 from scripts.synthetic_segmenter.phrase_banks import PAIR_PHRASES, SINGLE_ANCHOR_PHRASES
@@ -84,6 +85,58 @@ _NOISE_RE = re.compile(r"false false false|PT-BR X-NONE X-NONE|mso-", re.IGNOREC
 # could in principle number preliminares differently), but the strongest
 # signal available without building a heavier disambiguator.
 _PRELIMINAR_HEADING_RE = re.compile(r"\b1\.\s*PRELIMINARES?\b")
+
+# Columns every extraction path actually reads. JURIS parquet exports carry
+# more columns than this (session finding) -- projecting down to just these
+# at read time means pyarrow never materializes the unused ones at all,
+# rather than loading full rows and discarding fields in Python.
+_REQUIRED_COLUMNS = (
+    "texto_limpo",
+    "id_documento",
+    "nr_processo",
+    "classe_judicial",
+    "orgao",
+    "relator",
+)
+
+
+def _load_prefiltered_rows(path: Path) -> list[dict]:
+    """Read a JURIS parquet file, column-projected and pre-filtered in Arrow.
+
+    At the ~2.45M-document JURIS-archive scale (PR review), the previous
+    ``pq.read_table(path).to_pylist()`` was the real cost center: it loads
+    every column (most unused by these extractors) and converts every row
+    to a Python dict *before* a single length/noise check runs. Doing the
+    length and noise filtering here, in ``pyarrow.compute`` over Arrow's
+    columnar representation, means a row that will just be rejected by
+    ``_looks_noisy``/the length check never gets boxed into a Python dict
+    at all -- only survivors do.
+
+    Deliberately NOT pushed down further (e.g. the per-category
+    startswith/endswith phrase match): that logic differs per extraction
+    function and category, and pushing every variant into Arrow correctly
+    is real complexity for uncertain additional payoff once the cheap,
+    universal length/noise filter has already dropped the bulk of
+    obviously-unusable rows. The per-row phrase matching below is
+    unchanged from before this optimization -- only which rows reach it
+    changed.
+    """
+    table = pq.read_table(str(path), columns=list(_REQUIRED_COLUMNS))
+    text_col = pc.fill_null(table["texto_limpo"], "")
+    stripped = pc.utf8_trim_whitespace(text_col)
+    length_ok = pc.greater_equal(pc.utf8_length(stripped), _MIN_TEXT_LENGTH)
+    is_noisy = pc.match_substring_regex(stripped, _NOISE_RE.pattern, ignore_case=True)
+    keep = pc.and_(length_ok, pc.invert(is_noisy))
+    filtered = table.filter(keep)
+    # Replace texto_limpo with its pre-stripped form so downstream Python
+    # code (which does `(row.get("texto_limpo") or "").strip()`) sees
+    # identical text to before -- this optimization must not change what
+    # gets extracted, only how many rows are materialized to get there.
+    stripped_filtered = pc.utf8_trim_whitespace(pc.fill_null(filtered["texto_limpo"], ""))
+    filtered = filtered.set_column(
+        filtered.schema.get_field_index("texto_limpo"), "texto_limpo", stripped_filtered
+    )
+    return filtered.to_pylist()
 
 
 def _looks_noisy(text: str) -> bool:
@@ -283,8 +336,7 @@ def extract_preliminar_candidate(row: dict) -> dict | None:
 
 def extract_from_parquet(path: Path, tipo: str) -> Iterator[dict]:
     """Yield gold candidates from every usable row in a JURIS parquet file."""
-    table = pq.read_table(str(path))
-    for row in table.to_pylist():
+    for row in _load_prefiltered_rows(path):
         candidate = extract_candidate(row, tipo)
         if candidate is not None:
             yield candidate
@@ -292,8 +344,7 @@ def extract_from_parquet(path: Path, tipo: str) -> Iterator[dict]:
 
 def extract_preliminar_from_parquet(path: Path) -> Iterator[dict]:
     """Yield preliminar candidates from an ACÓRDÃO-tipo parquet file."""
-    table = pq.read_table(str(path))
-    for row in table.to_pylist():
+    for row in _load_prefiltered_rows(path):
         candidate = extract_preliminar_candidate(row)
         if candidate is not None:
             yield candidate
@@ -347,8 +398,7 @@ def extract_dispositivo_abertura_candidate(row: dict) -> dict | None:
 
 def extract_dispositivo_abertura_from_parquet(path: Path) -> Iterator[dict]:
     """Yield dispositivo_abertura candidates from a SENTENÇA-tipo parquet file."""
-    table = pq.read_table(str(path))
-    for row in table.to_pylist():
+    for row in _load_prefiltered_rows(path):
         candidate = extract_dispositivo_abertura_candidate(row)
         if candidate is not None:
             yield candidate
@@ -356,8 +406,7 @@ def extract_dispositivo_abertura_from_parquet(path: Path) -> Iterator[dict]:
 
 def extract_internal_from_parquet(path: Path, base: str) -> Iterator[dict]:
     """Yield internal-search candidates for ``base`` from an ACÓRDÃO-tipo parquet file."""
-    table = pq.read_table(str(path))
-    for row in table.to_pylist():
+    for row in _load_prefiltered_rows(path):
         candidate = extract_internal_candidate(row, base)
         if candidate is not None:
             yield candidate
@@ -387,8 +436,9 @@ def main(argv: list[str] | None = None) -> int:
         for parquet_path in args.parquet:
             path = Path(parquet_path)
             tipo = _tipo_from_filename(path)
-            table = pq.read_table(str(path))
-            total_rows += table.num_rows
+            # Row count from parquet footer metadata -- no data read at all,
+            # vs. the previous full pq.read_table() just to call .num_rows.
+            total_rows += pq.ParquetFile(str(path)).metadata.num_rows
             for candidate in extract_from_parquet(path, tipo):
                 if candidate["info"]["unmatched_pair"]:
                     matched_inicio_only += 1

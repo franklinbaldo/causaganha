@@ -1,5 +1,5 @@
 """Tests for prepare_privacy_filter_dataset.py's readiness gates and the
-cross-split duplicate check (promote_gold's train/val/test leak guard).
+cross-split duplicate check (publish_gold_release's train/val/test leak guard).
 """
 
 from __future__ import annotations
@@ -13,7 +13,7 @@ from scripts.prepare_privacy_filter_dataset import (
     _check_readiness_gates,
     _find_cross_split_duplicates,
     _verification_breakdown,
-    promote_gold,
+    publish_gold_release,
 )
 
 
@@ -182,11 +182,89 @@ def test_verification_breakdown_matches_real_gold_split_convention() -> None:
     assert breakdown["val"]["provisional"] > 0
 
 
-def test_promote_gold_rejects_unknown_skip_gate_id(tmp_path) -> None:
-    # Required files just need to exist for promote_gold to reach the
-    # skip_gates validation, which happens before any content is read.
+def _write_minimal_valid_gold(gold_dir) -> None:
+    """Write a tiny, mechanically-valid (offsets-correct) gold dir.
+
+    Deliberately small enough to fail every readiness gate -- callers that
+    want a full success must pass skip_gates=frozenset(GATE_IDS); this
+    helper is for exercising publish mechanics (checksums, atomicity),
+    not gate-passing behavior (already covered above).
+    """
+    label_space = {
+        "category_version": "test_v1",
+        "span_class_names": ["O", "resultado"],
+    }
+    (gold_dir / "label_space.json").write_text(
+        json.dumps(label_space, ensure_ascii=False), encoding="utf-8"
+    )
+    for split in ("train", "val", "test"):
+        text = f"Ante o exposto, julgo procedente o pedido ({split})."
+        start = text.index("julgo procedente")
+        end = start + len("julgo procedente")
+        rec = {
+            "text": text,
+            "label": [{"category": "resultado", "start": start, "end": end}],
+            "info": {"doc_id": f"doc_{split}"},
+        }
+        _write_jsonl(gold_dir / f"{split}.jsonl", [rec])
+
+
+def test_publish_gold_release_writes_checksums_matching_published_content(tmp_path) -> None:
+    gold_dir = tmp_path / "gold"
+    gold_dir.mkdir()
+    _write_minimal_valid_gold(gold_dir)
+    output_dir = tmp_path / "out"
+
+    rc = publish_gold_release(gold_dir, output_dir, skip_gates=frozenset(GATE_IDS))
+    assert rc == 0
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    checksums = manifest["release_checksums"]
+    assert set(checksums) == {"train.jsonl", "val.jsonl", "test.jsonl", "label_space.json"}
+
+    import hashlib
+
+    for name, expected in checksums.items():
+        content = (output_dir / name).read_text(encoding="utf-8")
+        actual = f"sha256:{hashlib.sha256(content.encode('utf-8')).hexdigest()}"
+        assert actual == expected, f"{name} checksum mismatch"
+
+
+def test_publish_gold_release_records_source_commit_dirty_flag(tmp_path) -> None:
+    gold_dir = tmp_path / "gold"
+    gold_dir.mkdir()
+    _write_minimal_valid_gold(gold_dir)
+    output_dir = tmp_path / "out"
+
+    rc = publish_gold_release(gold_dir, output_dir, skip_gates=frozenset(GATE_IDS))
+    assert rc == 0
+
+    manifest = json.loads((output_dir / "manifest.json").read_text(encoding="utf-8"))
+    assert "source_commit_dirty" in manifest
+    assert isinstance(manifest["source_commit_dirty"], bool)
+
+
+def test_publish_gold_release_is_atomic_no_leftover_tmp_or_previous_dirs(tmp_path) -> None:
+    gold_dir = tmp_path / "gold"
+    gold_dir.mkdir()
+    _write_minimal_valid_gold(gold_dir)
+    output_dir = tmp_path / "out"
+
+    # Publish twice -- the second run replaces the first's output. Neither
+    # run should leave a .tmp-<pid> or .previous sibling directory behind.
+    assert publish_gold_release(gold_dir, output_dir, skip_gates=frozenset(GATE_IDS)) == 0
+    assert publish_gold_release(gold_dir, output_dir, skip_gates=frozenset(GATE_IDS)) == 0
+
+    siblings = {p.name for p in output_dir.parent.iterdir()}
+    assert siblings == {"gold", "out"}
+    assert (output_dir / "manifest.json").exists()
+
+
+def test_publish_gold_release_rejects_unknown_skip_gate_id(tmp_path) -> None:
+    # Required files just need to exist for publish_gold_release to reach
+    # the skip_gates validation, which happens before any content is read.
     for name in ("train.jsonl", "val.jsonl", "test.jsonl", "label_space.json"):
         (tmp_path / name).write_text("", encoding="utf-8")
 
     with pytest.raises(ValueError, match="unknown gate id"):
-        promote_gold(tmp_path, tmp_path / "out", skip_gates=frozenset({"G3"}))
+        publish_gold_release(tmp_path, tmp_path / "out", skip_gates=frozenset({"G3"}))

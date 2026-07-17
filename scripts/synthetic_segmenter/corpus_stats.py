@@ -41,28 +41,45 @@ def compute_structural_stats(table: ibis.Table) -> dict:
     variants appears as a literal substring, which undercounts real
     surface variants not yet in ``phrase_banks.py`` (exactly the gap RFC
     0011 §6.1 says this calibration loop should close over time).
+
+    Query shape: one ``count()`` to guard the empty-table case, then every
+    other metric (length mean/median/min/max, every section's presence
+    count) fused into a SINGLE ``table.aggregate(...)`` call, rather than
+    one execute() per metric. The original version ran the length stats as
+    a full client-side pandas reduction (pulling every row's length across
+    the network/IPC boundary) plus one separate filtered-count query PER
+    ``PAIR_PHRASES`` base (~10 extra full-table scans) — at corpus scale
+    that's ~12 round trips per call where 2 suffice.
     """
     total = int(table.count().execute())
     if total == 0:
         return {"total_documents": 0, "length": {}, "section_presence_rate": {}}
 
-    lengths = table.texto.length().execute()
-    length_stats = {
-        "mean": float(lengths.mean()),
-        "median": float(lengths.median()),
-        "min": int(lengths.min()),
-        "max": int(lengths.max()),
+    length_expr = table.texto.length()
+    aggregates = {
+        "length_mean": length_expr.mean(),
+        "length_median": length_expr.median(),
+        "length_min": length_expr.min(),
+        "length_max": length_expr.max(),
     }
-
-    presence: dict[str, float] = {}
     for base_name, phrases in PAIR_PHRASES.items():
-        variants = phrases["inicio"]
         present_expr = None
-        for variant in variants:
+        for variant in phrases["inicio"]:
             hit = table.texto.contains(variant)
             present_expr = hit if present_expr is None else (present_expr | hit)
-        present_count = int(table.filter(present_expr).count().execute())
-        presence[base_name] = present_count / total
+        aggregates[f"presence_{base_name}"] = present_expr.cast("int64").sum()
+
+    row = table.aggregate(**aggregates).execute().iloc[0]
+
+    length_stats = {
+        "mean": float(row["length_mean"]),
+        "median": float(row["length_median"]),
+        "min": int(row["length_min"]),
+        "max": int(row["length_max"]),
+    }
+    presence = {
+        base_name: float(row[f"presence_{base_name}"]) / total for base_name in PAIR_PHRASES
+    }
 
     return {
         "total_documents": total,

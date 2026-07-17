@@ -2,8 +2,15 @@
 """Prepare anchor-span dataset for CausaGanha decision segmenter (OPF v7).
 
 Two modes:
-  1. PROMOTE (default): Read gold splits from git (data/segmenter_splits/),
-     validate, write manifest, publish to output dir (Drive/IA cache).
+  1. PUBLISH (default, ``publish_gold_release()``): the already-canonical
+     gold splits in git (data/segmenter_splits/) are validated (offsets,
+     overlaps, label-space membership, cross-split doc_id/text leakage),
+     checked against readiness gates, and atomically copied -- with a
+     manifest carrying per-file checksums -- to an output dir (Drive/IA
+     cache) for the trainer to read. This does NOT decide whether an
+     annotation is gold-quality; that decision already happened (by hand)
+     before the record was committed to data/segmenter_splits/. See
+     publish_gold_release()'s docstring for why it isn't named "promote".
   2. BOOTSTRAP: Generate initial heuristic labels from a parquet of judicial
      texts. Output needs LLM verification before becoming gold.
 
@@ -30,8 +37,10 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import random
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -175,7 +184,7 @@ GOLD_DIR = Path("data/segmenter_splits")
 # ---------------------------------------------------------------------------
 
 # Minimum span support per non-O category required to consider splits
-# production-ready. Enforced by promote_gold() unless the specific gate is
+# production-ready. Enforced by publish_gold_release() unless the specific gate is
 # named in --skip-gate (repeatable; waives only that gate, not the others).
 # The current 20-doc TJRO seed intentionally FAILS these gates; that failure
 # is the signal to scale the gold before scheduling a real training run.
@@ -576,10 +585,87 @@ def _get_source_commit() -> str:
         return "unknown"
 
 
-def promote_gold(
+def _is_working_tree_dirty(gold_dir: Path) -> bool:
+    """True if ``gold_dir`` has uncommitted changes relative to HEAD.
+
+    ``manifest["source_commit"]`` claims the published data matches a
+    specific commit -- that claim is false if the working tree the
+    publish actually read from doesn't match HEAD. Recorded as
+    ``source_commit_dirty`` rather than blocking publish: a dirty tree is
+    a legitimate dev/inspection workflow, but the manifest must say so
+    rather than silently implying the release is reproducible from that
+    commit alone.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "status", "--porcelain", "--", str(gold_dir)],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        return bool(result.stdout.strip()) if result.returncode == 0 else False
+    except FileNotFoundError:
+        return False
+
+
+def _sha256_hex(content: str) -> str:
+    return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+
+def _atomic_publish(files: dict[str, str], output_dir: Path) -> None:
+    """Write ``files`` (relative filename -> content) into ``output_dir`` atomically.
+
+    Builds a temp sibling directory first, then swaps it into place with
+    two renames (move the old release aside, move the new one into place)
+    instead of writing files one-by-one directly into ``output_dir``. The
+    old per-file-write approach could leave a half-written, partially
+    updated release directory on a crash mid-publish, with nothing in the
+    directory itself signaling it was interrupted. The swap has a tiny
+    non-atomic window between the two renames, but even a crash there
+    leaves the previous complete release recoverable under
+    ``<output_dir>.previous`` rather than silently corrupting the current
+    one.
+    """
+    tmp_dir = output_dir.with_name(f"{output_dir.name}.tmp-{os.getpid()}")
+    if tmp_dir.exists():
+        shutil.rmtree(tmp_dir)
+    tmp_dir.mkdir(parents=True)
+    for name, content in files.items():
+        (tmp_dir / name).write_text(content, encoding="utf-8")
+
+    previous_dir = output_dir.with_name(f"{output_dir.name}.previous")
+    if previous_dir.exists():
+        shutil.rmtree(previous_dir)
+    if output_dir.exists():
+        output_dir.rename(previous_dir)
+    tmp_dir.rename(output_dir)
+    if previous_dir.exists():
+        shutil.rmtree(previous_dir)
+
+
+def publish_gold_release(
     gold_dir: Path, output_dir: Path, *, skip_gates: frozenset[str] = frozenset()
 ) -> int:
-    """Read gold splits from git, validate, write manifest, publish.
+    """Validate the already-canonical gold splits and publish a release build.
+
+    Named deliberately NOT "promote" (its previous name) — by the time
+    this function runs, ``gold_dir`` (``data/segmenter_splits/`` in
+    normal use) already IS the canonical, git-committed corpus; nothing
+    here decides whether an annotation is good enough to be gold. This is
+    a gold-to-release-artifact step: mechanical validation (offsets,
+    overlaps, label-space membership, cross-split leakage), readiness
+    gates, a manifest with checksums, and an atomic copy to
+    ``output_dir`` for the trainer to read.
+
+    A real candidate-to-gold PROMOTION step — reviewing a labeling
+    candidate, recording who/what approved it and by what method, and
+    only then inserting it into ``gold_dir`` — is a separate workflow
+    this function does not implement. Today that happens by hand (a
+    human/session edits ``train.jsonl``/``val.jsonl``/``test.jsonl``
+    directly and commits), which is a real gap: nothing enforces
+    reviewer/provenance requirements before a record lands in the
+    canonical files this function trusts. Tracked as follow-up work, not
+    silently implied to already exist by this function's old name.
 
     ``skip_gates`` names individual gate ids (subset of ``GATE_IDS``) to
     waive — e.g. ``{"G4"}`` to waive the multi-tribunal gate without also
@@ -668,6 +754,15 @@ def promote_gold(
         per_split_cats[split] = split_cat
     train_only_cat_counts = per_split_cats["train"]
 
+    working_tree_dirty = _is_working_tree_dirty(gold_dir)
+    if working_tree_dirty:
+        print(
+            f"[warn] {gold_dir} has uncommitted changes -- the published "
+            "source_commit will NOT fully reproduce this release; see "
+            "manifest['source_commit_dirty'].",
+            file=sys.stderr,
+        )
+
     # Read existing manifest or create new
     existing_manifest_path = gold_dir / "manifest.json"
     if existing_manifest_path.exists():
@@ -675,11 +770,13 @@ def promote_gold(
         manifest["counts"] = split_counts
         manifest["per_class"] = train_only_cat_counts
         manifest["source_commit"] = _get_source_commit()
+        manifest["source_commit_dirty"] = working_tree_dirty
     else:
         manifest = {
             "category_version": ls.get("category_version", "causaganha_v6"),
             "seed": 42,
             "source_commit": _get_source_commit(),
+            "source_commit_dirty": working_tree_dirty,
             "counts": split_counts,
             "per_class": train_only_cat_counts,
             "test_verified_by": "same_as_train_labeler",
@@ -711,23 +808,32 @@ def promote_gold(
         )
         return 1
 
-    # Publish to output dir
-    output_dir.mkdir(parents=True, exist_ok=True)
-    for f in [*required, "manifest.json"]:
+    # Checksum every data file BEFORE building manifest.json's own content
+    # (manifest.json records the others' checksums; it can't include its
+    # own without a circular content dependency, so it's excluded here).
+    to_publish: dict[str, str] = {}
+    checksums: dict[str, str] = {}
+    for f in required:
         src = gold_dir / f
-        dst = output_dir / f
-        if src.exists():
-            dst.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        if not src.exists():
+            continue
+        content = src.read_text(encoding="utf-8")
+        to_publish[f] = content
+        checksums[f] = f"sha256:{_sha256_hex(content)}"
+    manifest["release_checksums"] = checksums
 
-    manifest_out = output_dir / "manifest.json"
-    manifest_out.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    manifest_content = json.dumps(manifest, indent=2, ensure_ascii=False)
+    to_publish["manifest.json"] = manifest_content
+
+    _atomic_publish(to_publish, output_dir)
 
     logger.info(
-        "gold_promoted",
+        "gold_release_published",
         gold_dir=str(gold_dir),
         output_dir=str(output_dir),
         counts=split_counts,
         test_verified_by=manifest.get("test_verified_by", "unknown"),
+        source_commit_dirty=working_tree_dirty,
     )
     return 0
 
@@ -973,7 +1079,7 @@ def main() -> int:
             Path(args.output_dir),
             args.seed,
         )
-    return promote_gold(
+    return publish_gold_release(
         Path(args.gold_dir), Path(args.output_dir), skip_gates=frozenset(args.skip_gates)
     )
 

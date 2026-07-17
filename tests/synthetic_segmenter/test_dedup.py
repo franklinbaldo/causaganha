@@ -75,3 +75,57 @@ def test_find_near_duplicates_sorted_descending() -> None:
     near = find_near_duplicates(records, threshold=0.0)
     ratios = [r for _a, _b, r in near]
     assert ratios == sorted(ratios, reverse=True)
+
+
+def test_find_near_duplicates_length_pruning_does_not_miss_true_positives() -> None:
+    # A pair whose lengths are wildly different from a third document must
+    # still be found if their own lengths are compatible with the
+    # threshold -- this exercises the length-based upper-bound prune
+    # against a mix of prunable and non-prunable pairs in the same batch.
+    records = {
+        "short_a": "Ante o exposto, julgo procedente.",
+        "short_b": "Ante o exposto, julgo procedente!",  # near-dup of short_a
+        "long_c": "Ante o exposto, julgo procedente. " * 20,  # same words, very different length
+    }
+    near = find_near_duplicates(records, threshold=0.9)
+    ids = {(a, b) for a, b, _ratio in near}
+    assert ("short_a", "short_b") in ids
+    assert not any("long_c" in pair for pair in ids)
+
+
+def test_find_near_duplicates_length_bound_matches_full_comparison() -> None:
+    # Cross-check: results with the length-based pruning enabled must be
+    # IDENTICAL to a brute-force all-pairs SequenceMatcher.ratio() sweep --
+    # the pruning bound is exact (2*min(len)/total is a real upper bound on
+    # ratio()), so this must never drop a genuine match.
+    from difflib import SequenceMatcher
+
+    from scripts.synthetic_segmenter.dedup import normalize_text
+
+    records = {
+        "a": "O réu foi condenado ao pagamento de honorários advocatícios.",
+        "b": "O réu foi condenado ao pagamento de honorários advocatícios!!",
+        "c": "Texto completamente diferente sobre outro assunto qualquer.",
+        "d": "O réu foi condenado ao pagamento de honorários advocatícios",
+        "e": "x",
+        "f": "Recurso conhecido e não provido por unanimidade de votos.",
+    }
+    threshold = 0.7
+    pruned = {(a, b) for a, b, _r in find_near_duplicates(records, threshold=threshold)}
+
+    ids = list(records)
+    normalized = {k: normalize_text(v) for k, v in records.items()}
+    brute_force = set()
+    for i in range(len(ids)):
+        for j in range(i + 1, len(ids)):
+            ratio = SequenceMatcher(None, normalized[ids[i]], normalized[ids[j]]).ratio()
+            if ratio >= threshold:
+                brute_force.add((ids[i], ids[j]))
+
+    assert pruned == brute_force
+
+
+def test_find_near_duplicates_handles_empty_string_pair() -> None:
+    records = {"a": "", "b": ""}
+    # Two empty strings: total length 0 -- must not raise ZeroDivisionError.
+    assert find_near_duplicates(records, threshold=0.9) == []

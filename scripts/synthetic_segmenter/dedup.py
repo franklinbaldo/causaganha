@@ -69,15 +69,40 @@ def find_near_duplicates(
 ) -> list[tuple[str, str, float]]:
     """All-pairs near-duplicate search above ``threshold``.
 
-    O(n^2) — call on a batch (a single generation run), not the whole
-    accumulated corpus. Returns (id_a, id_b, ratio) sorted by ratio
-    descending.
+    Still O(n^2) in the worst case — call on a batch (a single generation
+    run), not the whole accumulated corpus; for corpus-scale dedup, blocking
+    (MinHash/LSH, n-gram + length buckets) is a different, coarser
+    algorithm, not a constant-factor speedup of this one. Returns
+    (id_a, id_b, ratio) sorted by ratio descending.
+
+    Length-based pruning: ``SequenceMatcher.ratio()`` is ``2*M/T`` where
+    ``M`` (matching characters) can be at most ``min(len_a, len_b)`` and
+    ``T = len_a + len_b`` — so ``2*min(len_a, len_b)/T`` is an EXACT upper
+    bound on the ratio two texts of those lengths could ever achieve,
+    regardless of content. A pair whose bound already falls below
+    ``threshold`` cannot possibly reach it, so it's skipped without ever
+    constructing a ``SequenceMatcher`` — this cannot produce a false
+    negative (unlike an arbitrary "lengths within 10%" heuristic bucket,
+    which could exclude a genuine near-duplicate pair sitting just outside
+    the bucket), only prunes pairs that are mathematically impossible.
     """
     ids = list(records)
+    normalized = {doc_id: normalize_text(text) for doc_id, text in records.items()}
+    lengths = {doc_id: len(text) for doc_id, text in normalized.items()}
     out: list[tuple[str, str, float]] = []
     for i in range(len(ids)):
+        id_a = ids[i]
+        len_a = lengths[id_a]
         for j in range(i + 1, len(ids)):
-            ratio = near_duplicate_ratio(records[ids[i]], records[ids[j]])
+            id_b = ids[j]
+            len_b = lengths[id_b]
+            total = len_a + len_b
+            if total == 0:
+                continue
+            upper_bound = 2.0 * min(len_a, len_b) / total
+            if upper_bound < threshold:
+                continue
+            ratio = SequenceMatcher(None, normalized[id_a], normalized[id_b]).ratio()
             if ratio >= threshold:
-                out.append((ids[i], ids[j], ratio))
+                out.append((id_a, id_b, ratio))
     return sorted(out, key=lambda t: t[2], reverse=True)
