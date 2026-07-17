@@ -88,6 +88,7 @@ djen-backup = "djen_backup.__main__:app"
 stj-acordaos = "stj_acordaos.__main__:app"
 tjro-juris = "tjro_juris.__main__:app"
 datajud = "datajud.__main__:app"
+segmenter-dataset = "segmenter_dataset.__main__:app"
 
 [tool.setuptools.packages.find]
 where = ["src"]
