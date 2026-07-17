@@ -143,9 +143,17 @@ discussão de PR:
    `preliminar` ("1. PRELIMINARES" vs "PRELIMINAR REJEITADA" como palavra de resultado)
    é tratada na guideline de anotação, não na ontologia. Mudanças futuras seguem uma
    análise de migração explícita — não uma invalidação geral automática:
-   - **adicionar categoria** (minor): anotações existentes continuam válidas; documentos
-     antigos simplesmente não têm rótulo para a categoria nova até revisitados por
-     spot-review de risco (§9);
+   - **adicionar categoria** (minor): anotações existentes continuam válidas **como
+     anotações**, mas adicionar uma categoria **não é retrocompatível para supervisão de
+     treino**: em token/span classification, ausência de span é lida pelo treinador como
+     exemplo negativo (`O`), não como "categoria ainda não revisada" — tratar documentos
+     antigos como negativos para a categoria nova introduziria falso-negativo sistemático.
+     Por isso toda anotação declara `covered_categories` (§8): o subconjunto da ontologia
+     que o anotador efetivamente considerou. Um documento só entra na loss/no suporte de
+     uma categoria C se C ∈ `covered_categories` da anotação usada; documentos cuja
+     anotação antecede a introdução de C ficam **mascarados** para C (nem positivo nem
+     negativo) até um passe de revisão dirigido (checar especificamente a presença de C,
+     não uma reanotação completa) atualizar `covered_categories`;
    - **remover categoria** (major): invalida só os rótulos daquela categoria nos
      registros existentes — os demais rótulos do mesmo documento continuam válidos;
    - **renomear categoria sem mudar semântica** (minor): remapeamento mecânico
@@ -181,6 +189,18 @@ discussão de PR:
 5. **Métrica primária de seleção de checkpoint, declarada antes do treino:**
    **macro-F1 de validação sobre as categorias treináveis.** Desempate documentado:
    menor época (menos exposição a overfitting); persistindo empate, menor val loss.
+6. **Piso mínimo de utilidade do model release, fixado nesta RFC para `v8.1` — não
+   deixado para o release declarar (§16.2 aplica esta regra, não a define de novo):**
+   - **Contra o baseline trivial:** regra objetiva, não uma margem arbitrária —
+     bootstrap sobre documentos da **diferença** (F1 do modelo − F1 do baseline
+     heurístico/majoritário) no teste trancado, ≥ 1000 reamostragens; elegível a
+     deploy apenas se o **limite inferior do IC 95% da diferença for > 0** (melhora
+     estatisticamente detectável, não um número que o release escolhe);
+   - **Pisos por categoria operacionalmente crítica** (`dispositivo_abertura`,
+     `resultado`, `acordao_decisorio_inicio`, `acordao_decisorio_fim`): macro-F1 do
+     **ponto estimado** ≥ 0.5 no teste trancado (ponto, não limite inferior — o
+     suporte dessas categorias em ~30 documentos de teste é baixo demais para um IC
+     discriminar, mesma lógica do §8). Mudar este piso exige alterar esta RFC.
 
 ## 6. Não-objetivos do primeiro release
 
@@ -253,6 +273,7 @@ data/segmenter/
 
 ```json
 {
+  "annotation_id": "sha256(document_id + annotator_id + completed_at + labels)",
   "document_id": "stable-id",
   "annotator_id": "annotator-or-agent-run",
   "annotator_config": {
@@ -260,19 +281,28 @@ data/segmenter/
     "guideline_version": "segmenter-v8-guideline-1",
     "seeded_with": "none"
   },
+  "ontology_version": "segmenter-ontology-v8.0.0",
+  "covered_categories": ["cabecalho_inicio", "cabecalho_fim", "..."],
   "labels": [],
   "completed_at": "...",
   "annotation_method": "independent_full_read"
 }
 ```
 
-`seeded_with` só admite `"none"` para anotações que contam como independentes (§5.3).
+`annotation_id` é determinístico (hash do conteúdo), não um contador — duas anotações
+com o mesmo conteúdo produzem o mesmo ID; qualquer diferença de rótulo, anotador ou
+timestamp produz um ID novo, nunca sobrescrevendo o anterior (§3.1). `covered_categories`
+é o subconjunto da ontologia que este anotador considerou (ver §5.1 para a regra de
+mascaramento de categorias fora desse conjunto). `seeded_with` só admite `"none"` para
+anotações que contam como independentes (§5.3).
 
 ### Registro de review (adjudicação)
 
 ```json
 {
+  "review_id": "sha256(document_id + input_annotation_ids + approved_at)",
   "document_id": "stable-id",
+  "input_annotation_ids": ["annotation_id_a", "annotation_id_b"],
   "status": "accepted",
   "final_labels": [],
   "reviewers": ["reviewer-a", "reviewer-b"],
@@ -281,6 +311,10 @@ data/segmenter/
   "approved_at": "..."
 }
 ```
+
+`input_annotation_ids` referencia explicitamente **quais** registros de anotação foram
+resolvidos — não apenas o `document_id` (um documento pode ter mais de duas anotações
+ao longo do tempo; o review precisa dizer qual par ele adjudicou).
 
 ### Manifest de release de dataset
 
@@ -292,6 +326,11 @@ data/segmenter/
   "source_commit": "full-git-sha",
   "dependency_lock_hash": "sha256-of-pinned-lockfile",
   "split_hashes": { "train": "...", "validation": "...", "test": "..." },
+  "document_resolutions": {
+    "train": { "<document_id>": "<annotation_id>" },
+    "validation": { "<document_id>": "<review_id>" },
+    "test": { "<document_id>": "<review_id>" }
+  },
   "counts": {},
   "tribunals": {},
   "document_types": {},
@@ -308,6 +347,13 @@ data/segmenter/
 }
 ```
 
+**`document_resolutions` é obrigatório**: pina o `annotation_id` (treino) ou
+`review_id` (validação/teste) exato usado para cada documento nesta build. Sem isso,
+reconstruir um release a partir do mesmo conjunto de `document_id`s poderia
+silenciosamente pegar anotações diferentes se o documento tiver sido reanotado entre
+duas builds — `document_resolutions` é o que torna a build determinística, não apenas
+a lista de IDs.
+
 **`annotation_quality` é obrigatório**, com a seguinte especificação exata — nenhum
 valor numérico solto é aceito como evidência sem estes parâmetros declarados junto:
 
@@ -315,11 +361,11 @@ valor numérico solto é aceito como evidência sem estes parâmetros declarados
   (`start`, `end`, `category` idênticos) entre as duas anotações independentes.
   Sobreposição (IoU ≥ 0.5) é uma métrica secundária/diagnóstica, reportada em separado,
   nunca substituindo a exata no gate.
-- **Averaging:** F1 por categoria; uma categoria só entra no **macro**-F1 agregado se
-  tiver suporte ≥ 5 spans na anotação de referência daquele split (mesmo piso do §5.4).
-  Categorias abaixo do suporte mínimo são reportadas individualmente no manifest mas
-  excluídas do macro agregado — evita que uma categoria com 1 exemplo domine ou seja
-  ignorada de forma enganosa.
+- **Averaging:** F1 por categoria; uma categoria só entra na agregação (macro-F1 e no
+  gate agregado) se tiver suporte ≥ 5 spans na anotação de referência daquele split
+  (mesmo piso do §5.4). Categorias abaixo do suporte mínimo são reportadas
+  individualmente no manifest mas excluídas do macro agregado — evita que uma
+  categoria com 1 exemplo domine ou seja ignorada de forma enganosa.
 - **Intervalo de confiança:** bootstrap sobre **documentos** (não sobre spans
   individuais, para não quebrar o agrupamento), ≥ 1000 reamostragens, IC 95% publicado
   junto ao ponto estimado — obrigatório dado o tamanho pequeno do split (§5.4: ~30 docs).
@@ -327,16 +373,30 @@ valor numérico solto é aceito como evidência sem estes parâmetros declarados
   **macro-F1 ≥ 0.75 agregado e ≥ 0.5 por categoria treinável**, para `segmenter-real-v8.1`
   especificamente — não "recomendado", é o requisito desta release. Um release não pode
   declarar um piso menor para si mesmo; mudar o número exige alterar esta RFC (ou uma
-  RFC sucessora), nunca só o manifest. **O gate compara o limite inferior do IC 95%
-  contra o piso, não o ponto estimado** — um ponto de 0.76 com limite inferior de 0.60
-  falha o gate.
-- **Consequência por categoria:** uma categoria treinável cujo limite inferior de IC
-  fique abaixo de 0.5 é marcada em `unreliable_eval_categories` — excluída de qualquer
-  alegação de avaliação (val/test) até ser reanotada, ainda que continue elegível para
-  treino (treino não depende de IAA, §9). Se a categoria marcada for uma das críticas do
-  §16.2 (`dispositivo_abertura`, `resultado`, `acordao_decisorio_inicio`,
-  `acordao_decisorio_fim`), a falha deixa de ser local e vira **erro rígido do release
-  inteiro** (§12.1) — essas categorias são estruturais demais para isolar.
+  RFC sucessora), nunca só o manifest.
+- **Estatística do gate agregado:** compara o **limite inferior do IC 95%** contra o
+  piso — um ponto de 0.76 com limite inferior de 0.60 falha o gate. Com ~30 documentos
+  no split inteiro, este IC tem suporte suficiente para ser informativo.
+- **Estatística do gate por categoria (suporte importa):** a ~5 spans (o piso mínimo de
+  suporte), um IC bootstrap por categoria é largo demais para um gate por limite
+  inferior ser estatisticamente viável — exigiria concordância quase perfeita e
+  produziria falsos-negativos do próprio gate. Por isso o piso de 0.5 por categoria é
+  avaliado de dois jeitos, dependendo do suporte disponível naquele split:
+  - **suporte ≥ 15 spans:** gate pelo **limite inferior do IC 95%** ≥ 0.5, igual ao
+    agregado;
+  - **suporte entre 5 e 14 spans:** gate pelo **ponto estimado** ≥ 0.5 (o IC é
+    publicado como evidência de incerteza no manifest, não usado para o pass/fail);
+    a categoria é adicionalmente marcada `insufficient_power_for_ci_gate` para deixar
+    claro que a barra estatística é mais fraca aqui.
+  Este limiar de 15 spans é declarado nesta RFC, não escolhido pelo release.
+- **Consequência por categoria:** uma categoria treinável que falha seu gate (pela
+  regra de suporte acima) é marcada em `unreliable_eval_categories` — excluída de
+  qualquer alegação de avaliação (val/test) até ser reanotada, ainda que continue
+  elegível para treino (treino não depende de IAA, §9). Se a categoria marcada for uma
+  das críticas do §5.6/§16.2 (`dispositivo_abertura`, `resultado`,
+  `acordao_decisorio_inicio`, `acordao_decisorio_fim`), a falha deixa de ser local e
+  vira **erro rígido do release inteiro** (§12.1) — essas categorias são estruturais
+  demais para isolar.
 - **Consequência agregada:** IAA agregado abaixo de 0.75 (limite inferior do IC) é erro
   rígido, não-waivable (§12.1); bloqueia o release inteiro, `silver` ou `gold`.
 - **Limite epistêmico explícito:** IAA mede **confiabilidade entre anotadores**, não
@@ -390,7 +450,7 @@ evidência de qualidade é IAA entre anotadores-LLM é honestamente **`silver`**
 **Duas peças de evidência humana, deliberadamente separadas para evitar a dependência
 circular entre qualificação do anotador, definição do split de teste e adjudicação:**
 
-#### 9.1.1 Corpus de qualificação (calibração — reutilizável)
+#### 9.1.1 Corpus de qualificação: calibração vs. aceitação (evita otimismo por reuso)
 
 Um conjunto pequeno de documentos, **totalmente fora do ciclo de vida do §3.1**: nunca
 passa por split-assignment (§10), nunca é candidato a train/val/test, e é retirado de
@@ -399,16 +459,30 @@ documentos JURIS reservado só para isso, nunca alimentado ao extrator de candid
 pipeline principal). Cada documento tem rótulo final definido por um especialista
 humano (jurista), sem qualquer anotação de LLM prévia.
 
-Antes de uma configuração de anotador-LLM (modelo + versão de prompt/guideline) ser
-aceita para produzir anotações de val/test, seu F1 de span exato contra o corpus de
-qualificação deve atingir o piso do §8 (macro-F1 ≥ 0.75, limite inferior do IC). Como
-este corpus **nunca é** o teste nem faz parte dele, ele pode ser reusado livremente
-entre tentativas de configuração durante o desenvolvimento — iterar prompt/guideline
-contra ele é calibração, não vazamento, porque nenhuma alegação final de desempenho do
-*modelo segmentador* é feita sobre este corpus. A validação é repetida sempre que o
-modelo, prompt ou guideline do anotador mudar de versão. Isso resolve a ordem de
-dependência: qualificação → (só então) produção de anotações de val/test →
-adjudicação → split-assignment (§10) — nunca o inverso.
+Medir o gate de aceite no **mesmo** conjunto usado para iterar prompt/guideline produz
+uma estimativa otimista — overfitting do anotador ao corpus de calibração, ainda que
+não seja vazamento do segmentador em si. Por isso o corpus se divide em duas partes
+fixas, disjuntas e de tamanho declarado **antes** de qualquer iteração:
+
+- **`annotator-calibration-dev`** (tamanho declarado: 30 documentos; suporte mínimo
+  declarado: ≥ 10 spans por categoria treinável) — reutilizável livremente durante o
+  desenvolvimento de uma configuração de anotador; iterar prompt/guideline contra ele
+  é a calibração pretendida, não um vazamento.
+- **`annotator-acceptance-holdout`** (tamanho declarado: 20 documentos; suporte
+  mínimo declarado: ≥ 10 spans por categoria treinável; disjunto do calibration-dev,
+  mesma fonte/período excluído de qualquer split de §10) — tocado para medir o gate de
+  aceite **uma única vez por versão de configuração** (hash de modelo + prompt +
+  guideline); uma nova versão exige nova avaliação, sempre contra este **mesmo**
+  holdout fixo, nunca um recém-sorteado — do contrário a comparação entre versões
+  perde validade. Reavaliações repetidas do mesmo holdout ao longo de muitas versões
+  são contadas no manifest; acima de 20 reavaliações o holdout é aposentado e
+  substituído por um novo, mesma disciplina de desgaste do §13.1.
+
+O gate de aceite (§8: macro-F1 ≥ 0.75 agregado, limite inferior do IC) é medido
+**apenas** no `annotator-acceptance-holdout`, nunca no `calibration-dev`. Isso resolve a
+ordem de dependência: calibração (livre) → aceite (uma vez por versão, no holdout) →
+produção de anotações de val/test → adjudicação → split-assignment (§10) — nunca o
+inverso.
 
 #### 9.1.2 Auditoria cega do teste (verificação — uma única passagem)
 
@@ -759,21 +833,23 @@ todos os critérios do §16.1 e ainda assim não serve a nenhum propósito — "
 nesta RFC significa **auditável**, não **adequado ao uso**. Um model release exige
 adicionalmente:
 
-- **Baseline trivial declarado**: comparação, no mesmo teste trancado, contra um
+- **Baseline trivial e pisos críticos: regra fixada no §5.6, não uma margem que o
+  release declara por conta própria.** Comparação, no mesmo teste trancado, contra um
   extrator heurístico/determinístico já existente (ex.: os extratores de fronteira do
-  PR 2/§18) ou, na ausência de um, contra predição por classe majoritária. O modelo deve
-  superar esse baseline por uma margem pré-declarada (recomendado: ≥ 0.10 de macro-F1)
-  para ser elegível a deploy;
+  PR 2/§18) ou, na ausência de um, contra predição por classe majoritária; elegível a
+  deploy apenas se o limite inferior do IC 95% da **diferença** (modelo − baseline),
+  bootstrap sobre documentos, for **> 0** — não uma margem arbitrária que poderia ser
+  pré-declarada perto de zero. As categorias operacionalmente críticas
+  (`dispositivo_abertura`, `resultado`, `acordao_decisorio_inicio`,
+  `acordao_decisorio_fim`) têm piso de macro-F1 (ponto estimado) ≥ 0.5, fixado no §5.6
+  para v8.1 — não escolhido pelo release antes da avaliação de teste. Falhar um piso
+  crítico bloqueia o deploy mesmo com macro-F1 agregado aceitável — não há trade-off
+  implícito entre categorias críticas e não;
 - **Intervalo de confiança no resultado de teste**: bootstrap sobre documentos (mesma
   metodologia do §8), obrigatório dado o tamanho pequeno do teste (§5.4). Um F1 pontual
   sem IC não é uma alegação aceitável de desempenho;
-- **Pisos pré-declarados por categoria operacionalmente crítica** (mínimo:
-  `dispositivo_abertura`, `resultado`, `acordao_decisorio_inicio`,
-  `acordao_decisorio_fim`), declarados antes da avaliação de teste (§13) junto com o
-  hash de configuração. Falhar um piso crítico bloqueia o deploy mesmo com macro-F1
-  agregado aceitável — não há trade-off implícito entre categorias críticas e não;
-- essas evidências (baseline trivial, IC, pisos por categoria) compõem o **model card**
-  publicado junto ao checkpoint, distinto do manifest de dataset.
+- essas evidências (diferença vs. baseline com IC, pisos por categoria) compõem o
+  **model card** publicado junto ao checkpoint, distinto do manifest de dataset.
 
 O checkpoint é selecionado só por macro-F1 de validação (§13) e o teste é avaliado uma
 vez, após congelamento da configuração (§13/§13.1). `release_id` de dataset e de model
