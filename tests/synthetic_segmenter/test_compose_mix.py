@@ -114,6 +114,77 @@ def test_compose_mix_default_target_total_sums_weighted_pools() -> None:
     assert len(records) == 40
 
 
+def test_compose_mix_negative_weight_raises() -> None:
+    import pytest
+
+    pools = {"pristine_real": _records("pristine_real", 10), "synthetic": _records("synthetic", 10)}
+    weights = {"pristine_real": 3.0, "synthetic": -1.0}
+    with pytest.raises(ValueError, match="non-negative"):
+        compose_mix(pools, weights, seed=1, mix_id="x", corpus_release_ids=["v1"])
+
+
+def test_compose_mix_exact_total_despite_rounding() -> None:
+    # Three equal weights over target_total=10: naive independent rounding
+    # (round(10/3)=3 each) sums to 9, not 10. Largest-remainder apportionment
+    # must still land exactly on target_total.
+    pools = {
+        "a": _records("a", 20),
+        "b": _records("b", 20),
+        "c": _records("c", 20),
+    }
+    weights = {"a": 1.0, "b": 1.0, "c": 1.0}
+    records, manifest = compose_mix(
+        pools, weights, seed=1, mix_id="x", corpus_release_ids=["v1"], target_total=10
+    )
+    assert len(records) == 10
+    assert manifest["total_records"] == 10
+    assert sum(manifest["counts_by_source_type"].values()) == 10
+
+
+def test_compose_mix_exact_total_many_sources_many_seeds() -> None:
+    # Same rounding-drift shape as above, swept over several target_totals
+    # and seeds to make sure the exact-total guarantee isn't a fluke of one
+    # particular set of weights.
+    pools = {name: _records(name, 50) for name in "abcde"}
+    weights = {"a": 3.0, "b": 1.0, "c": 1.0, "d": 2.0, "e": 5.0}
+    for target_total in (1, 7, 11, 23, 50, 97):
+        for seed in (1, 2, 3):
+            records, manifest = compose_mix(
+                pools,
+                weights,
+                seed=seed,
+                mix_id="x",
+                corpus_release_ids=["v1"],
+                target_total=target_total,
+            )
+            assert len(records) == target_total
+            assert manifest["total_records"] == target_total
+            assert sum(manifest["counts_by_source_type"].values()) == target_total
+
+
+def test_compose_mix_empty_pool_share_redistributed_to_others() -> None:
+    # A weighted source with no pool records shouldn't error (it's a
+    # legitimate "not generated yet" state per the docstring) -- its share
+    # should be absorbed by the other sources so target_total is still hit
+    # exactly, rather than the composed total silently falling short.
+    pools = {"pristine_real": _records("pristine_real", 30)}
+    weights = {"pristine_real": 1.0, "hybrid": 1.0}
+    records, manifest = compose_mix(
+        pools, weights, seed=1, mix_id="x", corpus_release_ids=["v1"], target_total=10
+    )
+    assert len(records) == 10
+    assert manifest["counts_by_source_type"]["hybrid"] == 0
+    assert manifest["counts_by_source_type"]["pristine_real"] == 10
+
+
+def test_compose_mix_all_pools_empty_with_positive_target_raises() -> None:
+    import pytest
+
+    weights = {"pristine_real": 1.0, "hybrid": 1.0}
+    with pytest.raises(ValueError, match="no weighted source has any pool records"):
+        compose_mix({}, weights, seed=1, mix_id="x", corpus_release_ids=["v1"], target_total=10)
+
+
 def test_write_mix_writes_jsonl_and_manifest(tmp_path) -> None:
     records = [{"text": "a", "label": [], "info": {}}, {"text": "b", "label": [], "info": {}}]
     manifest = {"mix_id": "x", "total_records": 2}

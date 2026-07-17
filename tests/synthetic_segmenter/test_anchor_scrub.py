@@ -9,6 +9,7 @@ from scripts.synthetic_segmenter.anchor_scrub import (
     find_anchor_occurrences,
     neutralize_excerpt,
     scrub_excerpt,
+    scrub_excerpt_with_occurrences,
 )
 
 
@@ -80,6 +81,44 @@ def test_scrub_excerpt_default_mode_is_neutralize() -> None:
 def test_scrub_excerpt_unknown_mode_raises() -> None:
     with pytest.raises(ValueError, match="unknown scrub mode"):
         scrub_excerpt("texto", mode="bogus")
+
+
+def test_scrub_excerpt_with_occurrences_promote_hard_negative_surfaces_categories() -> None:
+    # This is the fix for the bug where scrub_excerpt(mode="promote_hard_negative")
+    # discarded the found occurrences entirely, leaving the caller no way
+    # to record which categories were actually promoted as hard negatives.
+    text = "Ante o exposto, julgo procedente o pedido."
+    out_text, occurrences = scrub_excerpt_with_occurrences(text, mode="promote_hard_negative")
+    assert out_text == text
+    categories = {occ["category"] for occ in occurrences}
+    assert "dispositivo_abertura" in categories
+    assert "resultado" in categories
+
+
+def test_scrub_excerpt_with_occurrences_discard_mode_matches_scrub_excerpt() -> None:
+    text = "Nenhuma âncora aqui."
+    out_text, occurrences = scrub_excerpt_with_occurrences(text, mode="discard")
+    assert out_text == text
+    assert occurrences == []
+
+
+def test_scrub_excerpt_with_occurrences_neutralize_returns_scrubbed_text() -> None:
+    text = "Ante o exposto, julgo procedente o pedido."
+    out_text, occurrences = scrub_excerpt_with_occurrences(text, mode="neutralize")
+    assert out_text == neutralize_excerpt(text)
+    categories = {occ["category"] for occ in occurrences}
+    assert "dispositivo_abertura" in categories
+
+
+def test_scrub_excerpt_is_a_thin_wrapper_over_with_occurrences() -> None:
+    text = "Ante o exposto, julgo procedente o pedido."
+    for mode in ("neutralize", "promote_hard_negative"):
+        expected_text, _occurrences = scrub_excerpt_with_occurrences(text, mode=mode)
+        assert scrub_excerpt(text, mode=mode) == expected_text
+
+    clean_text = "Nenhuma âncora aqui."
+    expected_clean, _occ = scrub_excerpt_with_occurrences(clean_text, mode="discard")
+    assert scrub_excerpt(clean_text, mode="discard") == expected_clean
 
 
 def test_neutralized_excerpt_never_reintroduces_anchor_after_double_pass() -> None:

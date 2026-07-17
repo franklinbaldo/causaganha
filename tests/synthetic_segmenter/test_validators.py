@@ -71,6 +71,70 @@ def test_bad_offsets_still_caught() -> None:
     assert any("bad offsets" in p for p in problems)
 
 
+def test_orphaned_fim_without_inicio_rejected() -> None:
+    text = "É o relatório."
+    labels = [{"category": "relatorio_fim", "start": 0, "end": 14}]
+    problems = validate_record(text, labels, _CATEGORIES)
+    assert any("orphaned or excess _fim" in p for p in problems)
+
+
+def test_orphaned_fim_rejected_even_with_unmatched_pair_declared() -> None:
+    # unmatched_pair only excuses a dangling _inicio (section runs to EOD),
+    # never a _fim with no _inicio at all -- that has no legitimate reading.
+    text = "É o relatório."
+    labels = [{"category": "relatorio_fim", "start": 0, "end": 14}]
+    problems = validate_record(text, labels, _CATEGORIES, info={"unmatched_pair": True})
+    assert any("orphaned or excess _fim" in p for p in problems)
+
+
+def test_more_fim_than_inicio_rejected() -> None:
+    text = "RELATÓRIO body É o relatório. É o relatório de novo."
+    labels = [
+        {"category": "relatorio_inicio", "start": 0, "end": 9},
+        {"category": "relatorio_fim", "start": 15, "end": 29},
+        {"category": "relatorio_fim", "start": 31, "end": 52},
+    ]
+    problems = validate_record(text, labels, _CATEGORIES)
+    assert any("orphaned or excess _fim" in p for p in problems)
+
+
+def test_two_dangling_inicio_without_fim_rejected() -> None:
+    # unmatched_pair allows at most ONE dangling _inicio (the last section
+    # extending to EOD) -- two unmatched _inicio for the same base is a
+    # real generator bug, not a legitimate single-EOD-section case.
+    text = "RELATÓRIO one RELATÓRIO two"
+    labels = [
+        {"category": "relatorio_inicio", "start": 0, "end": 9},
+        {"category": "relatorio_inicio", "start": 14, "end": 23},
+    ]
+    problems = validate_record(text, labels, _CATEGORIES, info={"unmatched_pair": True})
+    assert any("unbalanced beyond the single-dangling" in p for p in problems)
+
+
+def test_inverted_pair_fim_before_inicio_rejected() -> None:
+    text = "É o relatório. RELATÓRIO"
+    labels = [
+        {"category": "relatorio_fim", "start": 0, "end": 14},
+        {"category": "relatorio_inicio", "start": 15, "end": 24},
+    ]
+    problems = validate_record(text, labels, _CATEGORIES)
+    assert any("inverted pair" in p for p in problems)
+
+
+def test_balanced_multi_occurrence_pairs_ok() -> None:
+    # Two separate relatorio_inicio/_fim occurrences in one document (e.g.
+    # a doc that repeats a structural block) is legitimate as long as
+    # counts balance and each _fim follows its own _inicio.
+    text = "RELATÓRIO a É o relatório. RELATÓRIO b É o relatório."
+    labels = [
+        {"category": "relatorio_inicio", "start": 0, "end": 9},
+        {"category": "relatorio_fim", "start": 12, "end": 26},
+        {"category": "relatorio_inicio", "start": 27, "end": 36},
+        {"category": "relatorio_fim", "start": 39, "end": 53},
+    ]
+    assert validate_record(text, labels, _CATEGORIES) == []
+
+
 def test_load_label_space_categories_excludes_o() -> None:
     parsed = {"span_class_names": ["O", "resultado", "dispositivo_abertura"]}
     assert load_label_space_categories(parsed) == {"resultado", "dispositivo_abertura"}

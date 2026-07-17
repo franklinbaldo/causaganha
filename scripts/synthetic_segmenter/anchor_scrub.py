@@ -130,6 +130,33 @@ def neutralize_excerpt(text: str) -> str:
     return "".join(parts)
 
 
+def scrub_excerpt_with_occurrences(
+    text: str, *, mode: str = "neutralize"
+) -> tuple[str, list[dict]]:
+    """Like :func:`scrub_excerpt`, but also returns what was found.
+
+    The second element is every anchor occurrence :func:`find_anchor_occurrences`
+    found in the ORIGINAL (pre-scrub) text — for ``"promote_hard_negative"``
+    this is the caller's only way to learn which categories actually turned
+    up, so it can be merged into ``info["hard_negative_families"]`` (RFC
+    0011 §5) instead of that provenance silently depending only on
+    whatever the caller guessed ahead of time via ``DocumentSpec``.
+    """
+    occurrences = find_anchor_occurrences(text)
+    if mode == "neutralize":
+        return neutralize_excerpt(text), occurrences
+    if mode == "discard":
+        if occurrences:
+            categories = sorted({occ["category"] for occ in occurrences})
+            msg = f"excerpt contains {len(occurrences)} anchor occurrence(s) of {categories}"
+            raise ExcerptContainsAnchorError(msg)
+        return text, occurrences
+    if mode == "promote_hard_negative":
+        return text, occurrences
+    msg = f"unknown scrub mode {mode!r}, expected 'neutralize'/'discard'/'promote_hard_negative'"
+    raise ValueError(msg)
+
+
 def scrub_excerpt(text: str, *, mode: str = "neutralize") -> str:
     """Apply one of the three RFC 0011 §6.2 outcomes to anchors found in ``text``.
 
@@ -139,20 +166,11 @@ def scrub_excerpt(text: str, *, mode: str = "neutralize") -> str:
       :func:`neutralize_excerpt`.
     - ``"discard"`` — raise :class:`ExcerptContainsAnchorError` if any
       occurrence is found; return ``text`` unchanged otherwise.
-    - ``"promote_hard_negative"`` — return ``text`` unchanged; the caller
-      is responsible for recording ``hard_negative_families`` provenance
-      (RFC 0011 §5) rather than treating the excerpt as anchor-free.
+    - ``"promote_hard_negative"`` — return ``text`` unchanged.
+
+    Text-only convenience wrapper over :func:`scrub_excerpt_with_occurrences`
+    — callers that need to record which anchor categories were found (e.g.
+    for ``hard_negative_families`` provenance) should call that instead.
     """
-    occurrences = find_anchor_occurrences(text)
-    if mode == "neutralize":
-        return neutralize_excerpt(text)
-    if mode == "discard":
-        if occurrences:
-            categories = sorted({occ["category"] for occ in occurrences})
-            msg = f"excerpt contains {len(occurrences)} anchor occurrence(s) of {categories}"
-            raise ExcerptContainsAnchorError(msg)
-        return text
-    if mode == "promote_hard_negative":
-        return text
-    msg = f"unknown scrub mode {mode!r}, expected 'neutralize'/'discard'/'promote_hard_negative'"
-    raise ValueError(msg)
+    text_out, _occurrences = scrub_excerpt_with_occurrences(text, mode=mode)
+    return text_out

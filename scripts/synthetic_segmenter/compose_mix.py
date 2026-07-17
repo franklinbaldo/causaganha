@@ -85,6 +85,11 @@ def compose_mix(
     Records are shuffled together (not grouped by source) so downstream
     consumers see the mixed order the training run will actually use.
     """
+    negative = {source: w for source, w in weights.items() if w < 0}
+    if negative:
+        msg = f"weights must be non-negative, got negative weights for: {negative!r}"
+        raise ValueError(msg)
+
     total_weight = sum(weights.values())
     if total_weight <= 0:
         msg = f"weights must sum to a positive number, got {weights!r}"
@@ -93,15 +98,57 @@ def compose_mix(
     if target_total is None:
         target_total = sum(len(pools.get(source, [])) for source in weights)
 
+    # A source_type with no pool records can't contribute (a mix can
+    # legitimately ask for a source that just hasn't been generated yet —
+    # see docstring), so it's excluded from the apportionment base entirely
+    # rather than being allocated a share it can never fill; the remaining
+    # sources absorb its share so the total still lands exactly on target.
+    ordered_sources = list(weights)
+    fillable_sources = [source for source in ordered_sources if pools.get(source)]
+    fillable_weight = sum(weights[source] for source in fillable_sources)
+
+    target_counts: dict[str, int] = dict.fromkeys(ordered_sources, 0)
+    if target_total > 0 and fillable_weight <= 0:
+        msg = (
+            f"target_total={target_total} but no weighted source has any pool "
+            f"records to draw from (weights={weights!r}, non-empty pools="
+            f"{sorted(s for s in pools if pools[s])!r})"
+        )
+        raise ValueError(msg)
+
+    if fillable_sources:
+        # Largest-remainder (Hamilton) apportionment: independent per-source
+        # rounding can drift the sum away from target_total (e.g. three
+        # equal weights over a target of 10 each round(3.33) -> 3, summing
+        # to 9, not 10). Floor every share, then hand the leftover units to
+        # the sources with the largest fractional remainder, so the integer
+        # counts always sum to exactly target_total.
+        raw_shares = {
+            source: target_total * weights[source] / fillable_weight for source in fillable_sources
+        }
+        for source in fillable_sources:
+            target_counts[source] = int(raw_shares[source])
+        leftover = target_total - sum(target_counts.values())
+        remainder_order = sorted(
+            fillable_sources,
+            key=lambda source: raw_shares[source] - target_counts[source],
+            reverse=True,
+        )
+        for source in remainder_order[:leftover]:
+            target_counts[source] += 1
+
     rng = random.Random(seed)
     composed: list[dict] = []
     counts_by_source_type: dict[str, int] = {}
-    for source_type, weight in weights.items():
+    for source_type in ordered_sources:
         pool = pools.get(source_type, [])
-        target_count = round(target_total * weight / total_weight)
-        drawn = _draw(pool, target_count, rng)
+        drawn = _draw(pool, target_counts[source_type], rng)
         composed.extend(drawn)
         counts_by_source_type[source_type] = len(drawn)
+
+    assert len(composed) == target_total, (
+        f"internal error: composed {len(composed)} records, expected exactly {target_total}"
+    )
 
     rng.shuffle(composed)
 

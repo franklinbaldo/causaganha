@@ -175,7 +175,8 @@ GOLD_DIR = Path("data/segmenter_splits")
 # ---------------------------------------------------------------------------
 
 # Minimum span support per non-O category required to consider splits
-# production-ready. Enforced by promote_gold() unless --skip-gates is passed.
+# production-ready. Enforced by promote_gold() unless the specific gate is
+# named in --skip-gate (repeatable; waives only that gate, not the others).
 # The current 20-doc TJRO seed intentionally FAILS these gates; that failure
 # is the signal to scale the gold before scheduling a real training run.
 _GATE_MIN_TRAIN_SUPPORT = 10  # spans per category in train
@@ -360,14 +361,22 @@ def migrate_spans_v6_to_v7(
 # ---------------------------------------------------------------------------
 
 
+GATE_IDS = ("G1", "G2", "G4", "G5")
+
+
 def _check_readiness_gates(
     split_counts: dict[str, int],
     per_split_cats: dict[str, dict[str, int]],
     allowed_cats: list[str],
     manifest: dict,
-) -> list[str]:
-    """Return a list of gate-failure messages (empty = all gates pass)."""
-    failures: list[str] = []
+) -> list[tuple[str, str]]:
+    """Return a list of ``(gate_id, message)`` gate failures (empty = all gates pass).
+
+    Callers filter by ``gate_id`` to skip individual gates (e.g. the waived
+    G4 multi-tribunal gate) without silently disabling the others — see
+    ``promote_gold``'s ``skip_gates`` parameter.
+    """
+    failures: list[tuple[str, str]] = []
     non_o = [c for c in allowed_cats if c != "O"]
 
     # G1 — every non-O category has ≥1 span in EACH split
@@ -376,8 +385,11 @@ def _check_readiness_gates(
         missing = [c for c in non_o if counts.get(c, 0) == 0]
         if missing:
             failures.append(
-                f"G1 [{split}]: {len(missing)} categories have zero examples — "
-                f"trim or populate before training: {missing}"
+                (
+                    "G1",
+                    f"G1 [{split}]: {len(missing)} categories have zero examples — "
+                    f"trim or populate before training: {missing}",
+                )
             )
 
     # G2 — minimum span support per category
@@ -389,8 +401,11 @@ def _check_readiness_gates(
     ]
     if weak_train:
         failures.append(
-            f"G2 [train]: {len(weak_train)} categories below {_GATE_MIN_TRAIN_SUPPORT} "
-            f"spans (min for reliable fine-tuning): {weak_train}"
+            (
+                "G2",
+                f"G2 [train]: {len(weak_train)} categories below {_GATE_MIN_TRAIN_SUPPORT} "
+                f"spans (min for reliable fine-tuning): {weak_train}",
+            )
         )
     for split in ("val", "test"):
         counts = per_split_cats.get(split, {})
@@ -399,35 +414,130 @@ def _check_readiness_gates(
         ]
         if weak:
             failures.append(
-                f"G2 [{split}]: {len(weak)} categories below {_GATE_MIN_EVAL_SUPPORT} "
-                f"spans (min for eval reliability): {weak}"
+                (
+                    "G2",
+                    f"G2 [{split}]: {len(weak)} categories below {_GATE_MIN_EVAL_SUPPORT} "
+                    f"spans (min for eval reliability): {weak}",
+                )
             )
 
     # G4 — tribunal diversity
     tribunals = manifest.get("tribunals", {})
     if not tribunals:
         failures.append(
-            "G4 [tribunals]: manifest has no 'tribunals' key — "
-            "add tribunal metadata during annotation"
+            (
+                "G4",
+                "G4 [tribunals]: manifest has no 'tribunals' key — "
+                "add tribunal metadata during annotation",
+            )
         )
     elif len(tribunals) < _GATE_MIN_TRIBUNALS:
         failures.append(
-            f"G4 [tribunals]: only {len(tribunals)} tribunal(s) ({sorted(tribunals)}) "
-            f"— need ≥{_GATE_MIN_TRIBUNALS} for geographic generalization"
+            (
+                "G4",
+                f"G4 [tribunals]: only {len(tribunals)} tribunal(s) ({sorted(tribunals)}) "
+                f"— need ≥{_GATE_MIN_TRIBUNALS} for geographic generalization",
+            )
         )
 
     # G5 — total document volume
     total_docs = sum(split_counts.values())
     if total_docs < _GATE_MIN_TOTAL_DOCS:
         failures.append(
-            f"G5 [volume]: {total_docs} total docs "
-            f"(train={split_counts.get('train', 0)}, "
-            f"val={split_counts.get('val', 0)}, "
-            f"test={split_counts.get('test', 0)}) — "
-            f"need ≥{_GATE_MIN_TOTAL_DOCS} for training"
+            (
+                "G5",
+                f"G5 [volume]: {total_docs} total docs "
+                f"(train={split_counts.get('train', 0)}, "
+                f"val={split_counts.get('val', 0)}, "
+                f"test={split_counts.get('test', 0)}) — "
+                f"need ≥{_GATE_MIN_TOTAL_DOCS} for training",
+            )
         )
 
     return failures
+
+
+def _find_cross_split_duplicates(
+    gold_dir: Path, splits: tuple[str, ...] = ("train", "val", "test")
+) -> list[str]:
+    """Return problem strings for any doc_id or exact-text duplicate.
+
+    A duplicate appearing in more than one of ``splits`` is a leak between
+    train and eval that invalidates the eval metrics silently, so this must
+    block promotion rather than just being caught (or not) by manual review.
+    """
+    problems: list[str] = []
+    doc_id_to_splits: dict[str, list[str]] = {}
+    text_to_splits: dict[str, list[str]] = {}
+
+    for split in splits:
+        jsonl = gold_dir / f"{split}.jsonl"
+        if not jsonl.exists():
+            continue
+        with jsonl.open(encoding="utf-8") as f:
+            for raw in f:
+                stripped = raw.strip()
+                if not stripped:
+                    continue
+                rec = json.loads(stripped)
+                doc_id = rec.get("info", {}).get("doc_id")
+                if doc_id:
+                    doc_id_to_splits.setdefault(doc_id, []).append(split)
+                text = rec.get("text", "")
+                if text:
+                    text_to_splits.setdefault(text, []).append(split)
+
+    for doc_id, seen_in in doc_id_to_splits.items():
+        if len(set(seen_in)) > 1:
+            problems.append(
+                f"doc_id {doc_id!r} appears in more than one split: {sorted(set(seen_in))} "
+                "— a document must belong to exactly one split, this is a train/eval leak"
+            )
+
+    for text, seen_in in text_to_splits.items():
+        if len(set(seen_in)) > 1:
+            snippet = text[:80].replace("\n", " ")
+            problems.append(
+                f"identical document text appears in more than one split: "
+                f"{sorted(set(seen_in))} (text starts {snippet!r}...) "
+                "— a document must belong to exactly one split, this is a train/eval leak"
+            )
+
+    return problems
+
+
+def _verification_breakdown(gold_dir: Path, splits: tuple[str, ...] = ("val", "test")) -> dict:
+    """Count ensemble-verified vs. provisional records in ``splits``.
+
+    Only the original 20-doc seed's val+test went through the 4-role Sonnet
+    ensemble verification pass (see manifest.json's verification_note).
+    Every other record is provisional-quality eval gold: single-pass
+    subagent labeling or LLM annotation, no independent review. This
+    surfaces that split at promotion time instead of leaving it as prose
+    only a human reading manifest.json would ever see.
+    """
+    breakdown = {}
+    for split in splits:
+        jsonl = gold_dir / f"{split}.jsonl"
+        verified = 0
+        provisional = 0
+        unmarked = 0
+        if jsonl.exists():
+            with jsonl.open(encoding="utf-8") as f:
+                for raw in f:
+                    stripped = raw.strip()
+                    if not stripped:
+                        continue
+                    rec = json.loads(stripped)
+                    info = rec.get("info", {})
+                    if "verified" not in info:
+                        unmarked += 1
+                    elif info["verified"]:
+                        verified += 1
+                    else:
+                        provisional += 1
+        breakdown[split] = {"verified": verified, "provisional": provisional, "unmarked": unmarked}
+    return breakdown
 
 
 # ---------------------------------------------------------------------------
@@ -466,8 +576,16 @@ def _get_source_commit() -> str:
         return "unknown"
 
 
-def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) -> int:
-    """Read gold splits from git, validate, write manifest, publish."""
+def promote_gold(
+    gold_dir: Path, output_dir: Path, *, skip_gates: frozenset[str] = frozenset()
+) -> int:
+    """Read gold splits from git, validate, write manifest, publish.
+
+    ``skip_gates`` names individual gate ids (subset of ``GATE_IDS``) to
+    waive — e.g. ``{"G4"}`` to waive the multi-tribunal gate without also
+    disabling G1/G2/G5. An unrecognized gate id is a caller bug, not a
+    silent no-op.
+    """
     required = ["train.jsonl", "val.jsonl", "test.jsonl", "label_space.json"]
     missing = [f for f in required if not (gold_dir / f).exists()]
     if missing:
@@ -479,6 +597,11 @@ def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) 
             file=sys.stderr,
         )
         return 1
+
+    unknown_gates = skip_gates - set(GATE_IDS)
+    if unknown_gates:
+        msg = f"unknown gate id(s) in skip_gates: {sorted(unknown_gates)} (valid: {GATE_IDS})"
+        raise ValueError(msg)
 
     ls_path = gold_dir / "label_space.json"
     ls = json.loads(ls_path.read_text(encoding="utf-8"))
@@ -499,10 +622,34 @@ def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) 
     if not all_valid:
         return 1
 
-    # Count records and categories (aggregate + per-split for gates)
+    dup_problems = _find_cross_split_duplicates(gold_dir)
+    if dup_problems:
+        print("\n⚠️  CROSS-SPLIT DUPLICATES FOUND — this is a train/eval leak:\n", file=sys.stderr)
+        for msg in dup_problems:
+            print(f"  ✗ {msg}", file=sys.stderr)
+        logger.error("cross_split_duplicates", count=len(dup_problems))
+        return 1
+
+    verification = _verification_breakdown(gold_dir)
+    for split, counts in verification.items():
+        provisional_total = counts["provisional"] + counts["unmarked"]
+        if provisional_total:
+            print(
+                f"[info] {split}: {counts['verified']} ensemble-verified, "
+                f"{provisional_total} provisional-quality eval doc(s) "
+                "(single-pass subagent or LLM-labeled, no independent review) "
+                "— treat metrics on this split accordingly.",
+                file=sys.stderr,
+            )
+        logger.info("verification_breakdown", split=split, **counts)
+
+    # Count records and categories (per-split; train-only is the published
+    # convention for manifest["per_class"] -- see per_class_note in every
+    # manifest.json this pipeline has ever written. Do NOT aggregate across
+    # splits here, that silently breaks the documented contract and anyone
+    # reading manifest["per_class"] under the train-only assumption.
     split_counts: dict[str, int] = {}
     per_split_cats: dict[str, dict[str, int]] = {}
-    cat_counts: dict[str, int] = {}
     for split in ("train", "val", "test"):
         jsonl = gold_dir / f"{split}.jsonl"
         count = 0
@@ -516,17 +663,17 @@ def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) 
                 count += 1
                 for sp in rec.get("label", []):
                     cat = sp.get("category", "")
-                    cat_counts[cat] = cat_counts.get(cat, 0) + 1
                     split_cat[cat] = split_cat.get(cat, 0) + 1
         split_counts[split] = count
         per_split_cats[split] = split_cat
+    train_only_cat_counts = per_split_cats["train"]
 
     # Read existing manifest or create new
     existing_manifest_path = gold_dir / "manifest.json"
     if existing_manifest_path.exists():
         manifest = json.loads(existing_manifest_path.read_text(encoding="utf-8"))
         manifest["counts"] = split_counts
-        manifest["per_class"] = cat_counts
+        manifest["per_class"] = train_only_cat_counts
         manifest["source_commit"] = _get_source_commit()
     else:
         manifest = {
@@ -534,29 +681,35 @@ def promote_gold(gold_dir: Path, output_dir: Path, *, skip_gates: bool = False) 
             "seed": 42,
             "source_commit": _get_source_commit(),
             "counts": split_counts,
-            "per_class": cat_counts,
+            "per_class": train_only_cat_counts,
             "test_verified_by": "same_as_train_labeler",
         }
 
     # Readiness gates — fail loud so CI turns red until gold is production-ready.
-    # The 20-doc TJRO seed intentionally fails G1/G2/G4/G5; pass --skip-gates
-    # ONLY for development / inspection runs, never for CI.
-    gate_failures = _check_readiness_gates(split_counts, per_split_cats, names, manifest)
+    # skip_gates waives specific gate ids only (e.g. {"G4"} for the
+    # multi-tribunal gate) -- it never silently waives gates the caller
+    # didn't ask to waive, unlike the old all-or-nothing --skip-gates flag.
+    all_gate_failures = _check_readiness_gates(split_counts, per_split_cats, names, manifest)
+    gate_failures = [(g, m) for g, m in all_gate_failures if g not in skip_gates]
+    waived_failures = [(g, m) for g, m in all_gate_failures if g in skip_gates]
+    if waived_failures:
+        print("\n⚠️  waiving gate failures (explicitly skipped):\n", file=sys.stderr)
+        for gate_id, msg in waived_failures:
+            print(f"  ⚠ [{gate_id} waived] {msg}", file=sys.stderr)
     if gate_failures:
         print(
             "\n⚠️  GOLD NOT READY FOR TRAINING — readiness gates failed:\n",
             file=sys.stderr,
         )
-        for msg in gate_failures:
+        for _gate_id, msg in gate_failures:
             print(f"  ✗ {msg}", file=sys.stderr)
         print(
             "\nSee docs/rfc/0001-opf-segmenter-v7-finetuning-diagnostico.md for the "
-            "scale plan. Pass --skip-gates ONLY for development runs.",
+            "scale plan. Waive only the specific gate(s) you intend to (e.g. "
+            "--skip-gate G4), never all of them.",
             file=sys.stderr,
         )
-        if not skip_gates:
-            return 1
-        print("\n⚠️  --skip-gates active: proceeding despite failures (dev only)\n", file=sys.stderr)
+        return 1
 
     # Publish to output dir
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -718,14 +871,18 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
         logger.error("insufficient_data", count=len(records))
         return 1
 
-    cat_counts: dict[str, int] = {}
+    all_cat_counts: dict[str, int] = {}
     for rec in records:
         for sp in rec["label"]:
-            cat_counts[sp["category"]] = cat_counts.get(sp["category"], 0) + 1
-    for cat, count in sorted(cat_counts.items()):
+            all_cat_counts[sp["category"]] = all_cat_counts.get(sp["category"], 0) + 1
+    for cat, count in sorted(all_cat_counts.items()):
         logger.info("category_count", category=cat, spans=count)
 
     splits = _stratified_split(records, seed=seed)
+    train_only_cat_counts: dict[str, int] = {}
+    for rec in splits["train"]:
+        for sp in rec["label"]:
+            train_only_cat_counts[sp["category"]] = train_only_cat_counts.get(sp["category"], 0) + 1
 
     output_dir.mkdir(parents=True, exist_ok=True)
     for name, data in splits.items():
@@ -743,7 +900,7 @@ def bootstrap_from_parquet(parquet_path: Path, output_dir: Path, seed: int) -> i
         "seed": seed,
         "source_commit": _get_source_commit(),
         "counts": {name: len(data) for name, data in splits.items()},
-        "per_class": cat_counts,
+        "per_class": train_only_cat_counts,
         "test_verified_by": "same_as_train_labeler",
     }
     manifest_path = output_dir / "manifest.json"
@@ -794,11 +951,18 @@ def main() -> int:
     )
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument(
-        "--skip-gates",
-        action="store_true",
+        "--skip-gate",
+        action="append",
+        choices=GATE_IDS,
+        default=[],
+        dest="skip_gates",
         help=(
-            "Skip readiness gates (G1-G5) and promote anyway. "
-            "Use ONLY for development/inspection; never pass this in CI."
+            "Waive one specific readiness gate (repeatable, e.g. "
+            "--skip-gate G4). Only the named gate(s) are waived -- the "
+            "others still block promotion. Use ONLY for development/"
+            "inspection; never pass this in CI without a documented reason "
+            "(e.g. G4 is explicitly waived for the current single-tribunal "
+            "corpus)."
         ),
     )
     args = parser.parse_args()
@@ -809,7 +973,9 @@ def main() -> int:
             Path(args.output_dir),
             args.seed,
         )
-    return promote_gold(Path(args.gold_dir), Path(args.output_dir), skip_gates=args.skip_gates)
+    return promote_gold(
+        Path(args.gold_dir), Path(args.output_dir), skip_gates=frozenset(args.skip_gates)
+    )
 
 
 if __name__ == "__main__":

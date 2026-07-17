@@ -23,7 +23,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from scripts.synthetic_segmenter.anchor_scrub import scrub_excerpt
+from scripts.synthetic_segmenter.anchor_scrub import scrub_excerpt_with_occurrences
 from scripts.synthetic_segmenter.fictionalize import fictionalize_excerpt
 from scripts.synthetic_segmenter.identities import generate_identities
 from scripts.synthetic_segmenter.provenance import default_provenance
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 def build_hybrid_excerpt(
     raw_excerpt: str, *, identity_seed: int, scrub_mode: str = "neutralize"
-) -> str:
+) -> tuple[str, list[dict]]:
     """Scrub anchors, then fictionalize — RFC 0011 §6.2 steps 2 and 3, in order.
 
     Anchor scrubbing must happen before fictionalization: scrubbing wraps
@@ -45,10 +45,17 @@ def build_hybrid_excerpt(
     and running fictionalization first could rewrite a process number or
     OAB number sitting inside what would have been the wrapped span,
     changing what the anchor-detector needs to match against.
+
+    Returns ``(text, occurrences)`` — ``occurrences`` is whatever
+    ``anchor_scrub.find_anchor_occurrences`` found in the raw excerpt
+    (before fictionalization), so ``build_hybrid_record`` can fold the
+    actual categories found into ``hard_negative_families`` provenance
+    rather than relying solely on what ``DocumentSpec`` anticipated ahead
+    of time.
     """
-    scrubbed = scrub_excerpt(raw_excerpt, mode=scrub_mode)
+    scrubbed, occurrences = scrub_excerpt_with_occurrences(raw_excerpt, mode=scrub_mode)
     identities = generate_identities(identity_seed)
-    return fictionalize_excerpt(scrubbed, identities)
+    return fictionalize_excerpt(scrubbed, identities), occurrences
 
 
 def build_hybrid_record(
@@ -69,7 +76,7 @@ def build_hybrid_record(
     """
     require_train_only_sources([source_doc_id], assignment)
 
-    merito_body = build_hybrid_excerpt(
+    merito_body, occurrences = build_hybrid_excerpt(
         raw_excerpt, identity_seed=spec.identity_seed, scrub_mode=scrub_mode
     )
     text, labels, _identities = render(spec, merito_body_override=merito_body)
@@ -86,7 +93,19 @@ def build_hybrid_record(
             "identity_seed": spec.identity_seed,
         }
     )
-    if spec.hard_negative_families:
-        info["hard_negative_families"] = list(spec.hard_negative_families)
+
+    # Union spec-anticipated hard-negative families with whatever the
+    # scrub pass actually found in this specific excerpt -- the spec's
+    # declared families are a prediction made before the real excerpt text
+    # was known, so an excerpt with unanticipated anchor phrases (e.g.
+    # scrub_mode="promote_hard_negative" left categories in place that
+    # spec.hard_negative_families never listed) must not have that
+    # provenance silently lost.
+    found_families: set[str] = set()
+    if scrub_mode == "promote_hard_negative":
+        found_families = {occ["category"] for occ in occurrences}
+    hard_negative_families = set(spec.hard_negative_families) | found_families
+    if hard_negative_families:
+        info["hard_negative_families"] = sorted(hard_negative_families)
 
     return {"text": text, "label": labels, "info": info}

@@ -69,11 +69,49 @@ def validate_record(
             "operative dispositivo_abertura per decision"
         )
 
-    unmatched_bases_in_text = {
-        base
-        for base in _PAIR_BASE_NAMES
-        if f"{base}_inicio" in categories and f"{base}_fim" not in categories
-    }
+    unmatched_bases_in_text: set[str] = set()
+    for base in _PAIR_BASE_NAMES:
+        inicio_starts = sorted(
+            label["start"] for label in labels if label["category"] == f"{base}_inicio"
+        )
+        fim_starts = sorted(
+            label["start"] for label in labels if label["category"] == f"{base}_fim"
+        )
+        n_inicio, n_fim = len(inicio_starts), len(fim_starts)
+        if n_inicio == 0 and n_fim == 0:
+            continue
+
+        if n_fim > n_inicio:
+            problems.append(
+                f"{base}: {n_fim} _fim label(s) but only {n_inicio} _inicio label(s) — "
+                "orphaned or excess _fim (a _fim always needs a preceding _inicio; there "
+                "is no 'extends from start of doc' case in the guideline, only 'extends "
+                "to EOD')"
+            )
+        elif n_inicio - n_fim > 1:
+            problems.append(
+                f"{base}: {n_inicio} _inicio label(s) vs {n_fim} _fim label(s) — unbalanced "
+                "beyond the single-dangling-_inicio case unmatched_pair allows (at most one "
+                "extra _inicio, for a section that runs to end-of-document)"
+            )
+        elif n_inicio - n_fim == 1:
+            unmatched_bases_in_text.add(base)
+
+        # Pair sorted-by-position _inicio/_fim greedily and require each
+        # _fim to come strictly after its paired _inicio -- catches an
+        # inverted pair (a _fim placed before its own _inicio) that a bare
+        # category-membership check can't see.
+        # strict=False: inicio_starts/fim_starts can legitimately differ in
+        # length (the unbalanced case handled above) -- zip pairs only the
+        # first min(n_inicio, n_fim) of each, which is what we want here.
+        for inicio_start, fim_start in zip(inicio_starts, fim_starts, strict=False):
+            if fim_start <= inicio_start:
+                problems.append(
+                    f"{base}: _fim at offset {fim_start} is not after its _inicio at "
+                    f"offset {inicio_start} — inverted pair"
+                )
+                break
+
     if info is not None:
         declared_unmatched = bool(info.get("unmatched_pair", False))
         if unmatched_bases_in_text and not declared_unmatched:

@@ -14,6 +14,7 @@ import pytest
 from scripts.synthetic_segmenter.llm_judge import (
     JUDGE_VERSION,
     JudgeError,
+    _model_family,
     attach_judge_verdict,
     default_judge_models,
     judge_record,
@@ -49,6 +50,37 @@ def test_default_judge_models_uses_env_when_available_omitted(
     monkeypatch.delenv("OPENROUTER_API_KEY", raising=False)
     result = default_judge_models([])
     assert any(model.startswith("gemini/") for model in result)
+
+
+def test_model_family_recognizes_same_line_different_tier_as_one_family() -> None:
+    # This is the exact bug: exact-string exclusion let a generator using
+    # gemini-2.5-flash "distinct-family" judge with gemini-2.5-flash-lite,
+    # a smaller SKU of the identical model line.
+    assert _model_family("gemini/gemini-2.5-flash") == _model_family("gemini/gemini-2.5-flash-lite")
+
+
+def test_model_family_distinguishes_genuinely_different_vendors() -> None:
+    assert _model_family("gemini/gemini-2.5-flash") != _model_family(
+        "openrouter/moonshotai/kimi-k2.6:free"
+    )
+    assert _model_family("openrouter/moonshotai/kimi-k2.6:free") != _model_family(
+        "openrouter/meta-llama/llama-3.3-70b-instruct:free"
+    )
+
+
+def test_model_family_strips_openrouter_free_tag() -> None:
+    assert _model_family("openrouter/moonshotai/kimi-k2.6:free") == _model_family(
+        "openrouter/moonshotai/kimi-k2.6"
+    )
+
+
+def test_default_judge_models_excludes_same_family_different_tier() -> None:
+    # The regression this fix targets: gemini-2.5-flash-lite must be
+    # excluded when the generator used gemini-2.5-flash, not just when it
+    # used the byte-for-byte identical string.
+    available = ["gemini/gemini-2.5-flash-lite", "openrouter/moonshotai/kimi-k2.6:free"]
+    result = default_judge_models(["gemini/gemini-2.5-flash"], available=available)
+    assert result == ["openrouter/moonshotai/kimi-k2.6:free"]
 
 
 @pytest.mark.asyncio

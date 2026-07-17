@@ -39,6 +39,7 @@ function so it composes either way.
 from __future__ import annotations
 
 import json
+import re
 
 import structlog
 
@@ -46,6 +47,55 @@ from causaganha.analysis.llm_analyzer import LLMAnalyzer
 
 
 logger = structlog.get_logger()
+
+# litellm routing prefixes that name a PLATFORM, not a model vendor --
+# strip these before reading the vendor/model-line segment(s), or every
+# openrouter-routed model would collapse into one bogus "openrouter" family.
+_ROUTING_PREFIXES = frozenset(
+    {"openrouter", "vertex_ai", "bedrock", "azure", "together_ai", "deepinfra", "perplexity", "oci"}
+)
+
+# Suffixes that denote a smaller/cheaper SKU of the same underlying model
+# line rather than a genuinely distinct model -- e.g. "gemini-2.5-flash"
+# and "gemini-2.5-flash-lite" are the same family at different quota
+# tiers (see LLMAnalyzer.models_from_env's own comment), not two
+# independent models.
+_SIZE_TIER_SUFFIX_RE = re.compile(r"-(?:lite|mini|nano|micro|tiny)$")
+
+
+def _model_family(model: str) -> str:
+    """Best-effort vendor + model-line family for a litellm model string.
+
+    Exact string equality is too strict (misses that
+    ``"gemini/gemini-2.5-flash"`` and ``"gemini/gemini-2.5-flash-lite"``
+    are the same family) and too permissive in the other direction if
+    naively substring-matched. This instead: strips known platform-routing
+    prefixes (``openrouter/``, ``vertex_ai/``, ...) to reach the actual
+    vendor segment, drops a trailing size/tier suffix like ``-lite`` so
+    same-line SKUs collapse together, and strips a trailing ``:tag``
+    (e.g. openrouter's ``:free``).
+
+    Not a full corporate-ownership taxonomy (``openrouter/google/gemma-*``
+    and ``gemini/gemini-*`` are treated as different families, even though
+    both are Google models) -- Gemini and Gemma are genuinely different
+    model lines, so that's a defensible, not just lazy, distinction.
+    """
+    parts = model.split("/")
+    if parts[0] in _ROUTING_PREFIXES and len(parts) > 1:
+        parts = parts[1:]
+
+    if len(parts) > 1:
+        # provider/vendor/model shape (e.g. "google/gemma-4-31b-it:free")
+        # -> the vendor segment is the family.
+        return parts[0]
+
+    # provider/model shape (e.g. "gemini/gemini-2.5-flash-lite") -- the
+    # provider segment already names the vendor/line; normalize away a
+    # trailing size-tier suffix and any ":tag" so SKUs of the same line
+    # collapse to one family.
+    model_name = parts[0].split(":")[0]
+    return _SIZE_TIER_SUFFIX_RE.sub("", model_name)
+
 
 JUDGE_VERSION = "judge-v1"
 
@@ -69,9 +119,16 @@ class JudgeError(RuntimeError):
 def default_judge_models(
     generator_models: list[str] | None = None, *, available: list[str] | None = None
 ) -> list[str]:
-    """Model list for judging, excluding whatever the content generator used.
+    """Model list for judging, excluding the content generator's model FAMILY.
 
-    ``available`` defaults to ``LLMAnalyzer.models_from_env()``.
+    ``available`` defaults to ``LLMAnalyzer.models_from_env()``. Exclusion
+    is by ``_model_family``, not exact string equality — a generator using
+    ``"gemini/gemini-2.5-flash"`` also excludes
+    ``"gemini/gemini-2.5-flash-lite"`` from judging, since that's a smaller
+    SKU of the same model line, not an independent model (RFC 0011 §8's
+    "família de modelo distinta" would be violated by a same-line judge
+    just as much as by the literal same model).
+
     Raises no error if the exclusion empties the list — callers get an
     empty list back and must decide whether to widen it (judging is
     optional; a caller with only one available model family has no
@@ -79,8 +136,8 @@ def default_judge_models(
     function's problem to paper over).
     """
     candidates = available if available is not None else LLMAnalyzer.models_from_env()
-    excluded = set(generator_models or [])
-    return [model for model in candidates if model not in excluded]
+    excluded_families = {_model_family(model) for model in (generator_models or [])}
+    return [model for model in candidates if _model_family(model) not in excluded_families]
 
 
 def _parse_verdict(content: str) -> dict:
