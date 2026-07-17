@@ -59,18 +59,25 @@ anotação e a **elegibilidade** para avaliação.
 
 ## 3. Princípios de produto
 
-### 3.1 Um estado de dataset representa uma garantia real
+### 3.1 Uma garantia de qualidade só existe se estiver registrada, nunca por sobrescrita
 
-O sistema reconhece cinco estados distintos:
+Um documento carrega três tipos de artefato que **coexistem**, não uma cadeia de
+estados que se substituem: o registro de **candidato** original nunca é apagado nem
+movido; cada **anotação** é um registro adicional que referencia o `candidate_id`; a
+**adjudicação** é outro registro adicional que referencia as anotações que resolve. A
+garantia de um documento em um dado momento é lida pelo conjunto de registros presentes
+para aquele `candidate_id` — "adjudicado" significa "existe um registro de adjudicação
+aceito para este candidato", não "o documento foi movido para uma pasta
+`adjudications/`".
 
-1. **Candidato** — spans extraídos ou propostos. Nenhuma alegação de qualidade.
-2. **Anotado** — uma anotação completa produzida por um anotador.
-3. **Adjudicado** — revisado independentemente ou resolvido por adjudicação explícita.
-4. **Split-assigned** — atribuído a train/val/test após checagens de vazamento.
-5. **Released** — artefato imutável, com checksums, aprovado para um uso declarado.
+`split-assigned` e `released` **não são artefatos por documento** — são propriedades de
+uma *build* de dataset, registradas exclusivamente nos manifests de split (§10) e de
+release (§8), nunca inferidas da localização de um arquivo. Um documento nunca é
+"promovido": o que muda é qual manifest o referencia, e com qual conjunto de anotações e
+adjudicações resolvidas naquele momento esse manifest foi construído.
 
-Nenhuma operação pode renomear um estado para outro sem adicionar a garantia que o novo
-estado representa.
+Nenhuma alegação de qualidade pode ser feita por inferência de diretório ou de nome de
+arquivo — sempre pela presença do registro correspondente.
 
 ### 3.2 Validade mecânica não é correção semântica
 
@@ -94,9 +101,13 @@ Seleção de checkpoint usa **exclusivamente métricas de validação**.
 
 ### 3.4 Dados reais estabelecem o baseline
 
-O primeiro baseline de produção usa apenas documentos reais adjudicados. Dados
-sintéticos, aumentados e híbridos são fontes experimentais: só entram no treino via
-ablações controladas **depois** do baseline real estar congelado.
+O primeiro baseline de produção usa apenas documentos reais: treino no estado
+**anotado**, validação e teste no estado **adjudicado** (duas anotações independentes +
+adjudicação — política completa no §9). Treino nunca precisa alcançar "adjudicado";
+exigir isso do treino contradiria o próprio §9, que aceita uma anotação completa +
+spot-review de risco para dados de treino. Dados sintéticos, aumentados e híbridos são
+fontes experimentais: só entram no treino via ablações controladas **depois** do
+baseline real estar congelado.
 
 ### 3.5 Todo waiver é estreito
 
@@ -109,7 +120,8 @@ antipadrão que este princípio proíbe).
 ## 4. Objetivos do primeiro release
 
 - definir uma ontologia canônica (decisão em §5);
-- construir um corpus real adjudicado;
+- construir um corpus real anotado (treino) e adjudicado (validação/teste), com o gate
+  de referência humana do §9.1 antes de qualquer split ser nomeado `gold`;
 - prevenir vazamento exato e por quase-duplicata entre splits;
 - congelar validação e teste **antes** de qualquer experimentação de modelo;
 - treinar um baseline reprodutível só com dados reais;
@@ -177,15 +189,19 @@ Explicitamente adiados (viram Fase 5+, sob a RFC 0011 revisada):
 
 ## 8. Artefatos canônicos
 
-Diretórios separados por estado de ciclo de vida:
+Diretórios separados por **tipo de artefato**, não por estado — um documento aparece em
+`candidates/` e, à medida que trabalho é feito sobre ele, também em `annotations/` e
+depois em `adjudications/`, sem que o registro original em `candidates/` seja alterado
+ou removido (§3.1). `splits/` e `releases/` não contêm cópias de documentos "promovidos";
+contêm manifests que referenciam `candidate_id`s por hash:
 
 ```text
 data/segmenter/
-  candidates/
-  annotations/
-  adjudications/
-  splits/
-  releases/
+  candidates/      # registros imutáveis, nunca movidos ou reescritos
+  annotations/      # um ou mais registros por candidate_id
+  adjudications/    # resolução de val/test; ausente para a maioria do treino (§9)
+  splits/            # manifests de split-assignment, não cópias de documento
+  releases/          # manifests + pacote imutável gerado por build_gold_release (§12)
 ```
 
 ### Registro de candidato
@@ -265,11 +281,30 @@ data/segmenter/
 }
 ```
 
-**`annotation_quality` é obrigatório e definido**: concordância inter-anotador (IAA) em
-nível de span — F1 entre as duas anotações independentes, computado **antes** da
-adjudicação, agregado e por categoria, para val e test. É a versão falsificável de
-"qualidade de anotação"; um release de eval sem IAA reportado não passa no gate
-correspondente (§14).
+**`annotation_quality` é obrigatório**, com a seguinte especificação exata — nenhum
+valor numérico solto é aceito como evidência sem estes parâmetros declarados junto:
+
+- **Matching de span:** métrica primária = correspondência **exata** de offsets
+  (`start`, `end`, `category` idênticos) entre as duas anotações independentes.
+  Sobreposição (IoU ≥ 0.5) é uma métrica secundária/diagnóstica, reportada em separado,
+  nunca substituindo a exata no gate.
+- **Averaging:** F1 por categoria; uma categoria só entra no **macro**-F1 agregado se
+  tiver suporte ≥ 5 spans na anotação de referência daquele split (mesmo piso do §5.4).
+  Categorias abaixo do suporte mínimo são reportadas individualmente no manifest mas
+  excluídas do macro agregado — evita que uma categoria com 1 exemplo domine ou seja
+  ignorada de forma enganosa.
+- **Intervalo de confiança:** bootstrap sobre **documentos** (não sobre spans
+  individuais, para não quebrar o agrupamento), ≥ 1000 reamostragens, IC 95% publicado
+  junto ao ponto estimado — obrigatório dado o tamanho pequeno do split (§5.4: ~30 docs).
+- **Threshold e consequência:** o release declara, antes de computar o IAA, um piso
+  mínimo de macro-F1 agregado (recomendado: 0.75 para v8.1) e um piso por categoria
+  treinável (recomendado: 0.5). **IAA abaixo do piso agregado é um erro rígido,
+  não-waivable (§12.1).**
+- **Limite epistêmico explícito:** IAA mede **confiabilidade entre anotadores**, não
+  **validade** contra a verdade-terreno — dois anotadores (ou famílias de LLM) podem
+  concordar e ainda assim estarem sistematicamente errados por viés correlacionado. IAA
+  alto é condição **necessária, não suficiente** para chamar um split de `gold`; a
+  condição suficiente adicional é a validação contra referência humana do §9.1.
 
 ## 9. Política de anotação
 
@@ -304,6 +339,34 @@ Cada documento de val/test exige:
 
 Uma anotação não é independente quando o revisor vê a primeira anotação ou uma predição
 de modelo antes de produzir a sua.
+
+### 9.1 Validação de anotadores-LLM contra referência humana (condição para `gold`)
+
+Concordância entre duas execuções/famílias de LLM (§5.3) demonstra isolamento de
+execução, não ausência de viés correlacionado — duas famílias, inclusive treinadas em
+corpora sobrepostos, podem errar sistematicamente da mesma forma. Um split cuja única
+evidência de qualidade é IAA entre anotadores-LLM é honestamente **`silver`**
+(`llm-adjudicated`), não **`gold`**.
+
+Para que um release classifique seu val/test como `gold`, esta RFC exige:
+
+- uma **amostra cega de referência**, adjudicada por um especialista humano (jurista)
+  sem acesso a nenhuma anotação de LLM prévia daquele documento, cobrindo no mínimo 20%
+  do split de teste ou 10 documentos (o que for maior);
+- um **gate de validação por configuração de anotador-LLM**: antes de uma combinação
+  (modelo, versão de prompt/guideline) ser aceita para produzir anotações de val/test,
+  seu F1 de span exato contra a amostra de referência humana deve atingir o mesmo piso
+  do §8 (macro-F1 ≥ 0.75); a validação é repetida sempre que o modelo, prompt ou
+  guideline mudar de versão;
+- registro no manifest de release de qual amostra de referência e qual resultado de
+  validação sustentam a classificação `gold`.
+
+**Enquanto este gate não estiver implementado** (depende de disponibilidade de revisão
+jurídica humana), releases nomeiam seus artefatos como `segmenter-silver-vN.M`, não
+`segmenter-real-vN.M`, e o comando `build_gold_release` (§12) é um nome provisório —
+renomear para `build_dataset_release` até o gate existir é aceitável e não exige nova
+RFC. A primeira vez que o gate passa com uma amostra de referência registrada, o release
+correspondente pode adotar `gold`/`real` na nomenclatura.
 
 ## 10. Política de splits
 
@@ -365,9 +428,14 @@ A operação chama-se:
 build_gold_release
 ```
 
-Ela **não promove candidatos** — empacota registros já adjudicados e split-assigned:
+*(Nome provisório — condicionado ao gate de referência humana do §9.1. Até esse gate
+existir, o release resultante é nomeado `segmenter-silver-*`, não `segmenter-real-*`, e
+`build_dataset_release` é um nome igualmente válido para o comando.)*
 
-1. carrega adjudicações;
+Ela **não promove candidatos** — empacota registros já anotados (treino, §9) ou
+adjudicados (validação e teste, §9), com split-assignment já resolvido (§10):
+
+1. carrega anotações (treino) e adjudicações (validação e teste);
 2. verifica integridade de splits;
 3. valida cada registro;
 4. calcula contagens e hashes;
@@ -389,11 +457,32 @@ Cada waiver identifica exatamente uma regra:
 }
 ```
 
-Não existe `--skip-gates` genérico.
+### 12.1 Invariantes não-waivable
+
+Waiver por regra individual não basta se **todas** as regras puderem ser waivadas — isso
+é `--skip-gates` disfarçado de granularidade. Os gates do §14 dividem-se em duas classes
+fixas, e a classe de cada gate (não só o resultado) é parte do contrato desta RFC:
+
+- **Erros rígidos, nunca waivable, sempre bloqueiam o release:** schema de ontologia
+  inválido; qualquer conflito de anotação não resolvido; vazamento entre splits (ID,
+  hash exato, grupo ou quase-duplicata cruzando splits — §10); contaminação de teste
+  (teste avaliado mais de uma vez, ou usado em seleção de checkpoint — §3.3/§13.1);
+  checksums/integridade de release ausentes ou inválidos; IAA abaixo do piso agregado
+  declarado (§8). `build_gold_release` recusa-se a produzir **qualquer** release,
+  mesmo rotulado `silver`/experimental, se um destes falhar.
+- **Consultivos/waivable — allowlist fechada, cada um com waiver individual do formato
+  acima:** diversidade de tribunal; diversidade de sistema-fonte; diversidade temporal;
+  representatividade do conjunto de avaliação; revisão externa da anotação de teste —
+  exatamente os itens já listados em §14 como "exigidos para alegações amplas de
+  produção". Nenhum gate fora desta lista pode receber waiver; adicionar um item à
+  allowlist exige atualizar esta RFC, não um argumento de linha de comando.
+
+Não existe `--skip-gates` genérico, e não existe caminho — por regra individual ou
+composição de waivers — para dispensar um erro rígido.
 
 ## 13. Treino baseline e avaliação de teste
 
-O primeiro baseline usa: split de treino real adjudicado; validação congelada; uma
+O primeiro baseline usa: split de treino real anotado (§9); validação congelada; uma
 arquitetura declarada; um comando de treino reprodutível; seeds fixas; hashes de
 dependências e checkpoint; métricas de validação por época; **nenhuma avaliação de
 teste por época**.
@@ -415,6 +504,48 @@ Se o resultado de teste causar mudanças no modelo, aquele teste vira dado de
 desenvolvimento e um novo teste trancado deve ser criado (foi exatamente o que
 aconteceu com o teste v7 — §5.2).
 
+### 13.1 Rotação do teste entre releases
+
+"Avaliado uma vez" descreve o teste de **um** release; não implica que o mesmo teste
+sirva para sempre. O ciclo completo:
+
+- **Validação** — usada livremente durante o desenvolvimento para seleção de checkpoint
+  e diagnóstico (§3.3), nunca reportada como número final de desempenho.
+- **Teste de aceitação (holdout)** — um conjunto por *major release*
+  (`segmenter-real-v8`, `v9`, ...), avaliado exatamente uma vez por essa versão maior.
+  Uma vez usado, é consumido para fins de alegação final: releases *menores* do mesmo
+  major (`v8.1`, `v8.2`, ...) reusam o mesmo treino/validação mas **não reavaliam o
+  mesmo holdout como medição nova** — uma reavaliação do mesmo holdout só é reportada
+  como diagnóstico de regressão (comparação), nunca como nova estimativa de desempenho.
+- Quando uma mudança de modelo é motivada pelo resultado do teste (regra "não continuar
+  ajustando" acima), o teste correspondente é aposentado permanentemente e um **novo
+  holdout** é sorteado de documentos nunca antes tocados, sob novo major `release_id`.
+  O manifest do novo release registra esse evento (`retired_test_release`).
+- Se diagnóstico repetido contra o mesmo teste for genuinamente necessário entre majors
+  (ex.: checar regressão antes de um release menor), isso só pode ocorrer contra um
+  **dev-test/benchmark set separado**, explicitamente marcado como reutilizável, com
+  cada consulta registrada (contador de usos + data) no manifest — nunca contra o
+  holdout de aceitação.
+
+### 13.2 Mecanismo real de trancamento
+
+Um `test.jsonl` versionado em texto claro no repositório público não está trancado —
+qualquer sessão de desenvolvimento pode lê-lo a qualquer momento. O trancamento é
+implementado assim:
+
+- No momento do split-assignment (§10), o conteúdo do split de teste é cifrado (ex.:
+  `age`/`gpg` com chave mantida fora do repositório) ou publicado apenas como blob
+  privado (ex.: item privado no Internet Archive — não o item público usado para os
+  dados-fonte). O repositório versiona somente o **hash sha256** do teste em claro, no
+  manifest de split, nunca o conteúdo.
+- O "destrancamento" do passo 3 acima é uma operação nomeada e registrada: busca/decifra
+  o conteúdo, executa a avaliação exatamente uma vez, e grava no manifest do release o
+  timestamp, o executor e o hash do resultado — nunca uma leitura ad hoc do arquivo por
+  um desenvolvedor.
+- Depois de consumido (§13.1), o conteúdo em claro pode ser versionado no repositório
+  para fins de auditoria (o segredo já não protege nada), mas somente **após** o
+  registro de consumo já existir no manifest — nunca antes.
+
 Aprendizados mecânicos do PR #832 que **permanecem válidos** para o runner: processo
 por época com resume via `--checkpoint` (o trainer do `opf` vaza RAM em processo
 longo), e os hiperparâmetros do sweep (lr 5e-5, batch 1, grad-accum 4) como ponto de
@@ -422,15 +553,17 @@ partida — não como configuração congelada.
 
 ## 14. Gates de prontidão
 
-Cada gate tem resultado independente.
+Cada gate tem resultado independente e pertence a exatamente uma das duas classes do
+§12.1 (rígido/não-waivable ou consultivo/waivable).
 
-**Exigidos para treino baseline:**
+**Exigidos para treino baseline (todos rígidos, §12.1):**
 
 - schema de ontologia válido;
 - train/val/test disjuntos por grupo, ID e hash exato;
 - nenhum conflito de anotação não resolvido;
 - todo registro de val/test com duas anotações independentes + adjudicação;
-- IAA de val/test computado e publicado no manifest (§8);
+- IAA de val/test computado, publicado no manifest **e** acima do piso agregado
+  declarado (§8) — abaixo do piso é falha rígida, não apenas ausência de número;
 - suporte mínimo de treino por categoria (§5.4);
 - suporte mínimo de validação para métricas reportadas;
 - checksums de release gerados;
@@ -484,7 +617,12 @@ todos esses experimentos.
 
 ## 16. Critérios de aceitação do primeiro release
 
-O trabalho está completo quando:
+Aceitar o **dataset** (linhagem íntegra, procedimento correto) não implica aceitar o
+**modelo** para uso — são critérios distintos, versionados separadamente (§16.2).
+
+### 16.1 Aceitação do dataset release
+
+O dataset release está completo quando:
 
 - todo registro de val/test tem duas anotações independentes e um registro de
   adjudicação;
@@ -492,12 +630,42 @@ O trabalho está completo quando:
   splits;
 - todo rótulo passa nas regras semânticas de par e na validação mecânica;
 - um release é imutável e reprodutível a partir de um commit Git limpo;
-- o checkpoint é selecionado só por macro-F1 de validação;
-- o teste é avaliado uma vez, após congelamento da configuração;
-- toda alegação publicada declara escopo de tribunal e fonte;
+- IAA de val/test atinge o piso declarado (§8), com os erros rígidos do §12.1 todos
+  limpos;
+- toda alegação publicada declara escopo de tribunal e fonte, e usa `silver`/`gold`
+  conforme o gate do §9.1;
 - nenhum registro sintético é necessário para o primeiro baseline confiável;
-- outro desenvolvedor consegue reproduzir release, treino e métricas apenas com as
-  instruções do repositório.
+- outro desenvolvedor consegue reproduzir o release apenas com as instruções do
+  repositório.
+
+### 16.2 Aceitação do model release (deploy) — critério de utilidade mínima
+
+Um checkpoint totalmente reprodutível com macro-F1 de teste próximo de zero satisfaz
+todos os critérios do §16.1 e ainda assim não serve a nenhum propósito — "confiável"
+nesta RFC significa **auditável**, não **adequado ao uso**. Um model release exige
+adicionalmente:
+
+- **Baseline trivial declarado**: comparação, no mesmo teste trancado, contra um
+  extrator heurístico/determinístico já existente (ex.: os extratores de fronteira do
+  PR 1/§18) ou, na ausência de um, contra predição por classe majoritária. O modelo deve
+  superar esse baseline por uma margem pré-declarada (recomendado: ≥ 0.10 de macro-F1)
+  para ser elegível a deploy;
+- **Intervalo de confiança no resultado de teste**: bootstrap sobre documentos (mesma
+  metodologia do §8), obrigatório dado o tamanho pequeno do teste (§5.4). Um F1 pontual
+  sem IC não é uma alegação aceitável de desempenho;
+- **Pisos pré-declarados por categoria operacionalmente crítica** (mínimo:
+  `dispositivo_abertura`, `resultado`, `acordao_decisorio_inicio`,
+  `acordao_decisorio_fim`), declarados antes da avaliação de teste (§13) junto com o
+  hash de configuração. Falhar um piso crítico bloqueia o deploy mesmo com macro-F1
+  agregado aceitável — não há trade-off implícito entre categorias críticas e não;
+- essas evidências (baseline trivial, IC, pisos por categoria) compõem o **model card**
+  publicado junto ao checkpoint, distinto do manifest de dataset.
+
+O checkpoint é selecionado só por macro-F1 de validação (§13) e o teste é avaliado uma
+vez, após congelamento da configuração (§13/§13.1). `release_id` de dataset e de model
+release são versionados separadamente (`segmenter-real-v8.1` para o dataset,
+`segmenter-model-v8.1` para o checkpoint que o usa), permitindo que um dataset seja
+aceito enquanto um modelo treinado sobre ele ainda não atinge a barra de utilidade.
 
 ## 17. Métrica de sucesso
 
