@@ -1,82 +1,90 @@
-"""Deterministic, content-addressed IDs for the segmenter dataset lifecycle.
-
-RFC 0012 §3.1, §8: a document/annotation/review is identified by the hash of
-its own content, never by a counter. Two annotations with identical content
-collapse to the same ``annotation_id``; any difference in label, annotator,
-or timestamp produces a new ID, never overwriting the previous one — that is
-what "a document is never promoted, only referenced by new records" (§3.1)
-means at the ID-generation layer.
-"""
+"""Deterministic IDs for the segmenter dataset artifacts."""
 
 from __future__ import annotations
 
 import hashlib
 import json
+from typing import Any
 
 
 def _stable_json(value: object) -> str:
-    """Canonical JSON encoding used as hash input — sorted keys, no whitespace."""
     return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
-def document_id(*, source_system: str, source_uri: str, source_hash: str) -> str:
-    """Content-addressed ID for a document record (RFC 0012 §8).
+def _digest(prefix: str, payload: dict[str, Any]) -> str:
+    digest = hashlib.sha256(_stable_json(payload).encode("utf-8")).hexdigest()
+    return f"{prefix}_{digest[:32]}"
 
-    Derived only from source identity fields, never from ``text`` directly —
-    ``source_hash`` already commits to the exact bytes fetched from the
-    source system, and keeping the ID formula independent of ``text`` means
-    re-extracting the same source document with a different heuristic
-    extractor (different ``proposed_labels``) still resolves to the same
-    ``document_id``, as RFC 0012 §3.1 requires (the document record is one
-    artifact type; extraction method is a detail of it, not a new identity).
+
+def document_id(*, source_system: str, source_uri: str, source_hash: str) -> str:
+    """Stable source-addressed document identity.
+
+    ``source_hash`` commits to the exact fetched bytes; extraction proposals are
+    deliberately excluded so multiple extraction passes refer to one source document.
     """
-    digest = hashlib.sha256(
-        _stable_json(
-            {
-                "source_system": source_system,
-                "source_uri": source_uri,
-                "source_hash": source_hash,
-            }
-        ).encode("utf-8")
-    ).hexdigest()
-    return f"doc_{digest[:32]}"
+    return _digest(
+        "doc",
+        {
+            "source_system": source_system,
+            "source_uri": source_uri,
+            "source_hash": source_hash,
+        },
+    )
 
 
 def annotation_id(
     *,
     document_id: str,
     annotator_id: str,
+    annotator_config: dict[str, Any],
+    ontology_version: str,
+    covered_categories: list[str] | tuple[str, ...],
+    labels: list[dict[str, Any]],
+    allowed_unmatched: dict[str, str],
     completed_at: str,
-    labels: list[dict],
+    annotation_method: str,
 ) -> str:
-    """Content-addressed ID for an annotation record (RFC 0012 §8)."""
-    digest = hashlib.sha256(
-        _stable_json(
-            {
-                "document_id": document_id,
-                "annotator_id": annotator_id,
-                "completed_at": completed_at,
-                "labels": labels,
-            }
-        ).encode("utf-8")
-    ).hexdigest()
-    return f"ann_{digest[:32]}"
+    """Content-addressed annotation ID over every semantically relevant field."""
+    return _digest(
+        "ann",
+        {
+            "document_id": document_id,
+            "annotator_id": annotator_id,
+            "annotator_config": annotator_config,
+            "ontology_version": ontology_version,
+            "covered_categories": sorted(covered_categories),
+            "labels": labels,
+            "allowed_unmatched": allowed_unmatched,
+            "completed_at": completed_at,
+            "annotation_method": annotation_method,
+        },
+    )
 
 
 def review_id(
     *,
     document_id: str,
-    input_annotation_ids: list[str],
+    input_annotation_ids: list[str] | tuple[str, ...],
+    status: str,
+    final_labels: list[dict[str, Any]],
+    allowed_unmatched: dict[str, str],
+    reviewers: list[str] | tuple[str, ...],
+    resolution: str,
+    notes: list[str] | tuple[str, ...],
     approved_at: str,
 ) -> str:
-    """Content-addressed ID for a review/adjudication record (RFC 0012 §8)."""
-    digest = hashlib.sha256(
-        _stable_json(
-            {
-                "document_id": document_id,
-                "input_annotation_ids": sorted(input_annotation_ids),
-                "approved_at": approved_at,
-            }
-        ).encode("utf-8")
-    ).hexdigest()
-    return f"rev_{digest[:32]}"
+    """Content-addressed review ID over the complete adjudication result."""
+    return _digest(
+        "rev",
+        {
+            "document_id": document_id,
+            "input_annotation_ids": sorted(input_annotation_ids),
+            "status": status,
+            "final_labels": final_labels,
+            "allowed_unmatched": allowed_unmatched,
+            "reviewers": sorted(reviewers),
+            "resolution": resolution,
+            "notes": list(notes),
+            "approved_at": approved_at,
+        },
+    )

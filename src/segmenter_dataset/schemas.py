@@ -1,35 +1,10 @@
-"""Record schemas for the segmenter dataset lifecycle (RFC 0012 §8).
-
-Three artifact types that coexist per document (RFC 0012 §3.1) — a document
-record is never edited or replaced; each annotation and each review is an
-additional record referencing it, never an overwrite:
-
-- :class:`DocumentRecord` — immutable source text + provenance.
-- :class:`AnnotationRecord` — one annotator's complete labeling of a
-  document, plus which ontology categories it actually considered
-  (``covered_categories`` — RFC 0012 §5.1's false-negative guard).
-- :class:`ReviewRecord` — adjudication of one or more annotations,
-  referencing them explicitly by ``annotation_id`` (RFC 0012 §8's lineage
-  fix — a review never just references a bare ``document_id``).
-
-:class:`ReleaseManifest` is the dataset-level artifact (§3.1: split-assigned
-and released are properties of a *build*, not of a document) produced by
-``release.build_dataset_release``.
-
-Pydantic validates shape and type here; the semantic/mechanical invariants
-of RFC 0012 §11 (offset bounds, pair balance, ontology membership, ...) are
-a separate concern in :mod:`segmenter_dataset.mechanical`, per RFC 0012
-§3.2 — mechanical validity is not semantic correctness, and neither layer
-should quietly absorb the other's job.
-"""
+"""Record schemas for the segmenter dataset lifecycle (RFC 0012 §8)."""
 
 from __future__ import annotations
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
-# RFC 0012 §5.3/§9 — an accepted review must resolve at least two
-# independent annotations.
 MIN_INDEPENDENT_ANNOTATIONS = 2
 
 
@@ -45,16 +20,16 @@ class Label(BaseModel):
     @model_validator(mode="after")
     def _check_order(self) -> Label:
         if not (0 <= self.start < self.end):
-            msg = (
-                "label offsets must satisfy 0 <= start < end, got "
-                f"start={self.start} end={self.end}"
+            message = (
+                "label offsets must satisfy 0 <= start < end, "
+                f"got start={self.start} end={self.end}"
             )
-            raise ValueError(msg)
+            raise ValueError(message)
         return self
 
 
 class SourceInfo(BaseModel):
-    """Where a document came from (RFC 0012 §8)."""
+    """Where a document came from."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -65,8 +40,19 @@ class SourceInfo(BaseModel):
     source_hash: str
 
 
+class GroupingInfo(BaseModel):
+    """Stable keys used to prevent related documents crossing splits."""
+
+    model_config = ConfigDict(frozen=True)
+
+    normalized_process_number: str | None = None
+    source_process_id: str | None = None
+    document_family: str | None = None
+    parent_document_id: str | None = None
+
+
 class ExtractionInfo(BaseModel):
-    """Which heuristic extractor produced ``proposed_labels`` (RFC 0012 §8)."""
+    """Which heuristic extractor produced ``proposed_labels``."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -75,25 +61,20 @@ class ExtractionInfo(BaseModel):
 
 
 class DocumentRecord(BaseModel):
-    """Immutable source-text record (RFC 0012 §8 "Registro de documento").
-
-    Never edited after creation — ``document_id`` is content-addressed
-    (:func:`segmenter_dataset.ids.document_id`) from ``source``, so two
-    extraction passes over the same source document resolve to the same
-    record rather than minting a new identity per extractor run.
-    """
+    """Immutable source-text record."""
 
     model_config = ConfigDict(frozen=True)
 
-    document_id: str
+    document_id: str = Field(pattern=r"^doc_[0-9a-f]{32}$")
     text: str
     proposed_labels: list[Label] = Field(default_factory=list)
     source: SourceInfo
     extraction: ExtractionInfo
+    grouping: GroupingInfo = Field(default_factory=GroupingInfo)
 
 
 class AnnotatorConfig(BaseModel):
-    """Identity of the annotator run that produced an :class:`AnnotationRecord`."""
+    """Identity of the annotator run that produced an annotation."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -103,90 +84,81 @@ class AnnotatorConfig(BaseModel):
 
 
 class AnnotationRecord(BaseModel):
-    """One annotator's complete labeling of a document (RFC 0012 §8).
-
-    ``covered_categories`` is the RFC 0012 §5.1 false-negative guard: it is
-    the subset of the ontology this annotator actually considered. A
-    category outside this set must be masked out of training loss/support
-    for this document (§5.1), never read as a negative example.
-    """
+    """One annotator's complete labeling of a document."""
 
     model_config = ConfigDict(frozen=True)
 
-    annotation_id: str
-    document_id: str
+    annotation_id: str = Field(pattern=r"^ann_[0-9a-f]{32}$")
+    document_id: str = Field(pattern=r"^doc_[0-9a-f]{32}$")
     annotator_id: str
     annotator_config: AnnotatorConfig
     ontology_version: str
     covered_categories: tuple[str, ...]
     labels: list[Label] = Field(default_factory=list)
+    allowed_unmatched: dict[str, str] = Field(default_factory=dict)
     completed_at: str
     annotation_method: str
 
     @model_validator(mode="after")
-    def _labels_within_covered_categories(self) -> AnnotationRecord:
-        uncovered = {label.category for label in self.labels} - set(self.covered_categories)
+    def _validate_annotation_contract(self) -> AnnotationRecord:
+        covered = set(self.covered_categories)
+        uncovered = {label.category for label in self.labels} - covered
         if uncovered:
-            msg = (
-                f"labels use categories outside covered_categories: {sorted(uncovered)} — "
-                "an annotator cannot produce a label for a category it wasn't asked to consider"
-            )
-            raise ValueError(msg)
+            message = f"labels use categories outside covered_categories: {sorted(uncovered)}"
+            raise ValueError(message)
+        blank_reasons = sorted(
+            base for base, reason in self.allowed_unmatched.items() if not reason.strip()
+        )
+        if blank_reasons:
+            message = f"allowed_unmatched requires a non-empty reason: {blank_reasons}"
+            raise ValueError(message)
         return self
 
     def is_independent_capable(self) -> bool:
-        """RFC 0012 §5.3: an annotation counts as independent only if unseeded.
-
-        This checks the necessary local condition (``seeded_with == "none"``)
-        — the full definition also requires distinct model families *or*
-        provably isolated runs across a *pair* of annotations, which is a
-        property of two records together, not one (see
-        :func:`segmenter_dataset.mechanical.annotations_are_independent`).
-        """
-        return self.annotator_config.seeded_with == "none"
+        """Return whether local metadata permits independent use."""
+        return (
+            self.annotator_config.seeded_with == "none"
+            and self.annotation_method == "independent_full_read"
+        )
 
 
 class ReviewRecord(BaseModel):
-    """Adjudication of one or more annotations (RFC 0012 §8 "Registro de review").
-
-    ``input_annotation_ids`` names exactly which annotation records this
-    review resolved — never just ``document_id``, because a document may
-    accumulate more than two annotations over time and a reconstructed
-    release must be able to tell which pair a given review adjudicated
-    (RFC 0012 §8's lineage fix).
-    """
+    """Adjudication of explicit annotation records."""
 
     model_config = ConfigDict(frozen=True)
 
-    review_id: str
-    document_id: str
+    review_id: str = Field(pattern=r"^rev_[0-9a-f]{32}$")
+    document_id: str = Field(pattern=r"^doc_[0-9a-f]{32}$")
     input_annotation_ids: tuple[str, ...]
     status: str
     final_labels: list[Label] = Field(default_factory=list)
+    allowed_unmatched: dict[str, str] = Field(default_factory=dict)
     reviewers: tuple[str, ...]
     resolution: str
     notes: tuple[str, ...] = ()
     approved_at: str
 
     @model_validator(mode="after")
-    def _at_least_two_inputs_when_accepted(self) -> ReviewRecord:
-        n_inputs = len(self.input_annotation_ids)
-        if self.status == "accepted" and n_inputs < MIN_INDEPENDENT_ANNOTATIONS:
-            msg = (
-                "an accepted review must resolve at least two independent annotations "
-                f"(RFC 0012 §9); got {n_inputs}"
-            )
-            raise ValueError(msg)
+    def _validate_review_contract(self) -> ReviewRecord:
+        if self.status == "accepted":
+            unique_inputs = set(self.input_annotation_ids)
+            if len(unique_inputs) < MIN_INDEPENDENT_ANNOTATIONS:
+                message = "an accepted review must resolve at least two distinct annotations"
+                raise ValueError(message)
+            if len(unique_inputs) != len(self.input_annotation_ids):
+                message = "input_annotation_ids must not contain duplicates"
+                raise ValueError(message)
+        blank_reasons = sorted(
+            base for base, reason in self.allowed_unmatched.items() if not reason.strip()
+        )
+        if blank_reasons:
+            message = f"allowed_unmatched requires a non-empty reason: {blank_reasons}"
+            raise ValueError(message)
         return self
 
 
 class KnownLimitation(BaseModel):
-    """A waivable/advisory gate recorded as a lightweight known limitation.
-
-    RFC 0012 §12/§12.1: no formal ``approved_by``/expiry object — the next
-    major release is the natural review point (§13.1), not a hardcoded
-    expiry field.
-    """
+    """A waivable advisory gate recorded in the release manifest."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -195,8 +167,36 @@ class KnownLimitation(BaseModel):
     reason: str
 
 
+class SplitManifest(BaseModel):
+    """Reproducible split-assignment artifact consumed by the release builder."""
+
+    model_config = ConfigDict(frozen=True)
+
+    train_ids: tuple[str, ...]
+    val_ids: tuple[str, ...]
+    test_ids: tuple[str, ...]
+    seed: int
+    train_ratio: float
+    val_ratio: float
+    near_duplicate_threshold: float
+    groups: dict[str, tuple[str, ...]]
+
+    @model_validator(mode="after")
+    def _validate_ratios(self) -> SplitManifest:
+        if not (0 < self.train_ratio < 1 and 0 < self.val_ratio < 1):
+            message = "train_ratio and val_ratio must be between 0 and 1"
+            raise ValueError(message)
+        if self.train_ratio + self.val_ratio >= 1:
+            message = "train_ratio + val_ratio must be < 1"
+            raise ValueError(message)
+        if not (0 <= self.near_duplicate_threshold <= 1):
+            message = "near_duplicate_threshold must be in [0, 1]"
+            raise ValueError(message)
+        return self
+
+
 class AnnotationQuality(BaseModel):
-    """IAA evidence required by RFC 0012 §8/§14 — never a bare number."""
+    """IAA evidence required by RFC 0012 §8/§14."""
 
     model_config = ConfigDict(frozen=True)
 
@@ -209,28 +209,25 @@ class AnnotationQuality(BaseModel):
 
 
 class ReleaseManifest(BaseModel):
-    """Dataset-level release artifact (RFC 0012 §8, §12).
-
-    Lives at ``dataset-releases/<release_id>/manifest.json`` once
-    ``release.build_dataset_release`` finishes. ``document_resolutions``
-    pins the exact ``annotation_id``/``review_id`` used per document per
-    split — without it, rebuilding from the same ``document_id`` set could
-    silently pick a different annotation if the document was re-annotated
-    between builds (RFC 0012 §8's lineage fix).
-    """
+    """Dataset-level immutable release artifact."""
 
     model_config = ConfigDict(frozen=True)
 
-    release_id: str
+    release_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     ontology_version: str
     guideline_version: str
-    source_commit: str
-    dependency_lock_hash: str
+    source_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    dependency_lock_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    ci_provider: str
+    ci_run_id: str
+    split_manifest_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     split_hashes: dict[str, str]
     document_resolutions: dict[str, dict[str, str]]
     counts: dict[str, int] = Field(default_factory=dict)
     tribunals: dict[str, int] = Field(default_factory=dict)
     document_types: dict[str, int] = Field(default_factory=dict)
     annotation_quality: AnnotationQuality
+    iaa_seed: int
+    iaa_resamples: int
     known_limitations: tuple[KnownLimitation, ...] = ()
     created_at: str

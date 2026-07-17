@@ -1,36 +1,23 @@
-"""``build_dataset_release`` (RFC 0012 §12).
-
-Does not promote candidates — packages records already **annotated**
-(train) or **adjudicated** (validation/test), with split-assignment already
-resolved (RFC 0012 §10), into an immutable, checksummed release:
-
-1. load annotations (train) and reviews (validation/test);
-2. verify split integrity;
-3. validate every resolved record mechanically (RFC 0012 §11);
-4. compute counts, hashes, and IAA (RFC 0012 §8);
-5. check independently classified readiness gates (RFC 0012 §12.1, §14);
-6. write into a temporary directory;
-7. verify the written release;
-8. atomically rename it to the final release ID;
-9. refuse to overwrite an existing release.
-
-``build_gold_release`` is this RFC's provisional name for the same command
-(RFC 0012 §9.1, §12) — reserved for a release that has additionally cleared
-the human-reference gate. This module's public name is
-``build_dataset_release`` because that gate does not exist yet.
-"""
+"""Immutable dataset release builder (RFC 0012 §12)."""
 
 from __future__ import annotations
 
+import hashlib
+import json
+import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
 from segmenter_dataset import mechanical
-from segmenter_dataset.dedup import content_hash
 from segmenter_dataset.gates import GateResult, evaluate_gates
-from segmenter_dataset.iaa import DocumentAnnotationPair, compute_iaa_report
+from segmenter_dataset.iaa import (
+    DEFAULT_BOOTSTRAP_RESAMPLES,
+    DocumentAnnotationPair,
+    compute_iaa_report,
+)
 from segmenter_dataset.schemas import (
     AnnotationQuality,
     AnnotationRecord,
@@ -39,15 +26,17 @@ from segmenter_dataset.schemas import (
     Label,
     ReleaseManifest,
     ReviewRecord,
+    SplitManifest,
 )
-from segmenter_dataset.splits import SplitAssignment, SplitLeakError, check_disjoint
+from segmenter_dataset.splits import (
+    assignment_from_manifest,
+    build_groups,
+    validate_split_leakage,
+)
 from segmenter_dataset.store import ImmutabilityError, SegmenterDatasetStore
 
 
-# RFC 0012 §5.6/§16.2 — categories too structural to isolate; a sub-floor
-# IAA result here escalates from a per-category exclusion to a whole-release
-# rigid failure (RFC 0012 §8).
-CRITICAL_CATEGORIES: frozenset[str] = frozenset(
+CRITICAL_CATEGORIES = frozenset(
     {
         "dispositivo_abertura",
         "resultado",
@@ -55,142 +44,178 @@ CRITICAL_CATEGORIES: frozenset[str] = frozenset(
         "acordao_decisorio_fim",
     }
 )
-
-# RFC 0012 §5.4 — minimum train support per category, minimum val support
-# for reported per-category metrics.
 MIN_TRAIN_SUPPORT_PER_CATEGORY = 10
 MIN_VAL_SUPPORT_PER_CATEGORY = 5
-
-# RFC 0012 §5.3/§9 — an IAA pair needs both independent annotations present.
-MIN_INDEPENDENT_ANNOTATIONS_FOR_IAA = 2
+_SHA40_RE = re.compile(r"^[0-9a-f]{40}$")
+_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 
 
 class ReleaseBlockedError(RuntimeError):
-    """A rigid gate failed, or an unwaived advisory gate failed (RFC 0012 §12.1)."""
+    """A rigid or unwaived advisory gate blocked the release."""
 
     def __init__(self, message: str, gate_results: list[GateResult]) -> None:
-        """Store the failing ``gate_results`` alongside the summary ``message``."""
         super().__init__(message)
         self.gate_results = gate_results
 
 
 @dataclass(frozen=True)
 class ResolvedSplitDocument:
-    """One document's resolved content for a given split, with its lineage ID."""
-
     document: DocumentRecord
     labels: list[Label]
-    resolution_id: str  # annotation_id (train) or review_id (val/test)
+    allowed_unmatched: dict[str, str]
+    resolution_id: str
+    input_annotation_ids: tuple[str, ...] = ()
 
 
-def _latest_accepted_review(reviews: list[ReviewRecord], document_id: str) -> ReviewRecord | None:
-    accepted = [r for r in reviews if r.document_id == document_id and r.status == "accepted"]
-    if not accepted:
-        return None
-    return max(accepted, key=lambda r: r.approved_at)
+def _latest(items: list, document_id: str, *, timestamp: str, accepted: bool = False):
+    matches = [item for item in items if item.document_id == document_id]
+    if accepted:
+        matches = [item for item in matches if item.status == "accepted"]
+    return max(matches, key=lambda item: getattr(item, timestamp)) if matches else None
 
 
-def _latest_annotation(
-    annotations: list[AnnotationRecord], document_id: str
-) -> AnnotationRecord | None:
-    matching = [a for a in annotations if a.document_id == document_id]
-    if not matching:
-        return None
-    return max(matching, key=lambda a: a.completed_at)
-
-
-def resolve_split(
+def _resolve_split(
     role: str,
     document_ids: frozenset[str],
-    documents_by_id: dict[str, DocumentRecord],
+    documents: dict[str, DocumentRecord],
     annotations: list[AnnotationRecord],
     reviews: list[ReviewRecord],
-) -> list[ResolvedSplitDocument]:
-    """Resolve each document in a split to the record its role requires (RFC 0012 §10).
-
-    ``role == "train"`` resolves to the latest annotation; ``"val"``/``"test"``
-    resolve to the latest accepted review. Raises if a document lacks the
-    record its role requires — this is what RFC 0012 §12 step 2 ("verifica
-    integridade de splits") ultimately checks.
-    """
+    *,
+    ontology_version: str,
+    ontology_categories: set[str],
+) -> tuple[list[ResolvedSplitDocument], list[str]]:
     resolved: list[ResolvedSplitDocument] = []
+    problems: list[str] = []
+    annotations_by_id = {item.annotation_id: item for item in annotations}
+
     for document_id in sorted(document_ids):
-        document = documents_by_id[document_id]
+        document = documents.get(document_id)
+        if document is None:
+            problems.append(f"{role} references missing document {document_id}")
+            continue
         if role == "train":
-            annotation = _latest_annotation(annotations, document_id)
+            annotation = _latest(annotations, document_id, timestamp="completed_at")
             if annotation is None:
-                msg = f"train document {document_id!r} has no annotation record"
-                raise SplitLeakError(msg)
+                problems.append(f"train document {document_id} has no annotation")
+                continue
+            if annotation.ontology_version != ontology_version:
+                problems.append(
+                    f"train annotation {annotation.annotation_id} uses "
+                    f"{annotation.ontology_version}, expected {ontology_version}"
+                )
+            unknown = set(annotation.covered_categories) - ontology_categories
+            if unknown:
+                problems.append(
+                    f"train annotation {annotation.annotation_id} covers unknown "
+                    f"categories {sorted(unknown)}"
+                )
             resolved.append(
-                ResolvedSplitDocument(document, annotation.labels, annotation.annotation_id)
+                ResolvedSplitDocument(
+                    document,
+                    annotation.labels,
+                    annotation.allowed_unmatched,
+                    annotation.annotation_id,
+                )
             )
-        else:
-            review = _latest_accepted_review(reviews, document_id)
-            if review is None:
-                msg = f"{role} document {document_id!r} has no accepted review record"
-                raise SplitLeakError(msg)
-            resolved.append(ResolvedSplitDocument(document, review.final_labels, review.review_id))
-    return resolved
+            continue
+
+        review = _latest(
+            reviews,
+            document_id,
+            timestamp="approved_at",
+            accepted=True,
+        )
+        if review is None:
+            problems.append(f"{role} document {document_id} has no accepted review")
+            continue
+        problems.extend(
+            f"[{role}:{document_id}] {problem}"
+            for problem in mechanical.validate_review_lineage(
+                review,
+                annotations_by_id,
+                ontology_version=ontology_version,
+                ontology_categories=ontology_categories,
+            )
+        )
+        resolved.append(
+            ResolvedSplitDocument(
+                document,
+                review.final_labels,
+                review.allowed_unmatched,
+                review.review_id,
+                review.input_annotation_ids,
+            )
+        )
+    return resolved, problems
 
 
-def _split_hash(resolved: list[ResolvedSplitDocument]) -> str:
-    joined = "|".join(
-        f"{r.document.document_id}:{r.resolution_id}"
-        for r in sorted(resolved, key=lambda item: item.document.document_id)
-    )
-    return content_hash(joined)
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode()).hexdigest()
 
 
-def _category_counts(resolved: list[ResolvedSplitDocument]) -> dict[str, int]:
+def _split_hash(items: list[ResolvedSplitDocument]) -> str:
+    payload = [
+        [item.document.document_id, item.resolution_id]
+        for item in sorted(items, key=lambda item: item.document.document_id)
+    ]
+    return _sha256(json.dumps(payload, separators=(",", ":")))
+
+
+def _category_counts(items: list[ResolvedSplitDocument]) -> dict[str, int]:
     counts: dict[str, int] = {}
-    for item in resolved:
+    for item in items:
         for label in item.labels:
             counts[label.category] = counts.get(label.category, 0) + 1
     return counts
 
 
-def _mechanical_gate(
+def _support_gates(
     train: list[ResolvedSplitDocument],
     val: list[ResolvedSplitDocument],
-    test: list[ResolvedSplitDocument],
-    ontology_categories: set[str],
-) -> GateResult:
-    problems: list[str] = []
-    for role_name, resolved in (("train", train), ("val", val), ("test", test)):
-        for item in resolved:
-            record_problems = mechanical.validate_record(
-                item.document.text, item.labels, ontology_categories
-            )
-            problems.extend(
-                f"[{role_name}:{item.document.document_id}] {p}" for p in record_problems
-            )
-    return GateResult(
-        name="ontology_schema_valid",
-        passed=not problems,
-        detail="; ".join(problems[:20]) if problems else "all records mechanically valid",
+    ontology: set[str],
+) -> tuple[GateResult, GateResult]:
+    def below(items: list[ResolvedSplitDocument], floor: int) -> dict[str, int]:
+        counts = _category_counts(items)
+        return {
+            category: counts.get(category, 0)
+            for category in sorted(ontology)
+            if counts.get(category, 0) < floor
+        }
+
+    train_below = below(train, MIN_TRAIN_SUPPORT_PER_CATEGORY)
+    val_below = below(val, MIN_VAL_SUPPORT_PER_CATEGORY)
+    return (
+        GateResult(
+            "train_minimum_support_per_category",
+            not train_below,
+            f"below floor: {train_below}" if train_below else "all categories meet floor",
+        ),
+        GateResult(
+            "val_minimum_support_for_reported_metrics",
+            not val_below,
+            f"below floor: {val_below}" if val_below else "all categories meet floor",
+        ),
     )
 
 
-def _support_gates(
-    train: list[ResolvedSplitDocument], val: list[ResolvedSplitDocument]
-) -> tuple[GateResult, GateResult]:
-    train_counts = _category_counts(train)
-    val_counts = _category_counts(val)
-
-    under_train = {c: n for c, n in train_counts.items() if n < MIN_TRAIN_SUPPORT_PER_CATEGORY}
-    under_val = {c: n for c, n in val_counts.items() if n < MIN_VAL_SUPPORT_PER_CATEGORY}
-
-    return (
-        GateResult(
-            name="train_minimum_support_per_category",
-            passed=not under_train,
-            detail=f"below floor: {under_train}" if under_train else "all categories meet floor",
-        ),
-        GateResult(
-            name="val_minimum_support_for_reported_metrics",
-            passed=not under_val,
-            detail=f"below floor: {under_val}" if under_val else "all categories meet floor",
-        ),
+def _mechanical_gate(
+    splits: dict[str, list[ResolvedSplitDocument]], ontology: set[str]
+) -> GateResult:
+    problems = [
+        f"[{role}:{item.document.document_id}] {problem}"
+        for role, items in splits.items()
+        for item in items
+        for problem in mechanical.validate_record(
+            item.document.text,
+            item.labels,
+            ontology,
+            allowed_unmatched=item.allowed_unmatched,
+        )
+    ]
+    return GateResult(
+        "ontology_schema_valid",
+        not problems,
+        "; ".join(problems[:20]) if problems else "all records mechanically valid",
     )
 
 
@@ -198,71 +223,56 @@ def _iaa_gates(
     val: list[ResolvedSplitDocument],
     test: list[ResolvedSplitDocument],
     annotations: list[AnnotationRecord],
-    reviews: list[ReviewRecord],
     *,
-    iaa_seed: int,
+    seed: int,
+    resamples: int,
 ) -> tuple[GateResult, GateResult, AnnotationQuality]:
-    def pairs_for(resolved: list[ResolvedSplitDocument]) -> list[DocumentAnnotationPair]:
-        out: list[DocumentAnnotationPair] = []
-        for item in resolved:
-            review = _latest_accepted_review(reviews, item.document.document_id)
-            if review is None:
+    by_id = {item.annotation_id: item for item in annotations}
+
+    def pairs(items: list[ResolvedSplitDocument]) -> list[DocumentAnnotationPair]:
+        result = []
+        for item in items:
+            if len(item.input_annotation_ids) != 2:
                 continue
-            inputs = [a for a in annotations if a.annotation_id in review.input_annotation_ids]
-            if len(inputs) < MIN_INDEPENDENT_ANNOTATIONS_FOR_IAA:
-                continue
-            out.append(
-                DocumentAnnotationPair(
-                    document_id=item.document.document_id,
-                    labels_a=tuple(inputs[0].labels),
-                    labels_b=tuple(inputs[1].labels),
+            first, second = (by_id.get(value) for value in item.input_annotation_ids)
+            if first is not None and second is not None:
+                result.append(
+                    DocumentAnnotationPair(
+                        item.document.document_id,
+                        tuple(first.labels),
+                        tuple(second.labels),
+                    )
                 )
-            )
-        return out
+        return result
 
-    val_report = compute_iaa_report(pairs_for(val), seed=iaa_seed)
-    test_report = compute_iaa_report(pairs_for(test), seed=iaa_seed)
-
-    aggregate_passed = val_report.aggregate_passed and test_report.aggregate_passed
-    critical_failed = {
-        category
-        for report in (val_report, test_report)
-        for category in report.unreliable_eval_categories
-        if category in CRITICAL_CATEGORIES
-    }
-
-    per_category_iaa = {
-        f"val:{cat}": r.point_estimate for cat, r in val_report.per_category.items()
-    } | {f"test:{cat}": r.point_estimate for cat, r in test_report.per_category.items()}
-
+    val_report = compute_iaa_report(pairs(val), seed=seed, resamples=resamples)
+    test_report = compute_iaa_report(pairs(test), seed=seed, resamples=resamples)
+    unreliable = set(val_report.unreliable_eval_categories) | set(
+        test_report.unreliable_eval_categories
+    )
+    critical = unreliable & CRITICAL_CATEGORIES
+    per_category = {
+        f"val:{key}": value.point_estimate for key, value in val_report.per_category.items()
+    } | {f"test:{key}": value.point_estimate for key, value in test_report.per_category.items()}
     quality = AnnotationQuality(
         val_iaa_span_f1=val_report.macro_f1_point,
         val_iaa_span_f1_ci95_low=val_report.macro_f1_ci_low,
         test_iaa_span_f1=test_report.macro_f1_point,
         test_iaa_span_f1_ci95_low=test_report.macro_f1_ci_low,
-        per_category_iaa=per_category_iaa,
-        unreliable_eval_categories=tuple(
-            sorted(
-                set(val_report.unreliable_eval_categories)
-                | set(test_report.unreliable_eval_categories)
-            )
-        ),
+        per_category_iaa=per_category,
+        unreliable_eval_categories=tuple(sorted(unreliable)),
     )
-
     return (
         GateResult(
-            name="iaa_aggregate_floor",
-            passed=aggregate_passed,
-            detail=(
-                f"val macro-F1 CI-low={val_report.macro_f1_ci_low}, "
-                f"test macro-F1 CI-low={test_report.macro_f1_ci_low}"
-            ),
+            "iaa_aggregate_floor",
+            val_report.aggregate_passed and test_report.aggregate_passed,
+            f"val CI-low={val_report.macro_f1_ci_low}; test CI-low={test_report.macro_f1_ci_low}",
         ),
         GateResult(
-            name="iaa_critical_category_floor",
-            passed=not critical_failed,
-            detail=f"critical categories below floor: {sorted(critical_failed)}"
-            if critical_failed
+            "iaa_critical_category_floor",
+            not critical,
+            f"critical categories below floor: {sorted(critical)}"
+            if critical
             else "all critical categories meet floor",
         ),
         quality,
@@ -277,124 +287,118 @@ def build_dataset_release(
     guideline_version: str,
     source_commit: str,
     dependency_lock_hash: str,
+    ci_provider: str,
+    ci_run_id: str,
     ontology_categories: set[str],
-    split_assignment: SplitAssignment,
+    split_manifest: SplitManifest,
     known_limitations: list[KnownLimitation] | None = None,
     iaa_seed: int,
+    iaa_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
 ) -> ReleaseManifest:
-    """Run the full RFC 0012 §12 release procedure; returns the written manifest.
-
-    Raises :class:`ReleaseBlockedError` if any rigid gate fails, or if an
-    advisory gate fails without a matching known limitation.
-    Raises :class:`~segmenter_dataset.store.ImmutabilityError` if
-    ``release_id`` already exists.
-    """
+    """Build, verify and atomically publish one dataset release."""
     known_limitations = known_limitations or []
-    release_dir = store.release_dir(release_id)
-    if release_dir.exists():
-        msg = f"release {release_id!r} already exists at {release_dir} (RFC 0012 §12 step 9)"
-        raise ImmutabilityError(msg)
+    if store.release_dir(release_id).exists():
+        raise ImmutabilityError(f"release {release_id!r} already exists")
 
-    # Step 1: load.
-    documents_by_id = {d.document_id: d for d in store.list_documents()}
+    all_documents = store.list_documents()
+    documents = {item.document_id: item for item in all_documents}
     annotations = store.list_annotations()
     reviews = store.list_reviews()
-
-    # Step 2: verify split integrity.
-    disjoint_problems = check_disjoint(
-        split_assignment.train_ids, split_assignment.val_ids, split_assignment.test_ids
+    assignment = assignment_from_manifest(split_manifest)
+    groups = build_groups(
+        all_documents,
+        near_duplicate_threshold=split_manifest.near_duplicate_threshold,
     )
-    hash_by_split: dict[str, set[str]] = {}
+    recorded_groups = {frozenset(value) for value in split_manifest.groups.values()}
+    recomputed_groups = {frozenset(value) for value in groups.values()}
+    leakage = validate_split_leakage(assignment, all_documents, groups)
+    if recorded_groups != recomputed_groups:
+        leakage.append("split manifest groups differ from recomputed groups")
+
+    resolved: dict[str, list[ResolvedSplitDocument]] = {}
+    problems: dict[str, list[str]] = {}
     for role, ids in (
-        ("train", split_assignment.train_ids),
-        ("val", split_assignment.val_ids),
-        ("test", split_assignment.test_ids),
+        ("train", assignment.train_ids),
+        ("validation", assignment.val_ids),
+        ("test", assignment.test_ids),
     ):
-        for document_id in ids:
-            digest = content_hash(documents_by_id[document_id].text)
-            hash_by_split.setdefault(digest, set()).add(role)
-    cross_split_hash_collisions = [
-        digest for digest, roles in hash_by_split.items() if len(roles) > 1
-    ]
-    split_integrity_passed = not disjoint_problems and not cross_split_hash_collisions
-
-    train = resolve_split(
-        "train", split_assignment.train_ids, documents_by_id, annotations, reviews
-    )
-    val = resolve_split("val", split_assignment.val_ids, documents_by_id, annotations, reviews)
-    test = resolve_split("test", split_assignment.test_ids, documents_by_id, annotations, reviews)
-
-    # Step 3: mechanical validation.
-    mechanical_gate = _mechanical_gate(train, val, test, ontology_categories)
-
-    # Step 4: counts, hashes, IAA.
-    train_support_gate, val_support_gate = _support_gates(train, val)
-    iaa_aggregate_gate, iaa_critical_gate, annotation_quality = _iaa_gates(
-        val, test, annotations, reviews, iaa_seed=iaa_seed
-    )
-    split_hashes = {
-        "train": _split_hash(train),
-        "validation": _split_hash(val),
-        "test": _split_hash(test),
-    }
-    document_resolutions = {
-        "train": {r.document.document_id: r.resolution_id for r in train},
-        "validation": {r.document.document_id: r.resolution_id for r in val},
-        "test": {r.document.document_id: r.resolution_id for r in test},
-    }
-    counts = {"train": len(train), "validation": len(val), "test": len(test)}
-    tribunals: dict[str, int] = {}
-    document_types: dict[str, int] = {}
-    for resolved in (*train, *val, *test):
-        tribunals[resolved.document.source.tribunal] = (
-            tribunals.get(resolved.document.source.tribunal, 0) + 1
-        )
-        document_types[resolved.document.source.document_type] = (
-            document_types.get(resolved.document.source.document_type, 0) + 1
+        resolved[role], problems[role] = _resolve_split(
+            "val" if role == "validation" else role,
+            ids,
+            documents,
+            annotations,
+            reviews,
+            ontology_version=ontology_version,
+            ontology_categories=ontology_categories,
         )
 
-    # Step 5: gates.
-    hash_collision_details = [f"hash collision: {h}" for h in cross_split_hash_collisions]
-    val_test_adjudicated = len(val) == len(split_assignment.val_ids) and len(test) == len(
-        split_assignment.test_ids
+    support = _support_gates(resolved["train"], resolved["validation"], ontology_categories)
+    iaa_aggregate, iaa_critical, quality = _iaa_gates(
+        resolved["validation"],
+        resolved["test"],
+        annotations,
+        seed=iaa_seed,
+        resamples=iaa_resamples,
     )
-    gate_results = [
+    split_hashes = {role: _split_hash(items) for role, items in resolved.items()}
+    split_manifest_hash = _sha256(split_manifest.model_dump_json())
+    resolution_problems = sum(problems.values(), [])
+    eval_problems = problems["validation"] + problems["test"]
+    checksum_ok = bool(_SHA256_RE.fullmatch(split_manifest_hash)) and all(
+        _SHA256_RE.fullmatch(value) for value in split_hashes.values()
+    )
+    provenance_ok = (
+        bool(_SHA40_RE.fullmatch(source_commit))
+        and bool(_SHA256_RE.fullmatch(dependency_lock_hash))
+        and bool(ci_provider.strip())
+        and bool(ci_run_id.strip())
+    )
+
+    gates = [
         GateResult(
-            name="split_disjoint_by_group_id_hash",
-            passed=split_integrity_passed,
-            detail="; ".join(disjoint_problems + hash_collision_details) or "no leakage found",
+            "split_disjoint_by_group_id_hash",
+            not leakage,
+            "; ".join(leakage) if leakage else "no leakage found",
         ),
         GateResult(
-            name="no_unresolved_annotation_conflicts",
-            passed=True,
-            detail="resolved by latest accepted review per document",
+            "no_unresolved_annotation_conflicts",
+            not resolution_problems,
+            "; ".join(resolution_problems[:20]) if resolution_problems else "all lineage resolves",
         ),
         GateResult(
-            name="val_test_independently_adjudicated",
-            passed=val_test_adjudicated,
-            detail="every val/test document resolved to an accepted review",
+            "val_test_independently_adjudicated",
+            not eval_problems
+            and len(resolved["validation"]) == len(assignment.val_ids)
+            and len(resolved["test"]) == len(assignment.test_ids),
+            "; ".join(eval_problems[:20])
+            if eval_problems
+            else "all evaluation documents independently adjudicated",
         ),
-        mechanical_gate,
-        iaa_aggregate_gate,
-        iaa_critical_gate,
-        train_support_gate,
-        val_support_gate,
-        GateResult(name="release_checksums_generated", passed=True, detail="computed in step 4"),
+        _mechanical_gate(resolved, ontology_categories),
+        iaa_aggregate,
+        iaa_critical,
+        *support,
         GateResult(
-            name="ci_reproducible_build",
-            passed=bool(source_commit) and bool(dependency_lock_hash),
-            detail="source_commit and dependency_lock_hash both provided",
+            "release_checksums_generated",
+            checksum_ok,
+            "release hashes computed" if checksum_ok else "invalid release hashes",
+        ),
+        GateResult(
+            "ci_reproducible_build",
+            provenance_ok,
+            "complete CI provenance" if provenance_ok else "invalid build provenance",
         ),
     ]
-    evaluation = evaluate_gates(gate_results, known_limitations)
+    evaluation = evaluate_gates(gates, known_limitations)
     if not evaluation.release_allowed:
-        failing = list(evaluation.blocking_rigid_failures) + list(
-            evaluation.blocking_unwaived_advisory_failures
+        failures = [
+            *evaluation.blocking_rigid_failures,
+            *evaluation.blocking_unwaived_advisory_failures,
+        ]
+        raise ReleaseBlockedError(
+            "release blocked: " + "; ".join(f"{item.name}: {item.detail}" for item in failures),
+            failures,
         )
-        msg = "release blocked by gate failures: " + "; ".join(
-            f"{g.name}: {g.detail}" for g in failing
-        )
-        raise ReleaseBlockedError(msg, failing)
 
     manifest = ReleaseManifest(
         release_id=release_id,
@@ -402,55 +406,67 @@ def build_dataset_release(
         guideline_version=guideline_version,
         source_commit=source_commit,
         dependency_lock_hash=dependency_lock_hash,
+        ci_provider=ci_provider,
+        ci_run_id=ci_run_id,
+        split_manifest_hash=split_manifest_hash,
         split_hashes=split_hashes,
-        document_resolutions=document_resolutions,
-        counts=counts,
-        tribunals=tribunals,
-        document_types=document_types,
-        annotation_quality=annotation_quality,
+        document_resolutions={
+            role: {item.document.document_id: item.resolution_id for item in items}
+            for role, items in resolved.items()
+        },
+        counts={role: len(items) for role, items in resolved.items()},
+        tribunals=_source_counts(resolved, "tribunal"),
+        document_types=_source_counts(resolved, "document_type"),
+        annotation_quality=quality,
+        iaa_seed=iaa_seed,
+        iaa_resamples=iaa_resamples,
         known_limitations=tuple(known_limitations),
-        created_at=_iso_now(),
+        created_at=datetime.now(UTC).isoformat(),
     )
-
-    # Steps 6-8: write to a temp dir, verify, atomically rename.
-    _atomic_write_release(store, manifest)
+    _atomic_write_release(store, manifest, split_manifest)
     return manifest
 
 
-def _iso_now() -> str:
-    return datetime.now(UTC).isoformat()
+def _source_counts(splits: dict[str, list[ResolvedSplitDocument]], field: str) -> dict[str, int]:
+    counts: dict[str, int] = {}
+    for items in splits.values():
+        for item in items:
+            value = getattr(item.document.source, field)
+            counts[value] = counts.get(value, 0) + 1
+    return counts
 
 
-class _RoundTripError(RuntimeError):
-    """The written release manifest didn't round-trip — refuse to publish it."""
-
-
-def _verify_round_trip(manifest_path: Path, manifest: ReleaseManifest) -> None:
-    reloaded = ReleaseManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
-    if reloaded != manifest:
-        msg = "written release manifest does not round-trip — refusing to publish"
-        raise _RoundTripError(msg)
-
-
-def _atomic_write_release(store: SegmenterDatasetStore, manifest: ReleaseManifest) -> None:
+def _atomic_write_release(
+    store: SegmenterDatasetStore,
+    manifest: ReleaseManifest,
+    split_manifest: SplitManifest,
+) -> None:
     store.releases_dir.mkdir(parents=True, exist_ok=True)
     final_dir = store.release_dir(manifest.release_id)
-
-    tmp_dir = Path(tempfile.mkdtemp(prefix=f".{manifest.release_id}.tmp-", dir=store.releases_dir))
+    temporary = Path(
+        tempfile.mkdtemp(prefix=f".{manifest.release_id}.tmp-", dir=store.releases_dir)
+    )
     try:
-        manifest_path = tmp_dir / "manifest.json"
-        manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
-
-        # Step 7: verify the written release round-trips.
-        _verify_round_trip(manifest_path, manifest)
-
-        # Step 8: atomic rename. Step 9 (refuse overwrite) was already
-        # checked before any work started; Path.rename still fails loudly
-        # if something raced and created final_dir in the meantime.
-        tmp_dir.rename(final_dir)
+        artifacts = {
+            "manifest.json": manifest.model_dump_json(indent=2),
+            "split_manifest.json": split_manifest.model_dump_json(indent=2),
+        }
+        for name, content in artifacts.items():
+            (temporary / name).write_text(content, encoding="utf-8")
+        checksums = {name: _sha256(content) for name, content in artifacts.items()}
+        (temporary / "checksums.sha256").write_text(
+            "".join(f"{digest}  {name}\n" for name, digest in sorted(checksums.items())),
+            encoding="utf-8",
+        )
+        if ReleaseManifest.model_validate_json(artifacts["manifest.json"]) != manifest:
+            raise RuntimeError("manifest does not round-trip")
+        if SplitManifest.model_validate_json(artifacts["split_manifest.json"]) != split_manifest:
+            raise RuntimeError("split manifest does not round-trip")
+        for name, expected in checksums.items():
+            if _sha256((temporary / name).read_text(encoding="utf-8")) != expected:
+                raise RuntimeError(f"checksum verification failed for {name}")
+        temporary.rename(final_dir)
     except BaseException:
-        if tmp_dir.exists():
-            for child in tmp_dir.iterdir():
-                child.unlink()
-            tmp_dir.rmdir()
+        if temporary.exists():
+            shutil.rmtree(temporary)
         raise

@@ -1,23 +1,4 @@
-"""Readiness gates (RFC 0012 §12.1, §14): rigid vs. advisory, a closed allowlist.
-
-There is no generic ``--skip-gates`` (RFC 0012 §3.5, §12) — and per-gate
-waivers alone are not enough either, because waiving every gate one by one
-is the same antipattern with extra ceremony (§12.1). Every gate belongs to
-exactly one of two fixed classes:
-
-- **rigid** — never waivable, always blocks the release. Fixed by this
-  module, not configurable by a caller: schema validity, unresolved
-  annotation conflicts, split leakage, test contamination, checksum/build
-  integrity, and the IAA floor (§8).
-- **advisory** — a small, closed allowlist (tribunal diversity, source
-  diversity, temporal diversity, representative eval set, external test
-  review — exactly RFC 0012 §14's "exigidos para alegações amplas de
-  produção"). A failing advisory gate blocks the release unless it has a
-  matching :class:`~segmenter_dataset.schemas.KnownLimitation` entry.
-
-A gate name outside both sets is a programming error, not a silently
-permitted waiver — :func:`classify_gate` raises rather than defaulting.
-"""
+"""Readiness gates: rigid invariants and a closed advisory allowlist."""
 
 from __future__ import annotations
 
@@ -31,14 +12,13 @@ if TYPE_CHECKING:
 
 
 class GateSeverity(StrEnum):
-    """Which class a gate belongs to (RFC 0012 §12.1)."""
+    """Whether a gate is non-waivable or an advisory limitation."""
 
     RIGID = "rigid"
     ADVISORY = "advisory"
 
 
-# RFC 0012 §14 "Exigidos para treino baseline" — all rigid (§12.1).
-RIGID_GATES: frozenset[str] = frozenset(
+RIGID_GATES = frozenset(
     {
         "ontology_schema_valid",
         "split_disjoint_by_group_id_hash",
@@ -52,11 +32,7 @@ RIGID_GATES: frozenset[str] = frozenset(
         "ci_reproducible_build",
     }
 )
-
-# RFC 0012 §14 "Exigidos para alegações amplas de produção" — the only gates
-# eligible for a known_limitation (§12.1). Closed: nothing outside this set
-# may ever be waived.
-ADVISORY_GATES: frozenset[str] = frozenset(
+ADVISORY_GATES = frozenset(
     {
         "multiple_tribunals",
         "multiple_source_systems",
@@ -68,25 +44,26 @@ ADVISORY_GATES: frozenset[str] = frozenset(
 
 
 class UnknownGateError(ValueError):
-    """A gate name is neither rigid nor advisory — not silently permitted."""
+    """A gate name is outside the RFC's closed classification."""
+
+
+class InvalidKnownLimitationError(ValueError):
+    """A known limitation attempts to waive a rigid or unknown gate."""
 
 
 def classify_gate(name: str) -> GateSeverity:
-    """Return the fixed severity class of a gate; raises for an unknown name."""
+    """Return the fixed RFC severity for a gate name."""
     if name in RIGID_GATES:
         return GateSeverity.RIGID
     if name in ADVISORY_GATES:
         return GateSeverity.ADVISORY
-    msg = (
-        f"unknown gate {name!r} — not in RIGID_GATES or ADVISORY_GATES; "
-        "adding a new gate requires updating RFC 0012 §12.1/§14, not a CLI flag"
-    )
-    raise UnknownGateError(msg)
+    message = f"unknown gate {name!r}; adding a gate requires updating RFC 0012"
+    raise UnknownGateError(message)
 
 
 @dataclass(frozen=True)
 class GateResult:
-    """Outcome of evaluating one gate."""
+    """One gate's pass/fail result and human-readable evidence."""
 
     name: str
     passed: bool
@@ -94,13 +71,13 @@ class GateResult:
 
     @property
     def severity(self) -> GateSeverity:
-        """This gate's fixed class — rigid or advisory (RFC 0012 §12.1)."""
+        """Return this gate's fixed RFC severity."""
         return classify_gate(self.name)
 
 
 @dataclass(frozen=True)
 class GateEvaluation:
-    """Aggregate outcome of every gate for a release attempt."""
+    """Combined outcome after applying advisory known limitations."""
 
     release_allowed: bool
     blocking_rigid_failures: tuple[GateResult, ...]
@@ -111,22 +88,30 @@ class GateEvaluation:
 def evaluate_gates(
     results: list[GateResult], known_limitations: list[KnownLimitation]
 ) -> GateEvaluation:
-    """Combine gate results with recorded known limitations (RFC 0012 §12.1).
+    """Evaluate gates after rejecting invalid waiver declarations."""
+    for limitation in known_limitations:
+        try:
+            severity = classify_gate(limitation.gate)
+        except UnknownGateError as exc:
+            raise InvalidKnownLimitationError(str(exc)) from exc
+        if severity is GateSeverity.RIGID:
+            message = f"known limitation cannot reference rigid gate {limitation.gate!r}"
+            raise InvalidKnownLimitationError(message)
+        if limitation.status != "known_limitation" or not limitation.reason.strip():
+            message = f"invalid known limitation for gate {limitation.gate!r}"
+            raise InvalidKnownLimitationError(message)
 
-    A rigid failure always blocks, regardless of ``known_limitations`` — no
-    known-limitation entry can reference a rigid gate name (RFC 0012 §12.1
-    closes that loophole by construction: only advisory gate names are ever
-    checked against the ``known_limitations`` list here).
-    """
-    waived_gate_names = {kl.gate for kl in known_limitations}
-
-    rigid_failures = tuple(r for r in results if not r.passed and r.severity is GateSeverity.RIGID)
-    advisory_failures = tuple(
-        r for r in results if not r.passed and r.severity is GateSeverity.ADVISORY
+    waived_gate_names = {limitation.gate for limitation in known_limitations}
+    rigid_failures = tuple(
+        result for result in results if not result.passed and result.severity is GateSeverity.RIGID
     )
-    waived = tuple(r for r in advisory_failures if r.name in waived_gate_names)
-    unwaived = tuple(r for r in advisory_failures if r.name not in waived_gate_names)
-
+    advisory_failures = tuple(
+        result
+        for result in results
+        if not result.passed and result.severity is GateSeverity.ADVISORY
+    )
+    waived = tuple(result for result in advisory_failures if result.name in waived_gate_names)
+    unwaived = tuple(result for result in advisory_failures if result.name not in waived_gate_names)
     return GateEvaluation(
         release_allowed=not rigid_failures and not unwaived,
         blocking_rigid_failures=rigid_failures,
