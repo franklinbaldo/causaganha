@@ -114,6 +114,16 @@ ignore = [
 "src/djen_backup/archive.py" = ["C901", "PLC0415", "PLR2004"]
 "src/djen_backup/drain.py" = ["S608", "TRY300"]
 
+# ── segmenter_dataset (RFC 0012) ──────────────────────────────────────────
+# B008/TC003: typer.Option() in default args is the idiomatic Typer pattern
+# — Path stays a live top-level import so Typer can resolve command
+# parameter types at runtime; only non-command helpers defer imports.
+"src/segmenter_dataset/__main__.py" = ["B008", "TC003"]
+# store.py: many small, self-explanatory accessor/writer methods (RFC 0012
+# §8's document/annotation/review/release CRUD) — a docstring on each would
+# just restate the method name.
+"src/segmenter_dataset/store.py" = ["D102", "D107"]
+
 # ── Tests ──────────────────────────────────────────────────────────────────
 # assert is idiomatic pytest; no docstrings/type-hints required; private access
 # and magic-value comparisons are normal in test code.
