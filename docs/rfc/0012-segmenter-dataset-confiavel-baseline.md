@@ -276,7 +276,6 @@ uma classe inteira de bug estruturalmente impossível — desvio de offset por u
 que toca o texto mas não os rótulos — já que a posição *é* o próprio posicionamento da
 tag, e torna um registro trivialmente auditável por humano (abrir o arquivo, ler o
 documento já marcado).
-
 **Categorias start/end pair usam aninhamento XML de verdade, não convenção de nome.**
 Um par plano `<relatorio_inicio>`/`<relatorio_fim>` são dois nomes de tag sem relação
 estrutural que só coincidem no prefixo; XML já tem uma forma nativa de dizer "estas duas
@@ -481,6 +480,15 @@ achado, tratados de forma diferente:
   numa categoria): não é motivo para alterar a guideline — vira uma nota de risco
   desse lote específico, monitorada no spot-review de risco ("Dados de treino",
   abaixo), não um problema geral do processo de anotação.
+
+**Prompt canônico da Técnica 1.** `data/segmenter_splits/technique1_annotation_prompt.md`
+é o prompt a usar, verbatim, ao acionar um subagente por documento para anotação real
+(Técnica 1). Improvisar esse prompt por chamada foi a causa provável da taxa de falha de
+~45% do primeiro lote real (8 de 20 subagentes produziram zero tags apesar de instrução
+explícita — o próprio arquivo do prompt documenta o diagnóstico via transcript, seção
+"Why it's shaped this way"). O template existe para que resultados sejam comparáveis
+entre documentos e sessões, e para que ajustes de prompt aconteçam num lugar só em vez
+de reinventados ad hoc a cada lote.
 
 ### Dados de treino
 
