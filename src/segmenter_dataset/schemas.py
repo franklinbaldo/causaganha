@@ -284,12 +284,15 @@ class AnnotationQuality(BaseModel):
 class ReleaseManifest(BaseModel):
     """Dataset-level release artifact (RFC 0012 §8, §12).
 
-    Lives at ``dataset-releases/<release_id>/manifest.json`` once
+    Lives at ``dataset-releases/<release_id>/manifest.csv`` (plus companion
+    tables — see ``store.write_release_manifest_tables``) once
     ``release.build_dataset_release`` finishes. ``document_resolutions``
     pins the exact ``annotation_id``/``review_id`` used per document per
     split — without it, rebuilding from the same ``document_id`` set could
     silently pick a different annotation if the document was re-annotated
-    between builds (RFC 0012 §8's lineage fix).
+    between builds (RFC 0012 §8's lineage fix). ``split_manifest_hash`` and
+    ``ci_provider``/``ci_run_id`` additionally pin the exact split and CI
+    run a release came from, for reproducibility.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -299,11 +302,16 @@ class ReleaseManifest(BaseModel):
     guideline_version: str
     source_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
     dependency_lock_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    ci_provider: str
+    ci_run_id: str
+    split_manifest_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     split_hashes: dict[str, str]
     document_resolutions: dict[str, dict[str, str]]
     counts: dict[str, int] = Field(default_factory=dict)
     tribunals: dict[str, int] = Field(default_factory=dict)
     document_types: dict[str, int] = Field(default_factory=dict)
     annotation_quality: AnnotationQuality
+    iaa_seed: int
+    iaa_resamples: int
     known_limitations: tuple[KnownLimitation, ...] = ()
     created_at: str

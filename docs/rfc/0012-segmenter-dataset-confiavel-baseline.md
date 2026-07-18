@@ -111,6 +111,21 @@ spot-review de risco para dados de treino. Dados sintéticos, aumentados e híbr
 fontes experimentais: só entram no treino via ablações controladas **depois** do
 baseline real estar congelado.
 
+**Exceção estreita, deliberadamente delimitada (§9.2): aumento sintético de âncoras.**
+A razão de fundo para gatear dados sintéticos atrás de um baseline real congelado é que
+sem nenhum sinal de avaliação confiável não há como saber se uma mudança na composição
+do treino ajudou ou atrapalhou — não é burocracia de processo, é a impossibilidade
+prática de medir o efeito. Essa razão não se aplica por igual a toda forma de dado
+sintético: gerar variações curtas de uma âncora já observada em exemplos reais (frases
+de 1–5 palavras, nunca um documento inteiro — a mesma granularidade de categoria do
+§11) é um risco qualitativamente menor do que sintetizar um acórdão inteiro. Por isso
+esta categoria estreita — só variação de frase-âncora, nunca geração de documento
+inteiro nem híbrido real/sintético — é permitida **antes** do baseline real, sujeita às
+três salvaguardas do §9.2, no lugar do gate de ablação completo do §15/PR 4. Toda outra
+forma de dado sintético (documentos sintéticos inteiros, híbridos, `sintético
+estrutural` do §18) permanece sob a regra geral acima — adiada para depois do baseline
+real, via o processo A/B/C/D do §15.
+
 ### 3.5 Todo waiver é estreito
 
 Um waiver de diversidade de tribunal não pode desabilitar salvaguardas não
@@ -201,10 +216,33 @@ discussão de PR:
      **ponto estimado** ≥ 0.5 no teste trancado (ponto, não limite inferior — o
      suporte dessas categorias em ~30 documentos de teste é baixo demais para um IC
      discriminar, mesma lógica do §8). Mudar este piso exige alterar esta RFC.
+7. **Nem toda categoria single-anchor é limitada a uma ocorrência por documento —
+   a razão de ser da categoria decide.** O piso mecânico padrão do §11 (`validate_
+   single_anchor_duplicates`) rejeita mais de uma ocorrência por documento salvo
+   permissão explícita. Isso é correto para categorias cujo valor é um fato sobre
+   a decisão **como um todo**: `dispositivo_abertura` e `resultado` porque só a
+   menção **operativa** conta (não toda menção em prosa de fundamentação);
+   `ref_processual` porque sua função é *record-linking* — ligar este texto a
+   exatamente um processo, e um vínculo multivalorado não serve a esse propósito
+   (referências a **outros** processos citados na fundamentação — precedente,
+   condenação anterior — ficam deliberadamente sem tag, não é omissão).
+   `fundamentacao_legal` e `valor_condenacao` são o oposto: uma decisão real cita
+   a lei mais de uma vez para pontos diferentes, e pode declarar mais de um valor
+   genuinamente distinto (dano moral e dano material, ou um valor original e um
+   corrigido). Deduplicar essas duas para "primeira ocorrência" — o que os dois
+   scripts de ingestão faziam antes deste achado (piloto/lote 1, ver §9) —
+   descarta sinal real silenciosamente. `ontology.ALLOW_MULTIPLE_SINGLE_ANCHOR`
+   nomeia as categorias isentas do piso de ocorrência única; toda chamada a
+   `mechanical.validate_record` no pipeline (gate de release, os dois scripts de
+   ingestão) passa esse conjunto — decidir isso independentemente em cada
+   call site é como a política diverge.
 
 ## 6. Não-objetivos do primeiro release
 
-Explicitamente adiados (viram Fase 5+, sob a RFC 0011 revisada):
+Explicitamente adiados (viram Fase 5+, sob a RFC 0011 revisada). "Geração de documentos
+sintéticos" aqui significa **documento inteiro** — a exceção estreita do §3.4/§9.2
+(variação de frase-âncora curta, seedada em spans reais, nunca um documento completo)
+não é adiada; é permitida agora sob as três salvaguardas do §9.2:
 
 - geração de documentos sintéticos;
 - documentos híbridos real/sintético;
@@ -229,123 +267,142 @@ Explicitamente adiados (viram Fase 5+, sob a RFC 0011 revisada):
 
 ## 8. Artefatos canônicos
 
-Diretórios separados por **tipo de artefato**, não por estado — um documento aparece em
-`documents/` e, à medida que trabalho é feito sobre ele, também em `annotations/` e
-depois em `reviews/`, sem que o registro original em `documents/` seja alterado ou
-removido (§3.1). `dataset-releases/<release-id>/` não contém cópias de documentos
-"promovidos"; contém manifests que referenciam `document_id`s por hash:
+Artefato canônico de documento/anotação/review é **XML com tags inline** — um arquivo
+por registro, não uma tabela — onde cada rótulo é um elemento XML real que envolve o
+próprio trecho do span, em vez de um triplo separado `{categoria, start, end}` apontando
+para um intervalo de offset. `start`/`end` nunca são armazenados; são recalculados
+percorrendo a árvore já parseada e contando um offset de caractere corrente. Isso torna
+uma classe inteira de bug estruturalmente impossível — desvio de offset por uma edição
+que toca o texto mas não os rótulos — já que a posição *é* o próprio posicionamento da
+tag, e torna um registro trivialmente auditável por humano (abrir o arquivo, ler o
+documento já marcado).
+
+**Categorias start/end pair usam aninhamento XML de verdade, não convenção de nome.**
+Um par plano `<relatorio_inicio>`/`<relatorio_fim>` são dois nomes de tag sem relação
+estrutural que só coincidem no prefixo; XML já tem uma forma nativa de dizer "estas duas
+coisas delimitam uma região" — aninhamento. Um par casado renderiza como um wrapper
+`<relatorio>` nomeado pela categoria-base, com filhos genéricos `<inicio>`/`<fim>`
+reaproveitados por toda categoria pair (nunca codificados no nome da tag); um par sem
+fechamento ainda ganha o wrapper, só que com um único filho. Qualquer outra coisa que
+caia dentro da região — a âncora de outra categoria, como `ref_processual` dentro do
+`cabecalho` de um documento — vira filho aninhado também, encontrado por contenção de
+intervalo genérica, sem conhecimento hardcoded de qual categoria pode conter qual.
+Categoria single-anchor (sem par `_inicio`/`_fim`) continua uma tag folha plana, como
+antes — não há região a expressar. As strings de categoria treináveis (`Label.category`,
+ex. `"relatorio_inicio"`) não mudam — isso é uma questão de serialização, não de
+taxonomia.
+
+**Nem todo par aninha.** RFC 0012 §11 só proíbe *rótulos* sobrepostos (âncoras curtas);
+nunca checou se duas *regiões* (do próprio inicio ao próprio fim de uma categoria)
+sobrepõem parcialmente uma à outra — e empiricamente, 3 de 150 documentos reais têm
+exatamente isso (uma cláusula `custas`/`honorarios` entrelaçada, ou `voto`/`ementa`
+cruzando). XML não representa sobreposição parcial como aninhamento, então qualquer par
+de regiões que sobreponha parcialmente é rebaixado de volta a tags folha planas e sem
+wrapper (`<relatorio_inicio>`/`<relatorio_fim>`) — o mesmo formato usado em toda parte
+antes desta revisão, agora restrito ao caso raro que precisa dele.
+
+**Tags inline são a técnica de produção recomendada para a Técnica 1 — anotação
+assistida por LLM sobre documento real (§9)** —, não só o formato de armazenamento. (A
+Técnica 2, aumento sintético de âncoras, é um mecanismo diferente, com sua própria seção
+e salvaguardas: §9.2.) Aritmética de posição (`start`/`end` como inteiros) é um modo de
+falha conhecido de LLMs — contagem de caracteres não se alinha com tokenização e degrada em
+textos longos — enquanto reescrever o documento inserindo tags é uma tarefa de
+texto-para-texto, o tipo de tarefa em que um LLM é confiável. Um anotador-LLM produz o
+documento inteiro com tags inseridas; offsets nunca são pedidos ao modelo, apenas
+derivados depois, mecanicamente, da árvore já parseada — a mesma técnica usada para
+`document_id`/`annotation_id` (nunca confiar num valor que o modelo poderia calcular
+errado quando o dado necessário já está disponível para derivação determinística). Isso
+não elimina a necessidade de verificação: qualquer ferramenta de ingestão que aceite texto
+marcado produzido por um LLM (ou por qualquer processo que não seja a própria store
+reescrevendo a partir de `document.text` já validado) **deve** comparar o texto
+desmarcado, byte a byte, contra o `document.text` de referência do documento antes de
+aceitar o resultado — uma divergência (uma palavra omitida, um espaço normalizado, um erro
+de digitação "corrigido") é rejeição mecânica imediata, nunca correção silenciosa nem
+aproximação aceita. Esse é um requisito de processo, não algo que o schema por si só possa
+verificar depois — uma vez reduzido a `labels: list[Label]`, o registro armazenado não
+retém o suficiente para reconstruir essa checagem; ela só é possível no momento da
+ingestão, com o texto candidato ainda em mãos.
+
+Um documento vive em `documents/<document_id>.xml`; à medida que trabalho é feito sobre
+ele, também ganha arquivos de anotação e depois de review, sem que seu arquivo original
+seja alterado ou removido (§3.1). Cada anotação/review carrega sua própria cópia
+integralmente marcada do texto do documento (decisão da RFC 0012 PR 2: apenas uma
+anotação canônica por arquivo, então não há ambiguidade a desduplicar). `dataset-releases/
+<release-id>/` não contém cópias de documentos "promovidos"; contém manifests que
+referenciam `document_id`s por hash:
 
 ```text
 data/segmenter/
-  documents/                       # registros imutáveis, nunca movidos ou reescritos
-  annotations/                     # um ou mais registros por document_id
-  reviews/                         # adjudicação; ausente para a maioria do treino (§9)
+  documents/<document_id>.xml
+  annotations/<document_id>/<annotation_id>.xml
+  reviews/<document_id>/<review_id>.xml
   dataset-releases/
     <release-id>/
-      split_manifest.json          # split-assignment desta build (§10) — não um
+      split_manifest.csv           # split-assignment desta build (§10) — não um
                                     # estado do documento, um artefato da build
-      manifest.json                # manifest final imutável, só existe após
+      manifest.csv                 # manifest final imutável, só existe após
                                     # build_gold_release (§12)
 ```
 
+Os artefatos de nível release (`manifest.csv`, `split_manifest.csv`) permanecem CSV
+canônico, não XML — são metadados agregados puros, sem texto-com-spans para marcar; ver
+a seção "Manifest de release de dataset" abaixo.
+
 ### Registro de documento
 
-```json
-{
-  "document_id": "stable-id",
-  "text": "...",
-  "proposed_labels": [],
-  "source": {
-    "system": "tjro_juris",
-    "tribunal": "TJRO",
-    "document_type": "sentenca",
-    "source_uri": "...",
-    "source_hash": "..."
-  },
-  "extraction": {
-    "method": "boundary_phrase_extractor",
-    "version": "..."
-  }
-}
-```
+`documents/<document_id>.xml`: atributo `id` na raiz (`document_id`); elementos
+`<source system="..." tribunal="..." document_type="..." uri="..." hash="..."/>`,
+`<extraction method="..." version="..."/>`, `<grouping normalized_process_number="..."
+source_process_id="..." document_family="..." parent_document_id="..."/>` (atributos
+omitidos quando `None`); e `<text>...</text>` — o texto puro do documento, com
+`proposed_labels` marcados inline quando existirem.
 
 ### Registro de anotação
 
-```json
-{
-  "annotation_id": "sha256(document_id + annotator_id + completed_at + labels)",
-  "document_id": "stable-id",
-  "annotator_id": "annotator-or-agent-run",
-  "annotator_config": {
-    "model_family": "...",
-    "guideline_version": "segmenter-v8-guideline-1",
-    "seeded_with": "none"
-  },
-  "ontology_version": "segmenter-ontology-v8.0.0",
-  "covered_categories": ["cabecalho_inicio", "cabecalho_fim", "..."],
-  "labels": [],
-  "completed_at": "...",
-  "annotation_method": "independent_full_read"
-}
-```
+`annotations/<document_id>/<annotation_id>.xml`: atributos `id` (o `annotation_id`,
+`sha256(document_id + annotator_id + completed_at + labels + ...)`) e `document_id` na
+raiz; `<annotator id="..." model_family="..." guideline_version="..."
+seeded_with="..."/>`; `<ontology_version>`; `<covered_categories>` (lista de
+`<category>`); `<allowed_unmatched>` (lista de `<entry base="..." reason="..."/>`);
+`<completed_at>`; `<annotation_method>`; e `<text>...</text>` — cópia do texto do
+documento com `labels` marcados inline.
 
 `annotation_id` é determinístico (hash do conteúdo), não um contador — duas anotações
 com o mesmo conteúdo produzem o mesmo ID; qualquer diferença de rótulo, anotador ou
 timestamp produz um ID novo, nunca sobrescrevendo o anterior (§3.1). `covered_categories`
 é o subconjunto da ontologia que este anotador considerou (ver §5.1 para a regra de
 mascaramento de categorias fora desse conjunto). `seeded_with` só admite `"none"` para
-anotações que contam como independentes (§5.3).
+anotações que contam como independentes (§5.3). A ordem original de `labels` na lista
+(semanticamente significativa para o hash do ID e para igualdade do registro) é
+preservada por um atributo `ord` em cada elemento de rótulo, independente de sua posição
+física no arquivo (que segue a ordem do documento, para o texto fluir linearmente).
 
 ### Registro de review (adjudicação)
 
-```json
-{
-  "review_id": "sha256(document_id + input_annotation_ids + approved_at)",
-  "document_id": "stable-id",
-  "input_annotation_ids": ["annotation_id_a", "annotation_id_b"],
-  "status": "accepted",
-  "final_labels": [],
-  "reviewers": ["reviewer-a", "reviewer-b"],
-  "resolution": "agreement-or-adjudication",
-  "notes": [],
-  "approved_at": "..."
-}
-```
+`reviews/<document_id>/<review_id>.xml`: atributos `id` (o `review_id`,
+`sha256(document_id + input_annotation_ids + approved_at + ...)`) e `document_id` na
+raiz; `<input_annotations>` (lista de `<annotation_id>`); `<status>`;
+`<allowed_unmatched>`; `<reviewers>` (lista de `<reviewer>`); `<resolution>`; `<notes>`
+(lista de `<note>`); `<approved_at>`; e `<text>...</text>` — cópia do texto do documento
+com `final_labels` marcados inline.
 
-`input_annotation_ids` referencia explicitamente **quais** registros de anotação foram
+`input_annotations` referencia explicitamente **quais** registros de anotação foram
 resolvidos — não apenas o `document_id` (um documento pode ter mais de duas anotações
 ao longo do tempo; o review precisa dizer qual par ele adjudicou).
 
 ### Manifest de release de dataset
 
-```json
-{
-  "release_id": "segmenter-real-v8.1",
-  "ontology_version": "segmenter-ontology-v8.0.0",
-  "guideline_version": "segmenter-v8-guideline-1",
-  "source_commit": "full-git-sha",
-  "dependency_lock_hash": "sha256-of-pinned-lockfile",
-  "split_hashes": { "train": "...", "validation": "...", "test": "..." },
-  "document_resolutions": {
-    "train": { "<document_id>": "<annotation_id>" },
-    "validation": { "<document_id>": "<review_id>" },
-    "test": { "<document_id>": "<review_id>" }
-  },
-  "counts": {},
-  "tribunals": {},
-  "document_types": {},
-  "annotation_quality": {
-    "val_iaa_span_f1": null,
-    "val_iaa_span_f1_ci95_low": null,
-    "test_iaa_span_f1": null,
-    "test_iaa_span_f1_ci95_low": null,
-    "per_category_iaa": {},
-    "unreliable_eval_categories": []
-  },
-  "known_limitations": [],
-  "created_at": "..."
-}
-```
+Uma tabela `manifest.csv` discriminada por `record_kind`: uma linha `"manifest"` com
+os campos escalares (`release_id`, `ontology_version`, `guideline_version`,
+`source_commit`, `dependency_lock_hash`, `ci_provider`, `ci_run_id`,
+`split_manifest_hash`, `iaa_seed`, `iaa_resamples`, `created_at`, mais as quatro
+colunas escalares de `annotation_quality` — `val_iaa_span_f1`,
+`val_iaa_span_f1_ci95_low`, `test_iaa_span_f1`, `test_iaa_span_f1_ci95_low`), e uma
+linha por elemento para cada campo um-para-muitos: `"split_hash"` (`role`, `value`),
+`"document_resolution"` (`role`, `key`=`document_id`, `value`=`resolution_id`),
+`"count"` (`role`, `value`), `"tribunal"` (`key`, `value`), `"document_type"` (`key`,
+`value`), `"per_category_iaa"` (`key`, `value`), `"unreliable_category"` (`ordinal`,
+`key`), e `"known_limitation"` (`key`=`gate`, `value`=`status`, `extra`=`reason`).
 
 **`document_resolutions` é obrigatório**: pina o `annotation_id` (treino) ou
 `review_id` (validação/teste) exato usado para cada documento nesta build. Sem isso,
@@ -407,6 +464,24 @@ valor numérico solto é aceito como evidência sem estes parâmetros declarados
 
 ## 9. Política de anotação
 
+Antes de comprometer um lote inteiro a uma guideline nova ou revisada, um piloto de
+**um único documento** é produzido e escrutinado manualmente (além da validação
+mecânica do §11): a anotação resultante é comparada contra a instrução, contra
+qualquer anotação existente do mesmo documento (se houver) e contra o texto-fonte,
+em busca de lacunas de instrução — ambiguidade que levaria dois anotadores a decisões
+diferentes, categoria mal especificada, exemplo insuficiente na guideline — antes que
+o mesmo defeito se propague para um lote inteiro. O piloto separa dois tipos de
+achado, tratados de forma diferente:
+
+- **Lacuna de instrução** (a guideline permite mais de uma leitura razoável): dispara
+  revisão da guideline (bump de `guideline_version`, ponto 1 do §5 — não invalida
+  anotações existentes) e um **segundo piloto sobre o mesmo documento**, para checar
+  se a revisão de fato converge a decisão antes de liberar o lote sob a nova versão.
+- **Defeito do corpus-fonte** (ex.: um lote de origem sistematicamente sub-anotado
+  numa categoria): não é motivo para alterar a guideline — vira uma nota de risco
+  desse lote específico, monitorada no spot-review de risco ("Dados de treino",
+  abaixo), não um problema geral do processo de anotação.
+
 ### Dados de treino
 
 Registros de treino exigem:
@@ -424,7 +499,15 @@ Registros de alto risco recebem revisão independente. Sinais de risco:
 - decisões judiciais citadas (quoted);
 - contagem de rótulos anormalmente alta;
 - categorias raras;
-- desacordo com extratores determinísticos.
+- desacordo com extratores determinísticos;
+- **reconstrução verbatim diverge do `document.text` já armazenado** (achado do
+  segundo piloto de anotação: um anotador-LLM pode duplicar um trecho em vez de
+  envolvê-lo in-place ao inserir uma tag — XML sintaticamente válido, mas não mais
+  uma reconstrução fiel do documento). Isto **não é rejeição automática** — é sinal
+  de risco como os demais desta lista: escalona o registro para revisão
+  independente, que decide se conserta (reprocessar a anotação) ou descarta. Nunca
+  bloqueia sozinho o pipeline de produção nem o release (§11 não trata isto como
+  invariante rígido).
 
 ### Dados de validação e teste
 
@@ -509,6 +592,49 @@ revisão jurídica humana), releases nomeiam seus artefatos como `segmenter-silv
 não `segmenter-real-vN.M`, e o comando `build_gold_release` (§12) é um nome provisório —
 renomear para `build_dataset_release` até então é aceitável e não exige nova RFC.
 
+### 9.2 Técnica 2 — Aumento sintético de âncoras (train-only)
+
+Duas técnicas de LLM distintas, deliberadamente nomeadas para não serem confundidas:
+
+- **Técnica 1 — anotação assistida por LLM** (§8, §9, §9.1): o LLM opera **sobre um
+  documento real já existente em `documents/`**, reescrevendo-o com tags inline para
+  produzir `labels`. O texto subjacente é sempre 100% real; a contribuição do LLM é
+  só a decisão de segmentação.
+- **Técnica 2 — aumento sintético de âncoras** (esta seção): o LLM é apresentado a um
+  lote de exemplos reais de uma categoria específica (spans já anotados dessa
+  categoria, extraídos de `annotations/`) e pedido para **gerar** novos exemplos
+  curtos da mesma categoria. O texto gerado não é real — é conteúdo novo, sintético.
+
+A Técnica 2 é permitida antes de um baseline real (exceção do §3.4) porque seu escopo é
+estreito o bastante para o risco ser administrável sem um gate de avaliação completo:
+gera variação de **frase-âncora** (1–5 palavras, a mesma granularidade de categoria do
+§11), nunca um documento inteiro. O risco que essa granularidade não elimina — um LLM
+pedido para "gerar mais exemplos assim" a partir de um lote pequeno tende a produzir
+frases mais estereotipadas do que a variação real dos documentos (ruído de OCR,
+formulações incomuns de cartórios/varas específicas) — é administrado por três
+salvaguardas obrigatórias, não por medição contra holdout:
+
+1. **Sempre marcado, nunca real por omissão.** `DocumentRecord.source.system` e
+   `AnnotationRecord.annotation_method` de um registro produzido pela Técnica 2
+   identificam-no explicitamente como gerado (ex.: `system="llm_span_augmentation"`,
+   `annotation_method="llm_span_augmentation"`) — nenhum campo novo de schema é
+   necessário, os campos já existem para isso. Um consumidor do dataset nunca precisa
+   adivinhar a proveniência de um registro.
+2. **Excluído das contagens de suporte real.** O piso `train_minimum_support_per_category`
+   (§5.4, gate rígido do §12.1) conta só registros cuja proveniência não é
+   `llm_span_augmentation` — a Técnica 2 nunca pode fazer uma categoria parecer mais
+   bem suprida de dados reais do que realmente está. Volume sintético, se reportado, é
+   uma contagem separada no manifest, nunca somada à contagem real.
+3. **Train-only por construção, não por regra adicional.** Um registro da Técnica 2 não
+   tem adjudicação independente (não pode ter — não há um segundo anotador real
+   concordando sobre um span que não existia antes), então já é estruturalmente
+   inelegível para validação/teste pela política de elegibilidade do §10 — nenhuma
+   verificação extra é necessária além da que já existe.
+
+Registros da Técnica 2 continuam sujeitos a toda validação mecânica do §11 (offsets,
+não-sobreposição, pertencimento à ontologia) — a exceção do §3.4 é sobre **quando** o
+dado pode ser usado, nunca sobre **se** ele precisa ser mecanicamente válido.
+
 ## 10. Política de splits
 
 Atribuição de split acontece **somente após o documento atingir o estado mínimo
@@ -553,7 +679,8 @@ representativa de produção.
 
 Todo registro em release satisfaz:
 
-- schema JSON válido;
+- schema válido (estrutura e atributos do XML por registro — documento/anotação/
+  review —, §8);
 - `0 <= start < end <= len(text)`;
 - nenhuma sobreposição proibida;
 - categoria pertence à ontologia;
@@ -565,6 +692,16 @@ Todo registro em release satisfaz:
 - `text[start:end]` não vazio;
 - todos os campos de proveniência exigidos pelo tipo de registro (documento/anotação/
   review) presentes.
+
+Note que fidelidade verbatim (texto reconstruído das tags inline == `document.text`)
+não está nesta lista: não é um invariante rígido de release. O `SegmenterDatasetStore`
+já é seguro por construção nesse ponto — `write_annotation` reconstrói as tags a partir
+do `document.text` já confiável, nunca do texto bruto que um anotador-LLM digitou; a
+saída bruta de um LLM nunca chega ao store diretamente. Ferramentas futuras que
+convertem essa saída bruta em `AnnotationRecord` (fora do escopo deste PR) devem
+comparar o texto reconstruído contra o documento-fonte, mas um descasamento é um
+**sinal de risco** que escalona para revisão independente (§9, "Dados de treino"),
+não uma rejeição automática do registro.
 
 A validação mecânica roda **in-process** (biblioteca), não via chamadas repetidas de
 subprocesso a `opf_annotate.py`.
@@ -599,12 +736,9 @@ Cada item de `known_limitations` identifica exatamente uma regra consultiva/waiv
 desnecessária para uma equipe pequena. A revisão natural de um known limitation é o
 próximo *major release* (§13.1), não uma data de expiração hardcoded:
 
-```json
-{
-  "gate": "minimum_tribunal_count",
-  "status": "known_limitation",
-  "reason": "Release inicial é explicitamente TJRO-only"
-}
+```csv
+gate,status,reason
+minimum_tribunal_count,known_limitation,Release inicial é explicitamente TJRO-only
 ```
 
 ### 12.1 Invariantes não-waivable
@@ -695,8 +829,9 @@ sirva para sempre. O ciclo completo:
 
 ### 13.2 Mecanismo real de trancamento
 
-Um `test.jsonl` versionado em texto claro no repositório público não está trancado —
-qualquer sessão de desenvolvimento pode lê-lo a qualquer momento. O trancamento é
+As linhas do split de teste versionadas em texto claro nas tabelas CSV públicas do
+repositório não estão trancadas — qualquer sessão de desenvolvimento pode lê-las a
+qualquer momento. O trancamento é
 implementado assim:
 
 - No momento do split-assignment (§10), o conteúdo do split de teste é cifrado (ex.:

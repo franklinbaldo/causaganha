@@ -40,6 +40,23 @@ _SEMVER_RE = re.compile(r"^segmenter-ontology-v(\d+)\.(\d+)\.(\d+)$")
 # data/segmenter_splits/label_space.json on main (25 trainable categories).
 ONTOLOGY_V8 = "segmenter-ontology-v8.0.0"
 
+# RFC 0012 §5 point 7: a single-anchor category's "at most one per document"
+# default (mechanical.validate_single_anchor_duplicates) fits categories whose
+# value is a fact about the *decision as a whole* — dispositivo_abertura and
+# resultado are singular by design (guideline Rule 2: only the operative
+# mention counts, not every occurrence in reasoning prose), and ref_processual
+# is singular because its job is record-linking this text to one case (a
+# multi-valued link is useless). It does NOT fit a citation/reasoning
+# category, where a real document legitimately repeats itself: fundamentacao_legal
+# anchors a distinct statute citation each time it appears, and
+# valor_condenacao can name more than one genuinely different amount (moral +
+# material damages, or an original vs. a corrected figure) in one decision.
+# Deduping those down to "first occurrence" silently drops real signal — see
+# the batch1 finding in RFC 0012 §9's pilot history. Every mechanical.validate_record
+# call across the pipeline (release gate, both ingestion scripts) must pass
+# this set, not decide independently, or the policy drifts.
+ALLOW_MULTIPLE_SINGLE_ANCHOR = frozenset({"fundamentacao_legal", "valor_condenacao"})
+
 
 class MigrationImpact(StrEnum):
     """Semver bump class for an ontology change (RFC 0012 §5.1)."""

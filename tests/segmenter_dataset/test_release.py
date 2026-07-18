@@ -6,9 +6,24 @@ import pytest
 from conftest import make_annotation, make_document, make_review
 
 from segmenter_dataset.release import ReleaseBlockedError, build_dataset_release
-from segmenter_dataset.schemas import KnownLimitation, Label
-from segmenter_dataset.splits import SplitAssignment, SplitLeakError
+from segmenter_dataset.schemas import KnownLimitation, Label, SplitManifest
+from segmenter_dataset.splits import SplitAssignment, SplitLeakError, create_split_manifest
 from segmenter_dataset.store import SegmenterDatasetStore
+
+
+CI_PROVIDER = "github-actions"
+CI_RUN_ID = "run-1"
+
+
+def _manifest_for(assignment: SplitAssignment) -> SplitManifest:
+    return create_split_manifest(
+        assignment,
+        {},
+        seed=1,
+        train_ratio=0.7,
+        val_ratio=0.15,
+        near_duplicate_threshold=0.9,
+    )
 
 
 ONTOLOGY = {"cabecalho_inicio", "cabecalho_fim"}
@@ -99,8 +114,10 @@ def test_build_dataset_release_succeeds_with_sufficient_support(tmp_path: Path) 
         guideline_version="g1",
         source_commit="a" * 40,
         dependency_lock_hash="b" * 64,
+        ci_provider=CI_PROVIDER,
+        ci_run_id=CI_RUN_ID,
         ontology_categories=ONTOLOGY,
-        split_assignment=assignment,
+        split_manifest=_manifest_for(assignment),
         known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
         iaa_seed=1,
     )
@@ -119,8 +136,10 @@ def test_build_dataset_release_succeeds_with_sufficient_support(tmp_path: Path) 
             guideline_version="g1",
             source_commit="a" * 40,
             dependency_lock_hash="b" * 64,
+            ci_provider=CI_PROVIDER,
+            ci_run_id=CI_RUN_ID,
             ontology_categories=ONTOLOGY,
-            split_assignment=assignment,
+            split_manifest=_manifest_for(assignment),
             known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
             iaa_seed=1,
         )
@@ -146,8 +165,10 @@ def test_build_dataset_release_blocked_by_single_tribunal_without_known_limitati
             guideline_version="g1",
             source_commit="a" * 40,
             dependency_lock_hash="b" * 64,
+            ci_provider=CI_PROVIDER,
+            ci_run_id=CI_RUN_ID,
             ontology_categories=ONTOLOGY,
-            split_assignment=assignment,
+            split_manifest=_manifest_for(assignment),
             iaa_seed=1,
         )
     gate_names = {g.name for g in exc_info.value.gate_results}
@@ -173,8 +194,10 @@ def test_build_dataset_release_multiple_tribunals_gate_passes_without_waiver(
         guideline_version="g1",
         source_commit="a" * 40,
         dependency_lock_hash="b" * 64,
+        ci_provider=CI_PROVIDER,
+        ci_run_id=CI_RUN_ID,
         ontology_categories=ONTOLOGY,
-        split_assignment=assignment,
+        split_manifest=_manifest_for(assignment),
         known_limitations=[
             KnownLimitation(gate="multiple_source_systems", reason="tjro_juris-only for v8.1")
         ],
@@ -196,8 +219,10 @@ def test_build_dataset_release_blocked_by_insufficient_train_support(tmp_path: P
             guideline_version="g1",
             source_commit="a" * 40,
             dependency_lock_hash="b" * 64,
+            ci_provider=CI_PROVIDER,
+            ci_run_id=CI_RUN_ID,
             ontology_categories=ONTOLOGY,
-            split_assignment=assignment,
+            split_manifest=_manifest_for(assignment),
             iaa_seed=1,
         )
     gate_names = {g.name for g in exc_info.value.gate_results}
@@ -233,8 +258,10 @@ def test_build_dataset_release_raises_when_val_document_not_adjudicated(tmp_path
             guideline_version="g1",
             source_commit="a" * 40,
             dependency_lock_hash="b" * 64,
+            ci_provider=CI_PROVIDER,
+            ci_run_id=CI_RUN_ID,
             ontology_categories=ONTOLOGY,
-            split_assignment=broken_assignment,
+            split_manifest=_manifest_for(broken_assignment),
             iaa_seed=1,
         )
 
@@ -255,8 +282,10 @@ def test_build_dataset_release_advisory_gate_waived_by_known_limitation(tmp_path
         guideline_version="g1",
         source_commit="a" * 40,
         dependency_lock_hash="b" * 64,
+        ci_provider=CI_PROVIDER,
+        ci_run_id=CI_RUN_ID,
         ontology_categories=ONTOLOGY,
-        split_assignment=assignment,
+        split_manifest=_manifest_for(assignment),
         known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
         iaa_seed=1,
     )
