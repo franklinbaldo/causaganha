@@ -57,6 +57,21 @@ ONTOLOGY_V8 = "segmenter-ontology-v8.0.0"
 # this set, not decide independently, or the policy drifts.
 ALLOW_MULTIPLE_SINGLE_ANCHOR = frozenset({"fundamentacao_legal", "valor_condenacao"})
 
+# RFC 0012 §5 point 6 / §16.2: the model-release floor for v8.1, fixed by
+# this RFC rather than left for a release to declare. These four categories
+# carry the decision's operative outcome — a model that gets the aggregate
+# macro-F1 right while missing these is not useful even though it passes
+# every dataset-level gate (§16.1 vs §16.2's distinction).
+CRITICAL_CATEGORIES = frozenset(
+    {
+        "dispositivo_abertura",
+        "resultado",
+        "acordao_decisorio_inicio",
+        "acordao_decisorio_fim",
+    }
+)
+CRITICAL_CATEGORY_FLOOR = 0.5
+
 
 class MigrationImpact(StrEnum):
     """Semver bump class for an ontology change (RFC 0012 §5.1)."""
