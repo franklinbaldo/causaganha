@@ -9,6 +9,7 @@ from scripts.run_segmenter_training import (
     _load_label_space,
     _macro_f1_from_metrics,
     _select_best_epoch,
+    main,
 )
 
 
@@ -82,3 +83,40 @@ def test_select_best_epoch_falls_back_to_lowest_val_loss_on_full_tie():
     best = _select_best_epoch(results)
 
     assert best.checkpoint_dir == "b"
+
+
+def _main_args(tmp_path, **overrides: str):
+    args = {
+        "--data-dir": str(tmp_path),
+        "--output-dir": str(tmp_path / "out"),
+        "--release-id": "segmenter-real-v8.1",
+        "--ontology-version": "segmenter-ontology-v8.0.0",
+        "--guideline-version": "g1",
+        "--dependency-lock-hash": "a" * 64,
+    }
+    args.update(overrides)
+    flat = []
+    for key, value in args.items():
+        flat.extend([key, value])
+    return flat
+
+
+def test_main_errors_when_train_artifacts_are_missing(tmp_path, capsys):
+    exit_code = main(_main_args(tmp_path))
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "missing" in captured.err
+    assert "train.jsonl" in captured.err
+
+
+def test_main_reports_all_missing_artifacts_not_just_the_first(tmp_path, capsys):
+    (tmp_path / "train.jsonl").write_text("", encoding="utf-8")
+
+    exit_code = main(_main_args(tmp_path))
+
+    assert exit_code == 1
+    captured = capsys.readouterr()
+    assert "val.jsonl" in captured.err
+    assert "label_space.json" in captured.err
+    assert "train.jsonl" not in captured.err

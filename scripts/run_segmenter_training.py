@@ -246,7 +246,7 @@ def train_and_select_checkpoint(
     return selection, best.checkpoint_dir
 
 
-def main() -> int:
+def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         description="Train the CausaGanha segmenter baseline (train+val only, RFC 0012 §13)"
     )
@@ -261,7 +261,7 @@ def main() -> int:
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--device", default=None, help="cuda|cpu; default: auto-detect")
     parser.add_argument("--experiment-id", default=None)
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
     data_dir = Path(args.data_dir)
     output_dir = Path(args.output_dir)
