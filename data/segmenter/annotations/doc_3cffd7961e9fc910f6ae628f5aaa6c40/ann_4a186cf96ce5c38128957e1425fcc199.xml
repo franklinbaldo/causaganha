@@ -1,0 +1,35 @@
+<annotation id="ann_4a186cf96ce5c38128957e1425fcc199" document_id="doc_3cffd7961e9fc910f6ae628f5aaa6c40">
+  <annotator id="historical_migration:seed" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-06-05T23:21:55Z</completed_at>
+  <annotation_method>historical_migration_ensemble_verified_train_only</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> Tribunal de Justiça do Estado de Rondônia ACÓRDÃO Coordenadoria Cível da Central de Processos Eletrônicos do 2º Grau Data de Julgamento: Sessão Eletrônica n. 351 de 19/05/2025 a 23/05/2025 AUTOS N. <ref_processual ord="1">7001071-32.2024.8.22.0019</ref_processual> APELAÇÃO (PJE) ORIGEM: 7001071-32.2024.8.22.0019 - MACHADINHO DO OESTE / 2ª VARA GENÉRICA APELANTE : UNIÃO NACIONAL DOS APOSENTADOS E PENSIONISTAS DO BRASIL- UNABRASIL ADVOGADO(A): SHEILA SHIMADA – SP322241 APELADO(A): MARIA FERREIRA ALVES ADVOGADO(A): DANILO WALLACE FERREIRA SOUSA – RO6995 RELATOR : DESEMBARGADOR ROWILSON TEIXEIRA <fim ord="2">DATA DA DISTRIBUIÇÃO: 28/03/2025</fim></cabecalho> DECISÃO: <resultado ord="3">RECURSO PARCIALMENTE PROVIDO</resultado> NOS TERMOS DO VOTO DO RELATOR, À UNANIMIDADE. <ementa><inicio ord="4">Ementa:</inicio> DIREITO DO CONSUMIDOR E PROCESSUAL CIVIL. APELAÇÃO CÍVEL. DESCONTOS INDEVIDOS EM BENEFÍCIO PREVIDENCIÁRIO. ASSOCIAÇÃO DE APOSENTADOS. AUSÊNCIA DE COMPROVAÇÃO DE FILIAÇÃO. RESTITUIÇÃO EM DOBRO. DANOS MORAIS. INEXISTÊNCIA. EXCLUSÃO DA CONDENAÇÃO. HONORÁRIOS ADVOCATÍCIOS E CUSTAS PROCESSUAIS. MANUTENÇÃO. <fim ord="5">RECURSO PARCIALMENTE PROVIDO.</fim></ementa> I. CASO EM EXAME Apelação interposta contra sentença que, nos autos de ação declaratória de inexistência de débito c/c repetição de indébito e danos morais, ajuizada por beneficiária do INSS, declarou inexistente a relação jurídica entre as partes, condenou a associação à restituição em dobro dos valores indevidamente descontados do benefício previdenciário e ao pagamento de indenização por danos morais. II. QUESTÃO EM DISCUSSÃO Há três questões em discussão: (i) verificar se a apelante comprovou a existência de vínculo jurídico apto a justificar os descontos no benefício previdenciário da autora; (ii) determinar se há dano moral passível de indenização em razão dos descontos indevidos; e (iii) avaliar a possibilidade de isenção da apelante do pagamento de custas e honorários advocatícios. III. RAZÕES DE DECIDIR A ausência de comprovação da contratação ou autorização da parte autora para a filiação à associação configura cobrança indevida, impondo a restituição em dobro dos valores descontados, <fundamentacao_legal ord="6">nos termos do art. 42, parágrafo único, do Código de Defesa do Consumidor</fundamentacao_legal>. A prática de descontos indevidos em benefício previdenciário, embora irregular, não caracteriza, por si só, dano moral indenizável quando os valores envolvidos são ínfimos e não há prova de abalo emocional significativo, tratando-se de mero aborrecimento. A exclusão da condenação por danos morais é medida cabível, pois os valores descontados não são suficientes para gerar sofrimento psicológico intenso, conforme precedentes do STJ e do Tribunal de Justiça do Estado de Rondônia. IV. DISPOSITIVO E TESE Recurso parcialmente provido para excluir a condenação ao pagamento de indenização por danos morais, mantendo-se os demais termos da sentença. Tese de julgamento: A ausência de comprovação da autorização do consumidor para descontos em seu benefício previdenciário configura cobrança indevida e impõe a restituição em dobro dos valores descontados. O desconto indevido de valores ínfimos, sem repercussão significativa na esfera pessoal do consumidor, não caracteriza dano moral indenizável, sendo mero aborrecimento. Dispositivos relevantes citados: CF/1988, art. 5º, XVII e XX; CDC, art. 42, parágrafo único; CPC, art. 373; CC, arts. 398 e 406; Jurisprudência relevante citada: STJ, AgInt nos EDcl no REsp 1948000/SP, Rel. Min. Marco Aurélio Bellizze, Quarta Turma, j. 23/05/2022; TJRO, Apelação Cível nº 7010540-59.2024.822.0001, Rel. Juiz Aldemir de Oliveira, j. 23/09/2024; TJRO, Recurso Inominado nº 7001971-55.2023.822.0017, Rel. Juiz João Luiz Rolim Sampaio, j. 30/07/2024.</text>
+</annotation>

@@ -1,0 +1,35 @@
+<annotation id="ann_71211af4b3baac0f25082a7ddda59834" document_id="doc_8dfe37bb8f3a6d0990cf1a74329f4d1a">
+  <annotator id="historical_migration:rounds_abcd_unattributed" model_family="historical_migration_unspecified" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA Tribunal de Justiça de Rondônia Ariquemes - 3ª Vara Cível Avenida Juscelino Kubitschek, nº 2365, Bairro Setor Institucional, CEP 76872-853, Ariquemes, - Processo n.: <ref_processual ord="1">7005932-20.2021.8.22.0002</ref_processual> Classe: Tutela Cautelar Antecedente Valor da Causa: R$ 4.600,00 Última distribuição: 14/05/2021 Autor: ANDREIA CRISTIANE ALVES BEATO, CPF nº 85907715120, LINHA C-105, TRAVESSÃO B-40, LOTE 16, GLEBA 39, SÍTIO ZONA RURAL - 76862-000 - ALTO PARAÍSO - RONDÔNIA Advogado do(a) AUTOR: OMAR VICENTE, OAB nº RO6608A Réu: THIAGO RIBEIRO DA CUNHA, CPF nº DESCONHECIDO Advogado do(a) RÉU: MARCELO ANTONIO FRANCA BRITO DOS SANTOS, <fim ord="2">OAB nº RO6784</fim></cabecalho> SENTENÇA Vistos. As partes apresentaram acordo para ser homologado, como forma de extinção do processo, nos seguintes termos: “ 1. Como forma de pôr fim à lide, o requerido acata o pedido e aceita a proposta de pagamento do valor de R$5.560,00 (cinco mil, quinhentos e sessenta reais), da seguinte forma: R$4.600,00 (quatro mil e seiscentos reais) pelo levantamento do bloqueio na conta do requerido, a ser levantado por meio de Alvará Judicial e os restantes R$960,00 (novecentos e sessenta reais) por meio de transferência via PIX, diretamente ao patrono do autora, cuja chave é: CNPJ 26436750000102 (Omar Vicente Sociedade Individual de Advocacia) da Cooperativa SICOOB, no prazo de 24:00 horas. 2. O autor aceita a proposta e dá quitação quanto à inicial para nada mais reclamar, exceto o descumprimento deste acordo, abrindo mão dos danos morais pleiteados, desde já requerendo a expedição de alvará para levantamento da quantia bloqueada. 3. As partes renunciam ao prazo recursal. ” Como é cediço, a autocomposição das partes é sempre o melhor caminho para pôr fim à lide, eis que o faz de acordo com a vontade delas. Graças a isso é que o CPC consagrou, no bojo do artigo 3º, §2º, o princípio da promoção pelo Estado da solução por autocomposição, consagrando a Resolução 125 do CNJ. A conciliação, doravante, passa a ser uma política pública, uma meta do Estado e que deve ser estimulada não só por este, mas também por todos os envolvidos no processo. Assim, considerando que o requerimento satisfaz as exigências legais, e, principalmente, que os interesses das partes foram resguardados, por não vislumbrar qualquer irregularidade e/ou vício de consentimento, tomo-o por regular, sendo de rigor a sua homologação. <dispositivo_abertura ord="3">ANTE O EXPOSTO</dispositivo_abertura> e, por tudo mais que dos autos consta, HOMOLOGO POR SENTENÇA o acordo entabulado entre as partes, nos termos da proposta coligida (ID 68593161), para que produza os seus jurídicos e legais efeitos e, consequentemente, <resultado ord="4">JULGO EXTINTO</resultado> o feito, <fundamentacao_legal ord="5">nos termos do artigo 487, inciso III, alínea</fundamentacao_legal> "b", do Código de Processo Civil. Expeça-se alvará na forma acordada entre as partes. <custas><inicio ord="6">Dispensadas as partes</inicio> do pagamento de eventuais custas processuais remanescentes (art. 90, § 3º, do CPC). Em não havendo estipulação quanto as despesas processuais, serão elas divididas igualmente entre as partes, na forma do art. 90, § 2º, <fim ord="7">do Código de Processo Civil.</fim></custas> <honorarios><inicio ord="8">Sem condenação em honorários</inicio> em razão do desfecho consensual <fim ord="9">da demanda.</fim></honorarios> Consistindo a manifestação em ato incompatível com a vontade de recorrer (art. 1.000, parágrafo único, CPC), homologo a renúncia ao direito de recorrer e dou por transitada em julgado esta decisão nesta data, independente de certificação nos autos. <encerramento><inicio ord="10">P. R. I. C.</inicio> e, oportunamente, arquive-se com as anotações de estilo, promovendo-se as baixas devidas no sistema. Ariquemes, 14 de fevereiro de 2022 Marcus Vinicius dos Santos Oliveira <fim ord="11">Juiz de Direito</fim></encerramento></text>
+</annotation>

@@ -1,0 +1,35 @@
+<annotation id="ann_5c99e1c711f5f3c2e6b67c9ac234c622" document_id="doc_f22271af51fd1d9e2e0f296aea1b9617">
+  <annotator id="historical_migration:rounds_abcd_unattributed" model_family="historical_migration_unspecified" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA Tribunal de Justiça de Rondônia Rolim de Moura - 2ª Vara Cível Av. João Pessoa, nº 4555, Bairro Centro, CEP 76940-000, Rolim de Moura Processo n.: <ref_processual ord="1">7006667-29.2021.8.22.0010</ref_processual> Classe: Procedimento Comum Cível Valor da ação: R$ 1.557,47 Exequente: AUTOR: SCHLICKMANN &amp; VILELA LTDA - ME Advogado: ADVOGADO DO AUTOR: CATIANE DARTIBALE, OAB nº RO6447A Executado: REU: VERONICA BALBINO DA SILVA CAMPOS Advogado: <fim ord="2">REU SEM ADVOGADO(S)</fim></cabecalho> SENTENÇA <dispositivo_abertura ord="3">HOMOLOGO O ACORDO</dispositivo_abertura> celebrado entre as partes, o qual será regido pelas cláusulas insertas na petição de ID 68308166, o que faço <fundamentacao_legal ord="4">com fundamento no art. 57 da Lei n. 9.099/97</fundamentacao_legal>, e art. 840 do Código Civil. Com efeito, o acordo será regido pelas cláusulas e condições estabelecidas na petição juntada aos autos pelas partes, ressalvados direitos de terceiros de boa-fé. Isso posto, <resultado ord="5">julgo extinto o feito</resultado>, com resolução do mérito, nos termos do art. 487, inc. I e III, alínea "b" do Código de Processo Civil. Esta sentença homologatória de transação valerá como título executivo judicial, conforme previsto no art. 515, II, do referido diploma legal. Sentença transitada em julgado nesta data em razão da preclusão lógica, disposta no parágrafo único do art. 1.000, do CPC. <custas><inicio ord="6">Sem custas finais</inicio>, desde que o acordo seja cumprido voluntariamente, sem necessidade de execução. Havendo necessidade de outros atos <fim ord="7">incidirão custas</fim></custas>. <honorarios><inicio ord="8">Honorários</inicio> <fim ord="9">nos termos do acordo.</fim></honorarios> Como as partes têm título executivo, este feito deve ser arquivado de imediato. Consigno que não há necessidade de manter o feito suspenso para cumprimento do acordo, pois o desarquivamento pode ser feito pela parte a todo tempo, sem o recolhimento de novas taxas ou custos adicionais. Porém, caso haja descumprimento do acordo, desde já faculto ao Autor/exequente indicar bens penhoráveis para garantia de futura execução (arts. 524 e 798, II, c, do CPC) e remoção, sob sua responsabilidade. De igual forma, havendo descumprimento do acordo, junte-se planilha atualizada e desde já ficam autorizadas buscas a SISBAJUD e RENAJUD, devendo o pedido vir instruído com a taxa do art. 17 da Lei Estadual n.º 3.896, de 24/8/2016 (código 1007). Procedendo desta forma, o processo tem andamento mais célere (arts. 6.º e 139 do CPC), o que beneficia a todos. Na fase processual adequada, caso seja pedida execução e remoção de bens, o exequente deverá providenciar os meios necessários para transporte, pois esta Comarca não tem depositário público, nem veículos de carga/transporte para remover os bens que venham a ser penhorados. <encerramento><inicio ord="10">P. R. I.</inicio> Após arquivem-se. Rolim de Moura/RO, sexta-feira, 11 de fevereiro de 2022 , 07:49 JEFERSON CRISTI TESSILA DE MELO <fim ord="11">Juiz de Direito</fim></encerramento></text>
+</annotation>

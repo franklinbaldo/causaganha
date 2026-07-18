@@ -1,0 +1,37 @@
+<annotation id="ann_a8479e7cf389b26d2d04761ae6ec0b34" document_id="doc_20242fa1739cde74c529368d04219ad9">
+  <annotator id="historical_migration:rounds_abcd_unattributed" model_family="historical_migration_unspecified" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="historical migration: section runs to the end of the collected text" />
+  </allowed_unmatched>
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA Tribunal de Justiça de Rondônia Porto Velho - 2º Juizado Especial Cível Avenida Pinheiro Machado, nº 777, Bairro Olaria, CEP 76801-235, Porto Velho, Tel Central Atend (Seg a sex, 8h-12h): 69 3309-7000/7002 e 98487-9601 PROCESSO: <ref_processual ord="1">7029448-43.2019.8.22.0001</ref_processual> AUTOR: VANDERSON BARROS DA SILVA, CPF nº 90389166200, RUA BLACK CHARLES 5614, - DE 5464/5465 A 5863/5864 COHAB - 76807-614 - PORTO VELHO - RONDÔNIA AUTOR SEM ADVOGADO(S) RÉU: QUETLEN MENEZES DE ANDRADE, CPF nº 01095201220, RUA RORAIMA 3982, PRÓXIMO AO COMERCIAL RODRIGUES CALADINHO - 76808-156 - PORTO VELHO - RONDÔNIA <fim ord="2">RÉU SEM ADVOGADO(S)</fim></cabecalho> SENTENÇA Vistos etc. Relatório dispensado na forma da lei. A parte autora não promoveu o regular andamento deste processo há mais de 30 dias, demonstrando desinteresse no prosseguimento do feito. A extinção do processo nos Juizados Especiais não depende de intimação pessoal da parte (§1º do artigo 51 da Lei 9.099/1995). A parte é quem deve mostrar interesse, impulsionando o feito ao formular requerimentos pertinentes a cada ato processual. <dispositivo_abertura ord="3">Ante o exposto</dispositivo_abertura>, <fundamentacao_legal ord="4">nos termos do artigo 485, inciso III do Código de Processo Civil</fundamentacao_legal>, <resultado ord="5">JULGO EXTINTO O PROCESSO</resultado> sem resolução do mérito. Ademais, há que se considerar que a parte demandante provocou a movimentação da máquina judiciária, e, logo em seguida, sem justificativa abandonou a causa, destarte <custas><inicio ord="6">condeno-a ao pagamento de custas processuais</inicio>, nos termos do Enunciado nº 28 do Fórum Nacional dos Juizados Especiais c/c com o Enunciado Cível FOJUR nº 09 c/c a Lei Estadual n. 3.896/2016 <fim ord="7">(Regimento de Custas).</fim></custas> Advirto que o processo não será desarquivado para fins de prosseguimento, devendo a parte autora, caso queira, promover nova demanda. Saliento que o ajuizamento da nova demanda somente será aceita após a parte promover o recolhimento fiel do encargo ora imposto. <encerramento><inicio ord="8">Arquive-se imediatamente</inicio></encerramento> o feito, independente de intimação.</text>
+</annotation>

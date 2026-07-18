@@ -1,0 +1,35 @@
+<annotation id="ann_6ce7ee40b451360e3d33b3f36af63da8" document_id="doc_ec1f5133660dc174fe80e615f3f46dd2">
+  <annotator id="historical_migration:round_e" model_family="model_assisted_correction_v1" guideline_version="segmenter_v7" seeded_with="model_draft_checkpoint_inference" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_model_assisted_correction</annotation_method>
+  <text>ESTADO DE RONDÔNIA <cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> TRIBUNAL DE JUSTIÇA 2ª Câmara Cível / Gabinete Des. Alexandre Miguel Processo: <ref_processual ord="1">7003404-47.2016.8.22.0015</ref_processual> - APELAÇÃO (198) Relator: ALEXANDRE MIGUEL substituído por CARLOS AUGUSTO TELES DE NEGREIROS Data distribuição: 29/03/2017 19:21:52 Data julgamento: 12/07/2017 Polo Ativo: ANA KAROLINA GONCALVES AIDAR Advogado do(a) APELANTE: SAMIR MUSSA BOUCHABKI - RO0002570A Polo Passivo: CENTRAIS ELETRICAS DE RONDONIA SA CERON <fim ord="2">Advogado do(a) APELADO:</fim></cabecalho> <relatorio><inicio ord="3">RELATÓRIO</inicio> Normal 0 21 false false false PT-BR X-NONE X-NONE Ana Karolina Gonçalves Aidar recorre da sentença proferida nos autos da ação declaratória de inexistência de débito c.c. indenização por danos morais que julgada procedente, declarou a inexigibilidade do débito discutido e condenou a requerida ao pagamento de danos morais no valor de <valor_condenacao ord="4">R$ 5.000,00</valor_condenacao>, custas e honorários advocatícios no importe de 15% sobre o valor da condenação. Consta na inicial, que a requerida inscreveu o nome da autora nos órgãos de proteção ao crédito por débito indevido já que pediu o encerramento de energia com quitação total do débito. Inconformada, a apelante insurge-se quanto ao valor do dano moral, requerendo a majoração sob o argumento de ter sido arbitrado de forma ínfima. Postula o provimento do recurso com a majoração do valor do dano moral. A requerida não apresentou contrarrazões. <fim ord="5">É o relatório.</fim></relatorio> Normal 0 21 false false false PT-BR X-NONE X-NONE <voto><inicio ord="6">VOTO</inicio> JUIZ CARLO AUGUSTO TELES NEGREIROS Analisando os autos, verifica-se ser fato incontroverso que a parte autora teve seu nome negativado por débito lançado, indevidamente, em seu nome. O documento, de fl. 16, comprova que a parte autora teve seu nome negativado nos órgãos restritivos de crédito, o que, por si só, gera abalo de ordem moral. Em relação ao valor da indenização, a jurisprudência desta Corte é pacífica no sentido de que deva se operar com moderação, proporcionalmente ao grau de culpa, à capacidade econômica das partes, cabendo ao juiz orientar-se pelos critérios sugeridos na doutrina e na jurisprudência com razoabilidade, valendo-se de sua experiência e do bom senso, conforme previsão do art. 944 do CC. O STJ, para situações como a dos autos, tem posição firmada no sentido de fixá-lo em patamar que atenda aos princípios da razoabilidade e proporcionalidade, operando sua redução ou majoração redução quando se mostrar excessivo ou diminuto, consoante se observa dos seguintes julgados: REsp 811.411/RJ e REsp 782.046/RN Relator Min. Jorge Scartezzini; REsp 710.959/MS Relator Min. Barros Monteiro; REsp 684.985/RJ Relator Min. Cesar Asfor Rocha; REsp 625089/MS Relator Min. Fernando Gonçalves; AgRg no REsp 690230 Relator Min. Eliana Calmon, dentre outros. Vale ressaltar que a parte autora teve o nome negativado por débito lançado em seu nome, indevidamente, já que não reconhece o valor cobrado. Diante do exposto, entendo que o dano ultrapassou o mero dissabor, assim concluo que a indenização arbitrada no quantum de <valor_condenacao ord="7">R$ 5.000,00</valor_condenacao> está em conformidade com os casos já analisados por esta corte. Vejam-se julgados desta Corte que evidenciam que o valor acima se encontra de acordo com o entendimento hoje vigente nesta Câmara: 0113598- 96.2007.8.22.0001, 0002135-21.2009.8.22.0021, 0245750-40.2008.8.22.0001, 0008695- 05.2010.8.22.0001 e 0228137-07.2009.8.22.0001, de modo que deve ser mantido. Ante o exposto, nego provimento ao recurso. <fim ord="8">É como voto.</fim></voto> Normal 0 21 false false false PT-BR X-NONE X-NONE <ementa><inicio ord="9">EMENTA</inicio> Normal 0 21 false false false PT-BR X-NONE X-NONE Apelações. Consumidor. Inscrição indevida. Energia elétrica. Dano moral. Indenização. Valor mantido. Recurso não provido. O arbitramento da indenização decorrente de dano moral deve ser feito caso a caso, com bom senso, moderação e razoabilidade, atentando-se à proporcionalidade com relação ao grau de culpa, extensão e repercussão dos danos, à capacidade econômica, características individuais e o <fim ord="10">conceito social das partes.</fim></ementa> Normal 0 21 false false false PT-BR X-NONE X-NONE ACÓRDÃO <acordao_decisorio><inicio ord="11">Vistos, relatados e discutidos</inicio> estes autos, acordam os Magistrados da 2ª Câmara Cível do Tribunal de Justiça do Estado de Rondônia, na conformidade da ata de julgamentos e das notas taquigráficas, em, <resultado ord="12">RECURSO NÃO PROVIDO</resultado> NOS TERMOS DO VOTO DO RELATOR, <fim ord="13">À UNANIMIDADE</fim></acordao_decisorio>. Porto Velho, 12 de Julho de 2017 ALEXANDRE MIGUEL substituído por CARLOS AUGUSTO TELES DE NEGREIROS RELATOR PARA O ACÓRDÃO</text>
+</annotation>

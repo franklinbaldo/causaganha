@@ -1,0 +1,35 @@
+<annotation id="ann_60e8f479655fd05df92e903426dc79fc" document_id="doc_3dd38e93f1ded578b94772aa3303fd44">
+  <annotator id="historical_migration:rounds_abcd_unattributed" model_family="historical_migration_unspecified" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA Tribunal de Justiça de Rondônia Buritis - 2ª Vara Genérica AC Buritis, nº 1380, Bairro Setor 3, CEP 76880-000, Buritis, Rua Taguatinga Processo: <ref_processual ord="1">7006539-44.2019.8.22.0021</ref_processual> Classe: Procedimento do Juizado Especial Cível Assunto: Indenização por Dano Material, Incorporação Imobiliária, Obrigação de Fazer / Não Fazer REQUERENTE: JOSE OLIVEIRA MOTTA ADVOGADO DO REQUERENTE: LEVI GUSTAVO ALVES DE FREITAS, OAB nº RO4634 REQUERIDO: CENTRAIS ELETRICAS DE RONDONIA S/A - CERON ADVOGADOS DO REQUERIDO: MARCIO MELO NOGUEIRA, OAB nº RO2827, <fim ord="2">ENERGISA RONDÔNIA</fim></cabecalho> SENTENÇA Conforme art. 924, inciso II, do CPC, extingue-se a execução quando satisfeita a obrigação e pelo que consta nos autos, a Executada cumpriu a obrigação conforme comprovante acostado aos autos, razão pela qual, a extinção do feito pelo total adimplemento da obrigação é medida que se impõe. <dispositivo_abertura ord="3">Ante ao exposto</dispositivo_abertura>, <resultado ord="4">JULGO EXTINTA A PRESENTE AÇÃO</resultado>, considerando a satisfação da obrigação por meio do cumprimento noticiado e comprovado nos autos, com fulcro nos arts. 924 e 925, ambos do Código de Processo Civil. Considerando que a parte requerida foi devidamente intimada para recolher as custas finais, face o retorno dos autos da Turma Recursal, mantendo-se inerte (Id. 48753767). Determino que seja inscrito o nome do requerido na Dívida Ativa, após arquivem-se o feito. Disposições ao Cartório: a) inscrever o nome do requerido CENTRAIS ELETRICAS DE RONDONIA S/A - CERON, inscrito no CNPJ sob o n. 05.914.650/0001.66, na dívida ativa. b) arquivar o feito. <encerramento><inicio ord="5">SERVE A PRESENTE COMO MANDADO DE INTIMAÇÃO.</inicio> Buritis/RO, quarta-feira, 14 de outubro de 2020 Michiely Aparecida Cabrera Valezi Benedeti <fim ord="6">Juíza de Direito</fim></encerramento> REQUERENTE: JOSE OLIVEIRA MOTTA, CPF nº 55522122900, BR 421 S/N ZONA RURAL - 76887-000 - CAMPO NOVO DE RONDÔNIA - RONDÔNIA REQUERIDO: CENTRAIS ELETRICAS DE RONDONIA S/A - CERON , AC ARIQUEMES, AVENIDA TANCREDO NEVES 1620 SETOR INSTITUCIONAL - 76870-970 - ARIQUEMES - RONDÔNIA</text>
+</annotation>

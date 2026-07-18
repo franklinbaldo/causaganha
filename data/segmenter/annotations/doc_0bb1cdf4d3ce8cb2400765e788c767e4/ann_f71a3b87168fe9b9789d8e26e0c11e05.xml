@@ -1,0 +1,35 @@
+<annotation id="ann_f71a3b87168fe9b9789d8e26e0c11e05" document_id="doc_0bb1cdf4d3ce8cb2400765e788c767e4">
+  <annotator id="historical_migration:seed" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-06-05T23:21:55Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> Tribunal de Justiça do Estado de Rondônia ACÓRDÃO Coordenadoria Cível da Central de Processos Eletrônicos do 2º Grau Data de Julgamento: Sessão Eletrônica N. 954 de 19/05/2025 a 23/05/2025 <ref_processual ord="1">7072336-85.2023.8.22.0001</ref_processual> Apelação (PJE) Origem: 7072336-85.2023.8.22.0001-Porto Velho / 7ª Vara Cível Apelante: Fabiano Teixeira de Melo Freitas Defensor(a) Público(a): Defensoria Pública do Estado de Rondônia Apelado(a): Banco J. Safra S.A. Advogado(a): Bruno Henrique de Oliveira Vanderlei (OAB/RO 11237) Relator : DES. TORRES FERREIRA <fim ord="2">Distribuído por Sorteio em 07/03/2025</fim></cabecalho> DECISÃO: ''<resultado ord="3">RECURSO PROVIDO</resultado> NOS TERMOS DO VOTO DO RELATOR, À UNANIMIDADE.'' <ementa><inicio ord="4">EMENTA</inicio> Direito Processual Civil. Apelação Cível. Pedido de justiça gratuita formulado na contestação. Ausência de manifestação do juízo a quo. Deferimento tácito. Suspensão da exigibilidade das verbas sucumbenciais. <fim ord="5">Recurso provido.</fim></ementa> I. Caso em exame Apelação cível interposta por Fabiano Teixeira de Melo Freitas contra a sentença que, nos autos da ação de busca e apreensão promovida por Banco J. Safra S.A., consolidou a posse e propriedade do veículo objeto da lide em favor do banco autor, além de condenar o réu ao pagamento das custas processuais e honorários advocatícios, sem apreciar o pedido de justiça gratuita formulado na contestação. II. Questão em discussão 2. A questão em discussão consiste em saber se a ausência de manifestação expressa do juízo a quo sobre o pedido de justiça gratuita resulta em seu deferimento tácito. III. Razões de decidir 3. O Superior Tribunal de Justiça tem jurisprudência consolidada no sentido de que a inércia do juízo em se manifestar acerca do pedido de justiça gratuita implica em seu deferimento tácito (AgRg nos EAREsp 440.971/RS e AgInt no AREsp n. 1.581.971/MS). 4. O Tribunal de Justiça do Estado de Rondônia também reconhece que a ausência de decisão expressa sobre a gratuidade de justiça enseja seu deferimento automático, com a suspensão da exigibilidade das custas e honorários advocatícios (Apelação Cível nº 7009378-70.2022.822.0010). IV. Dispositivo e tese 5. Recurso provido. Tese de julgamento: "A ausência de manifestação expressa do juízo sobre o pedido de justiça gratuita resulta em seu deferimento tácito, nos termos da jurisprudência do Superior Tribunal de Justiça e do Tribunal de Justiça do Estado de Rondônia."</text>
+</annotation>
