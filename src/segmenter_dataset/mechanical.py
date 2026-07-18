@@ -12,6 +12,17 @@ see RFC 0012 §18. The pair-base derivation here is generalized to read
 ``_inicio``/``_fim`` suffixes off whatever categories are actually present,
 rather than a hardcoded tuple, so it doesn't silently go stale if the
 ontology changes.
+
+**Known limitation inherited from #832, not newly closed by this module:**
+``validate_pairs`` below pairs ``_inicio``/``_fim`` occurrences by sorted
+start offset (``zip`` over two independently sorted lists), exactly as
+#832's original algorithm did. This is blind to a real inversion when spans
+interleave — e.g. ``_inicio`` at offsets ``[10, 20]`` and ``_fim`` at
+``[15, 100]`` reads as two "valid" pairs (10→15, 20→100) even if the true
+document-order pairing is 20→15 (an inverted, invalid pair). Detecting that
+correctly requires pairing by nesting depth (a stack, matching each
+``_fim`` to the most recently opened unmatched ``_inicio``), which this
+module does not implement. Treat this as an open gap, not a solved problem.
 """
 
 from __future__ import annotations
@@ -68,7 +79,12 @@ def validate_pairs(labels: list[Label], *, declared_unmatched: bool = False) -> 
 
     Catches: orphaned/excess ``_fim`` (no matching ``_inicio``), unbalanced
     counts beyond the single-dangling-``_inicio`` case, and inverted pairs
-    (a ``_fim`` at or before its own ``_inicio``). ``declared_unmatched``
+    (a ``_fim`` at or before its own ``_inicio``) *when pairing by sorted
+    start offset happens to line them up* — see the module docstring's
+    "known limitation inherited from #832" note: interleaved spans
+    (``_inicio`` at ``[10, 20]``, ``_fim`` at ``[15, 100]``) are not
+    detected as inverted, because sorted-offset ``zip`` pairs 10→15 and
+    20→100 instead of the true nesting-order pairing. ``declared_unmatched``
     cross-checks against a record's provenance-declared
     ``unmatched_pair`` flag when the caller has one (§11: "_inicio sem par
     exige razão explícita de allowed-unmatched").

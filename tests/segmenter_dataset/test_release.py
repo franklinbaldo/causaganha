@@ -24,15 +24,34 @@ def _text_for(role: str, index: int) -> str:
     return f"0123{role}{index:03d}89ABCDEFGHIJ"
 
 
+# Both single-tribunal fixtures used by most tests below need this pair to
+# pass the release (RFC 0012 §14's multiple_tribunals/multiple_source_systems
+# advisory gates, wired for real — release.py's "advisory gate coverage"
+# note).
+SINGLE_TRIBUNAL_KNOWN_LIMITATIONS = [
+    KnownLimitation(gate="multiple_tribunals", reason="TJRO-only for v8.1"),
+    KnownLimitation(gate="multiple_source_systems", reason="tjro_juris-only for v8.1"),
+]
+
+
 def _seed_release(
-    store: SegmenterDatasetStore, *, n_train: int, n_val: int, n_test: int
+    store: SegmenterDatasetStore,
+    *,
+    n_train: int,
+    n_val: int,
+    n_test: int,
+    tribunals: tuple[str, ...] = ("TJRO",),
 ) -> SplitAssignment:
     train_ids: set[str] = set()
     val_ids: set[str] = set()
     test_ids: set[str] = set()
 
     for i in range(n_train):
-        doc = make_document(text=_text_for("train", i), source_uri=f"train-{i}")
+        doc = make_document(
+            text=_text_for("train", i),
+            source_uri=f"train-{i}",
+            tribunal=tribunals[i % len(tribunals)],
+        )
         store.write_document(doc)
         annotation = make_annotation(
             doc, labels=PAIR_LABELS, covered_categories=("cabecalho_inicio", "cabecalho_fim")
@@ -82,6 +101,7 @@ def test_build_dataset_release_succeeds_with_sufficient_support(tmp_path: Path) 
         dependency_lock_hash="lock123",
         ontology_categories=ONTOLOGY,
         split_assignment=assignment,
+        known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
         iaa_seed=1,
     )
 
@@ -101,8 +121,67 @@ def test_build_dataset_release_succeeds_with_sufficient_support(tmp_path: Path) 
             dependency_lock_hash="lock123",
             ontology_categories=ONTOLOGY,
             split_assignment=assignment,
+            known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
             iaa_seed=1,
         )
+
+
+def test_build_dataset_release_blocked_by_single_tribunal_without_known_limitation(
+    tmp_path: Path,
+) -> None:
+    """Locks in that multiple_tribunals/multiple_source_systems are genuinely evaluated now.
+
+    PR #838 review finding #3 — previously neither gate was ever computed,
+    so a single-tribunal, single-source fixture like this one would build a
+    release with no known_limitations at all.
+    """
+    store = SegmenterDatasetStore(tmp_path)
+    assignment = _seed_release(store, n_train=10, n_val=5, n_test=5)
+
+    with pytest.raises(ReleaseBlockedError) as exc_info:
+        build_dataset_release(
+            store,
+            release_id="segmenter-silver-v8.1",
+            ontology_version="segmenter-ontology-v8.0.0",
+            guideline_version="g1",
+            source_commit="abc123",
+            dependency_lock_hash="lock123",
+            ontology_categories=ONTOLOGY,
+            split_assignment=assignment,
+            iaa_seed=1,
+        )
+    gate_names = {g.name for g in exc_info.value.gate_results}
+    assert "multiple_tribunals" in gate_names
+    assert "multiple_source_systems" in gate_names
+
+
+def test_build_dataset_release_multiple_tribunals_gate_passes_without_waiver(
+    tmp_path: Path,
+) -> None:
+    """A genuinely multi-tribunal corpus should not need a multiple_tribunals waiver.
+
+    Only multiple_source_systems remains waived here (the fixture still uses
+    a single source system).
+    """
+    store = SegmenterDatasetStore(tmp_path)
+    assignment = _seed_release(store, n_train=10, n_val=5, n_test=5, tribunals=("TJRO", "TJSP"))
+
+    manifest = build_dataset_release(
+        store,
+        release_id="segmenter-silver-v8.1",
+        ontology_version="segmenter-ontology-v8.0.0",
+        guideline_version="g1",
+        source_commit="abc123",
+        dependency_lock_hash="lock123",
+        ontology_categories=ONTOLOGY,
+        split_assignment=assignment,
+        known_limitations=[
+            KnownLimitation(gate="multiple_source_systems", reason="tjro_juris-only for v8.1")
+        ],
+        iaa_seed=1,
+    )
+    assert manifest.tribunals.keys() == {"TJRO", "TJSP"}
+    assert manifest.known_limitations[0].gate == "multiple_source_systems"
 
 
 def test_build_dataset_release_blocked_by_insufficient_train_support(tmp_path: Path) -> None:
@@ -164,10 +243,11 @@ def test_build_dataset_release_advisory_gate_waived_by_known_limitation(tmp_path
     store = SegmenterDatasetStore(tmp_path)
     assignment = _seed_release(store, n_train=10, n_val=5, n_test=5)
 
-    # multiple_tribunals is never automatically evaluated as failing in this
-    # module (single-tribunal fixtures don't run that gate at all here) —
-    # this test instead verifies a rigid-gate detail: an unrelated known
-    # limitation does not mask a real rigid failure.
+    # multiple_tribunals and multiple_source_systems are both genuinely
+    # evaluated as failing for this single-tribunal, single-source fixture
+    # (PR #838 review finding #3) — both need a matching known_limitation or
+    # the release is blocked (see the sibling "blocked_by_single_tribunal"
+    # test above for the unwaived case).
     manifest = build_dataset_release(
         store,
         release_id="segmenter-silver-v8.2",
@@ -177,7 +257,8 @@ def test_build_dataset_release_advisory_gate_waived_by_known_limitation(tmp_path
         dependency_lock_hash="lock123",
         ontology_categories=ONTOLOGY,
         split_assignment=assignment,
-        known_limitations=[KnownLimitation(gate="multiple_tribunals", reason="TJRO-only for v8.1")],
+        known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
         iaa_seed=1,
     )
-    assert manifest.known_limitations[0].gate == "multiple_tribunals"
+    waived_gates = {kl.gate for kl in manifest.known_limitations}
+    assert waived_gates == {"multiple_tribunals", "multiple_source_systems"}

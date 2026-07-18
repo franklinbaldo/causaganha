@@ -8,7 +8,9 @@ resolved (RFC 0012 §10), into an immutable, checksummed release:
 2. verify split integrity;
 3. validate every resolved record mechanically (RFC 0012 §11);
 4. compute counts, hashes, and IAA (RFC 0012 §8);
-5. check independently classified readiness gates (RFC 0012 §12.1, §14);
+5. check independently classified readiness gates (RFC 0012 §12.1, §14) —
+   all rigid gates plus 2 of 5 advisory gates (see "advisory gate coverage"
+   below);
 6. write into a temporary directory;
 7. verify the written release;
 8. atomically rename it to the final release ID;
@@ -18,6 +20,22 @@ resolved (RFC 0012 §10), into an immutable, checksummed release:
 (RFC 0012 §9.1, §12) — reserved for a release that has additionally cleared
 the human-reference gate. This module's public name is
 ``build_dataset_release`` because that gate does not exist yet.
+
+**Advisory gate coverage (RFC 0012 §14 "exigidos para alegações amplas de
+produção"):** step 5 evaluates all rigid gates plus 2 of the 5 gates in
+:data:`segmenter_dataset.gates.ADVISORY_GATES` — ``multiple_tribunals`` and
+``multiple_source_systems``, both computable directly from
+``DocumentRecord.source``. The remaining three (``temporal_diversity``,
+``representative_evaluation_set``, ``external_test_annotation_review``) are
+**not evaluated anywhere in this module** — they would need fields this
+schema doesn't carry yet (a publication/judgment date, a human-audit record
+type). A ``known_limitations`` entry naming one of those three is
+schema-valid (``KnownLimitation.gate`` isn't restricted beyond
+:func:`segmenter_dataset.gates.classify_gate` accepting the name) but
+currently inert: nothing ever produces a failing ``GateResult`` for that
+name, so there is nothing for the waiver to apply to. This is a known
+implementation gap, not a design decision — closing it requires extending
+``DocumentRecord``/``SourceInfo`` with the missing fields first.
 """
 
 from __future__ import annotations
@@ -194,6 +212,35 @@ def _support_gates(
     )
 
 
+def _diversity_gates(
+    train: list[ResolvedSplitDocument],
+    val: list[ResolvedSplitDocument],
+    test: list[ResolvedSplitDocument],
+) -> tuple[GateResult, GateResult]:
+    """The 2 of 5 RFC 0012 §14 advisory gates computable from data on hand today.
+
+    See the module docstring's "advisory gate coverage" note for the other
+    three (``temporal_diversity``, ``representative_evaluation_set``,
+    ``external_test_annotation_review``), which this function does not
+    evaluate — the schema has no date or audit-record field for them yet.
+    """
+    resolved = (*train, *val, *test)
+    tribunals = {item.document.source.tribunal for item in resolved}
+    systems = {item.document.source.system for item in resolved}
+    return (
+        GateResult(
+            name="multiple_tribunals",
+            passed=len(tribunals) > 1,
+            detail=f"tribunals observed: {sorted(tribunals)}",
+        ),
+        GateResult(
+            name="multiple_source_systems",
+            passed=len(systems) > 1,
+            detail=f"source systems observed: {sorted(systems)}",
+        ),
+    )
+
+
 def _iaa_gates(
     val: list[ResolvedSplitDocument],
     test: list[ResolvedSplitDocument],
@@ -284,8 +331,12 @@ def build_dataset_release(
 ) -> ReleaseManifest:
     """Run the full RFC 0012 §12 release procedure; returns the written manifest.
 
-    Raises :class:`ReleaseBlockedError` if any rigid gate fails, or if an
-    advisory gate fails without a matching known limitation.
+    Raises :class:`ReleaseBlockedError` if any rigid gate fails, or if
+    ``multiple_tribunals``/``multiple_source_systems`` (the 2 of 5 RFC 0012
+    §14 advisory gates this function evaluates — see the module docstring's
+    "advisory gate coverage" note) fail without a matching known limitation.
+    The other three advisory gates are never evaluated, so they can never
+    block a release and a known limitation naming one is currently inert.
     Raises :class:`~segmenter_dataset.store.ImmutabilityError` if
     ``release_id`` already exists.
     """
@@ -358,6 +409,7 @@ def build_dataset_release(
     val_test_adjudicated = len(val) == len(split_assignment.val_ids) and len(test) == len(
         split_assignment.test_ids
     )
+    multiple_tribunals_gate, multiple_source_systems_gate = _diversity_gates(train, val, test)
     gate_results = [
         GateResult(
             name="split_disjoint_by_group_id_hash",
@@ -385,6 +437,10 @@ def build_dataset_release(
             passed=bool(source_commit) and bool(dependency_lock_hash),
             detail="source_commit and dependency_lock_hash both provided",
         ),
+        # RFC 0012 §14 advisory gates — see the module docstring's "advisory
+        # gate coverage" note: only these 2 of 5 are evaluated today.
+        multiple_tribunals_gate,
+        multiple_source_systems_gate,
     ]
     evaluation = evaluate_gates(gate_results, known_limitations)
     if not evaluation.release_allowed:

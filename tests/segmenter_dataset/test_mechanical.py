@@ -60,6 +60,25 @@ def test_validate_pairs_single_dangling_inicio_requires_declaration() -> None:
     assert problems_declared == []
 
 
+def test_validate_pairs_interleaved_inversion_is_a_known_gap_not_caught() -> None:
+    """Locks in the module-docstring's documented #832-inherited weakness.
+
+    ``_inicio`` at [10, 20] and ``_fim`` at [15, 100]: the true nesting-order
+    pairing is 20->15 (inverted, invalid), but sorted-start ``zip`` pairs
+    10->15 and 20->100 instead, both of which look valid in isolation. This
+    test is not asserting desired behavior — it documents the current gap so
+    a future fix (pairing by nesting depth) has a regression test to flip
+    green, and so this limitation can't silently regress further un-noticed.
+    """
+    labels = [
+        Label(start=10, end=11, category="cabecalho_inicio"),
+        Label(start=20, end=21, category="cabecalho_inicio"),
+        Label(start=15, end=16, category="cabecalho_fim"),
+        Label(start=100, end=101, category="cabecalho_fim"),
+    ]
+    assert validate_pairs(labels) == []
+
+
 def test_validate_pairs_balanced_ok() -> None:
     labels = [
         Label(start=0, end=5, category="cabecalho_inicio"),

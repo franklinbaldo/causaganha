@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import pytest
+
 from segmenter_dataset.iaa import (
     AGGREGATE_FLOOR,
+    MIN_CI_GATE_SUPPORT,
     PER_CATEGORY_FLOOR,
     DocumentAnnotationPair,
     compute_iaa_report,
@@ -97,3 +100,61 @@ def test_compute_iaa_report_very_low_support_not_gated_at_all() -> None:
     assert result.support == 1
     assert result.gate_statistic == "not_gated_low_support"
     assert result.included_in_aggregate is False
+
+
+def test_compute_iaa_report_heterogeneous_agreement_bootstrap_varies() -> None:
+    """Distinguishes a correct bootstrap from one that just returns the point estimate.
+
+    Every other IAA test in this module uses homogeneous data (all-agree or
+    all-disagree documents), where every resample reproduces the same
+    per-category counts as the full sample — a bootstrap implementation
+    that (incorrectly) always returned the point estimate unchanged would
+    pass those tests too. Mixing 20 perfectly-agreeing documents with 10
+    perfectly-disagreeing ones makes the resampled composition (and hence
+    the resampled F1) genuinely vary run to run, so ``macro_f1_ci_low``
+    landing strictly below the point estimate is only possible if resampling
+    is actually happening.
+    """
+    agree = [_pair(f"agree{i}", [(0, 5, "cat")], [(0, 5, "cat")]) for i in range(20)]
+    disagree = [_pair(f"dis{i}", [(0, 5, "cat")], [(10, 15, "cat")]) for i in range(10)]
+    pairs = agree + disagree
+
+    report = compute_iaa_report(pairs, seed=1, resamples=1000)
+    result = report.per_category["cat"]
+
+    assert result.support == 40
+    assert result.point_estimate == pytest.approx(2 / 3)
+    assert result.ci_low is not None
+    # A buggy "bootstrap" that just re-reports the point estimate every
+    # resample would make ci_low == point_estimate exactly; a real one
+    # produces a lower tail from unlucky resamples that draw more
+    # disagreement.
+    assert result.ci_low < result.point_estimate
+    assert report.macro_f1_ci_low is not None
+    assert report.macro_f1_ci_low < report.macro_f1_point
+
+
+def test_compute_iaa_report_support_exactly_15_uses_ci_gate() -> None:
+    """Boundary test at MIN_CI_GATE_SUPPORT (15) — only 1 and 5 were covered before.
+
+    Support of exactly 15 must take the CI-lower-bound gate path (the ``>=``
+    in ``compute_iaa_report``'s branch), not the point-estimate path used
+    for support in [5, 15).
+    """
+    pairs = [_pair(f"d{i}", [(0, 5, "cat")], [(0, 5, "cat")]) for i in range(MIN_CI_GATE_SUPPORT)]
+    report = compute_iaa_report(pairs, seed=1, resamples=200)
+    result = report.per_category["cat"]
+    assert result.support == MIN_CI_GATE_SUPPORT
+    assert result.gate_statistic == "ci_lower_bound"
+    assert result.ci_low is not None
+
+
+def test_compute_iaa_report_support_one_below_boundary_uses_point_estimate_gate() -> None:
+    """One below the MIN_CI_GATE_SUPPORT boundary — contrasts with support == 15."""
+    pairs = [
+        _pair(f"d{i}", [(0, 5, "cat")], [(0, 5, "cat")]) for i in range(MIN_CI_GATE_SUPPORT - 1)
+    ]
+    report = compute_iaa_report(pairs, seed=1, resamples=200)
+    result = report.per_category["cat"]
+    assert result.support == MIN_CI_GATE_SUPPORT - 1
+    assert result.gate_statistic == "point_estimate"
