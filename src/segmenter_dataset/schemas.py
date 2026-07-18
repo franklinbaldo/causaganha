@@ -218,6 +218,34 @@ class KnownLimitation(BaseModel):
     reason: str
 
 
+class SplitManifest(BaseModel):
+    """Reproducible split-assignment artifact consumed by the release builder."""
+
+    model_config = ConfigDict(frozen=True)
+
+    train_ids: tuple[str, ...]
+    val_ids: tuple[str, ...]
+    test_ids: tuple[str, ...]
+    seed: int
+    train_ratio: float
+    val_ratio: float
+    near_duplicate_threshold: float
+    groups: dict[str, tuple[str, ...]]
+
+    @model_validator(mode="after")
+    def _validate_ratios(self) -> SplitManifest:
+        if not (0 < self.train_ratio < 1 and 0 < self.val_ratio < 1):
+            message = "train_ratio and val_ratio must be between 0 and 1"
+            raise ValueError(message)
+        if self.train_ratio + self.val_ratio >= 1:
+            message = "train_ratio + val_ratio must be < 1"
+            raise ValueError(message)
+        if not (0 <= self.near_duplicate_threshold <= 1):
+            message = "near_duplicate_threshold must be in [0, 1]"
+            raise ValueError(message)
+        return self
+
+
 class AnnotationQuality(BaseModel):
     """IAA evidence required by RFC 0012 §8/§14 — never a bare number."""
 
