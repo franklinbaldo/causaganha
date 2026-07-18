@@ -107,7 +107,7 @@ class DocumentRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    document_id: str
+    document_id: str = Field(pattern=r"^doc_[0-9a-f]{32}$")
     text: str
     proposed_labels: list[Label] = Field(default_factory=list)
     source: SourceInfo
@@ -136,13 +136,14 @@ class AnnotationRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    annotation_id: str
-    document_id: str
+    annotation_id: str = Field(pattern=r"^ann_[0-9a-f]{32}$")
+    document_id: str = Field(pattern=r"^doc_[0-9a-f]{32}$")
     annotator_id: str
     annotator_config: AnnotatorConfig
     ontology_version: str
     covered_categories: tuple[str, ...]
     labels: list[Label] = Field(default_factory=list)
+    allowed_unmatched: dict[str, str] = Field(default_factory=dict)
     completed_at: str
     annotation_method: str
 
@@ -154,6 +155,16 @@ class AnnotationRecord(BaseModel):
                 f"labels use categories outside covered_categories: {sorted(uncovered)} — "
                 "an annotator cannot produce a label for a category it wasn't asked to consider"
             )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _allowed_unmatched_has_reasons(self) -> AnnotationRecord:
+        blank_reasons = sorted(
+            category for category, reason in self.allowed_unmatched.items() if not reason.strip()
+        )
+        if blank_reasons:
+            msg = f"allowed_unmatched requires a non-empty reason: {blank_reasons}"
             raise ValueError(msg)
         return self
 
@@ -181,11 +192,12 @@ class ReviewRecord(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    review_id: str
-    document_id: str
+    review_id: str = Field(pattern=r"^rev_[0-9a-f]{32}$")
+    document_id: str = Field(pattern=r"^doc_[0-9a-f]{32}$")
     input_annotation_ids: tuple[str, ...]
     status: str
     final_labels: list[Label] = Field(default_factory=list)
+    allowed_unmatched: dict[str, str] = Field(default_factory=dict)
     reviewers: tuple[str, ...]
     resolution: str
     notes: tuple[str, ...] = ()
@@ -199,6 +211,16 @@ class ReviewRecord(BaseModel):
                 "an accepted review must resolve at least two independent annotations "
                 f"(RFC 0012 §9); got {n_inputs}"
             )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _allowed_unmatched_has_reasons(self) -> ReviewRecord:
+        blank_reasons = sorted(
+            category for category, reason in self.allowed_unmatched.items() if not reason.strip()
+        )
+        if blank_reasons:
+            msg = f"allowed_unmatched requires a non-empty reason: {blank_reasons}"
             raise ValueError(msg)
         return self
 
@@ -272,11 +294,11 @@ class ReleaseManifest(BaseModel):
 
     model_config = ConfigDict(frozen=True)
 
-    release_id: str
+    release_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
     ontology_version: str
     guideline_version: str
-    source_commit: str
-    dependency_lock_hash: str
+    source_commit: str = Field(pattern=r"^[0-9a-f]{40}$")
+    dependency_lock_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     split_hashes: dict[str, str]
     document_resolutions: dict[str, dict[str, str]]
     counts: dict[str, int] = Field(default_factory=dict)
