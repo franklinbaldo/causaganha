@@ -74,7 +74,12 @@ def _pair_bases(labels: list[Label]) -> set[str]:
     return bases
 
 
-def validate_pairs(labels: list[Label], *, declared_unmatched: bool = False) -> list[str]:
+def validate_pairs(
+    labels: list[Label],
+    *,
+    allowed_unmatched: dict[str, str] | None = None,
+    declared_unmatched: bool = False,
+) -> list[str]:
     """Pair-balance checks (RFC 0012 §11).
 
     Catches: orphaned/excess ``_fim`` (no matching ``_inicio``), unbalanced
@@ -84,10 +89,16 @@ def validate_pairs(labels: list[Label], *, declared_unmatched: bool = False) -> 
     "known limitation inherited from #832" note: interleaved spans
     (``_inicio`` at ``[10, 20]``, ``_fim`` at ``[15, 100]``) are not
     detected as inverted, because sorted-offset ``zip`` pairs 10→15 and
-    20→100 instead of the true nesting-order pairing. ``declared_unmatched``
-    cross-checks against a record's provenance-declared
-    ``unmatched_pair`` flag when the caller has one (§11: "_inicio sem par
-    exige razão explícita de allowed-unmatched").
+    20→100 instead of the true nesting-order pairing.
+
+    ``allowed_unmatched`` (a reason keyed by pair base, e.g.
+    ``{"cabecalho": "document ends after the opening anchor"}``) is the
+    real, per-record mechanism: a base is only excused from the "unmatched
+    pair with no declared reason" problem if it's a key in this dict, so one
+    base's excusal can never blanket-authorize an unrelated dangling pair.
+    ``declared_unmatched`` remains for backwards-compatible callers that
+    pass a single blanket boolean instead (§11: "_inicio sem par exige razão
+    explícita de allowed-unmatched").
     """
     problems: list[str] = []
     unmatched_bases_in_text: set[str] = set()
@@ -122,13 +133,23 @@ def validate_pairs(labels: list[Label], *, declared_unmatched: bool = False) -> 
                 )
                 break
 
-    if unmatched_bases_in_text and not declared_unmatched:
+    allowed_bases = (
+        unmatched_bases_in_text if allowed_unmatched is None and declared_unmatched else set()
+    )
+    if allowed_unmatched is not None:
+        allowed_bases = set(allowed_unmatched)
+
+    missing_reasons = unmatched_bases_in_text - allowed_bases
+    extra_reasons = allowed_bases - unmatched_bases_in_text
+    if missing_reasons:
         problems.append(
-            f"record has unmatched pair(s) {sorted(unmatched_bases_in_text)} but no "
+            f"record has unmatched pair(s) {sorted(missing_reasons)} but no "
             "declared allowed-unmatched reason"
         )
-    if declared_unmatched and not unmatched_bases_in_text:
-        problems.append("declared_unmatched=True but no unmatched pair found in labels")
+    if extra_reasons:
+        problems.append(
+            f"allowed_unmatched declares bases with no unmatched pair: {sorted(extra_reasons)}"
+        )
 
     return problems
 
@@ -171,6 +192,7 @@ def validate_record(
     labels: list[Label],
     ontology_categories: set[str],
     *,
+    allowed_unmatched: dict[str, str] | None = None,
     declared_unmatched: bool = False,
     allow_multiple_single_anchor: frozenset[str] = frozenset(),
 ) -> list[str]:
@@ -182,7 +204,11 @@ def validate_record(
     """
     problems = list(check_final_invariants(text, labels))
     problems.extend(validate_ontology_membership(labels, ontology_categories))
-    problems.extend(validate_pairs(labels, declared_unmatched=declared_unmatched))
+    problems.extend(
+        validate_pairs(
+            labels, allowed_unmatched=allowed_unmatched, declared_unmatched=declared_unmatched
+        )
+    )
     problems.extend(
         validate_single_anchor_duplicates(labels, allow_multiple=allow_multiple_single_anchor)
     )

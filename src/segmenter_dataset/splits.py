@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING
 
 from segmenter_dataset.dedup import content_hash, find_near_duplicates
 from segmenter_dataset.provenance import extract_normalized_process_number
+from segmenter_dataset.schemas import SplitManifest
 
 
 if TYPE_CHECKING:
@@ -337,6 +338,37 @@ def assign_splits(
         raise EmptyEvalSplitError(msg)
 
     return SplitAssignment(frozenset(train_ids), frozenset(val_ids), frozenset(test_ids))
+
+
+def create_split_manifest(
+    assignment: SplitAssignment,
+    groups: dict[str, frozenset[str]],
+    *,
+    seed: int,
+    train_ratio: float,
+    val_ratio: float,
+    near_duplicate_threshold: float,
+) -> SplitManifest:
+    """Create a reproducible split manifest with assignment parameters."""
+    return SplitManifest(
+        train_ids=tuple(sorted(assignment.train_ids)),
+        val_ids=tuple(sorted(assignment.val_ids)),
+        test_ids=tuple(sorted(assignment.test_ids)),
+        seed=seed,
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        near_duplicate_threshold=near_duplicate_threshold,
+        groups={group_id: tuple(sorted(members)) for group_id, members in sorted(groups.items())},
+    )
+
+
+def assignment_from_manifest(manifest: SplitManifest) -> SplitAssignment:
+    """Reconstruct the split assignment encoded in a manifest."""
+    return SplitAssignment(
+        train_ids=frozenset(manifest.train_ids),
+        val_ids=frozenset(manifest.val_ids),
+        test_ids=frozenset(manifest.test_ids),
+    )
 
 
 # ---------------------------------------------------------------------------

@@ -40,15 +40,22 @@ implementation gap, not a design decision — closing it requires extending
 
 from __future__ import annotations
 
+import hashlib
+import shutil
 import tempfile
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
 from segmenter_dataset import mechanical
 from segmenter_dataset.dedup import content_hash
 from segmenter_dataset.gates import GateResult, evaluate_gates
-from segmenter_dataset.iaa import DocumentAnnotationPair, compute_iaa_report
+from segmenter_dataset.iaa import (
+    DEFAULT_BOOTSTRAP_RESAMPLES,
+    DocumentAnnotationPair,
+    compute_iaa_report,
+)
+from segmenter_dataset.ontology import ALLOW_MULTIPLE_SINGLE_ANCHOR
 from segmenter_dataset.schemas import (
     AnnotationQuality,
     AnnotationRecord,
@@ -57,9 +64,17 @@ from segmenter_dataset.schemas import (
     Label,
     ReleaseManifest,
     ReviewRecord,
+    SplitManifest,
 )
-from segmenter_dataset.splits import SplitAssignment, SplitLeakError, check_disjoint
-from segmenter_dataset.store import ImmutabilityError, SegmenterDatasetStore
+from segmenter_dataset.splits import SplitLeakError, assignment_from_manifest, check_disjoint
+from segmenter_dataset.store import (
+    ImmutabilityError,
+    SegmenterDatasetStore,
+    read_release_manifest_tables,
+    read_split_manifest,
+    write_release_manifest_tables,
+    write_split_manifest,
+)
 
 
 # RFC 0012 §5.6/§16.2 — categories too structural to isolate; a sub-floor
@@ -99,6 +114,7 @@ class ResolvedSplitDocument:
     document: DocumentRecord
     labels: list[Label]
     resolution_id: str  # annotation_id (train) or review_id (val/test)
+    allowed_unmatched: dict[str, str] = field(default_factory=dict)
 
 
 def _latest_accepted_review(reviews: list[ReviewRecord], document_id: str) -> ReviewRecord | None:
@@ -140,14 +156,23 @@ def resolve_split(
                 msg = f"train document {document_id!r} has no annotation record"
                 raise SplitLeakError(msg)
             resolved.append(
-                ResolvedSplitDocument(document, annotation.labels, annotation.annotation_id)
+                ResolvedSplitDocument(
+                    document,
+                    annotation.labels,
+                    annotation.annotation_id,
+                    annotation.allowed_unmatched,
+                )
             )
         else:
             review = _latest_accepted_review(reviews, document_id)
             if review is None:
                 msg = f"{role} document {document_id!r} has no accepted review record"
                 raise SplitLeakError(msg)
-            resolved.append(ResolvedSplitDocument(document, review.final_labels, review.review_id))
+            resolved.append(
+                ResolvedSplitDocument(
+                    document, review.final_labels, review.review_id, review.allowed_unmatched
+                )
+            )
     return resolved
 
 
@@ -177,7 +202,11 @@ def _mechanical_gate(
     for role_name, resolved in (("train", train), ("val", val), ("test", test)):
         for item in resolved:
             record_problems = mechanical.validate_record(
-                item.document.text, item.labels, ontology_categories
+                item.document.text,
+                item.labels,
+                ontology_categories,
+                allowed_unmatched=item.allowed_unmatched,
+                allow_multiple_single_anchor=ALLOW_MULTIPLE_SINGLE_ANCHOR,
             )
             problems.extend(
                 f"[{role_name}:{item.document.document_id}] {p}" for p in record_problems
@@ -190,13 +219,31 @@ def _mechanical_gate(
 
 
 def _support_gates(
-    train: list[ResolvedSplitDocument], val: list[ResolvedSplitDocument]
+    train: list[ResolvedSplitDocument],
+    val: list[ResolvedSplitDocument],
+    ontology_categories: set[str],
 ) -> tuple[GateResult, GateResult]:
+    """Support-floor gates over the full declared ontology, not just observed labels.
+
+    Iterating ``ontology_categories`` (rather than the keys of
+    ``_category_counts``' output) is required so a category that is always
+    absent from a split — zero occurrences, never even attempted — still
+    fails the gate instead of silently passing because it never appeared as
+    a dict key.
+    """
     train_counts = _category_counts(train)
     val_counts = _category_counts(val)
 
-    under_train = {c: n for c, n in train_counts.items() if n < MIN_TRAIN_SUPPORT_PER_CATEGORY}
-    under_val = {c: n for c, n in val_counts.items() if n < MIN_VAL_SUPPORT_PER_CATEGORY}
+    under_train = {
+        category: train_counts.get(category, 0)
+        for category in sorted(ontology_categories)
+        if train_counts.get(category, 0) < MIN_TRAIN_SUPPORT_PER_CATEGORY
+    }
+    under_val = {
+        category: val_counts.get(category, 0)
+        for category in sorted(ontology_categories)
+        if val_counts.get(category, 0) < MIN_VAL_SUPPORT_PER_CATEGORY
+    }
 
     return (
         GateResult(
@@ -248,6 +295,7 @@ def _iaa_gates(
     reviews: list[ReviewRecord],
     *,
     iaa_seed: int,
+    iaa_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
 ) -> tuple[GateResult, GateResult, AnnotationQuality]:
     def pairs_for(resolved: list[ResolvedSplitDocument]) -> list[DocumentAnnotationPair]:
         out: list[DocumentAnnotationPair] = []
@@ -267,8 +315,8 @@ def _iaa_gates(
             )
         return out
 
-    val_report = compute_iaa_report(pairs_for(val), seed=iaa_seed)
-    test_report = compute_iaa_report(pairs_for(test), seed=iaa_seed)
+    val_report = compute_iaa_report(pairs_for(val), seed=iaa_seed, resamples=iaa_resamples)
+    test_report = compute_iaa_report(pairs_for(test), seed=iaa_seed, resamples=iaa_resamples)
 
     aggregate_passed = val_report.aggregate_passed and test_report.aggregate_passed
     critical_failed = {
@@ -316,6 +364,10 @@ def _iaa_gates(
     )
 
 
+def _sha256(text: str) -> str:
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
 def build_dataset_release(
     store: SegmenterDatasetStore,
     *,
@@ -324,10 +376,13 @@ def build_dataset_release(
     guideline_version: str,
     source_commit: str,
     dependency_lock_hash: str,
+    ci_provider: str,
+    ci_run_id: str,
     ontology_categories: set[str],
-    split_assignment: SplitAssignment,
+    split_manifest: SplitManifest,
     known_limitations: list[KnownLimitation] | None = None,
     iaa_seed: int,
+    iaa_resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
 ) -> ReleaseManifest:
     """Run the full RFC 0012 §12 release procedure; returns the written manifest.
 
@@ -339,12 +394,20 @@ def build_dataset_release(
     block a release and a known limitation naming one is currently inert.
     Raises :class:`~segmenter_dataset.store.ImmutabilityError` if
     ``release_id`` already exists.
+
+    ``split_manifest`` is the reproducible, hashed artifact
+    ``splits.create_split_manifest`` produced (seed, ratios, near-dup
+    threshold, and the exact groups a prior ``assign-splits`` run computed)
+    — not a bare set of IDs, so the release manifest can pin exactly which
+    split run it was built from via ``split_manifest_hash``.
     """
     known_limitations = known_limitations or []
     release_dir = store.release_dir(release_id)
     if release_dir.exists():
         msg = f"release {release_id!r} already exists at {release_dir} (RFC 0012 §12 step 9)"
         raise ImmutabilityError(msg)
+
+    split_assignment = assignment_from_manifest(split_manifest)
 
     # Step 1: load.
     documents_by_id = {d.document_id: d for d in store.list_documents()}
@@ -379,15 +442,16 @@ def build_dataset_release(
     mechanical_gate = _mechanical_gate(train, val, test, ontology_categories)
 
     # Step 4: counts, hashes, IAA.
-    train_support_gate, val_support_gate = _support_gates(train, val)
+    train_support_gate, val_support_gate = _support_gates(train, val, ontology_categories)
     iaa_aggregate_gate, iaa_critical_gate, annotation_quality = _iaa_gates(
-        val, test, annotations, reviews, iaa_seed=iaa_seed
+        val, test, annotations, reviews, iaa_seed=iaa_seed, iaa_resamples=iaa_resamples
     )
     split_hashes = {
         "train": _split_hash(train),
         "validation": _split_hash(val),
         "test": _split_hash(test),
     }
+    split_manifest_hash = _sha256(split_manifest.model_dump_json())
     document_resolutions = {
         "train": {r.document.document_id: r.resolution_id for r in train},
         "validation": {r.document.document_id: r.resolution_id for r in val},
@@ -434,8 +498,11 @@ def build_dataset_release(
         GateResult(name="release_checksums_generated", passed=True, detail="computed in step 4"),
         GateResult(
             name="ci_reproducible_build",
-            passed=bool(source_commit) and bool(dependency_lock_hash),
-            detail="source_commit and dependency_lock_hash both provided",
+            passed=bool(source_commit)
+            and bool(dependency_lock_hash)
+            and bool(ci_provider.strip())
+            and bool(ci_run_id.strip()),
+            detail="source_commit, dependency_lock_hash, ci_provider, and ci_run_id all provided",
         ),
         # RFC 0012 §14 advisory gates — see the module docstring's "advisory
         # gate coverage" note: only these 2 of 5 are evaluated today.
@@ -458,18 +525,23 @@ def build_dataset_release(
         guideline_version=guideline_version,
         source_commit=source_commit,
         dependency_lock_hash=dependency_lock_hash,
+        ci_provider=ci_provider,
+        ci_run_id=ci_run_id,
+        split_manifest_hash=split_manifest_hash,
         split_hashes=split_hashes,
         document_resolutions=document_resolutions,
         counts=counts,
         tribunals=tribunals,
         document_types=document_types,
         annotation_quality=annotation_quality,
+        iaa_seed=iaa_seed,
+        iaa_resamples=iaa_resamples,
         known_limitations=tuple(known_limitations),
         created_at=_iso_now(),
     )
 
     # Steps 6-8: write to a temp dir, verify, atomically rename.
-    _atomic_write_release(store, manifest)
+    _atomic_write_release(store, manifest, split_manifest)
     return manifest
 
 
@@ -478,27 +550,58 @@ def _iso_now() -> str:
 
 
 class _RoundTripError(RuntimeError):
-    """The written release manifest didn't round-trip — refuse to publish it."""
+    """The written release didn't round-trip or its checksums mismatched — refuse to publish."""
 
 
-def _verify_round_trip(manifest_path: Path, manifest: ReleaseManifest) -> None:
-    reloaded = ReleaseManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
-    if reloaded != manifest:
-        msg = "written release manifest does not round-trip — refusing to publish"
-        raise _RoundTripError(msg)
+def _atomic_write_release(
+    store: SegmenterDatasetStore,
+    manifest: ReleaseManifest,
+    split_manifest: SplitManifest,
+) -> None:
+    """Write, verify, and atomically publish one release's canonical CSV tables.
 
+    Everything happens inside a temporary sibling directory first: the
+    manifest and split manifest tables are written, every resulting CSV
+    file is checksummed, and the whole set is read back to confirm it
+    round-trips exactly before the temporary directory is renamed into
+    place. Any failure along the way removes the temporary directory and
+    re-raises — a release is either published whole or not published at
+    all (RFC 0012 §12 steps 6-8).
+    """
 
-def _atomic_write_release(store: SegmenterDatasetStore, manifest: ReleaseManifest) -> None:
+    def _verify_round_trip(
+        directory: Path,
+        checksums: dict[str, str],
+    ) -> None:
+        if read_release_manifest_tables(directory) != manifest:
+            msg = "written release manifest does not round-trip — refusing to publish"
+            raise _RoundTripError(msg)
+        if read_split_manifest(directory) != split_manifest:
+            msg = "written split manifest does not round-trip — refusing to publish"
+            raise _RoundTripError(msg)
+        for name, expected in checksums.items():
+            if _sha256((directory / name).read_text(encoding="utf-8")) != expected:
+                msg = f"checksum verification failed for {name} — refusing to publish"
+                raise _RoundTripError(msg)
+
     store.releases_dir.mkdir(parents=True, exist_ok=True)
     final_dir = store.release_dir(manifest.release_id)
 
     tmp_dir = Path(tempfile.mkdtemp(prefix=f".{manifest.release_id}.tmp-", dir=store.releases_dir))
     try:
-        manifest_path = tmp_dir / "manifest.json"
-        manifest_path.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
+        write_release_manifest_tables(tmp_dir, manifest)
+        write_split_manifest(tmp_dir, split_manifest)
+        checksums = {
+            path.name: _sha256(path.read_text(encoding="utf-8"))
+            for path in sorted(tmp_dir.glob("*.csv"))
+        }
+        (tmp_dir / "checksums.sha256").write_text(
+            "".join(f"{digest}  {name}\n" for name, digest in sorted(checksums.items())),
+            encoding="utf-8",
+        )
 
-        # Step 7: verify the written release round-trips.
-        _verify_round_trip(manifest_path, manifest)
+        # Step 7: verify the written release round-trips and checksums match.
+        _verify_round_trip(tmp_dir, checksums)
 
         # Step 8: atomic rename. Step 9 (refuse overwrite) was already
         # checked before any work started; Path.rename still fails loudly
@@ -506,7 +609,5 @@ def _atomic_write_release(store: SegmenterDatasetStore, manifest: ReleaseManifes
         tmp_dir.rename(final_dir)
     except BaseException:
         if tmp_dir.exists():
-            for child in tmp_dir.iterdir():
-                child.unlink()
-            tmp_dir.rmdir()
+            shutil.rmtree(tmp_dir)
         raise

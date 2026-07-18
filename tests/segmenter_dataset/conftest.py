@@ -59,8 +59,10 @@ def make_annotation(
     completed_at: str = "2026-01-01T00:00:00Z",
     labels: list[Label] | None = None,
     covered_categories: tuple[str, ...] = ("cabecalho_inicio", "cabecalho_fim"),
+    allowed_unmatched: dict[str, str] | None = None,
 ) -> AnnotationRecord:
     labels = labels if labels is not None else [Label(start=0, end=9, category="cabecalho_inicio")]
+    allowed_unmatched = allowed_unmatched or {}
     ann_id = annotation_id(
         document_id=document.document_id,
         annotator_id=annotator_id,
@@ -77,6 +79,7 @@ def make_annotation(
         ontology_version=ONTOLOGY_VERSION,
         covered_categories=covered_categories,
         labels=labels,
+        allowed_unmatched=allowed_unmatched,
         completed_at=completed_at,
         annotation_method="independent_full_read",
     )
@@ -89,9 +92,11 @@ def make_review(
     status: str = "accepted",
     approved_at: str = "2026-01-02T00:00:00Z",
     final_labels: list[Label] | None = None,
+    allowed_unmatched: dict[str, str] | None = None,
     reviewers: tuple[str, ...] = ("reviewer-a", "reviewer-b"),
 ) -> ReviewRecord:
     final_labels = final_labels if final_labels is not None else list(annotations[0].labels)
+    allowed_unmatched = allowed_unmatched or {}
     rev_id = review_id(
         document_id=document.document_id,
         input_annotation_ids=[a.annotation_id for a in annotations],
@@ -103,6 +108,7 @@ def make_review(
         input_annotation_ids=tuple(a.annotation_id for a in annotations),
         status=status,
         final_labels=final_labels,
+        allowed_unmatched=allowed_unmatched,
         reviewers=reviewers,
         resolution="agreement",
         notes=(),

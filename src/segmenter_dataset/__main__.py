@@ -3,9 +3,10 @@
 Two commands, split at the same seam as RFC 0012 §10/§12:
 
 - ``assign-splits`` — groups documents, applies role eligibility, and writes
-  a ``split_manifest.json`` (RFC 0012 §8's intermediate, not-yet-a-release
-  artifact).
-- ``build-release`` — reads a ``split_manifest.json`` and runs
+  a reproducible ``split_manifest.json`` (RFC 0012 §8's intermediate,
+  not-yet-a-release artifact — a :class:`~segmenter_dataset.schemas.SplitManifest`,
+  not a bare set of IDs).
+- ``build-release`` — reads that ``split_manifest.json`` and runs
   ``build_dataset_release`` (RFC 0012 §12), writing the final immutable
   release manifest.
 """
@@ -18,15 +19,16 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from segmenter_dataset.iaa import DEFAULT_BOOTSTRAP_RESAMPLES
 from segmenter_dataset.ontology import ONTOLOGY_V8, load_categories
 from segmenter_dataset.release import ReleaseBlockedError, build_dataset_release
-from segmenter_dataset.schemas import KnownLimitation
+from segmenter_dataset.schemas import KnownLimitation, SplitManifest
 from segmenter_dataset.splits import (
     EmptyEvalSplitError,
     GroupingKeys,
-    SplitAssignment,
     assign_splits,
     build_groups,
+    create_split_manifest,
     evaluation_eligible_document_ids,
     train_eligible_document_ids,
 )
@@ -77,21 +79,19 @@ def assign_splits_command(
         typer.echo(f"assign-splits blocked: {exc}", err=True)
         raise typer.Exit(code=1) from exc
 
-    output.parent.mkdir(parents=True, exist_ok=True)
-    output.write_text(
-        json.dumps(
-            {
-                "train_ids": sorted(assignment.train_ids),
-                "val_ids": sorted(assignment.val_ids),
-                "test_ids": sorted(assignment.test_ids),
-            },
-            indent=2,
-        ),
-        encoding="utf-8",
+    manifest = create_split_manifest(
+        assignment,
+        groups,
+        seed=seed,
+        train_ratio=train_ratio,
+        val_ratio=val_ratio,
+        near_duplicate_threshold=near_duplicate_threshold,
     )
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
     typer.echo(
-        f"wrote {output}: train={len(assignment.train_ids)} "
-        f"val={len(assignment.val_ids)} test={len(assignment.test_ids)}"
+        f"wrote {output}: train={len(manifest.train_ids)} "
+        f"val={len(manifest.val_ids)} test={len(manifest.test_ids)}"
     )
 
 
@@ -101,10 +101,13 @@ def build_release_command(
     split_manifest: Path = typer.Option(..., exists=True, help="Output of assign-splits"),
     release_id: str = typer.Option(...),
     label_space: Path = typer.Option(..., exists=True, help="Path to label_space.json"),
-    source_commit: str = typer.Option(...),
-    dependency_lock_hash: str = typer.Option(...),
+    source_commit: str = typer.Option(..., help="Full 40-character Git commit SHA"),
+    dependency_lock_hash: str = typer.Option(..., help="SHA-256 of the pinned lockfile"),
+    ci_provider: str = typer.Option(..., help="CI provider, e.g. github-actions"),
+    ci_run_id: str = typer.Option(..., help="Immutable CI run identifier"),
     guideline_version: str = typer.Option(...),
     iaa_seed: int = typer.Option(...),
+    iaa_resamples: int = typer.Option(DEFAULT_BOOTSTRAP_RESAMPLES, min=1000),
     known_limitations: Path | None = typer.Option(
         None, exists=True, help="JSON list of {gate, reason}"
     ),
@@ -112,12 +115,7 @@ def build_release_command(
 ) -> None:
     """Build the immutable dataset release (RFC 0012 §12)."""
     store = SegmenterDatasetStore(data_root)
-    split_data = json.loads(split_manifest.read_text(encoding="utf-8"))
-    assignment = SplitAssignment(
-        train_ids=frozenset(split_data["train_ids"]),
-        val_ids=frozenset(split_data["val_ids"]),
-        test_ids=frozenset(split_data["test_ids"]),
-    )
+    manifest = SplitManifest.model_validate_json(split_manifest.read_text(encoding="utf-8"))
 
     limitations: list[KnownLimitation] = []
     if known_limitations is not None:
@@ -127,23 +125,26 @@ def build_release_command(
     ontology_categories = load_categories(label_space)
 
     try:
-        manifest = build_dataset_release(
+        release_manifest = build_dataset_release(
             store,
             release_id=release_id,
             ontology_version=ontology_version,
             guideline_version=guideline_version,
             source_commit=source_commit,
             dependency_lock_hash=dependency_lock_hash,
+            ci_provider=ci_provider,
+            ci_run_id=ci_run_id,
             ontology_categories=ontology_categories,
-            split_assignment=assignment,
+            split_manifest=manifest,
             known_limitations=limitations,
             iaa_seed=iaa_seed,
+            iaa_resamples=iaa_resamples,
         )
     except ReleaseBlockedError as exc:
         _echo_gate_failures(exc.gate_results)
         raise typer.Exit(code=1) from exc
 
-    typer.echo(f"release {manifest.release_id!r} written: counts={manifest.counts}")
+    typer.echo(f"release {release_manifest.release_id!r} written: counts={release_manifest.counts}")
 
 
 def _echo_gate_failures(gate_results: list[GateResult]) -> None:

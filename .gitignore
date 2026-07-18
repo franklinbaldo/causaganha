@@ -21,6 +21,11 @@ data/benchmark/
 !data/segmenter_samples/
 !data/segmenter_samples/**
 
+# Keep the RFC 0012 segmenter_dataset store in git (canonical CSV tables for
+# documents/annotations/reviews/releases — RFC 0012 §8)
+!data/segmenter/
+!data/segmenter/**
+
 
 
 # Processing artifacts
