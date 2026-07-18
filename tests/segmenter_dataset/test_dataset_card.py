@@ -111,3 +111,33 @@ def test_card_does_not_fabricate_iaa_numbers_when_absent() -> None:
     card = render_dataset_card(manifest)
 
     assert "n/a" in card
+
+
+def test_card_escapes_pipe_in_tribunal_name_so_table_stays_well_formed() -> None:
+    manifest = _manifest(tribunals={"TJRO|fake": 1})
+
+    card = render_dataset_card(manifest)
+
+    assert "| TJRO\\|fake | 1 |" in card
+    # every table row must have exactly the 3 unescaped pipes a 2-column row needs
+    row = next(line for line in card.splitlines() if "TJRO" in line)
+    assert row.count("|") - row.count("\\|") == 3
+
+
+def test_card_escapes_pipe_in_iaa_category_name() -> None:
+    manifest = _manifest(
+        annotation_quality=AnnotationQuality(per_category_iaa={"weird|category": 0.5})
+    )
+
+    card = render_dataset_card(manifest)
+
+    assert "| weird\\|category | 0.500 |" in card
+
+
+def test_card_reports_no_tribunals_when_scope_is_empty() -> None:
+    manifest = _manifest(tribunals={}, document_types={})
+
+    card = render_dataset_card(manifest)
+
+    assert "_No tribunal recorded._" in card
+    assert "_No document type recorded._" in card

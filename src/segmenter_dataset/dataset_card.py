@@ -31,11 +31,16 @@ def _fmt_float(value: float | None) -> str:
     return f"{value:.3f}" if value is not None else "n/a"
 
 
+def _escape_cell(value: str) -> str:
+    """Escape a markdown table cell so a stray ``|`` can't corrupt the row."""
+    return value.replace("\\", "\\\\").replace("|", "\\|")
+
+
 def _counts_table(counts: dict[str, int], header: str) -> list[str]:
     if not counts:
         return [f"_No {header.lower()} recorded._", ""]
     lines = [f"| {header} | Count |", "| --- | --- |"]
-    lines.extend(f"| {key} | {value} |" for key, value in sorted(counts.items()))
+    lines.extend(f"| {_escape_cell(key)} | {value} |" for key, value in sorted(counts.items()))
     lines.append("")
     return lines
 
@@ -63,7 +68,7 @@ def _iaa_section(manifest: ReleaseManifest) -> list[str]:
         lines.append("| Category | IAA span F1 |")
         lines.append("| --- | --- |")
         lines.extend(
-            f"| {category} | {value:.3f} |"
+            f"| {_escape_cell(category)} | {value:.3f} |"
             for category, value in sorted(quality.per_category_iaa.items())
         )
         lines.append("")
