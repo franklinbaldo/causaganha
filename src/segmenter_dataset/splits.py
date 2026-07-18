@@ -16,6 +16,15 @@ disjointness/leakage primitives are adapted from PR #832's
 synthetic-lineage-specific helpers there (``assign_child_split``,
 ``require_train_only_sources``, ``calibration_eligible_ids``) are left
 behind for PR 4/synthetic to reuse; they aren't RFC 0012's PR 1 concern.
+
+``GroupingKeys.from_document`` is the real wiring, not a stub: it reads
+persisted ``DocumentRecord.grouping`` metadata and falls back to regex
+extraction (:mod:`segmenter_dataset.provenance`) for
+``normalized_process_number`` when ingestion hasn't recorded one, so
+union-find grouping fires on more than exact-content-hash and near-dup
+ratio (PR #838 review finding #1). ``assign_splits`` additionally refuses
+to return an empty val or test split when eval-eligible groups existed
+(finding #2) — see :class:`EmptyEvalSplitError`.
 """
 
 from __future__ import annotations
@@ -25,6 +34,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from segmenter_dataset.dedup import content_hash, find_near_duplicates
+from segmenter_dataset.provenance import extract_normalized_process_number
 
 
 if TYPE_CHECKING:
@@ -33,6 +43,23 @@ if TYPE_CHECKING:
 
 class SplitLeakError(ValueError):
     """A split-integrity invariant (RFC 0012 §10) was violated."""
+
+
+class EmptyEvalSplitError(ValueError):
+    """RFC 0012 §10: eval-eligible groups existed, but ``assign_splits`` starved val or test.
+
+    PR #838 review finding #2: the greedy packing in ``assign_splits`` only
+    places a group into val/test if it fits entirely under the *remaining*
+    target size — there is no fallback to "try a smaller group instead".
+    Once grouping keys are real (finding #1: process number, family,
+    parent/derived), eval-eligible groups routinely have >= 2 members, and a
+    small target (e.g. 1, from a small overall eligible pool) can then
+    silently starve val or test to zero — every group falls through to
+    train with no error, because nothing overlaps (``SplitAssignment``'s
+    disjointness check has nothing to catch). This is not a leakage
+    condition, so it can't be folded into :class:`SplitLeakError`; it is
+    checked directly in ``assign_splits``, right after packing.
+    """
 
 
 # ---------------------------------------------------------------------------
@@ -69,6 +96,36 @@ class GroupingKeys:
     source_process_id: str | None = None
     document_family: str | None = None
     parent_document_id: str | None = None
+
+    @classmethod
+    def from_document(cls, document: DocumentRecord) -> GroupingKeys:
+        """Build real grouping keys for one document (RFC 0012 PR1 review finding #1).
+
+        ``normalized_process_number`` prefers an explicitly recorded value
+        (``document.grouping``, set by an ingestion pipeline with access to
+        structured source metadata) and falls back to regex extraction from
+        the document's own URI/text — see
+        :func:`segmenter_dataset.provenance.extract_normalized_process_number`
+        — when ingestion didn't record one. This is what makes
+        process-number-based union-find grouping fire today, without
+        waiting on a future ingestion PR to populate
+        ``DocumentRecord.grouping``. The remaining keys aren't derivable
+        from text alone and stay whatever ingestion recorded (``None``
+        until it does).
+        """
+        grouping = document.grouping
+        normalized_process_number = grouping.normalized_process_number
+        if normalized_process_number is None:
+            normalized_process_number = extract_normalized_process_number(
+                source_uri=document.source.source_uri, text=document.text
+            )
+        return cls(
+            document_id=document.document_id,
+            normalized_process_number=normalized_process_number,
+            source_process_id=grouping.source_process_id,
+            document_family=grouping.document_family,
+            parent_document_id=grouping.parent_document_id,
+        )
 
 
 class _UnionFind:
@@ -245,11 +302,13 @@ def assign_splits(
     val_target = max(1, round(total_eligible * val_ratio))
     test_target = max(1, round(total_eligible * (1 - train_ratio - val_ratio)))
 
+    any_evaluation_capable_group = False
     for group_id in ordered_group_ids:
         members = groups[group_id] & (train_eligible | evaluation_eligible)
         if not members:
             continue
         evaluation_capable = members <= evaluation_eligible
+        any_evaluation_capable_group = any_evaluation_capable_group or evaluation_capable
 
         if (
             evaluation_capable
@@ -265,6 +324,17 @@ def assign_splits(
             test_ids |= members
         else:
             train_ids |= members
+
+    if any_evaluation_capable_group and (not val_ids or not test_ids):
+        msg = (
+            "eval-eligible groups exist but assign_splits produced an empty "
+            f"val ({len(val_ids)} docs) or test ({len(test_ids)} docs) split — "
+            "every eligible group likely exceeds the remaining target size, "
+            "with no fallback to a smaller group (RFC 0012 §10, PR #838 review "
+            "finding #2); widen val_ratio/test_ratio or grow the pool of "
+            "independent eval-eligible documents before re-running"
+        )
+        raise EmptyEvalSplitError(msg)
 
     return SplitAssignment(frozenset(train_ids), frozenset(val_ids), frozenset(test_ids))
 

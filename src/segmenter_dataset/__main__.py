@@ -22,6 +22,7 @@ from segmenter_dataset.ontology import ONTOLOGY_V8, load_categories
 from segmenter_dataset.release import ReleaseBlockedError, build_dataset_release
 from segmenter_dataset.schemas import KnownLimitation
 from segmenter_dataset.splits import (
+    EmptyEvalSplitError,
     GroupingKeys,
     SplitAssignment,
     assign_splits,
@@ -58,19 +59,23 @@ def assign_splits_command(
     annotations = store.list_annotations()
     reviews = store.list_reviews()
 
-    grouping_keys = [GroupingKeys(document_id=doc.document_id) for doc in documents]
+    grouping_keys = [GroupingKeys.from_document(doc) for doc in documents]
     groups = build_groups(
         documents, grouping_keys, near_duplicate_threshold=near_duplicate_threshold
     )
 
-    assignment = assign_splits(
-        groups,
-        train_eligible=train_eligible_document_ids(annotations),
-        evaluation_eligible=evaluation_eligible_document_ids(reviews),
-        train_ratio=train_ratio,
-        val_ratio=val_ratio,
-        seed=seed,
-    )
+    try:
+        assignment = assign_splits(
+            groups,
+            train_eligible=train_eligible_document_ids(annotations),
+            evaluation_eligible=evaluation_eligible_document_ids(reviews),
+            train_ratio=train_ratio,
+            val_ratio=val_ratio,
+            seed=seed,
+        )
+    except EmptyEvalSplitError as exc:
+        typer.echo(f"assign-splits blocked: {exc}", err=True)
+        raise typer.Exit(code=1) from exc
 
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(

@@ -65,6 +65,28 @@ class SourceInfo(BaseModel):
     source_hash: str
 
 
+class GroupingInfo(BaseModel):
+    """Stable keys that keep a related-document group from crossing splits (RFC 0012 §10).
+
+    All fields are optional and default to unset — an ingestion pipeline
+    with access to structured source metadata (e.g. JURIS/DJEN's own
+    process-linkage fields) populates ``source_process_id``,
+    ``document_family``, and ``parent_document_id`` directly, since none of
+    those are recoverable from the document's own text.
+    ``normalized_process_number`` is the one field this module can also
+    derive on its own when unset — see
+    :func:`segmenter_dataset.provenance.extract_normalized_process_number`
+    and :meth:`segmenter_dataset.splits.GroupingKeys.from_document`.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    normalized_process_number: str | None = None
+    source_process_id: str | None = None
+    document_family: str | None = None
+    parent_document_id: str | None = None
+
+
 class ExtractionInfo(BaseModel):
     """Which heuristic extractor produced ``proposed_labels`` (RFC 0012 §8)."""
 
@@ -90,6 +112,7 @@ class DocumentRecord(BaseModel):
     proposed_labels: list[Label] = Field(default_factory=list)
     source: SourceInfo
     extraction: ExtractionInfo
+    grouping: GroupingInfo = Field(default_factory=GroupingInfo)
 
 
 class AnnotatorConfig(BaseModel):

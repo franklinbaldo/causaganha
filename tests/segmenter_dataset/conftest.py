@@ -6,6 +6,7 @@ from segmenter_dataset.schemas import (
     AnnotatorConfig,
     DocumentRecord,
     ExtractionInfo,
+    GroupingInfo,
     Label,
     ReviewRecord,
     SourceInfo,
@@ -22,6 +23,10 @@ def make_document(
     document_type: str = "sentenca",
     source_uri: str = "ia://item/doc-1",
     source_hash: str = "hash-1",
+    normalized_process_number: str | None = None,
+    source_process_id: str | None = None,
+    document_family: str | None = None,
+    parent_document_id: str | None = None,
 ) -> DocumentRecord:
     doc_id = document_id(source_system="tjro_juris", source_uri=source_uri, source_hash=source_hash)
     return DocumentRecord(
@@ -36,6 +41,12 @@ def make_document(
             source_hash=source_hash,
         ),
         extraction=ExtractionInfo(method="boundary_phrase_extractor", version="1"),
+        grouping=GroupingInfo(
+            normalized_process_number=normalized_process_number,
+            source_process_id=source_process_id,
+            document_family=document_family,
+            parent_document_id=parent_document_id,
+        ),
     )
 
 
