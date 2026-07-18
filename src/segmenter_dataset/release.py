@@ -190,13 +190,31 @@ def _mechanical_gate(
 
 
 def _support_gates(
-    train: list[ResolvedSplitDocument], val: list[ResolvedSplitDocument]
+    train: list[ResolvedSplitDocument],
+    val: list[ResolvedSplitDocument],
+    ontology_categories: set[str],
 ) -> tuple[GateResult, GateResult]:
+    """Support-floor gates over the full declared ontology, not just observed labels.
+
+    Iterating ``ontology_categories`` (rather than the keys of
+    ``_category_counts``' output) is required so a category that is always
+    absent from a split — zero occurrences, never even attempted — still
+    fails the gate instead of silently passing because it never appeared as
+    a dict key.
+    """
     train_counts = _category_counts(train)
     val_counts = _category_counts(val)
 
-    under_train = {c: n for c, n in train_counts.items() if n < MIN_TRAIN_SUPPORT_PER_CATEGORY}
-    under_val = {c: n for c, n in val_counts.items() if n < MIN_VAL_SUPPORT_PER_CATEGORY}
+    under_train = {
+        category: train_counts.get(category, 0)
+        for category in sorted(ontology_categories)
+        if train_counts.get(category, 0) < MIN_TRAIN_SUPPORT_PER_CATEGORY
+    }
+    under_val = {
+        category: val_counts.get(category, 0)
+        for category in sorted(ontology_categories)
+        if val_counts.get(category, 0) < MIN_VAL_SUPPORT_PER_CATEGORY
+    }
 
     return (
         GateResult(
@@ -379,7 +397,7 @@ def build_dataset_release(
     mechanical_gate = _mechanical_gate(train, val, test, ontology_categories)
 
     # Step 4: counts, hashes, IAA.
-    train_support_gate, val_support_gate = _support_gates(train, val)
+    train_support_gate, val_support_gate = _support_gates(train, val, ontology_categories)
     iaa_aggregate_gate, iaa_critical_gate, annotation_quality = _iaa_gates(
         val, test, annotations, reviews, iaa_seed=iaa_seed
     )
