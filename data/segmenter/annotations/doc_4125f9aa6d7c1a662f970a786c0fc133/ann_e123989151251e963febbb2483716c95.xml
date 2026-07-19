@@ -1,0 +1,35 @@
+<annotation id="ann_e123989151251e963febbb2483716c95" document_id="doc_4125f9aa6d7c1a662f970a786c0fc133">
+  <annotator id="historical_migration:juris_expansion" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">1ª Câmara Cível</inicio> / Gabinete Des. José Antonio Robles Processo: <ref_processual ord="1">7017394-03.2023.8.22.0002</ref_processual> - APELAÇÃO CÍVEL (198) Relator: Des. JOSE ANTONIO ROBLES Data distribuição: 15/04/2024 11:35:32 Data julgamento: 27/08/2024 Polo Ativo: ADRIANA GONCALVES ARANTES MOURA Advogado do(a) APELANTE: LUCIANA ARANTES GRANZOTTO - RO4316-A Polo Passivo: ENERGISA RONDÔNIA - DISTRIBUIDORA DE ENERGIA S.A. Advogado do(a) APELADO: EDUARDO QUEIROGA ESTRELA MAIA PAIVA - <fim ord="2">PB23664-A</fim></cabecalho> <relatorio><inicio ord="3">RELATÓRIO</inicio> Trata-se de embargos de declaração opostos por Adriana Gonçalves Arantes contra o r. acórdão prolatado por esta egrégia 1ª Câmara Cível que, à unanimidade, deu provimento ao seu recurso de apelação, reformando a r. sentença que julgou improcedente a pretensão declaratória de inexistência de débito e reparação por danos morais ajuizada contra a Energisa Rondônia - Distribuidora de Energia S.A. Nestes aclaratórios, afirma a embargante padecer de omissão o aresto, por não terem nele sido fixados os honorários advocatícios, requerendo sejam acolhidos seus embargos para ser sanado o alegado vício. Em suas contrarrazões, a parte embargada propugna que sejam rejeitados os embargos aclaratórios. <fim ord="4">É o relatório.</fim></relatorio> <voto><inicio ord="5">VOTO</inicio> DESEMBARGADOR JOSÉ ANTONIO ROBLES Preenchidos os requisitos intrínsecos e extrínsecos, conheço dos presentes embargos de declaração. Conforme aponta a embargante, teria o r. aresto sido omisso ao não fixar os honorários sucumbenciais, tendo em vista que a sentença do juízo primevo, ora reformada, tinha-a condenado nos seguintes termos: Condeno a autora no pagamento das custas e honorários advocatícios, que fixo em 10% sobre o valor atualizado da causa, nos termos do art. 85, § 2º, do CPC, com a exigibilidade suspensa em virtude da concessão da gratuidade de justiça. Em que pese a jurisprudência do colendo STJ estabeleça que “ a reforma integral de sentença objeto de recurso de apelação tem como consequência lógico-jurídica a inversão implícita e automática dos ônus sucumbenciais. ” (STJ - AgInt no REsp: 1372002 ES 2013/0063515-7, Relator: Ministro SÉRGIO KUKINA, Data de Julgamento: 28/03/2019, T1 - PRIMEIRA TURMA, Data de Publicação: DJe 01/04/2019), o acolhimento destes embargos, para fins de esclarecimento, é medida que se impõe. Isso porque a análise do r. aresto, mais especificamente de seu dispositivo, revela que, de fato, não constou menção específica acerca da inversão dos honorários sucumbenciais. Diante do exposto, conclui-se assistir razão à parte embargante e, por consequência, <resultado ord="6">acolho seus embargos declaratórios</resultado>, para, de forma integrativa ao r. aresto, inverter a verba honorária sucumbencial de 10% do valor da condenação a ser arcada pela parte embargada, sucumbente em seu apelo, nos termos do artigo 85, §1º do CPC. <fim ord="7">É como voto.</fim></voto> <ementa><inicio ord="8">EMENTA</inicio> Embargos de declaração. Honorários sucumbenciais. Apelação provida. Inversão da verba honorária em sede recursal. Cabimento. Omissão existente. Embargos acolhidos. O provimento integral de recurso enseja a inversão dos ônus sucumbenciais automaticamente, embora ausente o pronunciamento explícito quanto à inversão. Precedentes do STJ. Inexistindo manifestação a respeito da fixação de verba honorária no acórdão, os embargos devem ser acolhidos para repelir a omissão indicada. <fim ord="9">Embargos de declaração acolhidos.</fim></ementa> ACÓRDÃO <acordao_decisorio><inicio ord="10">Vistos, relatados e discutidos</inicio> estes autos, acordam os Magistrados da(o) 1ª Câmara Cível do Tribunal de Justiça do Estado de Rondônia, na conformidade da ata de julgamentos e das notas taquigráficas, em, EMBARGOS DE DECLARAÇÃO ACOLHIDOS NOS TERMOS DO VOTO DO RELATOR, <fim ord="11">À UNANIMIDADE</fim></acordao_decisorio>. Porto Velho, 27 de Agosto de 2024 Relator Des. JOSE ANTONIO ROBLES RELATOR</text>
+</annotation>

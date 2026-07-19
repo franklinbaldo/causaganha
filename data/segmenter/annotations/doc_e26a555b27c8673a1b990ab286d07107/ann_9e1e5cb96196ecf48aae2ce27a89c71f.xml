@@ -1,0 +1,35 @@
+<annotation id="ann_9e1e5cb96196ecf48aae2ce27a89c71f" document_id="doc_e26a555b27c8673a1b990ab286d07107">
+  <annotator id="historical_migration:seed" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-06-05T23:21:55Z</completed_at>
+  <annotation_method>historical_migration_ensemble_verified_train_only</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA</inicio> Tribunal de Justiça de Rondônia 1ª Turma Recursal - Gabinete 01 Avenida Pinheiro Machado, nº 777, Bairro Olaria, CEP 76801-235, Porto Velho, - de 685 a 1147 - lado ímpar Número do processo: <ref_processual ord="1">7000251-06.2025.8.22.0010</ref_processual> Classe: Recurso Inominado Cível Polo Ativo: ESTADO DE RONDONIA ADVOGADO DO RECORRENTE: PROCURADORIA GERAL DO ESTADO DE RONDÔNIA Polo Passivo: IVANDO CARRICIO <fim ord="2">ADVOGADO DO RECORRIDO: DEFENSORIA PÚBLICA DE RONDÔNIA</fim></cabecalho> RELATÓRIO Dispensado. <voto><inicio ord="3">VOTO</inicio> 1. Conheço do recurso, eis que presentes os requisitos legais de admissibilidade. 2. Trata-se de recurso inominado interposto pelo Estado de Rondônia em que discorre sobre a ocorrência de ofensa ao princípio da substancialização, sob o argumento de que a sentença concedeu pedido incerto e indeterminado, requerendo a sua reforma para excluir a condenação ilimitada, ou, eventualmente, determinar que sejam fornecidos apenas tratamentos padronizados no SUS e de competência estadual. 3. Pois bem! Verifica-se que na inicial a parte autora pleiteou: “(…) d) a procedência da ação, tornando definitivos os efeitos da tutela provisória concedida, condenando o requerido a imediata disponibilização da avaliação especializada, bem como demais procedimentos dela decorrente, ora pleiteado ou arque com as despesas do tratamento na rede privada de saúde; (…)” 4. Assim, da análise dos autos, verifica-se que a sentença se amparou aos pedidos e aos laudos médicos que indicavam a necessidade do tratamento vindicado, vide: “(…) Ante o exposto e confirmando a decisão que antecipou os efeitos da tutela, julgo procedente o pedido, para condenar o ESTADO DE RONDÔNIA a fazer com que o(a) autor(a) se submeta a avaliação com médico oftalmologista e, indicado, o tratamento adequado, bem como seja reembolsado(a) dos gastos oriundos de eventual descumprimento desse comando. (…)” 5. Portanto, denota-se que a condenação se deu conforme o pleito inicial, visando garantir a autora o direito violado por ato omissivo do Poder Público em não lhe disponibilizar o tratamento necessário e os meios para cumprimento integral da medida, assim, inexiste ofensa ao princípio da substancialização. 6. Diante do exposto, VOTO no sentido de <resultado ord="4">NEGAR PROVIMENTO</resultado> ao recurso interposto, mantendo-se a sentença inalterada. 7. Isento de custas, contudo, condeno a parte recorrente ao pagamento de honorários advocatícios, estes fixados em 10% sobre o valor da causa. 8. Após o trânsito em julgado, remetam-se os autos à origem. 9. <fim ord="5">É como voto.</fim></voto> <ementa><inicio ord="6">EMENTA</inicio> RECURSO INOMINADO. DIREITO CONSTITUCIONAL E ADMINISTRATIVO. FORNECIMENTO DE TRATAMENTO DE SAÚDE. PRINCÍPIO DA SUBSTANCIALIZAÇÃO. CONDENAÇÃO CONFORME PEDIDO INICIAL E PROVA PRODUZIDA. RECURSO DESPROVIDO. I. CASO EM EXAME Recurso inominado interposto pelo Estado de Rondônia, que alega ofensa ao princípio da substancialização, sustentando que a sentença proferiu condenação incerta e indeterminada, pleiteando sua reforma para limitar a obrigação ao fornecimento de tratamentos padronizados pelo SUS e de competência estadual. II. QUESTÃO EM DISCUSSÃO A questão em discussão consiste em definir se a sentença violou o princípio da substancialização ao proferir condenação supostamente genérica e ilimitada, não restrita aos termos do pedido inicial e da prova produzida. III. RAZÕES DE DECIDIR A análise dos autos revela que a condenação se encontra amparada nos pedidos formulados na inicial e nos laudos médicos acostados, que indicaram a necessidade de avaliação especializada e eventuais tratamentos decorrentes. A sentença limitou-se a confirmar a tutela provisória concedida, determinando que o Estado de Rondônia viabilizasse a avaliação oftalmológica e, se indicado, o tratamento correspondente, bem como o reembolso de gastos em caso de descumprimento. Conclui-se que a decisão respeita o princípio da substancialização, pois corresponde exatamente ao pleito inicial e às provas constantes dos autos, não configurando condenação genérica ou extrapolação dos limites da lide. IV. DISPOSITIVO E TESE Recurso desprovido. Tese de julgamento: A condenação que determina a avaliação médica e o tratamento necessário, conforme pedido inicial e prova produzida, não viola o princípio da substancialização. O Estado é responsável por assegurar os tratamentos de saúde indicados por laudo médico, ainda que não previamente padronizados no âmbito do SUS. Dispositivos relevantes citados: CF/1988, arts. 6º e 196. <fim ord="7">Jurisprudência relevante citada: Não há precedentes específicos citados no voto.</fim></ementa> ACÓRDÃO <acordao_decisorio><inicio ord="8">Vistos, relatados e discutidos</inicio> estes autos, acordam os Magistrados da(o) 1ª Turma Recursal do Tribunal de Justiça do Estado de Rondônia, na conformidade da ata de julgamentos e das notas taquigráficas, em, RECURSO CONHECIDO E NÃO PROVIDO À UNANIMIDADE, <fim ord="9">NOS TERMOS DO VOTO DO RELATOR.</fim></acordao_decisorio> Porto Velho, 26 de maio de 2025 ROBERTO GIL DE OLIVEIRA RELATOR</text>
+</annotation>

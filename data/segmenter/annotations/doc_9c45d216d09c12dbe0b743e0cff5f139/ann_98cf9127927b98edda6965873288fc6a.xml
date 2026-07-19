@@ -1,0 +1,35 @@
+<annotation id="ann_98cf9127927b98edda6965873288fc6a" document_id="doc_9c45d216d09c12dbe0b743e0cff5f139">
+  <annotator id="historical_migration:rounds_abcd_unattributed" model_family="historical_migration_unspecified" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA COMARCA DE OURO PRETO DO OESTE 2ª VARA CÍVEL Av. Daniel Comboni, 1480, 1º Andar. Fórum Des. Cássio Rodolfo Sbarzi Guedes 76920-000. Ouro Preto do Oeste-RO. Tel.: (69) 3416-1721. E-mail: opo2civel@tjro.jus.br &gt; Sala de Atendimento Virtual: https://meet.google.com/pwx-zsmd-eaf Processo <ref_processual ord="1">7000062-51.2022.8.22.0004</ref_processual> Classe Procedimento Comum Cível Assunto Bem de Família (Voluntário) Requerente RONALDO CANDIDO RIBEIRO VANUZA SILVA RIBEIRO Advogado(a) FILIPH MENEZES DA SILVA, OAB nº RO5035, MARCELO MARTINI, OAB nº RO10255 Requerido(a) M. P. D. E. D. R. Advogado(a) <fim ord="2">MINISTÉRIO PÚBLICO DO ESTADO DE RONDÔNIA</fim></cabecalho> Vistos. Diante da manifestação de ID - 68517432, informando o erro material na sentença de ID - 67661887, corrijo de ofício a sentença, que passará a constar na íntegra: ''Processe-se em segredo de justiça. <relatorio><inicio ord="3">Trata-se de</inicio> ação de divórcio consensual c/c partilha de bens, fixação de guarda, pensão alimentícia e regulamentação de visitas proposta por VANUZA SILVA RIBEIRO e RONALDO CANDIDO RIBEIRO. Consta nos autos que da união as partes tiveram 02 (dois) filhos, sendo apenas um filho ainda menor de idade. Há bens móveis e imóveis a serem partilhados, os quais foram discriminados na petição inicial (ID n. 66912564). A requerente pretende voltar a assinar com o nome de solteira. Os interesses do menor foram fixados nos termos apresentados na petição inicial (ID n. 66912564). Instado, o Ministério Público manifestou-se favoravelmente ao acordo firmado entre as partes (ID n. 67595737). <fim ord="4">É o relatório.</fim></relatorio> <capitulo_merito><inicio ord="5">DECIDO</inicio>. Julgo o feito no estado em que se encontra, diante da desnecessidade de produção de outras provas além das constantes dos autos, nos termos dos arts. 353 e 354 do CPC c/c art. 355, I também do CPC. Trata-se de ação de divórcio consensual c/c partilha de bens, fixação de guarda, pensão alimentícia e regulamentação de visitas. Estabelecida a dialeticidade processual, com implementação do contraditório e ampla defesa, é legada as partes a oportunidade de terminar o litígio mediante concessões mútuas, consoante o disposto no art. 840 do CC, observemos: “Art. 840. É lícito aos interessados prevenirem ou terminarem o litígio mediante concessões mútuas.” A transação somente pode versar sobre direitos disponíveis (art. 841, CC), e deve ser reduzida a termo, quando não exigida escritura pública (art. 842, CC). No presente caso, as partes são capazes, e podem livremente dispor do direito objeto do litígio, bem como, a priori, não há consignação de cláusulas que padeçam de nulidade. Instado, o Ministério Público manifestou-se favorável ao acordo firmado entre as partes (ID n. 67595737). Assim, diante de todo o colocado, <fim ord="6">não há óbice a homologação do acordo</fim></capitulo_merito>. <dispositivo_abertura ord="7">Isto posto</dispositivo_abertura> <resultado ord="8">HOMOLOGO o acordo</resultado> instrumentalizado através do termo de ID n. 66912564 , DECRETANDO A EXTINÇÃO DO PROCESSO COM RESOLUÇÃO DO MÉRITO , <fundamentacao_legal ord="9">nos termos do art. 487, III, b), do CPC</fundamentacao_legal>, dispensado o prazo recursal diante da ausência de controvérsia. <custas><inicio ord="10">Isento de custas</inicio> iniciais <fim ord="11">adiadas e finais</fim></custas>. <honorarios><inicio ord="12">Isento de honorários</inicio> <fim ord="13">advocatícios</fim></honorarios>. A requerente voltará a assinar com o nome de solteira. Expeça-se formal de partilha. Sentença transitada em julgado neste ato, diante da ocorrência de preclusão lógica (art. 1.000, CPC). Intimem-se. <encerramento><inicio ord="14">P. R. I.</inicio>'' Ouro Preto do Oeste, 14 de fevereiro de 2022 . Joao Valerio Silva Neto <fim ord="15">Juiz de Direito</fim></encerramento></text>
+</annotation>

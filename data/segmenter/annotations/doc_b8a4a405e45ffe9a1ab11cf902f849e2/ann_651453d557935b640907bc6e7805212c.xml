@@ -1,0 +1,35 @@
+<annotation id="ann_651453d557935b640907bc6e7805212c" document_id="doc_b8a4a405e45ffe9a1ab11cf902f849e2">
+  <annotator id="historical_migration:round_e" model_family="model_assisted_correction_v1" guideline_version="segmenter_v7" seeded_with="model_draft_checkpoint_inference" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_model_assisted_correction</annotation_method>
+  <text>PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA Turma Recursal Data de distribuição :30/06/2017 Data de julgamento :12/07/2017 <ref_processual ord="1">0004785-35.2013.8.22.0010</ref_processual> Recurso Inominado Embte/Embdo : Estado de Rondônia Advogado : Luciano Brunholi Xavier (OAB/RO550A) e outro(a/s) Embdo/Embte : Ederson Andrade de Albuquerque Advogado : Rodrigo Lanziani Pascoal Diniz(OAB/RO5532) e outro(a/s) Relator : Juiz Enio Salvador Vaz <relatorio><inicio ord="3">RELATÓRIO</inicio> O (a) agente de polícia civil interpõe embargos de declaração objetivando eliminar contradição e obscuridade constante do acórdão. Alega que deve ser extirpado do acórdão o marco final para o cômputo das horas extras e de sobreaviso, uma vez que na prática o serviço extraordinário continuou ocorrendo até setembro de 2013. A decisão também é obscura porque aceita determinação genérica para que cada Delegado de Polícia faça o que bem entender no âmbito de sua Delegacia. Junta documentos. O Estado de Rondônia também interpõe embargos de declaração alegando omissão no acórdão porque este não teria enfrentado a questão constitucional e a jurisprudência do STJ relativamente à incompatibilidade de pagamento de horas extraordinárias a policiais civis pelo fato deles recebem subsídio que já garante a especialidade do serviço exercido. <fim ord="4">É o relatório.</fim></relatorio> <voto><inicio ord="5">VOTO</inicio> Recurso do(a) agente de polícia civil. Conheço os embargos, porque próprios e tempestivos. Primeiramente não serão examinados os documentos juntados com os embargos de declaração, pois além de não serem documentos novos é manifesta a intempestividade para tanto. Os pontos impugnados nos embargos foram analisados no acórdão. Não há obscuridade ou contradição no que foi decidido. O que se busca na verdade é a rediscussão do mérito da pretensão do embargante. Em razão disso, VOTO no sentido de DESACOLHER os embargos de declaração interpostos pelo(a) servidor(a), por não vislumbrar obscuridade ou omissão no acórdão. Do recurso do Estado de Rondônia. Conheço os embargos, porque próprio e tempestivo. Da releitura do acórdão percebe-se que houve enfrentamento da questão do subsídio. E como lá se disse, não há incongruência no fato do agente de polícia civil receber por trabalho extrajornada, sob pena de enriquecimento ilícito da administração. Aliás, pelo que se sabe o Estado de Rondônia ainda não implantou o subsídio aos agentes de polícia civil. Confira-se o contracheque. Em face do exposto, VOTO no sentido de NÃO ACOLHER os embargos de declaração interpostos pelo Estado de Rondônia, por não verificar a omissão apontada no acórdão. Oportunamente, remetam-se à origem. <fim ord="6">É como voto.</fim></voto> DECISÃO Como consta da ata de julgamentos, a decisão foi a seguinte: "EMBARGOS DE DECLARAÇÃO DO REQUERENTE E DO REQUERIDO CONHECIDOS E REJEITADOS À UNANIMIDADE, NOS TERMOS DO VOTO DO RELATOR.". Presidente o(a) Juiz(a) Jorge Luiz dos S. Leal. Relator(a) o(a) Juiz(a) Enio Salvador Vaz. Tomaram parte no julgamento os Juízes Juiz Jorge Luiz dos S. Leal, Juiz Glodner Luiz Pauletto, Juiz Enio Salvador Vaz,. Porto Velho, 12 de julho de 2017. Bel. Edseia Pires de Sousa Diretor da Turma Recursal <cabecalho><inicio ord="7">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA Turma Recursal Data de distribuição : 30/06/2017 Data de julgamento : 12/07/2017 0004785-35.2013.8.22.0010 Recurso Inominado Embte/Embdo : Estado de Rondônia Advogado : Luciano Brunholi Xavier (OAB/RO550A) e outro(a/s) Embdo/Embte : Ederson Andrade de Albuquerque Advogado : Rodrigo Lanziani Pascoal Diniz(OAB/RO5532) e outro(a/s) <fim ord="8">Relator : Juiz Enio Salvador Vaz</fim></cabecalho> <ementa><inicio ord="9">EMENTA</inicio> EMBARGOS DE DECLARAÇÃO. OMISSÃO. CONTRADIÇÃO. OBSCURIDADE. INEXISTÊNCIA. REDISCUSSÃO DA CAUSA. IMPOSSIBILIDADE. <fim ord="10">EMBARGOS NÃO ACOLHIDOS.</fim></ementa> ACÓRDÃO <acordao_decisorio><inicio ord="11">Vistos, relatados e discutidos</inicio> estes autos, em que são partes as acima indicadas, acordam os Juízes Membros da "Turma Recursal" EMBARGOS DE DECLARAÇÃO DO REQUERENTE E DO REQUERIDO CONHECIDOS E REJEITADOS <fim ord="12">À UNANIMIDADE</fim></acordao_decisorio>, NOS TERMOS DO VOTO DO RELATOR., na forma do relatório constantes dos autos, que ficam fazendo parte integrante do presente julgado. Participam do julgamento: Juiz Jorge Luiz dos S. Leal, Juiz Glodner Luiz Pauletto, Juiz Enio Salvador Vaz, Eu, Edseia Pires de Sousa - Diretora da Turma Recursal, digitei e providenciei a impressão. <encerramento><inicio ord="13">Porto Velho, 12 de julho de 2017</inicio> JUIZ(A) Enio Salvador Vaz <fim ord="14">RELATOR(A)</fim></encerramento></text>
+</annotation>

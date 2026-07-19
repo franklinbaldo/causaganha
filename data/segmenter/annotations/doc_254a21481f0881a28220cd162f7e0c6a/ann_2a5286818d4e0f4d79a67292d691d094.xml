@@ -1,0 +1,35 @@
+<annotation id="ann_2a5286818d4e0f4d79a67292d691d094" document_id="doc_254a21481f0881a28220cd162f7e0c6a">
+  <annotator id="historical_migration:rounds_abcd_unattributed" model_family="historical_migration_unspecified" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-07-16T00:00:00Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA FÓRUM MINISTRO VICTOR NUNES LEAL Jaru - 2º Juizado Especial Cível Rua Raimundo Cantanhede, 1069, setor 2, CEP 76.890-000, Jaru/RO Fone: (69) 3521-3237 e-mail: jaw2civel@tjro.jus.br Processo: <ref_processual ord="1">7004995-75.2019.8.22.0003</ref_processual> Classe: Cumprimento de sentença Assunto: Indenização por Dano Moral, Indenização por Dano Moral, Obrigação de Fazer / Não Fazer, Diplomas/Certificado de Conclusão do Curso EXEQUENTE: ANDRE VIEIRA DA SILVA ADVOGADOS DO EXEQUENTE: SIDNEY DA SILVA PEREIRA, OAB nº RO8209A, JOSE FELIPHE ROSARIO OLIVEIRA, OAB nº RO6568A EXECUTADO: FILEMOM ESCOLA SUPERIOR DE TEOLOGIA LTDA - ME <fim ord="2">EXECUTADO SEM ADVOGADO(S)</fim></cabecalho> SENTENÇA Vistos, Relatório dispensado nos termos do artigo 38 da Lei 9.099/95. A parte autora pugnou pela expedição de certidão de dívida judicial. Pois bem. Expeça-se a certidão de débito atualizada em favor do exequente. Outrossim, o caso em exame, mesmo depois de promovidas diversas diligências executivas, não foram encontrados quaisquer bens e/ou ativos penhoráveis da parte executada, a extinção é medida de rigor. Ao propósito, a Lei 9.099/95, art. 53, § 4º assim dispõe: § 4º Não encontrado o devedor ou inexistindo bens penhoráveis, o processo será imediatamente extinto, devolvendo-se os documentos ao autor. Deste modo, <dispositivo_abertura ord="3">diante do que foi visto e examinado</dispositivo_abertura>, <resultado ord="4">EXTINGO O PROCESSO SEM JULGAMENTO DE MÉRITO</resultado>, <fundamentacao_legal ord="5">nos termos do art. 53, § 4º da Lei 9.099/95</fundamentacao_legal>, e 485, IV do CPC, subsidiário. Libere-se eventual restrição. <custas><inicio ord="6">Sem custas ou honorários</inicio> – <fim ord="7">artigo 55, da Lei 9.099/95.</fim></custas> Outrossim, nada pendente, transitado em julgada, arquive-se. <encerramento><inicio ord="8">Publique-se.</inicio> Registre-se. Intime-se. Providencie-se o necessário. Cumpra-se. Jaru/RO, terça-feira, 15 de fevereiro de 2022 Maxulene de Sousa Freitas <fim ord="9">Juíza de Direito</fim></encerramento> Assinado Digitalmente SERVE, DEVIDAMENTE INSTRUÍDA, DE MANDADO/CARTA DE INTIMAÇÃO E DEMAIS ATOS QUE ESCRIVANIA ENTENDER PERTINENTE. Dados para cumprimento: EXEQUENTE: ANDRE VIEIRA DA SILVA, RUA AFONSO JOSE 3020 SETOR 01 - 76890-000 - JARU - RONDÔNIA EXECUTADO: FILEMOM ESCOLA SUPERIOR DE TEOLOGIA LTDA - ME, RUA ÁLVARO CAETANO DA SILVA 434 CONJUNTO COSTA TELLES II - 38036-270 - UBERABA - MINAS GERAIS</text>
+</annotation>

@@ -1,0 +1,37 @@
+<annotation id="ann_be5f9a936a32a6b3ba661f3ae25fc260" document_id="doc_6b714f6515beb1d38ba465e57c60c669">
+  <annotator id="historical_migration:seed" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="historical migration: section runs to the end of the collected text" />
+  </allowed_unmatched>
+  <completed_at>2026-06-05T23:21:55Z</completed_at>
+  <annotation_method>historical_migration_ensemble_verified_train_only</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO DO ESTADO DE RONDÔNIA</inicio> Tribunal de Justiça de Rondônia Rolim de Moura - 1ª Vara Cível Av. João Pessoa, nº 4555, Bairro Centro, CEP 76940-000, <fim ord="1">Rolim de Moura, Telefone: (69) 3449-3710</fim></cabecalho> E-mail: rdm1civgab@tjro.jus.br . Telefone/WhatsApp: 69 3449 3701. Processo n.: <ref_processual ord="2">0002454-80.2013.8.22.0010</ref_processual> Classe: Procedimento Comum Cível Valor da ação: <valor_condenacao ord="3">R$ 8.136,00</valor_condenacao> Parte autora: NILTON NOGUEIRA DE SOUZA Advogado: CINTIA GOHDA RUIZ DE LIMA UMEHARA, OAB nº SP126707, ADEMAR RUIZ DE LIMA, OAB nº SP31641 Parte requerida: INSS - INSTITUTO NACIONAL DO SEGURO SOCIAL Advogado: PROCURADORIA FEDERAL EM RONDÔNIA - PF/RO SENTENÇA <relatorio><inicio ord="4">I - RELATÓRIO</inicio> Trata-se de ação de restabelecimento de auxílio-doença, com pedido de tutela antecipada e conversão em aposentadoria por invalidez, ajuizada por Nilton Nogueira de Souza em face do Instituto Nacional do Seguro Social – INSS. A parte autora, segurada do regime geral da previdência social, alegou ser portadora de doença ortopédica incapacitante, consistente em quadro de artralgia em ambos os ombros, artralgia de cotovelo direito e cervicalgia, o que a impossibilitaria de exercer suas atividades laborativas habituais. Sustentou que teve seu pedido administrativo de prorrogação do auxílio-doença indeferido pelo INSS, razão pela qual ingressou com a presente demanda, requerendo o restabelecimento do auxílio-doença e sua conversão em aposentadoria por invalidez, além de antecipação dos efeitos da tutela. O INSS apresentou contestação, alegando, em preliminar, a existência de litispendência e/ou coisa julgada, em razão de já haver outra ação ajuizada com o mesmo objeto. Alegou, ainda, a ocorrência de litigância de má-fé por parte do autor. No mérito, pugnou pela improcedência da ação, argumentando que a perícia administrativa concluiu pela capacidade laborativa do segurado e que não há elementos que demonstrem erro ou ilegalidade no indeferimento do benefício. A parte autora apresentou réplica, rebatendo os argumentos do réu e reiterando o pedido inicial. Foi realizada perícia médica judicial, a qual concluiu que o autor não apresenta incapacidade laborativa para suas atividades habituais, sendo considerado apto ao trabalho. Após a apresentação do laudo, as partes foram intimadas para manifestação, sem novos requerimentos substanciais. <fim ord="5">É o relatório.</fim></relatorio> <capitulo_merito><inicio ord="6">II - FUNDAMENTAÇÃO</inicio> Passo à análise do mérito da demanda, considerando ser mais benéfico ao INSS o julgamento direto do mérito, motivo pelo qual deixo de examinar as preliminares suscitadas, nos termos do princípio da economia processual e em atenção à efetividade jurisdicional. No mérito, o pedido do autor não merece prosperar. A concessão de benefício por incapacidade exige a demonstração, por meio de prova inequívoca, de que o segurado esteja total e temporariamente incapaz para o exercício de atividade laborativa habitual, no caso do auxílio-doença, ou incapaz total e permanentemente, para fins de aposentadoria por invalidez, conforme previsto nos artigos 59 e 42 da Lei 8.213/91. No presente caso, a perícia médica judicial, meio de prova técnico e imparcial, concluiu que o autor não apresenta incapacidade laborativa que justifique a concessão do benefício pleiteado. Ressalta-se que o laudo pericial foi claro, preciso e fundamentado, afastando a alegação de incapacidade. Ainda que o autor tenha juntado atestados e laudos particulares, a prova pericial oficial prevalece, salvo quando demonstrada sua inconsistência ou erro técnico, o que não ocorreu nos autos. Diante da inexistência de incapacidade laborativa, não há direito ao restabelecimento do auxílio-doença ou sua conversão em aposentadoria por invalidez, razão pela qual o pedido deve ser julgado improcedente. <fim ord="7">III - DISPOSITIVO</fim></capitulo_merito> <dispositivo_abertura ord="8">Diante do exposto, resolvendo o mérito</dispositivo_abertura>, <fundamentacao_legal ord="9">com fulcro no art. 487, inciso I, do CPC</fundamentacao_legal>, <resultado ord="10">JULGO IMPROCEDENTE</resultado> o pedido formulado por Nilton Nogueira de Souza em face do INSS – Instituto Nacional do Seguro Social. <honorarios><inicio ord="11">Condeno a parte autora ao pagamento das custas processuais e honorários advocatícios</inicio>, que fixo em 10% (dez por cento) <fim ord="12">sobre o valor atualizado da causa</fim></honorarios>. Se foi deferida a justiça gratuita, fica suspensa a exigibilidade nos termos do art. 98, §3º, do CPC, por ser a parte autora beneficiária da gratuidade de justiça. Por fim, revogo eventual tutela de urgência anteriormente concedida caso já não tenha sido revogada. Caberá a Procuradoria do INSS informar o órgão da respectiva revogação. A questão de litigância de má-fé foi discutida durante o processo. <encerramento><inicio ord="13">Publique-se. Registre-se. Intime-se.</inicio></encerramento> SERVE O PRESENTE COMO MANDADO/CARTA/CARTA PRECATÓRIA/OFÍCIO. Após as providências necessárias, arquive-se Rolim de Moura/RO, sábado, 31 de maio de 2025. Artur Augusto Leite Júnior Juiz de Direito</text>
+</annotation>

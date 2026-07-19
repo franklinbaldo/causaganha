@@ -1,0 +1,35 @@
+<annotation id="ann_2c6dab90834331c28b7f1812785eeea8" document_id="doc_613907ccb28de44b6bde08b443bb369f">
+  <annotator id="historical_migration:seed" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-06-05T23:21:55Z</completed_at>
+  <annotation_method>historical_migration_single_pass</annotation_method>
+  <text>PODER JUDICIÁRIO Tribunal de Justiça do Estado de Rondônia ACÓRDÃO Coordenadoria Cível da Central de Processos Eletrônicos do 2º Grau Data de Julgamento: Sessão Eletrônica n. 347 de 28/04/2025 a 05/05/2025 <ref_processual ord="0">AUTOS N. 7020844-20.2024.8.22.0001</ref_processual> APELAÇÃO (PJE) ORIGEM: 7020844-20.2024.8.22.0001 - PORTO VELHO / NÚCLEO DE JUSTIÇA 4.0 - ENERGIA APELANTE: ENERGISA RONDÔNIA - DISTRIBUIDORA DE ENERGIA S.A. ADVOGADO(A): RENATO CHAGAS CORRÊA DA SILVA – RO8768 APELADO(A): MARIVANHA SOUZA GOMES ADVOGADO(A): GUSTAVO BERNARDO HADAMES BERNARDI MONTEIRO – RO5275 ADVOGADO(A): MARIA HELOISA BISCA BERNARDI – RO5758 RELATOR: DESEMBARGADOR JOSÉ ANTONIO ROBLES DATA DA DISTRIBUIÇÃO: 26/11/2024 DECISÃO: “PRELIMINAR REJEITADA NOS TERMOS DO VOTO DO RELATOR, À UNANIMIDADE. NO MÉRITO, <resultado ord="1">RECURSO NÃO PROVIDO</resultado> NOS TERMOS DO VOTO DO RELATOR, POR MAIORIA, VENCIDO O JUIZ CONVOCADO EDENIR SEBASTIÃO ALBUQUERQUE DA ROSA.” EMENTA <ementa><inicio ord="2">Direito do consumidor</inicio>. Energia elétrica. Recuperação de consumo. Procedimento unilateral. Ausência de notificação adequada. Inobservância das regras da Resolução n. 1000/2021-ANEEL. Inexigibilidade do débito. Honorários de advogados majorados. Recurso desprovido. I. Caso em Exame 1.Recurso de apelação interposto por Distribuidora de Energia S.A. - Energisa Rondônia contra sentença que declarou nulo e inexistente débito referente à recuperação de consumo, além de condenar a empresa ao pagamento das custas processuais e honorários de advogados. II. Questão em Discussão 2.A controvérsia cinge-se à legalidade da cobrança oriunda da recuperação de consumo por suposta irregularidade no medidor de energia elétrica da consumidora. III. Razões de Decidir 3.A concessionária de energia elétrica deve observar os procedimentos previstos na Resolução n. 1000/2021 da ANEEL, especialmente no que tange à notificação prévia do consumidor para acompanhamento da avaliação técnica do medidor. 4.A ausência de prova quanto à comunicação adequada do consumidor compromete a validade da prova pericial unilateralmente produzida pela concessionária. 5.O critério de cálculo adotado para apuração do débito não observou os parâmetros fixados pela ANEEL e pela jurisprudência dominante, devendo ser realizado com base na média dos três meses posteriores à regularização da irregularidade, retroagindo a no máximo 12 meses. 6.Manutenção da declaração de inexistência do débito e majoração dos honorários de advogados para 12% sobre o valor da condenação. IV. Dispositivo e Tese 7.Recurso desprovido. Tese de Julgamento É inexigível o débito decorrente de recuperação de consumo realizada unilateralmente pela concessionária sem a devida notificação prévia do consumidor para acompanhamento da avaliação técnica do medidor, bem como se a cobrança não observar os critérios fixados pela ANEEL e pela jurisprudência consolidada. Dispositivos relevantes citados: Resolução n. 1000/2021-ANEEL, arts. 589 a 595. Jurisprudência relevante citada: TJRO, Apelação Cível n. 7046221-66.2019.822.0001; Apelação Cível n 7069723-63.2021.822.0001; <fim ord="3">Apelação Cível n. 7003649-78.2022.822.0005</fim></ementa>.</text>
+</annotation>
