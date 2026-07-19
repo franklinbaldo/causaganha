@@ -315,3 +315,88 @@ class ReleaseManifest(BaseModel):
     iaa_resamples: int
     known_limitations: tuple[KnownLimitation, ...] = ()
     created_at: str
+
+
+class CheckpointSelection(BaseModel):
+    """Outcome of RFC 0012 §5 point 5's checkpoint-selection rule.
+
+    ``rule`` is fixed prose rather than a free-form field, so a manifest
+    cannot quietly redefine the selection rule after the fact — it exists
+    to be compared against, not edited per run.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    rule: str = (
+        "primary: highest validation macro-F1 over trainable categories; "
+        "tie-break 1: lowest epoch; tie-break 2: lowest validation loss"
+    )
+    selected_epoch: int
+    val_macro_f1: float
+    val_loss: float | None = None
+    per_epoch_val_macro_f1: dict[int, float] = Field(default_factory=dict)
+
+
+class ExperimentManifest(BaseModel):
+    """One training run against a frozen dataset release export (RFC 0012 §13/§15 PR3).
+
+    Written once training finishes and a checkpoint is selected — before any
+    test data is touched. This is what lets a later, separately-gated test
+    evaluation (RFC 0012 §3.3/§13.1) point at an already-frozen configuration
+    instead of a moving target.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    experiment_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    release_id: str
+    ontology_version: str
+    guideline_version: str
+    seed: int
+    dependency_lock_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    epochs: int
+    batch_size: int
+    device: str
+    checkpoint_dir: str
+    checkpoint_selection: CheckpointSelection
+    created_at: str
+
+
+class ModelAcceptanceEvidence(BaseModel):
+    """RFC 0012 §16.2 gate evidence — the numbers a model card must show, never a bare F1."""
+
+    model_config = ConfigDict(frozen=True)
+
+    macro_f1_model: float | None
+    macro_f1_baseline: float | None
+    baseline_diff_ci95_low: float | None
+    beats_baseline: bool
+    critical_category_f1: dict[str, float]
+    critical_categories_passed: bool
+    eligible_for_deploy: bool
+    bootstrap_seed: int
+    bootstrap_resamples: int
+
+
+class ModelCard(BaseModel):
+    """Model-release artifact (RFC 0012 §16.2) — distinct from a dataset's ReleaseManifest.
+
+    ``release_id`` here is the model-release id (``segmenter-model-vX.Y``),
+    separate from ``dataset_release_id`` (``segmenter-real-vX.Y``) — §16.2's
+    explicit point that dataset acceptance and model acceptance are versioned,
+    and can be accepted, independently.
+    """
+
+    model_config = ConfigDict(frozen=True)
+
+    release_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+    dataset_release_id: str
+    experiment_id: str
+    test_release_used: str
+    test_unlocked_at: str
+    test_unlocked_by: str
+    test_result_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    acceptance: ModelAcceptanceEvidence
+    intended_use: str
+    known_limitations: tuple[str, ...] = ()
+    created_at: str
