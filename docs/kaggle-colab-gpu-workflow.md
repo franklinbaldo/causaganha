@@ -56,6 +56,7 @@ then fill it in:
   "is_private": "true",
   "enable_gpu": "true",
   "enable_internet": "true",
+  "machine_shape": "NvidiaTeslaT4",
   "dataset_sources": [],
   "kernel_sources": []
 }
@@ -64,6 +65,22 @@ then fill it in:
 Keep `is_private: true` unless there's a specific reason to publish. Kaggle's
 default GPU image already ships `torch` + CUDA; you only need to `pip
 install` whatever this repo needs on top (e.g. `opf`).
+
+**Always set `machine_shape` explicitly — don't leave it blank.** With
+`enable_gpu: true` and `machine_shape` empty, Kaggle allocates *whatever GPU
+it feels like* — an early run of the PR #845 validation kernel got a Tesla
+**P100** (compute capability sm_60), which the preinstalled PyTorch build
+doesn't support at all (`CUDA error: no kernel image is available for
+execution on the device` — recent PyTorch wheels only ship sm_70+). This
+looks like a flaky/unrelated environment failure but isn't: it's
+deterministic given which GPU you land on, and fully avoidable. Confirmed
+(from the installed `kagglesdk` source, not the public docs, which don't
+document this field) that `machine_shape` accepts exactly three values:
+`NvidiaTeslaT4`, `NvidiaTeslaP100`, `Tpu1VmV38`. Pin `NvidiaTeslaT4` unless
+there's a specific reason to want the P100 or a TPU — a subsequent run with
+this pin set completed a real training epoch successfully on the same code.
+`kaggle kernels push --accelerator <value>` is the CLI-flag equivalent if
+you'd rather not bake it into the metadata file.
 
 **The script doesn't need a separate uploaded dataset** if the code being
 tested is already on GitHub: just have the script `git clone` the relevant
@@ -142,3 +159,11 @@ some of the 61 real ingested documents get adjudicated), exported it via
 `scripts/run_segmenter_training.py`'s actual CLI. This is the reusable shape
 for "does this trainer/eval script actually work against real `opf` +
 GPU" — swap in a real release export once real val/test data exists.
+
+With the `--shuffle-seed` fix and the `NvidiaTeslaT4` pin both in place, the
+kernel completed a real training epoch end to end: downloaded the real OPF
+checkpoint from HuggingFace, trained, selected a checkpoint by validation
+macro-F1, wrote `experiment_manifest.json`, and correctly refused to open
+`test.jsonl` — printing `SMOKETEST_DONE_OK`. `macro_f1=0.0` in that run is
+expected (one epoch, 20 tiny synthetic documents, not meaningful metrics) —
+what mattered was proving the mechanism, not the number.
