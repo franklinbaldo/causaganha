@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 
 import typer
 
+from segmenter_dataset.dataset_card import render_dataset_card
 from segmenter_dataset.iaa import DEFAULT_BOOTSTRAP_RESAMPLES
 from segmenter_dataset.ontology import ONTOLOGY_V8, load_categories
 from segmenter_dataset.release import ReleaseBlockedError, build_dataset_release
@@ -145,6 +146,24 @@ def build_release_command(
         raise typer.Exit(code=1) from exc
 
     typer.echo(f"release {release_manifest.release_id!r} written: counts={release_manifest.counts}")
+
+
+@app.command("render-dataset-card")
+def render_dataset_card_command(
+    data_root: Path = typer.Option(..., exists=True, file_okay=False, help="data/segmenter/"),
+    release_id: str = typer.Option(...),
+    output: Path | None = typer.Option(
+        None, help="Where to write the card; defaults to <release dir>/dataset_card.md"
+    ),
+) -> None:
+    """Render the RFC 0012 §15 dataset card for an already-built release."""
+    store = SegmenterDatasetStore(data_root)
+    manifest = store.read_release_manifest(release_id)
+    card = render_dataset_card(manifest)
+    destination = output or (store.release_dir(release_id) / "dataset_card.md")
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    destination.write_text(card, encoding="utf-8")
+    typer.echo(f"wrote {destination}")
 
 
 def _echo_gate_failures(gate_results: list[GateResult]) -> None:

@@ -1,47 +1,7 @@
 # Annotation Guideline — CausaGanha Decision Segmenter v7.3
 
-Revision v7.1 (RFC 0012 §9, guideline-only change per §5 point 1's last
-bullet — does not invalidate v7 annotations, no `ontology_version` bump):
-fixes three gaps a single-document pilot found (see the RFC's PR history
-for the pilot transcript) — header phrase ordering, the
-`relatorio`-without-`capitulo_merito` case, and `ref_processual` scope. A
-second pilot on the same document, run against this revision, confirmed
-convergence on all three and also caught an unrelated production-technique
-failure (text duplication instead of in-place wrapping); Rule 6 was
-extended in response. A verbatim mismatch is a risk signal that routes a
-record to independent review (RFC 0012 §9), not an automatic rejection —
-it isn't a rigid release invariant. Marked inline below as **[v7.1]**.
-
-Revision v7.2 (RFC 0012 §5 point 7, guideline-only change, same
-non-invalidating rule as v7.1): the first real batch (5 documents beyond
-the pilot) showed the "single-anchor = at most one per document" default
-doesn't fit every single-anchor category. `dispositivo_abertura`,
-`resultado`, and `ref_processual` are genuinely singular — they each name
-one fact about the decision as a whole (the operative holding; which case
-this text belongs to). `fundamentacao_legal` and `valor_condenacao` are
-not: a real decision routinely cites the law more than once for different
-points, and can state more than one genuinely different amount (moral vs.
-material damages, an original vs. a corrected figure). Deduplicating those
-down to "first occurrence" — which both ingestion scripts did — silently
-drops real signal; a document citing art. 38 for the relatório waiver and
-art. 55 for custas/honorários has two distinct `fundamentacao_legal`
-spans, not one. `ALLOW_MULTIPLE_SINGLE_ANCHOR` in
-`segmenter_dataset/ontology.py` now names the two categories exempted from
-the one-per-document mechanical check; every `validate_record` call site
-passes it. Marked inline below as **[v7.2]**.
-
-Revision v7.3 (production technique only — Rule 6, no ontology or category
-semantics change): a flat `<relatorio_inicio>`/`<relatorio_fim>` pair is
-two unrelated tag names that happen to share a prefix; XML already has a
-native way to say "these two things bound one region" — nesting. Start/end
-pairs are now produced as one `<base>` wrapper element (named after the
-category, e.g. `relatorio`) with generic `<inicio>`/`<fim>` children
-reused across every pair category, instead of inventing a distinct flat
-tag name per role. Anything else that textually falls inside the region —
-another category's anchor, like `ref_processual` sitting inside a
-document's `cabecalho` — nests inside the wrapper too. Single-anchor
-categories are unaffected; there's no region to express, so they stay
-flat leaf tags exactly as before. Marked inline below as **[v7.3]**.
+Revision history: see `annotation_guideline_v7_CHANGELOG.md`. This file is
+the current rules only.
 
 ## Overview
 
@@ -57,9 +17,9 @@ Mark the **opening cue** only (a few words). The region extends from this
 anchor to the next anchor or end of document. Never label a long region
 as one span.
 
-**[v7.2] Most single-anchor categories name one fact about the decision as
-a whole and take at most one tag per document** — `dispositivo_abertura`
-and `resultado` because only the *operative* mention counts (Rules 2-3),
+Most single-anchor categories name one fact about the decision as a whole
+and take **at most one tag per document** — `dispositivo_abertura` and
+`resultado` because only the *operative* mention counts (Rules 2-3),
 `ref_processual` because its job is linking this text to exactly one case
 (a multi-valued link is useless). `fundamentacao_legal` and
 `valor_condenacao` are different: tag **every** distinct occurrence, not
@@ -69,10 +29,10 @@ just the first. See each row below for specifics.
 |---|---|---|
 | `dispositivo_abertura` | The formulaic opening of the operative part | "Ante o exposto" / "Pelo exposto" / "Posto isso" |
 | `resultado` | The operative verb phrase | "julgo procedente" / "nego provimento" / "extingo o feito" |
-| `ref_processual` | **[v7.2] This document's own docket only** — the case number (CNJ format) or "fls." folio reference identifying the decision being read, for record-linking. Not a generic internal system/attachment ID ("ID 66115008") even when it looks superficially similar; if in doubt whether a number is CNJ-format or a folio pointer, don't tag it. **Leave every *other* case's number untagged** — a prior conviction, a cited precedent's process number — even if it's genuinely CNJ-format; that's expected, not an omission, since this category exists to identify *this* document's case, not to catalog every case number it mentions | "1234567-89.0123.4.56.7890" / "fls. 42" |
-| `valor_condenacao` | Monetary amount in a condemnation — **[v7.2] tag every genuinely distinct amount.** A document with moral damages of R$5.000,00 *and* material damages of R$2.000,00 has two spans, not one; if the same figure is simply restated in a later clause, tag that occurrence too — repeats aren't an error here | "R$ 5.000,00" |
+| `ref_processual` | **This document's own docket only** — the case number (CNJ format) or "fls." folio reference identifying the decision being read, for record-linking. Not a generic internal system/attachment ID ("ID 66115008") even when it looks superficially similar; if in doubt whether a number is CNJ-format or a folio pointer, don't tag it. **Leave every *other* case's number untagged** — a prior conviction, a cited precedent's process number — even if it's genuinely CNJ-format; that's expected, not an omission, since this category exists to identify *this* document's case, not to catalog every case number it mentions | "1234567-89.0123.4.56.7890" / "fls. 42" |
+| `valor_condenacao` | Monetary amount in a condemnation — **tag every genuinely distinct amount.** A document with moral damages of R$5.000,00 *and* material damages of R$2.000,00 has two spans, not one; if the same figure is simply restated in a later clause, tag that occurrence too — repeats aren't an error here | "R$ 5.000,00" |
 | `ref_normativa` | Citation of statute, article, or precedent | "art. 927 do CPC" / "Súmula 331 do TST" |
-| `fundamentacao_legal` | Legal reasoning phrase citing authority — **[v7.2] tag every distinct citation**, not just the first. A decision citing art. 38 to waive the relatório and art. 55 for custas/honorários has two spans | "nos termos do art. 932 do CPC" |
+| `fundamentacao_legal` | Legal reasoning phrase citing authority — **tag every distinct citation**, not just the first. A decision citing art. 38 to waive the relatório and art. 55 for custas/honorários has two spans | "nos termos do art. 932 do CPC" |
 
 ### Start/end pairs (10 region types, 20 categories)
 
@@ -82,10 +42,10 @@ cue exists, the `_inicio` extends to EOD (reconstructed as unmatched).
 
 | Base | `_inicio` example | `_fim` example |
 |---|---|---|
-| `cabecalho` | **[v7.1] Whichever institutional phrase starts the header block first** — "TRIBUNAL DE JUSTIÇA..." and "PODER JUDICIÁRIO" both appear, in either order depending on source; tag the one that comes first in this document, not literally the string "PODER JUDICIÁRIO" | Last party/OAB before SENTENÇA |
+| `cabecalho` | Whichever institutional phrase starts the header block first — "TRIBUNAL DE JUSTIÇA..." and "PODER JUDICIÁRIO" both appear, in either order depending on source; tag the one that comes first in this document, not literally the string "PODER JUDICIÁRIO" | Last party/OAB before SENTENÇA |
 | `ementa` | "EMENTA:" | Last line before RELATÓRIO |
-| `relatorio` | The "Relatório"/"RELATÓRIO:" heading when one is present, even if immediately followed by a waiver clause ("dispensado na forma do art. 38..."); if genuinely no heading word appears, "Trata-se de" | "É o relatório." — **[v7.1] a waiver clause is not a closing cue.** "Relatório dispensado na forma do art. 38..." explains *why* there's no report, it doesn't close one — tag it as `fundamentacao_legal` (it cites a statute) if it qualifies, not `relatorio_fim`. Leave `relatorio_fim` unmatched (declared reason: "relatório dispensado, sem cue de fechamento") when no real closing phrase exists |
-| `capitulo_merito` | "DO MÉRITO:" / "DECIDO" / "Mérito:" — **[v7.1] many documents (short Juizados Especiais decisions especially) have no such heading at all.** That's expected, not an error — don't force a `capitulo_merito` tag onto plain reasoning prose. Zero instances of a category in a document is a valid outcome; `relatorio`'s implicit region simply extends to `dispositivo_abertura` instead | "DISPOSITIVO" / start of dispositivo |
+| `relatorio` | The "Relatório"/"RELATÓRIO:" heading when one is present, even if immediately followed by a waiver clause ("dispensado na forma do art. 38..."); if genuinely no heading word appears, "Trata-se de" | "É o relatório." A waiver clause is not a closing cue — "Relatório dispensado na forma do art. 38..." explains *why* there's no report, it doesn't close one — tag it as `fundamentacao_legal` (it cites a statute) if it qualifies, not `relatorio_fim`. Leave `relatorio_fim` unmatched (declared reason: "relatório dispensado, sem cue de fechamento") when no real closing phrase exists |
+| `capitulo_merito` | "DO MÉRITO:" / "DECIDO" / "Mérito:" — many documents (short Juizados Especiais decisions especially) have no such heading at all. That's expected, not an error — don't force a `capitulo_merito` tag onto plain reasoning prose. Zero instances of a category in a document is a valid outcome; `relatorio`'s implicit region simply extends to `dispositivo_abertura` instead | "DISPOSITIVO" / start of dispositivo |
 | `preliminar` | "DAS PRELIMINARES" / "PRELIMINAR" | End of preliminary analysis |
 | `honorarios` | "HONORÁRIOS:" / "Dos honorários" / "Sem honorários" | End of fee determination |
 | `custas` | "CUSTAS:" / "Das custas" / "Sem custas" | End of costs determination |
@@ -111,7 +71,7 @@ individual `voto` as the decision's operative opening. In a sentença
 4. **Trim whitespace** — span boundaries must not include leading or
    trailing spaces.
 5. **No overlapping spans** — OPF BIOES assigns one label per token.
-6. **[v7.1] Production technique: reproduce, don't compute offsets.**
+6. **Production technique: reproduce, don't compute offsets.**
    Reproduce the ENTIRE document text verbatim — character-for-character,
    no corrections, no normalization — inserting inline XML tags around
    each anchor span. Never report `start`/`end` as integers; they're
@@ -121,12 +81,13 @@ individual `voto` as the decision's operative opening. In a sentença
    trimmed, no overlap) — it's the same span, just placed inline instead
    of reported as offsets.
 
-   **[v7.3] Single-anchor categories** (the 6-category table) get one
-   flat tag named after the category: `<ref_processual>7059080-46.2021.8.22.0001</ref_processual>`.
+   **Single-anchor categories** (the 6-category table) get one flat tag
+   named after the category:
+   `<ref_processual>7059080-46.2021.8.22.0001</ref_processual>`.
 
-   **[v7.3] Start/end pairs nest, using XML's own open/close structure —
-   don't invent a separate tag name per role.** Wrap the whole region in
-   one element named after the category base, with generic `<inicio>` and
+   **Start/end pairs nest, using XML's own open/close structure — don't
+   invent a separate tag name per role.** Wrap the whole region in one
+   element named after the category base, with generic `<inicio>` and
    `<fim>` children (reused across every pair category — never
    `<cabecalho_inicio>`):
 
@@ -146,16 +107,11 @@ individual `voto` as the decision's operative opening. In a sentença
    with one child — `<relatorio><inicio>Relatório</inicio></relatorio>` —
    don't fabricate a closing tag and don't leave the wrapper off.
 
-   **Wrap the existing text in place — never retype or duplicate it.** A
-   second pilot on this same document caught a real failure: the model
-   typed the header phrase once plain, then typed it *again* inside a tag
-   right after, instead of wrapping the one occurrence it had already
-   produced. The output was valid XML but no longer a verbatim
-   reconstruction of the source — a silent corruption that only a
-   text-identity check against the original document catches. Such a
-   mismatch isn't an automatic rejection (RFC 0012 §9) but it does route
-   the record to independent review, so getting it right the first time
-   saves a review cycle. If you notice you already emitted a phrase
+   **Wrap the existing text in place — never retype or duplicate it.**
+   Typing a phrase once plain and then typing it *again* inside a tag,
+   instead of wrapping the occurrence you already produced, gives valid
+   XML that is no longer a verbatim reconstruction of the source — a
+   silent corruption. If you notice you already emitted a phrase
    untagged, go back and add the tag around it — don't emit it a second
    time.
 
