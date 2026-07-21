@@ -46,6 +46,10 @@ ignore = [
 # ── djen_backup __main__ ──────────────────────────────────────────────────
 # B008: typer.Option() in default args is the idiomatic Typer pattern.
 "src/djen_backup/__main__.py" = ["B008", "D101", "D102", "D107", "DTZ011", "E402", "FBT001", "FBT003", "PLC0415", "PLR2004"]
+# DTZ011: mirrors the `date.today()` default the CLI itself computes for
+# `--end-date` (same file's own ignore above) — the characterization test
+# (RFC 0013) needs the identical naive-local-time call to assert against it.
+"tests/djen_backup/test_cli_contract.py" = ["DTZ011"]
 
 # ── stj_acordaos ──────────────────────────────────────────────────────────
 # B008: typer.Option() in default args — idiomatic Typer pattern.
