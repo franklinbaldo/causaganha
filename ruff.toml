@@ -50,6 +50,7 @@ ignore = [
 # `--end-date` (same file's own ignore above) — the characterization test
 # (RFC 0013) needs the identical naive-local-time call to assert against it.
 "tests/djen_backup/test_cli_contract.py" = ["DTZ011"]
+"tests/cli_contract/test_semantic_argv_contract.py" = ["DTZ011"]
 
 # ── stj_acordaos ──────────────────────────────────────────────────────────
 # B008: typer.Option() in default args — idiomatic Typer pattern.

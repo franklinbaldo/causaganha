@@ -1,6 +1,6 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1 e Fase 2 implementadas
+- **Status:** Fase 1, Fase 2 e Fase 2.5 implementadas
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -55,9 +55,10 @@ fora desta migração.
 
 ## 2. Proposta
 
-Quatro fases sequenciais, cada uma um PR, na ordem abaixo. Trocar o framework
-por último significa fazer a parte de maior risco depois que todo o resto já
-estiver provado.
+Quatro fases sequenciais, cada uma um PR, na ordem abaixo — mais uma Fase
+2.5 inserida depois que a Fase 2 expôs uma lacuna concreta (ver abaixo).
+Trocar o framework por último significa fazer a parte de maior risco depois
+que todo o resto já estiver provado.
 
 ### Fase 1 — este PR: rede de segurança
 
@@ -80,7 +81,7 @@ vs. `list`, `Path` vs. `str` cru, a representação interna de
 `secondary_opts`), o que os torna frágeis a mudanças que não afetam nenhum
 cron.
 
-O portão durável — a construir na Fase 2, depois que a camada de serviço
+O portão durável — construído na Fase 2.5, depois que a camada de serviço
 existir — é framework-neutro: casos no formato `argv → configuração
 semântica esperada`, exercitando a CLI com a camada de serviço mockada e
 comparando a configuração entregue a ela. Typer e Cyclopts precisam então
@@ -118,14 +119,59 @@ tradução do resultado em echo/exit code:
   sem Typer/echo, `ia_key`/`ia_secret` removidos da opção `enrich` (idem
   `ia_credentials()`).
 
-**Não incluído nesta fase:** a bateria de testes framework-neutra (`argv →
-configuração semântica`, camada de serviço mockada) descrita na Fase 1 como
-o portão durável de Fase 4. Os testes de caracterização da Fase 1
-(introspecção Click) foram atualizados apenas onde o contrato de parâmetros
-mudou de propósito (remoção de `ia_key`/`ia_secret`) e continuam verdes para
-o resto — mas ainda são a única rede de segurança de argv hoje. Construir a
-bateria framework-neutra fica para o início da Fase 4, quando o formato dos
-casos pode ser desenhado já sabendo a API real do Cyclopts.
+**Não incluído nesta fase, endereçado na Fase 2.5 abaixo:** a bateria de
+testes framework-neutra (`argv → configuração semântica`, camada de serviço
+mockada) descrita na Fase 1 como o portão durável de Fase 4. Os testes de
+caracterização da Fase 1 (introspecção Click) foram atualizados apenas onde
+o contrato de parâmetros mudou de propósito (remoção de `ia_key`/
+`ia_secret`) e continuam verdes para o resto.
+
+### Fase 2.5 — gate semântico de argv (implementada)
+
+A review da Fase 2 apontou uma contradição no roteiro original: este RFC
+dizia que o portão durável seria "construído na Fase 2" (§ Fase 1, acima),
+mas a proposta inicial de Fase 4 lia "com os testes framework-neutros da
+Fase 2 como portão" sem que a Fase 2 em si os entregasse — a Fase 2 leva a
+camada de serviço, pré-requisito do portão, mas o portão nunca virou item
+explícito do seu escopo. Fazer esse gate na mesma PR que a troca para
+Cyclopts trocaria o termômetro e o paciente ao mesmo tempo: escrever os
+casos depois de já ver o comportamento do Cyclopts deixa fácil, mesmo sem
+intenção, moldar o `expected_config` de cada caso ao que a migração
+produziu, em vez de ao que o workflow em produção realmente precisa — um
+bug de parsing introduzido pela migração e o teste que deveria pegá-lo
+nascem do mesmo código-fonte errado e passam juntos. Por isso esta fase
+existe isolada, antes de qualquer MCP ou Cyclopts, com os casos derivados
+do argv real dos workflows (RFC, Fase 1) e da camada de serviço da Fase 2 —
+nunca do comportamento do Cyclopts, que ainda não existe.
+
+`tests/cli_contract/` contém a bateria: uma tabela compartilhada de
+`CliContractCase(app_path, argv, mocks, check, expected_exit_code)` por
+caso perigoso, mais um `run_case()` comum. Cada caso roda a CLI de verdade
+via `CliRunner.invoke` (parsing real, dispatch real), faz mock só da função
+de `service.py` que a rota alcança, e o `check()` inspeciona a configuração
+semântica recebida — nunca `get_command`, `make_context`, `opts`,
+`secondary_opts`, `param.type`, nem a diferença tupla/lista do Click. Uma
+migração para Cyclopts só precisa trocar `CliRunner.invoke` por um
+adaptador equivalente; todo caso e todo `check()` são reaproveitados
+verbatim.
+
+Cobre as 5 famílias de workflow do RFC mais os casos que a review de Fase 2
+marcou como perigosos:
+
+- `djen-backup` sem subcomando (`collect-zips.yml`), incluindo
+  `--no-fail-fast` — o caso mais frágil do RFC (§ Riscos).
+- `djen-backup drain` (`upload-backlog.yml`).
+- A assimetria do `--use-proxy`: negável no callback bare
+  (`--no-use-proxy` aceito), não-negável em `drain` (`--no-use-proxy`
+  rejeitado com exit code 2 — testado explicitamente, não só o caminho
+  feliz).
+- `--tipo` repetido em `tjro-juris crawl`, e o argv real do cron diário
+  (`--desde-ano 1988`).
+- Defaults de path do `stj-acordaos upload` (`--parquet-path` nunca
+  informado no workflow).
+- Ausência de credenciais nos parâmetros semânticos de `stj-acordaos` e
+  `datajud`: além de nunca aparecerem em `ctx.params` (Fase 1), `--ia-key`
+  não é mais uma opção reconhecida em nenhum dos dois (exit code 2).
 
 ### Fase 3 — tools MCP
 
@@ -137,11 +183,12 @@ tool.
 
 ### Fase 4 — Typer → Cyclopts
 
-Com os testes framework-neutros da Fase 2 como portão (não os desta Fase 1,
+Com os testes framework-neutros da Fase 2.5 como portão (não os da Fase 1,
 que são introspecção Click e não sobrevivem à troca de framework):
-re-executar contra a CLI migrada antes de mudar qualquer workflow. O
-callback bare de `djen-backup` precisa de um `default_command` explícito
-equivalente a `invoke_without_command=True`.
+re-executar `tests/cli_contract/` contra a CLI migrada, trocando só o
+adaptador de invocação (`CliRunner.invoke` → o equivalente Cyclopts), antes
+de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
+`default_command` explícito equivalente a `invoke_without_command=True`.
 
 ## 3. Critérios de aceitação
 
@@ -167,18 +214,36 @@ equivalente a `invoke_without_command=True`.
   `probe`/`reset`/`crawl`/`status`/`consolidate`/`download`/`facetas`
   mantêm nome, default e negação de flag idênticos ao que a Fase 1 travou.
 
+**Fase 2.5 (implementada):**
+- `tests/cli_contract/` com a tabela `CliContractCase` cobrindo as 5
+  famílias de workflow e os casos perigosos listados acima (`--no-fail-fast`,
+  assimetria `--use-proxy`, `--tipo` repetido, defaults de path do STJ,
+  ausência de credenciais).
+- Cada caso mocka só a função de `service.py` alcançada, nunca introspecciona
+  Click (`get_command`, `make_context`, `opts`, `secondary_opts`,
+  `param.type` não aparecem neste módulo).
+- RFC corrigido: a contradição entre "portão construído na Fase 2" (§ Fase 1)
+  e "Fase 4 usa os testes da Fase 2" (§ Fase 4, texto original) — a Fase 2
+  nunca teve o gate como item de escopo — está resolvida nomeando a fase que
+  efetivamente o entrega.
+- `pytest`, `ruff check`, `ruff format --check` verdes. Nenhuma mudança de
+  código de produção.
+
 ## 4. Riscos
 
 - **`--no-fail-fast`** é o caso mais frágil: se o Cyclopts gerar nome ou
   default diferente para o par negável, `collect-zips` passa a rodar com
   `fail_fast=True` e aborta no primeiro 403 do CloudFront — regressão
-  silenciosa, visível só na próxima execução (a cada 20 min).
+  silenciosa, visível só na próxima execução (a cada 20 min). É o primeiro
+  caso em `tests/cli_contract/` (Fase 2.5) precisamente por isso.
 - **`ruff select=["ALL"]`** e **`vulture --min-confidence 100`** sinalizaram
   código novo durante a extração da Fase 2 (complexidade, imports não
   utilizados, docstrings) — resolvido com refino local (ex.: `enrich` do
   `datajud` dividido em `_pending_cnjs`/`_upload_step` para ficar sob o
   limite de complexidade) em vez de whitelist ampla.
-- A bateria framework-neutra de argv (ver Fase 2 acima) ainda não existe —
-  até que exista, a Fase 4 depende só da introspecção Click da Fase 1 mais
-  os testes unitários de `service.py`, nenhum dos quais sobrevive à troca de
-  framework sem edição.
+- A bateria framework-neutra de argv (Fase 2.5) cobre os casos que a review
+  de Fase 2 identificou como perigosos, não necessariamente todo parâmetro
+  de toda subcommand — `check`/`upload`/`probe`/`reset`/`status`/
+  `consolidate`/`facetas` (não exercidos por nenhum workflow) ainda dependem
+  só da introspecção Click da Fase 1. Ampliar a cobertura é trabalho
+  incremental, não bloqueio para começar a Fase 3.
