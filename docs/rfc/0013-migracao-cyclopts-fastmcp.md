@@ -155,12 +155,17 @@ migração para Cyclopts só precisa trocar `CliRunner.invoke` por um
 adaptador equivalente; todo caso e todo `check()` são reaproveitados
 verbatim.
 
-Cobre as 5 famílias de workflow do RFC mais os casos que a review de Fase 2
-marcou como perigosos:
+Cobre todo passo literal dos 5 workflows do RFC — não só um comando
+representativo por família: `djen-backup` bare + `drain`; `tjro-juris
+crawl` + `upload` + `status`; `stj-acordaos download` + `upload` +
+`status`; `datajud enrich` + `status`. Reduzir cobertura em relação à Fase
+1 (que já caracterizava todos esses argv via introspecção Click) ao trocar
+de bateria não seria aceitável — uma migração Cyclopts poderia quebrar
+`tjro-juris upload`, por exemplo, com esta bateria inteira verde. Mais os
+casos que a review de Fase 2 marcou como perigosos:
 
-- `djen-backup` sem subcomando (`collect-zips.yml`), incluindo
-  `--no-fail-fast` — o caso mais frágil do RFC (§ Riscos).
-- `djen-backup drain` (`upload-backlog.yml`).
+- `--no-fail-fast` no callback bare do `djen-backup` — o caso mais frágil
+  do RFC (§ Riscos).
 - A assimetria do `--use-proxy`: negável no callback bare
   (`--no-use-proxy` aceito), não-negável em `drain` (`--no-use-proxy`
   rejeitado com exit code 2 — testado explicitamente, não só o caminho
@@ -169,9 +174,14 @@ marcou como perigosos:
   (`--desde-ano 1988`).
 - Defaults de path do `stj-acordaos upload` (`--parquet-path` nunca
   informado no workflow).
-- Ausência de credenciais nos parâmetros semânticos de `stj-acordaos` e
-  `datajud`: além de nunca aparecerem em `ctx.params` (Fase 1), `--ia-key`
-  não é mais uma opção reconhecida em nenhum dos dois (exit code 2).
+- Credenciais de `stj-acordaos` e `datajud`: `--ia-key`/`--ia-secret` não
+  são mais opção reconhecida em nenhum dos dois (exit code 2) — e, no
+  caminho feliz que reproduz o `env:` real de `stj-sync.yml`/
+  `datajud-enrich.yml`, chegam corretamente à camada de serviço a partir de
+  sentinelas em `IA_ACCESS_KEY`/`IA_SECRET_KEY`. A garantia não é
+  "credenciais vazias" (que uma migração poderia satisfazer por acidente
+  mesmo com a fiação ambiente→serviço quebrada) — é "fora do argv/schema,
+  vindas só do ambiente".
 
 ### Fase 3 — tools MCP
 
@@ -215,10 +225,11 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
   mantêm nome, default e negação de flag idênticos ao que a Fase 1 travou.
 
 **Fase 2.5 (implementada):**
-- `tests/cli_contract/` com a tabela `CliContractCase` cobrindo as 5
-  famílias de workflow e os casos perigosos listados acima (`--no-fail-fast`,
-  assimetria `--use-proxy`, `--tipo` repetido, defaults de path do STJ,
-  ausência de credenciais).
+- `tests/cli_contract/` com a tabela `CliContractCase` cobrindo todo passo
+  literal dos 5 workflows (não um comando por família) e os casos perigosos
+  listados acima (`--no-fail-fast`, assimetria `--use-proxy`, `--tipo`
+  repetido, defaults de path do STJ, credenciais vindas do ambiente real do
+  job, nunca do argv).
 - Cada caso mocka só a função de `service.py` alcançada, nunca introspecciona
   Click (`get_command`, `make_context`, `opts`, `secondary_opts`,
   `param.type` não aparecem neste módulo).
@@ -241,9 +252,14 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
   utilizados, docstrings) — resolvido com refino local (ex.: `enrich` do
   `datajud` dividido em `_pending_cnjs`/`_upload_step` para ficar sob o
   limite de complexidade) em vez de whitelist ampla.
-- A bateria framework-neutra de argv (Fase 2.5) cobre os casos que a review
-  de Fase 2 identificou como perigosos, não necessariamente todo parâmetro
-  de toda subcommand — `check`/`upload`/`probe`/`reset`/`status`/
-  `consolidate`/`facetas` (não exercidos por nenhum workflow) ainda dependem
-  só da introspecção Click da Fase 1. Ampliar a cobertura é trabalho
+- A bateria framework-neutra de argv (Fase 2.5) cobre todo passo literal
+  dos 5 workflows — incluindo `tjro-juris upload`/`status`, `stj-acordaos
+  download`/`status` e `datajud status`, que uma primeira versão da Fase 2.5
+  deixou de fora por engano (a review corrigiu: são passos de produção, não
+  hipotéticos, e já eram caracterizados pela Fase 1 — reduzir a cobertura ao
+  trocar de bateria não era aceitável). Não cobre todo parâmetro de toda
+  subcommand, só o que cada workflow de fato invoca: `djen-backup
+  check`/`probe`/`reset` (nenhum workflow os chama), `tjro-juris
+  consolidate` e `datajud facetas` (idem, confirmado no RFC §1) ainda
+  dependem só da introspecção Click da Fase 1. Ampliar isso é trabalho
   incremental, não bloqueio para começar a Fase 3.

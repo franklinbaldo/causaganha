@@ -12,16 +12,25 @@ Cyclopts port re-runs this exact file unchanged; it is production code
 (`src/*/__main__.py`) and Cyclopts-facing test scaffolding still to write
 that will need updating, not this file.
 
-Covers the five workflow families the RFC's Fase 1 registered as production
-contracts: djen-backup's bare callback (`collect-zips.yml`), `drain`
-(`upload-backlog.yml`), `tjro-juris crawl` (`tjro-sync.yml`), `stj-acordaos
-upload` (`stj-sync.yml`), `datajud enrich` (`datajud-enrich.yml`) — plus the
-specific cases the Fase 2 review flagged as dangerous: `--no-fail-fast`,
-the negatable-vs-non-negatable `--use-proxy` pair, `--tipo` repetition, STJ
-path defaults, and the complete absence of IA credentials from every
-package's semantic parameters (not just their unavailability in
-`ctx.params`, which Fase 1 already covered — here, they're never even
-accepted as flags).
+Covers every literal step of the five production workflows the RFC's Fase 1
+registered — not just one representative command per package, since a
+Cyclopts regression in any of them would ship undetected otherwise:
+
+- `collect-zips.yml` → djen-backup's bare callback.
+- `upload-backlog.yml` → `drain`.
+- `tjro-sync.yml` → `crawl`, `upload`, `status`.
+- `stj-sync.yml` → `download`, `upload`, `status`.
+- `datajud-enrich.yml` → `enrich` (both the daily-cron form and the
+  `workflow_dispatch skip_upload=true` variant), `status`.
+
+Plus the specific cases the Fase 2 review flagged as dangerous:
+`--no-fail-fast`, the negatable-vs-non-negatable `--use-proxy` pair,
+`--tipo` repetition, STJ path defaults, and IA credentials never being a
+CLI flag anywhere (`--ia-key`/`--ia-secret` are usage errors) while still
+correctly arriving at the service layer when the workflow's real
+job-level env injects them — not merely "absent", which a mechanical
+Cyclopts port could satisfy by accident even if the env→service wiring
+broke.
 """
 
 from __future__ import annotations
@@ -31,10 +40,12 @@ from datetime import date, timedelta
 import pytest
 
 from datajud.service import EnrichResult
+from datajud.service import ManifestStatus as DatajudManifestStatus
 from djen_backup.engine import SyncSummary
 from djen_backup.service import PipelineRunConfig
-from stj_acordaos.service import UploadResult
+from stj_acordaos.service import DownloadSummary, ManifestSummary, UploadResult
 from tests.cli_contract.harness import CliContractCase, MockSpec, run_case
+from tjro_juris.service import ManifestStatus as TjroManifestStatus
 
 
 # ── djen_backup ─────────────────────────────────────────────────────────
@@ -166,6 +177,18 @@ def _check_daily_backfill(calls) -> None:
     assert desde_ano == 1988  # tjro-sync.yml's cron default when no dispatch input is given
 
 
+def _check_tjro_upload_data_dir(calls) -> None:
+    (call,) = calls["main"]
+    (data_dir,) = call.args
+    assert str(data_dir) == "data/tjro-juris"
+
+
+def _check_tjro_status_data_dir(calls) -> None:
+    (call,) = calls["main"]
+    (data_dir,) = call.args
+    assert str(data_dir) == "data/tjro-juris"
+
+
 TJRO_JURIS_CASES = [
     CliContractCase(
         label="tjro_juris: --tipo is repeatable, arrives as a sequence in order",
@@ -181,6 +204,29 @@ TJRO_JURIS_CASES = [
         mocks={"main": MockSpec(path="tjro_juris.service.crawl_juris", return_value=None)},
         check=_check_daily_backfill,
     ),
+    CliContractCase(
+        label="tjro_juris: tjro-sync.yml upload data/tjro-juris",
+        app_path="tjro_juris.__main__",
+        argv=["upload", "data/tjro-juris"],
+        mocks={
+            "main": MockSpec(
+                path="tjro_juris.service.upload_pending", return_value=0, is_async=True
+            ),
+        },
+        check=_check_tjro_upload_data_dir,
+    ),
+    CliContractCase(
+        label="tjro_juris: tjro-sync.yml status data/tjro-juris",
+        app_path="tjro_juris.__main__",
+        argv=["status", "data/tjro-juris"],
+        mocks={
+            "main": MockSpec(
+                path="tjro_juris.service.manifest_status",
+                return_value=TjroManifestStatus(total=0, uploaded=0),
+            ),
+        },
+        check=_check_tjro_status_data_dir,
+    ),
 ]
 
 
@@ -195,6 +241,19 @@ def _check_stj_upload_path_defaults_and_env_credentials(calls) -> None:
     assert str(parquet_path) == "data/stj/stj-acordaos.parquet"  # default — not in argv at all
     assert ia_key == "sentinel-ia-key"  # from env only, never a CLI flag
     assert ia_secret == "sentinel-ia-secret"  # noqa: S105 — test fixture, not a real credential
+
+
+def _check_stj_download_data_dir_and_manifest_path(calls) -> None:
+    (call,) = calls["main"]
+    data_dir, manifest_path = call.args
+    assert str(data_dir) == "data/stj"
+    assert str(manifest_path) == "data/stj/stj-manifest.csv"
+
+
+def _check_stj_status_manifest_path(calls) -> None:
+    (call,) = calls["main"]
+    (manifest_path,) = call.args
+    assert str(manifest_path) == "data/stj/stj-manifest.csv"
 
 
 STJ_ACORDAOS_CASES = [
@@ -223,13 +282,43 @@ STJ_ACORDAOS_CASES = [
         argv=["upload", "--ia-key", "x"],
         expected_exit_code=2,
     ),
+    CliContractCase(
+        label="stj_acordaos: stj-sync.yml download --data-dir ... --manifest-path ...",
+        app_path="stj_acordaos.__main__",
+        argv=[
+            "download",
+            "--data-dir",
+            "data/stj",
+            "--manifest-path",
+            "data/stj/stj-manifest.csv",
+        ],
+        mocks={
+            "main": MockSpec(
+                path="stj_acordaos.service.download_all",
+                return_value=DownloadSummary(outcomes=[], manifest_entries=0),
+            ),
+        },
+        check=_check_stj_download_data_dir_and_manifest_path,
+    ),
+    CliContractCase(
+        label="stj_acordaos: stj-sync.yml status --manifest-path ...",
+        app_path="stj_acordaos.__main__",
+        argv=["status", "--manifest-path", "data/stj/stj-manifest.csv"],
+        mocks={
+            "main": MockSpec(
+                path="stj_acordaos.service.manifest_summary",
+                return_value=ManifestSummary(count=0, uploaded=0, rows=[]),
+            ),
+        },
+        check=_check_stj_status_manifest_path,
+    ),
 ]
 
 
 # ── datajud ─────────────────────────────────────────────────────────────
 
 
-def _check_datajud_enrich_defaults_and_absent_credentials(calls) -> None:
+def _check_datajud_enrich_defaults_and_env_credentials(calls) -> None:
     (call,) = calls["main"]
     tribunal, data_dir, sources_dir, cnj, cnj_file, limit, _max_age_days, _batch_size = call.args
     assert tribunal == "tjro"
@@ -239,31 +328,69 @@ def _check_datajud_enrich_defaults_and_absent_credentials(calls) -> None:
     assert str(data_dir) == "data/datajud"
     assert str(sources_dir) == "data"
     assert call.kwargs["skip_upload"] is False
-    # No IA_ACCESS_KEY/IA_SECRET_KEY set for this case — credentials are
-    # absent from argv entirely, and absent from the environment too, so
-    # the semantic value reaching the service is simply empty, not missing.
-    assert call.kwargs["ia_key"] == ""
-    assert call.kwargs["ia_secret"] == ""
+    # datajud-enrich.yml injects IA_ACCESS_KEY/IA_SECRET_KEY at job level —
+    # the guarantee that matters is "credentials come from the environment,
+    # never from argv/schema" (see the --ia-key-rejected case below), not
+    # "credentials are empty". Sentinels here prove the env→service passage
+    # itself, mirroring the stj_acordaos upload case above.
+    assert call.kwargs["ia_key"] == "sentinel-ia-key"
+    assert call.kwargs["ia_secret"] == "sentinel-ia-secret"  # noqa: S105 — test fixture
+
+
+def _check_datajud_enrich_skip_upload(calls) -> None:
+    (call,) = calls["main"]
+    assert call.kwargs["skip_upload"] is True
+
+
+def _check_datajud_status_data_dir(calls) -> None:
+    (call,) = calls["main"]
+    (data_dir,) = call.args
+    assert str(data_dir) == "data/datajud"
 
 
 DATAJUD_CASES = [
     CliContractCase(
-        label="datajud: datajud-enrich.yml daily cron defaults, no credentials in env",
+        label="datajud: datajud-enrich.yml daily cron defaults, credentials from env",
         app_path="datajud.__main__",
         argv=["enrich", "--tribunal", "tjro", "--limit", "500"],
+        env={"IA_ACCESS_KEY": "sentinel-ia-key", "IA_SECRET_KEY": "sentinel-ia-secret"},
         mocks={
             "main": MockSpec(
                 path="datajud.service.enrich",
                 return_value=EnrichResult(status="nothing_to_do"),
             ),
         },
-        check=_check_datajud_enrich_defaults_and_absent_credentials,
+        check=_check_datajud_enrich_defaults_and_env_credentials,
+    ),
+    CliContractCase(
+        label="datajud: datajud-enrich.yml workflow_dispatch skip_upload=true variant",
+        app_path="datajud.__main__",
+        argv=["enrich", "--tribunal", "tjro", "--limit", "500", "--skip-upload"],
+        mocks={
+            "main": MockSpec(
+                path="datajud.service.enrich",
+                return_value=EnrichResult(status="nothing_to_do"),
+            ),
+        },
+        check=_check_datajud_enrich_skip_upload,
     ),
     CliContractCase(
         label="datajud: --ia-key is not a CLI option anymore (usage error)",
         app_path="datajud.__main__",
         argv=["enrich", "--ia-key", "x"],
         expected_exit_code=2,
+    ),
+    CliContractCase(
+        label="datajud: datajud-enrich.yml status --data-dir data/datajud",
+        app_path="datajud.__main__",
+        argv=["status", "--data-dir", "data/datajud"],
+        mocks={
+            "main": MockSpec(
+                path="datajud.service.manifest_status",
+                return_value=DatajudManifestStatus(total=0, ok=0, com_docs=0),
+            ),
+        },
+        check=_check_datajud_status_data_dir,
     ),
 ]
 
