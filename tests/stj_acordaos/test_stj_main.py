@@ -1,4 +1,4 @@
-"""Tests for stj_acordaos.__main__ — CKAN resource classification, skip/fail-fast.
+"""Tests for stj_acordaos.service — CKAN resource classification, skip/fail-fast.
 
 Regression: the STJ dataset carries a non-JSON "dicionário de dados"
 resource (format=CSV) that used to be blindly downloaded as ``.json`` and
@@ -13,15 +13,12 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
-from stj_acordaos.__main__ import (
-    _already_uploaded,
-    _classify_resource,
-    _download_one,
-    _restore_manifest_best_effort,
-    app,
-)
+from stj_acordaos.__main__ import app
 from stj_acordaos.client import STJWAFBlockedError
 from stj_acordaos.manifest import ManifestSTJ
+from stj_acordaos.service import _already_uploaded, _classify_resource
+from stj_acordaos.service import download_one as _download_one
+from stj_acordaos.service import restore_manifest_best_effort as _restore_manifest_best_effort
 
 
 if TYPE_CHECKING:
@@ -116,7 +113,7 @@ def test_download_one_skips_already_uploaded_unchanged(
         msg = "download_resource must not be called for an unchanged, uploaded entry"
         raise AssertionError(msg)
 
-    monkeypatch.setattr("stj_acordaos.__main__.download_resource", _boom)
+    monkeypatch.setattr("stj_acordaos.client.download_resource", _boom)
     _download_one(_resource(), manifest, tmp_path, tmp_path)
     # entry untouched — still the pre-existing uploaded state
     assert manifest.get("acordaos-2024.zip").n_registros == 5
@@ -129,9 +126,9 @@ def test_download_one_re_downloads_when_last_modified_changed(
     manifest.upsert("acordaos-2024.zip", "zip", "2024-01-31", "uploaded", 5)
     calls: list[str] = []
     monkeypatch.setattr(
-        "stj_acordaos.__main__.download_resource", lambda url, _dest: calls.append(url)
+        "stj_acordaos.client.download_resource", lambda url, _dest: calls.append(url)
     )
-    monkeypatch.setattr("stj_acordaos.__main__.extract_zip", lambda *_a, **_k: [])
+    monkeypatch.setattr("stj_acordaos.client.extract_zip", lambda *_a, **_k: [])
 
     _download_one(_resource(last_modified="2024-02-15"), manifest, tmp_path, tmp_path)
 
@@ -154,7 +151,7 @@ def test_download_one_stj_waf_blocked_error_propagates_fail_fast(
         msg = "blocked"
         raise STJWAFBlockedError(msg, request=request, response=response)
 
-    monkeypatch.setattr("stj_acordaos.__main__.download_resource", _blocked)
+    monkeypatch.setattr("stj_acordaos.client.download_resource", _blocked)
     with pytest.raises(STJWAFBlockedError):
         _download_one(_resource(), manifest, tmp_path, tmp_path)
 
@@ -172,7 +169,7 @@ def test_restore_manifest_skips_when_local_copy_exists(
         msg = "fetch_manifest must not be called when a local manifest already exists"
         raise AssertionError(msg)
 
-    monkeypatch.setattr("stj_acordaos.__main__.fetch_manifest", _boom)
+    monkeypatch.setattr("stj_acordaos.archive.fetch_manifest", _boom)
     _restore_manifest_best_effort(manifest_path)  # must not raise
 
 
@@ -193,7 +190,7 @@ def test_restore_manifest_survives_transient_ia_error(
         msg = "503"
         raise httpx.HTTPStatusError(msg, request=request, response=response)
 
-    monkeypatch.setattr("stj_acordaos.__main__.fetch_manifest", _flaky)
+    monkeypatch.setattr("stj_acordaos.archive.fetch_manifest", _flaky)
 
     _restore_manifest_best_effort(manifest_path)  # must not raise
     assert not manifest_path.exists()
@@ -229,6 +226,8 @@ def test_upload_with_everything_already_uploaded_is_a_clean_noop(
         raise AssertionError(msg)
 
     monkeypatch.setattr("stj_acordaos.archive.upload_parquet", _boom)
+    monkeypatch.setenv("IA_ACCESS_KEY", "k")
+    monkeypatch.setenv("IA_SECRET_KEY", "s")
 
     result = runner.invoke(
         app,
@@ -240,10 +239,6 @@ def test_upload_with_everything_already_uploaded_is_a_clean_noop(
             str(data_dir / "stj-acordaos.parquet"),
             "--manifest-path",
             str(manifest_path),
-            "--ia-key",
-            "k",
-            "--ia-secret",
-            "s",
         ],
     )
 
@@ -271,6 +266,8 @@ def test_upload_with_pending_entries_but_no_local_data_is_an_error(
             AssertionError("must not upload with nothing to send")
         ),
     )
+    monkeypatch.setenv("IA_ACCESS_KEY", "k")
+    monkeypatch.setenv("IA_SECRET_KEY", "s")
 
     result = runner.invoke(
         app,
@@ -282,10 +279,6 @@ def test_upload_with_pending_entries_but_no_local_data_is_an_error(
             str(data_dir / "stj-acordaos.parquet"),
             "--manifest-path",
             str(manifest_path),
-            "--ia-key",
-            "k",
-            "--ia-secret",
-            "s",
         ],
     )
 

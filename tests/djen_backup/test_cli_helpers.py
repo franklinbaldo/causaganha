@@ -2,13 +2,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from djen_backup.__main__ import (
-    DJEN_DIRECT_URL,
-    DJEN_PROXY_FALLBACK_URL,
-    _env_truthy,
-    _load_local_env,
-    _resolve_djen_url,
-)
+from djen_backup.__main__ import _env_truthy, _load_local_env
+from djen_backup.service import DJEN_DIRECT_URL, DJEN_PROXY_FALLBACK_URL, resolve_djen_url
 
 
 if TYPE_CHECKING:
@@ -36,13 +31,13 @@ def test_resolve_djen_url_defaults_to_direct(monkeypatch) -> None:
     monkeypatch.delenv("DJEN_DIRECT_URL", raising=False)
     monkeypatch.delenv("DJEN_PROXY_URL", raising=False)
 
-    assert _resolve_djen_url(use_proxy=False) == DJEN_DIRECT_URL
+    assert resolve_djen_url(use_proxy=False) == DJEN_DIRECT_URL
 
 
 def test_resolve_djen_url_uses_proxy_when_requested(monkeypatch) -> None:
     monkeypatch.delenv("DJEN_PROXY_URL", raising=False)
 
-    assert _resolve_djen_url(use_proxy=True) == DJEN_PROXY_FALLBACK_URL
+    assert resolve_djen_url(use_proxy=True) == DJEN_PROXY_FALLBACK_URL
 
 
 def test_env_truthy_recognizes_proxy_flag(monkeypatch) -> None:

@@ -154,10 +154,10 @@ def test_enrich_cnj_file_and_limit(tmp_path: Path):
 
 
 def test_enrich_no_cnjs_and_no_sources_fails_nominally(tmp_path: Path, monkeypatch):
-    import datajud.__main__ as cli
+    from datajud import service
 
     # IA fallback download is a urllib call — stub it out (zero real network)
-    monkeypatch.setattr(cli, "_try_download_unificados", lambda _dir: None)
+    monkeypatch.setattr(service, "_try_download_unificados", lambda _dir: None)
     result = runner.invoke(
         app,
         [
@@ -239,11 +239,11 @@ def test_enrich_reads_cnjs_from_tjro_juris_source_parquet(tmp_path: Path):
 
 
 def test_enrich_rate_limit_exhaustion_is_a_nominal_error(tmp_path: Path, monkeypatch):
-    import datajud.__main__ as cli
+    from datajud import service
 
-    original = cli.DataJudClient
+    original = service.DataJudClient
     monkeypatch.setattr(
-        cli,
+        service,
         "DataJudClient",
         lambda **kw: original(**{**kw, "backoff_base": 0.0, "max_retries": 1}),
     )
