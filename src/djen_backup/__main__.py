@@ -27,11 +27,9 @@ from rich.table import Table
 
 from djen_backup import service
 from djen_backup.drain import PARQUET_URL
-from djen_backup.drain import drain as _drain
 from djen_backup.engine import SyncSummary, load_djen_safe_concurrency
-from djen_backup.manifest import ManifestCounts, SyncManifest
+from djen_backup.manifest import ManifestCounts
 from djen_backup.probe import PARQUET_URL as _PROBE_PARQUET_URL
-from djen_backup.probe import probe as _probe
 from djen_backup.service import MissingCredentialsError, PipelineRunConfig
 
 
@@ -353,7 +351,6 @@ def main(
     raise typer.Exit(
         code=_run_pipeline(
             PipelineRunConfig(
-                start_date=date(2020, 1, 1),
                 end_date=_parse_date(end_date),
                 lower_bound=_parse_date(start_date),
                 tribunal=tribunal,
@@ -385,7 +382,6 @@ def check(
     raise typer.Exit(
         code=_run_pipeline(
             PipelineRunConfig(
-                start_date=date(2020, 1, 1),
                 end_date=_parse_date(end_date),
                 lower_bound=_parse_date(start_date),
                 tribunal=tribunal,
@@ -416,7 +412,6 @@ def upload(
     raise typer.Exit(
         code=_run_pipeline(
             PipelineRunConfig(
-                start_date=date(2020, 1, 1),
                 end_date=datetime.now(UTC).date(),
                 lower_bound=None,
                 tribunal=tribunal,
@@ -469,11 +464,11 @@ def drain(
     )
 
     uploads = asyncio.run(
-        _drain(
+        service.run_drain(
             workers=workers,
             batch_size=batch_size,
-            deadline_seconds=deadline_minutes * 60,
-            djen_proxy_url=djen_url,
+            deadline_minutes=deadline_minutes,
+            djen_url=djen_url,
             ia_auth=auth,
         )
     )
@@ -523,11 +518,11 @@ def probe(
     )
 
     confirmed, absent = asyncio.run(
-        _probe(
+        service.run_probe(
             workers=workers,
             batch_size=batch_size,
-            deadline_seconds=deadline_minutes * 60,
-            djen_proxy_url=djen_url,
+            deadline_minutes=deadline_minutes,
+            djen_url=djen_url,
             ia_auth=auth,
         )
     )
@@ -554,25 +549,14 @@ def reset(
         console.print("[bold red]Error:[/bold red] provide --tribunal CODE or --all")
         raise typer.Exit(code=1)
 
-    manifest = SyncManifest()
-    manifest.load_from_disk(manifest_file)
-
-    if not manifest:
+    try:
+        result = service.reset_manifest(manifest_file, tribunal=tribunal, reset_all=reset_all)
+    except service.ManifestNotFoundError:
         console.print("[bold red]Error:[/bold red] manifest file not found or empty.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
-    # Reset entries by rebuilding without the targeted entries
-    count = 0
-    for _k, entry in list(manifest._entries.items()):  # noqa: SLF001
-        if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
-            entry.ia_status = ""
-            entry.djen_status = ""
-            entry.updated_at = ""
-            count += 1
-
-    if count > 0:
-        manifest.save_to_disk(manifest_file)
-        console.print(f"[green]Reset {count} entries.[/green]")
+    if result.count > 0:
+        console.print(f"[green]Reset {result.count} entries.[/green]")
     else:
         console.print("[yellow]Nothing to reset.[/yellow]")
 

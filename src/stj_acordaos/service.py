@@ -164,6 +164,43 @@ def restore_manifest_best_effort(manifest_path: Path) -> None:
 
 
 @dataclass
+class DownloadSummary:
+    """Result of ``download_all``."""
+
+    outcomes: list[DownloadOutcome]
+    manifest_entries: int
+
+
+def download_all(data_dir: Path, manifest_path: Path) -> DownloadSummary | None:
+    """Discover resources, download ZIPs + JSONs, and extract safely.
+
+    Restores the manifest from IA first when no local copy exists, so
+    resources already uploaded to IA with an unchanged ``last_modified`` are
+    skipped — keeps scheduled runs on blank runners incremental. Returns
+    None when CKAN reports no resources at all.
+
+    Propagates ``STJWAFBlockedError`` from ``download_one`` unchanged
+    (fail-fast: once the WAF has blocked this runner, every further request
+    will fail too).
+    """
+    restore_manifest_best_effort(manifest_path)
+    manifest = ManifestSTJ(manifest_path)
+    manifest.load()
+
+    resources = stj_client.get_resource_list()
+    if not resources:
+        return None
+
+    zip_dir = data_dir / "zips"
+    extract_dir = data_dir / "extracted"
+    zip_dir.mkdir(parents=True, exist_ok=True)
+    extract_dir.mkdir(parents=True, exist_ok=True)
+
+    outcomes = [download_one(resource, manifest, zip_dir, extract_dir) for resource in resources]
+    return DownloadSummary(outcomes=outcomes, manifest_entries=len(manifest))
+
+
+@dataclass
 class UploadResult:
     """Result of ``upload_all``."""
 
@@ -209,9 +246,11 @@ def upload_all(
     # entry's data_extracao/n_registros stamped by `download` — the download
     # skip compares data_extracao against CKAN's last_modified.
     all_sources = sorted(zip_dir.glob("*") if zip_dir.exists() else [])
+    sources_ok = True
     for src in all_sources:
         log.info("stj_uploading_source", file=src.name)
         ok = stj_archive.upload_parquet(src, ia_key, ia_secret)
+        sources_ok = sources_ok and ok
         tipo_src = "zip" if src.suffix == ".zip" else "json"
         existing = manifest.get(src.name)
         manifest.upsert(
@@ -224,13 +263,13 @@ def upload_all(
 
     # Upload consolidated parquet
     log.info("stj_uploading_parquet", file=parquet_path.name)
-    ok = stj_archive.upload_parquet(parquet_path, ia_key, ia_secret)
+    parquet_ok = stj_archive.upload_parquet(parquet_path, ia_key, ia_secret)
 
     manifest.upsert(
         arquivo=parquet_path.name,
         tipo="parquet",
         data_extracao="",
-        ia_status="uploaded" if ok else "",
+        ia_status="uploaded" if parquet_ok else "",
         n_registros=0,
     )
     manifest.save()
@@ -242,7 +281,10 @@ def upload_all(
         # Non-fatal: parquets are already on IA; the next run just re-uploads.
         log.warning("stj_manifest_upload_failed")
 
-    return UploadResult(status="done", ok=ok, dedup_count=dedup_count)
+    # ok must reflect every required artifact (sources + parquet) — a
+    # failed source upload must not be masked by a successful parquet
+    # upload (manifest upload is non-fatal by design, excluded here).
+    return UploadResult(status="done", ok=sources_ok and parquet_ok, dedup_count=dedup_count)
 
 
 @dataclass

@@ -13,6 +13,7 @@ import httpx
 import pytest
 from typer.testing import CliRunner
 
+from stj_acordaos import service
 from stj_acordaos.__main__ import app
 from stj_acordaos.client import STJWAFBlockedError
 from stj_acordaos.manifest import ManifestSTJ
@@ -194,6 +195,38 @@ def test_restore_manifest_survives_transient_ia_error(
 
     _restore_manifest_best_effort(manifest_path)  # must not raise
     assert not manifest_path.exists()
+
+
+# ── upload_all: ok must reflect every required artifact ──────────────────
+
+
+def test_upload_all_ok_is_false_when_a_source_fails_even_if_parquet_succeeds(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Regression: a failed source upload must not be masked by a later, successful one.
+
+    `ok` used to be reassigned by each source's upload and then overwritten
+    by the parquet upload's own `ok` — so a failed ZIP/JSON upload silently
+    disappeared as long as the parquet itself made it to IA.
+    """
+    data_dir = tmp_path / "data"
+    zip_dir = data_dir / "zips"
+    zip_dir.mkdir(parents=True)
+    (zip_dir / "a.zip").write_bytes(b"fake")
+
+    parquet_path = data_dir / "stj-acordaos.parquet"
+    parquet_path.write_bytes(b"fake-parquet")  # pre-existing — dedup step is skipped
+    manifest_path = data_dir / "stj-manifest.csv"
+
+    def _fake_upload(path: Path, _ia_key: str, _ia_secret: str) -> bool:
+        return path.name != "a.zip"  # the source fails; parquet + manifest succeed
+
+    monkeypatch.setattr("stj_acordaos.archive.upload_parquet", _fake_upload)
+
+    result = service.upload_all(data_dir, parquet_path, manifest_path, "k", "s")
+
+    assert result.status == "done"
+    assert result.ok is False
 
 
 # ── upload: nothing-new-to-do must not be an error ───────────────────────

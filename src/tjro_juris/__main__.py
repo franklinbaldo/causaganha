@@ -21,8 +21,10 @@ When no local manifest exists, ``crawl``/``upload`` first try to restore it
 from the public IA item (``tjro-juris``); ``upload`` pushes it back so
 scheduled runs on blank runners stay incremental.
 
-In CI, ``.github/workflows/tjro-sync.yml`` runs the same commands hourly
-(scheduled runs crawl only the current month) plus ``workflow_dispatch``.
+In CI, ``.github/workflows/tjro-sync.yml`` runs the same commands daily
+(scheduled runs continue the historical backfill via ``--desde-ano 1988``,
+not just the current month) plus ``workflow_dispatch`` for ad-hoc
+``--ano``/``--mes``/``--desde-ano`` runs.
 
 Business logic lives in ``tjro_juris.service`` (RFC 0013 Fase 2); this
 module only parses argv and echoes results.

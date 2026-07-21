@@ -35,8 +35,6 @@ from pathlib import Path
 import typer
 
 from stj_acordaos import service
-from stj_acordaos.client import get_resource_list
-from stj_acordaos.manifest import ManifestSTJ
 
 
 app = typer.Typer(
@@ -77,25 +75,15 @@ def download(
     (per the manifest, restored from IA when no local copy exists) are
     skipped, keeping scheduled runs on blank runners incremental.
     """
-    service.restore_manifest_best_effort(manifest_path)
-    manifest = ManifestSTJ(manifest_path)
-    manifest.load()
-
-    resources = get_resource_list()
-    if not resources:
+    summary = service.download_all(data_dir, manifest_path)
+    if summary is None:
         typer.echo("No resources found.", err=True)
         raise typer.Exit(1)
 
-    zip_dir = data_dir / "zips"
-    extract_dir = data_dir / "extracted"
-    zip_dir.mkdir(parents=True, exist_ok=True)
-    extract_dir.mkdir(parents=True, exist_ok=True)
-
-    for resource in resources:
-        outcome = service.download_one(resource, manifest, zip_dir, extract_dir)
+    for outcome in summary.outcomes:
         _echo_download_outcome(outcome)
 
-    typer.echo(f"\nManifest saved to {manifest_path} ({len(manifest)} entries).")
+    typer.echo(f"\nManifest saved to {manifest_path} ({summary.manifest_entries} entries).")
 
 
 @app.command()

@@ -14,7 +14,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from djen_backup.credentials import get_ia_s3_auth
+from djen_backup.drain import drain as _run_drain
 from djen_backup.engine import ManifestObserver, SyncConfig, SyncSummary, run_sync
+from djen_backup.manifest import SyncManifest
+from djen_backup.probe import probe as _run_probe
 
 
 if TYPE_CHECKING:
@@ -33,7 +36,6 @@ class MissingCredentialsError(RuntimeError):
 class PipelineRunConfig:
     """Config for a single ``run_pipeline`` invocation."""
 
-    start_date: date
     end_date: date
     lower_bound: date | None
     tribunal: str | None
@@ -91,3 +93,75 @@ async def run_pipeline(
         observer=observer,
     )
     return await run_sync(sync_config)
+
+
+async def run_drain(
+    *,
+    workers: int,
+    batch_size: int,
+    deadline_minutes: int,
+    djen_url: str,
+    ia_auth: str,
+) -> int:
+    """Run the batched upload-only drain. Returns the number of uploads completed."""
+    return await _run_drain(
+        workers=workers,
+        batch_size=batch_size,
+        deadline_seconds=deadline_minutes * 60,
+        djen_proxy_url=djen_url,
+        ia_auth=ia_auth,
+    )
+
+
+async def run_probe(
+    *,
+    workers: int,
+    batch_size: int,
+    deadline_minutes: int,
+    djen_url: str,
+    ia_auth: str,
+) -> tuple[int, int]:
+    """Run the probe-only DJEN availability check. Returns ``(confirmed, absent)``."""
+    return await _run_probe(
+        workers=workers,
+        batch_size=batch_size,
+        deadline_seconds=deadline_minutes * 60,
+        djen_proxy_url=djen_url,
+        ia_auth=ia_auth,
+    )
+
+
+class ManifestNotFoundError(RuntimeError):
+    """The manifest file doesn't exist or is empty."""
+
+
+@dataclass
+class ResetResult:
+    """Result of ``reset_manifest``."""
+
+    count: int
+
+
+def reset_manifest(manifest_file: Path, *, tribunal: str | None, reset_all: bool) -> ResetResult:
+    """Clear ``ia_status``/``djen_status`` for entries matching *tribunal* (or all).
+
+    Raises ``ManifestNotFoundError`` when *manifest_file* doesn't exist or is empty.
+    """
+    manifest = SyncManifest()
+    manifest.load_from_disk(manifest_file)
+
+    if not manifest:
+        raise ManifestNotFoundError
+
+    count = 0
+    for _k, entry in list(manifest._entries.items()):  # noqa: SLF001
+        if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
+            entry.ia_status = ""
+            entry.djen_status = ""
+            entry.updated_at = ""
+            count += 1
+
+    if count > 0:
+        manifest.save_to_disk(manifest_file)
+
+    return ResetResult(count=count)

@@ -19,8 +19,8 @@ Aggregate the acervo without downloading documents / show manifest state::
     uv run datajud status
 
 In CI, ``.github/workflows/datajud-enrich.yml`` runs the same commands with
-secrets injected. It is ``workflow_dispatch`` only (no cron) — trigger it
-manually from the Actions tab.
+secrets injected, daily (``--tribunal tjro --limit 500``) plus
+``workflow_dispatch`` for ad-hoc runs with different inputs.
 
 Business logic lives in ``datajud.service`` (RFC 0013 Fase 2); this module
 only parses argv and echoes results. ``IA_ACCESS_KEY``/``IA_SECRET_KEY`` are
