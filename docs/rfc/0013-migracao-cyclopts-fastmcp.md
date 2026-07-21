@@ -70,10 +70,22 @@ Testes de caracterização por pacote, sem tocar em código de produção:
    `Command.make_context` (só parsing — nunca invoca o callback, sem rede,
    sem I/O), com o `ctx.params` resultante comparado ao valor esperado hoje.
 
-Esses testes não prevêem a API do Cyclopts; travam o comportamento atual do
-Typer para que, na Fase 4, a mesma bateria sirva de portão de aceitação —
-qualquer divergência de nome, default ou negação de flag quebra o teste antes
-de chegar a produção.
+Esses testes travam o comportamento atual do Typer, mas fazem isso via
+introspecção de `Command`/`Parameter` do Click (`opts`, `secondary_opts`,
+`param.type`, `Command.make_context`) — infraestrutura que desaparece com o
+Cyclopts. Não sobrevivem verbatim à Fase 4: são caracterização transitória
+do Typer, não o portão de aceitação durável da migração. Congelam também
+detalhes de implementação do Click sem relevância para os workflows (`tuple`
+vs. `list`, `Path` vs. `str` cru, a representação interna de
+`secondary_opts`), o que os torna frágeis a mudanças que não afetam nenhum
+cron.
+
+O portão durável — a construir na Fase 2, depois que a camada de serviço
+existir — é framework-neutro: casos no formato `argv → configuração
+semântica esperada`, exercitando a CLI com a camada de serviço mockada e
+comparando a configuração entregue a ela. Typer e Cyclopts precisam então
+apenas de um adaptador fino para rodar os mesmos casos; a Fase 4 reexecuta
+essa bateria (não a desta Fase 1) contra a CLI já migrada.
 
 ### Fase 2 — camada de serviço
 
@@ -92,9 +104,11 @@ tool.
 
 ### Fase 4 — Typer → Cyclopts
 
-Com os testes da Fase 1 como portão: re-executar contra a CLI migrada antes
-de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
-`default_command` explícito equivalente a `invoke_without_command=True`.
+Com os testes framework-neutros da Fase 2 como portão (não os desta Fase 1,
+que são introspecção Click e não sobrevivem à troca de framework):
+re-executar contra a CLI migrada antes de mudar qualquer workflow. O
+callback bare de `djen-backup` precisa de um `default_command` explícito
+equivalente a `invoke_without_command=True`.
 
 ## 3. Critérios de aceitação (desta Fase 1)
 

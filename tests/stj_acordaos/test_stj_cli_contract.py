@@ -38,7 +38,7 @@ def test_stj_sync_argv_download() -> None:
     }
 
 
-def test_stj_sync_argv_upload() -> None:
+def test_stj_sync_argv_upload(monkeypatch) -> None:
     """Reproduz `stj-sync.yml`: `stj-acordaos upload --data-dir ... --manifest-path ...`.
 
     O workflow não passa `--parquet-path`/`--ia-key`/`--ia-secret` no argv —
@@ -46,7 +46,18 @@ def test_stj_sync_argv_upload() -> None:
     (não do `--data-dir` informado: são opções independentes, não há
     recomputação), e as credenciais vêm só de env (`IA_ACCESS_KEY`/
     `IA_SECRET_KEY`, injetadas pelo workflow via `env:` do step).
+
+    `ia_key`/`ia_secret` usam `envvar=...`, e `Command.make_context` lê essas
+    variáveis do processo de verdade — `monkeypatch.setenv` com valores
+    sentinela reproduz a injeção do workflow e confirma que elas chegam a
+    `ctx.params`, em vez de assumir que ficam vazias (isso só valia por
+    acidente, porque o job de CI não tinha essas variáveis no ambiente; numa
+    máquina com `IA_ACCESS_KEY`/`IA_SECRET_KEY` exportadas, o teste antigo
+    quebrava).
     """
+    monkeypatch.setenv("IA_ACCESS_KEY", "sentinel-ia-key")
+    monkeypatch.setenv("IA_SECRET_KEY", "sentinel-ia-secret")
+
     upload = _CMD.commands["upload"]
     argv = [
         "--data-dir",
@@ -58,8 +69,8 @@ def test_stj_sync_argv_upload() -> None:
 
     assert ctx.params["data_dir"] == "data/stj"
     assert ctx.params["manifest_path"] == "data/stj/stj-manifest.csv"
-    assert ctx.params["ia_key"] == ""
-    assert ctx.params["ia_secret"] == ""
+    assert ctx.params["ia_key"] == "sentinel-ia-key"
+    assert ctx.params["ia_secret"] == "sentinel-ia-secret"  # noqa: S105 — test fixture, not a real credential
 
 
 def test_stj_sync_argv_status() -> None:
