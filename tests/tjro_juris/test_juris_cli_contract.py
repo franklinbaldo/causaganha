@@ -24,8 +24,11 @@ def test_subcommands_presentes() -> None:
 
 
 def test_tjro_sync_argv_crawl_incremental() -> None:
-    """Reproduz `tjro-sync.yml` no modo incremental (`--mes` informado, sem
-    `--ano`/`--desde-ano` — o caso comum de cron, execução diária).
+    """Reproduz `tjro-sync.yml` no modo `--mes` — variante de execução manual via
+    `workflow_dispatch` (`tjro_mes`), não o caso comum de cron. O cron diário
+    roda sem inputs e força `--desde-ano 1988` (ver
+    `test_tjro_sync_argv_crawl_backfill_historico`), continuando o backfill
+    histórico em vez de crawlear só o mês corrente.
     """
     crawl = _CMD.commands["crawl"]
     argv = ["data/tjro-juris", "--mes", "2026-07"]
