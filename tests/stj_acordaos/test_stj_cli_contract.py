@@ -38,26 +38,18 @@ def test_stj_sync_argv_download() -> None:
     }
 
 
-def test_stj_sync_argv_upload(monkeypatch) -> None:
+def test_stj_sync_argv_upload() -> None:
     """Reproduz `stj-sync.yml`: `stj-acordaos upload --data-dir ... --manifest-path ...`.
 
-    O workflow não passa `--parquet-path`/`--ia-key`/`--ia-secret` no argv —
-    `parquet_path` fica no default computado a partir de `data_dir` default
-    (não do `--data-dir` informado: são opções independentes, não há
-    recomputação), e as credenciais vêm só de env (`IA_ACCESS_KEY`/
-    `IA_SECRET_KEY`, injetadas pelo workflow via `env:` do step).
-
-    `ia_key`/`ia_secret` usam `envvar=...`, e `Command.make_context` lê essas
-    variáveis do processo de verdade — `monkeypatch.setenv` com valores
-    sentinela reproduz a injeção do workflow e confirma que elas chegam a
-    `ctx.params`, em vez de assumir que ficam vazias (isso só valia por
-    acidente, porque o job de CI não tinha essas variáveis no ambiente; numa
-    máquina com `IA_ACCESS_KEY`/`IA_SECRET_KEY` exportadas, o teste antigo
-    quebrava).
+    O workflow não passa `--parquet-path` no argv — `parquet_path` fica no
+    default computado a partir de `data_dir` default (não do `--data-dir`
+    informado: são opções independentes, não há recomputação). Desde a Fase
+    2 do RFC 0013, `ia_key`/`ia_secret` não são mais parâmetros de CLI (ver
+    `test_upload_nao_tem_mais_credenciais_ia_como_opcao_de_cli`) — as
+    credenciais vêm só de `IA_ACCESS_KEY`/`IA_SECRET_KEY` no ambiente,
+    lidas dentro de `stj_acordaos.service.ia_credentials()`, injetadas pelo
+    workflow via `env:` do step.
     """
-    monkeypatch.setenv("IA_ACCESS_KEY", "sentinel-ia-key")
-    monkeypatch.setenv("IA_SECRET_KEY", "sentinel-ia-secret")
-
     upload = _CMD.commands["upload"]
     argv = [
         "--data-dir",
@@ -67,10 +59,11 @@ def test_stj_sync_argv_upload(monkeypatch) -> None:
     ]
     ctx = upload.make_context("upload", list(argv))
 
-    assert ctx.params["data_dir"] == "data/stj"
-    assert ctx.params["manifest_path"] == "data/stj/stj-manifest.csv"
-    assert ctx.params["ia_key"] == "sentinel-ia-key"
-    assert ctx.params["ia_secret"] == "sentinel-ia-secret"  # noqa: S105 — test fixture, not a real credential
+    assert ctx.params == {
+        "data_dir": "data/stj",
+        "manifest_path": "data/stj/stj-manifest.csv",
+        "parquet_path": Path("data/stj/stj-acordaos.parquet"),
+    }
 
 
 def test_stj_sync_argv_status() -> None:
@@ -81,16 +74,19 @@ def test_stj_sync_argv_status() -> None:
     assert ctx.params == {"manifest_path": "data/stj/stj-manifest.csv"}
 
 
-def test_upload_credenciais_ia_sao_opcao_de_cli_com_envvar() -> None:
-    """`ia_key`/`ia_secret` são `typer.Option(envvar=...)` — a credencial do
-    Internet Archive é literalmente um parâmetro de CLI. Isso é o que a Fase
-    2 do RFC 0013 precisa eliminar antes de qualquer coisa virar tool MCP:
-    um schema de tool não pode ter campo de credencial.
+def test_upload_nao_tem_mais_credenciais_ia_como_opcao_de_cli() -> None:
+    """Fase 2 do RFC 0013: `ia_key`/`ia_secret` deixaram de ser opção de CLI.
+
+    Antes eram `typer.Option(envvar=...)` — a credencial do Internet Archive
+    era literalmente um parâmetro de CLI, o que teria virado campo de schema
+    numa tool MCP. Agora `upload` só lê `IA_ACCESS_KEY`/`IA_SECRET_KEY` do
+    ambiente via `stj_acordaos.service.ia_credentials()` — nada aparece em
+    `--help` nem em `ctx.params`.
     """
     upload = _CMD.commands["upload"]
     by_name = {p.name: p for p in upload.params}
-    assert by_name["ia_key"].envvar == "IA_ACCESS_KEY"
-    assert by_name["ia_secret"].envvar == "IA_SECRET_KEY"
+    assert "ia_key" not in by_name
+    assert "ia_secret" not in by_name
 
 
 def test_download_e_status_tem_defaults_de_path_fixos() -> None:

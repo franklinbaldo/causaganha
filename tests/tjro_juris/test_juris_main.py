@@ -1,4 +1,4 @@
-"""Tests for tjro_juris.__main__ — incremental crawl bounds, manifest restore, skip logic."""
+"""Tests for tjro_juris.service — incremental crawl bounds, manifest restore, skip logic."""
 
 from __future__ import annotations
 
@@ -7,10 +7,11 @@ from typing import TYPE_CHECKING
 
 import httpx
 import pytest
-import typer
 
-from tjro_juris.__main__ import _crawl_bounds, _load_manifest, _should_skip_window
 from tjro_juris.manifest import ManifestJuris, ManifestJurisEntry
+from tjro_juris.service import _should_skip_window
+from tjro_juris.service import crawl_bounds as _crawl_bounds
+from tjro_juris.service import load_manifest as _load_manifest
 
 
 if TYPE_CHECKING:
@@ -32,15 +33,15 @@ def test_crawl_bounds_mes_narrows_to_a_single_month() -> None:
 
 def test_crawl_bounds_mes_rejects_bad_format() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    with pytest.raises(typer.BadParameter, match="AAAA-MM"):
+    with pytest.raises(ValueError, match="AAAA-MM"):
         _crawl_bounds(None, "2026-13", None, now)
-    with pytest.raises(typer.BadParameter, match="AAAA-MM"):
+    with pytest.raises(ValueError, match="AAAA-MM"):
         _crawl_bounds(None, "not-a-month", None, now)
 
 
 def test_crawl_bounds_mes_and_ano_are_mutually_exclusive() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    with pytest.raises(typer.BadParameter, match="mutually exclusive"):
+    with pytest.raises(ValueError, match="mutually exclusive"):
         _crawl_bounds(2026, "2026-07", None, now)
 
 
@@ -61,13 +62,13 @@ def test_crawl_bounds_desde_ano_overrides_default_start() -> None:
 
 def test_crawl_bounds_desde_ano_mutually_exclusive_with_ano() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    with pytest.raises(typer.BadParameter, match="mutually exclusive"):
+    with pytest.raises(ValueError, match="mutually exclusive"):
         _crawl_bounds(2020, None, 1988, now)
 
 
 def test_crawl_bounds_desde_ano_mutually_exclusive_with_mes() -> None:
     now = datetime(2026, 7, 12, tzinfo=UTC)
-    with pytest.raises(typer.BadParameter, match="mutually exclusive"):
+    with pytest.raises(ValueError, match="mutually exclusive"):
         _crawl_bounds(None, "2026-07", 1988, now)
 
 
@@ -120,7 +121,7 @@ def test_load_manifest_restores_from_ia_when_local_copy_absent(
         dest.write_text("tipo,mes_ano,ia_status,n_docs,updated_at\nVOTO,2026-01,uploaded,3,\n")
         return True
 
-    monkeypatch.setattr("tjro_juris.__main__.ia_archive.download_manifest", _fake_download)
+    monkeypatch.setattr("tjro_juris.service.ia_archive.download_manifest", _fake_download)
 
     manifest = _load_manifest(tmp_path)
 
@@ -141,7 +142,7 @@ def test_load_manifest_skips_restore_when_local_copy_exists(
         msg = "download_manifest must not be called when a local manifest already exists"
         raise AssertionError(msg)
 
-    monkeypatch.setattr("tjro_juris.__main__.ia_archive.download_manifest", _boom)
+    monkeypatch.setattr("tjro_juris.service.ia_archive.download_manifest", _boom)
 
     manifest = _load_manifest(tmp_path)
     assert manifest.get("EMENTA", "2026-02") is not None
@@ -150,7 +151,7 @@ def test_load_manifest_skips_restore_when_local_copy_exists(
 def test_load_manifest_starts_empty_when_ia_has_no_manifest_either(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr("tjro_juris.__main__.ia_archive.download_manifest", lambda _dest: False)
+    monkeypatch.setattr("tjro_juris.service.ia_archive.download_manifest", lambda _dest: False)
     manifest = _load_manifest(tmp_path)
     assert manifest.all_entries() == []
 
@@ -171,7 +172,7 @@ def test_load_manifest_survives_transient_ia_error_starts_empty(
         msg = "503"
         raise httpx.HTTPStatusError(msg, request=request, response=response)
 
-    monkeypatch.setattr("tjro_juris.__main__.ia_archive.download_manifest", _flaky)
+    monkeypatch.setattr("tjro_juris.service.ia_archive.download_manifest", _flaky)
 
     manifest = _load_manifest(tmp_path)  # must not raise
 

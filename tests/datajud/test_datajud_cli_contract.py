@@ -78,12 +78,15 @@ def test_datajud_status_argv() -> None:
     assert ctx.params == {"data_dir": "data/datajud"}
 
 
-def test_enrich_credenciais_ia_sao_opcao_de_cli_com_envvar() -> None:
-    """`ia_key`/`ia_secret` são `typer.Option(envvar=...)` — mesmo padrão de
-    `stj_acordaos`. A Fase 2 do RFC 0013 precisa eliminar isso antes de
-    `enrich` (mesmo em variante restrita, sem upload) virar tool MCP.
+def test_enrich_nao_tem_mais_credenciais_ia_como_opcao_de_cli() -> None:
+    """Fase 2 do RFC 0013: `ia_key`/`ia_secret` deixaram de ser opção de CLI.
+
+    Antes eram `typer.Option(envvar=...)`, mesmo padrão de `stj_acordaos`.
+    Agora `enrich` só lê `IA_ACCESS_KEY`/`IA_SECRET_KEY` do ambiente via
+    `datajud.service.ia_credentials()` — nada aparece em `--help` nem em
+    `ctx.params`, então nada disso vira campo de schema numa tool MCP.
     """
     enrich = _CMD.commands["enrich"]
     by_name = {p.name: p for p in enrich.params}
-    assert by_name["ia_key"].envvar == "IA_ACCESS_KEY"
-    assert by_name["ia_secret"].envvar == "IA_SECRET_KEY"
+    assert "ia_key" not in by_name
+    assert "ia_secret" not in by_name

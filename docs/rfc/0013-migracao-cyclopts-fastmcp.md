@@ -1,6 +1,6 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Proposto (Fase 1 implementada neste PR)
+- **Status:** Fase 1 e Fase 2 implementadas
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -87,12 +87,45 @@ comparando a configuração entregue a ela. Typer e Cyclopts precisam então
 apenas de um adaptador fino para rodar os mesmos casos; a Fase 4 reexecuta
 essa bateria (não a desta Fase 1) contra a CLI já migrada.
 
-### Fase 2 — camada de serviço
+### Fase 2 — camada de serviço (implementada)
 
-Extrair, por pacote, funções de config→resultado sem Typer/Rich/`echo`
-(mesmo padrão do `service/` do pink). Matar os side effects de import.
-Resolver o bug de exit code descartado. Tirar `ia_key`/`ia_secret` de opção
-de CLI — só env/keyring.
+Cada pacote ganhou um `service.py` com funções config→resultado, sem
+Typer/Rich/`echo`; os `__main__.py` ficaram reduzidos a parsing de argv +
+tradução do resultado em echo/exit code:
+
+- **`djen_backup`**: `service.py` com `PipelineRunConfig`, `resolve_djen_url`,
+  `resolve_ia_auth` (levanta `MissingCredentialsError` em vez de
+  `typer.Exit`) e `run_pipeline` (chama `engine.run_sync`). Os side effects
+  de import (`structlog.configure(...)`, reconfiguração de
+  `stdout`/`stderr`) saíram do topo do módulo para `configure_runtime()`,
+  chamada uma vez no callback `main()` — Click sempre invoca o callback do
+  grupo antes de qualquer subcomando, então isso cobre `check`/`upload`/
+  `drain`/`probe`/`reset` também. O bug de exit code descartado — só
+  documentado no callback bare — na verdade existia igual em `check` e
+  `upload`; os três agora fazem `raise typer.Exit(code=_run_pipeline(...))`.
+- **`tjro_juris`**: `service.py` recebeu praticamente todo o corpo de
+  `crawl`/`upload`/`status`/`consolidate` (a lógica já era quase
+  config→resultado; só usava `typer.BadParameter`/`typer.echo` pontualmente).
+  `crawl_bounds` agora levanta `ValueError` — framework-neutro —, e o
+  `__main__.py` traduz para `typer.BadParameter` na borda da CLI.
+- **`stj_acordaos`**: `service.py` com `download_one` (retorna
+  `DownloadOutcome` em vez de `typer.echo` direto — o `__main__.py` traduz o
+  outcome em mensagens), `upload_all` (idem, via `UploadResult`) e
+  `manifest_summary`. `ia_key`/`ia_secret` deixaram de ser opção de CLI —
+  `upload` não os aceita mais como parâmetro; `service.ia_credentials()` lê
+  `IA_ACCESS_KEY`/`IA_SECRET_KEY` do ambiente diretamente.
+- **`datajud`**: mesmo padrão — `service.enrich`/`facetas`/`manifest_status`
+  sem Typer/echo, `ia_key`/`ia_secret` removidos da opção `enrich` (idem
+  `ia_credentials()`).
+
+**Não incluído nesta fase:** a bateria de testes framework-neutra (`argv →
+configuração semântica`, camada de serviço mockada) descrita na Fase 1 como
+o portão durável de Fase 4. Os testes de caracterização da Fase 1
+(introspecção Click) foram atualizados apenas onde o contrato de parâmetros
+mudou de propósito (remoção de `ia_key`/`ia_secret`) e continuam verdes para
+o resto — mas ainda são a única rede de segurança de argv hoje. Construir a
+bateria framework-neutra fica para o início da Fase 4, quando o formato dos
+casos pode ser desenhado já sabendo a API real do Cyclopts.
 
 ### Fase 3 — tools MCP
 
@@ -110,13 +143,29 @@ re-executar contra a CLI migrada antes de mudar qualquer workflow. O
 callback bare de `djen-backup` precisa de um `default_command` explícito
 equivalente a `invoke_without_command=True`.
 
-## 3. Critérios de aceitação (desta Fase 1)
+## 3. Critérios de aceitação
 
+**Fase 1:**
 - Este RFC mergeado.
 - Quatro arquivos de teste novos, um por pacote, cobrindo o argv literal dos
   5 workflows listados acima e o contrato de parâmetros correspondente.
 - `pytest`, `ruff check`, `ruff format --check` verdes.
 - Nenhuma mudança de código de produção.
+
+**Fase 2 (implementada):**
+- `service.py` por pacote, sem Typer/Rich/`echo`.
+- Side effects de import mortos em `djen_backup` (`configure_runtime()`
+  chamada do callback, não do topo do módulo).
+- Bug de exit code descartado corrigido em `djen_backup` (callback bare,
+  `check` e `upload`).
+- `ia_key`/`ia_secret` fora da opção de CLI em `stj_acordaos`/`datajud` —
+  só `IA_ACCESS_KEY`/`IA_SECRET_KEY` via ambiente.
+- Testes de caracterização da Fase 1 continuam verdes (exceto os dois que
+  documentavam o contrato antigo de credenciais, atualizados para afirmar a
+  ausência da opção). `pytest`, `ruff check`, `ruff format --check` verdes.
+- Nenhuma mudança de argv nos 5 workflows — `check`/`upload`/`drain`/
+  `probe`/`reset`/`crawl`/`status`/`consolidate`/`download`/`facetas`
+  mantêm nome, default e negação de flag idênticos ao que a Fase 1 travou.
 
 ## 4. Riscos
 
@@ -124,8 +173,12 @@ equivalente a `invoke_without_command=True`.
   default diferente para o par negável, `collect-zips` passa a rodar com
   `fail_fast=True` e aborta no primeiro 403 do CloudFront — regressão
   silenciosa, visível só na próxima execução (a cada 20 min).
-- **`ruff select=["ALL"]`** e **`vulture --min-confidence 100`** vão sinalizar
-  código novo/temporariamente órfão durante a extração da Fase 2 — orçar
-  tempo de whitelist, não tratar como bloqueio de escopo.
-- Testes de caracterização não cobrem execução (rede, I/O) — o bug de exit
-  code descartado só será corrigido/verificado na Fase 2, não antes.
+- **`ruff select=["ALL"]`** e **`vulture --min-confidence 100`** sinalizaram
+  código novo durante a extração da Fase 2 (complexidade, imports não
+  utilizados, docstrings) — resolvido com refino local (ex.: `enrich` do
+  `datajud` dividido em `_pending_cnjs`/`_upload_step` para ficar sob o
+  limite de complexidade) em vez de whitelist ampla.
+- A bateria framework-neutra de argv (ver Fase 2 acima) ainda não existe —
+  até que exista, a Fase 4 depende só da introspecção Click da Fase 1 mais
+  os testes unitários de `service.py`, nenhum dos quais sobrevive à troca de
+  framework sem edição.

@@ -2,20 +2,10 @@
 
 from __future__ import annotations
 
-import contextlib
-
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import asyncio
+import contextlib
 import os
-from dataclasses import dataclass
+import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import NamedTuple
@@ -35,20 +25,48 @@ from rich.progress import (
 )
 from rich.table import Table
 
-from djen_backup.credentials import get_ia_s3_auth
+from djen_backup import service
 from djen_backup.drain import PARQUET_URL
-from djen_backup.drain import drain as _drain
-from djen_backup.engine import SyncConfig, SyncSummary, load_djen_safe_concurrency, run_sync
-from djen_backup.manifest import ManifestCounts, SyncManifest
+from djen_backup.engine import SyncSummary, load_djen_safe_concurrency
+from djen_backup.manifest import ManifestCounts
 from djen_backup.probe import PARQUET_URL as _PROBE_PARQUET_URL
-from djen_backup.probe import probe as _probe
+from djen_backup.service import MissingCredentialsError, PipelineRunConfig
 
-
-DJEN_DIRECT_URL = "https://comunicaapi.pje.jus.br"
-DJEN_PROXY_FALLBACK_URL = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 
 # Default worker count — discovered via scripts/stress_test_djen.py
 DEFAULT_WORKERS = load_djen_safe_concurrency()
+
+
+def configure_runtime() -> None:
+    """Reconfigure stdio encoding and structlog for CLI use.
+
+    Called once, from the Typer callback below, before any command body
+    runs — Click always invokes the group callback first, so this covers
+    every subcommand too. Previously ran at import time, which meant
+    anything importing this module (a test, a future MCP server process)
+    silently reconfigured the whole process's stdout/stderr and global
+    structlog state.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+            with contextlib.suppress(AttributeError):
+                stream.reconfigure(errors="replace")
+
+    # Configure structlog to use Rich for pretty logging
+    structlog.configure(
+        processors=[
+            structlog.contextvars.merge_contextvars,
+            structlog.processors.add_log_level,
+            structlog.processors.StackInfoRenderer(),
+            structlog.dev.set_exc_info,
+            structlog.processors.TimeStamper(fmt="iso"),
+            structlog.dev.ConsoleRenderer(colors=True),
+        ],
+        wrapper_class=structlog.make_filtering_bound_logger(0),
+        context_class=dict,
+        logger_factory=structlog.PrintLoggerFactory(),
+        cache_logger_on_first_use=True,
+    )
 
 
 class EnvLoadResult(NamedTuple):
@@ -63,22 +81,6 @@ app = typer.Typer(
     no_args_is_help=False,
 )
 console = Console()
-
-# Configure structlog to use Rich for pretty logging
-structlog.configure(
-    processors=[
-        structlog.contextvars.merge_contextvars,
-        structlog.processors.add_log_level,
-        structlog.processors.StackInfoRenderer(),
-        structlog.dev.set_exc_info,
-        structlog.processors.TimeStamper(fmt="iso"),
-        structlog.dev.ConsoleRenderer(colors=True),
-    ],
-    wrapper_class=structlog.make_filtering_bound_logger(0),
-    context_class=dict,
-    logger_factory=structlog.PrintLoggerFactory(),
-    cache_logger_on_first_use=True,
-)
 
 # ── Rich Observer ───────────────────────────────────────────────────
 
@@ -193,18 +195,10 @@ def _env_truthy(name: str) -> bool:
     return os.environ.get(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
-def _resolve_djen_url(*, use_proxy: bool) -> str:
-    if use_proxy:
-        return os.environ.get("DJEN_PROXY_URL", "").strip() or DJEN_PROXY_FALLBACK_URL
-    return os.environ.get("DJEN_DIRECT_URL", "").strip() or DJEN_DIRECT_URL
-
-
-def _resolve_ia_auth(*, dry_run: bool) -> str:
+def _resolve_ia_auth() -> str:
     try:
-        return get_ia_s3_auth()
-    except RuntimeError as exc:
-        if dry_run:
-            return "LOW dry-run:dry-run"
+        return service.resolve_ia_auth()
+    except MissingCredentialsError as exc:
         console.print(f"[bold red]Error:[/bold red] {exc}")
         raise typer.Exit(code=1) from exc
 
@@ -275,31 +269,13 @@ def _show_run_summary(
     )
 
 
-@dataclass
-class PipelineRunConfig:
-    start_date: date
-    end_date: date
-    lower_bound: date | None
-    tribunal: str | None
-    deadline_minutes: int
-    max_items: int
-    workers: int
-    fail_fast: bool
-    publish_live_status: bool
-    skip_if_mostly_complete: bool
-    use_proxy: bool
-    upload_only: bool = False
-    check_only: bool = False
-    mode_label: str = "Full Sync"
-
-
 def _run_pipeline(c: PipelineRunConfig) -> int:
     env_result = _load_local_env()
     show_banner()
     _show_env_hint(env_result)
 
-    djen_url = _resolve_djen_url(use_proxy=c.use_proxy)
-    auth = _resolve_ia_auth(dry_run=False)
+    djen_url = service.resolve_djen_url(use_proxy=c.use_proxy)
+    auth = _resolve_ia_auth()
 
     config_table = Table.grid(padding=(0, 2))
     config_table.add_column(style="bold cyan")
@@ -330,30 +306,13 @@ def _run_pipeline(c: PipelineRunConfig) -> int:
     )
     observer = RichManifestObserver(progress)
 
-    sync_config = SyncConfig(
-        start_date=c.end_date,
-        lower_bound=c.lower_bound,
-        tribunal=c.tribunal,
-        deadline_minutes=c.deadline_minutes,
-        max_items=c.max_items,
-        workers=c.workers,
-        manifest_file=Path("data/sync-manifest.csv"),
-        djen_proxy_url=djen_url,
-        ia_auth=auth,
-        dry_run=False,
-        fail_fast=c.fail_fast,
-        publish_live_status=c.publish_live_status,
-        skip_if_mostly_complete=c.skip_if_mostly_complete,
-        check_only=c.check_only,
-        upload_only=c.upload_only,
-        observer=observer,
-    )
-
     exit_code = 0
     interrupted = False
     try:
         with Live(Group(progress), console=console, refresh_per_second=4):
-            exit_code, summary = asyncio.run(run_sync(sync_config))
+            exit_code, summary = asyncio.run(
+                service.run_pipeline(c, djen_url=djen_url, ia_auth=auth, observer=observer)
+            )
     except KeyboardInterrupt:
         console.print("\n[yellow]Interrupted — manifest saved to disk.[/yellow]")
         return 130
@@ -386,21 +345,23 @@ def main(
     use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
 ) -> None:
     """Main backup and sync command (check + download + upload)."""
+    configure_runtime()
     if ctx.invoked_subcommand:
         return
-    _run_pipeline(
-        PipelineRunConfig(
-            start_date=date(2020, 1, 1),
-            end_date=_parse_date(end_date),
-            lower_bound=_parse_date(start_date),
-            tribunal=tribunal,
-            deadline_minutes=deadline_minutes,
-            max_items=max_items,
-            workers=workers,
-            fail_fast=fail_fast,
-            publish_live_status=False,
-            skip_if_mostly_complete=False,
-            use_proxy=use_proxy,
+    raise typer.Exit(
+        code=_run_pipeline(
+            PipelineRunConfig(
+                end_date=_parse_date(end_date),
+                lower_bound=_parse_date(start_date),
+                tribunal=tribunal,
+                deadline_minutes=deadline_minutes,
+                max_items=max_items,
+                workers=workers,
+                fail_fast=fail_fast,
+                publish_live_status=False,
+                skip_if_mostly_complete=False,
+                use_proxy=use_proxy,
+            )
         )
     )
 
@@ -418,21 +379,22 @@ def check(
     use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
 ) -> None:
     """Check DJEN availability without downloading/uploading."""
-    _run_pipeline(
-        PipelineRunConfig(
-            start_date=date(2020, 1, 1),
-            end_date=_parse_date(end_date),
-            lower_bound=_parse_date(start_date),
-            tribunal=tribunal,
-            deadline_minutes=deadline_minutes,
-            max_items=0,
-            workers=workers,
-            fail_fast=fail_fast,
-            publish_live_status=False,
-            skip_if_mostly_complete=False,
-            use_proxy=use_proxy,
-            check_only=True,
-            mode_label="Check Only",
+    raise typer.Exit(
+        code=_run_pipeline(
+            PipelineRunConfig(
+                end_date=_parse_date(end_date),
+                lower_bound=_parse_date(start_date),
+                tribunal=tribunal,
+                deadline_minutes=deadline_minutes,
+                max_items=0,
+                workers=workers,
+                fail_fast=fail_fast,
+                publish_live_status=False,
+                skip_if_mostly_complete=False,
+                use_proxy=use_proxy,
+                check_only=True,
+                mode_label="Check Only",
+            )
         )
     )
 
@@ -447,21 +409,22 @@ def upload(
     use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
 ) -> None:
     """Upload already-discovered available entries (backlog drain)."""
-    _run_pipeline(
-        PipelineRunConfig(
-            start_date=date(2020, 1, 1),
-            end_date=datetime.now(UTC).date(),
-            lower_bound=None,
-            tribunal=tribunal,
-            deadline_minutes=deadline_minutes,
-            max_items=max_items,
-            workers=workers,
-            fail_fast=fail_fast,
-            publish_live_status=False,
-            skip_if_mostly_complete=False,
-            use_proxy=use_proxy,
-            upload_only=True,
-            mode_label="Upload Only",
+    raise typer.Exit(
+        code=_run_pipeline(
+            PipelineRunConfig(
+                end_date=datetime.now(UTC).date(),
+                lower_bound=None,
+                tribunal=tribunal,
+                deadline_minutes=deadline_minutes,
+                max_items=max_items,
+                workers=workers,
+                fail_fast=fail_fast,
+                publish_live_status=False,
+                skip_if_mostly_complete=False,
+                use_proxy=use_proxy,
+                upload_only=True,
+                mode_label="Upload Only",
+            )
         )
     )
 
@@ -482,8 +445,8 @@ def drain(
     _show_env_hint(env_result)
 
     resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
-    djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
-    auth = _resolve_ia_auth(dry_run=False)
+    djen_url = service.resolve_djen_url(use_proxy=resolved_use_proxy)
+    auth = _resolve_ia_auth()
 
     config_table = Table.grid(padding=(0, 2))
     config_table.add_column(style="bold cyan")
@@ -501,11 +464,11 @@ def drain(
     )
 
     uploads = asyncio.run(
-        _drain(
+        service.run_drain(
             workers=workers,
             batch_size=batch_size,
-            deadline_seconds=deadline_minutes * 60,
-            djen_proxy_url=djen_url,
+            deadline_minutes=deadline_minutes,
+            djen_url=djen_url,
             ia_auth=auth,
         )
     )
@@ -534,8 +497,8 @@ def probe(
     _show_env_hint(env_result)
 
     resolved_use_proxy = use_proxy or _env_truthy("DJEN_USE_PROXY")
-    djen_url = _resolve_djen_url(use_proxy=resolved_use_proxy)
-    auth = _resolve_ia_auth(dry_run=False)
+    djen_url = service.resolve_djen_url(use_proxy=resolved_use_proxy)
+    auth = _resolve_ia_auth()
 
     config_table = Table.grid(padding=(0, 2))
     config_table.add_column(style="bold cyan")
@@ -555,11 +518,11 @@ def probe(
     )
 
     confirmed, absent = asyncio.run(
-        _probe(
+        service.run_probe(
             workers=workers,
             batch_size=batch_size,
-            deadline_seconds=deadline_minutes * 60,
-            djen_proxy_url=djen_url,
+            deadline_minutes=deadline_minutes,
+            djen_url=djen_url,
             ia_auth=auth,
         )
     )
@@ -586,25 +549,14 @@ def reset(
         console.print("[bold red]Error:[/bold red] provide --tribunal CODE or --all")
         raise typer.Exit(code=1)
 
-    manifest = SyncManifest()
-    manifest.load_from_disk(manifest_file)
-
-    if not manifest:
+    try:
+        result = service.reset_manifest(manifest_file, tribunal=tribunal, reset_all=reset_all)
+    except service.ManifestNotFoundError:
         console.print("[bold red]Error:[/bold red] manifest file not found or empty.")
-        raise typer.Exit(code=1)
+        raise typer.Exit(code=1) from None
 
-    # Reset entries by rebuilding without the targeted entries
-    count = 0
-    for _k, entry in list(manifest._entries.items()):  # noqa: SLF001
-        if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
-            entry.ia_status = ""
-            entry.djen_status = ""
-            entry.updated_at = ""
-            count += 1
-
-    if count > 0:
-        manifest.save_to_disk(manifest_file)
-        console.print(f"[green]Reset {count} entries.[/green]")
+    if result.count > 0:
+        console.print(f"[green]Reset {result.count} entries.[/green]")
     else:
         console.print("[yellow]Nothing to reset.[/yellow]")
 

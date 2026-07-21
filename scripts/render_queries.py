@@ -73,7 +73,7 @@ from scripts.reconcile_processos import (
     _STJ_AGG_SQL,
     _UNIFICADOS_SQL,
 )
-from tjro_juris.__main__ import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA
+from tjro_juris.service import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA
 
 
 QUERIES_DIR = ROOT / "web" / "src" / "queries"
