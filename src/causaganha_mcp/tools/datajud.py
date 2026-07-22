@@ -31,13 +31,25 @@ if TYPE_CHECKING:
 # ingestion, where riding out a DataJud hiccup is worth minutes of waiting.
 # An interactive MCP call is a different budget: an unlucky timeout there
 # could keep this tool open for ~10 minutes before producing a ToolError
-# (RFC 0013 Fase 3B review) — long enough for a host to give up waiting
-# before the structured error even arrives. These numbers trade some of
-# that ingestion-grade resilience for a call that fails within roughly a
-# minute worst case (3 attempts * 20s timeout + ~3s of backoff).
-_FACETAS_TIMEOUT = 20.0
-_FACETAS_MAX_RETRIES = 2
+# (RFC 0013 Fase 3B review), long enough for a host to give up waiting on
+# the call entirely. These numbers trade some of that ingestion-grade
+# resilience for a call whose worst case — 2 attempts * 15s timeout + ~1s
+# of backoff — stays well under half a minute.
+_FACETAS_TIMEOUT = 15.0
+_FACETAS_MAX_RETRIES = 1
 _FACETAS_BACKOFF_BASE = 1.0
+
+# Second, independent layer of defense: FastMCP's own per-tool deadline
+# (`@mcp.tool(timeout=...)`, backed by `anyio.fail_after`, surfaced to the
+# caller as a generic McpError → ToolError, not one of `_facetas_tool_error`'s
+# tailored messages). The budget above only bounds `DataJudClient`'s own
+# retry loop; this bounds the tool call as a whole, regardless of what
+# happens inside it — a hang the client's own timeout doesn't catch, a
+# future change to the retry budget that drifts it back up, anything.
+# Set comfortably above the tuned client budget's own worst case (~31s) so
+# it stays a backstop: the common failure path should still resolve via
+# the client's own tailored errors well before this fires.
+_FACETAS_TOOL_TIMEOUT = 45.0
 
 
 class DatajudStatusResult(BaseModel):
@@ -96,7 +108,15 @@ def _facetas_tool_error(exc: Exception) -> ToolError:
         )
     if isinstance(exc, httpx.HTTPStatusError):
         return ToolError(f"DataJud returned HTTP {exc.response.status_code} for this query.")
-    return ToolError(f"DataJud query failed: {exc}")
+    # Deliberately doesn't interpolate str(exc): a bare DataJudError here is
+    # the non-transient-ES-error branch of DataJudClient._search_once, whose
+    # message embeds the raw Elasticsearch error payload — not something to
+    # promise as a stable, safe public tool message. The real exception is
+    # still attached via `raise ... from exc` for logs/debugging.
+    return ToolError(
+        "DataJud could not complete this aggregation. Retry later; if the "
+        "error persists, the upstream query may be unavailable."
+    )
 
 
 def register(mcp: FastMCP) -> None:
@@ -144,6 +164,7 @@ def register(mcp: FastMCP) -> None:
 
     @mcp.tool(
         name="datajud_facetas",
+        timeout=_FACETAS_TOOL_TIMEOUT,
         annotations={
             "title": "DataJud facet aggregation",
             "readOnlyHint": True,
@@ -180,11 +201,11 @@ def register(mcp: FastMCP) -> None:
             first.
 
         Raises:
-            A structured error (via MCP's tool-error channel, not a crash)
-            when DataJud rejects the API key, rate-limits past the retry
-            budget, returns an unparseable body, or is unreachable. Uses a
-            tighter internal timeout/retry budget than the `datajud enrich`
-            CLI (roughly a minute worst case, not minutes).
+            A structured tool error (never a raw exception) when DataJud
+            rejects the API key, rate-limits past the retry budget, returns
+            an unparseable body, or is unreachable. Uses a tighter internal
+            timeout/retry budget than the `datajud enrich` CLI, plus a hard
+            per-call deadline — well under a minute worst case, not minutes.
         """
         try:
             total, buckets = await service.facetas(

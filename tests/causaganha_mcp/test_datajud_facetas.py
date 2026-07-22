@@ -4,10 +4,17 @@ Unlike Fase 3A's status tools, `facetas` hits a real HTTP endpoint (the
 public DataJud API) — so these tests mock it with `respx` (the same pattern
 `tests/datajud/test_datajud_enrich.py` uses for the CLI) instead of building
 a local manifest fixture. The behavior under test is the mapping from
-`datajud.client`'s error taxonomy to `fastmcp.exceptions.ToolError` — a
-crash here would corrupt the JSON-RPC transport (see
-`test_stdio_transport.py`), so every DataJud failure mode must surface as a
-structured tool error instead.
+`datajud.client`'s error taxonomy to `fastmcp.exceptions.ToolError`.
+
+This mapping isn't about preventing a transport crash — FastMCP already
+contains any exception raised during tool execution and converts it into a
+tool-execution error on its own (see `server.py`'s `call_tool`). What the
+explicit `_facetas_tool_error()` mapping buys instead: stable, actionable,
+payload-free public messages that survive `mask_error_details=True`
+(FastMCP's own generic fallback replaces anything that isn't already a
+`ToolError` with a bare "Error calling tool ..." in that mode), rather than
+leaking `str(exc)` — which for at least one DataJud exception embeds the
+raw Elasticsearch error payload.
 """
 
 from __future__ import annotations
@@ -105,15 +112,23 @@ async def test_facetas_es_rejection_exhaustion_becomes_tool_error(mcp, monkeypat
             await fn(tribunal="tjro", por="classe", limite=15)
 
 
-async def test_facetas_generic_es_error_becomes_tool_error(mcp) -> None:
+async def test_facetas_generic_es_error_becomes_a_safe_tool_error(mcp) -> None:
+    """The fallback branch must not echo str(exc) — it can carry the raw ES payload.
+
+    `DataJudError`'s own message here is
+    ``f"...: {payload.get('error')}"`` — genuinely unstable, upstream-defined
+    content that has no business being promised as this tool's public
+    contract. The mapped `ToolError` message is fixed and payload-free.
+    """
     fn = await _facetas_fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(
             200,
             json={"error": {"root_cause": [{"type": "query_shard_exception"}]}},
         )
-        with pytest.raises(ToolError, match="DataJud query failed"):
+        with pytest.raises(ToolError, match="could not complete this aggregation") as exc_info:
             await fn(tribunal="tjro", por="classe", limite=15)
+        assert "query_shard_exception" not in str(exc_info.value)
 
 
 async def test_facetas_other_http_status_becomes_tool_error(mcp) -> None:
@@ -122,6 +137,20 @@ async def test_facetas_other_http_status_becomes_tool_error(mcp) -> None:
         router.post(ENDPOINT).respond(500)
         with pytest.raises(ToolError, match="500"):
             await fn(tribunal="tjro", por="classe", limite=15)
+
+
+async def test_facetas_has_a_hard_interactive_timeout_as_backstop(mcp) -> None:
+    """The tool declares its own deadline — independent of DataJudClient's budget.
+
+    This is the second, outer layer of defense (RFC 0013 Fase 3B follow-up
+    review): even if the client-level budget drifted back up, or something
+    hung in a way the client's own timeout doesn't cover, FastMCP's
+    `anyio.fail_after(timeout)` still bounds the call as a whole.
+    """
+    from causaganha_mcp.tools import datajud as tool_module
+
+    tool = await mcp.get_tool("datajud_facetas")
+    assert tool.timeout == tool_module._FACETAS_TOOL_TIMEOUT
 
 
 async def test_facetas_network_error_becomes_tool_error(mcp, monkeypatch) -> None:
