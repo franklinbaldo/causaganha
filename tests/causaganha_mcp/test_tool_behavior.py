@@ -1,4 +1,4 @@
-"""Behavior tests for causaganha_mcp status tools (RFC 0013 Fase 3A).
+"""Behavior tests for causaganha_mcp status tools (RFC 0013 Fase 3A, RFC 0014 M1).
 
 Calls each tool's underlying function directly (`tool.fn(...)`) against a
 manifest fixture built with the same package's own manifest API — no
@@ -40,8 +40,11 @@ async def _tool_fn(mcp, name: str):
 async def test_datajud_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "datajud_status")
     result = fn(data_dir=str(tmp_path / "datajud"))
-    assert result.found is False
+    assert result.encontrado is False
     assert result.total == 0
+    assert result.ultima_atualizacao is None
+    assert result.fonte == "manifest_local"
+    assert result.canonica is True
 
 
 async def test_datajud_status_populated_manifest(mcp, tmp_path: Path) -> None:
@@ -56,12 +59,13 @@ async def test_datajud_status_populated_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "datajud_status")
     result = fn(data_dir=str(data_dir))
 
-    assert result.found is True
+    assert result.encontrado is True
     assert result.total == 3
     assert result.ok == 2
     assert result.com_docs == 1
     assert result.sem_docs == 1
     assert result.com_erro == 1
+    assert result.ultima_atualizacao is not None
 
 
 # ── tjro_juris_status ───────────────────────────────────────────────────
@@ -70,9 +74,11 @@ async def test_datajud_status_populated_manifest(mcp, tmp_path: Path) -> None:
 async def test_tjro_juris_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "tjro_juris_status")
     result = fn(data_dir=str(tmp_path / "tjro-juris"))
+    assert result.encontrado is False
     assert result.total == 0
-    assert result.uploaded == 0
-    assert result.pending == 0
+    assert result.enviados == 0
+    assert result.pendentes == 0
+    assert result.ultima_atualizacao is None
 
 
 async def test_tjro_juris_status_populated_manifest(mcp, tmp_path: Path) -> None:
@@ -88,9 +94,11 @@ async def test_tjro_juris_status_populated_manifest(mcp, tmp_path: Path) -> None
     fn = await _tool_fn(mcp, "tjro_juris_status")
     result = fn(data_dir=str(data_dir))
 
+    assert result.encontrado is True
     assert result.total == 2
-    assert result.uploaded == 1
-    assert result.pending == 1
+    assert result.enviados == 1
+    assert result.pendentes == 1
+    assert result.ultima_atualizacao is not None
 
 
 # ── stj_acordaos_status ─────────────────────────────────────────────────
@@ -99,9 +107,11 @@ async def test_tjro_juris_status_populated_manifest(mcp, tmp_path: Path) -> None
 async def test_stj_acordaos_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "stj_acordaos_status")
     result = fn(manifest_path=str(tmp_path / "stj-manifest.csv"))
-    assert result.count == 0
-    assert result.uploaded == 0
-    assert result.pending == 0
+    assert result.encontrado is False
+    assert result.total == 0
+    assert result.enviados == 0
+    assert result.pendentes == 0
+    assert result.ultima_atualizacao is None
 
 
 async def test_stj_acordaos_status_populated_manifest(mcp, tmp_path: Path) -> None:
@@ -114,9 +124,11 @@ async def test_stj_acordaos_status_populated_manifest(mcp, tmp_path: Path) -> No
     fn = await _tool_fn(mcp, "stj_acordaos_status")
     result = fn(manifest_path=str(manifest_path))
 
-    assert result.count == 2
-    assert result.uploaded == 1
-    assert result.pending == 1
+    assert result.encontrado is True
+    assert result.total == 2
+    assert result.enviados == 1
+    assert result.pendentes == 1
+    assert result.ultima_atualizacao is not None
 
 
 # ── djen_backup_status ──────────────────────────────────────────────────
@@ -125,11 +137,16 @@ async def test_stj_acordaos_status_populated_manifest(mcp, tmp_path: Path) -> No
 async def test_djen_backup_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "djen_backup_status")
     result = fn(manifest_file=str(tmp_path / "sync-manifest.csv"))
+    assert result.encontrado is False
     assert result.total == 0
-    assert result.uploaded == 0
-    assert result.available == 0
-    assert result.absent == 0
-    assert result.unknown == 0
+    assert result.enviados == 0
+    assert result.disponiveis == 0
+    assert result.ausentes == 0
+    assert result.desconhecidos == 0
+    assert result.ultima_atualizacao is None
+    assert result.fonte == "cache_local"
+    assert result.canonica is False
+    assert result.aviso is not None
 
 
 async def test_djen_backup_status_populated_manifest(mcp, tmp_path: Path) -> None:
@@ -150,8 +167,13 @@ async def test_djen_backup_status_populated_manifest(mcp, tmp_path: Path) -> Non
     fn = await _tool_fn(mcp, "djen_backup_status")
     result = fn(manifest_file=str(manifest_file))
 
+    assert result.encontrado is True
     assert result.total == 4
-    assert result.uploaded == 1
-    assert result.available == 1
-    assert result.absent == 1
-    assert result.unknown == 1
+    assert result.enviados == 1
+    assert result.disponiveis == 1
+    assert result.ausentes == 1
+    assert result.desconhecidos == 1
+    assert result.ultima_atualizacao == "2026-01-03T00:00:00"
+    assert result.fonte == "cache_local"
+    assert result.canonica is False
+    assert result.aviso is not None

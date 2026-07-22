@@ -1,9 +1,9 @@
-"""``tjro_juris_status`` tool (RFC 0013 Fase 3A)."""
+"""``tjro_juris_status`` (RFC 0013 Fase 3A, RFC 0014 M1)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,27 +14,44 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
-# tjro_juris.service has no DEFAULT_DATA_DIR constant — the CLI takes
-# data_dir as a required positional argument. This matches the literal
-# argv tjro-sync.yml uses ("tjro-juris crawl data/tjro-juris ...").
+# tjro_juris.service não tem uma constante DEFAULT_DATA_DIR — a CLI recebe
+# data_dir como argumento posicional obrigatório. Isso replica o argv literal
+# que tjro-sync.yml usa ("tjro-juris crawl data/tjro-juris ...").
 _DEFAULT_DATA_DIR = "data/tjro-juris"
 
 
 class TjroJurisStatusResult(BaseModel):
-    """Summary of the local TJRO JURIS manifest."""
+    """Resumo do manifest local do TJRO JURIS."""
 
-    total: int = Field(description="Total (tipo, mes_ano) windows recorded.")
-    uploaded: int = Field(description="Windows already uploaded to Internet Archive.")
-    pending: int = Field(description="Windows crawled but not yet uploaded.")
+    encontrado: bool = Field(
+        description="False quando o manifest não existe ou não tem nenhuma entrada."
+    )
+    total: int = Field(default=0, description="Total de janelas (tipo, mês/ano) registradas.")
+    enviados: int = Field(default=0, description="Janelas já enviadas para o Internet Archive.")
+    pendentes: int = Field(default=0, description="Janelas coletadas mas ainda não enviadas.")
+    ultima_atualizacao: str | None = Field(
+        default=None,
+        description="Timestamp (ISO 8601) da entrada mais recentemente atualizada no "
+        "manifest, ou None quando não há nenhuma entrada.",
+    )
+    fonte: Literal["manifest_local"] = Field(
+        default="manifest_local", description="Este manifest local é a fonte dos dados."
+    )
+    canonica: bool = Field(
+        default=True,
+        description="True: este manifest é a própria fonte de verdade do pipeline TJRO "
+        "JURIS (não há um artefato remoto canônico separado dele).",
+    )
+    aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
 
 def register(mcp: FastMCP) -> None:
-    """Register ``tjro_juris_status`` on *mcp*."""
+    """Registra ``tjro_juris_status`` em *mcp*."""
 
     @mcp.tool(
         name="tjro_juris_status",
         annotations={
-            "title": "TJRO JURIS manifest status",
+            "title": "Status do manifest do TJRO JURIS",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -42,25 +59,26 @@ def register(mcp: FastMCP) -> None:
         },
     )
     def tjro_juris_status(data_dir: str = _DEFAULT_DATA_DIR) -> TjroJurisStatusResult:
-        """Summarize the local TJRO JURIS manifest: crawled windows and upload progress.
+        """Resume o manifest local do TJRO JURIS: janelas coletadas e progresso de envio.
 
-        Reads `tjro-juris-manifest.csv` under `data_dir` from local disk
-        only — no network call, no credentials involved. Use this to check
-        progress of the daily `tjro-sync.yml` backfill (`--desde-ano 1988`)
-        without a shell. Never triggers a new crawl or upload; for that, use
-        the `tjro-juris` CLI's `crawl`/`upload` commands.
+        Lê `tjro-juris-manifest.csv` em `data_dir`, só do disco local —
+        nenhuma chamada de rede, nenhuma credencial envolvida. Use para
+        checar o progresso do backfill diário do `tjro-sync.yml`
+        (`--desde-ano 1988`) sem precisar de um shell. Nunca dispara uma
+        nova coleta ou upload; para isso, use os comandos `crawl`/`upload`
+        da CLI `tjro-juris`. `encontrado=False` (contagens zeradas) quando
+        o manifest ainda não existe ou não tem entradas — não é um erro,
+        só um pipeline vazio.
 
         Args:
-            data_dir: Directory containing the manifest and parquets.
-                Defaults to "data/tjro-juris", the path the scheduled workflow uses.
-
-        Returns:
-            All-zero counts when the manifest doesn't exist yet or is empty —
-            not an error, just an empty pipeline.
+            data_dir: Diretório com o manifest e os parquets. Default
+                "data/tjro-juris", o caminho que o workflow agendado usa.
         """
         result = service.manifest_status(Path(data_dir))
         return TjroJurisStatusResult(
+            encontrado=result.total > 0,
             total=result.total,
-            uploaded=result.uploaded,
-            pending=result.pending,
+            enviados=result.uploaded,
+            pendentes=result.pending,
+            ultima_atualizacao=result.ultima_atualizacao or None,
         )

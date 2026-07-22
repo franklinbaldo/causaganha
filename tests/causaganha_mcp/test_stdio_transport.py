@@ -56,8 +56,8 @@ async def test_stj_acordaos_status_over_real_stdio_does_not_corrupt_json_rpc(
                 "stj_acordaos_status", {"manifest_path": str(manifest_path)}
             )
 
-    assert result.data.count == 1
-    assert result.data.uploaded == 1
+    assert result.data.total == 1
+    assert result.data.enviados == 1
     assert not any("Failed to parse" in r.message for r in caplog.records), caplog.text
 
 
@@ -78,5 +78,5 @@ async def test_djen_backup_status_over_real_stdio_does_not_corrupt_json_rpc(
             )
 
     assert result.data.total == 1
-    assert result.data.uploaded == 1
+    assert result.data.enviados == 1
     assert not any("Failed to parse" in r.message for r in caplog.records), caplog.text

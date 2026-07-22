@@ -1,4 +1,4 @@
-"""Behavior tests for the ``datajud_facetas`` MCP tool (RFC 0013 Fase 3B).
+"""Behavior tests for the ``datajud_facetas`` MCP tool (RFC 0013 Fase 3B, RFC 0014 M1).
 
 Unlike Fase 3A's status tools, `facetas` hits a real HTTP endpoint (the
 public DataJud API) — so these tests mock it with `respx` (the same pattern
@@ -15,6 +15,10 @@ payload-free public messages that survive `mask_error_details=True`
 `ToolError` with a bare "Error calling tool ..." in that mode), rather than
 leaking `str(exc)` — which for at least one DataJud exception embeds the
 raw Elasticsearch error payload.
+
+Error messages are now in Portuguese (RFC 0014 M1) — the `match=` regexes
+below use short, stable substrings, not full sentences, to avoid the tests
+becoming a second copy of the prose.
 """
 
 from __future__ import annotations
@@ -50,7 +54,7 @@ async def _facetas_fn(mcp):
     return tool.fn
 
 
-async def test_facetas_success_returns_total_and_buckets(mcp) -> None:
+async def test_facetas_success_returns_total_and_grupos(mcp) -> None:
     fn = await _facetas_fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(
@@ -61,10 +65,20 @@ async def test_facetas_success_returns_total_and_buckets(mcp) -> None:
     assert result.tribunal == "tjro"
     assert result.por == "classe"
     assert result.total == 42
-    assert [(b.chave, b.qtd) for b in result.buckets] == [
+    assert [(g.chave, g.qtd) for g in result.grupos] == [
         ("Procedimento Comum Cível", 30),
         ("Execução", 12),
     ]
+    assert result.consultado_em  # non-empty ISO timestamp of this call
+
+
+async def test_facetas_normalizes_tribunal_to_lowercase(mcp) -> None:
+    fn = await _facetas_fn(mcp)
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(200, json=_facetas_payload(0, []))
+        result = await fn(tribunal="TJRO", por="classe", limite=15)
+
+    assert result.tribunal == "tjro"
 
 
 async def test_facetas_auth_error_becomes_tool_error(mcp) -> None:
@@ -88,7 +102,7 @@ async def test_facetas_rate_limit_exhaustion_becomes_tool_error(mcp, monkeypatch
     fn = await _facetas_fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(429)
-        with pytest.raises(ToolError, match="rate-limited"):
+        with pytest.raises(ToolError, match="limitou esta requisição"):
             await fn(tribunal="tjro", por="classe", limite=15)
 
 
@@ -108,7 +122,7 @@ async def test_facetas_es_rejection_exhaustion_becomes_tool_error(mcp, monkeypat
             200,
             json={"error": {"root_cause": [{"type": "es_rejected_execution_exception"}]}},
         )
-        with pytest.raises(ToolError, match="rate-limited"):
+        with pytest.raises(ToolError, match="limitou esta requisição"):
             await fn(tribunal="tjro", por="classe", limite=15)
 
 
@@ -126,7 +140,7 @@ async def test_facetas_generic_es_error_becomes_a_safe_tool_error(mcp) -> None:
             200,
             json={"error": {"root_cause": [{"type": "query_shard_exception"}]}},
         )
-        with pytest.raises(ToolError, match="could not complete this aggregation") as exc_info:
+        with pytest.raises(ToolError, match="não conseguiu concluir esta agregação") as exc_info:
             await fn(tribunal="tjro", por="classe", limite=15)
         assert "query_shard_exception" not in str(exc_info.value)
 
@@ -166,7 +180,7 @@ async def test_facetas_network_error_becomes_tool_error(mcp, monkeypatch) -> Non
     fn = await _facetas_fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).mock(side_effect=httpx.ConnectError("boom"))
-        with pytest.raises(ToolError, match="Network error"):
+        with pytest.raises(ToolError, match="Erro de rede"):
             await fn(tribunal="tjro", por="classe", limite=15)
 
 
@@ -177,7 +191,7 @@ async def test_facetas_non_json_response_becomes_tool_error(mcp) -> None:
         router.post(ENDPOINT).respond(
             200, content=b"<html>blocked by WAF</html>", headers={"content-type": "text/html"}
         )
-        with pytest.raises(ToolError, match="unparseable"):
+        with pytest.raises(ToolError, match="não interpretável"):
             await fn(tribunal="tjro", por="classe", limite=15)
 
 

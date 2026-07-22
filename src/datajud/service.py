@@ -350,6 +350,7 @@ class ManifestStatus:
     total: int
     ok: int
     com_docs: int
+    ultima_atualizacao: str = ""
 
     @property
     def sem_docs(self) -> int:
@@ -370,4 +371,7 @@ def manifest_status(data_dir: Path) -> ManifestStatus | None:
         return None
     ok = sum(1 for e in entries if e.status == STATUS_OK)
     com_docs = sum(1 for e in entries if e.status == STATUS_OK and e.docs > 0)
-    return ManifestStatus(total=len(entries), ok=ok, com_docs=com_docs)
+    ultima_atualizacao = max((e.consultado_em for e in entries if e.consultado_em), default="")
+    return ManifestStatus(
+        total=len(entries), ok=ok, com_docs=com_docs, ultima_atualizacao=ultima_atualizacao
+    )

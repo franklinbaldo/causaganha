@@ -80,6 +80,7 @@ class ManifestCounts(NamedTuple):
     available: int
     absent: int
     unknown: int
+    ultima_atualizacao: str = ""
 
 
 @dataclass
@@ -111,6 +112,11 @@ class SyncManifest:
         # Populated lazily on first counts() call; bulk operations (build,
         # prune, load_*) reset to None to force a full rebuild.
         self._counts_tally: dict[str, int] | None = None
+        # Latest entry updated_at, cached alongside _counts_tally (same
+        # rebuild-on-counts()/invalidate-on-mutation lifecycle) so exposing
+        # it doesn't reintroduce the O(N)-per-call cost the tally cache
+        # exists to avoid.
+        self._latest_updated_at: str | None = None
         # Cache of (tribunal, year) pairs that have uploaded entries
         self._uploaded_items: set[tuple[str, int]] | None = None
         # Keys mutated by mark_* since the last successful segment flush.
@@ -190,7 +196,15 @@ class SyncManifest:
     def _invalidate_caches(self) -> None:
         # Force a full rebuild on next counts() / has_uploaded_entries() call.
         self._counts_tally = None
+        self._latest_updated_at = None
         self._uploaded_items = None
+
+    def _track_latest_updated_at(self, updated_at: str) -> None:
+        """Incrementally extend the cached latest updated_at (no-op if not built yet)."""
+        if self._counts_tally is None:
+            return
+        if self._latest_updated_at is None or updated_at > self._latest_updated_at:
+            self._latest_updated_at = updated_at
 
     def prune(self) -> int:
         """Remove weekend entries (unless already uploaded). Returns count removed."""
@@ -221,6 +235,7 @@ class SyncManifest:
                     entry.updated_at = now
                     self._adjust_counts(old_cat, "uploaded")
                     self._track_uploaded(tribunal, d.year)
+                    self._track_latest_updated_at(now)
                     self._dirty.add(k)
                     changed += 1
         return changed
@@ -240,6 +255,7 @@ class SyncManifest:
                 entry.djen_status = interpret_djen_raw(raw)
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._adjust_counts(old_cat, self._categorize(entry))
+                self._track_latest_updated_at(entry.updated_at)
                 self._dirty.add(k)
 
     async def mark_djen_available(self, tribunal: str, d: date) -> None:
@@ -261,6 +277,7 @@ class SyncManifest:
                 entry.updated_at = datetime.now(UTC).isoformat(timespec="seconds")
                 self._adjust_counts(old_cat, "uploaded")
                 self._track_uploaded(tribunal, d.year)
+                self._track_latest_updated_at(entry.updated_at)
                 self._dirty.add(k)
 
     # ── Query methods ────────────────────────────────────────────────
@@ -279,9 +296,13 @@ class SyncManifest:
         """Return aggregate counts. O(1) when tally is warm, O(N) on rebuild."""
         if self._counts_tally is None:
             tally = {"uploaded": 0, "available": 0, "absent": 0, "unknown": 0}
+            latest = ""
             for e in self._entries.values():
                 tally[self._categorize(e)] += 1
+                if e.updated_at and e.updated_at > latest:
+                    latest = e.updated_at
             self._counts_tally = tally
+            self._latest_updated_at = latest
         t = self._counts_tally
         return ManifestCounts(
             total=len(self._entries),
@@ -289,6 +310,7 @@ class SyncManifest:
             available=t["available"],
             absent=t["absent"],
             unknown=t["unknown"],
+            ultima_atualizacao=self._latest_updated_at or "",
         )
 
     def items_needing_ia_check(self) -> list[tuple[str, int]]:

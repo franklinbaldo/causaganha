@@ -294,6 +294,7 @@ class ManifestSummary:
     count: int
     uploaded: int
     rows: list[dict]
+    ultima_atualizacao: str = ""
 
     @property
     def pending(self) -> int:
@@ -307,4 +308,7 @@ def manifest_summary(manifest_path: Path) -> ManifestSummary:
     count = manifest.load()
     rows = manifest.to_df() if count else []
     uploaded = sum(1 for r in rows if r["ia_status"] == "uploaded")
-    return ManifestSummary(count=count, uploaded=uploaded, rows=rows)
+    ultima_atualizacao = max((r["updated_at"] for r in rows if r["updated_at"]), default="")
+    return ManifestSummary(
+        count=count, uploaded=uploaded, rows=rows, ultima_atualizacao=ultima_atualizacao
+    )
