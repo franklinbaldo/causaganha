@@ -91,6 +91,16 @@ class DataJudRateLimitError(DataJudError):
     """Both rate-limit flavors persisted beyond the retry budget."""
 
 
+class DataJudProtocolError(DataJudError):
+    """DataJud returned a non-JSON body (e.g. a WAF/gateway HTML error page).
+
+    Not retried — a malformed body under a 2xx status is not one of the two
+    known transient rejection flavors (see ``is_es_rejection``), so treating
+    it as a permanent nominal error rather than looping the retry budget is
+    the correct default.
+    """
+
+
 class _TransientRejectionError(Exception):
     """Internal marker for retriable rejections (HTTP 429 or ES rejection)."""
 
@@ -244,7 +254,7 @@ class DataJudClient:
         async with self._limiter:
             resp = await self._http.post(self._endpoint, json=body)
         _raise_for_status_flavor(resp)
-        payload = resp.json()
+        payload = _parse_json_body(resp)
         if is_es_rejection(payload):
             log.warning("datajud_es_rejection", tribunal=self.tribunal)
             msg = "es_rejected_execution_exception (ES search queue full)"
@@ -332,6 +342,27 @@ def _raise_for_status_flavor(resp: httpx.Response) -> None:
         msg = "HTTP 429 (gateway rate limit)"
         raise _TransientRejectionError(msg)
     resp.raise_for_status()
+
+
+def _parse_json_body(resp: httpx.Response) -> dict:
+    """Parse *resp*'s body as JSON, raising a nominal error on malformed bodies.
+
+    A 2xx status is not proof of a well-formed body — a WAF/gateway can
+    return HTML or a truncated body under HTTP 200. That's not one of the
+    known rejection flavors (see ``is_es_rejection``), so ``resp.json()``'s
+    ``JSONDecodeError`` (a ``ValueError``) is translated here, narrowly, into
+    :class:`DataJudProtocolError` — never left to leak out as a bare
+    ``ValueError``, and never silently swallowed either. The body itself is
+    not echoed (could be large or binary); only status and content-type are.
+    """
+    try:
+        return resp.json()
+    except ValueError as exc:
+        msg = (
+            f"DataJud returned a non-JSON body for HTTP {resp.status_code} "
+            f"(content-type: {resp.headers.get('content-type', 'unknown')})"
+        )
+        raise DataJudProtocolError(msg) from exc
 
 
 def _normalize_cnjs(cnjs: Sequence[str]) -> list[str]:

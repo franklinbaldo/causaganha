@@ -316,9 +316,30 @@ def enrich(
     )
 
 
-async def facetas(tribunal: str, por: str, limite: int) -> tuple[int, list[dict]]:
-    """Aggregate the acervo by *por* (classe/assunto/orgao/...) without downloading docs."""
-    async with DataJudClient(tribunal=tribunal) as client:
+async def facetas(
+    tribunal: str,
+    por: str,
+    limite: int,
+    *,
+    request_timeout: float | None = None,
+    max_retries: int | None = None,
+    backoff_base: float | None = None,
+) -> tuple[int, list[dict]]:
+    """Aggregate the acervo by *por* (classe/assunto/orgao/...) without downloading docs.
+
+    ``request_timeout``/``max_retries``/``backoff_base`` override
+    ``DataJudClient``'s ingestion-tuned defaults when passed — the CLI
+    leaves them unset (same behavior as before); the MCP tool passes a
+    tighter budget of its own (see ``causaganha_mcp.tools.datajud``).
+    """
+    client_kwargs: dict[str, float | int] = {}
+    if request_timeout is not None:
+        client_kwargs["timeout"] = request_timeout
+    if max_retries is not None:
+        client_kwargs["max_retries"] = max_retries
+    if backoff_base is not None:
+        client_kwargs["backoff_base"] = backoff_base
+    async with DataJudClient(tribunal=tribunal, **client_kwargs) as client:
         return await client.facetas(por, limite=limite)
 
 

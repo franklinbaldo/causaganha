@@ -1,17 +1,55 @@
-"""``datajud_status`` tool (RFC 0013 Fase 3A)."""
+"""``datajud_status`` and ``datajud_facetas`` tools (RFC 0013 Fase 3A/3B)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated, Literal
 
+import httpx
+from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, Field
 
 from datajud import service
+from datajud.client import (
+    API_KEY_ENV,
+    DEFAULT_TRIBUNAL,
+    WIKI_ACESSO_URL,
+    DataJudAuthError,
+    DataJudError,
+    DataJudProtocolError,
+    DataJudRateLimitError,
+)
 
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+
+
+# Internal MCP call budget for `datajud_facetas` — NOT exposed as a tool
+# parameter. `DataJudClient`'s own defaults (timeout=90s, max_retries=5,
+# 2/4/8/16/30s backoff) are tuned for the `enrich` CLI's long-running batch
+# ingestion, where riding out a DataJud hiccup is worth minutes of waiting.
+# An interactive MCP call is a different budget: an unlucky timeout there
+# could keep this tool open for ~10 minutes before producing a ToolError
+# (RFC 0013 Fase 3B review), long enough for a host to give up waiting on
+# the call entirely. These numbers trade some of that ingestion-grade
+# resilience for a call whose worst case — 2 attempts * 15s timeout + ~1s
+# of backoff — stays well under half a minute.
+_FACETAS_TIMEOUT = 15.0
+_FACETAS_MAX_RETRIES = 1
+_FACETAS_BACKOFF_BASE = 1.0
+
+# Second, independent layer of defense: FastMCP's own per-tool deadline
+# (`@mcp.tool(timeout=...)`, backed by `anyio.fail_after`, surfaced to the
+# caller as a generic McpError → ToolError, not one of `_facetas_tool_error`'s
+# tailored messages). The budget above only bounds `DataJudClient`'s own
+# retry loop; this bounds the tool call as a whole, regardless of what
+# happens inside it — a hang the client's own timeout doesn't catch, a
+# future change to the retry budget that drifts it back up, anything.
+# Set comfortably above the tuned client budget's own worst case (~31s) so
+# it stays a backstop: the common failure path should still resolve via
+# the client's own tailored errors well before this fires.
+_FACETAS_TOOL_TIMEOUT = 45.0
 
 
 class DatajudStatusResult(BaseModel):
@@ -25,8 +63,64 @@ class DatajudStatusResult(BaseModel):
     com_erro: int = Field(default=0, description="CNJs whose last consult failed.")
 
 
+class DatajudFacetaBucket(BaseModel):
+    """One aggregation bucket returned by ``datajud_facetas``."""
+
+    chave: str = Field(description="Facet value (e.g. a classe or assunto name).")
+    qtd: int = Field(description="Document count for this value.")
+
+
+class DatajudFacetasResult(BaseModel):
+    """Aggregation of a tribunal's DataJud acervo by one dimension."""
+
+    tribunal: str = Field(description="Tribunal queried, lowercase (e.g. 'tjro').")
+    por: str = Field(description="Dimension aggregated by.")
+    total: int = Field(
+        description="Total documents in the tribunal's acervo — all facet "
+        "values, not just the buckets returned below."
+    )
+    buckets: list[DatajudFacetaBucket] = Field(
+        description="Top facet values by document count, largest first."
+    )
+
+
+def _facetas_tool_error(exc: Exception) -> ToolError:
+    """Map the DataJud client's error taxonomy to a structured ``ToolError``."""
+    if isinstance(exc, DataJudAuthError):
+        return ToolError(
+            "DataJud rejected the configured API key (HTTP 401). This is an "
+            "operator-level credential problem, not something retriable from "
+            f"here — fetch a current key at {WIKI_ACESSO_URL} and set the "
+            f"{API_KEY_ENV} environment variable."
+        )
+    if isinstance(exc, DataJudRateLimitError):
+        return ToolError(
+            "DataJud rate-limited this request past the retry budget. "
+            "Recoverable: wait a bit and call datajud_facetas again."
+        )
+    if isinstance(exc, DataJudProtocolError):
+        return ToolError(f"DataJud returned an unparseable response: {exc}")
+    if isinstance(exc, httpx.TimeoutException | httpx.TransportError):
+        return ToolError(
+            "Network error reaching DataJud (timeout or connection failure). "
+            "Recoverable: retry datajud_facetas; if it persists, the DataJud "
+            "API itself may be down."
+        )
+    if isinstance(exc, httpx.HTTPStatusError):
+        return ToolError(f"DataJud returned HTTP {exc.response.status_code} for this query.")
+    # Deliberately doesn't interpolate str(exc): a bare DataJudError here is
+    # the non-transient-ES-error branch of DataJudClient._search_once, whose
+    # message embeds the raw Elasticsearch error payload — not something to
+    # promise as a stable, safe public tool message. The real exception is
+    # still attached via `raise ... from exc` for logs/debugging.
+    return ToolError(
+        "DataJud could not complete this aggregation. Retry later; if the "
+        "error persists, the upstream query may be unavailable."
+    )
+
+
 def register(mcp: FastMCP) -> None:
-    """Register ``datajud_status`` on *mcp*."""
+    """Register ``datajud_status`` and ``datajud_facetas`` on *mcp*."""
 
     @mcp.tool(
         name="datajud_status",
@@ -66,4 +160,69 @@ def register(mcp: FastMCP) -> None:
             com_docs=result.com_docs,
             sem_docs=result.sem_docs,
             com_erro=result.com_erro,
+        )
+
+    @mcp.tool(
+        name="datajud_facetas",
+        timeout=_FACETAS_TOOL_TIMEOUT,
+        annotations={
+            "title": "DataJud facet aggregation",
+            "readOnlyHint": True,
+            "destructiveHint": False,
+            "idempotentHint": True,
+            "openWorldHint": True,
+        },
+    )
+    async def datajud_facetas(
+        tribunal: str = DEFAULT_TRIBUNAL,
+        por: Literal["classe", "assunto", "orgao", "grau", "sistema"] = "classe",
+        limite: Annotated[
+            int, Field(ge=1, le=100, description="Max number of buckets to return.")
+        ] = 15,
+    ) -> DatajudFacetasResult:
+        """Aggregate a tribunal's DataJud acervo by one dimension (classe, assunto, ...).
+
+        Queries the live public DataJud API (network call, unlike
+        `datajud_status`) to count documents grouped by *por*, without
+        downloading any document. Use this to answer questions like "what
+        are the top 10 classes in TJRO's acervo?" without fetching or
+        enriching individual processos.
+
+        Args:
+            tribunal: Tribunal to query, lowercase (e.g. "tjro"). Defaults to
+                the same tribunal the `datajud` CLI defaults to.
+            por: Dimension to aggregate by.
+            limite: Max buckets to return, 1-100. The `total` field always
+                reflects the full acervo, even when `limite` truncates the
+                bucket list.
+
+        Returns:
+            The full acervo total plus the top `limite` buckets, largest
+            first.
+
+        Raises:
+            A structured tool error (never a raw exception) when DataJud
+            rejects the API key, rate-limits past the retry budget, returns
+            an unparseable body, or is unreachable. Uses a tighter internal
+            timeout/retry budget than the `datajud enrich` CLI, plus a hard
+            per-call deadline — well under a minute worst case, not minutes.
+        """
+        try:
+            total, buckets = await service.facetas(
+                tribunal,
+                por,
+                limite,
+                request_timeout=_FACETAS_TIMEOUT,
+                max_retries=_FACETAS_MAX_RETRIES,
+                backoff_base=_FACETAS_BACKOFF_BASE,
+            )
+        except (DataJudError, httpx.HTTPError) as exc:
+            raise _facetas_tool_error(exc) from exc
+        return DatajudFacetasResult(
+            tribunal=tribunal,
+            por=por,
+            total=total,
+            buckets=[
+                DatajudFacetaBucket(chave=bucket["chave"], qtd=bucket["qtd"]) for bucket in buckets
+            ],
         )

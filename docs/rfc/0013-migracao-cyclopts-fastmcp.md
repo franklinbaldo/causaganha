@@ -1,6 +1,6 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1, Fase 2, Fase 2.5 e Fase 3A implementadas
+- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A e Fase 3B implementadas
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -224,13 +224,114 @@ key/secret/token/credential/password em `parameters` ou `output_schema`,
 para as quatro tools) e comportamento (`tool.fn(...)` chamado direto contra
 manifests fixture, caminho vazio e caminho populado).
 
-#### Fase 3B — consultas remotas (não implementada)
+#### Fase 3B — consultas remotas (implementada)
 
-`datajud_facetas` fica para depois, separado de propósito: consulta a API
-pública do DataJud (rede real), então tem uma categoria de erro diferente
-(timeout, rate limit, erro de rede) da fundação local/determinística da
-Fase 3A. Misturar as duas na mesma fase aumentaria o espaço de depuração
-sem necessidade.
+`datajud_facetas`, separado de propósito da Fase 3A: consulta a API pública
+do DataJud (rede real, `datajud.service.facetas` → `DataJudClient.facetas`),
+então tem uma categoria de erro diferente (timeout, rate limit, erro de
+rede) da fundação local/determinística da Fase 3A. Misturar as duas na
+mesma fase teria aumentado o espaço de depuração sem necessidade.
+
+Registrado em `tools/datajud.py`, junto de `datajud_status` (mesmo pacote
+fonte). `readOnlyHint=True`, `destructiveHint=False` como as demais tools —
+agrega, nunca muta — mas `openWorldHint=True`, diferente das quatro tools da
+Fase 3A: é a única que sai da máquina. Parâmetros: `tribunal` (default
+`DEFAULT_TRIBUNAL` do client), `por` (`Literal["classe", "assunto", "orgao",
+"grau", "sistema"]`, hardcoded em vez de derivado dinamicamente de
+`FACET_FIELDS` para evitar complicação de `Literal` dinâmico — guardado por
+um teste de schema que compara os dois conjuntos de chaves) e `limite`
+(`Annotated[int, Field(ge=1, le=100)]`). Retorno: `tribunal`, `por`, `total`
+(acervo inteiro, não só os buckets retornados) e `buckets` (lista de
+`{chave, qtd}`).
+
+**Tradução de exceções na fronteira MCP, não como rede de segurança contra
+crash.** As exceções de domínio (`datajud.client`'s `DataJudAuthError`,
+`DataJudRateLimitError`, `DataJudProtocolError`, `DataJudError` genérico de
+ES) permanecem independentes do FastMCP — nenhuma delas importa `fastmcp`,
+mesma separação que a CLI já usa (`except (DataJudError, httpx.HTTPError)`).
+Na fronteira MCP, `_facetas_tool_error()` traduz explicitamente cada
+categoria conhecida para uma mensagem de `fastmcp.exceptions.ToolError`.
+Isso não é o que impede o transporte de cair: o próprio FastMCP já contém
+qualquer exceção levantada durante a execução normal de uma tool e a
+converte num tool-execution error (`server.py`'s `call_tool` deixa
+`FastMCPError` passar, envolve o resto em `ToolError`, com mensagens
+especiais para 429/timeout, respeitando `mask_error_details`) — isso nunca
+esteve em risco. O que a tradução explícita garante é outra coisa: mensagens
+públicas estáveis, acionáveis e seguras, que sobrevivem a
+`mask_error_details=True` (o fallback genérico do FastMCP substituiria
+qualquer exceção que não seja já um `ToolError` por um "Error calling tool
+..." completamente opaco nesse modo) — sem depender do `str()` interno de
+cada exceção, que pode mudar de redação ou, no caso do erro genérico de ES,
+carregar o payload cru do Elasticsearch. Exceções fora dessa lista conhecida
+continuam contidas pelo fallback do FastMCP — defesa em profundidade, não o
+contrato principal de erros da tool.
+
+Isso é diferente da correção de stdio da Fase 3A
+(`_configure_stdio_safe_logging()` em `__main__.py`, ainda necessária e já
+genérica ao processo): aquela era corrupção do canal de transporte (bytes de
+log indo parar em stdout, que é exclusivamente JSON-RPC), não uma exceção de
+função — uma classe de falha que o `except Exception` do FastMCP não cobre
+porque nunca chega como exceção Python. As duas proteções continuam
+necessárias, mas por motivos diferentes.
+
+Testado com `respx` (mesmo padrão de `tests/datajud/test_datajud_enrich.py`)
+mockando o endpoint HTTP: sucesso, 401, 429 esgotando o retry budget,
+rejeição ES esgotando o retry budget, erro ES genérico não retriável (com
+asserção explícita de que o payload do ES não vaza na mensagem pública),
+outro status HTTP, erro de rede, resposta não JSON, o orçamento MCP em uso e
+o deadline duro da tool — dez casos. Não ganhou teste dedicado de transporte
+stdio real (diferente da Fase 3A): o caminho de sucesso de `facetas()` não
+loga nada (só os ramos de rejeição/erro da ES logam, em `warning`/`error`),
+e a correção de stdio já é genérica ao processo — um teste adicional
+testaria a mesma correção duas vezes, não um caminho novo.
+
+Correções de review antes do merge:
+
+- **Orçamento de tempo próprio para a chamada MCP, em duas camadas.**
+  `DataJudClient` tem defaults calibrados para o `enrich` da CLI — ingestão
+  em lote de longa duração, onde vale esperar minutos por um hiccup do
+  DataJud: `timeout=90s`, `max_retries=5` (6 tentativas), backoff
+  2/4/8/16/30s. Herdar isso integralmente na tool deixaria uma
+  indisponibilidade custar até ~10 minutos antes do `ToolError` (e um 429
+  persistente, ~1 minuto só em backoff) — tempo longo o bastante para um
+  host MCP desistir de esperar antes do erro estruturado chegar.
+  `datajud.service.facetas()` ganhou parâmetros opcionais (`request_timeout`,
+  `max_retries`, `backoff_base`, todos `None` por default — a CLI continua
+  sem passá-los, comportamento idêntico ao de antes); a tool passa um
+  orçamento interno próprio, não exposto no schema (`_FACETAS_TIMEOUT=15s`,
+  `_FACETAS_MAX_RETRIES=1`, `_FACETAS_BACKOFF_BASE=1.0`, pior caso ~31s em
+  vez de ~10 minutos). Uma segunda camada, independente: `@mcp.tool(timeout=
+  _FACETAS_TOOL_TIMEOUT)` (45s), o deadline nativo do FastMCP
+  (`anyio.fail_after`), como backstop acima do pior caso do orçamento do
+  client — cobre qualquer travamento que o timeout do próprio client não
+  pegue, ou uma futura mudança no orçamento que o faça crescer de novo; ao
+  disparar, vira um `McpError` genérico (não uma das mensagens tratadas de
+  `_facetas_tool_error()`), mas ainda contido pelo FastMCP, nunca cru.
+  `test_facetas_uses_a_tighter_budget_than_the_ingestion_client` espiona os
+  kwargs que a tool passa a `DataJudClient`; `test_facetas_has_a_
+  hard_interactive_timeout_as_backstop` confirma o deadline da tool — nenhum
+  dos dois precisa de sleeps reais.
+- **Resposta não JSON não tinha lugar na taxonomia.**
+  `DataJudClient._search_once()` chamava `resp.json()` sem tratamento — um
+  WAF/gateway devolvendo HTML ou corpo truncado sob HTTP 200 levanta
+  `JSONDecodeError` (um `ValueError`), que não é `DataJudError` nem
+  `httpx.HTTPError`. Sem tradução no client, isso pularia a taxonomia de
+  domínio inteira e cairia direto no fallback genérico do FastMCP —
+  perdendo toda orientação acionável com masking ligado, ou expondo detalhes
+  instáveis sem masking. Corrigido com uma nova classe
+  `DataJudProtocolError(DataJudError)` e um `_parse_json_body()` que traduz
+  só o `ValueError` de `resp.json()` — não um `except ValueError` amplo, que
+  mascararia bug de programação — numa mensagem com status e content-type,
+  sem ecoar o corpo. Coberto em `tests/datajud/test_datajud_client.py`
+  (nível do client) e `tests/causaganha_mcp/test_datajud_facetas.py` (nível
+  da tool).
+- **O fallback genérico de `_facetas_tool_error()` vazava `str(exc)`.**
+  `return ToolError(f"DataJud query failed: {exc}")` acoplava a mensagem
+  pública ao texto interno de qualquer exceção não coberta pelos ramos
+  explícitos — e o `DataJudError` genérico (erro de ES não-transiente em
+  `_search_once`) embute o payload cru do Elasticsearch nesse texto. Trocado
+  por uma mensagem fixa, sem interpolação; a causa real continua disponível
+  via `raise ... from exc` para logs.
 
 Operações de ingestão/upload de longa duração (o sync completo, `drain`,
 `consolidate`, `enrich` com upload) ficam só na CLI/CI em qualquer fase —
@@ -298,6 +399,37 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
   nenhuma das 4 tools) e de comportamento (manifest vazio e populado, por
   tool). `pytest`, `ruff check`, `ruff format --check` verdes.
 - Nenhuma tool de ingestão/upload — só as 4 de status.
+
+**Fase 3B (implementada):**
+- `datajud_facetas` em `tools/datajud.py`, `readOnlyHint=True`,
+  `destructiveHint=False`, `openWorldHint=True` (única tool que faz chamada
+  de rede), sem credencial em parâmetro ou retorno.
+- Toda a taxonomia de erro de `datajud.client` (`DataJudAuthError`,
+  `DataJudRateLimitError`, `DataJudError` de ES, `DataJudProtocolError` de
+  corpo não JSON, `httpx.HTTPStatusError`,
+  `httpx.TimeoutException`/`TransportError`) traduzida explicitamente para
+  `fastmcp.exceptions.ToolError`, com mensagens públicas estáveis e sem
+  interpolar `str(exc)` no ramo de fallback (não vaza payload de ES nem
+  outro detalhe interno instável) — não porque isso evite um crash de
+  transporte (o FastMCP já contém qualquer exceção de tool sozinho), mas
+  porque preserva orientação acionável mesmo sob `mask_error_details=True`.
+- `por` como `Literal` hardcoded, guardado por teste de schema que compara
+  o enum declarado com `datajud.client.FACET_FIELDS.keys()` (drift guard).
+- Orçamento de tempo/retry em duas camadas: interno do client
+  (`_FACETAS_TIMEOUT=15s`, `_FACETAS_MAX_RETRIES=1`,
+  `_FACETAS_BACKOFF_BASE=1.0`, não exposto no schema, pior caso ~31s em vez
+  dos ~10min do perfil de ingestão) e um deadline nativo do FastMCP na tool
+  (`@mcp.tool(timeout=45s)`, backstop acima do pior caso do client).
+- `tests/causaganha_mcp/test_datajud_facetas.py`: dez casos via `respx`
+  (sucesso + sete modos de falha + orçamento do client em uso + deadline da
+  tool), cada um de falha afirmando `ToolError` (o do fallback genérico
+  também afirma que o payload de ES não aparece na mensagem).
+  `tests/datajud/test_datajud_client.py` cobre `DataJudProtocolError` no
+  nível do client. `tests/causaganha_mcp/test_tool_schema.py` estendido
+  para as 5 tools.
+  `pytest`, `ruff check`, `ruff format --check` verdes.
+- `server.py`'s `instructions` atualizado para não afirmar mais que o
+  servidor inteiro é sem chamada de rede.
 
 ## 4. Riscos
 
