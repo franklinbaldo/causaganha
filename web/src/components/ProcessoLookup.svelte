@@ -26,6 +26,7 @@
   let invalidMessage = $state(null);
   let queryError = $state(null);
   let processo = $state(null);
+  let notFoundLegado = $state(false);
 
   let documentosStatus = $state('idle'); // 'idle' | 'loading' | 'ready' | 'error'
   let documentosError = $state(null);
@@ -129,6 +130,7 @@
     status = 'querying';
     queryError = null;
     processo = null;
+    notFoundLegado = false;
     documentos = [];
     documentosStatus = 'idle';
     documentosOffset = 0;
@@ -151,6 +153,7 @@
 
       if (!resultado.encontrado) {
         status = 'not_found';
+        notFoundLegado = resultado.legado;
         lastQueriedCnj = digits;
         return;
       }
@@ -249,9 +252,9 @@
       <h3>Processo não localizado</h3>
       <p>
         Nenhum registro para <code>{lastQueriedCnj ? formatCnj(lastQueriedCnj) : ''}</code> em
-        indice_processual.parquet. Isso significa que o CNJ não apareceu em nenhuma das fontes
-        reconciliadas (DJEN, JURIS, STJ, DataJud) até a última geração do dataset — não que o
-        processo não existe.
+        {notFoundLegado ? 'processos_unificados.parquet' : 'indice_processual.parquet'}. Isso
+        significa que o CNJ não apareceu em nenhuma das fontes reconciliadas (DJEN, JURIS, STJ,
+        DataJud) até a última geração do dataset — não que o processo não existe.
       </p>
     </article>
   {/if}

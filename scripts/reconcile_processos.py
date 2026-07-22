@@ -12,6 +12,19 @@ There is deliberately no second, independently-published "wide" parquet —
 consumers (processo_consultar, web/src/lib/processoCnj.ts) join the index
 against each source's own parquet at query time.
 
+Known limitation — arquivo_ia_url provenance for local sources: DJEN's URL
+comes from `p_item_ia`, a column stamped by DJEN's own pipeline at write
+time (proven correct by construction). JURIS/STJ/DataJud have no such
+column; when loaded via IA fallback their URL is ground truth (it's
+literally where the bytes were fetched from — see fetch_juris_from_ia).
+When loaded from a *local* file (loaded_local), the URL is instead
+*presumed* from naming convention — correct only if that file has already
+been uploaded to IA under that exact name. Not exercised by CI
+(update-catalog.yml's download-state action never populates local
+JURIS/STJ/DataJud directories, so this reconciler always takes the IA-fetch
+branch there), but real for local/dev runs — see
+_warn_if_local_url_unverified.
+
 Pipeline:
   1. Load DJEN from every consolidated comunicacoes.parquet (discovered via
      the causaganha-catalog manifest) — flat, no GROUP BY.
@@ -647,6 +660,32 @@ def _empty_acordaos_view(con: duckdb.DuckDBPyConnection) -> None:
     )
 
 
+def _warn_if_local_url_unverified(fonte: str, load: SourceLoad) -> None:
+    """Warn when a source's arquivo_ia_url is presumed, not proven, for this run.
+
+    JURIS/STJ/DataJud derive arquivo_ia_url from naming convention (the item
+    each local file *would* correspond to on IA), not from where the bytes
+    were actually fetched from — that provenance only exists when the source
+    is loaded_remote (see fetch_juris_from_ia's per-file url map, ground
+    truth by construction since the URL IS where it was downloaded from).
+    A loaded_local source presumes its file already matches what's on IA at
+    that same name — true whenever this reconciler runs after that source's
+    own upload step has already completed, but never verified here (no HEAD
+    request against IA). CI never exercises this branch (update-catalog.yml's
+    download-state action only fetches sync-manifest.parquet — JURIS/STJ/
+    DataJud local directories are always empty in that job — see RFC 0014 M2
+    review), so it's a real gap only for local/dev runs of this script.
+    """
+    if load.status != STATUS_LOADED_LOCAL:
+        return
+    print(
+        f"  WARNING: {fonte} loaded from a local file — arquivo_ia_url in the index is "
+        "presumed from naming convention, not verified against IA. Correct only if this "
+        "file has already been uploaded under that exact name.",
+        file=sys.stderr,
+    )
+
+
 def _quarantine_if_cached(files: list[Path], load: SourceLoad) -> None:
     """Quarantine *files* only when they came from our own IA-fetch cache.
 
@@ -715,6 +754,7 @@ def _register_juris(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     """
     juris_files, juris_urls, needs_dedup, load = ensure_juris_parquets()
     if juris_files:
+        _warn_if_local_url_unverified("juris", load)
         juris_list = ", ".join(f"'{p}'" for p in juris_files)
         # filename=true stamps each row with the exact file DuckDB read it
         # from — the ground truth for arquivo_ia_url. Never inferred from
@@ -779,6 +819,7 @@ def _register_stj(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     """
     stj_path, load = ensure_stj_parquet()
     if stj_path is not None:
+        _warn_if_local_url_unverified("stj", load)
         print(f"Registering STJ view: {stj_path}")
         try:
             con.execute(f"CREATE VIEW acordaos AS SELECT * FROM read_parquet('{stj_path}')")
@@ -821,6 +862,7 @@ def _register_datajud(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     }
     datajud_files, load = ensure_datajud_parquets()
     if datajud_files:
+        _warn_if_local_url_unverified("datajud", load)
         datajud_list = ", ".join(f"'{p}'" for p in datajud_files)
         print(f"  Registering DataJud capa view: {len(datajud_files)} parquet file(s)")
         try:

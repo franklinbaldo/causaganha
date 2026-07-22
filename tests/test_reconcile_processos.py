@@ -574,6 +574,56 @@ class TestCorruptedParquetHandling:
         assert report["sources"]["datajud"]["status"] == rp.STATUS_LOADED_REMOTE
 
 
+class TestLocalSourceUrlProvenanceWarning:
+    """arquivo_ia_url for a loaded_local source is presumed, not proven (RFC 0014 M2 review).
+
+    CI never exercises this — update-catalog.yml's download-state action
+    only fetches sync-manifest.parquet — but a local/dev run of this script
+    can hit it, and the reconciler must say so loudly rather than silently
+    trusting the presumption.
+    """
+
+    def test_warns_when_juris_loaded_from_local_file(
+        self, isolated_dirs: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tmp_path = isolated_dirs
+        juris_dir = tmp_path / "data" / "tjro_juris" / "2024"
+        juris_dir.mkdir(parents=True)
+        _juris_parquet(
+            juris_dir / "tjro-juris-2024.parquet",
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+        )
+        con = duckdb.connect()
+        try:
+            load = rp._register_juris(con)
+        finally:
+            con.close()
+
+        assert load.status == rp.STATUS_LOADED_LOCAL
+        err = capsys.readouterr().err
+        assert "juris" in err
+        assert "arquivo_ia_url" in err
+        assert "presumed" in err
+
+    def test_no_warning_when_juris_loaded_from_ia(
+        self, isolated_dirs: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        with respx.mock() as router:
+            _mock_juris_remote(router, fixtures)
+            con = duckdb.connect()
+            try:
+                load = rp._register_juris(con)
+            finally:
+                con.close()
+
+        assert load.status == rp.STATUS_LOADED_REMOTE
+        assert "presumed" not in capsys.readouterr().err
+
+
 class TestValidateCoverage:
     def test_zero_plus_unavailable_expected_is_error(self) -> None:
         sources = {"juris": rp.SourceLoad("juris", rp.STATUS_UNAVAILABLE, "no IA items", rows=0)}

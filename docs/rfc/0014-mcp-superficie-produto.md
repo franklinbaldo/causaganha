@@ -244,12 +244,36 @@ consultam esses parquets diretamente — a mesma consulta em duas linguagens
   `CAUSAGANHA_WEB_BASE_URL` está no ambiente.
 - `web/src/lib/processoCnj.ts` + `ProcessoLookup.svelte` (dashboard
   `/processo`) migrados para o mesmo padrão de dois estágios (índice →
-  parquets de origem) via DuckDB-WASM; nenhuma referência residual a
-  `processos_unificados.parquet`/`processo_documentos.parquet` no
-  frontend.
+  parquets de origem) via DuckDB-WASM.
 - `datajud.service`'s descoberta de CNJs lê `indice_processual.parquet`.
 - Mesma disciplina de M1: fatos com proveniência, não veredito; `ToolError`
   estruturado para falha real, resultado parcial para ausência de dado.
+
+**Fallback de rollout (review da #856).** `deploy-web.yml` dispara direto
+no push para `main` tocando `web/**`/`render_queries.py`; `update-catalog
+.yml` só publica `indice_processual.parquet` quando `has_new_uploads ==
+true` no seu próprio gatilho (conclusão do workflow "Consolidate Parquet"
+— não o merge desta PR). Sem mitigação, `/processo` regrediria de "tem
+dado real" (lê hoje `processos_unificados.parquet`/`processo_documentos
+.parquet`) para "indisponível" durante essa janela, e
+`processos_multi_fonte.qmd` regrediria de dado real para vazio.
+`processos_unificados.parquet`/`processo_documentos.parquet` continuam no
+item IA `causaganha-dashboard` — o reconciliador para de escrevê-los, mas
+um upload com nome diferente não remove o objeto antigo — então servem de
+fallback temporário, não uma segunda fonte de verdade permanente:
+- `scripts/render_queries.py`'s `_register_comunicacoes` cai para
+  consultar o `causaganha-catalog` manifest diretamente (mesma consulta
+  que o DJEN usava antes desta PR) quando o índice está inacessível.
+- `web/src/lib/processoCnj.ts`'s `buscarProcesso`/`carregarDocumentos`
+  caem para `processos_unificados.parquet`/`processo_documentos.parquet`
+  pelo mesmo motivo, marcando o resultado com `legado: true` (a UI ajusta
+  o texto de "não encontrado" de acordo, e o aviso explica a fonte usada).
+- `processo_consultar` (MCP) fica sem fallback equivalente — é
+  funcionalidade nova, sem estado anterior para onde cair, e já degrada
+  com `ToolError` claro em vez de crashar.
+- Remover os dois fallbacks — e, quando fizer sentido, os arquivos legados
+  do IA — depois que `indice_processual.parquet` estiver confirmado
+  publicado e estável.
 - `pytest`, `ruff check`, `ruff format --check`, suíte de testes web
   (`npm test`) e `astro check` verdes.
 
