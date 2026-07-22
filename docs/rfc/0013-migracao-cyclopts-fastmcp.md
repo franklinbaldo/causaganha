@@ -1,9 +1,11 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A e Fase 3B implementadas
-  (PRs #849, #850, #851, #852, #853). Fase 3 está fechada — trabalho de
-  produto sobre o servidor MCP continua em RFC 0014. Fase 4 (Typer →
-  Cyclopts) segue pendente, sem PR aberto.
+- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A, Fase 3B e Fase 4 implementadas
+  (PRs #849, #850, #851, #852, #853, e o PR desta fase). Fase 3 está fechada —
+  trabalho de produto sobre o servidor MCP continua em RFC 0014. RFC 0013
+  está fechada — os quatro pacotes CLI (`djen_backup`, `tjro_juris`,
+  `stj_acordaos`, `datajud`) rodam em Cyclopts, e as cinco tools FastMCP já
+  existiam desde a Fase 3B.
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -352,7 +354,7 @@ migração de framework, e fica em **RFC 0014 — MCP como superfície de
 produto**. Esta RFC não será estendida com esse escopo; só Fase 4 (abaixo)
 continua pendente aqui.
 
-### Fase 4 — Typer → Cyclopts
+### Fase 4 — Typer → Cyclopts (implementada)
 
 Com os testes framework-neutros da Fase 2.5 como portão (não os da Fase 1,
 que são introspecção Click e não sobrevivem à troca de framework):
@@ -360,6 +362,56 @@ re-executar `tests/cli_contract/` contra a CLI migrada, trocando só o
 adaptador de invocação (`CliRunner.invoke` → o equivalente Cyclopts), antes
 de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
 `default_command` explícito equivalente a `invoke_without_command=True`.
+
+Os quatro pacotes foram migrados nessa ordem: `djen_backup`, `tjro_juris`,
+`stj_acordaos`, `datajud`. Achados concretos, não previstos em detalhe pelo
+texto original acima:
+
+- **Callback bare via `App.meta`.** `djen-backup` é o único pacote com
+  callback bare + setup compartilhado (`configure_runtime()`). Cyclopts não
+  tem um `invoke_without_command=True` — `@app.default` só dispara quando
+  *nenhum* subcomando bate. O equivalente é o padrão meta-app: comandos
+  registrados num `App` interno, `app = App(...).meta`, com
+  `@_commands_app.meta.default def _launch(*tokens): configure_runtime();
+  return _commands_app(tokens)` rodando antes de qualquer despacho — bare ou
+  subcomando. Único pacote que precisou disso; os outros três não têm setup
+  compartilhado nem callback bare.
+- **`--no-fail-fast`/`--use-proxy` (o risco mais frágil listado abaixo) —
+  resolvido.** `Parameter(name=[...])` sozinho **não** suprime o par
+  `--no-X` que Cyclopts gera automaticamente para todo booleano — só o nome
+  explícito, ao contrário do Typer, onde uma string de opção explícita já
+  suprimia a negação. A correção é `Parameter(name="--flag", negative=[])`.
+  Aplicado em `djen-backup`'s `drain`/`probe` (`--use-proxy`) e `reset`
+  (`--all`), e em `datajud`'s `enrich` (`--skip-upload`) — todo booleano que
+  no Typer original só tinha a forma positiva. `tests/cli_contract/`
+  confirma `--no-use-proxy`/`--no-skip-upload` continuam inexistentes.
+- **Exit code de erro de uso: 1, não 2.** O código de saída default do
+  Cyclopts para um erro de parsing/uso (`sys.exit(1)` fixo em
+  `cyclopts/core.py`, não configurável via `App(...)`) é **1**, diferente da
+  convenção 2 do Click/Typer para a mesma classe de erro — confirmado lendo
+  a fonte do Cyclopts e por experimento direto. Nenhum dos 5 workflows de
+  produção aciona esse caminho (nenhum passa `--ia-key` nem
+  `--no-use-proxy`), então não é regressão de produção — é uma diferença de
+  framework real, documentada e travada em 3 casos de
+  `test_semantic_argv_contract.py` (`expected_exit_code=1` com comentário
+  explicando por quê) em vez de escondida atrás de um harness que mentisse
+  sobre o que Cyclopts de fato produz.
+- **Testes de caracterização da Fase 1 removidos, como o RFC sempre previu.**
+  `tests/{djen_backup,tjro_juris,stj_acordaos,datajud}/test_*_cli_contract.py`
+  chamavam `typer.main.get_command(app)` — quebraram na hora em que cada
+  `app` virou um `cyclopts.App`, exatamente como a nota da Fase 1 (§ acima)
+  antecipava. `tests/cli_contract/test_semantic_argv_contract.py` (Fase 2.5)
+  já cobria todo caso que eles travavam; deletados sem substituição. Os
+  outros testes que usavam `typer.testing.CliRunner` diretamente
+  (`test_cli_exit_code.py` do `djen_backup`, `test_stj_main.py`,
+  `test_datajud_enrich.py`) foram reescritos para invocar o `App` do
+  Cyclopts diretamente (`app(argv, exit_on_error=False,
+  result_action="return_value")`, stdout/stderr capturados via
+  `contextlib.redirect_std{out,err}`), preservando as mesmas asserções de
+  exit code e saída de texto.
+- **`typer` continua como dependência.** `src/segmenter_dataset/__main__.py`
+  e `src/causaganha/consolidate/cli.py` usam Typer e estão fora do escopo
+  desta RFC (só os quatro pacotes de sincronização DJEN/TJRO/STJ/DataJud).
 
 ## 3. Critérios de aceitação
 
@@ -446,13 +498,39 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
 - `server.py`'s `instructions` atualizado para não afirmar mais que o
   servidor inteiro é sem chamada de rede.
 
+**Fase 4 (implementada):**
+- Os quatro `__main__.py` (`djen_backup`, `tjro_juris`, `stj_acordaos`,
+  `datajud`) rodam em Cyclopts; nenhum importa `typer`.
+- `cyclopts` como dependência direta (`pyproject.toml`), não só transitiva
+  via `fastmcp[server]`.
+- `tests/cli_contract/harness.py` migrado para o adaptador de invocação
+  Cyclopts (`_invoke`); as 16 `CliContractCase` (4 pacotes) passam sem
+  alteração de `check` — só o adaptador mudou, como planejado.
+- Negação de booleano preservada: todo `--flag` que só tinha forma positiva
+  no Typer original (`--use-proxy`, `--all`, `--skip-upload`) usa
+  `Parameter(negative=[])` em Cyclopts; `--no-*` continua inexistente para
+  esses três, confirmado por teste.
+- `djen-backup`'s callback bare preservado via `App.meta` — `djen-backup
+  --deadline-minutes N ...` (sem subcomando) continua rodando
+  `configure_runtime()` antes do pipeline, igual à Fase 2.
+- Nenhuma mudança de argv nos 5 workflows de produção — os mesmos comandos
+  que a Fase 1 travou continuam resolvendo para a mesma config semântica.
+- Testes de caracterização da Fase 1 (introspecção Click) deletados nos
+  quatro pacotes; testes que usavam `typer.testing.CliRunner` diretamente
+  reescritos para invocar o `App` Cyclopts.
+- `pytest`, `ruff check`, `ruff format --check` verdes.
+
 ## 4. Riscos
 
-- **`--no-fail-fast`** é o caso mais frágil: se o Cyclopts gerar nome ou
-  default diferente para o par negável, `collect-zips` passa a rodar com
-  `fail_fast=True` e aborta no primeiro 403 do CloudFront — regressão
-  silenciosa, visível só na próxima execução (a cada 20 min). É o primeiro
-  caso em `tests/cli_contract/` (Fase 2.5) precisamente por isso.
+- **`--no-fail-fast`** era o caso mais frágil: se o Cyclopts gerasse nome ou
+  default diferente para o par negável, `collect-zips` passaria a rodar com
+  `fail_fast=True` e abortaria no primeiro 403 do CloudFront — regressão
+  silenciosa, visível só na próxima execução (a cada 20 min). Era o primeiro
+  caso em `tests/cli_contract/` (Fase 2.5) precisamente por isso — **resolvido
+  na Fase 4**: `--fail-fast`/`--no-fail-fast` são o par negável default do
+  Cyclopts (sem necessidade de `negative=[]`, já que o Typer original também
+  gerava os dois lados via `/`), e o caso de contrato correspondente passa
+  sem alteração.
 - **`ruff select=["ALL"]`** e **`vulture --min-confidence 100`** sinalizaram
   código novo durante a extração da Fase 2 (complexidade, imports não
   utilizados, docstrings) — resolvido com refino local (ex.: `enrich` do

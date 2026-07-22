@@ -4,13 +4,24 @@ The Fase 1 characterization tests (`tests/*/test_*_cli_contract.py`) lock
 today's Typer/Click behavior via `Command.make_context`, `opts`,
 `secondary_opts` — infrastructure that disappears the moment the CLI moves
 to Cyclopts. This module is the durable replacement the RFC calls for: it
-runs each CLI for real (`CliRunner.invoke`) with the exact argv a
-production workflow sends, mocks only the service-layer call the workflow
-ultimately reaches, and asserts on the *semantic* configuration that
-arrived there — never on Click's parsed-parameter representation. A
-Cyclopts port re-runs this exact file unchanged; it is production code
-(`src/*/__main__.py`) and Cyclopts-facing test scaffolding still to write
-that will need updating, not this file.
+runs each CLI for real (`harness._invoke`, framework-neutral) with the
+exact argv a production workflow sends, mocks only the service-layer call
+the workflow ultimately reaches, and asserts on the *semantic* configuration
+that arrived there — never on Click's or Cyclopts' parsed-parameter
+representation.
+
+The Fase 4 Cyclopts port re-ran this file with only `harness.py`'s
+invocation adapter changed, as designed — with one deliberate, narrow
+exception: the three usage-error cases below (`--no-use-proxy` on `drain`,
+`--ia-key` on `stj_acordaos`/`datajud`) had `expected_exit_code` updated
+from `2` to `1`. That's not the harness papering over a migration bug —
+Cyclopts' own default exit code for a parse/usage error is `1`
+(`cyclopts/core.py` hardcodes `sys.exit(1)` on that path, unlike Click's
+convention of `2`), confirmed by direct experiment before writing the
+adapter. The gate's job is to surface a genuine behavior difference like
+this, not hide it — and no production workflow ever passes `--ia-key` or
+`--no-use-proxy`, so the value change has no operational effect on the
+five real workflows this file protects.
 
 Covers every literal step of the five production workflows the RFC's Fase 1
 registered — not just one representative command per package, since a
@@ -150,7 +161,7 @@ DJEN_BACKUP_CASES = [
         label="djen_backup: drain's --use-proxy has no --no-use-proxy pair (usage error)",
         app_path="djen_backup.__main__",
         argv=["drain", "--no-use-proxy"],
-        expected_exit_code=2,
+        expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
     ),
 ]
 
@@ -280,7 +291,7 @@ STJ_ACORDAOS_CASES = [
         label="stj_acordaos: --ia-key is not a CLI option anymore (usage error)",
         app_path="stj_acordaos.__main__",
         argv=["upload", "--ia-key", "x"],
-        expected_exit_code=2,
+        expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
     ),
     CliContractCase(
         label="stj_acordaos: stj-sync.yml download --data-dir ... --manifest-path ...",
@@ -378,7 +389,7 @@ DATAJUD_CASES = [
         label="datajud: --ia-key is not a CLI option anymore (usage error)",
         app_path="datajud.__main__",
         argv=["enrich", "--ia-key", "x"],
-        expected_exit_code=2,
+        expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
     ),
     CliContractCase(
         label="datajud: datajud-enrich.yml status --data-dir data/datajud",

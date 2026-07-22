@@ -31,47 +31,48 @@ read from the environment only — not CLI options — so they never appear in
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 from typing import Annotated
 
 import httpx
-import typer
+from cyclopts import App, Parameter
 
 from datajud import service
 from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudError
 
 
-app = typer.Typer(
+app = App(
     name="datajud",
     help="DataJud (CNJ) — enriquecimento de metadados processuais (capa + movimentos).",
-    no_args_is_help=True,
 )
 
 
-@app.command()
+@app.command
 def enrich(
-    tribunal: Annotated[str, typer.Option(help="Sigla do índice DataJud (ex.: tjro, stj).")] = (
+    tribunal: Annotated[str, Parameter(help="Sigla do índice DataJud (ex.: tjro, stj).")] = (
         DEFAULT_TRIBUNAL
     ),
-    data_dir: Annotated[Path, typer.Option(help="Diretório dos parquets/manifest DataJud.")] = (
+    data_dir: Annotated[Path, Parameter(help="Diretório dos parquets/manifest DataJud.")] = (
         service.DEFAULT_DATA_DIR
     ),
     sources_dir: Annotated[
-        Path, typer.Option(help="Diretório com os parquets-fonte de CNJs (data/).")
+        Path, Parameter(help="Diretório com os parquets-fonte de CNJs (data/).")
     ] = service.DEFAULT_SOURCES_DIR,
     cnj: Annotated[
-        list[str] | None, typer.Option("--cnj", help="CNJ explícito (repetível).")
+        list[str] | None, Parameter(name="--cnj", help="CNJ explícito (repetível).")
     ] = None,
-    cnj_file: Annotated[Path | None, typer.Option(help="Arquivo com um CNJ por linha.")] = None,
-    limit: Annotated[int, typer.Option(help="Máximo de CNJs a consultar (0 = sem limite).")] = 0,
+    cnj_file: Annotated[Path | None, Parameter(help="Arquivo com um CNJ por linha.")] = None,
+    limit: Annotated[int, Parameter(help="Máximo de CNJs a consultar (0 = sem limite).")] = 0,
     max_age_days: Annotated[
-        int, typer.Option(help="Janela de frescor: reconsulta CNJs mais velhos que N dias.")
+        int, Parameter(help="Janela de frescor: reconsulta CNJs mais velhos que N dias.")
     ] = 30,
-    batch_size: Annotated[int, typer.Option(help="CNJs por requisição (terms).")] = 50,
+    batch_size: Annotated[int, Parameter(help="CNJs por requisição (terms).")] = 50,
     skip_upload: Annotated[
-        bool, typer.Option("--skip-upload", help="Não envia os parquets ao IA.")
+        bool,
+        Parameter(name="--skip-upload", negative=[], help="Não envia os parquets ao IA."),
     ] = False,
-) -> None:
+) -> int:
     """Consulta capa + movimentos dos CNJs conhecidos e arquiva parquets no IA."""
     ia_key, ia_secret = service.ia_credentials()
     result = service.enrich(
@@ -89,76 +90,81 @@ def enrich(
     )
 
     if result.status == "no_cnjs":
-        typer.echo("No CNJs found (no local source parquets and no --cnj/--cnj-file).", err=True)
-        raise typer.Exit(1)
+        print(
+            "No CNJs found (no local source parquets and no --cnj/--cnj-file).",
+            file=sys.stderr,
+        )
+        return 1
     if result.status == "nothing_to_do":
-        typer.echo("Nothing to do — all CNJs are fresh in the manifest.")
-        return
+        print("Nothing to do — all CNJs are fresh in the manifest.")
+        return 0
     if result.status == "fetch_error":
-        typer.echo(f"ERROR: {result.error}", err=True)
-        raise typer.Exit(1)
+        print(f"ERROR: {result.error}", file=sys.stderr)
+        return 1
 
-    typer.echo(f"  {result.n_capa:,} capa rows → {result.capa_path}")
-    typer.echo(f"  {result.n_mov:,} movimento rows → {result.mov_path}")
+    print(f"  {result.n_capa:,} capa rows → {result.capa_path}")
+    print(f"  {result.n_mov:,} movimento rows → {result.mov_path}")
 
     if result.status == "missing_credentials":
-        typer.echo("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", err=True)
-        raise typer.Exit(1)
+        print("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", file=sys.stderr)
+        return 1
     if result.status == "upload_error":
-        typer.echo(f"Upload FAILED: {result.error}", err=True)
-        raise typer.Exit(1)
+        print(f"Upload FAILED: {result.error}", file=sys.stderr)
+        return 1
 
     if skip_upload:
-        typer.echo("Skipping IA upload (--skip-upload).")
+        print("Skipping IA upload (--skip-upload).")
     else:
-        typer.echo("Upload complete.")
+        print("Upload complete.")
 
-    typer.echo(f"Manifest saved ({result.manifest_entries} entries).")
+    print(f"Manifest saved ({result.manifest_entries} entries).")
+    return 0
 
 
-@app.command()
+@app.command
 def facetas(
-    tribunal: Annotated[str, typer.Option(help="Sigla do índice DataJud.")] = DEFAULT_TRIBUNAL,
+    tribunal: Annotated[str, Parameter(help="Sigla do índice DataJud.")] = DEFAULT_TRIBUNAL,
     por: Annotated[
-        str, typer.Option(help=f"Dimensão da agregação: {', '.join(FACET_FIELDS)}.")
+        str, Parameter(help=f"Dimensão da agregação: {', '.join(FACET_FIELDS)}.")
     ] = "classe",
-    limite: Annotated[int, typer.Option(help="Número de buckets.")] = 15,
-) -> None:
+    limite: Annotated[int, Parameter(help="Número de buckets.")] = 15,
+) -> int:
     """Agrega o acervo por classe/assunto/órgão/grau/sistema (sem baixar docs)."""
     if por not in FACET_FIELDS:
-        typer.echo(f"ERROR: --por must be one of: {', '.join(FACET_FIELDS)}.", err=True)
-        raise typer.Exit(2)
+        print(f"ERROR: --por must be one of: {', '.join(FACET_FIELDS)}.", file=sys.stderr)
+        return 2
 
     try:
         total, buckets = asyncio.run(service.facetas(tribunal, por, limite))
     except (DataJudError, httpx.HTTPError) as exc:
-        typer.echo(f"ERROR: {exc}", err=True)
-        raise typer.Exit(1) from exc
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
 
-    typer.echo(f"Panorama por {por} — {tribunal.upper()} (total no acervo: {total:,})")
+    print(f"Panorama por {por} — {tribunal.upper()} (total no acervo: {total:,})")
     for bucket in buckets:
-        typer.echo(f"  {bucket['qtd']:>9,}  {bucket['chave']}")
+        print(f"  {bucket['qtd']:>9,}  {bucket['chave']}")
     if not buckets:
-        typer.echo("  (nenhum bucket)")
+        print("  (nenhum bucket)")
+    return 0
 
 
-@app.command()
+@app.command
 def status(
-    data_dir: Annotated[Path, typer.Option(help="Diretório dos parquets/manifest DataJud.")] = (
+    data_dir: Annotated[Path, Parameter(help="Diretório dos parquets/manifest DataJud.")] = (
         service.DEFAULT_DATA_DIR
     ),
 ) -> None:
     """Mostra o estado do manifest DataJud."""
     result = service.manifest_status(data_dir)
     if result is None:
-        typer.echo("Manifest is empty or not found.")
+        print("Manifest is empty or not found.")
         return
-    typer.echo(f"DataJud manifest: {service.manifest_path(data_dir)}")
-    typer.echo(f"  CNJs consultados : {result.total}")
-    typer.echo(f"  Status ok        : {result.ok}")
-    typer.echo(f"  Com documentos   : {result.com_docs}")
-    typer.echo(f"  Sem documentos   : {result.sem_docs}")
-    typer.echo(f"  Com erro         : {result.com_erro}")
+    print(f"DataJud manifest: {service.manifest_path(data_dir)}")
+    print(f"  CNJs consultados : {result.total}")
+    print(f"  Status ok        : {result.ok}")
+    print(f"  Com documentos   : {result.com_docs}")
+    print(f"  Sem documentos   : {result.sem_docs}")
+    print(f"  Com erro         : {result.com_erro}")
 
 
 if __name__ == "__main__":

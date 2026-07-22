@@ -38,6 +38,13 @@ dependencies = [
     # tests/causaganha_mcp/test_tool_schema.py depend on, landed in 2.10.0.
     # Matches the floor already adopted in the sibling repo `pink`.
     "fastmcp>=3.4.2",
+    # djen_backup/tjro_juris/stj_acordaos/datajud CLIs — RFC 0013 Fase 4.
+    # Was already present transitively (fastmcp[server]'s own CLI depends on
+    # cyclopts>=4.0.0); declared directly now that the four CLIs use its
+    # App/Parameter API themselves, so it isn't silently at the mercy of
+    # fastmcp's own dependency choices. Floor matches the version already
+    # resolved and exercised by tests/cli_contract/ during migration.
+    "cyclopts>=4.22.0",
 ]
 
 [dependency-groups]

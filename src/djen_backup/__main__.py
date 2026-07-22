@@ -1,4 +1,4 @@
-"""CLI entry point for ``djen-backup`` with Typer and Rich."""
+"""CLI entry point for ``djen-backup`` with Cyclopts and Rich."""
 
 from __future__ import annotations
 
@@ -8,10 +8,10 @@ import os
 import sys
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
-from typing import NamedTuple
+from typing import Annotated, NamedTuple
 
 import structlog
-import typer
+from cyclopts import App, Parameter
 from rich.console import Console, Group
 from rich.live import Live
 from rich.panel import Panel
@@ -40,12 +40,15 @@ DEFAULT_WORKERS = load_djen_safe_concurrency()
 def configure_runtime() -> None:
     """Reconfigure stdio encoding and structlog for CLI use.
 
-    Called once, from the Typer callback below, before any command body
-    runs — Click always invokes the group callback first, so this covers
-    every subcommand too. Previously ran at import time, which meant
-    anything importing this module (a test, a future MCP server process)
-    silently reconfigured the whole process's stdout/stderr and global
-    structlog state.
+    Called once, from the meta-app launcher below (``_launch``, registered
+    via ``_commands_app.meta.default``), before any command body runs —
+    Cyclopts always calls the meta app's default first and only then
+    dispatches to the real command, so this covers every subcommand too
+    (RFC 0013 Fase 4; matches the guarantee Click's group callback used to
+    give under Typer). Previously ran at
+    import time, which meant anything importing this module (a test, a
+    future MCP server process) silently reconfigured the whole process's
+    stdout/stderr and global structlog state.
     """
     for stream in (sys.stdout, sys.stderr):
         if stream and stream.encoding and stream.encoding.lower() != "utf-8":
@@ -76,9 +79,9 @@ class EnvLoadResult(NamedTuple):
 
 # ── Setup ───────────────────────────────────────────────────────────
 
-app = typer.Typer(
+_commands_app = App(
+    name="djen-backup",
     help="Back up DJEN judicial communications to the Internet Archive.",
-    no_args_is_help=False,
 )
 console = Console()
 
@@ -200,7 +203,7 @@ def _resolve_ia_auth() -> str:
         return service.resolve_ia_auth()
     except MissingCredentialsError as exc:
         console.print(f"[bold red]Error:[/bold red] {exc}")
-        raise typer.Exit(code=1) from exc
+        raise SystemExit(1) from exc
 
 
 def _show_env_hint(env_result: EnvLoadResult | None) -> None:
@@ -330,114 +333,127 @@ def _run_pipeline(c: PipelineRunConfig) -> int:
 # ── Commands ────────────────────────────────────────────────────────
 
 
-@app.callback(invoke_without_command=True)
+@_commands_app.default
 def main(
-    ctx: typer.Context,
-    start_date: str = typer.Option("2020-01-01", help="Lower bound for history."),
-    end_date: str = typer.Option(
-        (date.today() - timedelta(days=1)).isoformat(), help="Upper bound for history."
-    ),
-    tribunal: str | None = typer.Option(None, help="Specific tribunal code."),
-    deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
-    max_items: int = typer.Option(0, help="Stop after N successful uploads."),
-    workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
-) -> None:
-    """Main backup and sync command (check + download + upload)."""
-    configure_runtime()
-    if ctx.invoked_subcommand:
-        return
-    raise typer.Exit(
-        code=_run_pipeline(
-            PipelineRunConfig(
-                end_date=_parse_date(end_date),
-                lower_bound=_parse_date(start_date),
-                tribunal=tribunal,
-                deadline_minutes=deadline_minutes,
-                max_items=max_items,
-                workers=workers,
-                fail_fast=fail_fast,
-                publish_live_status=False,
-                skip_if_mostly_complete=False,
-                use_proxy=use_proxy,
-            )
+    start_date: Annotated[str, Parameter(help="Lower bound for history.")] = "2020-01-01",
+    end_date: Annotated[str, Parameter(help="Upper bound for history.")] = (
+        date.today() - timedelta(days=1)
+    ).isoformat(),
+    tribunal: Annotated[str | None, Parameter(help="Specific tribunal code.")] = None,
+    deadline_minutes: Annotated[int, Parameter(help="Stop processing after N minutes.")] = 17,
+    max_items: Annotated[int, Parameter(help="Stop after N successful uploads.")] = 0,
+    workers: Annotated[int, Parameter(help="Number of concurrent workers.")] = DEFAULT_WORKERS,
+    fail_fast: Annotated[bool, Parameter(help="Stop on first error.")] = True,
+    use_proxy: Annotated[bool, Parameter(help="Use DJEN proxy.")] = False,
+) -> int:
+    """Main backup and sync command (check + download + upload).
+
+    Only fires when no subcommand token matches (Cyclopts' `@_commands_app.default` —
+    the equivalent of Typer's `invoke_without_command=True`); `configure_runtime()`
+    itself runs unconditionally for every invocation via the meta-app
+    launcher below, not here.
+    """
+    return _run_pipeline(
+        PipelineRunConfig(
+            end_date=_parse_date(end_date),
+            lower_bound=_parse_date(start_date),
+            tribunal=tribunal,
+            deadline_minutes=deadline_minutes,
+            max_items=max_items,
+            workers=workers,
+            fail_fast=fail_fast,
+            publish_live_status=False,
+            skip_if_mostly_complete=False,
+            use_proxy=use_proxy,
         )
     )
 
 
-@app.command()
+@_commands_app.command
 def check(
-    start_date: str = typer.Option("2020-01-01", help="Lower bound for history."),
-    end_date: str = typer.Option(
-        (date.today() - timedelta(days=1)).isoformat(), help="Upper bound for history."
-    ),
-    tribunal: str | None = typer.Option(None, help="Specific tribunal code."),
-    deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
-    workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
-) -> None:
+    start_date: Annotated[str, Parameter(help="Lower bound for history.")] = "2020-01-01",
+    end_date: Annotated[str, Parameter(help="Upper bound for history.")] = (
+        date.today() - timedelta(days=1)
+    ).isoformat(),
+    tribunal: Annotated[str | None, Parameter(help="Specific tribunal code.")] = None,
+    deadline_minutes: Annotated[int, Parameter(help="Stop processing after N minutes.")] = 17,
+    workers: Annotated[int, Parameter(help="Number of concurrent workers.")] = DEFAULT_WORKERS,
+    fail_fast: Annotated[bool, Parameter(help="Stop on first error.")] = True,
+    use_proxy: Annotated[bool, Parameter(help="Use DJEN proxy.")] = False,
+) -> int:
     """Check DJEN availability without downloading/uploading."""
-    raise typer.Exit(
-        code=_run_pipeline(
-            PipelineRunConfig(
-                end_date=_parse_date(end_date),
-                lower_bound=_parse_date(start_date),
-                tribunal=tribunal,
-                deadline_minutes=deadline_minutes,
-                max_items=0,
-                workers=workers,
-                fail_fast=fail_fast,
-                publish_live_status=False,
-                skip_if_mostly_complete=False,
-                use_proxy=use_proxy,
-                check_only=True,
-                mode_label="Check Only",
-            )
+    return _run_pipeline(
+        PipelineRunConfig(
+            end_date=_parse_date(end_date),
+            lower_bound=_parse_date(start_date),
+            tribunal=tribunal,
+            deadline_minutes=deadline_minutes,
+            max_items=0,
+            workers=workers,
+            fail_fast=fail_fast,
+            publish_live_status=False,
+            skip_if_mostly_complete=False,
+            use_proxy=use_proxy,
+            check_only=True,
+            mode_label="Check Only",
         )
     )
 
 
-@app.command()
+@_commands_app.command
 def upload(
-    tribunal: str | None = typer.Option(None, help="Specific tribunal code."),
-    deadline_minutes: int = typer.Option(17, help="Stop processing after N minutes."),
-    max_items: int = typer.Option(0, help="Stop after N successful uploads."),
-    workers: int = typer.Option(DEFAULT_WORKERS, help="Number of concurrent workers."),
-    fail_fast: bool = typer.Option(True, help="Stop on first error."),
-    use_proxy: bool = typer.Option(False, help="Use DJEN proxy."),
-) -> None:
+    tribunal: Annotated[str | None, Parameter(help="Specific tribunal code.")] = None,
+    deadline_minutes: Annotated[int, Parameter(help="Stop processing after N minutes.")] = 17,
+    max_items: Annotated[int, Parameter(help="Stop after N successful uploads.")] = 0,
+    workers: Annotated[int, Parameter(help="Number of concurrent workers.")] = DEFAULT_WORKERS,
+    fail_fast: Annotated[bool, Parameter(help="Stop on first error.")] = True,
+    use_proxy: Annotated[bool, Parameter(help="Use DJEN proxy.")] = False,
+) -> int:
     """Upload already-discovered available entries (backlog drain)."""
-    raise typer.Exit(
-        code=_run_pipeline(
-            PipelineRunConfig(
-                end_date=datetime.now(UTC).date(),
-                lower_bound=None,
-                tribunal=tribunal,
-                deadline_minutes=deadline_minutes,
-                max_items=max_items,
-                workers=workers,
-                fail_fast=fail_fast,
-                publish_live_status=False,
-                skip_if_mostly_complete=False,
-                use_proxy=use_proxy,
-                upload_only=True,
-                mode_label="Upload Only",
-            )
+    return _run_pipeline(
+        PipelineRunConfig(
+            end_date=datetime.now(UTC).date(),
+            lower_bound=None,
+            tribunal=tribunal,
+            deadline_minutes=deadline_minutes,
+            max_items=max_items,
+            workers=workers,
+            fail_fast=fail_fast,
+            publish_live_status=False,
+            skip_if_mostly_complete=False,
+            use_proxy=use_proxy,
+            upload_only=True,
+            mode_label="Upload Only",
         )
     )
 
 
-@app.command()
+@_commands_app.command
 def drain(
-    workers: int = typer.Option(6, "--workers", help="Concurrent download+upload workers."),
-    batch_size: int = typer.Option(100, "--batch-size", help="Pending entries fetched per batch."),
-    deadline_minutes: int = typer.Option(
-        14, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
-    ),
+    workers: Annotated[
+        int, Parameter(name="--workers", help="Concurrent download+upload workers.")
+    ] = 6,
+    batch_size: Annotated[
+        int, Parameter(name="--batch-size", help="Pending entries fetched per batch.")
+    ] = 100,
+    deadline_minutes: Annotated[
+        int,
+        Parameter(
+            name="--deadline-minutes",
+            help="Stop fetching new batches after this many minutes.",
+        ),
+    ] = 14,
     *,
-    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),
+    # negative=[]: no --no-use-proxy pair here, unlike the bare callback's
+    # use_proxy — matches the original Typer behavior, where passing an
+    # explicit option string ("--use-proxy") suppressed the auto-negation
+    # Typer otherwise infers. Cyclopts doesn't suppress it just from an
+    # explicit `name=`, so this has to be spelled out (RFC 0013 Fase 4's
+    # most fragile case — verified by direct experiment before writing this).
+    use_proxy: Annotated[
+        bool,
+        Parameter(name="--use-proxy", negative=[], help="Use the Cloud Run DJEN proxy."),
+    ] = False,
 ) -> None:
     """Batched upload-only drain via remote sync-manifest.parquet (no full manifest load)."""
     env_result = _load_local_env()
@@ -477,15 +493,27 @@ def drain(
     )
 
 
-@app.command()
+@_commands_app.command
 def probe(
-    workers: int = typer.Option(20, "--workers", help="Concurrent probe workers (URL check only)."),
-    batch_size: int = typer.Option(500, "--batch-size", help="Pending entries fetched per batch."),
-    deadline_minutes: int = typer.Option(
-        13, "--deadline-minutes", help="Stop fetching new batches after this many minutes."
-    ),
+    workers: Annotated[
+        int, Parameter(name="--workers", help="Concurrent probe workers (URL check only).")
+    ] = 20,
+    batch_size: Annotated[
+        int, Parameter(name="--batch-size", help="Pending entries fetched per batch.")
+    ] = 500,
+    deadline_minutes: Annotated[
+        int,
+        Parameter(
+            name="--deadline-minutes",
+            help="Stop fetching new batches after this many minutes.",
+        ),
+    ] = 13,
     *,
-    use_proxy: bool = typer.Option(False, "--use-proxy", help="Use the Cloud Run DJEN proxy."),
+    # negative=[]: same rationale as drain's use_proxy above.
+    use_proxy: Annotated[
+        bool,
+        Parameter(name="--use-proxy", negative=[], help="Use the Cloud Run DJEN proxy."),
+    ] = False,
 ) -> None:
     """Probe DJEN availability for pending entries — no download, no IA upload.
 
@@ -535,30 +563,38 @@ def probe(
     )
 
 
-@app.command()
+@_commands_app.command
 def reset(
-    tribunal: str | None = typer.Option(None, "--tribunal", help="Tribunal code to reset."),
+    tribunal: Annotated[
+        str | None, Parameter(name="--tribunal", help="Tribunal code to reset.")
+    ] = None,
     *,
-    reset_all: bool = typer.Option(False, "--all", help="Reset all entries for the tribunal."),
-    manifest_file: Path = typer.Option(
-        Path("data/sync-manifest.csv"), "--manifest-file", help="Path to manifest CSV."
-    ),
-) -> None:
+    # negative=[]: the original Typer option ("--all", explicit string) had
+    # no --no-all pair; same rationale as drain/probe's use_proxy above.
+    reset_all: Annotated[
+        bool,
+        Parameter(name="--all", negative=[], help="Reset all entries for the tribunal."),
+    ] = False,
+    manifest_file: Annotated[
+        Path, Parameter(name="--manifest-file", help="Path to manifest CSV.")
+    ] = Path("data/sync-manifest.csv"),
+) -> int:
     """Reset manifest entries for a tribunal (clears djen_status and ia_status)."""
     if not tribunal and not reset_all:
         console.print("[bold red]Error:[/bold red] provide --tribunal CODE or --all")
-        raise typer.Exit(code=1)
+        return 1
 
     try:
         result = service.reset_manifest(manifest_file, tribunal=tribunal, reset_all=reset_all)
     except service.ManifestNotFoundError:
         console.print("[bold red]Error:[/bold red] manifest file not found or empty.")
-        raise typer.Exit(code=1) from None
+        return 1
 
     if result.count > 0:
         console.print(f"[green]Reset {result.count} entries.[/green]")
     else:
         console.print("[yellow]Nothing to reset.[/yellow]")
+    return 0
 
 
 def show_banner() -> None:
@@ -573,6 +609,28 @@ def show_banner() -> None:
  DJEN Backup Engine v3.0 - Manifest-Driven Sync
                                                                               """
     console.print(Panel(banner, border_style="cyan"))
+
+
+@_commands_app.meta.default
+def _launch(
+    *tokens: Annotated[str, Parameter(show=False, allow_leading_hyphen=True)],
+) -> int:
+    """Meta-app launcher — runs ``configure_runtime()`` before every dispatch.
+
+    Cyclopts' meta-app pattern (``App.meta``) is the equivalent of what
+    Click's group callback used to guarantee under Typer: this runs first
+    for both the bare invocation and every subcommand, unconditionally,
+    before delegating to ``_commands_app`` for real argv parsing/dispatch.
+    The public ``app`` name below is bound to this meta app specifically —
+    not to ``_commands_app`` — so that both the ``causaganha-mcp``-style
+    console-script entry point and `tests/cli_contract`'s `module.app`
+    convention go through this launcher, matching production.
+    """
+    configure_runtime()
+    return _commands_app(tokens)
+
+
+app = _commands_app.meta
 
 
 if __name__ == "__main__":

@@ -1,31 +1,43 @@
 """Framework-neutral argv→semantic-config contract harness (RFC 0013).
 
-Exercises each CLI through Typer's `CliRunner` (real argv parsing + real
+Exercises each CLI through its real `App` (real argv parsing + real
 dispatch) and observes what the *mocked service-layer call* actually
-received. Never inspects Click internals — no `get_command`,
-`make_context`, `opts`/`secondary_opts`, `param.type`. That introspection
-disappears the moment the CLI moves to Cyclopts; this harness's `check`
-functions do not, because they only ever look at plain Python values
-(dataclasses, lists, strings) captured at the service boundary.
-
-When Fase 4 swaps Typer for Cyclopts, only `run_case`'s `CliRunner.invoke`
-call needs to change (or grow an adapter) — every `CliContractCase` and its
-`check` function is reused verbatim as the acceptance gate.
+received. Never inspects framework internals — no Click's `get_command`,
+`make_context`, `opts`/`secondary_opts`, `param.type`, and no Cyclopts
+equivalent either. This harness's `check` functions only ever look at plain
+Python values (dataclasses, lists, strings) captured at the service
+boundary, so they survived the Fase 4 Typer→Cyclopts swap verbatim — only
+`run_case`'s invocation adapter (`_invoke`, below) changed, exactly as
+RFC 0013 §Fase 4 planned.
 """
 
 from __future__ import annotations
 
+import contextlib
 import importlib
+import io
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from typer.testing import CliRunner
+from cyclopts.exceptions import CycloptsError
 
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
-_runner = CliRunner()
+    from cyclopts import App
+
+# Cyclopts' own default exit code for a usage error (bad option, unknown
+# command, ...) is 1 — confirmed by reading `cyclopts/core.py` (`sys.exit(1)`
+# is hardcoded on the parse-error path, not configurable via `App(...)`) and
+# by direct experiment. This is DIFFERENT from Click/Typer's convention of
+# exit code 2 for the same class of error, which the three usage-error cases
+# in `test_semantic_argv_contract.py` were originally locked against in
+# Fase 1. `_invoke` reports the real code Cyclopts produces (1) rather than
+# forcing 2, and those three cases were updated to expect 1 — the contract
+# gate's job is to catch a genuine behavior difference like this one, not
+# paper over it with a harness that lies about what production does.
+_USAGE_ERROR_EXIT_CODE = 1
 
 # Credential env vars read by the four packages' service layers — always
 # cleared before a case runs (then re-applied from `case.env`) so a case's
@@ -90,6 +102,36 @@ class CliContractCase:
     env: dict[str, str] = field(default_factory=dict)
 
 
+def _invoke(app: App, argv: list[str]) -> tuple[int, str]:
+    """Run *app* against *argv* like a real process would, without a real `sys.exit`.
+
+    `exit_on_error=False` + `result_action="return_value"` gets the command's
+    raw return value back instead of a `SystemExit` on success; a parse/usage
+    error raises `CycloptsError` instead of exiting, caught here and mapped
+    to the exit code Cyclopts' own default path would have produced. Output
+    (both the command's own prints and Cyclopts' rich-rendered error panels)
+    is captured for the assertion failure message, not inspected — this
+    harness only ever asserts on exit code and mocked-call arguments.
+    """
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+            result = app(argv, exit_on_error=False, result_action="return_value")
+    except CycloptsError:
+        return _USAGE_ERROR_EXIT_CODE, buf.getvalue()
+    except SystemExit as exc:
+        # `exit_on_error`/`result_action` only govern Cyclopts' own parsing-
+        # error path — a command function that raises SystemExit itself
+        # (business-logic failure, not a usage error) propagates straight
+        # through regardless. Migrated commands should prefer `return N`
+        # (see _invoke's `isinstance(result, int)` branch below), but this
+        # is a safety net, not the intended path.
+        return exc.code or 0, buf.getvalue()
+    if isinstance(result, int):
+        return result, buf.getvalue()
+    return 0, buf.getvalue()
+
+
 def run_case(case: CliContractCase, monkeypatch: Any) -> None:
     """Execute *case* against the real CLI and assert exit code + semantic config."""
     module = importlib.import_module(case.app_path)
@@ -106,11 +148,10 @@ def run_case(case: CliContractCase, monkeypatch: Any) -> None:
         recorders[name] = recorder
         monkeypatch.setattr(spec.path, recorder.async_call if spec.is_async else recorder)
 
-    result = _runner.invoke(app, case.argv)
+    exit_code, output = _invoke(app, case.argv)
 
-    assert result.exit_code == case.expected_exit_code, (
-        f"{case.label}: exit_code {result.exit_code} != {case.expected_exit_code}\n"
-        f"output:\n{result.output}"
+    assert exit_code == case.expected_exit_code, (
+        f"{case.label}: exit_code {exit_code} != {case.expected_exit_code}\noutput:\n{output}"
     )
 
     if case.check is not None:
