@@ -2,10 +2,25 @@ import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProcessoLookup from './ProcessoLookup.svelte';
 import { getDuckDB } from '../lib/duckdbSingleton';
+import * as processoCnj from '../lib/processoCnj';
 
 vi.mock('../lib/duckdbSingleton', () => ({
   getDuckDB: vi.fn(),
 }));
+
+// buscarProcesso/carregarDocumentos' own SQL-building and row-mapping logic
+// is unit-tested in processoCnj.test.ts against a fake DuckDB connection —
+// here only the component's orchestration (async race handling, rendering)
+// is under test, so those two functions are mocked at their natural seam;
+// everything else (formatCnj, fontesPresenca, etc.) stays real.
+vi.mock('../lib/processoCnj', async () => {
+  const actual = await vi.importActual<typeof import('../lib/processoCnj')>('../lib/processoCnj');
+  return {
+    ...actual,
+    buscarProcesso: vi.fn(),
+    carregarDocumentos: vi.fn(),
+  };
+});
 
 beforeEach(() => {
   // Each test mounts its own component instance, but jsdom's window.location
@@ -13,6 +28,7 @@ beforeEach(() => {
   // by history.replaceState() in a previous test would auto-trigger a search
   // on the next test's mount (the component's own, intentional, feature).
   window.history.replaceState(null, '', window.location.pathname);
+  vi.mocked(getDuckDB).mockResolvedValue({ conn: {} } as never);
 });
 
 const CNJ_A = '00000010220248220001';
@@ -31,86 +47,79 @@ function makeDeferred<T>(): Deferred<T> {
   return { promise, resolve };
 }
 
-function arrowResult(rows: Record<string, unknown>[]) {
-  return { toArray: () => rows.map((r) => ({ toJSON: () => r })) };
-}
-
-function processoRow(nrProcesso: string): Record<string, unknown> {
+function processoResultado(nrProcesso: string, overrides: Record<string, unknown> = {}) {
   return {
-    nr_processo: nrProcesso,
-    nr_processo_mascara: nrProcesso,
-    n_fontes: 1,
+    encontrado: true,
+    nrProcesso,
+    nrProcessoMascara: nrProcesso,
     fontes: ['djen'],
-    djen_primeira_pub: null,
-    djen_ultima_pub: null,
-    djen_n_publicacoes: null,
-    djen_tribunais: [],
-    juris_n_documentos: null,
-    juris_tipos: [],
-    juris_data_julgamento: null,
-    juris_orgao: null,
-    juris_relator: null,
-    juris_classe: null,
-    juris_url: null,
-    stj_id: null,
-    stj_classe: null,
-    stj_relator: null,
-    stj_tema: null,
-    stj_tese: null,
-    stj_ementa: null,
-    stj_data_decisao: null,
-    stj_data_publicacao: null,
-    classe_oficial: null,
-    assuntos: null,
-    orgao_julgador: null,
-    grau: null,
-    data_ajuizamento: null,
-    ultima_atualizacao: null,
-    tem_datajud: false,
-    updated_at: '2026-07-12T00:00:00Z',
+    djen: { present: true, primeiraPub: null, ultimaPub: null, nPublicacoes: null, tribunais: [] },
+    juris: {
+      present: false,
+      nDocumentos: null,
+      tipos: [],
+      dataJulgamento: null,
+      orgao: null,
+      relator: null,
+      classe: null,
+      url: null,
+    },
+    stj: {
+      present: false,
+      id: null,
+      classe: null,
+      relator: null,
+      tema: null,
+      tese: null,
+      ementa: null,
+      dataDecisao: null,
+      dataPublicacao: null,
+    },
+    datajud: {
+      present: false,
+      classeOficial: null,
+      assuntos: null,
+      orgaoJulgador: null,
+      grau: null,
+      dataAjuizamento: null,
+      ultimaAtualizacao: null,
+    },
+    jurisUrls: [],
+    stjUrls: [],
+    cobertura: [],
+    datasetGeradoEm: null,
+    avisos: [],
+    ...overrides,
   };
 }
 
-function documentoRow(nrProcesso: string, resumo: string): Record<string, unknown> {
-  return {
-    nr_processo: nrProcesso,
-    fonte: 'juris',
-    id_documento: `${nrProcesso}-doc`,
-    tipo: 'ACÓRDÃO',
-    data: '2024-01-15',
-    url: null,
-    resumo,
-  };
+function documentoRow(nrProcesso: string, resumo: string) {
+  return { fonte: 'juris', idDocumento: `${nrProcesso}-doc`, tipo: 'ACÓRDÃO', data: '2024-01-15', url: null, resumo };
 }
 
-/** A fake conn whose prepare()/query() resolutions are controlled per-CNJ by the test. */
-function makeControllableConn() {
+/** Controls buscarProcesso()/carregarDocumentos() resolution per-CNJ, mirroring the old per-query control. */
+function makeControllable() {
   const processoDeferreds = new Map<string, Deferred<unknown>>();
   const documentosDeferreds = new Map<string, Deferred<unknown>>();
 
-  const conn = {
-    prepare: vi.fn(async (sql: string) => {
-      const isDocumentos = sql.includes('processo_documentos');
-      return {
-        query: vi.fn((...params: unknown[]) => {
-          const digits = String(params[0]);
-          const map = isDocumentos ? documentosDeferreds : processoDeferreds;
-          const deferred = makeDeferred();
-          map.set(digits, deferred);
-          return deferred.promise;
-        }),
-        close: vi.fn(async () => {}),
-      };
-    }),
-  };
+  vi.mocked(processoCnj.buscarProcesso).mockImplementation((_conn: unknown, digits: string) => {
+    const deferred = makeDeferred();
+    processoDeferreds.set(digits, deferred);
+    return deferred.promise as ReturnType<typeof processoCnj.buscarProcesso>;
+  });
 
-  return { conn, processoDeferreds, documentosDeferreds };
+  vi.mocked(processoCnj.carregarDocumentos).mockImplementation((_conn: unknown, _jurisUrls, _stjUrls, digits: string) => {
+    const deferred = makeDeferred();
+    documentosDeferreds.set(digits, deferred);
+    return deferred.promise as ReturnType<typeof processoCnj.carregarDocumentos>;
+  });
+
+  return { processoDeferreds, documentosDeferreds };
 }
 
 describe('ProcessoLookup — race between two searches', () => {
   it('discards a stale documentos response from search A once search B has already landed', async () => {
-    const { conn, processoDeferreds, documentosDeferreds } = makeControllableConn();
-    vi.mocked(getDuckDB).mockResolvedValue({ conn } as never);
+    const { processoDeferreds, documentosDeferreds } = makeControllable();
 
     const { getByLabelText, getByText, queryByText } = render(ProcessoLookup);
 
@@ -123,7 +132,7 @@ describe('ProcessoLookup — race between two searches', () => {
     await fireEvent.click(getByText('Buscar'));
     await waitFor(() => expect(processoDeferreds.has(CNJ_A)).toBe(true));
 
-    processoDeferreds.get(CNJ_A)!.resolve(arrowResult([processoRow(CNJ_A)]));
+    processoDeferreds.get(CNJ_A)!.resolve(processoResultado(CNJ_A));
     await waitFor(() => expect(documentosDeferreds.has(CNJ_A)).toBe(true));
 
     // The record for A is showing, and the button is enabled again — this is
@@ -136,15 +145,15 @@ describe('ProcessoLookup — race between two searches', () => {
     await fireEvent.click(getByText('Buscar'));
     await waitFor(() => expect(processoDeferreds.has(CNJ_B)).toBe(true));
 
-    processoDeferreds.get(CNJ_B)!.resolve(arrowResult([processoRow(CNJ_B)]));
+    processoDeferreds.get(CNJ_B)!.resolve(processoResultado(CNJ_B));
     await waitFor(() => expect(documentosDeferreds.has(CNJ_B)).toBe(true));
-    documentosDeferreds.get(CNJ_B)!.resolve(arrowResult([documentoRow(CNJ_B, 'DOC-B-UNICO')]));
+    documentosDeferreds.get(CNJ_B)!.resolve({ items: [documentoRow(CNJ_B, 'DOC-B-UNICO')], hasMore: false });
 
     await waitFor(() => expect(getByText('DOC-B-UNICO')).toBeTruthy());
 
     // A's documentos response finally arrives, late — it must be discarded,
     // not overwrite B's already-displayed documents.
-    documentosDeferreds.get(CNJ_A)!.resolve(arrowResult([documentoRow(CNJ_A, 'DOC-A-UNICO')]));
+    documentosDeferreds.get(CNJ_A)!.resolve({ items: [documentoRow(CNJ_A, 'DOC-A-UNICO')], hasMore: false });
     await new Promise((r) => setTimeout(r, 0));
 
     expect(getByText(CNJ_B, { exact: false })).toBeTruthy();
@@ -154,8 +163,7 @@ describe('ProcessoLookup — race between two searches', () => {
   });
 
   it('never surfaces a stale processo response from search A once search B has already started', async () => {
-    const { conn, processoDeferreds } = makeControllableConn();
-    vi.mocked(getDuckDB).mockResolvedValue({ conn } as never);
+    const { processoDeferreds } = makeControllable();
 
     const { getByLabelText, getByText, queryByText } = render(ProcessoLookup);
     const input = (await waitFor(() => getByLabelText(/Número do processo/i))) as HTMLInputElement;
@@ -173,7 +181,7 @@ describe('ProcessoLookup — race between two searches', () => {
 
     // A resolves late — must be discarded entirely (never reaches 'found',
     // never issues its own documentos query).
-    processoDeferreds.get(CNJ_A)!.resolve(arrowResult([processoRow(CNJ_A)]));
+    processoDeferreds.get(CNJ_A)!.resolve(processoResultado(CNJ_A));
     await new Promise((r) => setTimeout(r, 0));
 
     expect(queryByText(CNJ_A, { exact: false })).toBeNull();
@@ -181,9 +189,12 @@ describe('ProcessoLookup — race between two searches', () => {
 });
 
 describe('ProcessoLookup — source presence copy (no false completeness score)', () => {
-  async function searchAndResolve(cnj: string, processoOverrides: Record<string, unknown>, documentoRows: Record<string, unknown>[]) {
-    const { conn, processoDeferreds, documentosDeferreds } = makeControllableConn();
-    vi.mocked(getDuckDB).mockResolvedValue({ conn } as never);
+  async function searchAndResolve(
+    cnj: string,
+    processoOverrides: Record<string, unknown>,
+    documentoRows: Record<string, unknown>[],
+  ) {
+    const { processoDeferreds, documentosDeferreds } = makeControllable();
 
     const { getByLabelText, getByText, container } = render(ProcessoLookup);
     const input = (await waitFor(() => getByLabelText(/Número do processo/i))) as HTMLInputElement;
@@ -191,9 +202,9 @@ describe('ProcessoLookup — source presence copy (no false completeness score)'
     await fireEvent.input(input, { target: { value: cnj } });
     await fireEvent.click(getByText('Buscar'));
     await waitFor(() => expect(processoDeferreds.has(cnj)).toBe(true));
-    processoDeferreds.get(cnj)!.resolve(arrowResult([{ ...processoRow(cnj), ...processoOverrides }]));
+    processoDeferreds.get(cnj)!.resolve(processoResultado(cnj, processoOverrides));
     await waitFor(() => expect(documentosDeferreds.has(cnj)).toBe(true));
-    documentosDeferreds.get(cnj)!.resolve(arrowResult(documentoRows));
+    documentosDeferreds.get(cnj)!.resolve({ items: documentoRows, hasMore: false });
 
     return container;
   }
@@ -210,7 +221,19 @@ describe('ProcessoLookup — source presence copy (no false completeness score)'
     const cnj = '00000040520248220004';
     const container = await searchAndResolve(
       cnj,
-      { fontes: ['djen', 'juris'], n_fontes: 2, juris_n_documentos: 2 },
+      {
+        fontes: ['djen', 'juris'],
+        juris: {
+          present: true,
+          nDocumentos: 2,
+          tipos: ['ACÓRDÃO'],
+          dataJulgamento: '2024-01-01',
+          orgao: null,
+          relator: null,
+          classe: null,
+          url: null,
+        },
+      },
       [documentoRow(cnj, 'DOC-MULTI')],
     );
 
@@ -227,7 +250,11 @@ describe('ProcessoLookup — source presence copy (no false completeness score)'
 
   it('explains an empty documents section without contradicting the DJEN publications shown above', async () => {
     const cnj = '00000060720248220006';
-    const container = await searchAndResolve(cnj, { djen_n_publicacoes: 3 }, []);
+    const container = await searchAndResolve(
+      cnj,
+      { djen: { present: true, primeiraPub: null, ultimaPub: null, nPublicacoes: 3, tribunais: [] } },
+      [],
+    );
 
     await waitFor(() => expect(container.textContent).toContain('Nenhum documento de decisão encontrado no JURIS ou no STJ'));
     expect(container.textContent).not.toContain('sem documentos associados');
@@ -237,7 +264,20 @@ describe('ProcessoLookup — source presence copy (no false completeness score)'
     const cnj = '00000070820248220007';
     const container = await searchAndResolve(
       cnj,
-      { fontes: ['juris'], djen_n_publicacoes: null, juris_n_documentos: 0 },
+      {
+        fontes: ['juris'],
+        djen: { present: false, primeiraPub: null, ultimaPub: null, nPublicacoes: null, tribunais: [] },
+        juris: {
+          present: true,
+          nDocumentos: 0,
+          tipos: [],
+          dataJulgamento: null,
+          orgao: null,
+          relator: null,
+          classe: null,
+          url: null,
+        },
+      },
       [],
     );
 

@@ -17,6 +17,12 @@ consumer exists (RFC 0014 §2), locked here with an exact-property-set test
 per tool (both `parameters` and `output_schema`) so a future edit can't
 silently drop or rename an envelope field, or leave an English identifier
 in the input schema while only the output gets translated.
+
+RFC 0014 M2 adds `processo_consultar` — the first tool serving the end user
+directly, not the pipeline operator. It shares the read-only/no-credential
+bar and the Portuguese-schema convention with everything above; it reads the
+canonical parquets from Internet Archive (`openWorldHint=True`, same as
+`datajud_facetas`), never a local manifest.
 """
 
 from __future__ import annotations
@@ -34,6 +40,7 @@ TOOL_NAMES = [
     "stj_acordaos_status",
     "djen_backup_status",
     "causaganha_status",
+    "processo_consultar",
 ]
 
 _CREDENTIAL_SUBSTRINGS = ("key", "secret", "token", "credential", "password")
@@ -51,6 +58,26 @@ _EXPECTED_OUTPUT_FIELDS = {
     | {"enviados", "disponiveis", "ausentes", "desconhecidos"},
     "datajud_facetas": {"tribunal", "por", "total", "grupos", "consultado_em"},
     "causaganha_status": {"pipelines"},
+    "processo_consultar": {
+        "encontrado",
+        "cnj",
+        "cnj_formatado",
+        "fontes_presentes",
+        "cobertura_dataset",
+        "djen",
+        "juris",
+        "stj",
+        "datajud",
+        "documentos",
+        "documentos_truncados",
+        "dataset_gerado_em",
+        "consultado_em",
+        "fonte",
+        "canonica",
+        "avisos",
+        "web_url",
+        "web_path",
+    },
 }
 
 # Input parameter names are product text too (RFC 0014 review) — an English
@@ -63,6 +90,7 @@ _EXPECTED_INPUT_FIELDS = {
     "djen_backup_status": {"arquivo_manifesto"},
     "datajud_facetas": {"tribunal", "por", "limite"},
     "causaganha_status": set(),
+    "processo_consultar": {"cnj", "incluir_documentos", "limite_documentos"},
 }
 
 

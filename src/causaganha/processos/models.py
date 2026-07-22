@@ -17,7 +17,7 @@ class CnjInvalidoError(ValueError):
 
 @dataclass
 class FonteCobertura:
-    """Estado de uma fonte na geração do dataset (de `processos_unificados.report.json`)."""
+    """Estado de uma fonte na geração do dataset (de `indice_processual.report.json`)."""
 
     fonte: str
     status: str
@@ -26,7 +26,7 @@ class FonteCobertura:
 
 @dataclass
 class DocumentoProcesso:
-    """Uma linha de `processo_documentos.parquet` (JURIS ou STJ, nunca DJEN/DataJud)."""
+    """Documento JURIS ou STJ do processo (nunca DJEN/DataJud — ver `service.buscar_processo`)."""
 
     fonte: str
     id_documento: str

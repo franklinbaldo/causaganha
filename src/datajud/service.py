@@ -37,7 +37,13 @@ DEFAULT_DATA_DIR = Path("data/datajud")
 DEFAULT_SOURCES_DIR = Path("data")
 MANIFEST_NAME = "datajud-manifest.csv"
 
-UNIFICADOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processos_unificados.parquet"
+# RFC 0014 M2: processos_unificados.parquet is no longer published — the
+# reconciler's canonical cross-source artifact is now the thin
+# indice_processual.parquet, which already carries every CNJ any source
+# contributed to (no join needed just to list them).
+INDICE_PROCESSUAL_IA_URL = (
+    "https://archive.org/download/causaganha-dashboard/indice_processual.parquet"
+)
 
 
 def manifest_path(data_dir: Path) -> Path:
@@ -59,9 +65,9 @@ def _read_cnj_file(path: Path) -> list[str]:
 
 def _source_selects(sources_dir: Path) -> list[str]:
     selects: list[str] = []
-    unificados = sources_dir / "processos_unificados.parquet"
-    if unificados.exists():
-        selects.append(f"SELECT nr_processo AS cnj FROM read_parquet('{unificados}')")
+    indice = sources_dir / "indice_processual.parquet"
+    if indice.exists():
+        selects.append(f"SELECT numero_processo AS cnj FROM read_parquet('{indice}')")
     juris_files = sorted(sources_dir.glob("tjro-juris/*/tjro-juris-*.parquet"))
     if juris_files:
         juris_list = ", ".join(f"'{p}'" for p in juris_files)
@@ -72,16 +78,16 @@ def _source_selects(sources_dir: Path) -> list[str]:
     return selects
 
 
-def _try_download_unificados(sources_dir: Path) -> None:
-    """Best-effort download of processos_unificados from IA (CI cold start)."""
-    dest = sources_dir / "processos_unificados.parquet"
-    log.info("datajud_downloading_unificados", url=UNIFICADOS_IA_URL)
+def _try_download_indice(sources_dir: Path) -> None:
+    """Best-effort download of indice_processual from IA (CI cold start)."""
+    dest = sources_dir / "indice_processual.parquet"
+    log.info("datajud_downloading_indice_processual", url=INDICE_PROCESSUAL_IA_URL)
     dest.parent.mkdir(parents=True, exist_ok=True)
     try:
-        with urllib.request.urlopen(UNIFICADOS_IA_URL, timeout=180) as resp:  # noqa: S310
+        with urllib.request.urlopen(INDICE_PROCESSUAL_IA_URL, timeout=180) as resp:  # noqa: S310
             dest.write_bytes(resp.read())
     except OSError as exc:
-        log.warning("datajud_unificados_download_failed", error=str(exc))
+        log.warning("datajud_indice_processual_download_failed", error=str(exc))
 
 
 def _collect_source_cnjs(sources_dir: Path) -> list[str]:
@@ -90,7 +96,7 @@ def _collect_source_cnjs(sources_dir: Path) -> list[str]:
 
     selects = _source_selects(sources_dir)
     if not selects:
-        _try_download_unificados(sources_dir)
+        _try_download_indice(sources_dir)
         selects = _source_selects(sources_dir)
     if not selects:
         return []

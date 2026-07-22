@@ -1,14 +1,15 @@
 """Normalização de número CNJ — módulo de domínio compartilhado (RFC 0014 M2).
 
-Antes desta consolidação, a mesma regra existia em três lugares
-independentes: `datajud.models` (Python), `scripts/reconcile_processos.py`
-(Python) e `web/src/lib/processoCnj.ts` (TypeScript, cliente do dashboard).
-Este módulo é agora a única implementação Python; `datajud.models` reexporta
-estes nomes para não quebrar consumidores existentes, e
-`scripts/reconcile_processos.py` importa daqui em vez de manter sua própria
-cópia. A implementação TypeScript continua separada (runtime distinto,
-DuckDB-WASM no navegador), mas segue a mesma regra — ver os comentários em
-`processoCnj.ts`.
+Antes desta consolidação, a mesma regra existia duplicada em `datajud.models`
+e em `web/src/lib/processoCnj.ts` (TypeScript, cliente do dashboard). Este
+módulo é agora a única implementação Python de uso geral; `datajud.models`
+reexporta estes nomes para não quebrar consumidores existentes, e
+`causaganha.processos.service` importa daqui. `scripts/reconcile_processos.py`
+normaliza inline via `regexp_replace` em SQL (o CNJ nunca sai do DuckDB
+durante a reconciliação), então não importa este módulo — mas segue a mesma
+regra de 20 dígitos. A implementação TypeScript continua separada (runtime
+distinto, DuckDB-WASM no navegador), também seguindo a mesma regra — ver os
+comentários em `processoCnj.ts`.
 """
 
 from __future__ import annotations

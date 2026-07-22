@@ -1,6 +1,7 @@
 # RFC 0014 — MCP como superfície de produto
 
-- **Status:** Proposto
+- **Status:** M1 implementado; M2 implementado (com redesenho de dados —
+  ver §2 M2 e a Emenda em RFC 0005)
 - **Data:** 2026-07-22
 - **Depende de:** RFC 0013 (Fase 3A/3B — fundação `causaganha_mcp`: cinco tools
   read-only, `register(mcp)` explícito, tradução de exceções na fronteira),
@@ -36,8 +37,7 @@ Quatro lacunas concretas:
   no retorno. Um agente precisa chamar as quatro, e já saber essas
   diferenças de antemão, para montar um panorama.
 - **Ausência do produto principal.** O causaganha já tem um dossiê
-  reconciliado por CNJ (RFC 0005: `processos_unificados.parquet`,
-  `processo_documentos.parquet`, com normalização de CNJ, paginação e
+  reconciliado por CNJ (RFC 0005, com normalização de CNJ, paginação e
   apresentação já implementadas no dashboard web). O servidor MCP não expõe
   nada disso — só panoramas agregados de pipeline, que servem ao operador,
   não a quem quer saber o que está acontecendo num processo específico.
@@ -120,20 +120,45 @@ específico, não o operador do pipeline:
 processo_consultar(cnj, incluir_documentos=true, limite_documentos=10)
 ```
 
-Retorno: CNJ normalizado (e mascarado onde a apresentação web já mascara);
-quais fontes têm contribuição para esse CNJ; resumo DJEN; decisão/JURIS;
-STJ quando houver; capa oficial DataJud; timestamp de atualização do
-dataset; documentos mais recentes; `web_url` para abrir o dossiê completo no
-dashboard.
+Retorno: CNJ normalizado (e mascarado, `cnj_formatado`); `fontes_presentes`
+(quais fontes têm registro para este CNJ) separado de `cobertura_dataset`
+(estado de cada fonte na geração do dataset inteiro — distingue "fonte sem
+este CNJ" de "fonte indisponível quando o dataset foi gerado"); resumo DJEN;
+decisão/JURIS; STJ quando houver; capa oficial DataJud (RFC 0010); timestamp
+de geração do dataset (`dataset_gerado_em`); documentos mais recentes;
+`web_url` montado só quando a variável de ambiente `CAUSAGANHA_WEB_BASE_URL`
+está configurada (nunca hardcoded — a tool não deve assumir onde o dashboard
+está publicado).
 
-**Fica fora deste RFC como implementação — só como milestone.** Antes de
-escrever código, uma investigação decide a fonte de dados da tool: parquets
-canônicos/remotos do Internet Archive, cache local opcional, ou ambos com
-proveniência explícita (mesma disciplina de `fonte`/`canonica` de M1). A
-investigação também mapeia a semântica já implementada no dashboard web
-(normalização de CNJ, junção de fontes, paginação, freshness — RFC 0005) para
-reaproveitar, não portar TypeScript mecanicamente para Python. Ganha PR
-própria depois de M1.
+**Investigação (concluída) → redesenho de dados, não só uma tool nova.** A
+investigação de fonte de dados (parquets canônicos do IA vs. cache local)
+levou a uma pergunta mais fundamental: a RFC 0005 original propunha uma
+tabela larga `processos_unificados.parquet` como artefato canônico
+publicado, mas o DJEN já resolvia o mesmo problema — "que registros existem
+para este CNJ e onde estão" — de outra forma: um índice fino (`processos` em
+`causaganha/consolidate/schema_registry.py`) que só aponta para o registro
+completo, nunca copia seus campos. Generalizar esse padrão para as quatro
+fontes (`indice_processual.parquet`) em vez de repetir o desenho da tabela
+larga evita uma segunda fonte de verdade que pode divergir do conteúdo de
+origem. Ver a Emenda no topo de RFC 0005 para o schema completo e o
+raciocínio.
+
+Como o índice já existe e é publicado (o reconciliador precisava ser
+reescrito de qualquer forma), este M2 entrega o redesenho completo na mesma
+PR, não só a tool: `scripts/reconcile_processos.py` publica
+`indice_processual.parquet` (+ `indice_processual.report.json` de
+cobertura) em vez das duas tabelas largas; `scripts/render_queries.py`
+recomputa `processos_unificados`/`processo_documentos` como *views* DuckDB
+em memória a partir das fontes de origem (só para os `.qmd` que ainda
+precisam da forma larga, como `processos_multi_fonte.qmd` — nunca mais como
+arquivo publicado); `causaganha.processos.service.buscar_processo` e
+`web/src/lib/processoCnj.ts` (dashboard `/processo`) consultam o índice
+primeiro para descobrir quais parquets de origem têm registro, depois
+consultam esses parquets diretamente — a mesma consulta em duas linguagens
+(DuckDB Python / DuckDB-WASM no navegador), mesmo padrão de dois estágios;
+`datajud.service`'s descoberta de CNJs lê `indice_processual.parquet` (um
+`SELECT DISTINCT numero_processo`, sem join) em vez do antigo
+`processos_unificados.parquet`.
 
 ## 3. Regras específicas (para não abrir atalhos)
 
@@ -195,14 +220,38 @@ própria depois de M1.
   número inválido — review da #854: a primeira versão só cobria I/O).
 - `pytest`, `ruff check`, `ruff format --check` verdes.
 
-**M2 (quando a investigação e a PR acontecerem):**
-- Decisão de fonte de dados documentada (parquet IA / cache local / ambos)
-  antes do primeiro código de `processo_consultar`.
-- `processo_consultar` reaproveita a semântica de normalização/junção/
-  paginação/freshness já implementada no dashboard web (RFC 0005), sem
-  reimplementação paralela divergente.
+**M2:**
+- `scripts/reconcile_processos.py` publica `indice_processual.parquet` +
+  `indice_processual.report.json` (cobertura por fonte); não publica mais
+  `processos_unificados.parquet`/`processo_documentos.parquet` como
+  arquivos.
+- `scripts/render_queries.py` continua servindo `processos_multi_fonte.qmd`
+  e os demais `.qmd` existentes sem mudança de contrato, recomputando
+  `processos_unificados`/`processo_documentos` como views DuckDB a partir
+  das fontes de origem.
+- `causaganha.processos.cnj` é a única implementação Python de
+  normalização/máscara de CNJ; `datajud.models` reexporta em vez de manter
+  cópia própria.
+- `causaganha.processos.service.buscar_processo` consulta
+  `indice_processual.parquet` para descobrir fontes/URLs, depois os
+  parquets de origem diretamente — nunca uma tabela pré-materializada; erro
+  ao abrir o índice propaga (sem resposta possível), erro numa fonte
+  específica ou no relatório de cobertura vira lacuna vazia + aviso em
+  `avisos`, nunca exceção.
+- `processo_consultar` registrada e testada (schema exato, comportamento
+  com resultado encontrado/não-encontrado, tradução de exceção de domínio
+  para `ToolError` sem vazar detalhe interno); `web_url` só quando
+  `CAUSAGANHA_WEB_BASE_URL` está no ambiente.
+- `web/src/lib/processoCnj.ts` + `ProcessoLookup.svelte` (dashboard
+  `/processo`) migrados para o mesmo padrão de dois estágios (índice →
+  parquets de origem) via DuckDB-WASM; nenhuma referência residual a
+  `processos_unificados.parquet`/`processo_documentos.parquet` no
+  frontend.
+- `datajud.service`'s descoberta de CNJs lê `indice_processual.parquet`.
 - Mesma disciplina de M1: fatos com proveniência, não veredito; `ToolError`
   estruturado para falha real, resultado parcial para ausência de dado.
+- `pytest`, `ruff check`, `ruff format --check`, suíte de testes web
+  (`npm test`) e `astro check` verdes.
 
 ## 5. Riscos
 
@@ -218,8 +267,15 @@ própria depois de M1.
   base de usuários são brasileiros; nomes de função/módulo Python
   continuam em inglês, então o custo de reverter (se necessário) fica
   isolado nas strings de `title`/`description`/`Field(description=...)`.
-- **`processo_consultar` é a peça de maior risco de escopo.** Fica
-  deliberadamente fora da implementação deste RFC — só a investigação e o
-  contrato de dados entram aqui — para não repetir o erro que RFC 0013
-  evitou na sua própria Fase 3 (misturar fundação com escopo de
-  investigação ainda aberta).
+- **M2 acabou maior do que "uma tool nova".** A investigação de fonte de
+  dados levou a um redesenho do artefato canônico (`indice_processual
+  .parquet` no lugar de `processos_unificados.parquet`/`processo_documentos
+  .parquet`), que por sua vez toca o reconciliador, `render_queries.py`, a
+  descoberta de CNJs do `datajud` e o dashboard web — quatro superfícies
+  além da tool MCP em si. Aceito conscientemente (decisão explícita antes de
+  começar a implementação, não descoberta no meio do trabalho): adiar o
+  redesenho para depois de `processo_consultar` já existir teria criado uma
+  segunda consumidora do formato antigo, tornando a migração posterior mais
+  cara, não mais barata. `processos_unificados.parquet`/`processo_documentos
+  .parquet` descontinuados como artefatos publicados nesta mesma PR — não
+  há janela intermediária em que ambos os formatos precisam ser mantidos.

@@ -1,24 +1,35 @@
 #!/usr/bin/env python3
-"""Reconcile DJEN x TJRO JURIS x STJ into processos_unificados.
+"""Reconcile DJEN x TJRO JURIS x STJ x DataJud into a cross-source index.
+
+RFC 0014 M2 design: `indice_processual.parquet` is a THIN index — one row
+per (numero_processo, fonte, registro_id), pointing at where the real
+record lives (`arquivo_ia_url`) — never a denormalized copy of each
+source's content fields. This generalizes the pattern DJEN's own
+`processos` table already used (see `causaganha/consolidate/
+schema_registry.py`'s SCHEMA_V3): each source keeps its natural schema in
+its own already-published parquet; only cross-referencing them is new.
+There is deliberately no second, independently-published "wide" parquet —
+consumers (processo_consultar, web/src/lib/processoCnj.ts) join the index
+against each source's own parquet at query time.
 
 Pipeline:
-  1. Load DJEN from every consolidated comunicacoes.parquet (discovered via the
-     causaganha-catalog manifest) — GROUP BY nr_processo
+  1. Load DJEN from every consolidated comunicacoes.parquet (discovered via
+     the causaganha-catalog manifest) — flat, no GROUP BY.
   2. Load JURIS from tjro-juris-<year>.parquet files (local, or fetched from
-     the tjro-juris-{year} IA items when absent locally) — GROUP BY nr_processo
-  3. Load STJ from stj-acordaos.parquet — filter to CNJ numbers only
-  4. Full outer join the three aggregations in DuckDB
-  5. Optional DataJud enrichment (RFC 0010): LEFT JOIN the official capa
-     (classe_oficial, assuntos, orgao_julgador, grau, data_ajuizamento,
-     ultima_atualizacao, tem_datajud) when datajud-capa-*.parquet exists
-     (local, or fetched from the datajud-{tribunal} IA items) — without it
-     the columns are NULL/false and behaviour is unchanged
-  6. Write processos_unificados.parquet + processo_documentos.parquet
-  7. Write a source-coverage report (per-source counts + load status +
-     fontes intersection matrix) next to the output as
-     processos_unificados.report.json, and fail loudly when an expected
-     source ended up with zero rows because it could not be loaded at all
-  8. Upload both parquets to IA item causaganha-dashboard
+     the tjro-juris-{year} IA items when absent locally) — flat.
+  3. Load STJ from stj-acordaos.parquet — filter to CNJ numbers only, flat.
+  4. Load DataJud capa (RFC 0010) from datajud-capa-*.parquet when present —
+     flat; registro_id is synthesized (md5 of the composite natural key
+     numero_processo+grau+orgao, since DataJud's own ES _id already encodes
+     exactly that composite — see datajud/dedup.py's capa_row_key). DataJud
+     movimentos are out of scope (no natural key at all, not indexed here).
+  5. UNION ALL the four into indice_processual — never collapsed/aggregated.
+  6. Write indice_processual.parquet.
+  7. Write a source-coverage report (per-source distinct-process counts +
+     load status + fontes intersection matrix) next to the output as
+     indice_processual.report.json, and fail loudly when an expected source
+     ended up with zero rows because it could not be loaded at all.
+  8. Upload the parquet + report to IA item causaganha-dashboard.
 
 Environment knobs:
   RECONCILE_CACHE_DIR          — where IA-fetched source parquets are cached
@@ -54,9 +65,8 @@ from datajud.archive import item_id as _datajud_item_id
 ROOT = Path(__file__).parent.parent
 DATA_DIR = ROOT / "data"
 
-_PARQUET_UNIFICADOS = DATA_DIR / "processos_unificados.parquet"
-_PARQUET_DOCUMENTOS = DATA_DIR / "processo_documentos.parquet"
-_REPORT_NAME = "processos_unificados.report.json"
+_PARQUET_INDICE = DATA_DIR / "indice_processual.parquet"
+_REPORT_NAME = "indice_processual.report.json"
 
 _IA_BASE = "https://archive.org/download"
 _IA_METADATA_BASE = "https://archive.org/metadata"
@@ -418,223 +428,98 @@ def _ia_credentials() -> str | None:
 
 # ── Aggregation SQL ────────────────────────────────────────────────────────────
 
-_DJEN_AGG_SQL = """
+# ── Cross-source index (RFC 0014 M2) ────────────────────────────────────────────
+#
+# Generalizes the pattern DJEN's own `processos` table already used (see
+# schema_registry.py's SCHEMA_V3): a thin per-record index — one row per
+# (numero_processo, fonte, registro_id) — never a collapsed/aggregated join.
+# Each source keeps its own natural schema in its own already-published
+# parquet (comunicacoes, tjro-juris-{year}, stj-acordaos, datajud-capa-
+# {tribunal}); this index only says which records exist for a CNJ and where
+# to find them (`arquivo_ia_url`). Consumers (processo_consultar,
+# web/src/lib/processoCnj.ts) join back into the source parquet themselves —
+# never a second, independently-published source of truth.
+#
+# DataJud capa has no single-column natural key (its own ES `_id` encodes a
+# composite `{TRIBUNAL}_{classe}_{grau}_{orgao}_{numero}` — see
+# datajud/dedup.py's capa_row_key) — registro_id is a deterministic md5 hash
+# of that same composite, mirroring how DJEN's own comunicacao_id is a
+# uuid5 hash of a composite key (transforms.py's djen_uuid5), just via
+# DuckDB's built-in md5() instead of a custom UDF.
+#
+# DataJud movimentos are out of scope here: reconcile_processos.py never
+# read them even in the old processos_unificados/processo_documentos shape,
+# and unlike every other source they have no natural key at all, not even a
+# composite one (ties on data_hora are real) — indexing them is a genuine
+# follow-up, not a mechanical generalization of what already existed.
+
+_INDICE_DJEN_SQL = """
 SELECT
-    regexp_replace(numero_processo, '[^0-9]', '', 'g') AS nr_processo,
-    MIN(data_disponibilizacao)::DATE  AS djen_primeira_pub,
-    MAX(data_disponibilizacao)::DATE  AS djen_ultima_pub,
-    COUNT(*)::INTEGER                 AS djen_n_publicacoes,
-    list(DISTINCT tribunal)           AS djen_tribunais
+    regexp_replace(numero_processo, '[^0-9]', '', 'g') AS numero_processo,
+    'djen' AS fonte,
+    id AS registro_id,
+    tribunal,
+    data_disponibilizacao AS data,
+    'https://archive.org/download/' || p_item_ia || '/comunicacoes.parquet' AS arquivo_ia_url
 FROM comunicacoes
 WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
-GROUP BY nr_processo
 """
 
-_JURIS_AGG_SQL = """
-WITH cleaned AS (
-    SELECT
-        regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
-        id_documento,
-        tipo,
-        data_julgamento,
-        orgao,
-        relator,
-        classe_judicial,
-        url_portal
-    FROM tjro_juris
-    WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
-),
-ranked AS (
-    SELECT
-        *,
-        ROW_NUMBER() OVER (
-            PARTITION BY nr_processo
-            ORDER BY
-                CASE tipo
-                    WHEN 'ACÓRDÃO' THEN 1
-                    WHEN 'SENTENÇA' THEN 2
-                    ELSE 9
-                END,
-                data_julgamento DESC NULLS LAST
-        ) AS rn
-    FROM cleaned
-),
-principal AS (
-    SELECT * FROM ranked WHERE rn = 1
-),
-agg AS (
-    SELECT
-        nr_processo,
-        COUNT(*)::INTEGER        AS juris_n_documentos,
-        list(DISTINCT tipo)      AS juris_tipos,
-        MAX(data_julgamento)     AS juris_data_julgamento
-    FROM cleaned
-    GROUP BY nr_processo
-)
+_INDICE_JURIS_SQL = """
 SELECT
-    agg.nr_processo,
-    agg.juris_n_documentos,
-    agg.juris_tipos,
-    agg.juris_data_julgamento::DATE AS juris_data_julgamento,
-    principal.orgao          AS juris_orgao,
-    principal.relator        AS juris_relator,
-    principal.classe_judicial AS juris_classe,
-    principal.url_portal     AS juris_url
-FROM agg
-JOIN principal USING (nr_processo)
-"""
-
-_STJ_AGG_SQL = """
-SELECT
-    regexp_replace("numeroProcesso", '[^0-9]', '', 'g') AS nr_processo,
-    FIRST(id ORDER BY "dataDecisao" DESC NULLS LAST)::VARCHAR AS stj_id,
-    FIRST("siglaClasse" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_classe,
-    FIRST("ministroRelator" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_relator,
-    FIRST("tema" ORDER BY "dataDecisao" DESC NULLS LAST)::VARCHAR AS stj_tema,
-    FIRST("teseJuridica" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_tese,
-    FIRST("ementa" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_ementa,
-    MAX("dataDecisao")::DATE AS stj_data_decisao,
-    MAX("dataPublicacao")::DATE AS stj_data_publicacao
-FROM acordaos
-WHERE length(regexp_replace("numeroProcesso", '[^0-9]', '', 'g')) = 20
-GROUP BY nr_processo
-"""
-
-# DataJud capa is a per-(numero, grau, orgao) table; collapse to one row per
-# CNJ preferring the most recently updated document (usually the highest grau
-# reached). data_ajuizamento takes the earliest — the original filing.
-_DATAJUD_AGG_SQL = """
-SELECT
-    numero_processo AS nr_processo,
-    FIRST(classe_nome ORDER BY ultima_atualizacao DESC NULLS LAST) AS classe_oficial,
-    FIRST(assuntos ORDER BY ultima_atualizacao DESC NULLS LAST) AS assuntos,
-    FIRST(orgao_julgador ORDER BY ultima_atualizacao DESC NULLS LAST) AS orgao_julgador,
-    FIRST(grau ORDER BY ultima_atualizacao DESC NULLS LAST) AS grau,
-    MIN(data_ajuizamento) AS data_ajuizamento,
-    MAX(ultima_atualizacao) AS ultima_atualizacao
-FROM datajud_capa
-WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
-GROUP BY numero_processo
-"""
-
-_UNIFICADOS_SQL = """
-WITH
-    base AS (
-        SELECT
-            COALESCE(d.nr_processo, j.nr_processo, s.nr_processo, dj.nr_processo) AS nr_processo,
-            d.djen_primeira_pub,
-            d.djen_ultima_pub,
-            d.djen_n_publicacoes,
-            d.djen_tribunais,
-            j.juris_n_documentos,
-            j.juris_tipos,
-            j.juris_data_julgamento,
-            j.juris_orgao,
-            j.juris_relator,
-            j.juris_classe,
-            j.juris_url,
-            s.stj_id,
-            s.stj_classe,
-            s.stj_relator,
-            s.stj_tema,
-            s.stj_tese,
-            s.stj_ementa,
-            s.stj_data_decisao,
-            s.stj_data_publicacao,
-            -- DataJud enrichment (RFC 0010) — NULL/false when the capa is absent
-            dj.classe_oficial,
-            dj.assuntos,
-            dj.orgao_julgador,
-            dj.grau,
-            dj.data_ajuizamento,
-            dj.ultima_atualizacao,
-            (dj.nr_processo IS NOT NULL) AS tem_datajud,
-            (CASE WHEN d.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
-             CASE WHEN j.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
-             CASE WHEN s.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
-             CASE WHEN dj.nr_processo IS NOT NULL THEN 1 ELSE 0 END)::INTEGER AS n_fontes,
-            list_filter(
-                ['djen', 'juris', 'stj', 'datajud'],
-                x -> (
-                    (x = 'djen'    AND d.nr_processo IS NOT NULL) OR
-                    (x = 'juris'   AND j.nr_processo IS NOT NULL) OR
-                    (x = 'stj'     AND s.nr_processo IS NOT NULL) OR
-                    (x = 'datajud' AND dj.nr_processo IS NOT NULL)
-                )
-            ) AS fontes,
-            NOW() AS updated_at
-        FROM djen_agg d
-        FULL OUTER JOIN juris_agg   j USING (nr_processo)
-        FULL OUTER JOIN stj_agg     s USING (nr_processo)
-        FULL OUTER JOIN datajud_agg dj USING (nr_processo)
-    )
-SELECT
-    base.nr_processo,
-    -- Build display mask inline (20 digits → NNNNNNN-DD.AAAA.J.TR.OOOO)
-    (base.nr_processo[1:7] || '-' || base.nr_processo[8:9] || '.' ||
-     base.nr_processo[10:13] || '.' || base.nr_processo[14:14] || '.' ||
-     base.nr_processo[15:16] || '.' || base.nr_processo[17:20]) AS nr_processo_mascara,
-    djen_primeira_pub,
-    djen_ultima_pub,
-    djen_n_publicacoes,
-    djen_tribunais,
-    juris_n_documentos,
-    juris_tipos,
-    juris_data_julgamento,
-    juris_orgao,
-    juris_relator,
-    juris_classe,
-    juris_url,
-    stj_id,
-    stj_classe,
-    stj_relator,
-    stj_tema,
-    stj_tese,
-    stj_ementa,
-    stj_data_decisao,
-    stj_data_publicacao,
-    classe_oficial,
-    assuntos,
-    orgao_julgador,
-    grau,
-    data_ajuizamento,
-    ultima_atualizacao,
-    tem_datajud,
-    fontes,
-    n_fontes,
-    updated_at
-FROM base
-ORDER BY base.nr_processo
-"""
-
-_DOCUMENTOS_SQL = """
--- JURIS documents
-SELECT
-    regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
-    'juris'          AS fonte,
-    id_documento::VARCHAR AS id_documento,
-    tipo,
-    data_julgamento::DATE AS data,
-    url_portal       AS url,
-    left(texto_limpo, 500) AS resumo
+    regexp_replace(nr_processo, '[^0-9]', '', 'g') AS numero_processo,
+    'juris' AS fonte,
+    id_documento::VARCHAR AS registro_id,
+    'TJRO' AS tribunal,
+    TRY_CAST(data_julgamento AS DATE) AS data,
+    'https://archive.org/download/tjro-juris-' ||
+        CAST(EXTRACT(YEAR FROM TRY_CAST(data_julgamento AS DATE)) AS VARCHAR) || '/tjro-juris-' ||
+        CAST(EXTRACT(YEAR FROM TRY_CAST(data_julgamento AS DATE)) AS VARCHAR) || '.parquet'
+        AS arquivo_ia_url
 FROM tjro_juris
 WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
+"""
 
-UNION ALL
-
--- STJ documents
+_INDICE_STJ_SQL = """
 SELECT
-    regexp_replace("numeroProcesso", '[^0-9]', '', 'g') AS nr_processo,
-    'stj'            AS fonte,
-    id::VARCHAR      AS id_documento,
-    "siglaClasse"    AS tipo,
-    "dataDecisao"::DATE AS data,
-    ''               AS url,
-    left("ementa", 500) AS resumo
+    regexp_replace("numeroProcesso", '[^0-9]', '', 'g') AS numero_processo,
+    'stj' AS fonte,
+    id::VARCHAR AS registro_id,
+    'STJ' AS tribunal,
+    TRY_CAST("dataDecisao" AS DATE) AS data,
+    'https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet'
+        AS arquivo_ia_url
 FROM acordaos
 WHERE length(regexp_replace("numeroProcesso", '[^0-9]', '', 'g')) = 20
+"""
 
-ORDER BY nr_processo, data DESC NULLS LAST
+_INDICE_DATAJUD_SQL = """
+SELECT
+    regexp_replace(numero_processo, '[^0-9]', '', 'g') AS numero_processo,
+    'datajud' AS fonte,
+    md5(
+        numero_processo || ':' || grau || ':' ||
+        COALESCE(orgao_julgador_codigo::VARCHAR, 'nome:' || COALESCE(orgao_julgador, ''))
+    ) AS registro_id,
+    tribunal,
+    TRY_CAST(ultima_atualizacao AS DATE) AS data,
+    'https://archive.org/download/datajud-' || lower(tribunal) || '/datajud-capa-' ||
+        lower(tribunal) || '.parquet' AS arquivo_ia_url
+FROM datajud_capa
+WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
+"""
+
+_INDICE_SQL = f"""
+SELECT *, NOW() AS updated_at FROM (
+    {_INDICE_DJEN_SQL}
+    UNION ALL
+    {_INDICE_JURIS_SQL}
+    UNION ALL
+    {_INDICE_STJ_SQL}
+    UNION ALL
+    {_INDICE_DATAJUD_SQL}
+)
+ORDER BY numero_processo, fonte
 """
 
 
@@ -721,7 +606,8 @@ def _empty_comunicacoes_view(con: duckdb.DuckDBPyConnection) -> None:
     con.execute(
         "CREATE VIEW comunicacoes AS "
         "SELECT NULL::VARCHAR AS numero_processo, NULL::DATE AS data_disponibilizacao, "
-        "NULL::VARCHAR AS tribunal WHERE FALSE"
+        "NULL::VARCHAR AS tribunal, NULL::VARCHAR AS id, NULL::VARCHAR AS p_item_ia "
+        "WHERE FALSE"
     )
 
 
@@ -887,8 +773,8 @@ def _register_stj(con: duckdb.DuckDBPyConnection) -> SourceLoad:
 def _register_datajud(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     """Register datajud_capa (local parquets, IA fallback, or empty).
 
-    Joins only when the parquet has the columns _DATAJUD_AGG_SQL needs;
-    without it the datajud columns are NULL and tem_datajud is false. The
+    Joins only when the parquet has the columns _INDICE_DATAJUD_SQL needs;
+    without those columns this source contributes nothing. The
     empty fallback is derived from the producer's own pyarrow schema
     (datajud.archive.CAPA_SCHEMA) rather than hand-typed, so it can't drift
     from it — same pattern as scripts/render_queries.py's
@@ -955,69 +841,57 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
     djen_load = _register_djen(con)
     juris_load = _register_juris(con)
     stj_load = _register_stj(con)
-
-    # Build aggregation CTEs
-    print("Building DJEN aggregation…")
-    con.execute(f"CREATE TEMP TABLE djen_agg AS {_DJEN_AGG_SQL}")
-    djen_load.rows = con.execute("SELECT COUNT(*) FROM djen_agg").fetchone()[0]
-    print(f"  {djen_load.rows:,} DJEN processes")
-
-    print("Building JURIS aggregation…")
-    con.execute(f"CREATE TEMP TABLE juris_agg AS {_JURIS_AGG_SQL}")
-    juris_load.rows = con.execute("SELECT COUNT(*) FROM juris_agg").fetchone()[0]
-    print(f"  {juris_load.rows:,} JURIS processes")
-
-    print("Building STJ aggregation…")
-    con.execute(f"CREATE TEMP TABLE stj_agg AS {_STJ_AGG_SQL}")
-    stj_load.rows = con.execute("SELECT COUNT(*) FROM stj_agg").fetchone()[0]
-    print(f"  {stj_load.rows:,} STJ processes (with valid CNJ number)")
-
-    print("Building DataJud aggregation…")
     datajud_load = _register_datajud(con)
-    con.execute(f"CREATE TEMP TABLE datajud_agg AS {_DATAJUD_AGG_SQL}")
-    datajud_load.rows = con.execute("SELECT COUNT(*) FROM datajud_agg").fetchone()[0]
-    print(f"  {datajud_load.rows:,} DataJud processes")
 
-    # Full outer join → processos_unificados
-    print("Running full outer join…")
-    con.execute(f"CREATE TEMP TABLE processos_unificados AS {_UNIFICADOS_SQL}")
-    total = con.execute("SELECT COUNT(*) FROM processos_unificados").fetchone()[0]
-    multi = con.execute("SELECT COUNT(*) FROM processos_unificados WHERE n_fontes >= 2").fetchone()[
+    # Cross-source index — flat, one row per (numero_processo, fonte,
+    # registro_id), never collapsed. See _INDICE_SQL's own comment for the
+    # design rationale (RFC 0014 M2: generalizes DJEN's own `processos`
+    # table instead of introducing a second, denormalized source of truth).
+    print("Building indice_processual…")
+    con.execute(f"CREATE TEMP TABLE indice_processual AS {_INDICE_SQL}")
+
+    # rows-per-source, for the coverage report, means "distinct processes
+    # this source touched" (comparable across sources with very different
+    # records-per-process ratios), not raw index row count.
+    for load in (djen_load, juris_load, stj_load, datajud_load):
+        load.rows = con.execute(
+            "SELECT COUNT(DISTINCT numero_processo) FROM indice_processual WHERE fonte = ?",
+            [load.name],
+        ).fetchone()[0]
+        print(f"  {load.rows:,} {load.name} processes")
+
+    total = con.execute("SELECT COUNT(DISTINCT numero_processo) FROM indice_processual").fetchone()[
         0
     ]
+    multi = con.execute(
+        "SELECT COUNT(*) FROM ("
+        "  SELECT numero_processo FROM indice_processual"
+        "  GROUP BY numero_processo HAVING COUNT(DISTINCT fonte) >= 2"
+        ")"
+    ).fetchone()[0]
     print(f"  {total:,} unified processes ({multi:,} present in 2+ sources)")
 
-    # Intersection matrix: how many processos carry each fontes combination
+    # Intersection matrix: how many processos carry each fontes combination —
+    # one row per process (not per index row), so a process with e.g. 40
+    # DJEN comunicações still counts once, not 40 times.
     combinations = dict(
         con.execute(
-            "SELECT array_to_string(fontes, '+') AS combo, COUNT(*) "
-            "FROM processos_unificados GROUP BY combo ORDER BY combo"
+            "SELECT combo, COUNT(*) FROM ("
+            "  SELECT array_to_string(list(DISTINCT fonte ORDER BY fonte), '+') AS combo "
+            "  FROM indice_processual GROUP BY numero_processo"
+            ") GROUP BY combo ORDER BY combo"
         ).fetchall()
     )
 
-    # Write processos_unificados.parquet
+    # Write indice_processual.parquet
     DATA_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"Writing {_PARQUET_UNIFICADOS}")
-    con.execute(
-        f"COPY processos_unificados TO '{_PARQUET_UNIFICADOS}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-    )
-
-    # Build processo_documentos (JURIS + STJ only — DJEN's per-process rollup
-    # already lives in processos_unificados via djen_agg; adding individual
-    # DJEN communications here would need a join through textos for a resumo)
-    print("Writing processo_documentos.parquet…")
-    con.execute(
-        f"COPY ({_DOCUMENTOS_SQL}) TO '{_PARQUET_DOCUMENTOS}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-    )
-    doc_count = con.execute(
-        f"SELECT COUNT(*) FROM read_parquet('{_PARQUET_DOCUMENTOS}')"
-    ).fetchone()[0]
-    print(f"  {doc_count:,} document rows")
+    print(f"Writing {_PARQUET_INDICE}")
+    con.execute(f"COPY indice_processual TO '{_PARQUET_INDICE}' (FORMAT PARQUET, COMPRESSION ZSTD)")
 
     # Source coverage report — printed, and persisted next to the output
     sources = {s.name: s for s in (djen_load, juris_load, stj_load, datajud_load)}
     report = _build_report(sources, combinations, total, multi)
-    report_path = _PARQUET_UNIFICADOS.parent / _REPORT_NAME
+    report_path = _PARQUET_INDICE.parent / _REPORT_NAME
     report_path.write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"
     )
@@ -1026,13 +900,11 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
     _emit_validation(report["validation"]["errors"], report["validation"]["warnings"])
 
     if upload:
-        upload_to_ia(_PARQUET_UNIFICADOS, "processos_unificados.parquet")
-        if _PARQUET_DOCUMENTOS.exists():
-            upload_to_ia(_PARQUET_DOCUMENTOS, "processo_documentos.parquet")
+        upload_to_ia(_PARQUET_INDICE, "indice_processual.parquet")
         # RFC 0014 M2: processo_consultar needs the coverage report remotely
         # too, to distinguish "source loaded but had no rows for this CNJ"
         # from "source was unavailable when the dataset was generated" —
-        # both used to look identical (absent from `fontes`) without it.
+        # both used to look identical (absent from the index) without it.
         upload_to_ia(report_path, _REPORT_NAME)
 
     return {

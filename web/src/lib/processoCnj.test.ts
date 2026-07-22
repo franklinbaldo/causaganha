@@ -1,17 +1,28 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   ALL_FONTES,
   buildCnjSearchParams,
+  buildDatajudSql,
+  buildDjenSql,
+  buildDocumentosSql,
   buildHeroSearchRedirect,
-  buildProcessoDocumentosSql,
-  buildProcessoUnificadoSql,
+  buildIndiceSql,
+  buildJurisSql,
+  buildStjSql,
+  buscarProcesso,
+  carregarDocumentos,
   classifyCnjInput,
+  fetchCobertura,
   fontesPresenca,
+  fonteUrls,
   formatCnj,
   isDocumentosVazio,
   isValidCnj,
+  mapDatajudRow,
+  mapDjenRow,
   mapDocumentoRow,
-  mapProcessoRow,
+  mapJurisRow,
+  mapStjRow,
   normalizeCnj,
   paginate,
   readCnjParam,
@@ -139,20 +150,50 @@ describe('readCnjParam / buildCnjSearchParams', () => {
 });
 
 describe('SQL builders never use SELECT * and filter by parameter', () => {
-  it('processos_unificados query lists explicit columns and filters nr_processo via placeholder', () => {
-    const sql = buildProcessoUnificadoSql();
+  it('indice query filters numero_processo via placeholder and reads indice_processual.parquet', () => {
+    const sql = buildIndiceSql();
     expect(sql).not.toMatch(/select\s+\*/i);
-    expect(sql).toContain('WHERE nr_processo = ?');
-    expect(sql).toContain('nr_processo_mascara');
-    expect(sql).toContain("read_parquet('https://archive.org/download/causaganha-dashboard/processos_unificados.parquet')");
+    expect(sql).toContain('WHERE numero_processo = ?');
+    expect(sql).toContain(
+      "read_parquet('https://archive.org/download/causaganha-dashboard/indice_processual.parquet')",
+    );
   });
 
-  it('processo_documentos query lists explicit columns, filters by parameter and paginates', () => {
-    const sql = buildProcessoDocumentosSql();
+  it('djen query unions the discovered URLs and filters by placeholder', () => {
+    const sql = buildDjenSql(['https://a/comunicacoes.parquet', "https://b/comunicacoes.parquet"]);
     expect(sql).not.toMatch(/select\s+\*/i);
-    expect(sql).toContain('WHERE nr_processo = ?');
+    expect(sql).toContain("read_parquet(['https://a/comunicacoes.parquet', 'https://b/comunicacoes.parquet']");
+    expect(sql).toContain('= ?');
+  });
+
+  it('juris query cross-joins agg and principal over the discovered URLs', () => {
+    const sql = buildJurisSql(['https://a/tjro-juris-2024.parquet']);
+    expect(sql).toContain('FROM agg, principal');
+    expect(sql).toContain("read_parquet(['https://a/tjro-juris-2024.parquet']");
+  });
+
+  it('stj query filters by placeholder over the discovered URLs', () => {
+    const sql = buildStjSql(['https://a/stj-acordaos.parquet']);
+    expect(sql).toContain('regexp_replace("numeroProcesso"');
+  });
+
+  it('datajud query filters by placeholder over the discovered URLs', () => {
+    const sql = buildDatajudSql(['https://a/datajud-capa-tjro.parquet']);
+    expect(sql).toContain('WHERE numero_processo = ?');
+  });
+
+  it('documentos query unions only the branches with URLs present, and paginates', () => {
+    const { sql, nParams } = buildDocumentosSql(['https://a/juris.parquet'], []);
+    expect(sql).not.toMatch(/union all.*union all/is);
     expect(sql).toContain('LIMIT ? OFFSET ?');
-    expect(sql).toContain('ORDER BY data DESC NULLS LAST');
+    expect(nParams).toBe(1);
+
+    const both = buildDocumentosSql(['https://a/juris.parquet'], ['https://a/stj.parquet']);
+    expect(both.sql).toMatch(/union all/i);
+    expect(both.nParams).toBe(2);
+
+    const none = buildDocumentosSql([], []);
+    expect(none.nParams).toBe(0);
   });
 });
 
@@ -194,126 +235,89 @@ describe('toIsoDate', () => {
   });
 });
 
-const CNJ_ALL = '00000010220248220001';
+describe('mapDjenRow', () => {
+  it('marks present with n_publicacoes > 0', () => {
+    const view = mapDjenRow({
+      n_publicacoes: 2,
+      primeira_publicacao: '2024-03-01',
+      ultima_publicacao: '2024-03-05',
+      tribunais: ['TJRO'],
+    });
+    expect(view).toMatchObject({ present: true, nPublicacoes: 2, primeiraPub: '2024-03-01', ultimaPub: '2024-03-05' });
+    expect(view.tribunais).toEqual(['TJRO']);
+  });
 
-function baseRawProcesso(overrides: Record<string, unknown> = {}): Record<string, unknown> {
-  return {
-    nr_processo: CNJ_ALL,
-    nr_processo_mascara: '0000001-02.2024.8.22.0001',
-    n_fontes: 4,
-    fontes: ['djen', 'juris', 'stj', 'datajud'],
-    djen_primeira_pub: '2024-03-01',
-    djen_ultima_pub: '2024-03-05',
-    djen_n_publicacoes: 2,
-    djen_tribunais: ['TJRO'],
-    juris_n_documentos: 2,
-    juris_tipos: ['ACÓRDÃO', 'SENTENÇA'],
-    juris_data_julgamento: '2024-02-28',
-    juris_orgao: '2a Camara',
-    juris_relator: 'Des. A',
-    juris_classe: 'Apelação',
-    juris_url: 'https://juris/1',
-    stj_id: 'stj-1',
-    stj_classe: 'REsp',
-    stj_relator: 'MIN X',
-    stj_tema: 'tema',
-    stj_tese: 'tese',
-    stj_ementa: 'ementa',
-    stj_data_decisao: '2024-05-01',
-    stj_data_publicacao: '2024-05-10',
-    classe_oficial: 'Apelacao Civel',
-    assuntos: 'Contratos',
-    orgao_julgador: '2a Camara',
-    grau: 'G2',
-    data_ajuizamento: '2024-01-10',
-    ultima_atualizacao: '2024-06-01',
-    tem_datajud: true,
-    updated_at: '2026-07-12T18:00:00Z',
-    ...overrides,
-  };
-}
-
-describe('mapProcessoRow — multi-fonte row', () => {
-  it('marks every source present and surfaces every field with the right provenance', () => {
-    const row = mapProcessoRow(baseRawProcesso());
-    expect(row.nrProcesso).toBe(CNJ_ALL);
-    expect(row.nrProcessoMascara).toBe('0000001-02.2024.8.22.0001');
-    expect(row.nFontes).toBe(4);
-    expect(row.fontes).toEqual(['djen', 'juris', 'stj', 'datajud']);
-
-    expect(row.djen).toMatchObject({ present: true, nPublicacoes: 2, primeiraPub: '2024-03-01', ultimaPub: '2024-03-05' });
-    expect(row.djen.tribunais).toEqual(['TJRO']);
-
-    expect(row.juris).toMatchObject({ present: true, nDocumentos: 2, orgao: '2a Camara', relator: 'Des. A' });
-    expect(row.juris.tipos).toEqual(['ACÓRDÃO', 'SENTENÇA']);
-
-    expect(row.stj).toMatchObject({ present: true, id: 'stj-1', classe: 'REsp' });
-
-    expect(row.datajud).toMatchObject({ present: true, classeOficial: 'Apelacao Civel', assuntos: 'Contratos' });
+  it('marks absent for a null row or n_publicacoes=0, without fabricating zeros', () => {
+    expect(mapDjenRow(null)).toMatchObject({ present: false, nPublicacoes: null });
+    expect(mapDjenRow({ n_publicacoes: 0, tribunais: [] })).toMatchObject({ present: false });
   });
 });
 
-describe('mapProcessoRow — DataJud absent (tem_datajud=false)', () => {
-  it('marks datajud not present and nulls its fields even if fontes lists it (defensive)', () => {
-    const row = mapProcessoRow(
-      baseRawProcesso({
-        fontes: ['djen', 'juris', 'stj'],
-        tem_datajud: false,
-        classe_oficial: null,
-        assuntos: null,
-        orgao_julgador: null,
-        grau: null,
-        data_ajuizamento: null,
-        ultima_atualizacao: null,
-      }),
-    );
-    expect(row.datajud.present).toBe(false);
-    expect(row.datajud.classeOficial).toBeNull();
+describe('mapJurisRow', () => {
+  it('marks present when a row comes back', () => {
+    const view = mapJurisRow({
+      n_documentos: 2,
+      tipos: ['ACÓRDÃO', 'SENTENÇA'],
+      data_julgamento: '2024-02-28',
+      orgao: '2a Camara',
+      relator: 'Des. A',
+      classe: 'Apelação',
+      url: 'https://juris/1',
+    });
+    expect(view).toMatchObject({ present: true, nDocumentos: 2, orgao: '2a Camara', relator: 'Des. A' });
+    expect(view.tipos).toEqual(['ACÓRDÃO', 'SENTENÇA']);
+  });
+
+  it('marks absent for a null row (no cross-join match)', () => {
+    expect(mapJurisRow(null)).toMatchObject({ present: false, nDocumentos: null });
   });
 });
 
-describe('mapProcessoRow — single-source (DJEN only)', () => {
-  it('marks juris/stj/datajud absent and leaves their fields null, without fabricating zeros', () => {
-    const row = mapProcessoRow(
-      baseRawProcesso({
-        fontes: ['djen'],
-        n_fontes: 1,
-        juris_n_documentos: null,
-        juris_tipos: null,
-        juris_data_julgamento: null,
-        juris_orgao: null,
-        juris_relator: null,
-        juris_classe: null,
-        juris_url: null,
-        stj_id: null,
-        stj_classe: null,
-        stj_relator: null,
-        stj_tema: null,
-        stj_tese: null,
-        stj_ementa: null,
-        stj_data_decisao: null,
-        stj_data_publicacao: null,
-        tem_datajud: false,
-        classe_oficial: null,
-        assuntos: null,
-        orgao_julgador: null,
-        grau: null,
-        data_ajuizamento: null,
-        ultima_atualizacao: null,
-      }),
-    );
-    expect(row.djen.present).toBe(true);
-    expect(row.juris.present).toBe(false);
-    expect(row.juris.nDocumentos).toBeNull();
-    expect(row.stj.present).toBe(false);
-    expect(row.datajud.present).toBe(false);
+describe('mapStjRow', () => {
+  it('marks present with n > 0', () => {
+    const view = mapStjRow({
+      n: 1,
+      id: 'stj-1',
+      classe: 'REsp',
+      relator: 'MIN X',
+      tema: 'tema',
+      tese: 'tese',
+      ementa: 'ementa',
+      data_decisao: '2024-05-01',
+      data_publicacao: '2024-05-10',
+    });
+    expect(view).toMatchObject({ present: true, id: 'stj-1', classe: 'REsp' });
+  });
+
+  it('marks absent for a null row or n=0', () => {
+    expect(mapStjRow(null)).toMatchObject({ present: false, id: null });
+    expect(mapStjRow({ n: 0 })).toMatchObject({ present: false });
+  });
+});
+
+describe('mapDatajudRow', () => {
+  it('marks present with n > 0', () => {
+    const view = mapDatajudRow({
+      n: 1,
+      classe_oficial: 'Apelacao Civel',
+      assuntos: 'Contratos',
+      orgao_julgador: '2a Camara',
+      grau: 'G2',
+      data_ajuizamento: '2024-01-10',
+      ultima_atualizacao: '2024-06-01',
+    });
+    expect(view).toMatchObject({ present: true, classeOficial: 'Apelacao Civel', assuntos: 'Contratos' });
+  });
+
+  it('marks absent for a null row or n=0', () => {
+    expect(mapDatajudRow(null)).toMatchObject({ present: false, classeOficial: null });
+    expect(mapDatajudRow({ n: 0 })).toMatchObject({ present: false });
   });
 });
 
 describe('mapDocumentoRow', () => {
   it('maps a JURIS document row', () => {
     const doc = mapDocumentoRow({
-      nr_processo: CNJ_ALL,
       fonte: 'juris',
       id_documento: '1',
       tipo: 'ACÓRDÃO',
@@ -333,7 +337,6 @@ describe('mapDocumentoRow', () => {
 
   it('maps an STJ document row with an empty url as null', () => {
     const doc = mapDocumentoRow({
-      nr_processo: CNJ_ALL,
       fonte: 'stj',
       id_documento: 'stj-1',
       tipo: 'REsp',
@@ -367,6 +370,19 @@ describe('fontesPresenca', () => {
   });
 });
 
+describe('fonteUrls', () => {
+  it('dedupes and sorts URLs for the requested fonte', () => {
+    const rows = [
+      { fonte: 'djen', url: 'https://b' },
+      { fonte: 'djen', url: 'https://a' },
+      { fonte: 'djen', url: 'https://a' },
+      { fonte: 'juris', url: 'https://c' },
+    ];
+    expect(fonteUrls(rows, 'djen')).toEqual(['https://a', 'https://b']);
+    expect(fonteUrls(rows, 'stj')).toEqual([]);
+  });
+});
+
 describe('isDocumentosVazio', () => {
   it('is true only on the first page with zero items (processo found, no documents)', () => {
     expect(isDocumentosVazio([], 0)).toBe(true);
@@ -378,5 +394,145 @@ describe('isDocumentosVazio', () => {
 
   it('is false on a later page even if that page is empty (already proven non-empty overall)', () => {
     expect(isDocumentosVazio([], 20)).toBe(false);
+  });
+});
+
+describe('fetchCobertura', () => {
+  it('returns cobertura + datasetGeradoEm on a healthy report', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        generated_at: '2026-07-12T18:00:00Z',
+        sources: { djen: { status: 'loaded_remote', rows: 10 }, stj: { status: 'unavailable', rows: 0 } },
+      }),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+    try {
+      const result = await fetchCobertura('https://example/report.json');
+      expect(result?.datasetGeradoEm).toBe('2026-07-12T18:00:00Z');
+      expect(result?.cobertura).toEqual([
+        { fonte: 'djen', status: 'loaded_remote', registros: 10 },
+        { fonte: 'stj', status: 'unavailable', registros: 0 },
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('returns null on a non-ok response, without throwing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      expect(await fetchCobertura('https://example/report.json')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('returns null when fetch itself rejects, without throwing', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')));
+    try {
+      expect(await fetchCobertura('https://example/report.json')).toBeNull();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+const CNJ_ALL = '00000010220248220001';
+
+/** Fake DuckDB-WASM connection: routes each prepare()d SQL to a canned row set by matching a SQL substring. */
+function fakeConn(bySqlSubstring: Array<[string, Record<string, unknown>[]]>) {
+  const calls: Array<{ sql: string; params: unknown[] }> = [];
+  return {
+    calls,
+    prepare: async (sql: string) => ({
+      query: async (...params: unknown[]) => {
+        calls.push({ sql, params });
+        const match = bySqlSubstring.find(([needle]) => sql.includes(needle));
+        const rows = match ? match[1] : [];
+        return { toArray: () => rows.map((row) => ({ toJSON: () => row })) };
+      },
+      close: async () => {},
+    }),
+  };
+}
+
+describe('buscarProcesso', () => {
+  it('returns encontrado=false when the index has no rows for the CNJ, still surfacing cobertura', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ generated_at: 'X', sources: {} }) }),
+    );
+    try {
+      const conn = fakeConn([]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.encontrado).toBe(false);
+      expect(result.nrProcessoMascara).toBe('0000001-02.2024.8.22.0001');
+      expect(result.datasetGeradoEm).toBe('X');
+      expect(result.avisos).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('assembles the dossie from per-fonte queries when the index has rows, and warns when the report is unavailable', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      const conn = fakeConn([
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [
+            { fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' },
+            { fonte: 'datajud', arquivo_ia_url: 'https://ia/datajud-capa-tjro.parquet' },
+          ],
+        ],
+        ['COUNT(*)::INTEGER AS n_publicacoes', [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }]],
+        ['FROM agg, principal', []],
+        [
+          'FROM read_parquet([\'https://ia/datajud-capa-tjro.parquet\'])',
+          [{ n: 1, classe_oficial: 'Apelacao', assuntos: 'X', orgao_julgador: 'Y', grau: 'G1', data_ajuizamento: '2024-01-01', ultima_atualizacao: '2024-02-01' }],
+        ],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.encontrado).toBe(true);
+      expect(result.fontes).toEqual(['datajud', 'djen']);
+      expect(result.djen.present).toBe(true);
+      expect(result.juris.present).toBe(false);
+      expect(result.stj.present).toBe(false);
+      expect(result.datajud).toMatchObject({ present: true, classeOficial: 'Apelacao' });
+      expect(result.jurisUrls).toEqual([]);
+      expect(result.avisos).toEqual([
+        'Relatório de cobertura (indice_processual.report.json) indisponível; sem detalhamento de ' +
+          'quais fontes estavam carregadas na geração do dataset.',
+      ]);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+});
+
+describe('carregarDocumentos', () => {
+  it('skips the query entirely when neither juris nor stj has a URL', async () => {
+    const conn = fakeConn([]);
+    const result = await carregarDocumentos(conn as any, [], [], CNJ_ALL, 0, 20);
+    expect(result).toEqual({ items: [], hasMore: false });
+    expect(conn.calls).toHaveLength(0);
+  });
+
+  it('queries and paginates over the discovered URLs', async () => {
+    const conn = fakeConn([
+      [
+        "'juris' AS fonte",
+        [
+          { fonte: 'juris', id_documento: '1', tipo: 'ACÓRDÃO', data: '2024-01-15', url: 'https://juris/1', resumo: 'r1' },
+        ],
+      ],
+    ]);
+    const result = await carregarDocumentos(conn as any, ['https://ia/juris.parquet'], [], CNJ_ALL, 0, 20);
+    expect(result.items).toEqual([
+      { fonte: 'juris', idDocumento: '1', tipo: 'ACÓRDÃO', data: '2024-01-15', url: 'https://juris/1', resumo: 'r1' },
+    ]);
+    expect(result.hasMore).toBe(false);
+    expect(conn.calls[0].params).toEqual([CNJ_ALL, 21, 0]);
   });
 });

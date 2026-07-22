@@ -42,10 +42,10 @@ def _comunicacoes_parquet(path: Path) -> Path:
         path,
         f"""
         SELECT * FROM (VALUES
-            ('0000001-02.2024.8.22.0001', DATE '2024-03-01', 'TJRO'),
-            ('{CNJ_ALL}',                 DATE '2024-03-05', 'TJRO'),
-            ('{CNJ_DJEN_DJ}',             DATE '2024-04-01', 'TJRO')
-        ) AS t(numero_processo, data_disponibilizacao, tribunal)
+            ('0000001-02.2024.8.22.0001', DATE '2024-03-01', 'TJRO', 'c1', 'djen-2024-03-01'),
+            ('{CNJ_ALL}',                 DATE '2024-03-05', 'TJRO', 'c2', 'djen-2024-03-05'),
+            ('{CNJ_DJEN_DJ}',             DATE '2024-04-01', 'TJRO', 'c3', 'djen-2024-04-01')
+        ) AS t(numero_processo, data_disponibilizacao, tribunal, id, p_item_ia)
         """,
     )
 
@@ -117,8 +117,7 @@ def isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     data_dir.mkdir()
     monkeypatch.setattr(rp, "ROOT", tmp_path)  # JURIS local globs find nothing
     monkeypatch.setattr(rp, "DATA_DIR", data_dir)
-    monkeypatch.setattr(rp, "_PARQUET_UNIFICADOS", data_dir / "processos_unificados.parquet")
-    monkeypatch.setattr(rp, "_PARQUET_DOCUMENTOS", data_dir / "processo_documentos.parquet")
+    monkeypatch.setattr(rp, "_PARQUET_INDICE", data_dir / "indice_processual.parquet")
     monkeypatch.setattr(rp, "_STJ_PARQUET", data_dir / "stj" / "stj-acordaos.parquet")
     monkeypatch.setattr(rp, "_DATAJUD_DIR", data_dir / "datajud")
     monkeypatch.setenv("RECONCILE_CACHE_DIR", str(tmp_path / "cache"))
@@ -204,18 +203,41 @@ class TestFullReconcileWithoutLocalParquets:
         assert stats["total"] == 2
         assert stats["multi_fonte"] == 2
 
-        # Output parquet: tem_datajud/tem_juris-style flags actually populated
+        # Output parquet: one row per (processo, fonte, registro) — never a
+        # copy of content fields, only enough to say where each record lives.
         con = duckdb.connect()
         try:
-            rows = con.execute(
-                "SELECT nr_processo, tem_datajud, n_fontes, array_to_string(fontes, '+'), "
-                "juris_n_documentos "
-                f"FROM read_parquet('{rp._PARQUET_UNIFICADOS}') ORDER BY nr_processo"
+            fontes_por_processo = con.execute(
+                "SELECT numero_processo, list(DISTINCT fonte ORDER BY fonte) "
+                f"FROM read_parquet('{rp._PARQUET_INDICE}') "
+                "GROUP BY numero_processo ORDER BY numero_processo"
             ).fetchall()
+            registros_por_processo_fonte = con.execute(
+                "SELECT numero_processo, fonte, COUNT(*) "
+                f"FROM read_parquet('{rp._PARQUET_INDICE}') "
+                "GROUP BY numero_processo, fonte ORDER BY numero_processo, fonte"
+            ).fetchall()
+            nao_nulos = con.execute(
+                f"SELECT COUNT(*) FROM read_parquet('{rp._PARQUET_INDICE}') "
+                "WHERE tribunal IS NULL OR data IS NULL OR arquivo_ia_url IS NULL"
+            ).fetchone()
         finally:
             con.close()
-        assert rows[0] == (CNJ_ALL, True, 4, "djen+juris+stj+datajud", 2)
-        assert rows[1] == (CNJ_DJEN_DJ, True, 2, "djen+datajud", None)
+        assert fontes_por_processo == [
+            (CNJ_ALL, ["datajud", "djen", "juris", "stj"]),
+            (CNJ_DJEN_DJ, ["datajud", "djen"]),
+        ]
+        # CNJ_ALL: 2 DJEN publications, 2 JURIS documents (id_documento 1+2),
+        # 1 STJ acórdão, 1 DataJud capa row (synthetic key, no natural id).
+        assert registros_por_processo_fonte == [
+            (CNJ_ALL, "datajud", 1),
+            (CNJ_ALL, "djen", 2),
+            (CNJ_ALL, "juris", 2),
+            (CNJ_ALL, "stj", 1),
+            (CNJ_DJEN_DJ, "datajud", 1),
+            (CNJ_DJEN_DJ, "djen", 1),
+        ]
+        assert nao_nulos == (0,)  # every row resolves tribunal/data/arquivo_ia_url
 
         # Coverage report next to the output
         report = json.loads((rp.DATA_DIR / rp._REPORT_NAME).read_text(encoding="utf-8"))
@@ -226,7 +248,7 @@ class TestFullReconcileWithoutLocalParquets:
             "stj": "loaded_remote",
             "datajud": "loaded_remote",
         }
-        assert report["combinations"] == {"djen+juris+stj+datajud": 1, "djen+datajud": 1}
+        assert report["combinations"] == {"datajud+djen+juris+stj": 1, "datajud+djen": 1}
         assert report["validation"]["errors"] == []
         assert report["validation"]["warnings"] == []
 

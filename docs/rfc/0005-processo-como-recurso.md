@@ -1,12 +1,76 @@
 # RFC 0005 — Processo como recurso unificado (reconciliação DJEN × JURIS × STJ)
 
-- **Status:** Proposto
+- **Status:** Implementado — modelo de dados redesenhado (ver Emenda abaixo,
+  RFC 0014 M2, 2026-07-22)
 - **Data:** 2026-06-26
 - **Depende de:** RFC 0002 (STJ), RFC 0003 (TJRO JURIS), RFC 0004 (embeddings)
 - **Escopo:** Modelo de dados, pipeline de reconciliação e contrato de UI para
   tratar o **processo judicial** (identificado pelo número CNJ) como o recurso
   central do causaganha, agregando contribuições das três fontes — DJEN,
   TJRO JURIS e STJ — em uma visão unificada.
+
+## Emenda (2026-07-22, RFC 0014 M2) — índice fino em vez de tabela larga
+
+**O modelo de dados descrito em §3–§5 abaixo não é o que foi implementado.**
+Esta seção documenta o que mudou e por quê; §1–§10 ficam como registro
+histórico da proposta original (a motivação do produto — processo como
+recurso unificado por CNJ — continua válida e é o que foi entregue; só o
+*schema* de armazenamento mudou).
+
+**O que mudou.** Em vez de uma tabela larga `processos_unificados.parquet`
+(uma linha por processo, colunas prefixadas por fonte, com `processo_documentos
+.parquet` como tabela auxiliar 1:n) publicada como artefato canônico, o
+sistema publica **`indice_processual.parquet`** — um índice fino, cross-fonte,
+generalizando o padrão que a própria tabela `processos` do DJEN já usava
+(`causaganha/consolidate/schema_registry.py`: `comunicacoes` guarda o
+registro completo, `processos` só aponta para ele por CNJ). Schema:
+
+```
+numero_processo  : string   — CNJ normalizado, 20 dígitos
+fonte            : string   — "djen" | "juris" | "stj" | "datajud"
+registro_id      : string   — chave do registro na fonte (natural quando
+                               existe — id_documento no JURIS, id no STJ;
+                               sintética via md5 quando não — capa DataJud)
+tribunal         : string
+data             : date     — data relevante do registro nessa fonte
+arquivo_ia_url   : string   — URL completa do parquet de origem no IA
+updated_at       : timestamp
+```
+
+Uma linha por `(processo, fonte, registro)` — nunca uma linha por processo,
+nunca uma cópia de campo de conteúdo. Consumidores (o dossiê do dashboard web,
+`causaganha.processos.service.buscar_processo`, a tool MCP `processo_consultar`
+de RFC 0014 M2) consultam o índice primeiro para descobrir quais parquets de
+origem têm registro para um CNJ, depois consultam esses parquets de origem
+diretamente — nunca uma cópia materializada dos campos de conteúdo.
+
+**Por quê.** A tabela larga original (§3.1) exigia reagregar e republicar um
+parquet de ~550k linhas a cada ciclo de reconciliação, com um schema que
+crescia a cada nova fonte (RFC 0010 já tinha acrescentado 6 colunas
+`datajud_*`/`tem_datajud` fora do desenho original desta RFC). O índice fino
+generaliza um padrão já provado (DJEN) em vez de inventar um novo, fica
+estável conforme fontes são adicionadas (uma nova fonte só precisa contribuir
+linhas com seu próprio `fonte`, nunca alterar o schema do índice), e nunca
+diverge do conteúdo de origem por construção (não há cópia para ficar
+desatualizada).
+
+**Compatibilidade com §5 (query contracts).** `processos_unificados`/
+`processo_documentos` como *nomes* sobrevivem — mas como **views DuckDB
+computadas em memória** por `scripts/render_queries.py` (agregando os
+parquets de origem com a mesma SQL descrita em §4.1 passos 1–4, só que a
+partir dos parquets registrados diretamente, não de um join pré-materializado),
+nunca mais como arquivo publicado. Isso mantém `processos_multi_fonte.qmd`
+(§5.2) funcionando sem mudança — é o único consumidor que ainda precisa da
+forma larga.
+
+**O que NÃO mudou:** normalização de CNJ (§3.3, agora em
+`causaganha/processos/cnj.py`, reexportada por `datajud.models`); a UI de
+`/processo` (§6); a decisão de CNJ como chave sem FK entre sistemas (§7.1);
+processos com CNJ inválido ficam nas fontes de origem (§7.4); cobertura
+parcial do STJ (§7.6).
+
+**Detalhes completos:** `docs/planning/manifest-source-of-truth.md` (o
+precedente do índice fino no DJEN) e o PR que implementou esta emenda.
 
 ## 1. Resumo executivo
 
@@ -351,16 +415,25 @@ como chave alternativa de join.
 
 ## 10. Critérios de aceitação
 
-- [ ] `normalizar_cnj()` é a única função de normalização no codebase; todas
-  as fontes a usam.
-- [ ] `reconcile_processos.py` produz `processos_unificados.parquet` sem erro
-  com dados reais das três fontes.
-- [ ] Nenhum `nr_processo` duplicado em `processos_unificados`.
-- [ ] `n_fontes` reflete corretamente quantas fontes contribuíram para cada
-  linha.
-- [ ] Página `/processo/{cnj}` carrega e exibe dados das fontes presentes.
-- [ ] Busca por CNJ mascarado redireciona corretamente para a página de detalhe.
-- [ ] `uv run ruff check` e `uv run pytest -q` passam.
+Ver a Emenda no topo deste documento para o que efetivamente mudou de forma
+(`indice_processual.parquet` no lugar de `processos_unificados.parquet` como
+artefato publicado) — os critérios abaixo são reafirmados contra esse schema:
+
+- [x] `normalizar_cnj()` é a única função de normalização no codebase (agora
+  `causaganha/processos/cnj.py`, reexportada por `datajud.models`); todas as
+  fontes a usam.
+- [x] `reconcile_processos.py` produz `indice_processual.parquet` sem erro com
+  dados reais das quatro fontes (DJEN, JURIS, STJ, DataJud — RFC 0010 já
+  tinha estendido para quatro).
+- [x] Nenhuma linha duplicada em `indice_processual.parquet` — chave é
+  `(numero_processo, fonte, registro_id)`, não `numero_processo` sozinho (a
+  tabela é fina, uma linha por registro de origem, não por processo).
+- [x] `fontes_presentes` (`fonte`/`fontes` conforme a camada) reflete
+  corretamente quantas/quais fontes contribuíram para cada processo.
+- [x] Página `/processo` carrega e exibe dados das fontes presentes.
+- [x] Busca por CNJ mascarado redireciona corretamente para a página de
+  detalhe.
+- [x] `uv run ruff check` e `uv run pytest -q` passam.
 
 ## 11. Referências
 

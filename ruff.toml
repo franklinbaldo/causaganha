@@ -123,6 +123,20 @@ ignore = [
 # S310: urlopen against a fixed archive.org URL constant, not user input (inline noqa).
 "src/datajud/service.py" = ["PLC0415", "S608"]
 
+# ── causaganha.processos (RFC 0014 M2) ──────────────────────────────────────
+# S608: f-string SQL — the interpolated part is always a list of internal
+# arquivo_ia_url values (module constants or index-discovered IA URLs), never
+# user input; the CNJ itself is always a bind parameter.
+"src/causaganha/processos/service.py" = ["S608"]
+
+# ── causaganha_mcp tools ─────────────────────────────────────────────────────
+# FBT001/FBT002: incluir_documentos is a genuine on/off MCP tool parameter —
+# same idiom already accepted for CLI boolean flags (datajud/__main__.py
+# above); FastMCP calls this by keyword from the tool schema, never
+# positionally, so the usual "boolean trap" ruff is guarding against doesn't
+# apply here.
+"src/causaganha_mcp/tools/processo.py" = ["FBT001", "FBT002"]
+
 # ── Lazy / conditional imports in library modules ─────────────────────────
 # These modules defer expensive imports to avoid slowing every process start.
 "src/causaganha/pipeline/ia_s3.py" = ["E402", "S608", "S324", "D100", "E501", "PLR2004"]
