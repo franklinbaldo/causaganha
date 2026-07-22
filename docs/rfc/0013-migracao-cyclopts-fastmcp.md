@@ -1,6 +1,6 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1, Fase 2, Fase 2.5 e Fase 3A implementadas
+- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A e Fase 3B implementadas
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -224,13 +224,48 @@ key/secret/token/credential/password em `parameters` ou `output_schema`,
 para as quatro tools) e comportamento (`tool.fn(...)` chamado direto contra
 manifests fixture, caminho vazio e caminho populado).
 
-#### Fase 3B — consultas remotas (não implementada)
+#### Fase 3B — consultas remotas (implementada)
 
-`datajud_facetas` fica para depois, separado de propósito: consulta a API
-pública do DataJud (rede real), então tem uma categoria de erro diferente
-(timeout, rate limit, erro de rede) da fundação local/determinística da
-Fase 3A. Misturar as duas na mesma fase aumentaria o espaço de depuração
-sem necessidade.
+`datajud_facetas`, separado de propósito da Fase 3A: consulta a API pública
+do DataJud (rede real, `datajud.service.facetas` → `DataJudClient.facetas`),
+então tem uma categoria de erro diferente (timeout, rate limit, erro de
+rede) da fundação local/determinística da Fase 3A. Misturar as duas na
+mesma fase teria aumentado o espaço de depuração sem necessidade.
+
+Registrado em `tools/datajud.py`, junto de `datajud_status` (mesmo pacote
+fonte). `readOnlyHint=True`, `destructiveHint=False` como as demais tools —
+agrega, nunca muta — mas `openWorldHint=True`, diferente das quatro tools da
+Fase 3A: é a única que sai da máquina. Parâmetros: `tribunal` (default
+`DEFAULT_TRIBUNAL` do client), `por` (`Literal["classe", "assunto", "orgao",
+"grau", "sistema"]`, hardcoded em vez de derivado dinamicamente de
+`FACET_FIELDS` para evitar complicação de `Literal` dinâmico — guardado por
+um teste de schema que compara os dois conjuntos de chaves) e `limite`
+(`Annotated[int, Field(ge=1, le=100)]`). Retorno: `tribunal`, `por`, `total`
+(acervo inteiro, não só os buckets retornados) e `buckets` (lista de
+`{chave, qtd}`).
+
+Erros de `datajud.client` (`DataJudAuthError`, `DataJudRateLimitError`,
+`DataJudError` genérico de ES, mais `httpx.HTTPStatusError`/
+`TimeoutException`/`TransportError` não encapsulados — o mesmo
+`except (DataJudError, httpx.HTTPError)` que a CLI já usa) nunca sobem como
+exceção crua: `_facetas_tool_error()` mapeia cada categoria para uma
+mensagem de `fastmcp.exceptions.ToolError`, reportada dentro do canal de
+erro do MCP em vez de derrubar o transporte stdio. A correção de logging da
+Fase 3A (`_configure_stdio_safe_logging()` em `__main__.py`) é global ao
+processo, então já cobre qualquer `log.warning`/`log.error` que
+`DataJudClient._search_once` emitir nos ramos de rejeição ES — nenhuma
+correção adicional foi necessária aqui.
+
+Testado com `respx` (mesmo padrão de `tests/datajud/test_datajud_enrich.py`)
+mockando o endpoint HTTP: sucesso, 401, 429 esgotando o retry budget,
+rejeição ES esgotando o retry budget, erro ES genérico não retriável, outro
+status HTTP e erro de rede — sete casos, todos verificando que o resultado é
+um `ToolError` estruturado, nunca uma exceção crua. Não ganhou teste
+dedicado de transporte stdio real (diferente da Fase 3A): o caminho de
+sucesso de `facetas()` não loga nada (só os ramos de rejeição/erro da ES
+logam, em `warning`/`error`), e a correção de stdio já é genérica ao
+processo — um teste adicional testaria a mesma correção duas vezes, não um
+caminho novo.
 
 Operações de ingestão/upload de longa duração (o sync completo, `drain`,
 `consolidate`, `enrich` com upload) ficam só na CLI/CI em qualquer fase —
@@ -298,6 +333,24 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
   nenhuma das 4 tools) e de comportamento (manifest vazio e populado, por
   tool). `pytest`, `ruff check`, `ruff format --check` verdes.
 - Nenhuma tool de ingestão/upload — só as 4 de status.
+
+**Fase 3B (implementada):**
+- `datajud_facetas` em `tools/datajud.py`, `readOnlyHint=True`,
+  `destructiveHint=False`, `openWorldHint=True` (única tool que faz chamada
+  de rede), sem credencial em parâmetro ou retorno.
+- Toda a taxonomia de erro de `datajud.client` (`DataJudAuthError`,
+  `DataJudRateLimitError`, `DataJudError` de ES, `httpx.HTTPStatusError`,
+  `httpx.TimeoutException`/`TransportError`) mapeada para
+  `fastmcp.exceptions.ToolError` — nunca uma exceção crua atravessando o
+  transporte MCP.
+- `por` como `Literal` hardcoded, guardado por teste de schema que compara
+  o enum declarado com `datajud.client.FACET_FIELDS.keys()` (drift guard).
+- `tests/causaganha_mcp/test_datajud_facetas.py`: sete casos via `respx`
+  (sucesso + seis modos de falha), cada um afirmando `ToolError`.
+  `tests/causaganha_mcp/test_tool_schema.py` estendido para as 5 tools.
+  `pytest`, `ruff check`, `ruff format --check` verdes.
+- `server.py`'s `instructions` atualizado para não afirmar mais que o
+  servidor inteiro é sem chamada de rede.
 
 ## 4. Riscos
 

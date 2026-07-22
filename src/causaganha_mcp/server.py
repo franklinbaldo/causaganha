@@ -8,13 +8,16 @@ this module (a test, a supervisor, another tool) should not get side
 effects it didn't ask for. Each ``tools/*.py`` module exposes a
 ``register(mcp)`` function instead of decorating at import time.
 
-Fase 3A scope: read-only, local, deterministic status tools only —
+Fase 3A scope: read-only, local, deterministic status tools —
 ``datajud_status``, ``tjro_juris_status``, ``stj_acordaos_status``,
 ``djen_backup_status``. None of them touch Internet Archive credentials or
 make network calls; each reads whatever manifest already exists on local
-disk. Ingestion/upload operations (the full sync, ``drain``, ``consolidate``,
-``enrich`` with upload) stay CLI/CI-only per the RFC — they never become
-tools.
+disk. Fase 3B adds ``datajud_facetas``: still read-only and credential-free,
+but it makes a real call to the public DataJud API — a different error
+category (timeout, rate limit, network) from the local/deterministic Fase
+3A foundation, hence ``openWorldHint=True`` on that one tool only. Ingestion/
+upload operations (the full sync, ``drain``, ``consolidate``, ``enrich``
+with upload) stay CLI/CI-only per the RFC — they never become tools.
 """
 
 from __future__ import annotations
@@ -29,13 +32,15 @@ def build_server() -> FastMCP:
     mcp = FastMCP(
         name="causaganha_mcp",
         instructions=(
-            "Read-only status tools over CausaGanha's four ingestion pipelines "
-            "(djen-backup, tjro-juris, stj-acordaos, datajud). Each tool reads "
-            "a local manifest file — no network calls, no credentials, no "
-            "mutation. For ingestion, upload, or backfill operations, use the "
-            "corresponding CLI (djen-backup, tjro-juris, stj-acordaos, "
-            "datajud) or the scheduled CI workflows — those are not exposed "
-            "here by design."
+            "Read-only tools over CausaGanha's four ingestion pipelines "
+            "(djen-backup, tjro-juris, stj-acordaos, datajud). Most tools "
+            "read a local manifest file only — no network call, no "
+            "credentials, no mutation; `datajud_facetas` is the one "
+            "exception, querying the public DataJud API live (still "
+            "read-only, still no credentials in its schema). For ingestion, "
+            "upload, or backfill operations, use the corresponding CLI "
+            "(djen-backup, tjro-juris, stj-acordaos, datajud) or the "
+            "scheduled CI workflows — those are not exposed here by design."
         ),
     )
     datajud.register(mcp)
