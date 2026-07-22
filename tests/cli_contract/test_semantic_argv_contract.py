@@ -62,6 +62,16 @@ the review's `datajud`/`stj_acordaos` report — same underlying gap, no
 Typer flag needed to trigger it), so all three apps register an explicit
 `@app.default` that prints help and returns 2; one bare-invocation case per
 package locks that in.
+
+A third review round (#855) found two more gaps. First, Cyclopts registers
+`--version` on every `App` by default; none of the four original Typer apps
+declared it, so `<pkg> --version` silently went from a usage error to a
+successful, undocumented new command. Fixed with `version_flags=[]` on all
+four `App(...)` constructors; one `--version` case per package locks in
+that it's rejected again. Second, the contract's `datajud` coverage was
+narrower than what it replaced: the deleted Fase 1 test asserted
+`--skip-upload` had no `--no-skip-upload` pair and that `--cnj` was
+repeatable, neither of which had an equivalent case here yet — added below.
 """
 
 from __future__ import annotations
@@ -189,6 +199,12 @@ DJEN_BACKUP_CASES = [
         argv=["check", "2020-01-01"],
         expected_exit_code=1,
     ),
+    CliContractCase(
+        label="djen_backup: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="djen_backup.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
+    ),
 ]
 
 
@@ -275,6 +291,12 @@ TJRO_JURIS_CASES = [
         app_path="tjro_juris.__main__",
         argv=[],
         expected_exit_code=2,
+    ),
+    CliContractCase(
+        label="tjro_juris: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="tjro_juris.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
     ),
 ]
 
@@ -373,6 +395,12 @@ STJ_ACORDAOS_CASES = [
         argv=[],
         expected_exit_code=2,
     ),
+    CliContractCase(
+        label="stj_acordaos: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="stj_acordaos.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
+    ),
 ]
 
 
@@ -407,6 +435,12 @@ def _check_datajud_status_data_dir(calls) -> None:
     (call,) = calls["main"]
     (data_dir,) = call.args
     assert str(data_dir) == "data/datajud"
+
+
+def _check_datajud_enrich_cnj_repetition(calls) -> None:
+    (call,) = calls["main"]
+    _tribunal, _data_dir, _sources_dir, cnj, *_rest = call.args
+    assert list(cnj or []) == ["111", "222"]
 
 
 DATAJUD_CASES = [
@@ -464,6 +498,30 @@ DATAJUD_CASES = [
         app_path="datajud.__main__",
         argv=[],
         expected_exit_code=2,
+    ),
+    CliContractCase(
+        label="datajud: --skip-upload has no --no-skip-upload pair (usage error)",
+        app_path="datajud.__main__",
+        argv=["enrich", "--no-skip-upload"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="datajud: --cnj is repeatable, arrives as a sequence in order",
+        app_path="datajud.__main__",
+        argv=["enrich", "--cnj", "111", "--cnj", "222"],
+        mocks={
+            "main": MockSpec(
+                path="datajud.service.enrich",
+                return_value=EnrichResult(status="nothing_to_do"),
+            ),
+        },
+        check=_check_datajud_enrich_cnj_repetition,
+    ),
+    CliContractCase(
+        label="datajud: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="datajud.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
     ),
 ]
 

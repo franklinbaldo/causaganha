@@ -45,6 +45,10 @@ from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudError
 app = App(
     name="datajud",
     help="DataJud (CNJ) — enriquecimento de metadados processuais (capa + movimentos).",
+    # Cyclopts registers --version by default; the original Typer app never
+    # declared it, so leaving it on would silently accept a form that used
+    # to be a usage error (RFC 0013 Fase 4 review, #855 round 3).
+    version_flags=[],
 )
 
 

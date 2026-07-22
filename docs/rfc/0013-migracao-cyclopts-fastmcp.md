@@ -413,8 +413,7 @@ texto original acima:
   e `src/causaganha/consolidate/cli.py` usam Typer e estão fora do escopo
   desta RFC (só os quatro pacotes de sincronização DJEN/TJRO/STJ/DataJud).
 
-**Achados de uma segunda rodada de review (PR #855), corrigidos antes do
-merge:**
+**Achados de review (PR #855), corrigidos antes do merge:**
 
 - **Distinção positional/keyword-only não sobrevivia ao swap.** Cyclopts
   deriva "positional-only" vs. "keyword-only" só da assinatura Python
@@ -453,6 +452,20 @@ merge:**
   o que não era verdade. Corrigido: as três apps registram um
   `@app.default` explícito que imprime a ajuda e retorna 2. Um caso de
   invocação vazia por pacote trava isso em `tests/cli_contract/`.
+- **`--version` foi acrescentado implicitamente às quatro CLIs.** Cyclopts
+  registra `--version` por padrão em todo `App(...)`; nenhum dos quatro
+  apps Typer originais declarava essa opção, então `<pkg> --version` virou
+  um comando novo, não documentado, terminando com sucesso — contrariando
+  de novo a alegação de superfície preservada. Corrigido:
+  `version_flags=[]` nos quatro `App(...)` (para `djen_backup`, basta em
+  `_commands_app` — o wrapper `App.meta` público não registra `--version`
+  por conta própria). Um caso `--version` por pacote trava a rejeição.
+- **Cobertura do `datajud` mais estreita que o teste Fase 1 que substituiu.**
+  O teste Click deletado travava explicitamente que `--skip-upload` não
+  tinha par `--no-skip-upload` e que `--cnj` era repetível; nenhum caso
+  equivalente existia em `tests/cli_contract/`. Adicionado
+  `argv=["enrich", "--no-skip-upload"]` (`expected_exit_code=1`) e um caso
+  positivo de `--cnj` repetido, verificando a lista na ordem recebida.
 
 ## 3. Critérios de aceitação
 

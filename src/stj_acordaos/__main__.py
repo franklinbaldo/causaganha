@@ -42,6 +42,10 @@ from stj_acordaos import service
 app = App(
     name="stj-acordaos",
     help="STJ acórdãos ingestão pipeline — download, dedup, upload to IA.",
+    # Cyclopts registers --version by default; the original Typer app never
+    # declared it, so leaving it on would silently accept a form that used
+    # to be a usage error (RFC 0013 Fase 4 review, #855 round 3).
+    version_flags=[],
 )
 
 

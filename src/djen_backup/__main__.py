@@ -82,6 +82,12 @@ class EnvLoadResult(NamedTuple):
 _commands_app = App(
     name="djen-backup",
     help="Back up DJEN judicial communications to the Internet Archive.",
+    # Cyclopts registers --version by default; the original Typer app never
+    # declared it, so leaving it on would silently accept a form that used
+    # to be a usage error (RFC 0013 Fase 4 review, #855 round 3). The meta
+    # app (`app = _commands_app.meta`, below) is checked separately — see
+    # its own comment.
+    version_flags=[],
 )
 console = Console()
 
