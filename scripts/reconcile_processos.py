@@ -126,22 +126,6 @@ def _expected_sources() -> tuple[str, ...]:
     return names or SOURCE_NAMES
 
 
-# ── CNJ normalisation ──────────────────────────────────────────────────────────
-
-
-def normalizar_cnj(n: str | None) -> str:
-    """Remove non-digits; return 20-digit string or '' if invalid."""
-    d = re.sub(r"\D", "", n or "")
-    return d if len(d) == 20 else ""
-
-
-def formatar_cnj(n: str) -> str:
-    """20 digits → NNNNNNN-DD.AAAA.J.TR.OOOO."""
-    if len(n) != 20:
-        return n
-    return f"{n[0:7]}-{n[7:9]}.{n[9:13]}.{n[13:14]}.{n[14:16]}.{n[16:20]}"
-
-
 # ── Data acquisition ───────────────────────────────────────────────────────────
 
 
@@ -1045,6 +1029,11 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         upload_to_ia(_PARQUET_UNIFICADOS, "processos_unificados.parquet")
         if _PARQUET_DOCUMENTOS.exists():
             upload_to_ia(_PARQUET_DOCUMENTOS, "processo_documentos.parquet")
+        # RFC 0014 M2: processo_consultar needs the coverage report remotely
+        # too, to distinguish "source loaded but had no rows for this CNJ"
+        # from "source was unavailable when the dataset was generated" —
+        # both used to look identical (absent from `fontes`) without it.
+        upload_to_ia(report_path, _REPORT_NAME)
 
     return {
         "djen": djen_load.rows,

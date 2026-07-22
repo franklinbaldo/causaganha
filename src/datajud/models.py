@@ -13,36 +13,31 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+# CNJ normalization moved to causaganha.processos.cnj (RFC 0014 M2) — a
+# shared module usable by non-DataJud consumers (the process-reconciliation
+# pipeline, the processo_consultar MCP tool). Reexported here so existing
+# `from datajud.models import normalizar_cnj` call sites keep working.
+from causaganha.processos.cnj import CNJ_LEN, formatar_cnj, normalizar_cnj, so_digitos
 
-CNJ_LEN = 20
+
+__all__ = [
+    "CNJ_LEN",
+    "CodigoNome",
+    "ComplementoTabelado",
+    "Movimento",
+    "ProcessoCapa",
+    "data14_bound",
+    "formatar_cnj",
+    "normalizar_cnj",
+    "normalizar_data14",
+    "so_digitos",
+]
 
 # ``dataAjuizamento`` is a 14-digit string (AAAAMMDDHHMMSS); some records
 # truncate the time part, so hour/minute/second groups are optional.
 _DATA14_RE = re.compile(r"(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?")
 _DATE_BR_RE = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
 _DATE_ISO_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
-
-
-def so_digitos(value: str | None) -> str:
-    """Strip every non-digit character from *value*."""
-    return re.sub(r"\D", "", value or "")
-
-
-def normalizar_cnj(value: str | None) -> str:
-    """Return the 20-digit CNJ number, or '' when *value* is not a valid CNJ."""
-    digits = so_digitos(value)
-    return digits if len(digits) == CNJ_LEN else ""
-
-
-def formatar_cnj(value: str) -> str:
-    """20 digits → NNNNNNN-DD.AAAA.J.TR.OOOO (display mask)."""
-    digits = so_digitos(value)
-    if len(digits) != CNJ_LEN:
-        return value
-    return (
-        f"{digits[0:7]}-{digits[7:9]}.{digits[9:13]}."
-        f"{digits[13:14]}.{digits[14:16]}.{digits[16:20]}"
-    )
 
 
 def normalizar_data14(value: str | None) -> str | None:
