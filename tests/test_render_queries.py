@@ -287,3 +287,89 @@ def test_main_strict_exit_zero_when_only_optional_missing(tmp_path, monkeypatch,
     monkeypatch.setattr(rq, "PUBLIC_DIR", tmp_path / "public")
     monkeypatch.setattr(rq, "VIEW_SPECS", _manifest_specs(manifest_parquet))
     assert rq.main(["--strict"]) == 0
+
+
+# ── _register_comunicacoes rollout fallback (RFC 0014 M2 review) ──────────────
+
+
+def _copy_sql_to_parquet(path, sql):
+    import duckdb
+
+    con = duckdb.connect()
+    try:
+        con.execute(f"COPY ({sql}) TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_register_comunicacoes_falls_back_to_catalog_manifest_when_indice_missing(
+    tmp_path, monkeypatch
+):
+    """indice_processual.parquet can 404 (deploy-web.yml can build before
+    update-catalog.yml ever publishes it — see the module-level comment on
+    _IA_CATALOG_MANIFEST_URL). Without a fallback, processos_multi_fonte.qmd
+    would regress from real DJEN data to empty for however long that takes.
+    """
+    import duckdb
+
+    comunicacoes = _copy_sql_to_parquet(
+        tmp_path / "comunicacoes.parquet",
+        """
+        SELECT * FROM (VALUES
+            ('00000010220248220001', DATE '2024-03-01', 'TJRO')
+        ) AS t(numero_processo, data_disponibilizacao, tribunal)
+        """,
+    )
+    catalog = _copy_sql_to_parquet(
+        tmp_path / "catalog.parquet",
+        f"SELECT '{comunicacoes}' AS ia_url, 'comunicacoes' AS table_name",
+    )
+    monkeypatch.setattr(rq, "_IA_CATALOG_MANIFEST_URL", str(catalog))
+    # Index unreachable: dest doesn't exist locally, and the "IA" URL refuses
+    # the connection immediately (no real network involved).
+    monkeypatch.setattr(rq, "_INDICE_PROCESSUAL_PARQUET", tmp_path / "indice_processual.parquet")
+    monkeypatch.setattr(rq, "_INDICE_PROCESSUAL_IA_URL", "http://127.0.0.1:1/unreachable")
+
+    con = duckdb.connect()
+    try:
+        registered = rq._register_comunicacoes(con)
+        assert registered is True
+        rows = con.execute("SELECT numero_processo FROM comunicacoes").fetchall()
+    finally:
+        con.close()
+    assert rows == [("00000010220248220001",)]
+
+
+def test_register_comunicacoes_prefers_indice_when_available(tmp_path, monkeypatch):
+    import duckdb
+
+    comunicacoes = _copy_sql_to_parquet(
+        tmp_path / "comunicacoes.parquet",
+        """
+        SELECT * FROM (VALUES
+            ('00000010220248220001', DATE '2024-03-01', 'TJRO')
+        ) AS t(numero_processo, data_disponibilizacao, tribunal)
+        """,
+    )
+    indice = _copy_sql_to_parquet(
+        tmp_path / "indice_processual.parquet",
+        f"""
+        SELECT '00000010220248220001' AS numero_processo, 'djen' AS fonte,
+            'c1' AS registro_id, 'TJRO' AS tribunal, DATE '2024-03-01' AS data,
+            '{comunicacoes}' AS arquivo_ia_url
+        """,
+    )
+    monkeypatch.setattr(rq, "_INDICE_PROCESSUAL_PARQUET", indice)
+    # A wrong/unreachable catalog URL proves the fallback was never touched —
+    # if it had been used, this would raise instead of quietly succeeding.
+    monkeypatch.setattr(rq, "_IA_CATALOG_MANIFEST_URL", "http://127.0.0.1:1/unreachable")
+
+    con = duckdb.connect()
+    try:
+        registered = rq._register_comunicacoes(con)
+        assert registered is True
+        rows = con.execute("SELECT numero_processo FROM comunicacoes").fetchall()
+    finally:
+        con.close()
+    assert rows == [("00000010220248220001",)]

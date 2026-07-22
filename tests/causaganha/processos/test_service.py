@@ -271,3 +271,52 @@ def test_limite_documentos_truncates_and_flags_it(fixtures: dict[str, Path]) -> 
     assert len(result.documentos) == 1
     assert result.documentos[0].fonte == "stj"  # most recent by data DESC
     assert result.documentos_truncados is True
+
+
+def _spy_on_connect(monkeypatch: pytest.MonkeyPatch) -> list[duckdb.DuckDBPyConnection]:
+    """Wraps duckdb.connect so the test can inspect the connection afterwards."""
+    captured: list[duckdb.DuckDBPyConnection] = []
+    real_connect = duckdb.connect
+
+    def _spy(*args: object, **kwargs: object) -> duckdb.DuckDBPyConnection:
+        con = real_connect(*args, **kwargs)
+        captured.append(con)
+        return con
+
+    monkeypatch.setattr(service.duckdb, "connect", _spy)
+    return captured
+
+
+def test_connection_is_closed_on_success(
+    fixtures: dict[str, Path], monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A long-running MCP server calls buscar_processo repeatedly — a leaked
+    DuckDBPyConnection per call would accumulate handles/memory over time.
+    """
+    captured = _spy_on_connect(monkeypatch)
+
+    service.buscar_processo(
+        CNJ_ALL, indice_url=str(fixtures["indice"]), report_url=str(fixtures["report"])
+    )
+
+    assert len(captured) == 1
+    with pytest.raises(duckdb.Error):
+        captured[0].execute("SELECT 1")  # closed connections refuse queries
+
+
+def test_connection_is_closed_when_indice_itself_is_unreachable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The one fatal path (index unreachable) must still close the connection."""
+    captured = _spy_on_connect(monkeypatch)
+
+    with pytest.raises(duckdb.Error):
+        service.buscar_processo(
+            CNJ_ALL,
+            indice_url="/nonexistent/indice_processual.parquet",
+            report_url="/nonexistent.report.json",
+        )
+
+    assert len(captured) == 1
+    with pytest.raises(duckdb.Error):
+        captured[0].execute("SELECT 1")

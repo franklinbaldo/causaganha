@@ -365,52 +365,52 @@ def buscar_processo(
         msg = f"CNJ inválido (esperado 20 dígitos): {cnj!r}"
         raise CnjInvalidoError(msg)
 
-    con = duckdb.connect()
-    _load_httpfs(con)
+    with duckdb.connect() as con:
+        _load_httpfs(con)
 
-    rows = con.execute(_indice_sql(indice_url), [nr_processo]).fetchall()
+        rows = con.execute(_indice_sql(indice_url), [nr_processo]).fetchall()
 
-    avisos: list[str] = []
-    cobertura_result = _carregar_cobertura(report_url)
-    if cobertura_result is None:
-        cobertura: list[FonteCobertura] = []
-        dataset_gerado_em: str | None = None
-        avisos.append(_RELATORIO_INDISPONIVEL_AVISO)
-    else:
-        cobertura, dataset_gerado_em = cobertura_result
+        avisos: list[str] = []
+        cobertura_result = _carregar_cobertura(report_url)
+        if cobertura_result is None:
+            cobertura: list[FonteCobertura] = []
+            dataset_gerado_em: str | None = None
+            avisos.append(_RELATORIO_INDISPONIVEL_AVISO)
+        else:
+            cobertura, dataset_gerado_em = cobertura_result
 
-    if not rows:
-        return ProcessoConsultaResult(
-            encontrado=False,
-            nr_processo=nr_processo,
-            nr_processo_mascara=formatar_cnj(nr_processo),
-            cobertura_dataset=cobertura,
-            dataset_gerado_em=dataset_gerado_em,
-            avisos=avisos,
-        )
+        if not rows:
+            return ProcessoConsultaResult(
+                encontrado=False,
+                nr_processo=nr_processo,
+                nr_processo_mascara=formatar_cnj(nr_processo),
+                cobertura_dataset=cobertura,
+                dataset_gerado_em=dataset_gerado_em,
+                avisos=avisos,
+            )
 
-    fontes_presentes = sorted({fonte for fonte, _url in rows})
-    djen_urls = _fonte_urls(rows, "djen")
-    juris_urls = _fonte_urls(rows, "juris")
-    stj_urls = _fonte_urls(rows, "stj")
-    datajud_urls = _fonte_urls(rows, "datajud")
+        fontes_presentes = sorted({fonte for fonte, _url in rows})
+        djen_urls = _fonte_urls(rows, "djen")
+        juris_urls = _fonte_urls(rows, "juris")
+        stj_urls = _fonte_urls(rows, "stj")
+        datajud_urls = _fonte_urls(rows, "datajud")
 
-    djen = _build_djen(con, djen_urls, nr_processo, avisos)
-    juris = _build_juris(con, juris_urls, nr_processo, avisos)
-    stj = _build_stj(con, stj_urls, nr_processo, avisos)
-    datajud = _build_datajud(con, datajud_urls, nr_processo, avisos)
+        djen = _build_djen(con, djen_urls, nr_processo, avisos)
+        juris = _build_juris(con, juris_urls, nr_processo, avisos)
+        stj = _build_stj(con, stj_urls, nr_processo, avisos)
+        datajud = _build_datajud(con, datajud_urls, nr_processo, avisos)
 
-    # Sem relatório, dataset_gerado_em fica None — o índice não guarda um
-    # timestamp por linha (é fino por design), então não há fallback de
-    # "geração" possível aqui como havia na versão de tabela larga; o aviso
-    # do relatório indisponível já cobre essa lacuna.
+        # Sem relatório, dataset_gerado_em fica None — o índice não guarda um
+        # timestamp por linha (é fino por design), então não há fallback de
+        # "geração" possível aqui como havia na versão de tabela larga; o
+        # aviso do relatório indisponível já cobre essa lacuna.
 
-    documentos: list[DocumentoProcesso] = []
-    documentos_truncados = False
-    if incluir_documentos:
-        documentos, documentos_truncados = _build_documentos(
-            con, juris_urls, stj_urls, nr_processo, limite_documentos, avisos
-        )
+        documentos: list[DocumentoProcesso] = []
+        documentos_truncados = False
+        if incluir_documentos:
+            documentos, documentos_truncados = _build_documentos(
+                con, juris_urls, stj_urls, nr_processo, limite_documentos, avisos
+            )
 
     return ProcessoConsultaResult(
         encontrado=True,

@@ -290,22 +290,29 @@ def _discover_juris_items(client: httpx.Client) -> list[str]:
     )
 
 
-def fetch_juris_from_ia() -> tuple[list[Path], bool]:
+def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
     """Download JURIS parquets from the tjro-juris-{year} IA items.
 
     Prefers the consolidated tjro-juris-{year}.parquet when the item has one;
-    otherwise falls back to the monthly shards the sync uploads. Returns
-    (paths, needs_dedup) — monthly shards can overlap between crawls, so they
-    must be deduplicated by id_documento before aggregation.
+    otherwise falls back to the monthly shards the sync uploads — each shard
+    keeps its own name (e.g. 2024-01-ACORDAO.parquet), never the consolidated
+    file's name, since that file is exactly what's absent in this fallback.
+    Returns (paths, urls, needs_dedup): `urls` maps each returned path to the
+    *actual* IA URL it was fetched from (item/name as fetched, not inferred
+    from any row's data later) — the ground truth for `arquivo_ia_url` in the
+    index, since a shard's filename cannot be recovered from its content.
+    Monthly shards can overlap between crawls, so they must be deduplicated
+    by id_documento before aggregation.
     """
     cache = _cache_dir() / "juris"
     paths: list[Path] = []
+    urls: dict[Path, str] = {}
     needs_dedup = False
     with httpx.Client(timeout=180, follow_redirects=True) as client:
         items = _discover_juris_items(client)
         if not items:
             print(f"  no {_JURIS_ITEM_PREFIX}-* items found on IA", file=sys.stderr)
-            return [], False
+            return [], {}, False
         for item in items:
             names = _ia_item_files(client, item)
             consolidated = f"{item}.parquet"
@@ -317,34 +324,40 @@ def fetch_juris_from_ia() -> tuple[list[Path], bool]:
                     needs_dedup = True
             if not wanted:
                 print(f"  IA item {item}: no parquet files", file=sys.stderr)
-            paths.extend(
-                _fetch_cached(
-                    client, f"{_IA_BASE}/{item}/{name}", cache / item / name, f"JURIS {item}/{name}"
-                )
-                for name in wanted
-            )
-    return paths, needs_dedup
+            for name in wanted:
+                url = f"{_IA_BASE}/{item}/{name}"
+                path = _fetch_cached(client, url, cache / item / name, f"JURIS {item}/{name}")
+                paths.append(path)
+                urls[path] = url
+    return paths, urls, needs_dedup
 
 
-def ensure_juris_parquets() -> tuple[list[Path], bool, SourceLoad]:
+def ensure_juris_parquets() -> tuple[list[Path], dict[Path, str], bool, SourceLoad]:
     """JURIS parquets: local files first, IA fallback otherwise.
 
-    Returns (paths, needs_dedup, load_status).
+    Returns (paths, urls, needs_dedup, load_status). `urls` maps each path to
+    its authoritative IA URL — for local files, the operator-placed layout
+    (`data/tjro_juris/{year}/tjro-juris-{year}.parquet`, enforced by
+    _JURIS_LOCAL_GLOBS) guarantees the filename *is* `{item}.parquet`, so the
+    URL is derived from the path itself; for IA-fetched files it comes from
+    fetch_juris_from_ia(), which already knows the real per-file URL (see its
+    docstring — never inferred from a row's own data downstream).
     """
     local = juris_parquet_files()
     if local:
         detail = f"{len(local)} local parquet file(s)"
-        return local, False, SourceLoad("juris", STATUS_LOADED_LOCAL, detail)
+        urls = {p: f"{_IA_BASE}/{p.stem}/{p.name}" for p in local}
+        return local, urls, False, SourceLoad("juris", STATUS_LOADED_LOCAL, detail)
     print(f"No local JURIS parquets — trying IA items {_JURIS_ITEM_PREFIX}-{{year}}")
     try:
-        remote, needs_dedup = fetch_juris_from_ia()
+        remote, urls, needs_dedup = fetch_juris_from_ia()
     except (httpx.HTTPError, OSError, SourceDataError) as exc:
-        return [], False, SourceLoad("juris", STATUS_UNAVAILABLE, f"IA fetch failed: {exc}")
+        return [], {}, False, SourceLoad("juris", STATUS_UNAVAILABLE, f"IA fetch failed: {exc}")
     if remote:
         detail = f"{len(remote)} parquet file(s) from IA {_JURIS_ITEM_PREFIX}-* items"
-        return remote, needs_dedup, SourceLoad("juris", STATUS_LOADED_REMOTE, detail)
+        return remote, urls, needs_dedup, SourceLoad("juris", STATUS_LOADED_REMOTE, detail)
     detail = f"no local parquets and no parquets in IA {_JURIS_ITEM_PREFIX}-* items"
-    return [], False, SourceLoad("juris", STATUS_UNAVAILABLE, detail)
+    return [], {}, False, SourceLoad("juris", STATUS_UNAVAILABLE, detail)
 
 
 def datajud_parquet_files() -> list[Path]:
@@ -472,10 +485,7 @@ SELECT
     id_documento::VARCHAR AS registro_id,
     'TJRO' AS tribunal,
     TRY_CAST(data_julgamento AS DATE) AS data,
-    'https://archive.org/download/tjro-juris-' ||
-        CAST(EXTRACT(YEAR FROM TRY_CAST(data_julgamento AS DATE)) AS VARCHAR) || '/tjro-juris-' ||
-        CAST(EXTRACT(YEAR FROM TRY_CAST(data_julgamento AS DATE)) AS VARCHAR) || '.parquet'
-        AS arquivo_ia_url
+    arquivo_ia_url
 FROM tjro_juris
 WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
 """
@@ -619,7 +629,7 @@ def _empty_juris_view(con: duckdb.DuckDBPyConnection) -> None:
         "NULL::VARCHAR AS tipo, NULL::DATE AS data_julgamento, "
         "NULL::VARCHAR AS orgao, NULL::VARCHAR AS relator, "
         "NULL::VARCHAR AS classe_judicial, NULL::VARCHAR AS url_portal, "
-        "NULL::VARCHAR AS texto_limpo "
+        "NULL::VARCHAR AS texto_limpo, NULL::VARCHAR AS arquivo_ia_url "
         "WHERE FALSE"
     )
 
@@ -703,9 +713,16 @@ def _register_juris(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     implicated in the failure are quarantined so the NEXT run re-fetches
     instead of hitting the same wall forever.
     """
-    juris_files, needs_dedup, load = ensure_juris_parquets()
+    juris_files, juris_urls, needs_dedup, load = ensure_juris_parquets()
     if juris_files:
         juris_list = ", ".join(f"'{p}'" for p in juris_files)
+        # filename=true stamps each row with the exact file DuckDB read it
+        # from — the ground truth for arquivo_ia_url. Never inferred from
+        # data_julgamento's year: that breaks whenever a row came from a
+        # monthly shard rather than the consolidated tjro-juris-{year}.parquet
+        # (see fetch_juris_from_ia's fallback), and NULL/unparseable dates
+        # would otherwise produce a NULL URL for a row that does have a file.
+        url_values = ", ".join(f"('{p}', '{juris_urls[p]}')" for p in juris_files)
         print(f"Registering JURIS view: {len(juris_files)} parquet file(s)")
         try:
             if needs_dedup:
@@ -716,16 +733,25 @@ def _register_juris(con: duckdb.DuckDBPyConnection) -> SourceLoad:
                 # collapsed together under a shared null key.
                 con.execute(
                     "CREATE VIEW tjro_juris AS "
-                    "SELECT * EXCLUDE (_rn) FROM ("
+                    "SELECT t.* EXCLUDE (filename, _rn), m.arquivo_ia_url FROM ("
                     "  SELECT *, ROW_NUMBER() OVER ("
                     "    PARTITION BY id_documento ORDER BY extraido_em DESC NULLS LAST"
                     "  ) AS _rn "
-                    f"  FROM read_parquet([{juris_list}], union_by_name=true) "
+                    f"  FROM read_parquet([{juris_list}], filename=true, union_by_name=true) "
                     "  WHERE id_documento IS NOT NULL"
-                    ") WHERE _rn = 1"
+                    ") AS t "
+                    f"LEFT JOIN (VALUES {url_values}) AS m(filename, arquivo_ia_url) "
+                    "  ON t.filename = m.filename "
+                    "WHERE t._rn = 1"
                 )
             else:
-                con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
+                con.execute(
+                    "CREATE VIEW tjro_juris AS "
+                    "SELECT t.* EXCLUDE (filename), m.arquivo_ia_url "
+                    f"FROM read_parquet([{juris_list}], filename=true) AS t "
+                    f"LEFT JOIN (VALUES {url_values}) AS m(filename, arquivo_ia_url) "
+                    "  ON t.filename = m.filename"
+                )
             con.execute("SELECT COUNT(*) FROM tjro_juris")  # force read now, not mid-aggregation
         except duckdb.Error as exc:
             print(f"  WARNING: JURIS parquet(s) unreadable — {exc}", file=sys.stderr)
@@ -784,9 +810,11 @@ def _register_datajud(con: duckdb.DuckDBPyConnection) -> SourceLoad:
     """
     _datajud_required_cols = {
         "numero_processo",
+        "tribunal",
         "classe_nome",
         "assuntos",
         "orgao_julgador",
+        "orgao_julgador_codigo",
         "grau",
         "data_ajuizamento",
         "ultima_atualizacao",

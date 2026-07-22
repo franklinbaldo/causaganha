@@ -99,6 +99,20 @@ _INDICE_PROCESSUAL_IA_URL = (
     "https://archive.org/download/causaganha-dashboard/indice_processual.parquet"
 )
 
+# Rollout fallback (RFC 0014 M2 review): indice_processual.parquet is a brand
+# new artifact — deploy-web.yml can build before update-catalog.yml has ever
+# published it (that step only runs when has_new_uploads==true; a plain push
+# to main touching web/**/render_queries.py deploys immediately, with no
+# ordering guarantee against the catalog pipeline). Without a fallback,
+# processos_multi_fonte.qmd would regress from "has real DJEN data" (its
+# state today, discovered via the catalog manifest) to "empty" for however
+# long that takes. _comunicacoes_urls_from_catalog reproduces the same
+# catalog-manifest lookup reconcile_processos.py's own
+# comunicacoes_parquet_urls() uses, so _register_comunicacoes only needs it
+# during that transition window — remove once indice_processual.parquet has
+# been confirmed published at least once.
+_IA_CATALOG_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
+
 # DDL that produces the catalog tables exported as lawyer_ratings.parquet /
 # ratings_history.parquet (scripts/pipeline/export_ratings.py) — reused as the
 # synthetic schema source for --check.
@@ -454,6 +468,25 @@ def _register_acordaos(con: duckdb.DuckDBPyConnection) -> bool:
     return True
 
 
+def _comunicacoes_urls_from_catalog(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """DJEN comunicacoes URLs straight from the causaganha-catalog manifest.
+
+    Rollout fallback only (see _IA_CATALOG_MANIFEST_URL) — reproduces
+    scripts/reconcile_processos.py's own comunicacoes_parquet_urls(). Returns
+    [] on any read failure (unreachable/absent catalog manifest), same as an
+    absent indice_processual.parquet — the caller treats both as "try the
+    next thing, then fall back to empty" uniformly.
+    """
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT ia_url FROM read_parquet(?) WHERE table_name = 'comunicacoes'",
+            [_IA_CATALOG_MANIFEST_URL],
+        ).fetchall()
+    except duckdb.Error:
+        return []
+    return sorted(r[0] for r in rows)
+
+
 def _register_comunicacoes(con: duckdb.DuckDBPyConnection) -> bool:
     """DJEN comunicacoes, discovered via indice_processual.parquet's own arquivo_ia_url.
 
@@ -462,23 +495,32 @@ def _register_comunicacoes(con: duckdb.DuckDBPyConnection) -> bool:
     manifest, duplicating scripts/reconcile_processos.py's own discovery),
     reuse the index's own djen rows — it already recorded exactly which
     per-date IA item each DJEN record came from.
+
+    Falls back to _comunicacoes_urls_from_catalog when the index itself
+    isn't available yet (or lists no djen rows) — see that function's
+    docstring for why: this is a rollout-window guard, not the steady state.
     """
+    urls: list[str] = []
     indice_path = _try_download_parquet(
         _INDICE_PROCESSUAL_IA_URL, _INDICE_PROCESSUAL_PARQUET, "indice_processual"
     )
-    if indice_path is None:
-        return False
-    urls = [
-        row[0]
-        for row in con.execute(
-            f"SELECT DISTINCT arquivo_ia_url FROM read_parquet('{indice_path}') "
-            "WHERE fonte = 'djen'"
-        ).fetchall()
-    ]
+    if indice_path is not None:
+        urls = [
+            row[0]
+            for row in con.execute(
+                f"SELECT DISTINCT arquivo_ia_url FROM read_parquet('{indice_path}') "
+                "WHERE fonte = 'djen'"
+            ).fetchall()
+        ]
+    if not urls:
+        urls = _comunicacoes_urls_from_catalog(con)
+        source = "causaganha-catalog manifest (indice_processual fallback)"
+    else:
+        source = "indice_processual"
     if not urls:
         return False
     url_list = ", ".join(f"'{u}'" for u in urls)
-    print(f"Registering DJEN comunicacoes view: {len(urls)} parquet file(s) via indice_processual")
+    print(f"Registering DJEN comunicacoes view: {len(urls)} parquet file(s) via {source}")
     con.execute(
         f"CREATE VIEW comunicacoes AS SELECT * FROM read_parquet([{url_list}], union_by_name=true)"
     )
