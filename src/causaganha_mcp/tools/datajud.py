@@ -16,12 +16,28 @@ from datajud.client import (
     WIKI_ACESSO_URL,
     DataJudAuthError,
     DataJudError,
+    DataJudProtocolError,
     DataJudRateLimitError,
 )
 
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
+
+
+# Internal MCP call budget for `datajud_facetas` — NOT exposed as a tool
+# parameter. `DataJudClient`'s own defaults (timeout=90s, max_retries=5,
+# 2/4/8/16/30s backoff) are tuned for the `enrich` CLI's long-running batch
+# ingestion, where riding out a DataJud hiccup is worth minutes of waiting.
+# An interactive MCP call is a different budget: an unlucky timeout there
+# could keep this tool open for ~10 minutes before producing a ToolError
+# (RFC 0013 Fase 3B review) — long enough for a host to give up waiting
+# before the structured error even arrives. These numbers trade some of
+# that ingestion-grade resilience for a call that fails within roughly a
+# minute worst case (3 attempts * 20s timeout + ~3s of backoff).
+_FACETAS_TIMEOUT = 20.0
+_FACETAS_MAX_RETRIES = 2
+_FACETAS_BACKOFF_BASE = 1.0
 
 
 class DatajudStatusResult(BaseModel):
@@ -70,6 +86,8 @@ def _facetas_tool_error(exc: Exception) -> ToolError:
             "DataJud rate-limited this request past the retry budget. "
             "Recoverable: wait a bit and call datajud_facetas again."
         )
+    if isinstance(exc, DataJudProtocolError):
+        return ToolError(f"DataJud returned an unparseable response: {exc}")
     if isinstance(exc, httpx.TimeoutException | httpx.TransportError):
         return ToolError(
             "Network error reaching DataJud (timeout or connection failure). "
@@ -164,10 +182,19 @@ def register(mcp: FastMCP) -> None:
         Raises:
             A structured error (via MCP's tool-error channel, not a crash)
             when DataJud rejects the API key, rate-limits past the retry
-            budget, or is unreachable.
+            budget, returns an unparseable body, or is unreachable. Uses a
+            tighter internal timeout/retry budget than the `datajud enrich`
+            CLI (roughly a minute worst case, not minutes).
         """
         try:
-            total, buckets = await service.facetas(tribunal, por, limite)
+            total, buckets = await service.facetas(
+                tribunal,
+                por,
+                limite,
+                request_timeout=_FACETAS_TIMEOUT,
+                max_retries=_FACETAS_MAX_RETRIES,
+                backoff_base=_FACETAS_BACKOFF_BASE,
+            )
         except (DataJudError, httpx.HTTPError) as exc:
             raise _facetas_tool_error(exc) from exc
         return DatajudFacetasResult(

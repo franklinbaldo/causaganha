@@ -259,13 +259,43 @@ correção adicional foi necessária aqui.
 Testado com `respx` (mesmo padrão de `tests/datajud/test_datajud_enrich.py`)
 mockando o endpoint HTTP: sucesso, 401, 429 esgotando o retry budget,
 rejeição ES esgotando o retry budget, erro ES genérico não retriável, outro
-status HTTP e erro de rede — sete casos, todos verificando que o resultado é
-um `ToolError` estruturado, nunca uma exceção crua. Não ganhou teste
-dedicado de transporte stdio real (diferente da Fase 3A): o caminho de
-sucesso de `facetas()` não loga nada (só os ramos de rejeição/erro da ES
-logam, em `warning`/`error`), e a correção de stdio já é genérica ao
-processo — um teste adicional testaria a mesma correção duas vezes, não um
-caminho novo.
+status HTTP, erro de rede, resposta não JSON e o orçamento MCP em uso — nove
+casos, todos verificando que o resultado é um `ToolError` estruturado, nunca
+uma exceção crua. Não ganhou teste dedicado de transporte stdio real
+(diferente da Fase 3A): o caminho de sucesso de `facetas()` não loga nada
+(só os ramos de rejeição/erro da ES logam, em `warning`/`error`), e a
+correção de stdio já é genérica ao processo — um teste adicional testaria a
+mesma correção duas vezes, não um caminho novo.
+
+Duas correções de review antes do merge:
+
+- **Orçamento de tempo próprio para a chamada MCP.** `DataJudClient` tem
+  defaults calibrados para o `enrich` da CLI — ingestão em lote de longa
+  duração, onde vale esperar minutos por um hiccup do DataJud: `timeout=90s`,
+  `max_retries=5` (6 tentativas), backoff 2/4/8/16/30s. Herdar isso
+  integralmente na tool deixaria uma indisponibilidade custar até ~10 minutos
+  antes do `ToolError` (e um 429 persistente, ~1 minuto só em backoff) —
+  tempo longo o bastante para um host MCP desistir de esperar antes do erro
+  estruturado chegar. `datajud.service.facetas()` ganhou parâmetros opcionais
+  (`request_timeout`, `max_retries`, `backoff_base`, todos `None` por
+  default — a CLI continua sem passá-los, comportamento idêntico ao de
+  antes); a tool passa um orçamento interno próprio, não exposto no schema
+  (`_FACETAS_TIMEOUT=20s`, `_FACETAS_MAX_RETRIES=2`,
+  `_FACETAS_BACKOFF_BASE=1.0`, pior caso ~1 minuto em vez de ~10).
+  `test_facetas_uses_a_tighter_budget_than_the_ingestion_client` espiona os
+  kwargs que a tool passa a `DataJudClient` para confirmar isso sem precisar
+  de sleeps reais.
+- **Resposta não JSON não tinha lugar na taxonomia.**
+  `DataJudClient._search_once()` chamava `resp.json()` sem tratamento — um
+  WAF/gateway devolvendo HTML ou corpo truncado sob HTTP 200 levanta
+  `JSONDecodeError` (um `ValueError`), que não é `DataJudError` nem
+  `httpx.HTTPError` e vazava cru pelo `except` da tool. Corrigido com uma
+  nova classe `DataJudProtocolError(DataJudError)` e um `_parse_json_body()`
+  que traduz só o `ValueError` de `resp.json()` — não um `except ValueError`
+  amplo, que mascararia bug de programação — numa mensagem com status e
+  content-type, sem ecoar o corpo. Coberto em
+  `tests/datajud/test_datajud_client.py` (nível do client) e
+  `tests/causaganha_mcp/test_datajud_facetas.py` (nível da tool).
 
 Operações de ingestão/upload de longa duração (o sync completo, `drain`,
 `consolidate`, `enrich` com upload) ficam só na CLI/CI em qualquer fase —
@@ -339,14 +369,22 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
   `destructiveHint=False`, `openWorldHint=True` (única tool que faz chamada
   de rede), sem credencial em parâmetro ou retorno.
 - Toda a taxonomia de erro de `datajud.client` (`DataJudAuthError`,
-  `DataJudRateLimitError`, `DataJudError` de ES, `httpx.HTTPStatusError`,
+  `DataJudRateLimitError`, `DataJudError` de ES, `DataJudProtocolError` de
+  corpo não JSON, `httpx.HTTPStatusError`,
   `httpx.TimeoutException`/`TransportError`) mapeada para
   `fastmcp.exceptions.ToolError` — nunca uma exceção crua atravessando o
   transporte MCP.
 - `por` como `Literal` hardcoded, guardado por teste de schema que compara
   o enum declarado com `datajud.client.FACET_FIELDS.keys()` (drift guard).
-- `tests/causaganha_mcp/test_datajud_facetas.py`: sete casos via `respx`
-  (sucesso + seis modos de falha), cada um afirmando `ToolError`.
+- Orçamento de tempo/retry próprio da tool (`_FACETAS_TIMEOUT=20s`,
+  `_FACETAS_MAX_RETRIES=2`, `_FACETAS_BACKOFF_BASE=1.0`), não exposto no
+  schema, independente dos defaults de `DataJudClient` calibrados para
+  ingestão em lote — pior caso ~1 minuto em vez de ~10.
+- `tests/causaganha_mcp/test_datajud_facetas.py`: nove casos via `respx`
+  (sucesso + sete modos de falha + orçamento em uso), cada um afirmando
+  `ToolError` (exceto o de orçamento, que inspeciona os kwargs passados a
+  `DataJudClient`). `tests/datajud/test_datajud_client.py` cobre
+  `DataJudProtocolError` no nível do client.
   `tests/causaganha_mcp/test_tool_schema.py` estendido para as 5 tools.
   `pytest`, `ruff check`, `ruff format --check` verdes.
 - `server.py`'s `instructions` atualizado para não afirmar mais que o

@@ -139,3 +139,44 @@ async def test_facetas_network_error_becomes_tool_error(mcp, monkeypatch) -> Non
         router.post(ENDPOINT).mock(side_effect=httpx.ConnectError("boom"))
         with pytest.raises(ToolError, match="Network error"):
             await fn(tribunal="tjro", por="classe", limite=15)
+
+
+async def test_facetas_non_json_response_becomes_tool_error(mcp) -> None:
+    """A WAF/gateway can return HTML under HTTP 200 — must not leak a bare ValueError."""
+    fn = await _facetas_fn(mcp)
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(
+            200, content=b"<html>blocked by WAF</html>", headers={"content-type": "text/html"}
+        )
+        with pytest.raises(ToolError, match="unparseable"):
+            await fn(tribunal="tjro", por="classe", limite=15)
+
+
+async def test_facetas_uses_a_tighter_budget_than_the_ingestion_client(mcp, monkeypatch) -> None:
+    """Production must not inherit `DataJudClient`'s ~10-minute ingestion worst case.
+
+    Spies on the kwargs the tool actually passes to `DataJudClient` — no
+    real retry/backoff needs to happen (the mocked response succeeds on the
+    first attempt), so this is a fast, direct check that the tool's call
+    path uses its own internal budget rather than the client's defaults.
+    """
+    from causaganha_mcp.tools import datajud as tool_module
+    from datajud import service
+
+    captured: dict = {}
+    original = service.DataJudClient
+
+    def spy(**kwargs: float | str) -> object:
+        captured.update(kwargs)
+        return original(**kwargs)
+
+    monkeypatch.setattr(service, "DataJudClient", spy)
+
+    fn = await _facetas_fn(mcp)
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(200, json=_facetas_payload(1, [("x", 1)]))
+        await fn(tribunal="tjro", por="classe", limite=15)
+
+    assert captured["timeout"] == tool_module._FACETAS_TIMEOUT
+    assert captured["max_retries"] == tool_module._FACETAS_MAX_RETRIES
+    assert captured["backoff_base"] == tool_module._FACETAS_BACKOFF_BASE

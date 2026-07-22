@@ -21,6 +21,7 @@ from datajud.client import (
     DataJudAuthError,
     DataJudClient,
     DataJudError,
+    DataJudProtocolError,
     DataJudRateLimitError,
     get_api_key,
     is_es_error,
@@ -298,6 +299,27 @@ async def test_facetas_uses_keyword_field_and_parses_buckets():
     # text fields must be aggregated via .keyword (raw text field → HTTP 400)
     assert sent["aggs"]["facetas"]["terms"]["field"] == "classe.nome.keyword"
     assert sent["size"] == 0
+
+
+# ── Malformed bodies ─────────────────────────────────────────────────────
+# A 2xx status is not proof of a well-formed body — a WAF/gateway can
+# return HTML or a truncated body under HTTP 200 (see RFC 0013 Fase 3B
+# review: this used to leak a bare JSONDecodeError past the client's error
+# taxonomy, which a downstream MCP tool's `except (DataJudError,
+# httpx.HTTPError)` wouldn't catch).
+
+
+async def test_non_json_200_body_raises_protocol_error_not_bare_value_error():
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(
+            200, content=b"<html>blocked by WAF</html>", headers={"content-type": "text/html"}
+        )
+        async with _client() as client:
+            with pytest.raises(DataJudProtocolError, match="non-JSON"):
+                await client.search({"query": {"match_all": {}}})
+
+    # Not one of the known transient rejection flavors → not retried.
+    assert route.call_count == 1
 
 
 # ── Transport errors ─────────────────────────────────────────────────────
