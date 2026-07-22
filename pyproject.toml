@@ -32,6 +32,7 @@ dependencies = [
     "aiolimiter>=1.2.1",
     "anyio>=4.0",
     "aiohttp>=3.9.0",
+    "fastmcp>=2.0", # causaganha_mcp — RFC 0013 Fase 3
 ]
 
 [dependency-groups]
@@ -89,6 +90,7 @@ stj-acordaos = "stj_acordaos.__main__:app"
 tjro-juris = "tjro_juris.__main__:app"
 datajud = "datajud.__main__:app"
 segmenter-dataset = "segmenter_dataset.__main__:app"
+causaganha-mcp = "causaganha_mcp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

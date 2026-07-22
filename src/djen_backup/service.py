@@ -16,8 +16,11 @@ from typing import TYPE_CHECKING
 from djen_backup.credentials import get_ia_s3_auth
 from djen_backup.drain import drain as _run_drain
 from djen_backup.engine import ManifestObserver, SyncConfig, SyncSummary, run_sync
-from djen_backup.manifest import SyncManifest
+from djen_backup.manifest import ManifestCounts, SyncManifest
 from djen_backup.probe import probe as _run_probe
+
+
+DEFAULT_MANIFEST_FILE = Path("data/sync-manifest.csv")
 
 
 if TYPE_CHECKING:
@@ -165,3 +168,15 @@ def reset_manifest(manifest_file: Path, *, tribunal: str | None, reset_all: bool
         manifest.save_to_disk(manifest_file)
 
     return ResetResult(count=count)
+
+
+def manifest_status(manifest_file: Path = DEFAULT_MANIFEST_FILE) -> ManifestCounts:
+    """Summarize the local manifest: total/uploaded/available/absent/unknown counts.
+
+    Local-disk-only — does not fetch or merge the IA parquet (see
+    ``engine.run_sync`` for that), so it's safe to call without network
+    access; the counts may lag behind IA if the local CSV cache is stale.
+    """
+    manifest = SyncManifest()
+    manifest.load_from_disk(manifest_file)
+    return manifest.counts()
