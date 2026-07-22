@@ -30,45 +30,71 @@ so they never appear in ``--help`` or in a future MCP tool's schema.
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+from typing import Annotated
 
-import typer
+from cyclopts import App, Parameter
 
 from stj_acordaos import service
 
 
-app = typer.Typer(
+app = App(
     name="stj-acordaos",
     help="STJ acórdãos ingestão pipeline — download, dedup, upload to IA.",
-    no_args_is_help=True,
+    # Cyclopts registers --version by default; the original Typer app never
+    # declared it, so leaving it on would silently accept a form that used
+    # to be a usage error (RFC 0013 Fase 4 review, #855 round 3).
+    version_flags=[],
 )
+
+
+@app.default
+def _no_command() -> int:
+    """Show help and exit 2 on a bare invocation (no subcommand).
+
+    The original Typer app set ``no_args_is_help=True``, which shows help
+    and exits 2 (Click's convention for incomplete usage) — distinct from
+    the parse-error cases (RFC 0013 Fase 4) that changed from Click's 2 to
+    Cyclopts' own 1. Cyclopts has no built-in equivalent to
+    `no_args_is_help`; without this, a bare ``stj-acordaos`` would print
+    help and exit 0, silently dropping the "incomplete usage" signal for
+    scripts.
+    """
+    app.help_print([])
+    return 2
 
 
 def _echo_download_outcome(outcome: service.DownloadOutcome) -> None:
     if outcome.action == "skip_no_url":
-        typer.echo(f"  SKIP {outcome.dest_name}: no URL", err=True)
+        print(f"  SKIP {outcome.dest_name}: no URL", file=sys.stderr)
     elif outcome.action == "skip_unrecognized_format":
-        typer.echo(
+        print(
             f"  SKIP {outcome.dest_name}: unrecognized format {outcome.detail!r} (not zip/json)",
-            err=True,
+            file=sys.stderr,
         )
     elif outcome.action == "skip_already_uploaded":
-        typer.echo(
+        print(
             f"  SKIP {outcome.dest_name}: already uploaded to IA (unchanged since {outcome.detail})"
         )
     elif outcome.action == "download_error":
-        typer.echo(f"  ERROR: {outcome.detail}", err=True)
+        print(f"  ERROR: {outcome.detail}", file=sys.stderr)
     else:
         if outcome.action == "extract_error":
-            typer.echo(f"  Extract ERROR: {outcome.detail}", err=True)
-        typer.echo(f"  Done ({outcome.n_extracted} files extracted).")
+            print(f"  Extract ERROR: {outcome.detail}", file=sys.stderr)
+        print(f"  Done ({outcome.n_extracted} files extracted).")
 
 
-@app.command()
+@app.command
 def download(
-    data_dir: Path = typer.Option(service.DEFAULT_DATA_DIR, help="Directory to store downloads."),
-    manifest_path: Path = typer.Option(service.DEFAULT_MANIFEST, help="Path to stj-manifest.csv."),
-) -> None:
+    *,
+    data_dir: Annotated[
+        Path, Parameter(help="Directory to store downloads.")
+    ] = service.DEFAULT_DATA_DIR,
+    manifest_path: Annotated[
+        Path, Parameter(help="Path to stj-manifest.csv.")
+    ] = service.DEFAULT_MANIFEST,
+) -> int:
     """Discover resources, download ZIPs + JSONs, and extract safely.
 
     Resources already uploaded to IA with an unchanged ``last_modified``
@@ -77,63 +103,72 @@ def download(
     """
     summary = service.download_all(data_dir, manifest_path)
     if summary is None:
-        typer.echo("No resources found.", err=True)
-        raise typer.Exit(1)
+        print("No resources found.", file=sys.stderr)
+        return 1
 
     for outcome in summary.outcomes:
         _echo_download_outcome(outcome)
 
-    typer.echo(f"\nManifest saved to {manifest_path} ({summary.manifest_entries} entries).")
+    print(f"\nManifest saved to {manifest_path} ({summary.manifest_entries} entries).")
+    return 0
 
 
-@app.command()
+@app.command
 def upload(
-    data_dir: Path = typer.Option(
-        service.DEFAULT_DATA_DIR, help="Directory containing the parquet file."
-    ),
-    parquet_path: Path = typer.Option(service.DEFAULT_PARQUET, help="Parquet file to upload."),
-    manifest_path: Path = typer.Option(service.DEFAULT_MANIFEST, help="Path to stj-manifest.csv."),
-) -> None:
+    *,
+    data_dir: Annotated[
+        Path, Parameter(help="Directory containing the parquet file.")
+    ] = service.DEFAULT_DATA_DIR,
+    parquet_path: Annotated[
+        Path, Parameter(help="Parquet file to upload.")
+    ] = service.DEFAULT_PARQUET,
+    manifest_path: Annotated[
+        Path, Parameter(help="Path to stj-manifest.csv.")
+    ] = service.DEFAULT_MANIFEST,
+) -> int:
     """Upload the deduplicated parquet file to Internet Archive."""
     ia_key, ia_secret = service.ia_credentials()
     if not ia_key or not ia_secret:
-        typer.echo("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", err=True)
-        raise typer.Exit(1)
+        print("ERROR: IA_ACCESS_KEY and IA_SECRET_KEY must be set.", file=sys.stderr)
+        return 1
 
     result = service.upload_all(data_dir, parquet_path, manifest_path, ia_key, ia_secret)
 
     if result.status == "nothing_to_do":
-        typer.echo("Nothing new to upload — all resources already on IA.")
-        return
+        print("Nothing new to upload — all resources already on IA.")
+        return 0
     if result.status == "no_data":
-        typer.echo("ERROR: No JSON files and no existing parquet to upload.", err=True)
-        raise typer.Exit(1)
+        print("ERROR: No JSON files and no existing parquet to upload.", file=sys.stderr)
+        return 1
 
     if result.ok:
-        typer.echo("Upload complete.")
-    else:
-        typer.echo("Upload FAILED.", err=True)
-        raise typer.Exit(1)
+        print("Upload complete.")
+        return 0
+    print("Upload FAILED.", file=sys.stderr)
+    return 1
 
 
-@app.command()
+@app.command
 def status(
-    manifest_path: Path = typer.Option(service.DEFAULT_MANIFEST, help="Path to stj-manifest.csv."),
+    *,
+    manifest_path: Annotated[
+        Path, Parameter(help="Path to stj-manifest.csv.")
+    ] = service.DEFAULT_MANIFEST,
 ) -> None:
     """Show a summary of the STJ manifest."""
     summary = service.manifest_summary(manifest_path)
 
     if summary.count == 0:
-        typer.echo("Manifest is empty or not found.")
+        print("Manifest is empty or not found.")
         return
 
-    typer.echo(f"STJ Manifest: {manifest_path}")
-    typer.echo(f"  Total entries : {summary.count}")
-    typer.echo(f"  Uploaded to IA: {summary.uploaded}")
-    typer.echo(f"  Pending upload: {summary.pending}")
-    typer.echo("")
+    print(f"STJ Manifest: {manifest_path}")
+    print(f"  Total entries : {summary.count}")
+    print(f"  Uploaded to IA: {summary.uploaded}")
+    print(f"  Pending upload: {summary.pending}")
+    print()
     for row in summary.rows:
-        typer.echo(
+        print(
             f"  {row['arquivo']:40s}  {row['tipo']:6s}  {row['ia_status'] or 'pending':8s}"
             f"  {row['n_registros']:>8,} records"
         )

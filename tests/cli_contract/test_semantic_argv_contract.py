@@ -4,13 +4,24 @@ The Fase 1 characterization tests (`tests/*/test_*_cli_contract.py`) lock
 today's Typer/Click behavior via `Command.make_context`, `opts`,
 `secondary_opts` — infrastructure that disappears the moment the CLI moves
 to Cyclopts. This module is the durable replacement the RFC calls for: it
-runs each CLI for real (`CliRunner.invoke`) with the exact argv a
-production workflow sends, mocks only the service-layer call the workflow
-ultimately reaches, and asserts on the *semantic* configuration that
-arrived there — never on Click's parsed-parameter representation. A
-Cyclopts port re-runs this exact file unchanged; it is production code
-(`src/*/__main__.py`) and Cyclopts-facing test scaffolding still to write
-that will need updating, not this file.
+runs each CLI for real (`harness._invoke`, framework-neutral) with the
+exact argv a production workflow sends, mocks only the service-layer call
+the workflow ultimately reaches, and asserts on the *semantic* configuration
+that arrived there — never on Click's or Cyclopts' parsed-parameter
+representation.
+
+The Fase 4 Cyclopts port re-ran this file with only `harness.py`'s
+invocation adapter changed, as designed — with one deliberate, narrow
+exception: the three usage-error cases below (`--no-use-proxy` on `drain`,
+`--ia-key` on `stj_acordaos`/`datajud`) had `expected_exit_code` updated
+from `2` to `1`. That's not the harness papering over a migration bug —
+Cyclopts' own default exit code for a parse/usage error is `1`
+(`cyclopts/core.py` hardcodes `sys.exit(1)` on that path, unlike Click's
+convention of `2`), confirmed by direct experiment before writing the
+adapter. The gate's job is to surface a genuine behavior difference like
+this, not hide it — and no production workflow ever passes `--ia-key` or
+`--no-use-proxy`, so the value change has no operational effect on the
+five real workflows this file protects.
 
 Covers every literal step of the five production workflows the RFC's Fase 1
 registered — not just one representative command per package, since a
@@ -31,6 +42,36 @@ correctly arriving at the service layer when the workflow's real
 job-level env injects them — not merely "absent", which a mechanical
 Cyclopts port could satisfy by accident even if the env→service wiring
 broke.
+
+Plus, from the Fase 4 PR review (#855): Cyclopts derives positional-only
+vs. keyword-only from the Python signature itself (no `typer.Argument`/
+`typer.Option` distinction to carry over) — a plain `Annotated` parameter
+with no `/`/`*` marker accepts *both* forms, silently widening the CLI
+surface past what Typer ever accepted. Every migrated command now spells
+out `/` after former `typer.Argument` params (`tjro_juris`'s `data_dir`/
+`year`) and `*` before former `typer.Option` params (everywhere else) to
+preserve the exact old contract, and one negative case per package below
+locks in the form that must keep failing (e.g. `datajud enrich tjro`
+positionally, `tjro-juris upload --data-dir X` by keyword). Separately,
+`datajud` and `stj_acordaos` had Typer's `no_args_is_help=True`, and
+`tjro_juris` relied on Click's own default "missing command" behavior for a
+group with no matching callback — both paths print usage and exit 2 on a
+bare invocation. Cyclopts has no built-in equivalent to either and would
+otherwise exit 0 (found on `tjro_juris` by extension while investigating
+the review's `datajud`/`stj_acordaos` report — same underlying gap, no
+Typer flag needed to trigger it), so all three apps register an explicit
+`@app.default` that prints help and returns 2; one bare-invocation case per
+package locks that in.
+
+A third review round (#855) found two more gaps. First, Cyclopts registers
+`--version` on every `App` by default; none of the four original Typer apps
+declared it, so `<pkg> --version` silently went from a usage error to a
+successful, undocumented new command. Fixed with `version_flags=[]` on all
+four `App(...)` constructors; one `--version` case per package locks in
+that it's rejected again. Second, the contract's `datajud` coverage was
+narrower than what it replaced: the deleted Fase 1 test asserted
+`--skip-upload` had no `--no-skip-upload` pair and that `--cnj` was
+repeatable, neither of which had an equivalent case here yet — added below.
 """
 
 from __future__ import annotations
@@ -150,7 +191,19 @@ DJEN_BACKUP_CASES = [
         label="djen_backup: drain's --use-proxy has no --no-use-proxy pair (usage error)",
         app_path="djen_backup.__main__",
         argv=["drain", "--no-use-proxy"],
-        expected_exit_code=2,
+        expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
+    ),
+    CliContractCase(
+        label="djen_backup: check's options were never positional, still aren't (usage error)",
+        app_path="djen_backup.__main__",
+        argv=["check", "2020-01-01"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="djen_backup: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="djen_backup.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
     ),
 ]
 
@@ -227,6 +280,24 @@ TJRO_JURIS_CASES = [
         },
         check=_check_tjro_status_data_dir,
     ),
+    CliContractCase(
+        label="tjro_juris: data_dir was never a --flag in Typer, still isn't (usage error)",
+        app_path="tjro_juris.__main__",
+        argv=["upload", "--data-dir", "data/tjro-juris"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="tjro_juris: bare invocation shows help and exits 2 (Click's missing-command)",
+        app_path="tjro_juris.__main__",
+        argv=[],
+        expected_exit_code=2,
+    ),
+    CliContractCase(
+        label="tjro_juris: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="tjro_juris.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
+    ),
 ]
 
 
@@ -280,7 +351,7 @@ STJ_ACORDAOS_CASES = [
         label="stj_acordaos: --ia-key is not a CLI option anymore (usage error)",
         app_path="stj_acordaos.__main__",
         argv=["upload", "--ia-key", "x"],
-        expected_exit_code=2,
+        expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
     ),
     CliContractCase(
         label="stj_acordaos: stj-sync.yml download --data-dir ... --manifest-path ...",
@@ -311,6 +382,24 @@ STJ_ACORDAOS_CASES = [
             ),
         },
         check=_check_stj_status_manifest_path,
+    ),
+    CliContractCase(
+        label="stj_acordaos: data_dir was never positional in Typer, still isn't (usage error)",
+        app_path="stj_acordaos.__main__",
+        argv=["download", "data/stj"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="stj_acordaos: bare invocation shows help and exits 2 (Typer's no_args_is_help=True)",
+        app_path="stj_acordaos.__main__",
+        argv=[],
+        expected_exit_code=2,
+    ),
+    CliContractCase(
+        label="stj_acordaos: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="stj_acordaos.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
     ),
 ]
 
@@ -348,6 +437,12 @@ def _check_datajud_status_data_dir(calls) -> None:
     assert str(data_dir) == "data/datajud"
 
 
+def _check_datajud_enrich_cnj_repetition(calls) -> None:
+    (call,) = calls["main"]
+    _tribunal, _data_dir, _sources_dir, cnj, *_rest = call.args
+    assert list(cnj or []) == ["111", "222"]
+
+
 DATAJUD_CASES = [
     CliContractCase(
         label="datajud: datajud-enrich.yml daily cron defaults, credentials from env",
@@ -378,7 +473,7 @@ DATAJUD_CASES = [
         label="datajud: --ia-key is not a CLI option anymore (usage error)",
         app_path="datajud.__main__",
         argv=["enrich", "--ia-key", "x"],
-        expected_exit_code=2,
+        expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
     ),
     CliContractCase(
         label="datajud: datajud-enrich.yml status --data-dir data/datajud",
@@ -391,6 +486,42 @@ DATAJUD_CASES = [
             ),
         },
         check=_check_datajud_status_data_dir,
+    ),
+    CliContractCase(
+        label="datajud: tribunal was never positional in Typer, still isn't (usage error)",
+        app_path="datajud.__main__",
+        argv=["enrich", "tjro"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="datajud: bare invocation shows help and exits 2 (Typer's no_args_is_help=True)",
+        app_path="datajud.__main__",
+        argv=[],
+        expected_exit_code=2,
+    ),
+    CliContractCase(
+        label="datajud: --skip-upload has no --no-skip-upload pair (usage error)",
+        app_path="datajud.__main__",
+        argv=["enrich", "--no-skip-upload"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="datajud: --cnj is repeatable, arrives as a sequence in order",
+        app_path="datajud.__main__",
+        argv=["enrich", "--cnj", "111", "--cnj", "222"],
+        mocks={
+            "main": MockSpec(
+                path="datajud.service.enrich",
+                return_value=EnrichResult(status="nothing_to_do"),
+            ),
+        },
+        check=_check_datajud_enrich_cnj_repetition,
+    ),
+    CliContractCase(
+        label="datajud: --version was never a CLI option in Typer, still isn't (usage error)",
+        app_path="datajud.__main__",
+        argv=["--version"],
+        expected_exit_code=1,
     ),
 ]
 

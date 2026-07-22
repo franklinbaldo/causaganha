@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
+import contextlib
+import io
 from typing import TYPE_CHECKING
 
 import duckdb
 import respx
-from typer.testing import CliRunner
 
 from datajud.__main__ import app
 from datajud.client import search_endpoint
@@ -20,7 +21,13 @@ if TYPE_CHECKING:
 ENDPOINT = search_endpoint("tjro")
 CNJ = "00000010220248220001"
 
-runner = CliRunner()
+
+def _invoke(argv: list[str]) -> tuple[int, str]:
+    """Run the real Cyclopts `app`, capturing combined stdout+stderr like Typer's CliRunner did."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        exit_code = app(argv, exit_on_error=False, result_action="return_value")
+    return exit_code or 0, buf.getvalue()
 
 
 def _source(grau: str, orgao: int, *, movimentos: int = 1) -> dict:
@@ -70,8 +77,7 @@ def test_enrich_with_explicit_cnj_writes_parquets_and_manifest(tmp_path: Path):
         router.post(ENDPOINT).respond(
             200, json=_payload([_source("G1", 111, movimentos=2), _source("G2", 222)])
         )
-        result = runner.invoke(
-            app,
+        exit_code, output = _invoke(
             [
                 "enrich",
                 "--tribunal",
@@ -81,10 +87,10 @@ def test_enrich_with_explicit_cnj_writes_parquets_and_manifest(tmp_path: Path):
                 "--cnj",
                 "0000001-02.2024.8.22.0001",
                 "--skip-upload",
-            ],
+            ]
         )
 
-    assert result.exit_code == 0, result.output
+    assert exit_code == 0, output
 
     capa_path = data_dir / "datajud-capa-tjro.parquet"
     mov_path = data_dir / "datajud-movimentos-tjro.parquet"
@@ -117,13 +123,13 @@ def test_enrich_is_incremental_second_run_skips_fresh_cnjs(tmp_path: Path):
             CNJ,
             "--skip-upload",
         ]
-        first = runner.invoke(app, args)
-        second = runner.invoke(app, args)
+        first_exit_code, first_output = _invoke(args)
+        second_exit_code, second_output = _invoke(args)
 
-    assert first.exit_code == 0, first.output
-    assert second.exit_code == 0, second.output
+    assert first_exit_code == 0, first_output
+    assert second_exit_code == 0, second_output
     assert route.call_count == 1  # second run: CNJ is fresh in the manifest
-    assert "Nothing to do" in second.output
+    assert "Nothing to do" in second_output
 
 
 def test_enrich_cnj_file_and_limit(tmp_path: Path):
@@ -133,8 +139,7 @@ def test_enrich_cnj_file_and_limit(tmp_path: Path):
 
     with respx.mock() as router:
         route = router.post(ENDPOINT).respond(200, json=_payload([_source("G1", 111)]))
-        result = runner.invoke(
-            app,
+        exit_code, output = _invoke(
             [
                 "enrich",
                 "--data-dir",
@@ -144,10 +149,10 @@ def test_enrich_cnj_file_and_limit(tmp_path: Path):
                 "--limit",
                 "1",
                 "--skip-upload",
-            ],
+            ]
         )
 
-    assert result.exit_code == 0, result.output
+    assert exit_code == 0, output
     assert route.call_count == 1
     manifest = ManifestDataJud.load_local(data_dir / "datajud-manifest.csv")
     assert len(manifest) == 1  # only the first CNJ (limit) was consulted
@@ -158,8 +163,7 @@ def test_enrich_no_cnjs_and_no_sources_fails_nominally(tmp_path: Path, monkeypat
 
     # IA fallback download is a urllib call — stub it out (zero real network)
     monkeypatch.setattr(service, "_try_download_unificados", lambda _dir: None)
-    result = runner.invoke(
-        app,
+    exit_code, _output = _invoke(
         [
             "enrich",
             "--data-dir",
@@ -167,9 +171,9 @@ def test_enrich_no_cnjs_and_no_sources_fails_nominally(tmp_path: Path, monkeypat
             "--sources-dir",
             str(tmp_path / "empty"),
             "--skip-upload",
-        ],
+        ]
     )
-    assert result.exit_code == 1
+    assert exit_code == 1
 
 
 def test_enrich_reads_cnjs_from_source_parquets(tmp_path: Path):
@@ -186,8 +190,7 @@ def test_enrich_reads_cnjs_from_source_parquets(tmp_path: Path):
 
     with respx.mock() as router:
         route = router.post(ENDPOINT).respond(200, json=_payload([_source("G1", 111)]))
-        result = runner.invoke(
-            app,
+        exit_code, output = _invoke(
             [
                 "enrich",
                 "--data-dir",
@@ -195,10 +198,10 @@ def test_enrich_reads_cnjs_from_source_parquets(tmp_path: Path):
                 "--sources-dir",
                 str(sources_dir),
                 "--skip-upload",
-            ],
+            ]
         )
 
-    assert result.exit_code == 0, result.output
+    assert exit_code == 0, output
     assert route.call_count == 1
 
 
@@ -222,8 +225,7 @@ def test_enrich_reads_cnjs_from_tjro_juris_source_parquet(tmp_path: Path):
 
     with respx.mock() as router:
         route = router.post(ENDPOINT).respond(200, json=_payload([_source("G1", 111)]))
-        result = runner.invoke(
-            app,
+        exit_code, output = _invoke(
             [
                 "enrich",
                 "--data-dir",
@@ -231,10 +233,10 @@ def test_enrich_reads_cnjs_from_tjro_juris_source_parquet(tmp_path: Path):
                 "--sources-dir",
                 str(sources_dir),
                 "--skip-upload",
-            ],
+            ]
         )
 
-    assert result.exit_code == 0, result.output
+    assert exit_code == 0, output
     assert route.call_count == 1  # would be 0 (no CNJs found) before the glob fix
 
 
@@ -249,8 +251,7 @@ def test_enrich_rate_limit_exhaustion_is_a_nominal_error(tmp_path: Path, monkeyp
     )
     with respx.mock() as router:
         router.post(ENDPOINT).respond(429)
-        result = runner.invoke(
-            app,
+        exit_code, _output = _invoke(
             [
                 "enrich",
                 "--data-dir",
@@ -258,8 +259,8 @@ def test_enrich_rate_limit_exhaustion_is_a_nominal_error(tmp_path: Path, monkeyp
                 "--cnj",
                 CNJ,
                 "--skip-upload",
-            ],
+            ]
         )
     # exhausted retries surface as an error, and no parquet is written
-    assert result.exit_code == 1
+    assert exit_code == 1
     assert not (tmp_path / "datajud" / "datajud-capa-tjro.parquet").exists()

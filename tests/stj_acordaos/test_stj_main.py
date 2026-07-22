@@ -7,11 +7,12 @@ later broke DuckDB's ``read_json`` during dedup/upload.
 
 from __future__ import annotations
 
+import contextlib
+import io
 from typing import TYPE_CHECKING
 
 import httpx
 import pytest
-from typer.testing import CliRunner
 
 from stj_acordaos import service
 from stj_acordaos.__main__ import app
@@ -231,7 +232,13 @@ def test_upload_all_ok_is_false_when_a_source_fails_even_if_parquet_succeeds(
 
 # ── upload: nothing-new-to-do must not be an error ───────────────────────
 
-runner = CliRunner()
+
+def _invoke(argv: list[str]) -> tuple[int, str]:
+    """Run the real Cyclopts `app`, capturing combined stdout+stderr like Typer's CliRunner did."""
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+        exit_code = app(argv, exit_on_error=False, result_action="return_value")
+    return exit_code or 0, buf.getvalue()
 
 
 def test_upload_with_everything_already_uploaded_is_a_clean_noop(
@@ -262,8 +269,7 @@ def test_upload_with_everything_already_uploaded_is_a_clean_noop(
     monkeypatch.setenv("IA_ACCESS_KEY", "k")
     monkeypatch.setenv("IA_SECRET_KEY", "s")
 
-    result = runner.invoke(
-        app,
+    exit_code, output = _invoke(
         [
             "upload",
             "--data-dir",
@@ -272,11 +278,11 @@ def test_upload_with_everything_already_uploaded_is_a_clean_noop(
             str(data_dir / "stj-acordaos.parquet"),
             "--manifest-path",
             str(manifest_path),
-        ],
+        ]
     )
 
-    assert result.exit_code == 0, result.output
-    assert "Nothing new to upload" in result.output
+    assert exit_code == 0, output
+    assert "Nothing new to upload" in output
 
 
 def test_upload_with_pending_entries_but_no_local_data_is_an_error(
@@ -302,8 +308,7 @@ def test_upload_with_pending_entries_but_no_local_data_is_an_error(
     monkeypatch.setenv("IA_ACCESS_KEY", "k")
     monkeypatch.setenv("IA_SECRET_KEY", "s")
 
-    result = runner.invoke(
-        app,
+    exit_code, output = _invoke(
         [
             "upload",
             "--data-dir",
@@ -312,8 +317,8 @@ def test_upload_with_pending_entries_but_no_local_data_is_an_error(
             str(data_dir / "stj-acordaos.parquet"),
             "--manifest-path",
             str(manifest_path),
-        ],
+        ]
     )
 
-    assert result.exit_code != 0
-    assert "No JSON files and no existing parquet" in result.output
+    assert exit_code != 0
+    assert "No JSON files and no existing parquet" in output

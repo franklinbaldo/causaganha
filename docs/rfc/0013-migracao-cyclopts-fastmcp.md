@@ -1,9 +1,11 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A e Fase 3B implementadas
-  (PRs #849, #850, #851, #852, #853). Fase 3 está fechada — trabalho de
-  produto sobre o servidor MCP continua em RFC 0014. Fase 4 (Typer →
-  Cyclopts) segue pendente, sem PR aberto.
+- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A, Fase 3B e Fase 4 implementadas
+  (PRs #849, #850, #851, #852, #853, e o PR desta fase). Fase 3 está fechada —
+  trabalho de produto sobre o servidor MCP continua em RFC 0014. RFC 0013
+  está fechada — os quatro pacotes CLI (`djen_backup`, `tjro_juris`,
+  `stj_acordaos`, `datajud`) rodam em Cyclopts, e as cinco tools FastMCP já
+  existiam desde a Fase 3B.
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -352,7 +354,7 @@ migração de framework, e fica em **RFC 0014 — MCP como superfície de
 produto**. Esta RFC não será estendida com esse escopo; só Fase 4 (abaixo)
 continua pendente aqui.
 
-### Fase 4 — Typer → Cyclopts
+### Fase 4 — Typer → Cyclopts (implementada)
 
 Com os testes framework-neutros da Fase 2.5 como portão (não os da Fase 1,
 que são introspecção Click e não sobrevivem à troca de framework):
@@ -360,6 +362,110 @@ re-executar `tests/cli_contract/` contra a CLI migrada, trocando só o
 adaptador de invocação (`CliRunner.invoke` → o equivalente Cyclopts), antes
 de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
 `default_command` explícito equivalente a `invoke_without_command=True`.
+
+Os quatro pacotes foram migrados nessa ordem: `djen_backup`, `tjro_juris`,
+`stj_acordaos`, `datajud`. Achados concretos, não previstos em detalhe pelo
+texto original acima:
+
+- **Callback bare via `App.meta`.** `djen-backup` é o único pacote com
+  callback bare + setup compartilhado (`configure_runtime()`). Cyclopts não
+  tem um `invoke_without_command=True` — `@app.default` só dispara quando
+  *nenhum* subcomando bate. O equivalente é o padrão meta-app: comandos
+  registrados num `App` interno, `app = App(...).meta`, com
+  `@_commands_app.meta.default def _launch(*tokens): configure_runtime();
+  return _commands_app(tokens)` rodando antes de qualquer despacho — bare ou
+  subcomando. Único pacote que precisou disso; os outros três não têm setup
+  compartilhado nem callback bare.
+- **`--no-fail-fast`/`--use-proxy` (o risco mais frágil listado abaixo) —
+  resolvido.** `Parameter(name=[...])` sozinho **não** suprime o par
+  `--no-X` que Cyclopts gera automaticamente para todo booleano — só o nome
+  explícito, ao contrário do Typer, onde uma string de opção explícita já
+  suprimia a negação. A correção é `Parameter(name="--flag", negative=[])`.
+  Aplicado em `djen-backup`'s `drain`/`probe` (`--use-proxy`) e `reset`
+  (`--all`), e em `datajud`'s `enrich` (`--skip-upload`) — todo booleano que
+  no Typer original só tinha a forma positiva. `tests/cli_contract/`
+  confirma `--no-use-proxy`/`--no-skip-upload` continuam inexistentes.
+- **Exit code de erro de uso: 1, não 2.** O código de saída default do
+  Cyclopts para um erro de parsing/uso (`sys.exit(1)` fixo em
+  `cyclopts/core.py`, não configurável via `App(...)`) é **1**, diferente da
+  convenção 2 do Click/Typer para a mesma classe de erro — confirmado lendo
+  a fonte do Cyclopts e por experimento direto. Nenhum dos 5 workflows de
+  produção aciona esse caminho (nenhum passa `--ia-key` nem
+  `--no-use-proxy`), então não é regressão de produção — é uma diferença de
+  framework real, documentada e travada em 3 casos de
+  `test_semantic_argv_contract.py` (`expected_exit_code=1` com comentário
+  explicando por quê) em vez de escondida atrás de um harness que mentisse
+  sobre o que Cyclopts de fato produz.
+- **Testes de caracterização da Fase 1 removidos, como o RFC sempre previu.**
+  `tests/{djen_backup,tjro_juris,stj_acordaos,datajud}/test_*_cli_contract.py`
+  chamavam `typer.main.get_command(app)` — quebraram na hora em que cada
+  `app` virou um `cyclopts.App`, exatamente como a nota da Fase 1 (§ acima)
+  antecipava. `tests/cli_contract/test_semantic_argv_contract.py` (Fase 2.5)
+  já cobria todo caso que eles travavam; deletados sem substituição. Os
+  outros testes que usavam `typer.testing.CliRunner` diretamente
+  (`test_cli_exit_code.py` do `djen_backup`, `test_stj_main.py`,
+  `test_datajud_enrich.py`) foram reescritos para invocar o `App` do
+  Cyclopts diretamente (`app(argv, exit_on_error=False,
+  result_action="return_value")`, stdout/stderr capturados via
+  `contextlib.redirect_std{out,err}`), preservando as mesmas asserções de
+  exit code e saída de texto.
+- **`typer` continua como dependência.** `src/segmenter_dataset/__main__.py`
+  e `src/causaganha/consolidate/cli.py` usam Typer e estão fora do escopo
+  desta RFC (só os quatro pacotes de sincronização DJEN/TJRO/STJ/DataJud).
+
+**Achados de review (PR #855), corrigidos antes do merge:**
+
+- **Distinção positional/keyword-only não sobrevivia ao swap.** Cyclopts
+  deriva "positional-only" vs. "keyword-only" só da assinatura Python
+  (`/` e `*`), não de uma classe `Argument`/`Option` como o Typer — um
+  parâmetro `Annotated` comum, sem marcador, aceita as duas formas.
+  Migração inicial não introduziu `/`/`*`, então (a) todo antigo
+  `typer.Option` das quatro CLIs passou a aceitar forma posicional
+  (`datajud enrich tjro` funcionava, quando só `--tribunal tjro` era válido
+  antes) e (b) os antigos `typer.Argument` do `tjro_juris` (`data_dir`,
+  `year`) ganharam alias de opção que nunca existiu (`tjro-juris upload
+  --data-dir X` funcionava, quando só a forma posicional era válida antes).
+  A alegação de "contrato de CLI preservado" era falsa — confirmado por
+  experimento direto antes de aceitar o achado. Corrigido: `/` depois de
+  todo parâmetro que era `typer.Argument`, `*` antes de todo parâmetro que
+  era `typer.Option`, nos quatro pacotes. Um caso negativo por pacote em
+  `tests/cli_contract/` trava a forma que agora deve continuar falhando.
+- **O próprio gate de exit code era tautológico.** `_invoke` do harness
+  capturava `CycloptsError` e retornava uma constante hardcoded
+  (`_USAGE_ERROR_EXIT_CODE = 1`) em vez de observar o exit code real que
+  `cyclopts` produz — os três casos com `expected_exit_code=1` ficariam
+  verdes mesmo se um upgrade de `cyclopts` mudasse esse comportamento.
+  Corrigido: no caminho de erro, `_invoke` reinvoca a mesma `app` com o
+  comportamento default do Cyclopts (sem `exit_on_error=False`) e captura o
+  `SystemExit` real — parse/usage error acontece antes do dispatch para a
+  função de comando, então reinvocar não duplica nenhuma chamada mockada.
+- **`no_args_is_help=True` virou sucesso silencioso, não documentado.**
+  `datajud` e `stj_acordaos` tinham `no_args_is_help=True` no Typer
+  original (mostra ajuda e sai com 2, convenção do Click para uso
+  incompleto); investigando esse achado, `tjro_juris` mostrou o mesmo
+  problema por um caminho diferente — sem callback nem
+  `no_args_is_help=True`, o Click original ainda assim exigia um
+  subcomando e saía com 2 (comportamento default de grupo). Cyclopts não
+  tem equivalente a nenhum dos dois caminhos: invocação vazia mostrava
+  ajuda e saía com **0** nas três CLIs, silenciosamente — e a PR alegava
+  que a única diferença de exit code eram os 3 casos de parse error 2→1,
+  o que não era verdade. Corrigido: as três apps registram um
+  `@app.default` explícito que imprime a ajuda e retorna 2. Um caso de
+  invocação vazia por pacote trava isso em `tests/cli_contract/`.
+- **`--version` foi acrescentado implicitamente às quatro CLIs.** Cyclopts
+  registra `--version` por padrão em todo `App(...)`; nenhum dos quatro
+  apps Typer originais declarava essa opção, então `<pkg> --version` virou
+  um comando novo, não documentado, terminando com sucesso — contrariando
+  de novo a alegação de superfície preservada. Corrigido:
+  `version_flags=[]` nos quatro `App(...)` (para `djen_backup`, basta em
+  `_commands_app` — o wrapper `App.meta` público não registra `--version`
+  por conta própria). Um caso `--version` por pacote trava a rejeição.
+- **Cobertura do `datajud` mais estreita que o teste Fase 1 que substituiu.**
+  O teste Click deletado travava explicitamente que `--skip-upload` não
+  tinha par `--no-skip-upload` e que `--cnj` era repetível; nenhum caso
+  equivalente existia em `tests/cli_contract/`. Adicionado
+  `argv=["enrich", "--no-skip-upload"]` (`expected_exit_code=1`) e um caso
+  positivo de `--cnj` repetido, verificando a lista na ordem recebida.
 
 ## 3. Critérios de aceitação
 
@@ -446,13 +552,55 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
 - `server.py`'s `instructions` atualizado para não afirmar mais que o
   servidor inteiro é sem chamada de rede.
 
+**Fase 4 (implementada):**
+- Os quatro `__main__.py` (`djen_backup`, `tjro_juris`, `stj_acordaos`,
+  `datajud`) rodam em Cyclopts; nenhum importa `typer`.
+- `cyclopts` como dependência direta (`pyproject.toml`), não só transitiva
+  via `fastmcp[server]`.
+- `tests/cli_contract/harness.py` migrado para o adaptador de invocação
+  Cyclopts (`_invoke`); as `CliContractCase` (4 pacotes) passam sem
+  alteração de `check` — só o adaptador mudou, como planejado. O exit code
+  de erro de uso é observado via `SystemExit` real de uma segunda invocação
+  com o comportamento default do Cyclopts, não hardcoded (achado da review
+  #855, corrigido antes do merge).
+- Negação de booleano preservada: todo `--flag` que só tinha forma positiva
+  no Typer original (`--use-proxy`, `--all`, `--skip-upload`) usa
+  `Parameter(negative=[])` em Cyclopts; `--no-*` continua inexistente para
+  esses três, confirmado por teste.
+- Distinção positional-only/keyword-only preservada: `/` depois de todo
+  parâmetro que era `typer.Argument` (`tjro_juris`'s `data_dir`/`year`), `*`
+  antes de todo parâmetro que era `typer.Option` (os demais, nos quatro
+  pacotes) — sem isso, Cyclopts aceita as duas formas para qualquer
+  parâmetro, ampliando a superfície aceita silenciosamente (achado da
+  review #855, corrigido antes do merge). Um caso negativo por pacote em
+  `tests/cli_contract/` trava a forma que deve continuar rejeitada.
+- Invocação vazia (sem subcomando) preserva exit code 2 nas três CLIs que
+  dependiam de `no_args_is_help=True` (`datajud`, `stj_acordaos`) ou do
+  comportamento default de grupo do Click (`tjro_juris`) via um
+  `@app.default` explícito que imprime ajuda e retorna 2 (achado da review
+  #855, corrigido antes do merge).
+- `djen-backup`'s callback bare preservado via `App.meta` — `djen-backup
+  --deadline-minutes N ...` (sem subcomando) continua rodando
+  `configure_runtime()` antes do pipeline, igual à Fase 2 (não precisa do
+  `@app.default` acima — já tem lógica de negócio real na invocação vazia).
+- Nenhuma mudança de argv nos 5 workflows de produção — os mesmos comandos
+  que a Fase 1 travou continuam resolvendo para a mesma config semântica.
+- Testes de caracterização da Fase 1 (introspecção Click) deletados nos
+  quatro pacotes; testes que usavam `typer.testing.CliRunner` diretamente
+  reescritos para invocar o `App` Cyclopts.
+- `pytest`, `ruff check`, `ruff format --check` verdes.
+
 ## 4. Riscos
 
-- **`--no-fail-fast`** é o caso mais frágil: se o Cyclopts gerar nome ou
-  default diferente para o par negável, `collect-zips` passa a rodar com
-  `fail_fast=True` e aborta no primeiro 403 do CloudFront — regressão
-  silenciosa, visível só na próxima execução (a cada 20 min). É o primeiro
-  caso em `tests/cli_contract/` (Fase 2.5) precisamente por isso.
+- **`--no-fail-fast`** era o caso mais frágil: se o Cyclopts gerasse nome ou
+  default diferente para o par negável, `collect-zips` passaria a rodar com
+  `fail_fast=True` e abortaria no primeiro 403 do CloudFront — regressão
+  silenciosa, visível só na próxima execução (a cada 20 min). Era o primeiro
+  caso em `tests/cli_contract/` (Fase 2.5) precisamente por isso — **resolvido
+  na Fase 4**: `--fail-fast`/`--no-fail-fast` são o par negável default do
+  Cyclopts (sem necessidade de `negative=[]`, já que o Typer original também
+  gerava os dois lados via `/`), e o caso de contrato correspondente passa
+  sem alteração.
 - **`ruff select=["ALL"]`** e **`vulture --min-confidence 100`** sinalizaram
   código novo durante a extração da Fase 2 (complexidade, imports não
   utilizados, docstrings) — resolvido com refino local (ex.: `enrich` do

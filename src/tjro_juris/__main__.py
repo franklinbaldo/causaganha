@@ -33,77 +33,109 @@ module only parses argv and echoes results.
 from __future__ import annotations
 
 import asyncio
+import sys
 from pathlib import Path
 from typing import Annotated
 
-import typer
+from cyclopts import App, Parameter
 
 from tjro_juris import service
 
 
-app = typer.Typer(name="tjro-juris", help="TJRO JURIS scraping and archival.")
+app = App(
+    name="tjro-juris",
+    help="TJRO JURIS scraping and archival.",
+    # Cyclopts registers --version by default; the original Typer app never
+    # declared it, so leaving it on would silently accept a form that used
+    # to be a usage error (RFC 0013 Fase 4 review, #855 round 3).
+    version_flags=[],
+)
 
 
-@app.command()
+@app.default
+def _no_command() -> int:
+    """Show help and exit 2 on a bare invocation (no subcommand).
+
+    The original Typer/Click app had no callback and no
+    `invoke_without_command=True`, so Click's own default behavior for a
+    group with no matching subcommand — print usage, exit 2 — applied.
+    Cyclopts has no equivalent default; without this, a bare `tjro-juris`
+    prints help and exits 0, silently dropping the "missing command" signal
+    (same class of gap flagged in review #855 for `datajud`/`stj_acordaos`,
+    which had it via Typer's explicit `no_args_is_help=True` instead).
+    """
+    app.help_print([])
+    return 2
+
+
+@app.command
 def crawl(
-    data_dir: Annotated[Path, typer.Argument(help="Directory to store parquet files")],
+    data_dir: Annotated[Path, Parameter(help="Directory to store parquet files")],
+    /,
+    *,
     tipo: Annotated[
-        list[str] | None, typer.Option("--tipo", "-t", help="Filter to these tipos")
+        list[str] | None, Parameter(name=["--tipo", "-t"], help="Filter to these tipos")
     ] = None,
-    ano: Annotated[int | None, typer.Option("--ano", "-a", help="Only crawl this year")] = None,
+    ano: Annotated[int | None, Parameter(name=["--ano", "-a"], help="Only crawl this year")] = (
+        None
+    ),
     mes: Annotated[
         str | None,
-        typer.Option(
-            "--mes",
-            "-m",
+        Parameter(
+            name=["--mes", "-m"],
             help="Only crawl this month (AAAA-MM) — incremental mode for scheduled runs",
         ),
     ] = None,
     desde_ano: Annotated[
         int | None,
-        typer.Option(
-            "--desde-ano",
+        Parameter(
+            name="--desde-ano",
             help=(
                 f"Full backfill starting from this year instead of the default "
                 f"({service.DEFAULT_START_YEAR}). Mutually exclusive with --ano/--mes."
             ),
         ),
     ] = None,
-) -> None:
+) -> int:
     """Crawl JURIS and save as parquet files per (tipo, mes_ano). See ``service.crawl_juris``."""
     try:
         service.crawl_juris(data_dir, tipo, ano, mes, desde_ano)
     except ValueError as exc:
-        raise typer.BadParameter(str(exc)) from exc
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    return 0
 
 
-@app.command()
+@app.command
 def upload(
-    data_dir: Annotated[Path, typer.Argument(help="Directory with parquet files")],
+    data_dir: Annotated[Path, Parameter(help="Directory with parquet files")],
+    /,
 ) -> None:
     """Upload parquets (and the manifest) to Internet Archive."""
     asyncio.run(service.upload_pending(data_dir))
 
 
-@app.command()
+@app.command
 def status(
-    data_dir: Annotated[Path, typer.Argument(help="Directory with manifest")],
+    data_dir: Annotated[Path, Parameter(help="Directory with manifest")],
+    /,
 ) -> None:
     """Show manifest status."""
     result = service.manifest_status(data_dir)
-    typer.echo(f"Total entries: {result.total}")
-    typer.echo(f"Uploaded:      {result.uploaded}")
-    typer.echo(f"Pending:       {result.pending}")
+    print(f"Total entries: {result.total}")
+    print(f"Uploaded:      {result.uploaded}")
+    print(f"Pending:       {result.pending}")
 
 
-@app.command()
+@app.command
 def consolidate(
-    data_dir: Annotated[Path, typer.Argument(help="Directory with parquet files")],
-    year: Annotated[int, typer.Argument(help="Year to consolidate")],
+    data_dir: Annotated[Path, Parameter(help="Directory with parquet files")],
+    year: Annotated[int, Parameter(help="Year to consolidate")],
+    /,
 ) -> None:
     """Consolidate monthly parquets for a year into a single deduplicated file."""
     output, count = service.consolidate_parquets(data_dir, year)
-    typer.echo(f"Consolidated {count} documents to {output}")
+    print(f"Consolidated {count} documents to {output}")
 
 
 if __name__ == "__main__":
