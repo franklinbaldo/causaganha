@@ -669,13 +669,30 @@ async function queryRows(
   }
 }
 
-async function queryRow(
+/**
+ * Como queryRows, mas isolada por fonte: uma falha (404, CORS, parquet
+ * corrompido, erro transitório) vira aviso identificando `fonte` e resolve
+ * para null em vez de propagar — a mesma fronteira que
+ * causaganha.processos.service.py's `_build_djen`/`_build_juris`/etc. já
+ * aplicam no lado Python (RFC 0014 M2 review: sem isso, uma única fonte
+ * fora do ar derrubava o dossiê inteiro para 'source_unavailable' no
+ * componente, descartando as demais fontes que carregaram normalmente).
+ */
+async function queryRowSafe(
   conn: DuckDBConnectionLike,
+  fonte: Fonte,
   sql: string,
   params: unknown[],
+  avisos: string[],
 ): Promise<Record<string, unknown> | null> {
-  const rows = await queryRows(conn, sql, params);
-  return rows[0] ?? null;
+  try {
+    const rows = await queryRows(conn, sql, params);
+    return rows[0] ?? null;
+  } catch (err) {
+    const detalhe = err instanceof Error ? err.message : String(err);
+    avisos.push(`Fonte '${fonte}' indisponível para este processo: ${detalhe}`);
+    return null;
+  }
 }
 
 export interface ProcessoResultado {
@@ -757,10 +774,14 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
   const stjUrls = fonteUrls(rowPairs, 'stj');
   const datajudUrls = fonteUrls(rowPairs, 'datajud');
 
-  const djenRaw = djenUrls.length ? await queryRow(conn, buildDjenSql(djenUrls), [digits]) : null;
-  const jurisRaw = jurisUrls.length ? await queryRow(conn, buildJurisSql(jurisUrls), [digits]) : null;
-  const stjRaw = stjUrls.length ? await queryRow(conn, buildStjSql(stjUrls), [digits]) : null;
-  const datajudRaw = datajudUrls.length ? await queryRow(conn, buildDatajudSql(datajudUrls), [digits]) : null;
+  const djenRaw = djenUrls.length ? await queryRowSafe(conn, 'djen', buildDjenSql(djenUrls), [digits], avisos) : null;
+  const jurisRaw = jurisUrls.length
+    ? await queryRowSafe(conn, 'juris', buildJurisSql(jurisUrls), [digits], avisos)
+    : null;
+  const stjRaw = stjUrls.length ? await queryRowSafe(conn, 'stj', buildStjSql(stjUrls), [digits], avisos) : null;
+  const datajudRaw = datajudUrls.length
+    ? await queryRowSafe(conn, 'datajud', buildDatajudSql(datajudUrls), [digits], avisos)
+    : null;
 
   return {
     encontrado: true,

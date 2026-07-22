@@ -509,6 +509,41 @@ describe('buscarProcesso', () => {
       vi.unstubAllGlobals();
     }
   });
+
+  it('isolates a single source failure — JURIS erroring must not discard DJEN/DataJud (RFC 0014 M2 review)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      const conn = fakeConnWithFailure('FROM agg, principal', [
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [
+            { fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' },
+            { fonte: 'juris', arquivo_ia_url: 'https://ia/tjro-juris-2024.parquet' },
+            { fonte: 'datajud', arquivo_ia_url: 'https://ia/datajud-capa-tjro.parquet' },
+          ],
+        ],
+        [
+          'COUNT(*)::INTEGER AS n_publicacoes',
+          [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }],
+        ],
+        [
+          'FROM read_parquet([\'https://ia/datajud-capa-tjro.parquet\'])',
+          [{ n: 1, classe_oficial: 'Apelacao', assuntos: 'X', orgao_julgador: 'Y', grau: 'G1', data_ajuizamento: '2024-01-01', ultima_atualizacao: '2024-02-01' }],
+        ],
+      ]);
+
+      // buscarProcesso must resolve (not reject) even though the JURIS query throws.
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+
+      expect(result.encontrado).toBe(true);
+      expect(result.djen.present).toBe(true); // unaffected by JURIS failing
+      expect(result.datajud.present).toBe(true); // unaffected by JURIS failing
+      expect(result.juris.present).toBe(false); // the failed source degrades to absent
+      expect(result.avisos.some((a) => a.includes('juris') && a.includes('indisponível'))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 /** Like fakeConn, but any query whose SQL contains `failSubstring` throws instead of resolving. */
