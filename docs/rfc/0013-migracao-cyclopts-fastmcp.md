@@ -1,6 +1,9 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
 - **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A e Fase 3B implementadas
+  (PRs #849, #850, #851, #852, #853). Fase 3 está fechada — trabalho de
+  produto sobre o servidor MCP continua em RFC 0014. Fase 4 (Typer →
+  Cyclopts) segue pendente, sem PR aberto.
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -336,6 +339,18 @@ Correções de review antes do merge:
 Operações de ingestão/upload de longa duração (o sync completo, `drain`,
 `consolidate`, `enrich` com upload) ficam só na CLI/CI em qualquer fase —
 nunca viram tool.
+
+**Fase 3 está fechada aqui — fronteira de escopo com a RFC 0014.** As cinco
+tools read-only (`datajud_status`, `tjro_juris_status`, `stj_acordaos_status`,
+`djen_backup_status`, `datajud_facetas`) cobrem o que esta RFC se propôs:
+expor a camada de serviço via FastMCP sem tocar ingestão/upload. Qualquer
+trabalho adicional sobre o servidor MCP — onboarding/descoberta, textos em
+português nas superfícies exibidas, uma tool agregadora de status, campos de
+freshness/proveniência (`encontrado`, `ultima_atualizacao`, `fonte`,
+`canonica`, `aviso`), ou `processo_consultar` — é um eixo de produto, não de
+migração de framework, e fica em **RFC 0014 — MCP como superfície de
+produto**. Esta RFC não será estendida com esse escopo; só Fase 4 (abaixo)
+continua pendente aqui.
 
 ### Fase 4 — Typer → Cyclopts
 
