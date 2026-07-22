@@ -5,7 +5,7 @@ from pathlib import Path
 
 import pytest
 
-from djen_backup.manifest import SyncManifest, interpret_djen_raw
+from djen_backup.manifest import ManifestCounts, SyncManifest, interpret_djen_raw
 
 
 FIXTURE = Path("tests/fixtures/manifest_contract_rows.csv")
@@ -35,7 +35,14 @@ def test_manifest_fixture_load_counts_and_queries() -> None:
     loaded = manifest.load_from_csv(FIXTURE.read_text(encoding="utf-8"), overwrite=True)
 
     assert loaded == 6
-    assert manifest.counts() == (6, 1, 1, 2, 2)
+    assert manifest.counts() == ManifestCounts(
+        total=6,
+        uploaded=1,
+        available=1,
+        absent=2,
+        unknown=2,
+        ultima_atualizacao="2026-04-03T12:00:00+00:00",
+    )
     assert manifest.has_uploaded_entries("tjsp", 2026) is True
     assert manifest.entries_needing_upload()
 
@@ -79,7 +86,14 @@ TJRO,2026-04-03,,confirmed,200,2026-04-03T14:00:00+00:00"""
     applied = manifest.apply_segment_csv(segment)
 
     assert applied == 3
-    assert manifest.counts() == (6, 2, 2, 1, 1)
+    assert manifest.counts() == ManifestCounts(
+        total=6,
+        uploaded=2,
+        available=2,
+        absent=1,
+        unknown=1,
+        ultima_atualizacao="2026-04-03T14:00:00+00:00",
+    )
     assert manifest.get_status("TJSP", date(2026, 4, 3)).djen_raw == "403"  # type: ignore[union-attr]
     assert manifest.get_status("TJSP", date(2026, 4, 2)).ia_status == "uploaded"  # type: ignore[union-attr]
     assert manifest.get_status("TJRO", date(2026, 4, 3)).djen_status == "available"  # type: ignore[union-attr]

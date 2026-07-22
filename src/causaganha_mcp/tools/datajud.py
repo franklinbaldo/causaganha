@@ -1,7 +1,8 @@
-"""``datajud_status`` and ``datajud_facetas`` tools (RFC 0013 Fase 3A/3B)."""
+"""``datajud_status`` e ``datajud_facetas`` (RFC 0013 Fase 3A/3B, RFC 0014 M1)."""
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Literal
 
@@ -25,148 +26,171 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
-# Internal MCP call budget for `datajud_facetas` — NOT exposed as a tool
-# parameter. `DataJudClient`'s own defaults (timeout=90s, max_retries=5,
-# 2/4/8/16/30s backoff) are tuned for the `enrich` CLI's long-running batch
-# ingestion, where riding out a DataJud hiccup is worth minutes of waiting.
-# An interactive MCP call is a different budget: an unlucky timeout there
-# could keep this tool open for ~10 minutes before producing a ToolError
-# (RFC 0013 Fase 3B review), long enough for a host to give up waiting on
-# the call entirely. These numbers trade some of that ingestion-grade
-# resilience for a call whose worst case — 2 attempts * 15s timeout + ~1s
-# of backoff — stays well under half a minute.
+# Orçamento interno de tempo/retry para a chamada MCP de datajud_facetas —
+# NÃO é um parâmetro da tool. Os defaults do DataJudClient (timeout=90s,
+# max_retries=5, backoff 2/4/8/16/30s) são calibrados para o `enrich` da
+# CLI — ingestão em lote de longa duração, onde vale esperar minutos por um
+# hiccup do DataJud. Uma chamada MCP interativa tem outro orçamento: um
+# timeout azarado poderia deixar esta tool aberta por ~10 minutos antes de
+# produzir o ToolError (RFC 0013 Fase 3B review) — tempo longo o bastante
+# para o host desistir de esperar. Estes números trocam parte dessa
+# resiliência de ingestão por um pior caso — 2 tentativas * 15s de timeout
+# + ~1s de backoff — que fica bem abaixo de meio minuto.
 _FACETAS_TIMEOUT = 15.0
 _FACETAS_MAX_RETRIES = 1
 _FACETAS_BACKOFF_BASE = 1.0
 
-# Second, independent layer of defense: FastMCP's own per-tool deadline
-# (`@mcp.tool(timeout=...)`, backed by `anyio.fail_after`, surfaced to the
-# caller as a generic McpError → ToolError, not one of `_facetas_tool_error`'s
-# tailored messages). The budget above only bounds `DataJudClient`'s own
-# retry loop; this bounds the tool call as a whole, regardless of what
-# happens inside it — a hang the client's own timeout doesn't catch, a
-# future change to the retry budget that drifts it back up, anything.
-# Set comfortably above the tuned client budget's own worst case (~31s) so
-# it stays a backstop: the common failure path should still resolve via
-# the client's own tailored errors well before this fires.
+# Segunda camada de defesa, independente: o deadline nativo do FastMCP na
+# tool (`@mcp.tool(timeout=...)`, via `anyio.fail_after`, que vira um
+# McpError → ToolError genérico, não uma das mensagens tratadas de
+# `_facetas_tool_error`). O orçamento acima só limita o retry loop do
+# DataJudClient; este limita a chamada inteira, incluindo qualquer
+# travamento que o timeout do próprio client não cubra. Definido
+# confortavelmente acima do pior caso do orçamento do client (~31s) para
+# continuar sendo um backstop: o caminho comum de falha deve resolver via
+# as mensagens tratadas do client antes deste disparar.
 _FACETAS_TOOL_TIMEOUT = 45.0
 
 
 class DatajudStatusResult(BaseModel):
-    """Summary of the local DataJud manifest."""
+    """Resumo do manifest local do DataJud."""
 
-    found: bool = Field(description="False when the manifest doesn't exist or has no entries.")
-    total: int = Field(default=0, description="CNJs consulted so far.")
-    ok: int = Field(default=0, description="CNJs whose last consult succeeded.")
-    com_docs: int = Field(default=0, description="Consulted CNJs with at least one document.")
-    sem_docs: int = Field(default=0, description="Consulted CNJs with zero documents found.")
-    com_erro: int = Field(default=0, description="CNJs whose last consult failed.")
+    encontrado: bool = Field(
+        description="False quando o manifest não existe ou não tem nenhuma entrada."
+    )
+    total: int = Field(default=0, description="CNJs consultados até agora.")
+    ok: int = Field(default=0, description="CNJs cuja última consulta teve sucesso.")
+    com_docs: int = Field(default=0, description="CNJs consultados com pelo menos um documento.")
+    sem_docs: int = Field(
+        default=0, description="CNJs consultados sem nenhum documento encontrado."
+    )
+    com_erro: int = Field(default=0, description="CNJs cuja última consulta falhou.")
+    ultima_atualizacao: str | None = Field(
+        default=None,
+        description="Timestamp (ISO 8601) da consulta mais recente registrada no manifest, "
+        "ou None quando não há nenhuma entrada.",
+    )
+    fonte: Literal["manifest_local"] = Field(
+        default="manifest_local", description="Este manifest local é a fonte dos dados."
+    )
+    canonica: bool = Field(
+        default=True,
+        description="True: este manifest é a própria fonte de verdade do pipeline DataJud "
+        "(não há um artefato remoto canônico separado dele).",
+    )
+    aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
 
 class DatajudFacetaBucket(BaseModel):
-    """One aggregation bucket returned by ``datajud_facetas``."""
+    """Um grupo (bucket) da agregação retornada por ``datajud_facetas``."""
 
-    chave: str = Field(description="Facet value (e.g. a classe or assunto name).")
-    qtd: int = Field(description="Document count for this value.")
+    chave: str = Field(description="Valor da faceta (ex.: nome de uma classe ou assunto).")
+    qtd: int = Field(description="Quantidade de documentos com esse valor.")
 
 
 class DatajudFacetasResult(BaseModel):
-    """Aggregation of a tribunal's DataJud acervo by one dimension."""
+    """Agregação do acervo de um tribunal por uma dimensão do DataJud."""
 
-    tribunal: str = Field(description="Tribunal queried, lowercase (e.g. 'tjro').")
-    por: str = Field(description="Dimension aggregated by.")
+    tribunal: str = Field(description="Tribunal consultado, normalizado em minúsculas.")
+    por: str = Field(description="Dimensão usada na agregação.")
     total: int = Field(
-        description="Total documents in the tribunal's acervo — all facet "
-        "values, not just the buckets returned below."
+        description="Total de documentos no acervo do tribunal — todos os valores da "
+        "faceta, não só os grupos retornados abaixo."
     )
-    buckets: list[DatajudFacetaBucket] = Field(
-        description="Top facet values by document count, largest first."
+    grupos: list[DatajudFacetaBucket] = Field(
+        description="Principais valores da faceta por quantidade de documentos, maior primeiro."
+    )
+    consultado_em: str = Field(
+        description="Timestamp (ISO 8601) desta própria consulta — não há manifest local "
+        "para datajud_facetas, então não existe um 'última atualização' persistido."
     )
 
 
 def _facetas_tool_error(exc: Exception) -> ToolError:
-    """Map the DataJud client's error taxonomy to a structured ``ToolError``."""
+    """Mapeia a taxonomia de erro do client DataJud para um ``ToolError`` estruturado."""
     if isinstance(exc, DataJudAuthError):
         return ToolError(
-            "DataJud rejected the configured API key (HTTP 401). This is an "
-            "operator-level credential problem, not something retriable from "
-            f"here — fetch a current key at {WIKI_ACESSO_URL} and set the "
-            f"{API_KEY_ENV} environment variable."
+            "O DataJud rejeitou a chave de API configurada (HTTP 401). É um "
+            "problema de credencial do operador, não algo que se resolve "
+            f"tentando de novo — busque uma chave atual em {WIKI_ACESSO_URL} "
+            f"e configure a variável de ambiente {API_KEY_ENV}."
         )
     if isinstance(exc, DataJudRateLimitError):
         return ToolError(
-            "DataJud rate-limited this request past the retry budget. "
-            "Recoverable: wait a bit and call datajud_facetas again."
+            "O DataJud limitou esta requisição além do orçamento de retry. "
+            "Recuperável: espere um pouco e chame datajud_facetas de novo."
         )
     if isinstance(exc, DataJudProtocolError):
-        return ToolError(f"DataJud returned an unparseable response: {exc}")
+        return ToolError(f"O DataJud retornou uma resposta não interpretável: {exc}")
     if isinstance(exc, httpx.TimeoutException | httpx.TransportError):
         return ToolError(
-            "Network error reaching DataJud (timeout or connection failure). "
-            "Recoverable: retry datajud_facetas; if it persists, the DataJud "
-            "API itself may be down."
+            "Erro de rede ao acessar o DataJud (timeout ou falha de conexão). "
+            "Recuperável: tente datajud_facetas de novo; se persistir, a "
+            "própria API do DataJud pode estar fora do ar."
         )
     if isinstance(exc, httpx.HTTPStatusError):
-        return ToolError(f"DataJud returned HTTP {exc.response.status_code} for this query.")
-    # Deliberately doesn't interpolate str(exc): a bare DataJudError here is
-    # the non-transient-ES-error branch of DataJudClient._search_once, whose
-    # message embeds the raw Elasticsearch error payload — not something to
-    # promise as a stable, safe public tool message. The real exception is
-    # still attached via `raise ... from exc` for logs/debugging.
+        return ToolError(f"O DataJud retornou HTTP {exc.response.status_code} para esta consulta.")
+    # Deliberadamente não interpola str(exc): um DataJudError puro aqui é o
+    # ramo de erro de ES não-transiente de DataJudClient._search_once, cuja
+    # mensagem embute o payload cru do Elasticsearch — não é algo para
+    # prometer como mensagem pública estável e segura. A causa real continua
+    # disponível via `raise ... from exc` para logs/depuração.
     return ToolError(
-        "DataJud could not complete this aggregation. Retry later; if the "
-        "error persists, the upstream query may be unavailable."
+        "O DataJud não conseguiu concluir esta agregação. Tente de novo mais "
+        "tarde; se persistir, a consulta upstream pode estar indisponível."
     )
 
 
 def register(mcp: FastMCP) -> None:
-    """Register ``datajud_status`` and ``datajud_facetas`` on *mcp*."""
+    """Registra ``datajud_status`` e ``datajud_facetas`` em *mcp*."""
 
     @mcp.tool(
         name="datajud_status",
         annotations={
-            "title": "DataJud manifest status",
+            "title": "Status do manifest do DataJud",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
             "openWorldHint": False,
         },
     )
-    def datajud_status(data_dir: str = str(service.DEFAULT_DATA_DIR)) -> DatajudStatusResult:
-        """Summarize the local DataJud manifest: how many CNJs are consulted and found.
+    def datajud_status(
+        diretorio_dados: str = str(service.DEFAULT_DATA_DIR),
+    ) -> DatajudStatusResult:
+        """Resume o manifest local do DataJud: quantos CNJs foram consultados e encontrados.
 
-        Reads `datajud-manifest.csv` under `data_dir` from local disk only —
-        no network call, no credentials involved. Use this to check the
-        progress of `datajud enrich` runs (e.g. after the daily
-        `datajud-enrich.yml` cron) without a shell. This tool never triggers
-        a new consult or upload; for that, use the `datajud` CLI's `enrich`
-        command.
+        Lê `datajud-manifest.csv` em `diretorio_dados`, só do disco local —
+        nenhuma chamada de rede, nenhuma credencial envolvida. Use para
+        checar o progresso de execuções do `datajud enrich` (ex.: após o
+        cron diário `datajud-enrich.yml`) sem precisar de um shell. Nunca
+        dispara uma nova consulta ou upload; para isso, use o comando
+        `enrich` da CLI `datajud`. `encontrado=False` (contagens zeradas)
+        quando o manifest ainda não existe ou não tem entradas — não é um
+        erro, só um pipeline vazio.
 
         Args:
-            data_dir: Directory containing the DataJud manifest and parquets.
-                Defaults to "data/datajud", the path the scheduled workflow uses.
-
-        Returns:
-            found=False (all counts zero) when the manifest doesn't exist yet
-            or has no entries — not an error, just an empty pipeline.
+            diretorio_dados: Diretório com o manifest e os parquets do
+                DataJud. Default "data/datajud", o caminho que o workflow
+                agendado usa.
         """
-        result = service.manifest_status(Path(data_dir))
+        result = service.manifest_status(Path(diretorio_dados))
         if result is None:
-            return DatajudStatusResult(found=False)
+            return DatajudStatusResult(encontrado=False)
         return DatajudStatusResult(
-            found=True,
+            encontrado=True,
             total=result.total,
             ok=result.ok,
             com_docs=result.com_docs,
             sem_docs=result.sem_docs,
             com_erro=result.com_erro,
+            ultima_atualizacao=result.ultima_atualizacao or None,
         )
 
     @mcp.tool(
         name="datajud_facetas",
         timeout=_FACETAS_TOOL_TIMEOUT,
         annotations={
-            "title": "DataJud facet aggregation",
+            "title": "Agregação por faceta no DataJud",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -177,35 +201,28 @@ def register(mcp: FastMCP) -> None:
         tribunal: str = DEFAULT_TRIBUNAL,
         por: Literal["classe", "assunto", "orgao", "grau", "sistema"] = "classe",
         limite: Annotated[
-            int, Field(ge=1, le=100, description="Max number of buckets to return.")
+            int, Field(ge=1, le=100, description="Máximo de grupos a retornar.")
         ] = 15,
     ) -> DatajudFacetasResult:
-        """Aggregate a tribunal's DataJud acervo by one dimension (classe, assunto, ...).
+        """Agrega o acervo de DataJud de um tribunal por uma dimensão (classe, assunto, ...).
 
-        Queries the live public DataJud API (network call, unlike
-        `datajud_status`) to count documents grouped by *por*, without
-        downloading any document. Use this to answer questions like "what
-        are the top 10 classes in TJRO's acervo?" without fetching or
-        enriching individual processos.
+        Consulta a API pública do DataJud ao vivo (chamada de rede, ao
+        contrário de `datajud_status`) para contar documentos agrupados por
+        *por*, sem baixar nenhum documento. Use para responder perguntas
+        como "quais são as 10 principais classes no acervo do TJRO?" sem
+        buscar ou enriquecer processos individuais. Retorna o total do
+        acervo inteiro mais os `limite` grupos com mais documentos.
+        Um orçamento interno de tempo mais apertado que o do `datajud
+        enrich` da CLI, mais um deadline rígido por chamada, mantêm o pior
+        caso bem abaixo de um minuto, não minutos.
 
         Args:
-            tribunal: Tribunal to query, lowercase (e.g. "tjro"). Defaults to
-                the same tribunal the `datajud` CLI defaults to.
-            por: Dimension to aggregate by.
-            limite: Max buckets to return, 1-100. The `total` field always
-                reflects the full acervo, even when `limite` truncates the
-                bucket list.
-
-        Returns:
-            The full acervo total plus the top `limite` buckets, largest
-            first.
-
-        Raises:
-            A structured tool error (never a raw exception) when DataJud
-            rejects the API key, rate-limits past the retry budget, returns
-            an unparseable body, or is unreachable. Uses a tighter internal
-            timeout/retry budget than the `datajud enrich` CLI, plus a hard
-            per-call deadline — well under a minute worst case, not minutes.
+            tribunal: Tribunal a consultar, minúsculo (ex.: "tjro"). Default
+                o mesmo tribunal que a CLI `datajud` usa por padrão.
+            por: Dimensão da agregação.
+            limite: Máximo de grupos a retornar, 1-100. O campo `total`
+                sempre reflete o acervo inteiro, mesmo quando `limite`
+                corta a lista de grupos.
         """
         try:
             total, buckets = await service.facetas(
@@ -219,10 +236,11 @@ def register(mcp: FastMCP) -> None:
         except (DataJudError, httpx.HTTPError) as exc:
             raise _facetas_tool_error(exc) from exc
         return DatajudFacetasResult(
-            tribunal=tribunal,
+            tribunal=tribunal.lower(),
             por=por,
             total=total,
-            buckets=[
+            grupos=[
                 DatajudFacetaBucket(chave=bucket["chave"], qtd=bucket["qtd"]) for bucket in buckets
             ],
+            consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
         )

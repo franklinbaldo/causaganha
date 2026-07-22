@@ -4,7 +4,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from tjro_juris.manifest import HEADER, ManifestJuris, ManifestJurisEntry
+import pytest
+
+from tjro_juris.manifest import HEADER, ManifestFormatError, ManifestJuris, ManifestJurisEntry
 
 
 if TYPE_CHECKING:
@@ -14,6 +16,22 @@ if TYPE_CHECKING:
 def test_load_local_missing_file_returns_empty_manifest(tmp_path: Path) -> None:
     m = ManifestJuris.load_local(tmp_path / "nope.csv")
     assert m.all_entries() == []
+
+
+def test_load_local_missing_column_raises_manifest_format_error(tmp_path: Path) -> None:
+    path = tmp_path / "tjro-juris-manifest.csv"
+    path.write_text("mes_ano,ia_status,n_docs,updated_at\n2024-01,uploaded,10,\n", encoding="utf-8")
+
+    with pytest.raises(ManifestFormatError, match="tipo"):
+        ManifestJuris.load_local(path)
+
+
+def test_load_local_non_numeric_n_docs_raises_manifest_format_error(tmp_path: Path) -> None:
+    path = tmp_path / "tjro-juris-manifest.csv"
+    path.write_text(f"{HEADER}\nACÓRDÃO,2024-01,uploaded,not-a-number,\n", encoding="utf-8")
+
+    with pytest.raises(ManifestFormatError):
+        ManifestJuris.load_local(path)
 
 
 def test_save_load_roundtrip(tmp_path: Path) -> None:

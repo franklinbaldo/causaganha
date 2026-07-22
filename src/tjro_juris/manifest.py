@@ -16,6 +16,10 @@ if TYPE_CHECKING:
 HEADER = "tipo,mes_ano,ia_status,n_docs,updated_at"
 
 
+class ManifestFormatError(ValueError):
+    """The local manifest CSV is malformed (missing column, non-numeric n_docs, ...)."""
+
+
 @dataclass
 class ManifestJurisEntry:
     """A single (tipo, mes_ano) pair with crawl/upload status."""
@@ -40,20 +44,29 @@ class ManifestJuris:
 
     @classmethod
     def load_local(cls, path: Path) -> ManifestJuris:
-        """Load manifest from a local CSV file."""
+        """Load manifest from a local CSV file.
+
+        Raises `ManifestFormatError` on a malformed row (missing column,
+        non-numeric `n_docs`) instead of leaking a bare `KeyError`/
+        `ValueError` — callers get one nominal exception type to handle.
+        """
         m = cls()
         if not path.exists():
             return m
         text = path.read_text(encoding="utf-8")
         reader = csv.DictReader(io.StringIO(text))
         for row in reader:
-            entry = ManifestJurisEntry(
-                tipo=row["tipo"],
-                mes_ano=row["mes_ano"],
-                ia_status=row.get("ia_status", ""),
-                n_docs=int(row.get("n_docs", 0) or 0),
-                updated_at=row.get("updated_at", ""),
-            )
+            try:
+                entry = ManifestJurisEntry(
+                    tipo=row["tipo"],
+                    mes_ano=row["mes_ano"],
+                    ia_status=row.get("ia_status", ""),
+                    n_docs=int(row.get("n_docs", 0) or 0),
+                    updated_at=row.get("updated_at", ""),
+                )
+            except (KeyError, ValueError) as exc:
+                msg = f"malformed row in {path}: {exc}"
+                raise ManifestFormatError(msg) from exc
             m._entries[cls._key(entry.tipo, entry.mes_ano)] = entry
         return m
 

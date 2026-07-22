@@ -334,6 +334,7 @@ class ManifestStatus:
 
     total: int
     uploaded: int
+    ultima_atualizacao: str = ""
 
     @property
     def pending(self) -> int:
@@ -346,7 +347,10 @@ def manifest_status(data_dir: Path) -> ManifestStatus:
     manifest = ManifestJuris.load_local(manifest_path(data_dir))
     entries = manifest.all_entries()
     uploaded = sum(1 for e in entries if e.ia_status == "uploaded")
-    return ManifestStatus(total=len(entries), uploaded=uploaded)
+    ultima_atualizacao = max((e.updated_at for e in entries if e.updated_at), default="")
+    return ManifestStatus(
+        total=len(entries), uploaded=uploaded, ultima_atualizacao=ultima_atualizacao
+    )
 
 
 def consolidate_parquets(data_dir: Path, year: int) -> tuple[Path, int]:

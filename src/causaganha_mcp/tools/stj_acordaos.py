@@ -1,9 +1,9 @@
-"""``stj_acordaos_status`` tool (RFC 0013 Fase 3A)."""
+"""``stj_acordaos_status`` (RFC 0013 Fase 3A, RFC 0014 M1)."""
 
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
@@ -15,20 +15,41 @@ if TYPE_CHECKING:
 
 
 class StjAcordaosStatusResult(BaseModel):
-    """Summary of the local STJ acórdãos manifest."""
+    """Resumo do manifest local de acórdãos do STJ."""
 
-    count: int = Field(description="Total files (ZIPs, monthly JSONs, parquet) recorded.")
-    uploaded: int = Field(description="Files already uploaded to Internet Archive.")
-    pending: int = Field(description="Files downloaded/built but not yet uploaded.")
+    encontrado: bool = Field(
+        description="False quando o manifest não existe ou não tem nenhuma entrada."
+    )
+    total: int = Field(
+        default=0, description="Total de arquivos (ZIPs, JSONs mensais, parquet) registrados."
+    )
+    enviados: int = Field(default=0, description="Arquivos já enviados para o Internet Archive.")
+    pendentes: int = Field(
+        default=0, description="Arquivos baixados/construídos mas ainda não enviados."
+    )
+    ultima_atualizacao: str | None = Field(
+        default=None,
+        description="Timestamp (ISO 8601) da entrada mais recentemente atualizada no "
+        "manifest, ou None quando não há nenhuma entrada.",
+    )
+    fonte: Literal["manifest_local"] = Field(
+        default="manifest_local", description="Este manifest local é a fonte dos dados."
+    )
+    canonica: bool = Field(
+        default=True,
+        description="True: este manifest é a própria fonte de verdade do pipeline STJ "
+        "acórdãos (não há um artefato remoto canônico separado dele).",
+    )
+    aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
 
 def register(mcp: FastMCP) -> None:
-    """Register ``stj_acordaos_status`` on *mcp*."""
+    """Registra ``stj_acordaos_status`` em *mcp*."""
 
     @mcp.tool(
         name="stj_acordaos_status",
         annotations={
-            "title": "STJ acórdãos manifest status",
+            "title": "Status do manifest de acórdãos do STJ",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -36,28 +57,29 @@ def register(mcp: FastMCP) -> None:
         },
     )
     def stj_acordaos_status(
-        manifest_path: str = str(service.DEFAULT_MANIFEST),
+        caminho_manifesto: str = str(service.DEFAULT_MANIFEST),
     ) -> StjAcordaosStatusResult:
-        """Summarize the local STJ acórdãos manifest: files tracked and upload progress.
+        """Resume o manifest local de acórdãos do STJ: arquivos rastreados e progresso de envio.
 
-        Reads the manifest CSV from local disk only — no network call, no
-        credentials involved. Per-file details (filename, tipo, status) are
-        intentionally omitted from this summary to keep the response small;
-        use the `stj-acordaos` CLI's `status` command for the full listing.
-        Never triggers a new download or upload; for that, use the
-        `stj-acordaos` CLI's `download`/`upload` commands.
+        Lê o manifest CSV só do disco local — nenhuma chamada de rede,
+        nenhuma credencial envolvida. Detalhes por arquivo (nome, tipo,
+        status) são deliberadamente omitidos deste resumo para manter a
+        resposta pequena; use o comando `status` da CLI `stj-acordaos` para
+        a listagem completa. Nunca dispara um novo download ou upload; para
+        isso, use os comandos `download`/`upload` da CLI `stj-acordaos`.
+        `encontrado=False` (contagens zeradas) quando o manifest ainda não
+        existe ou não tem entradas — não é um erro, só um pipeline vazio.
 
         Args:
-            manifest_path: Path to `stj-manifest.csv`. Defaults to
-                "data/stj/stj-manifest.csv", the path the scheduled workflow uses.
-
-        Returns:
-            All-zero counts when the manifest doesn't exist yet or is empty —
-            not an error, just an empty pipeline.
+            caminho_manifesto: Caminho para `stj-manifest.csv`. Default
+                "data/stj/stj-manifest.csv", o caminho que o workflow
+                agendado usa.
         """
-        result = service.manifest_summary(Path(manifest_path))
+        result = service.manifest_summary(Path(caminho_manifesto))
         return StjAcordaosStatusResult(
-            count=result.count,
-            uploaded=result.uploaded,
-            pending=result.pending,
+            encontrado=result.count > 0,
+            total=result.count,
+            enviados=result.uploaded,
+            pendentes=result.pending,
+            ultima_atualizacao=result.ultima_atualizacao or None,
         )

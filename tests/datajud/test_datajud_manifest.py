@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
-from datajud.manifest import STATUS_ERRO, STATUS_OK, ManifestDataJud
+import pytest
+
+from datajud.manifest import HEADER, STATUS_ERRO, STATUS_OK, ManifestDataJud, ManifestFormatError
 
 
 if TYPE_CHECKING:
@@ -13,6 +15,22 @@ if TYPE_CHECKING:
 
 
 CNJ = "00000010220248220001"
+
+
+def test_load_local_missing_column_raises_manifest_format_error(tmp_path: Path) -> None:
+    path = tmp_path / "datajud-manifest.csv"
+    path.write_text("tribunal,docs,consultado_em,status\ntjro,3,,ok\n", encoding="utf-8")
+
+    with pytest.raises(ManifestFormatError, match="cnj"):
+        ManifestDataJud.load_local(path)
+
+
+def test_load_local_non_numeric_docs_raises_manifest_format_error(tmp_path: Path) -> None:
+    path = tmp_path / "datajud-manifest.csv"
+    path.write_text(f"{HEADER}\n{CNJ},tjro,not-a-number,,ok\n", encoding="utf-8")
+
+    with pytest.raises(ManifestFormatError):
+        ManifestDataJud.load_local(path)
 
 
 def test_roundtrip_preserves_entries(tmp_path: Path):

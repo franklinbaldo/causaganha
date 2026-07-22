@@ -97,6 +97,7 @@ Registered entry points (`pyproject.toml` `[project.scripts]`):
 | `stj-acordaos` | STJ acórdãos collection |
 | `tjro-juris` | TJRO jurisprudence collection |
 | `datajud` | DataJud process metadata enrichment |
+| `causaganha-mcp` | MCP server exposing read-only status tools to AI assistants (see [below](#use-o-causaganha-no-seu-assistente)) |
 
 ### `djen-backup` — sync engine
 
@@ -135,6 +136,39 @@ When the CNJ rotates the key (usually visible as HTTP 401 responses), add the ne
 uv run --env-file .env datajud enrich --tribunal tjro --skip-upload
 ```
 
+## Use o CausaGanha no seu assistente
+
+Além da CLI e do dashboard web, o CausaGanha expõe um servidor [MCP](https://modelcontextprotocol.io/) (`causaganha-mcp`) — um conjunto de tools que um assistente de IA pode chamar diretamente, sem passar por um shell.
+
+`causaganha-mcp` roda por padrão como um processo local sobre stdio. Isso funciona em hosts com suporte a stdio local, como o Claude Desktop — configure em `claude_desktop_config.json` (ou equivalente):
+
+```json
+{
+  "mcpServers": {
+    "causaganha": {
+      "command": "uv",
+      "args": ["run", "--directory", "/caminho/para/causaganha", "causaganha-mcp"]
+    }
+  }
+}
+```
+
+**ChatGPT não usa essa receita.** O modo Developer/conectores MCP do ChatGPT exige um endpoint remoto (ou o Secure MCP Tunnel) — não conecta a um processo `stdio` local como o acima, e depende de plano/modo específicos. Ver a [documentação oficial](https://help.openai.com/pt-br/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt-beta). Servir `causaganha-mcp` remotamente para ChatGPT (ou outro host que só fale HTTP) ainda não está configurado neste repositório.
+
+Seis tools hoje, em dois grupos:
+
+- **Locais, sem chamada de rede** — leem só o manifest de cada pipeline neste disco: `causaganha_status` (panorama dos quatro pipelines numa só chamada), `datajud_status`, `tjro_juris_status`, `stj_acordaos_status`, `djen_backup_status` (o mesmo detalhe de `causaganha_status`, mas por pipeline).
+- **Consulta ao vivo** — `datajud_facetas` é a única que sai da máquina: consulta a API pública do DataJud em tempo real.
+
+Nenhuma delas dispara ingestão, upload ou backfill — para isso, use a CLI ou os workflows agendados (ver acima).
+
+Perguntas que dá pra fazer direto pro assistente, sem abrir terminal:
+
+- "Como estão os pipelines?"
+- "Há uploads pendentes?"
+- "Quais são as principais classes do TJRO?"
+- "Quais assuntos aparecem mais no acervo do TJRO?"
+- "Os dados locais podem estar desatualizados?"
 
 ## Web frontend
 
