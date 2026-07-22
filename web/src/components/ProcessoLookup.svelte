@@ -76,6 +76,7 @@
         digits,
         offset,
         DOCUMENTOS_PAGE_SIZE,
+        processo?.legado ?? false,
       );
 
       if (generation !== searchGeneration) return; // a newer search superseded this one
