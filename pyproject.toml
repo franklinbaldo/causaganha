@@ -32,6 +32,12 @@ dependencies = [
     "aiolimiter>=1.2.1",
     "anyio>=4.0",
     "aiohttp>=3.9.0",
+    # causaganha_mcp — RFC 0013 Fase 3. Floor covers both APIs actually used:
+    # tool annotations (readOnlyHint etc.) landed in 2.2.7; structured
+    # output/output_schema, which the tools' Pydantic return types and
+    # tests/causaganha_mcp/test_tool_schema.py depend on, landed in 2.10.0.
+    # Matches the floor already adopted in the sibling repo `pink`.
+    "fastmcp>=3.4.2",
 ]
 
 [dependency-groups]
@@ -89,6 +95,7 @@ stj-acordaos = "stj_acordaos.__main__:app"
 tjro-juris = "tjro_juris.__main__:app"
 datajud = "datajud.__main__:app"
 segmenter-dataset = "segmenter_dataset.__main__:app"
+causaganha-mcp = "causaganha_mcp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]

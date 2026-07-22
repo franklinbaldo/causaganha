@@ -1,6 +1,6 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1, Fase 2 e Fase 2.5 implementadas
+- **Status:** Fase 1, Fase 2, Fase 2.5 e Fase 3A implementadas
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
   Cyclopts + FastMCP, tools declaradas uma vez, CLI como despachante genérico
@@ -186,10 +186,55 @@ casos que a review de Fase 2 marcou como perigosos:
 ### Fase 3 — tools MCP
 
 Tools sobre a camada de serviço, começando pelas de leitura sem efeito
-destrutivo: `datajud status`/`facetas`, `tjro-juris status`, `stj-acordaos
-status`, consultas de manifest. Operações de ingestão/upload de longa duração
-(o sync completo, `drain`, `consolidate`) ficam só na CLI/CI — nunca viram
-tool.
+destrutivo. Duas fatias, para não misturar categorias de erro diferentes na
+mesma fundação de servidor:
+
+#### Fase 3A — status read-only local (implementada)
+
+Pacote novo `src/causaganha_mcp/` (dependência `fastmcp`, servidor
+`causaganha_mcp`, script `causaganha-mcp`). Quatro tools, uma por pacote,
+todas locais e determinísticas — leem um manifest do disco, sem chamada de
+rede, sem credencial:
+
+- `datajud_status` — `datajud.service.manifest_status`.
+- `tjro_juris_status` — `tjro_juris.service.manifest_status`.
+- `stj_acordaos_status` — `stj_acordaos.service.manifest_summary` (omite a
+  lista `rows` por economia de tokens — é resumo, não listagem).
+- `djen_backup_status` — `djen_backup.service.manifest_status`, função nova
+  nesta fase (`djen_backup` não tinha um comando `status` de CLI); só lê o
+  CSV local, nunca o parquet canônico no IA (`docs/planning/
+  manifest-source-of-truth.md`), então pode ficar atrás do estado real.
+
+Registro de tool é explícito (`tools/*.py` expõe `register(mcp)`, chamado
+por `server.build_server()`) — não decoração em import time. Motivo: é
+exatamente a mesma lição da Fase 2 sobre `djen_backup`'s antigo
+`structlog.configure()` de import — um processo que importa este módulo
+(um teste, outra tool) não deveria disparar side effect nenhum. E, por
+falar em side effect de import: esta fase encontrou e removeu outro, o
+`djen_backup/__init__.py` ainda reconfigurava `stdout`/`stderr` na
+importação — resíduo que a Fase 2 não tinha pego porque só tocou
+`__main__.py`. Sem isso corrigido, `from djen_backup import service` (o
+que `causaganha_mcp` precisa fazer) reconfiguraria stdio do processo do
+servidor MCP inteiro.
+
+Cada tool tem `readOnlyHint=True`, `destructiveHint=False`, retorno
+Pydantic estruturado, e é coberta por dois tipos de teste
+(`tests/causaganha_mcp/`): schema (nenhum campo com substring
+key/secret/token/credential/password em `parameters` ou `output_schema`,
+para as quatro tools) e comportamento (`tool.fn(...)` chamado direto contra
+manifests fixture, caminho vazio e caminho populado).
+
+#### Fase 3B — consultas remotas (não implementada)
+
+`datajud_facetas` fica para depois, separado de propósito: consulta a API
+pública do DataJud (rede real), então tem uma categoria de erro diferente
+(timeout, rate limit, erro de rede) da fundação local/determinística da
+Fase 3A. Misturar as duas na mesma fase aumentaria o espaço de depuração
+sem necessidade.
+
+Operações de ingestão/upload de longa duração (o sync completo, `drain`,
+`consolidate`, `enrich` com upload) ficam só na CLI/CI em qualquer fase —
+nunca viram tool.
 
 ### Fase 4 — Typer → Cyclopts
 
@@ -239,6 +284,20 @@ de mudar qualquer workflow. O callback bare de `djen-backup` precisa de um
   efetivamente o entrega.
 - `pytest`, `ruff check`, `ruff format --check` verdes. Nenhuma mudança de
   código de produção.
+
+**Fase 3A (implementada):**
+- `src/causaganha_mcp/` com `datajud_status`, `tjro_juris_status`,
+  `stj_acordaos_status`, `djen_backup_status` — todas `readOnlyHint=True`,
+  locais (leem manifest do disco), sem credencial em parâmetro ou retorno.
+- Registro de tool explícito (`register(mcp)`), não decoração em import
+  time — mesmo princípio da Fase 2.
+- Side effect de import residual em `djen_backup/__init__.py`
+  (reconfiguração de `stdout`/`stderr` fora de `configure_runtime()`)
+  identificado e removido — a Fase 2 só tinha coberto `__main__.py`.
+- `tests/causaganha_mcp/`: testes de schema (sem campo credencial-like em
+  nenhuma das 4 tools) e de comportamento (manifest vazio e populado, por
+  tool). `pytest`, `ruff check`, `ruff format --check` verdes.
+- Nenhuma tool de ingestão/upload — só as 4 de status.
 
 ## 4. Riscos
 
