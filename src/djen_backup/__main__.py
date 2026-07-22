@@ -335,6 +335,7 @@ def _run_pipeline(c: PipelineRunConfig) -> int:
 
 @_commands_app.default
 def main(
+    *,
     start_date: Annotated[str, Parameter(help="Lower bound for history.")] = "2020-01-01",
     end_date: Annotated[str, Parameter(help="Upper bound for history.")] = (
         date.today() - timedelta(days=1)
@@ -371,6 +372,7 @@ def main(
 
 @_commands_app.command
 def check(
+    *,
     start_date: Annotated[str, Parameter(help="Lower bound for history.")] = "2020-01-01",
     end_date: Annotated[str, Parameter(help="Upper bound for history.")] = (
         date.today() - timedelta(days=1)
@@ -402,6 +404,7 @@ def check(
 
 @_commands_app.command
 def upload(
+    *,
     tribunal: Annotated[str | None, Parameter(help="Specific tribunal code.")] = None,
     deadline_minutes: Annotated[int, Parameter(help="Stop processing after N minutes.")] = 17,
     max_items: Annotated[int, Parameter(help="Stop after N successful uploads.")] = 0,
@@ -430,6 +433,7 @@ def upload(
 
 @_commands_app.command
 def drain(
+    *,
     workers: Annotated[
         int, Parameter(name="--workers", help="Concurrent download+upload workers.")
     ] = 6,
@@ -443,7 +447,6 @@ def drain(
             help="Stop fetching new batches after this many minutes.",
         ),
     ] = 14,
-    *,
     # negative=[]: no --no-use-proxy pair here, unlike the bare callback's
     # use_proxy — matches the original Typer behavior, where passing an
     # explicit option string ("--use-proxy") suppressed the auto-negation
@@ -495,6 +498,7 @@ def drain(
 
 @_commands_app.command
 def probe(
+    *,
     workers: Annotated[
         int, Parameter(name="--workers", help="Concurrent probe workers (URL check only).")
     ] = 20,
@@ -508,7 +512,6 @@ def probe(
             help="Stop fetching new batches after this many minutes.",
         ),
     ] = 13,
-    *,
     # negative=[]: same rationale as drain's use_proxy above.
     use_proxy: Annotated[
         bool,
@@ -565,10 +568,10 @@ def probe(
 
 @_commands_app.command
 def reset(
+    *,
     tribunal: Annotated[
         str | None, Parameter(name="--tribunal", help="Tribunal code to reset.")
     ] = None,
-    *,
     # negative=[]: the original Typer option ("--all", explicit string) had
     # no --no-all pair; same rationale as drain/probe's use_proxy above.
     reset_all: Annotated[

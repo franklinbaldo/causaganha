@@ -413,6 +413,47 @@ texto original acima:
   e `src/causaganha/consolidate/cli.py` usam Typer e estão fora do escopo
   desta RFC (só os quatro pacotes de sincronização DJEN/TJRO/STJ/DataJud).
 
+**Achados de uma segunda rodada de review (PR #855), corrigidos antes do
+merge:**
+
+- **Distinção positional/keyword-only não sobrevivia ao swap.** Cyclopts
+  deriva "positional-only" vs. "keyword-only" só da assinatura Python
+  (`/` e `*`), não de uma classe `Argument`/`Option` como o Typer — um
+  parâmetro `Annotated` comum, sem marcador, aceita as duas formas.
+  Migração inicial não introduziu `/`/`*`, então (a) todo antigo
+  `typer.Option` das quatro CLIs passou a aceitar forma posicional
+  (`datajud enrich tjro` funcionava, quando só `--tribunal tjro` era válido
+  antes) e (b) os antigos `typer.Argument` do `tjro_juris` (`data_dir`,
+  `year`) ganharam alias de opção que nunca existiu (`tjro-juris upload
+  --data-dir X` funcionava, quando só a forma posicional era válida antes).
+  A alegação de "contrato de CLI preservado" era falsa — confirmado por
+  experimento direto antes de aceitar o achado. Corrigido: `/` depois de
+  todo parâmetro que era `typer.Argument`, `*` antes de todo parâmetro que
+  era `typer.Option`, nos quatro pacotes. Um caso negativo por pacote em
+  `tests/cli_contract/` trava a forma que agora deve continuar falhando.
+- **O próprio gate de exit code era tautológico.** `_invoke` do harness
+  capturava `CycloptsError` e retornava uma constante hardcoded
+  (`_USAGE_ERROR_EXIT_CODE = 1`) em vez de observar o exit code real que
+  `cyclopts` produz — os três casos com `expected_exit_code=1` ficariam
+  verdes mesmo se um upgrade de `cyclopts` mudasse esse comportamento.
+  Corrigido: no caminho de erro, `_invoke` reinvoca a mesma `app` com o
+  comportamento default do Cyclopts (sem `exit_on_error=False`) e captura o
+  `SystemExit` real — parse/usage error acontece antes do dispatch para a
+  função de comando, então reinvocar não duplica nenhuma chamada mockada.
+- **`no_args_is_help=True` virou sucesso silencioso, não documentado.**
+  `datajud` e `stj_acordaos` tinham `no_args_is_help=True` no Typer
+  original (mostra ajuda e sai com 2, convenção do Click para uso
+  incompleto); investigando esse achado, `tjro_juris` mostrou o mesmo
+  problema por um caminho diferente — sem callback nem
+  `no_args_is_help=True`, o Click original ainda assim exigia um
+  subcomando e saía com 2 (comportamento default de grupo). Cyclopts não
+  tem equivalente a nenhum dos dois caminhos: invocação vazia mostrava
+  ajuda e saía com **0** nas três CLIs, silenciosamente — e a PR alegava
+  que a única diferença de exit code eram os 3 casos de parse error 2→1,
+  o que não era verdade. Corrigido: as três apps registram um
+  `@app.default` explícito que imprime a ajuda e retorna 2. Um caso de
+  invocação vazia por pacote trava isso em `tests/cli_contract/`.
+
 ## 3. Critérios de aceitação
 
 **Fase 1:**
@@ -504,15 +545,31 @@ texto original acima:
 - `cyclopts` como dependência direta (`pyproject.toml`), não só transitiva
   via `fastmcp[server]`.
 - `tests/cli_contract/harness.py` migrado para o adaptador de invocação
-  Cyclopts (`_invoke`); as 16 `CliContractCase` (4 pacotes) passam sem
-  alteração de `check` — só o adaptador mudou, como planejado.
+  Cyclopts (`_invoke`); as `CliContractCase` (4 pacotes) passam sem
+  alteração de `check` — só o adaptador mudou, como planejado. O exit code
+  de erro de uso é observado via `SystemExit` real de uma segunda invocação
+  com o comportamento default do Cyclopts, não hardcoded (achado da review
+  #855, corrigido antes do merge).
 - Negação de booleano preservada: todo `--flag` que só tinha forma positiva
   no Typer original (`--use-proxy`, `--all`, `--skip-upload`) usa
   `Parameter(negative=[])` em Cyclopts; `--no-*` continua inexistente para
   esses três, confirmado por teste.
+- Distinção positional-only/keyword-only preservada: `/` depois de todo
+  parâmetro que era `typer.Argument` (`tjro_juris`'s `data_dir`/`year`), `*`
+  antes de todo parâmetro que era `typer.Option` (os demais, nos quatro
+  pacotes) — sem isso, Cyclopts aceita as duas formas para qualquer
+  parâmetro, ampliando a superfície aceita silenciosamente (achado da
+  review #855, corrigido antes do merge). Um caso negativo por pacote em
+  `tests/cli_contract/` trava a forma que deve continuar rejeitada.
+- Invocação vazia (sem subcomando) preserva exit code 2 nas três CLIs que
+  dependiam de `no_args_is_help=True` (`datajud`, `stj_acordaos`) ou do
+  comportamento default de grupo do Click (`tjro_juris`) via um
+  `@app.default` explícito que imprime ajuda e retorna 2 (achado da review
+  #855, corrigido antes do merge).
 - `djen-backup`'s callback bare preservado via `App.meta` — `djen-backup
   --deadline-minutes N ...` (sem subcomando) continua rodando
-  `configure_runtime()` antes do pipeline, igual à Fase 2.
+  `configure_runtime()` antes do pipeline, igual à Fase 2 (não precisa do
+  `@app.default` acima — já tem lógica de negócio real na invocação vazia).
 - Nenhuma mudança de argv nos 5 workflows de produção — os mesmos comandos
   que a Fase 1 travou continuam resolvendo para a mesma config semântica.
 - Testes de caracterização da Fase 1 (introspecção Click) deletados nos

@@ -27,18 +27,6 @@ if TYPE_CHECKING:
 
     from cyclopts import App
 
-# Cyclopts' own default exit code for a usage error (bad option, unknown
-# command, ...) is 1 — confirmed by reading `cyclopts/core.py` (`sys.exit(1)`
-# is hardcoded on the parse-error path, not configurable via `App(...)`) and
-# by direct experiment. This is DIFFERENT from Click/Typer's convention of
-# exit code 2 for the same class of error, which the three usage-error cases
-# in `test_semantic_argv_contract.py` were originally locked against in
-# Fase 1. `_invoke` reports the real code Cyclopts produces (1) rather than
-# forcing 2, and those three cases were updated to expect 1 — the contract
-# gate's job is to catch a genuine behavior difference like this one, not
-# paper over it with a harness that lies about what production does.
-_USAGE_ERROR_EXIT_CODE = 1
-
 # Credential env vars read by the four packages' service layers — always
 # cleared before a case runs (then re-applied from `case.env`) so a case's
 # result never depends on what happens to be set in the ambient shell.
@@ -106,19 +94,33 @@ def _invoke(app: App, argv: list[str]) -> tuple[int, str]:
     """Run *app* against *argv* like a real process would, without a real `sys.exit`.
 
     `exit_on_error=False` + `result_action="return_value"` gets the command's
-    raw return value back instead of a `SystemExit` on success; a parse/usage
-    error raises `CycloptsError` instead of exiting, caught here and mapped
-    to the exit code Cyclopts' own default path would have produced. Output
-    (both the command's own prints and Cyclopts' rich-rendered error panels)
-    is captured for the assertion failure message, not inspected — this
-    harness only ever asserts on exit code and mocked-call arguments.
+    raw return value back instead of a `SystemExit` on success. A parse/usage
+    error raises `CycloptsError` instead of exiting — that's caught below,
+    but the exit code is never guessed or hardcoded: exit_on_error/
+    result_action only govern *this* call, so on a parse error we re-invoke
+    *app* a second time with Cyclopts' own default handling (no override) to
+    observe the real `SystemExit` a process invocation would actually raise.
+    Parse/usage errors are detected before argv ever reaches a command
+    function, so the mocked service call is never invoked on either attempt
+    — invoking twice has no side effect to duplicate. This closes a real gap
+    found in review (#855): the previous version asserted a hardcoded
+    constant instead of Cyclopts' actual behavior, which would have stayed
+    green even if a `cyclopts` upgrade changed that exit code. Output (both
+    the command's own prints and Cyclopts' rich-rendered error panels) is
+    captured for the assertion failure message, not inspected — this harness
+    only ever asserts on exit code and mocked-call arguments.
     """
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
             result = app(argv, exit_on_error=False, result_action="return_value")
     except CycloptsError:
-        return _USAGE_ERROR_EXIT_CODE, buf.getvalue()
+        try:
+            with contextlib.redirect_stdout(buf), contextlib.redirect_stderr(buf):
+                app(argv)
+        except SystemExit as exc:
+            return exc.code or 0, buf.getvalue()
+        return 0, buf.getvalue()
     except SystemExit as exc:
         # `exit_on_error`/`result_action` only govern Cyclopts' own parsing-
         # error path — a command function that raises SystemExit itself

@@ -42,6 +42,26 @@ correctly arriving at the service layer when the workflow's real
 job-level env injects them — not merely "absent", which a mechanical
 Cyclopts port could satisfy by accident even if the env→service wiring
 broke.
+
+Plus, from the Fase 4 PR review (#855): Cyclopts derives positional-only
+vs. keyword-only from the Python signature itself (no `typer.Argument`/
+`typer.Option` distinction to carry over) — a plain `Annotated` parameter
+with no `/`/`*` marker accepts *both* forms, silently widening the CLI
+surface past what Typer ever accepted. Every migrated command now spells
+out `/` after former `typer.Argument` params (`tjro_juris`'s `data_dir`/
+`year`) and `*` before former `typer.Option` params (everywhere else) to
+preserve the exact old contract, and one negative case per package below
+locks in the form that must keep failing (e.g. `datajud enrich tjro`
+positionally, `tjro-juris upload --data-dir X` by keyword). Separately,
+`datajud` and `stj_acordaos` had Typer's `no_args_is_help=True`, and
+`tjro_juris` relied on Click's own default "missing command" behavior for a
+group with no matching callback — both paths print usage and exit 2 on a
+bare invocation. Cyclopts has no built-in equivalent to either and would
+otherwise exit 0 (found on `tjro_juris` by extension while investigating
+the review's `datajud`/`stj_acordaos` report — same underlying gap, no
+Typer flag needed to trigger it), so all three apps register an explicit
+`@app.default` that prints help and returns 2; one bare-invocation case per
+package locks that in.
 """
 
 from __future__ import annotations
@@ -163,6 +183,12 @@ DJEN_BACKUP_CASES = [
         argv=["drain", "--no-use-proxy"],
         expected_exit_code=1,  # Cyclopts' usage-error code, not Click's 2 — see docstring
     ),
+    CliContractCase(
+        label="djen_backup: check's options were never positional, still aren't (usage error)",
+        app_path="djen_backup.__main__",
+        argv=["check", "2020-01-01"],
+        expected_exit_code=1,
+    ),
 ]
 
 
@@ -237,6 +263,18 @@ TJRO_JURIS_CASES = [
             ),
         },
         check=_check_tjro_status_data_dir,
+    ),
+    CliContractCase(
+        label="tjro_juris: data_dir was never a --flag in Typer, still isn't (usage error)",
+        app_path="tjro_juris.__main__",
+        argv=["upload", "--data-dir", "data/tjro-juris"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="tjro_juris: bare invocation shows help and exits 2 (Click's missing-command)",
+        app_path="tjro_juris.__main__",
+        argv=[],
+        expected_exit_code=2,
     ),
 ]
 
@@ -323,6 +361,18 @@ STJ_ACORDAOS_CASES = [
         },
         check=_check_stj_status_manifest_path,
     ),
+    CliContractCase(
+        label="stj_acordaos: data_dir was never positional in Typer, still isn't (usage error)",
+        app_path="stj_acordaos.__main__",
+        argv=["download", "data/stj"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="stj_acordaos: bare invocation shows help and exits 2 (Typer's no_args_is_help=True)",
+        app_path="stj_acordaos.__main__",
+        argv=[],
+        expected_exit_code=2,
+    ),
 ]
 
 
@@ -402,6 +452,18 @@ DATAJUD_CASES = [
             ),
         },
         check=_check_datajud_status_data_dir,
+    ),
+    CliContractCase(
+        label="datajud: tribunal was never positional in Typer, still isn't (usage error)",
+        app_path="datajud.__main__",
+        argv=["enrich", "tjro"],
+        expected_exit_code=1,
+    ),
+    CliContractCase(
+        label="datajud: bare invocation shows help and exits 2 (Typer's no_args_is_help=True)",
+        app_path="datajud.__main__",
+        argv=[],
+        expected_exit_code=2,
     ),
 ]
 

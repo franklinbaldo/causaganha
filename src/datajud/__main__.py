@@ -48,8 +48,24 @@ app = App(
 )
 
 
+@app.default
+def _no_command() -> int:
+    """Show help and exit 2 on a bare invocation (no subcommand).
+
+    The original Typer app set ``no_args_is_help=True``, which shows help
+    and exits 2 (Click's convention for incomplete usage) — distinct from
+    the 3 documented parse-error cases (RFC 0013 Fase 4) that changed from
+    Click's 2 to Cyclopts' own 1. Cyclopts has no built-in equivalent to
+    `no_args_is_help`; without this, a bare ``datajud`` would print help and
+    exit 0, silently dropping the "incomplete usage" signal for scripts.
+    """
+    app.help_print([])
+    return 2
+
+
 @app.command
 def enrich(
+    *,
     tribunal: Annotated[str, Parameter(help="Sigla do índice DataJud (ex.: tjro, stj).")] = (
         DEFAULT_TRIBUNAL
     ),
@@ -123,6 +139,7 @@ def enrich(
 
 @app.command
 def facetas(
+    *,
     tribunal: Annotated[str, Parameter(help="Sigla do índice DataJud.")] = DEFAULT_TRIBUNAL,
     por: Annotated[
         str, Parameter(help=f"Dimensão da agregação: {', '.join(FACET_FIELDS)}.")
@@ -150,6 +167,7 @@ def facetas(
 
 @app.command
 def status(
+    *,
     data_dir: Annotated[Path, Parameter(help="Diretório dos parquets/manifest DataJud.")] = (
         service.DEFAULT_DATA_DIR
     ),

@@ -45,6 +45,22 @@ app = App(
 )
 
 
+@app.default
+def _no_command() -> int:
+    """Show help and exit 2 on a bare invocation (no subcommand).
+
+    The original Typer app set ``no_args_is_help=True``, which shows help
+    and exits 2 (Click's convention for incomplete usage) — distinct from
+    the parse-error cases (RFC 0013 Fase 4) that changed from Click's 2 to
+    Cyclopts' own 1. Cyclopts has no built-in equivalent to
+    `no_args_is_help`; without this, a bare ``stj-acordaos`` would print
+    help and exit 0, silently dropping the "incomplete usage" signal for
+    scripts.
+    """
+    app.help_print([])
+    return 2
+
+
 def _echo_download_outcome(outcome: service.DownloadOutcome) -> None:
     if outcome.action == "skip_no_url":
         print(f"  SKIP {outcome.dest_name}: no URL", file=sys.stderr)
@@ -67,6 +83,7 @@ def _echo_download_outcome(outcome: service.DownloadOutcome) -> None:
 
 @app.command
 def download(
+    *,
     data_dir: Annotated[
         Path, Parameter(help="Directory to store downloads.")
     ] = service.DEFAULT_DATA_DIR,
@@ -94,6 +111,7 @@ def download(
 
 @app.command
 def upload(
+    *,
     data_dir: Annotated[
         Path, Parameter(help="Directory containing the parquet file.")
     ] = service.DEFAULT_DATA_DIR,
@@ -128,6 +146,7 @@ def upload(
 
 @app.command
 def status(
+    *,
     manifest_path: Annotated[
         Path, Parameter(help="Path to stj-manifest.csv.")
     ] = service.DEFAULT_MANIFEST,
