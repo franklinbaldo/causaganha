@@ -39,7 +39,7 @@ async def _tool_fn(mcp, name: str):
 
 async def test_datajud_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "datajud_status")
-    result = fn(data_dir=str(tmp_path / "datajud"))
+    result = fn(diretorio_dados=str(tmp_path / "datajud"))
     assert result.encontrado is False
     assert result.total == 0
     assert result.ultima_atualizacao is None
@@ -57,7 +57,7 @@ async def test_datajud_status_populated_manifest(mcp, tmp_path: Path) -> None:
     manifest.save_local(data_dir / "datajud-manifest.csv")
 
     fn = await _tool_fn(mcp, "datajud_status")
-    result = fn(data_dir=str(data_dir))
+    result = fn(diretorio_dados=str(data_dir))
 
     assert result.encontrado is True
     assert result.total == 3
@@ -73,7 +73,7 @@ async def test_datajud_status_populated_manifest(mcp, tmp_path: Path) -> None:
 
 async def test_tjro_juris_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "tjro_juris_status")
-    result = fn(data_dir=str(tmp_path / "tjro-juris"))
+    result = fn(diretorio_dados=str(tmp_path / "tjro-juris"))
     assert result.encontrado is False
     assert result.total == 0
     assert result.enviados == 0
@@ -92,7 +92,7 @@ async def test_tjro_juris_status_populated_manifest(mcp, tmp_path: Path) -> None
     manifest.save_local(data_dir / "tjro-juris-manifest.csv")
 
     fn = await _tool_fn(mcp, "tjro_juris_status")
-    result = fn(data_dir=str(data_dir))
+    result = fn(diretorio_dados=str(data_dir))
 
     assert result.encontrado is True
     assert result.total == 2
@@ -106,7 +106,7 @@ async def test_tjro_juris_status_populated_manifest(mcp, tmp_path: Path) -> None
 
 async def test_stj_acordaos_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "stj_acordaos_status")
-    result = fn(manifest_path=str(tmp_path / "stj-manifest.csv"))
+    result = fn(caminho_manifesto=str(tmp_path / "stj-manifest.csv"))
     assert result.encontrado is False
     assert result.total == 0
     assert result.enviados == 0
@@ -122,7 +122,7 @@ async def test_stj_acordaos_status_populated_manifest(mcp, tmp_path: Path) -> No
     manifest.save()
 
     fn = await _tool_fn(mcp, "stj_acordaos_status")
-    result = fn(manifest_path=str(manifest_path))
+    result = fn(caminho_manifesto=str(manifest_path))
 
     assert result.encontrado is True
     assert result.total == 2
@@ -136,7 +136,7 @@ async def test_stj_acordaos_status_populated_manifest(mcp, tmp_path: Path) -> No
 
 async def test_djen_backup_status_empty_manifest(mcp, tmp_path: Path) -> None:
     fn = await _tool_fn(mcp, "djen_backup_status")
-    result = fn(manifest_file=str(tmp_path / "sync-manifest.csv"))
+    result = fn(arquivo_manifesto=str(tmp_path / "sync-manifest.csv"))
     assert result.encontrado is False
     assert result.total == 0
     assert result.enviados == 0
@@ -165,7 +165,7 @@ async def test_djen_backup_status_populated_manifest(mcp, tmp_path: Path) -> Non
     assert manifest.load_from_disk(manifest_file) == 4
 
     fn = await _tool_fn(mcp, "djen_backup_status")
-    result = fn(manifest_file=str(manifest_file))
+    result = fn(arquivo_manifesto=str(manifest_file))
 
     assert result.encontrado is True
     assert result.total == 4

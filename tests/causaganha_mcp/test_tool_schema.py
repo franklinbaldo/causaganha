@@ -9,11 +9,14 @@ and no credential ever appears in a tool's input or output schema — not
 though — unlike the Fase 3A tools — it makes a real network call
 (`openWorldHint=True`), so it stays in the same read-only/no-credential bar.
 
-RFC 0014 M1 adds `causaganha_status` and renames every tool's output fields
-to Portuguese (`encontrado`, `ultima_atualizacao`, `fonte`, `canonica`,
-`aviso`, ...) — a deliberate schema change made before any real consumer
-exists (RFC 0014 §2), locked here with an exact-property-set test per tool
-so a future edit can't silently drop or rename an envelope field.
+RFC 0014 M1 adds `causaganha_status` and renames every tool's output *and
+input* fields to Portuguese (`encontrado`, `ultima_atualizacao`, `fonte`,
+`canonica`, `aviso`, `diretorio_dados`, `caminho_manifesto`,
+`arquivo_manifesto`, ...) — a deliberate schema change made before any real
+consumer exists (RFC 0014 §2), locked here with an exact-property-set test
+per tool (both `parameters` and `output_schema`) so a future edit can't
+silently drop or rename an envelope field, or leave an English identifier
+in the input schema while only the output gets translated.
 """
 
 from __future__ import annotations
@@ -48,6 +51,18 @@ _EXPECTED_OUTPUT_FIELDS = {
     | {"enviados", "disponiveis", "ausentes", "desconhecidos"},
     "datajud_facetas": {"tribunal", "por", "total", "grupos", "consultado_em"},
     "causaganha_status": {"pipelines"},
+}
+
+# Input parameter names are product text too (RFC 0014 review) — an English
+# `data_dir` sitting in `parameters.properties` while the output is all
+# Portuguese would be exactly the half-translated schema the review flagged.
+_EXPECTED_INPUT_FIELDS = {
+    "datajud_status": {"diretorio_dados"},
+    "tjro_juris_status": {"diretorio_dados"},
+    "stj_acordaos_status": {"caminho_manifesto"},
+    "djen_backup_status": {"arquivo_manifesto"},
+    "datajud_facetas": {"tribunal", "por", "limite"},
+    "causaganha_status": set(),
 }
 
 
@@ -101,6 +116,13 @@ async def test_tool_output_schema_has_exactly_the_expected_fields(mcp, name) -> 
     tool = await mcp.get_tool(name)
     assert tool is not None
     assert _property_names(tool.output_schema) == _EXPECTED_OUTPUT_FIELDS[name]
+
+
+@pytest.mark.parametrize("name", TOOL_NAMES)
+async def test_tool_input_schema_has_exactly_the_expected_fields(mcp, name) -> None:
+    tool = await mcp.get_tool(name)
+    assert tool is not None
+    assert _property_names(tool.parameters) == _EXPECTED_INPUT_FIELDS[name]
 
 
 async def test_facetas_por_enum_matches_facet_fields(mcp) -> None:

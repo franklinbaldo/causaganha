@@ -24,6 +24,10 @@ STATUS_OK = "ok"
 STATUS_ERRO = "erro"
 
 
+class ManifestFormatError(ValueError):
+    """The local manifest CSV is malformed (missing column, non-numeric docs, ...)."""
+
+
 @dataclass
 class ManifestDataJudEntry:
     """Consultation state of a single (cnj, tribunal) pair."""
@@ -48,20 +52,29 @@ class ManifestDataJud:
 
     @classmethod
     def load_local(cls, path: Path) -> ManifestDataJud:
-        """Load the manifest from a local CSV file (empty when missing)."""
+        """Load the manifest from a local CSV file (empty when missing).
+
+        Raises `ManifestFormatError` on a malformed row (missing column,
+        non-numeric `docs`) instead of leaking a bare `KeyError`/
+        `ValueError` — callers get one nominal exception type to handle.
+        """
         manifest = cls()
         if not path.exists():
             return manifest
         text = path.read_text(encoding="utf-8")
         reader = csv.DictReader(io.StringIO(text))
         for row in reader:
-            entry = ManifestDataJudEntry(
-                cnj=row["cnj"],
-                tribunal=row["tribunal"],
-                docs=int(row.get("docs", 0) or 0),
-                consultado_em=row.get("consultado_em", ""),
-                status=row.get("status", ""),
-            )
+            try:
+                entry = ManifestDataJudEntry(
+                    cnj=row["cnj"],
+                    tribunal=row["tribunal"],
+                    docs=int(row.get("docs", 0) or 0),
+                    consultado_em=row.get("consultado_em", ""),
+                    status=row.get("status", ""),
+                )
+            except (KeyError, ValueError) as exc:
+                msg = f"malformed row in {path}: {exc}"
+                raise ManifestFormatError(msg) from exc
             manifest._entries[cls._key(entry.cnj, entry.tribunal)] = entry
         return manifest
 

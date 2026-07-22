@@ -154,23 +154,26 @@ def register(mcp: FastMCP) -> None:
             "openWorldHint": False,
         },
     )
-    def datajud_status(data_dir: str = str(service.DEFAULT_DATA_DIR)) -> DatajudStatusResult:
+    def datajud_status(
+        diretorio_dados: str = str(service.DEFAULT_DATA_DIR),
+    ) -> DatajudStatusResult:
         """Resume o manifest local do DataJud: quantos CNJs foram consultados e encontrados.
 
-        Lê `datajud-manifest.csv` em `data_dir`, só do disco local — nenhuma
-        chamada de rede, nenhuma credencial envolvida. Use para checar o
-        progresso de execuções do `datajud enrich` (ex.: após o cron diário
-        `datajud-enrich.yml`) sem precisar de um shell. Nunca dispara uma
-        nova consulta ou upload; para isso, use o comando `enrich` da CLI
-        `datajud`. `encontrado=False` (contagens zeradas) quando o manifest
-        ainda não existe ou não tem entradas — não é um erro, só um
-        pipeline vazio.
+        Lê `datajud-manifest.csv` em `diretorio_dados`, só do disco local —
+        nenhuma chamada de rede, nenhuma credencial envolvida. Use para
+        checar o progresso de execuções do `datajud enrich` (ex.: após o
+        cron diário `datajud-enrich.yml`) sem precisar de um shell. Nunca
+        dispara uma nova consulta ou upload; para isso, use o comando
+        `enrich` da CLI `datajud`. `encontrado=False` (contagens zeradas)
+        quando o manifest ainda não existe ou não tem entradas — não é um
+        erro, só um pipeline vazio.
 
         Args:
-            data_dir: Diretório com o manifest e os parquets do DataJud.
-                Default "data/datajud", o caminho que o workflow agendado usa.
+            diretorio_dados: Diretório com o manifest e os parquets do
+                DataJud. Default "data/datajud", o caminho que o workflow
+                agendado usa.
         """
-        result = service.manifest_status(Path(data_dir))
+        result = service.manifest_status(Path(diretorio_dados))
         if result is None:
             return DatajudStatusResult(encontrado=False)
         return DatajudStatusResult(

@@ -138,9 +138,9 @@ uv run --env-file .env datajud enrich --tribunal tjro --skip-upload
 
 ## Use o CausaGanha no seu assistente
 
-Além da CLI e do dashboard web, o CausaGanha expõe um servidor [MCP](https://modelcontextprotocol.io/) (`causaganha-mcp`) — um conjunto de tools que um assistente de IA (Claude, ChatGPT, etc.) pode chamar diretamente, sem passar por um shell.
+Além da CLI e do dashboard web, o CausaGanha expõe um servidor [MCP](https://modelcontextprotocol.io/) (`causaganha-mcp`) — um conjunto de tools que um assistente de IA pode chamar diretamente, sem passar por um shell.
 
-Configure no seu host MCP (ex.: `claude_desktop_config.json` ou equivalente):
+`causaganha-mcp` roda por padrão como um processo local sobre stdio. Isso funciona em hosts com suporte a stdio local, como o Claude Desktop — configure em `claude_desktop_config.json` (ou equivalente):
 
 ```json
 {
@@ -152,6 +152,8 @@ Configure no seu host MCP (ex.: `claude_desktop_config.json` ou equivalente):
   }
 }
 ```
+
+**ChatGPT não usa essa receita.** O modo Developer/conectores MCP do ChatGPT exige um endpoint remoto (ou o Secure MCP Tunnel) — não conecta a um processo `stdio` local como o acima, e depende de plano/modo específicos. Ver a [documentação oficial](https://help.openai.com/pt-br/articles/12584461-developer-mode-and-full-mcp-connectors-in-chatgpt-beta). Servir `causaganha-mcp` remotamente para ChatGPT (ou outro host que só fale HTTP) ainda não está configurado neste repositório.
 
 Seis tools hoje, em dois grupos:
 

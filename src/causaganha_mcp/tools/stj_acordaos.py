@@ -57,7 +57,7 @@ def register(mcp: FastMCP) -> None:
         },
     )
     def stj_acordaos_status(
-        manifest_path: str = str(service.DEFAULT_MANIFEST),
+        caminho_manifesto: str = str(service.DEFAULT_MANIFEST),
     ) -> StjAcordaosStatusResult:
         """Resume o manifest local de acórdãos do STJ: arquivos rastreados e progresso de envio.
 
@@ -71,11 +71,11 @@ def register(mcp: FastMCP) -> None:
         existe ou não tem entradas — não é um erro, só um pipeline vazio.
 
         Args:
-            manifest_path: Caminho para `stj-manifest.csv`. Default
+            caminho_manifesto: Caminho para `stj-manifest.csv`. Default
                 "data/stj/stj-manifest.csv", o caminho que o workflow
                 agendado usa.
         """
-        result = service.manifest_summary(Path(manifest_path))
+        result = service.manifest_summary(Path(caminho_manifesto))
         return StjAcordaosStatusResult(
             encontrado=result.count > 0,
             total=result.count,

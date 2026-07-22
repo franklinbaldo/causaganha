@@ -53,7 +53,7 @@ async def test_stj_acordaos_status_over_real_stdio_does_not_corrupt_json_rpc(
     with caplog.at_level(logging.WARNING, logger="mcp.client.stdio"):
         async with Client(transport) as client:
             result = await client.call_tool(
-                "stj_acordaos_status", {"manifest_path": str(manifest_path)}
+                "stj_acordaos_status", {"caminho_manifesto": str(manifest_path)}
             )
 
     assert result.data.total == 1
@@ -74,7 +74,7 @@ async def test_djen_backup_status_over_real_stdio_does_not_corrupt_json_rpc(
     with caplog.at_level(logging.WARNING, logger="mcp.client.stdio"):
         async with Client(transport) as client:
             result = await client.call_tool(
-                "djen_backup_status", {"manifest_file": str(manifest_file)}
+                "djen_backup_status", {"arquivo_manifesto": str(manifest_file)}
             )
 
     assert result.data.total == 1

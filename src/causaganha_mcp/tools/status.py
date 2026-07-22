@@ -14,6 +14,19 @@ genérico: mapear isso teria exigido decidir, por exemplo, se uma entrada
 `ausente` do DJEN conta como concluída ou pendente — uma interpretação de
 negócio que a RFC 0014 explicitamente não autoriza ainda (§3: "sem
 saudável/degradado", só fatos).
+
+Um pipeline quebrado (I/O ou manifest malformado) vira resultado parcial
+(`encontrado=False` + `aviso`), nunca falha a chamada inteira — cada
+`_<pipeline>_status()` captura só o que seu loader pode genuinamente
+levantar, nunca `except Exception`: `OSError` (falha de I/O, comum às
+quatro) mais `ManifestFormatError` só em `tjro_juris`/`datajud`, cujos
+loaders usam `csv.DictReader` com acesso direto a colunas
+(`row["tipo"]`/`int(row["docs"])` podem levantar `KeyError`/`ValueError`
+num CSV malformado — ver `ManifestFormatError` em cada `manifest.py`).
+`djen_backup`/`stj_acordaos` não precisam disso: seus loaders já usam
+`split(",")` posicional com checagem de tamanho de linha e
+`try/except ValueError` ao redor de cada conversão numérica/de data,
+então uma linha malformada é só ignorada, nunca uma exceção.
 """
 
 from __future__ import annotations
@@ -27,6 +40,8 @@ import datajud.service as datajud_service
 import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
 import tjro_juris.service as tjro_juris_service
+from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
+from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
 
 
 if TYPE_CHECKING:
@@ -114,7 +129,7 @@ def _djen_status() -> PipelineStatus:
 def _tjro_juris_status() -> PipelineStatus:
     try:
         result = tjro_juris_service.manifest_status(Path(_TJRO_JURIS_DEFAULT_DATA_DIR))
-    except OSError as exc:
+    except (OSError, TjroJurisManifestFormatError) as exc:
         return PipelineStatus(
             nome="tjro_juris",
             encontrado=False,
@@ -162,7 +177,7 @@ def _stj_acordaos_status() -> PipelineStatus:
 def _datajud_status() -> PipelineStatus:
     try:
         result = datajud_service.manifest_status(datajud_service.DEFAULT_DATA_DIR)
-    except OSError as exc:
+    except (OSError, DatajudManifestFormatError) as exc:
         return PipelineStatus(
             nome="datajud",
             encontrado=False,

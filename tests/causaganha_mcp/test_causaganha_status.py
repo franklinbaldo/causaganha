@@ -122,3 +122,29 @@ async def test_one_pipeline_erroring_does_not_fail_the_whole_call(mcp, tmp_path,
     assert djen_entry.aviso is not None
     # The other three pipelines are unaffected.
     assert len(result.pipelines) == 4
+
+
+async def test_a_genuinely_malformed_manifest_also_yields_a_partial_result(
+    mcp, tmp_path, monkeypatch
+):
+    """RFC 0014 review: OSError alone doesn't cover a malformed (parseable-as-file,
+    unparseable-as-manifest) CSV — `ManifestJuris.load_local` raises `ManifestFormatError`
+    (KeyError/ValueError translated at the parsing boundary) for a row missing the
+    `tipo` column, which must be caught the same way as an I/O failure.
+    """
+    monkeypatch.chdir(tmp_path)
+    data_dir = tmp_path / "data" / "tjro-juris"
+    data_dir.mkdir(parents=True)
+    (data_dir / "tjro-juris-manifest.csv").write_text(
+        "mes_ano,ia_status,n_docs,updated_at\n2024-01,uploaded,10,\n", encoding="utf-8"
+    )
+
+    fn = await _status_fn(mcp)
+    result = fn()  # must not raise
+
+    tjro_juris_entry = next(p for p in result.pipelines if p.nome == "tjro_juris")
+    assert tjro_juris_entry.encontrado is False
+    assert tjro_juris_entry.aviso is not None
+    # The other three pipelines are unaffected.
+    assert len(result.pipelines) == 4
+    assert {p.nome for p in result.pipelines} == {"djen", "tjro_juris", "stj_acordaos", "datajud"}

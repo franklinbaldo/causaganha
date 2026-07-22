@@ -70,7 +70,7 @@ def register(mcp: FastMCP) -> None:
         },
     )
     def djen_backup_status(
-        manifest_file: str = str(service.DEFAULT_MANIFEST_FILE),
+        arquivo_manifesto: str = str(service.DEFAULT_MANIFEST_FILE),
     ) -> DjenBackupStatusResult:
         """Resume o manifest local de sincronização do DJEN: cobertura por tribunal e data.
 
@@ -85,10 +85,10 @@ def register(mcp: FastMCP) -> None:
         zeradas) quando o manifest ainda não existe ou não tem entradas.
 
         Args:
-            manifest_file: Caminho para o CSV do manifest local. Default
-                "data/sync-manifest.csv".
+            arquivo_manifesto: Caminho para o CSV do manifest local.
+                Default "data/sync-manifest.csv".
         """
-        result = service.manifest_status(Path(manifest_file))
+        result = service.manifest_status(Path(arquivo_manifesto))
         return DjenBackupStatusResult(
             encontrado=result.total > 0,
             total=result.total,

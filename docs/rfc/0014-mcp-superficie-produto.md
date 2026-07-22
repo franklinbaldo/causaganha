@@ -171,9 +171,14 @@ própria depois de M1.
 ## 4. Critérios de aceitação
 
 **M1:**
-- README com a seção de onboarding MCP: configuração stdio copiável,
-  distinção tools locais vs. `datajud_facetas`, cinco perguntas de exemplo.
-- `title`/`description`/nomes de campo de todas as tools em português.
+- README com a seção de onboarding MCP: configuração stdio copiável para
+  hosts com suporte a stdio local (ex.: Claude Desktop), nota separada de
+  que ChatGPT exige implantação remota/túnel (não a mesma receita), cinco
+  perguntas de exemplo.
+- `title`/`description`/nomes de campo de todas as tools em português — em
+  `parameters` (`diretorio_dados`, `caminho_manifesto`, `arquivo_manifesto`)
+  tanto quanto em `output_schema`, com teste de schema exato cobrindo os
+  dois lados (review da #854: a primeira versão só travava o output).
 - Envelope `encontrado`/`ultima_atualizacao`/`fonte`/`canonica`/`aviso`
   presente e testado (schema exato) nas quatro tools locais; `consultado_em`
   + tribunal normalizado em `datajud_facetas`.
@@ -182,8 +187,12 @@ própria depois de M1.
   indistinguível de pipeline vazio.
 - `causaganha_status` implementada, chamando `service.py` de cada pacote
   diretamente (teste que falha se algum dia importar `causaganha_mcp.tools`).
-- Manifest ausente em um pipeline não derruba `causaganha_status` — teste
-  cobrindo esse caso explicitamente.
+- Manifest ausente OU malformado em um pipeline não derruba
+  `causaganha_status` — testado para os dois casos: falha de I/O (`OSError`)
+  e conteúdo malformado (`ManifestFormatError`, nova classe em
+  `tjro_juris.manifest`/`datajud.manifest`, que traduz o `KeyError`/
+  `ValueError` de um `csv.DictReader` numa linha sem coluna esperada ou com
+  número inválido — review da #854: a primeira versão só cobria I/O).
 - `pytest`, `ruff check`, `ruff format --check` verdes.
 
 **M2 (quando a investigação e a PR acontecerem):**

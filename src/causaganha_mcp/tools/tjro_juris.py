@@ -58,12 +58,12 @@ def register(mcp: FastMCP) -> None:
             "openWorldHint": False,
         },
     )
-    def tjro_juris_status(data_dir: str = _DEFAULT_DATA_DIR) -> TjroJurisStatusResult:
+    def tjro_juris_status(diretorio_dados: str = _DEFAULT_DATA_DIR) -> TjroJurisStatusResult:
         """Resume o manifest local do TJRO JURIS: janelas coletadas e progresso de envio.
 
-        Lê `tjro-juris-manifest.csv` em `data_dir`, só do disco local —
-        nenhuma chamada de rede, nenhuma credencial envolvida. Use para
-        checar o progresso do backfill diário do `tjro-sync.yml`
+        Lê `tjro-juris-manifest.csv` em `diretorio_dados`, só do disco
+        local — nenhuma chamada de rede, nenhuma credencial envolvida. Use
+        para checar o progresso do backfill diário do `tjro-sync.yml`
         (`--desde-ano 1988`) sem precisar de um shell. Nunca dispara uma
         nova coleta ou upload; para isso, use os comandos `crawl`/`upload`
         da CLI `tjro-juris`. `encontrado=False` (contagens zeradas) quando
@@ -71,10 +71,11 @@ def register(mcp: FastMCP) -> None:
         só um pipeline vazio.
 
         Args:
-            data_dir: Diretório com o manifest e os parquets. Default
-                "data/tjro-juris", o caminho que o workflow agendado usa.
+            diretorio_dados: Diretório com o manifest e os parquets.
+                Default "data/tjro-juris", o caminho que o workflow
+                agendado usa.
         """
-        result = service.manifest_status(Path(data_dir))
+        result = service.manifest_status(Path(diretorio_dados))
         return TjroJurisStatusResult(
             encontrado=result.total > 0,
             total=result.total,
