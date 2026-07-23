@@ -2,6 +2,11 @@ name: Update Catalog
 
 on:
   workflow_dispatch:
+    inputs:
+      force_reconcile:
+        description: 'Gerar e publicar indice_processual.parquet mesmo sem novos uploads'
+        type: boolean
+        default: false
   workflow_run:
     workflows: ["Consolidate Parquet"]
     types: [completed]
@@ -57,7 +62,7 @@ jobs:
           echo "Catalog updated."
 
       - name: Reconcile processos (DJEN x JURIS x STJ x DataJud)
-        if: steps.append.outputs.has_new_uploads == 'true'
+        if: steps.append.outputs.has_new_uploads == 'true' || github.event.inputs.force_reconcile == 'true'
         env:
           IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
           IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
@@ -70,18 +75,18 @@ jobs:
           # soon as those uploads produce real IA items.
           RECONCILE_EXPECTED_SOURCES: djen,stj
         run: |
-          echo "Reconciling processos_unificados..."
+          echo "Reconciling indice_processual..."
           uv run python scripts/reconcile_processos.py
-          echo "processos_unificados.parquet uploaded."
+          echo "indice_processual.parquet uploaded."
 
       - name: Render query contracts and generate cache
-        if: steps.append.outputs.has_new_uploads == 'true'
+        if: steps.append.outputs.has_new_uploads == 'true' || github.event.inputs.force_reconcile == 'true'
         run: |
           uv run python scripts/render_queries.py
           uv run python scripts/generate_cache_from_manifest.py --upload
 
       - name: Trigger dashboard deploy
-        if: steps.append.outputs.has_new_uploads == 'true'
+        if: steps.append.outputs.has_new_uploads == 'true' || github.event.inputs.force_reconcile == 'true'
         uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7
         with:
           script: |
