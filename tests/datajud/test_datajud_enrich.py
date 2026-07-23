@@ -162,7 +162,7 @@ def test_enrich_no_cnjs_and_no_sources_fails_nominally(tmp_path: Path, monkeypat
     from datajud import service
 
     # IA fallback download is a urllib call — stub it out (zero real network)
-    monkeypatch.setattr(service, "_try_download_unificados", lambda _dir: None)
+    monkeypatch.setattr(service, "_try_download_indice", lambda _dir: None)
     exit_code, _output = _invoke(
         [
             "enrich",
@@ -182,8 +182,8 @@ def test_enrich_reads_cnjs_from_source_parquets(tmp_path: Path):
     con = duckdb.connect()
     con.execute(
         f"""
-        COPY (SELECT '{CNJ}' AS nr_processo)
-        TO '{sources_dir / "processos_unificados.parquet"}' (FORMAT PARQUET)
+        COPY (SELECT '{CNJ}' AS numero_processo)
+        TO '{sources_dir / "indice_processual.parquet"}' (FORMAT PARQUET)
         """
     )
     con.close()

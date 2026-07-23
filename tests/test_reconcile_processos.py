@@ -42,10 +42,10 @@ def _comunicacoes_parquet(path: Path) -> Path:
         path,
         f"""
         SELECT * FROM (VALUES
-            ('0000001-02.2024.8.22.0001', DATE '2024-03-01', 'TJRO'),
-            ('{CNJ_ALL}',                 DATE '2024-03-05', 'TJRO'),
-            ('{CNJ_DJEN_DJ}',             DATE '2024-04-01', 'TJRO')
-        ) AS t(numero_processo, data_disponibilizacao, tribunal)
+            ('0000001-02.2024.8.22.0001', DATE '2024-03-01', 'TJRO', 'c1', 'djen-2024-03-01'),
+            ('{CNJ_ALL}',                 DATE '2024-03-05', 'TJRO', 'c2', 'djen-2024-03-05'),
+            ('{CNJ_DJEN_DJ}',             DATE '2024-04-01', 'TJRO', 'c3', 'djen-2024-04-01')
+        ) AS t(numero_processo, data_disponibilizacao, tribunal, id, p_item_ia)
         """,
     )
 
@@ -117,8 +117,7 @@ def isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     data_dir.mkdir()
     monkeypatch.setattr(rp, "ROOT", tmp_path)  # JURIS local globs find nothing
     monkeypatch.setattr(rp, "DATA_DIR", data_dir)
-    monkeypatch.setattr(rp, "_PARQUET_UNIFICADOS", data_dir / "processos_unificados.parquet")
-    monkeypatch.setattr(rp, "_PARQUET_DOCUMENTOS", data_dir / "processo_documentos.parquet")
+    monkeypatch.setattr(rp, "_PARQUET_INDICE", data_dir / "indice_processual.parquet")
     monkeypatch.setattr(rp, "_STJ_PARQUET", data_dir / "stj" / "stj-acordaos.parquet")
     monkeypatch.setattr(rp, "_DATAJUD_DIR", data_dir / "datajud")
     monkeypatch.setenv("RECONCILE_CACHE_DIR", str(tmp_path / "cache"))
@@ -204,18 +203,57 @@ class TestFullReconcileWithoutLocalParquets:
         assert stats["total"] == 2
         assert stats["multi_fonte"] == 2
 
-        # Output parquet: tem_datajud/tem_juris-style flags actually populated
+        # Output parquet: one row per (processo, fonte, registro) — never a
+        # copy of content fields, only enough to say where each record lives.
         con = duckdb.connect()
         try:
-            rows = con.execute(
-                "SELECT nr_processo, tem_datajud, n_fontes, array_to_string(fontes, '+'), "
-                "juris_n_documentos "
-                f"FROM read_parquet('{rp._PARQUET_UNIFICADOS}') ORDER BY nr_processo"
+            fontes_por_processo = con.execute(
+                "SELECT numero_processo, list(DISTINCT fonte ORDER BY fonte) "
+                f"FROM read_parquet('{rp._PARQUET_INDICE}') "
+                "GROUP BY numero_processo ORDER BY numero_processo"
+            ).fetchall()
+            registros_por_processo_fonte = con.execute(
+                "SELECT numero_processo, fonte, COUNT(*) "
+                f"FROM read_parquet('{rp._PARQUET_INDICE}') "
+                "GROUP BY numero_processo, fonte ORDER BY numero_processo, fonte"
+            ).fetchall()
+            nao_nulos = con.execute(
+                f"SELECT COUNT(*) FROM read_parquet('{rp._PARQUET_INDICE}') "
+                "WHERE tribunal IS NULL OR data IS NULL OR arquivo_ia_url IS NULL"
+            ).fetchone()
+            juris_urls = con.execute(
+                "SELECT DISTINCT arquivo_ia_url "
+                f"FROM read_parquet('{rp._PARQUET_INDICE}') WHERE fonte = 'juris' "
+                "ORDER BY arquivo_ia_url"
             ).fetchall()
         finally:
             con.close()
-        assert rows[0] == (CNJ_ALL, True, 4, "djen+juris+stj+datajud", 2)
-        assert rows[1] == (CNJ_DJEN_DJ, True, 2, "djen+datajud", None)
+        # _mock_juris_remote serves this CNJ from monthly shards (no
+        # consolidated tjro-juris-2024.parquet in the fake item). Both
+        # surviving rows (id_documento 1 deduped to its 2024-02 copy, id 2
+        # only in 2024-02) come from 2024-02-SENTENCA.parquet — the URL must
+        # reflect that, never the absent consolidated file inferred from
+        # data_julgamento's year (which would have pointed at
+        # tjro-juris-2024/tjro-juris-2024.parquet — a file that doesn't
+        # exist in this fallback).
+        assert juris_urls == [
+            ("https://archive.org/download/tjro-juris-2024/2024-02-SENTENCA.parquet",),
+        ]
+        assert fontes_por_processo == [
+            (CNJ_ALL, ["datajud", "djen", "juris", "stj"]),
+            (CNJ_DJEN_DJ, ["datajud", "djen"]),
+        ]
+        # CNJ_ALL: 2 DJEN publications, 2 JURIS documents (id_documento 1+2),
+        # 1 STJ acórdão, 1 DataJud capa row (synthetic key, no natural id).
+        assert registros_por_processo_fonte == [
+            (CNJ_ALL, "datajud", 1),
+            (CNJ_ALL, "djen", 2),
+            (CNJ_ALL, "juris", 2),
+            (CNJ_ALL, "stj", 1),
+            (CNJ_DJEN_DJ, "datajud", 1),
+            (CNJ_DJEN_DJ, "djen", 1),
+        ]
+        assert nao_nulos == (0,)  # every row resolves tribunal/data/arquivo_ia_url
 
         # Coverage report next to the output
         report = json.loads((rp.DATA_DIR / rp._REPORT_NAME).read_text(encoding="utf-8"))
@@ -226,7 +264,7 @@ class TestFullReconcileWithoutLocalParquets:
             "stj": "loaded_remote",
             "datajud": "loaded_remote",
         }
-        assert report["combinations"] == {"djen+juris+stj+datajud": 1, "djen+datajud": 1}
+        assert report["combinations"] == {"datajud+djen+juris+stj": 1, "datajud+djen": 1}
         assert report["validation"]["errors"] == []
         assert report["validation"]["warnings"] == []
 
@@ -349,6 +387,51 @@ class TestCorruptedParquetHandling:
         # the corrupt download must never be promoted to the final cache path
         assert not rp._STJ_PARQUET.exists()
 
+    @pytest.mark.usefixtures("isolated_dirs")
+    def test_datajud_parquet_missing_orgao_julgador_codigo_or_tribunal_degrades_gracefully(
+        self,
+    ) -> None:
+        """A partial/old DataJud capa parquet must not crash the reconciliation.
+
+        _INDICE_DATAJUD_SQL uses both `orgao_julgador_codigo` (for the
+        synthetic registro_id) and `tribunal` — if the schema gate in
+        _register_datajud doesn't check for them, a parquet missing either
+        column passes as loaded_local, and `CREATE TEMP TABLE
+        indice_processual` then fails with a Binder Error instead of
+        DataJud degrading to unavailable.
+        """
+        rp._DATAJUD_DIR.mkdir(parents=True, exist_ok=True)
+        partial = rp._DATAJUD_DIR / rp._datajud_capa_name("tjro")
+        con = duckdb.connect()
+        try:
+            con.execute(
+                f"""
+                COPY (
+                    SELECT '{CNJ_ALL}' AS numero_processo, 'G2' AS grau,
+                        'Apelacao Civel' AS classe_nome, 'Contratos' AS assuntos,
+                        '2a Camara' AS orgao_julgador,
+                        DATE '2024-01-10' AS data_ajuizamento,
+                        DATE '2024-06-01' AS ultima_atualizacao
+                    -- deliberately missing tribunal + orgao_julgador_codigo
+                ) TO '{partial}' (FORMAT PARQUET)
+                """
+            )
+            load = rp._register_datajud(con)
+            assert load.status == rp.STATUS_UNAVAILABLE
+            assert "orgao_julgador_codigo" in load.detail
+            assert "tribunal" in load.detail
+
+            # The empty fallback view must still satisfy _INDICE_DATAJUD_SQL —
+            # this is what actually would have raised the Binder Error before
+            # the gate was fixed (a parquet missing these columns would have
+            # passed the old gate as loaded_local, and this SELECT — the one
+            # that runs inside _INDICE_SQL's UNION ALL — is exactly where it
+            # would have failed instead).
+            rows = con.execute(f"SELECT COUNT(*) FROM ({rp._INDICE_DATAJUD_SQL})").fetchone()
+            assert rows == (0,)
+        finally:
+            con.close()
+
     def test_already_corrupted_cache_file_is_not_treated_as_valid(
         self, isolated_dirs: Path
     ) -> None:
@@ -409,6 +492,50 @@ class TestCorruptedParquetHandling:
         # key with CNJ_ALL's null row.
         assert rows == [(CNJ_ALL, 1)]
 
+    def test_arquivo_ia_url_populated_even_with_null_data_julgamento(
+        self, isolated_dirs: Path
+    ) -> None:
+        """arquivo_ia_url comes from which file DuckDB actually read, never
+        from data_julgamento — a NULL/unparseable date must not produce a
+        NULL URL for a row that does have a real file.
+        """
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        shard = _juris_parquet(
+            fixtures / "2024-01-ACORDAO.parquet",
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " NULL, 'texto sem data', 'https://juris/1', '2024-01-31T00:00:00')",
+        )
+        with respx.mock() as router:
+            router.get(host="archive.org", path="/advancedsearch.php").respond(
+                200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
+            )
+            router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+                200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+            ).respond(200, content=shard.read_bytes())
+
+            con = duckdb.connect()
+            try:
+                load = rp._register_juris(con)
+                rows = con.execute(
+                    "SELECT nr_processo, data_julgamento, arquivo_ia_url FROM tjro_juris"
+                ).fetchall()
+            finally:
+                con.close()
+
+        assert load.status == rp.STATUS_LOADED_REMOTE
+        assert rows == [
+            (
+                CNJ_ALL,
+                None,
+                "https://archive.org/download/tjro-juris-2024/2024-01-ACORDAO.parquet",
+            )
+        ]
+
     def test_one_invalid_source_does_not_block_other_valid_sources(
         self, isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -445,6 +572,56 @@ class TestCorruptedParquetHandling:
         assert report["sources"]["djen"]["status"] == rp.STATUS_LOADED_REMOTE
         assert report["sources"]["stj"]["status"] == rp.STATUS_LOADED_REMOTE
         assert report["sources"]["datajud"]["status"] == rp.STATUS_LOADED_REMOTE
+
+
+class TestLocalSourceUrlProvenanceWarning:
+    """arquivo_ia_url for a loaded_local source is presumed, not proven (RFC 0014 M2 review).
+
+    CI never exercises this — update-catalog.yml's download-state action
+    only fetches sync-manifest.parquet — but a local/dev run of this script
+    can hit it, and the reconciler must say so loudly rather than silently
+    trusting the presumption.
+    """
+
+    def test_warns_when_juris_loaded_from_local_file(
+        self, isolated_dirs: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tmp_path = isolated_dirs
+        juris_dir = tmp_path / "data" / "tjro_juris" / "2024"
+        juris_dir.mkdir(parents=True)
+        _juris_parquet(
+            juris_dir / "tjro-juris-2024.parquet",
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+        )
+        con = duckdb.connect()
+        try:
+            load = rp._register_juris(con)
+        finally:
+            con.close()
+
+        assert load.status == rp.STATUS_LOADED_LOCAL
+        err = capsys.readouterr().err
+        assert "juris" in err
+        assert "arquivo_ia_url" in err
+        assert "presumed" in err
+
+    def test_no_warning_when_juris_loaded_from_ia(
+        self, isolated_dirs: Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        with respx.mock() as router:
+            _mock_juris_remote(router, fixtures)
+            con = duckdb.connect()
+            try:
+                load = rp._register_juris(con)
+            finally:
+                con.close()
+
+        assert load.status == rp.STATUS_LOADED_REMOTE
+        assert "presumed" not in capsys.readouterr().err
 
 
 class TestValidateCoverage:

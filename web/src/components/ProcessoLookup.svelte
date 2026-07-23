@@ -7,16 +7,13 @@
     FONTE_LABELS,
     DOCUMENTOS_PAGE_SIZE,
     buildCnjSearchParams,
-    buildProcessoDocumentosSql,
-    buildProcessoUnificadoSql,
+    buscarProcesso,
+    carregarDocumentos,
     classifyCnjInput,
     fontesPresenca,
     formatCnj,
     isDocumentosVazio,
-    mapDocumentoRow,
-    mapProcessoRow,
     normalizeCnj,
-    paginate,
     readCnjParam,
   } from '../lib/processoCnj';
 
@@ -29,6 +26,7 @@
   let invalidMessage = $state(null);
   let queryError = $state(null);
   let processo = $state(null);
+  let notFoundLegado = $state(false);
 
   let documentosStatus = $state('idle'); // 'idle' | 'loading' | 'ready' | 'error'
   let documentosError = $state(null);
@@ -50,7 +48,7 @@
     status === 'found' && documentosStatus === 'ready' && isDocumentosVazio(documentos, 0) && documentosOffset === 0,
   );
   const datasetGeneratedAtLabel = $derived(
-    processo?.updatedAtRaw ? (formatUtcDateTime(processo.updatedAtRaw) ?? 'desconhecido') : 'desconhecido',
+    processo?.datasetGeradoEm ? (formatUtcDateTime(processo.datasetGeradoEm) ?? 'desconhecido') : 'desconhecido',
   );
 
   async function init() {
@@ -71,12 +69,16 @@
   async function loadDocumentos(digits, offset, generation = searchGeneration) {
     documentosStatus = 'loading';
     documentosError = null;
-    let stmt;
     try {
-      stmt = await conn.prepare(buildProcessoDocumentosSql());
-      const result = await stmt.query(digits, DOCUMENTOS_PAGE_SIZE + 1, offset);
-      const rawRows = result.toArray().map((row) => row.toJSON());
-      const { items, hasMore } = paginate(rawRows.map(mapDocumentoRow), DOCUMENTOS_PAGE_SIZE);
+      const { items, hasMore } = await carregarDocumentos(
+        conn,
+        processo?.jurisUrls ?? [],
+        processo?.stjUrls ?? [],
+        digits,
+        offset,
+        DOCUMENTOS_PAGE_SIZE,
+        processo?.legado ?? false,
+      );
 
       if (generation !== searchGeneration) return; // a newer search superseded this one
 
@@ -88,8 +90,6 @@
       if (generation !== searchGeneration) return;
       documentosStatus = 'error';
       documentosError = err instanceof Error ? err.message : String(err);
-    } finally {
-      await stmt?.close();
     }
   }
 
@@ -130,6 +130,7 @@
     status = 'querying';
     queryError = null;
     processo = null;
+    notFoundLegado = false;
     documentos = [];
     documentosStatus = 'idle';
     documentosOffset = 0;
@@ -145,21 +146,19 @@
       return;
     }
 
-    let stmt;
     try {
-      stmt = await conn.prepare(buildProcessoUnificadoSql());
-      const result = await stmt.query(digits);
-      const rows = result.toArray().map((row) => row.toJSON());
+      const resultado = await buscarProcesso(conn, digits);
 
       if (generation !== searchGeneration) return; // a newer search superseded this one
 
-      if (rows.length === 0) {
+      if (!resultado.encontrado) {
         status = 'not_found';
+        notFoundLegado = resultado.legado;
         lastQueriedCnj = digits;
         return;
       }
 
-      processo = mapProcessoRow(rows[0]);
+      processo = resultado;
       lastQueriedCnj = digits;
       status = 'found';
     } catch (err) {
@@ -167,8 +166,6 @@
       status = 'source_unavailable';
       queryError = err instanceof Error ? err.message : String(err);
       return;
-    } finally {
-      await stmt?.close();
     }
 
     // Only reached when the processo query above landed on 'found' for this
@@ -247,7 +244,7 @@
   {/if}
 
   {#if status === 'querying'}
-    <p aria-busy="true">Consultando processos_unificados.parquet e processo_documentos.parquet no Internet Archive…</p>
+    <p aria-busy="true">Consultando indice_processual.parquet e os parquets de origem (DJEN, JURIS, STJ, DataJud) no Internet Archive…</p>
   {/if}
 
   {#if status === 'not_found'}
@@ -255,9 +252,9 @@
       <h3>Processo não localizado</h3>
       <p>
         Nenhum registro para <code>{lastQueriedCnj ? formatCnj(lastQueriedCnj) : ''}</code> em
-        processos_unificados.parquet. Isso significa que o CNJ não apareceu em nenhuma das fontes
-        reconciliadas (DJEN, JURIS, STJ, DataJud) até a última geração do dataset — não que o
-        processo não existe.
+        {notFoundLegado ? 'processos_unificados.parquet' : 'indice_processual.parquet'}. Isso
+        significa que o CNJ não apareceu em nenhuma das fontes reconciliadas (DJEN, JURIS, STJ,
+        DataJud) até a última geração do dataset — não que o processo não existe.
       </p>
     </article>
   {/if}
@@ -280,6 +277,14 @@
           dataset gerado em {datasetGeneratedAtLabel}
         </p>
       </header>
+
+      {#if processo.avisos.length > 0}
+        <aside role="status" class="alert" data-level="warning">
+          {#each processo.avisos as aviso}
+            <p>{aviso}</p>
+          {/each}
+        </aside>
+      {/if}
 
       <section aria-labelledby="fontes-title">
         <h3 id="fontes-title">Fontes encontradas</h3>

@@ -3,7 +3,7 @@
 Manual execution
 ----------------
 Enrich known CNJs with official capa + movimentos (CNJs come from local
-source parquets — processos_unificados, TJRO JURIS, STJ — or explicitly)::
+source parquets — indice_processual, TJRO JURIS, STJ — or explicitly)::
 
     uv run datajud enrich --tribunal tjro --limit 200 --skip-upload
     uv run datajud enrich --cnj 0000001-02.2024.8.22.0001 --skip-upload

@@ -65,14 +65,6 @@ if str(ROOT) not in sys.path:
 
 from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
 from djen_backup.manifest import HEADER as _MANIFEST_HEADER
-from scripts.reconcile_processos import (
-    _DATAJUD_AGG_SQL,
-    _DJEN_AGG_SQL,
-    _DOCUMENTOS_SQL,
-    _JURIS_AGG_SQL,
-    _STJ_AGG_SQL,
-    _UNIFICADOS_SQL,
-)
 from tjro_juris.service import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA
 
 
@@ -94,10 +86,32 @@ _STJ_PARQUET_IA_URL = (
     "https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet"
 )
 
-_PROCESSOS_UNIFICADOS_PARQUET = ROOT / "data" / "processos_unificados.parquet"
-_PROCESSO_DOCUMENTOS_PARQUET = ROOT / "data" / "processo_documentos.parquet"
-_PROCESSOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processos_unificados.parquet"
-_DOCUMENTOS_IA_URL = "https://archive.org/download/causaganha-dashboard/processo_documentos.parquet"
+# RFC 0014 M2: the reconciler no longer publishes a wide processos_unificados/
+# processo_documentos parquet — indice_processual.parquet is the sole
+# canonical cross-source artifact. `processos_unificados`/`processo_documentos`
+# survive here only as VIEW NAMES, computed on the fly by aggregating the raw
+# per-source views (comunicacoes/tjro_juris/acordaos/datajud_capa) — the exact
+# aggregation SQL scripts/reconcile_processos.py used to run, just relocated
+# here since this is now the only remaining consumer of that shape. This keeps
+# every existing .qmd contract (e.g. processos_multi_fonte.qmd) unchanged.
+_INDICE_PROCESSUAL_PARQUET = ROOT / "data" / "indice_processual.parquet"
+_INDICE_PROCESSUAL_IA_URL = (
+    "https://archive.org/download/causaganha-dashboard/indice_processual.parquet"
+)
+
+# Rollout fallback (RFC 0014 M2 review): indice_processual.parquet is a brand
+# new artifact — deploy-web.yml can build before update-catalog.yml has ever
+# published it (that step only runs when has_new_uploads==true; a plain push
+# to main touching web/**/render_queries.py deploys immediately, with no
+# ordering guarantee against the catalog pipeline). Without a fallback,
+# processos_multi_fonte.qmd would regress from "has real DJEN data" (its
+# state today, discovered via the catalog manifest) to "empty" for however
+# long that takes. _comunicacoes_urls_from_catalog reproduces the same
+# catalog-manifest lookup reconcile_processos.py's own
+# comunicacoes_parquet_urls() uses, so _register_comunicacoes only needs it
+# during that transition window — remove once indice_processual.parquet has
+# been confirmed published at least once.
+_IA_CATALOG_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.parquet"
 
 # DDL that produces the catalog tables exported as lawyer_ratings.parquet /
 # ratings_history.parquet (scripts/pipeline/export_ratings.py) — reused as the
@@ -171,6 +185,233 @@ def _try_download_parquet(url: str, dest: Path, label: str) -> Path | None:
     return dest
 
 
+# ── processos_unificados/processo_documentos aggregation (RFC 0014 M2) ─────────
+# Moved verbatim from scripts/reconcile_processos.py, which no longer computes
+# this shape — it publishes the thin indice_processual.parquet instead. This
+# is now the only place that needs the collapsed/wide view (for .qmd
+# contracts like processos_multi_fonte.qmd that predate the index), so it
+# lives here rather than duplicated across two files.
+
+_DJEN_AGG_SQL = """
+SELECT
+    regexp_replace(numero_processo, '[^0-9]', '', 'g') AS nr_processo,
+    MIN(data_disponibilizacao)::DATE  AS djen_primeira_pub,
+    MAX(data_disponibilizacao)::DATE  AS djen_ultima_pub,
+    COUNT(*)::INTEGER                 AS djen_n_publicacoes,
+    list(DISTINCT tribunal)           AS djen_tribunais
+FROM comunicacoes
+WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
+GROUP BY nr_processo
+"""
+
+_JURIS_AGG_SQL = """
+WITH cleaned AS (
+    SELECT
+        regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
+        id_documento,
+        tipo,
+        data_julgamento,
+        orgao,
+        relator,
+        classe_judicial,
+        url_portal
+    FROM tjro_juris
+    WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
+),
+ranked AS (
+    SELECT
+        *,
+        ROW_NUMBER() OVER (
+            PARTITION BY nr_processo
+            ORDER BY
+                CASE tipo
+                    WHEN 'ACÓRDÃO' THEN 1
+                    WHEN 'SENTENÇA' THEN 2
+                    ELSE 9
+                END,
+                data_julgamento DESC NULLS LAST
+        ) AS rn
+    FROM cleaned
+),
+principal AS (
+    SELECT * FROM ranked WHERE rn = 1
+),
+agg AS (
+    SELECT
+        nr_processo,
+        COUNT(*)::INTEGER        AS juris_n_documentos,
+        list(DISTINCT tipo)      AS juris_tipos,
+        MAX(data_julgamento)     AS juris_data_julgamento
+    FROM cleaned
+    GROUP BY nr_processo
+)
+SELECT
+    agg.nr_processo,
+    agg.juris_n_documentos,
+    agg.juris_tipos,
+    agg.juris_data_julgamento::DATE AS juris_data_julgamento,
+    principal.orgao          AS juris_orgao,
+    principal.relator        AS juris_relator,
+    principal.classe_judicial AS juris_classe,
+    principal.url_portal     AS juris_url
+FROM agg
+JOIN principal USING (nr_processo)
+"""
+
+_STJ_AGG_SQL = """
+SELECT
+    regexp_replace("numeroProcesso", '[^0-9]', '', 'g') AS nr_processo,
+    FIRST(id ORDER BY "dataDecisao" DESC NULLS LAST)::VARCHAR AS stj_id,
+    FIRST("siglaClasse" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_classe,
+    FIRST("ministroRelator" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_relator,
+    FIRST("tema" ORDER BY "dataDecisao" DESC NULLS LAST)::VARCHAR AS stj_tema,
+    FIRST("teseJuridica" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_tese,
+    FIRST("ementa" ORDER BY "dataDecisao" DESC NULLS LAST) AS stj_ementa,
+    MAX("dataDecisao")::DATE AS stj_data_decisao,
+    MAX("dataPublicacao")::DATE AS stj_data_publicacao
+FROM acordaos
+WHERE length(regexp_replace("numeroProcesso", '[^0-9]', '', 'g')) = 20
+GROUP BY nr_processo
+"""
+
+# DataJud capa is a per-(numero, grau, orgao) table; collapse to one row per
+# CNJ preferring the most recently updated document (usually the highest grau
+# reached). data_ajuizamento takes the earliest — the original filing.
+_DATAJUD_AGG_SQL = """
+SELECT
+    numero_processo AS nr_processo,
+    FIRST(classe_nome ORDER BY ultima_atualizacao DESC NULLS LAST) AS classe_oficial,
+    FIRST(assuntos ORDER BY ultima_atualizacao DESC NULLS LAST) AS assuntos,
+    FIRST(orgao_julgador ORDER BY ultima_atualizacao DESC NULLS LAST) AS orgao_julgador,
+    FIRST(grau ORDER BY ultima_atualizacao DESC NULLS LAST) AS grau,
+    MIN(data_ajuizamento) AS data_ajuizamento,
+    MAX(ultima_atualizacao) AS ultima_atualizacao
+FROM datajud_capa
+WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
+GROUP BY numero_processo
+"""
+
+_UNIFICADOS_SQL = """
+WITH
+    base AS (
+        SELECT
+            COALESCE(d.nr_processo, j.nr_processo, s.nr_processo, dj.nr_processo) AS nr_processo,
+            d.djen_primeira_pub,
+            d.djen_ultima_pub,
+            d.djen_n_publicacoes,
+            d.djen_tribunais,
+            j.juris_n_documentos,
+            j.juris_tipos,
+            j.juris_data_julgamento,
+            j.juris_orgao,
+            j.juris_relator,
+            j.juris_classe,
+            j.juris_url,
+            s.stj_id,
+            s.stj_classe,
+            s.stj_relator,
+            s.stj_tema,
+            s.stj_tese,
+            s.stj_ementa,
+            s.stj_data_decisao,
+            s.stj_data_publicacao,
+            -- DataJud enrichment (RFC 0010) — NULL/false when the capa is absent
+            dj.classe_oficial,
+            dj.assuntos,
+            dj.orgao_julgador,
+            dj.grau,
+            dj.data_ajuizamento,
+            dj.ultima_atualizacao,
+            (dj.nr_processo IS NOT NULL) AS tem_datajud,
+            (CASE WHEN d.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
+             CASE WHEN j.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
+             CASE WHEN s.nr_processo IS NOT NULL THEN 1 ELSE 0 END +
+             CASE WHEN dj.nr_processo IS NOT NULL THEN 1 ELSE 0 END)::INTEGER AS n_fontes,
+            list_filter(
+                ['djen', 'juris', 'stj', 'datajud'],
+                x -> (
+                    (x = 'djen'    AND d.nr_processo IS NOT NULL) OR
+                    (x = 'juris'   AND j.nr_processo IS NOT NULL) OR
+                    (x = 'stj'     AND s.nr_processo IS NOT NULL) OR
+                    (x = 'datajud' AND dj.nr_processo IS NOT NULL)
+                )
+            ) AS fontes,
+            NOW() AS updated_at
+        FROM djen_agg d
+        FULL OUTER JOIN juris_agg   j USING (nr_processo)
+        FULL OUTER JOIN stj_agg     s USING (nr_processo)
+        FULL OUTER JOIN datajud_agg dj USING (nr_processo)
+    )
+SELECT
+    base.nr_processo,
+    -- Build display mask inline (20 digits → NNNNNNN-DD.AAAA.J.TR.OOOO)
+    (base.nr_processo[1:7] || '-' || base.nr_processo[8:9] || '.' ||
+     base.nr_processo[10:13] || '.' || base.nr_processo[14:14] || '.' ||
+     base.nr_processo[15:16] || '.' || base.nr_processo[17:20]) AS nr_processo_mascara,
+    djen_primeira_pub,
+    djen_ultima_pub,
+    djen_n_publicacoes,
+    djen_tribunais,
+    juris_n_documentos,
+    juris_tipos,
+    juris_data_julgamento,
+    juris_orgao,
+    juris_relator,
+    juris_classe,
+    juris_url,
+    stj_id,
+    stj_classe,
+    stj_relator,
+    stj_tema,
+    stj_tese,
+    stj_ementa,
+    stj_data_decisao,
+    stj_data_publicacao,
+    classe_oficial,
+    assuntos,
+    orgao_julgador,
+    grau,
+    data_ajuizamento,
+    ultima_atualizacao,
+    tem_datajud,
+    fontes,
+    n_fontes,
+    updated_at
+FROM base
+ORDER BY base.nr_processo
+"""
+
+_DOCUMENTOS_SQL = """
+-- JURIS documents
+SELECT
+    regexp_replace(nr_processo, '[^0-9]', '', 'g') AS nr_processo,
+    'juris'          AS fonte,
+    id_documento::VARCHAR AS id_documento,
+    tipo,
+    data_julgamento::DATE AS data,
+    url_portal       AS url,
+    left(texto_limpo, 500) AS resumo
+FROM tjro_juris
+WHERE length(regexp_replace(nr_processo, '[^0-9]', '', 'g')) = 20
+
+UNION ALL
+
+-- STJ documents
+SELECT
+    regexp_replace("numeroProcesso", '[^0-9]', '', 'g') AS nr_processo,
+    'stj'            AS fonte,
+    id::VARCHAR      AS id_documento,
+    "siglaClasse"    AS tipo,
+    "dataDecisao"::DATE AS data,
+    ''               AS url,
+    left("ementa", 500) AS resumo
+FROM acordaos
+WHERE length(regexp_replace("numeroProcesso", '[^0-9]', '', 'g')) = 20
+
+ORDER BY nr_processo, data DESC NULLS LAST
+"""
+
+
 # ── View registry ──────────────────────────────────────────────────────────────
 # Single source of truth for the data sources available to .qmd SQL, in BOTH
 # modes: `register` wires the real data for rendering; `synthetic` creates an
@@ -227,23 +468,114 @@ def _register_acordaos(con: duckdb.DuckDBPyConnection) -> bool:
     return True
 
 
-def _register_processos_unificados(con: duckdb.DuckDBPyConnection) -> bool:
-    path = _try_download_parquet(
-        _PROCESSOS_IA_URL, _PROCESSOS_UNIFICADOS_PARQUET, "processos_unificados"
+def _comunicacoes_urls_from_catalog(con: duckdb.DuckDBPyConnection) -> list[str]:
+    """DJEN comunicacoes URLs straight from the causaganha-catalog manifest.
+
+    Rollout fallback only (see _IA_CATALOG_MANIFEST_URL) — reproduces
+    scripts/reconcile_processos.py's own comunicacoes_parquet_urls(). Returns
+    [] on any read failure (unreachable/absent catalog manifest), same as an
+    absent indice_processual.parquet — the caller treats both as "try the
+    next thing, then fall back to empty" uniformly.
+    """
+    try:
+        rows = con.execute(
+            "SELECT DISTINCT ia_url FROM read_parquet(?) WHERE table_name = 'comunicacoes'",
+            [_IA_CATALOG_MANIFEST_URL],
+        ).fetchall()
+    except duckdb.Error:
+        return []
+    return sorted(r[0] for r in rows)
+
+
+def _register_comunicacoes(con: duckdb.DuckDBPyConnection) -> bool:
+    """DJEN comunicacoes, discovered via indice_processual.parquet's own arquivo_ia_url.
+
+    RFC 0014 M2: rather than re-deriving which comunicacoes.parquet files
+    exist (a second, independent lookup against the causaganha-catalog
+    manifest, duplicating scripts/reconcile_processos.py's own discovery),
+    reuse the index's own djen rows — it already recorded exactly which
+    per-date IA item each DJEN record came from.
+
+    Falls back to _comunicacoes_urls_from_catalog when the index itself
+    isn't available yet (or lists no djen rows) — see that function's
+    docstring for why: this is a rollout-window guard, not the steady state.
+    """
+    urls: list[str] = []
+    indice_path = _try_download_parquet(
+        _INDICE_PROCESSUAL_IA_URL, _INDICE_PROCESSUAL_PARQUET, "indice_processual"
     )
-    if path is None:
+    if indice_path is not None:
+        urls = [
+            row[0]
+            for row in con.execute(
+                f"SELECT DISTINCT arquivo_ia_url FROM read_parquet('{indice_path}') "
+                "WHERE fonte = 'djen'"
+            ).fetchall()
+        ]
+    if not urls:
+        urls = _comunicacoes_urls_from_catalog(con)
+        source = "causaganha-catalog manifest (indice_processual fallback)"
+    else:
+        source = "indice_processual"
+    if not urls:
         return False
-    _register_view_from_parquet(con, "processos_unificados", path)
+    url_list = ", ".join(f"'{u}'" for u in urls)
+    print(f"Registering DJEN comunicacoes view: {len(urls)} parquet file(s) via {source}")
+    con.execute(
+        f"CREATE VIEW comunicacoes AS SELECT * FROM read_parquet([{url_list}], union_by_name=true)"
+    )
+    return True
+
+
+def _ensure_view(con: duckdb.DuckDBPyConnection, name: str, synthetic: Callable) -> None:
+    """Guarantee *name* exists on *con*, falling back to its empty synthetic schema.
+
+    Used by the aggregate views below: their SQL (moved from
+    scripts/reconcile_processos.py) references comunicacoes/tjro_juris/
+    acordaos/datajud_capa unconditionally, so every one of those must exist
+    (even if empty) regardless of whether that source's own registration
+    succeeded for this run — an unavailable source is a legitimate, common
+    case (RFC 0007), not a failure of the aggregate.
+    """
+    try:
+        con.execute(f"SELECT 1 FROM {name} LIMIT 0")
+    except duckdb.Error:
+        synthetic(con)
+
+
+def _register_processos_unificados(con: duckdb.DuckDBPyConnection) -> bool:
+    """Reconstruct the processos_unificados VIEW by aggregating the raw sources.
+
+    VIEW_SPECS registers acordaos/tjro_juris/datajud_capa (and this
+    function registers comunicacoes) before this runs, so _ensure_view's
+    fallback only fires for a source that genuinely didn't load this run —
+    the aggregate always succeeds, possibly with NULLs for a missing source,
+    exactly like scripts/reconcile_processos.py's own FULL OUTER JOIN did.
+    """
+    _register_comunicacoes(con)
+    for name, synth in (
+        ("comunicacoes", _synthetic_comunicacoes),
+        ("tjro_juris", _synthetic_tjro_juris),
+        ("acordaos", _synthetic_acordaos),
+        ("datajud_capa", _synthetic_datajud_capa),
+    ):
+        _ensure_view(con, name, synth)
+    con.execute(f"CREATE OR REPLACE TEMP VIEW djen_agg AS {_DJEN_AGG_SQL}")
+    con.execute(f"CREATE OR REPLACE TEMP VIEW juris_agg AS {_JURIS_AGG_SQL}")
+    con.execute(f"CREATE OR REPLACE TEMP VIEW stj_agg AS {_STJ_AGG_SQL}")
+    con.execute(f"CREATE OR REPLACE TEMP VIEW datajud_agg AS {_DATAJUD_AGG_SQL}")
+    con.execute(f"CREATE VIEW processos_unificados AS {_UNIFICADOS_SQL}")
     return True
 
 
 def _register_processo_documentos(con: duckdb.DuckDBPyConnection) -> bool:
-    path = _try_download_parquet(
-        _DOCUMENTOS_IA_URL, _PROCESSO_DOCUMENTOS_PARQUET, "processo_documentos"
-    )
-    if path is None:
-        return False
-    _register_view_from_parquet(con, "processo_documentos", path)
+    """Reconstruct the processo_documentos VIEW (JURIS + STJ) from raw sources."""
+    for name, synth in (
+        ("tjro_juris", _synthetic_tjro_juris),
+        ("acordaos", _synthetic_acordaos),
+    ):
+        _ensure_view(con, name, synth)
+    con.execute(f"CREATE VIEW processo_documentos AS {_DOCUMENTOS_SQL}")
     return True
 
 
@@ -338,20 +670,25 @@ def _synthetic_datajud_capa(con: duckdb.DuckDBPyConnection) -> None:
     con.register("datajud_capa", _DATAJUD_CAPA_SCHEMA.empty_table())
 
 
-def _reconcile_sources_connection() -> duckdb.DuckDBPyConnection:
-    """Scratch connection with empty inputs + aggregation views of reconcile_processos.
-
-    The processos_unificados/processo_documentos schemas are derived by running
-    the producer's own SQL (scripts/reconcile_processos.py) over empty sources,
-    so --check can never drift from what the reconcile pipeline actually writes.
-    """
-    scratch = duckdb.connect()
-    # The reconcile pipeline reads every consolidated comunicacoes.parquet
-    # (one row per DJEN publication) — distinct from the sync-manifest view.
-    scratch.execute(
+def _synthetic_comunicacoes(con: duckdb.DuckDBPyConnection) -> None:
+    """Empty comunicacoes — the columns _DJEN_AGG_SQL needs (not the full DJEN schema)."""
+    con.execute(
         "CREATE TABLE comunicacoes "
         "(numero_processo VARCHAR, data_disponibilizacao DATE, tribunal VARCHAR)"
     )
+
+
+def _reconcile_sources_connection() -> duckdb.DuckDBPyConnection:
+    """Scratch connection with empty inputs + aggregation views for the moved reconcile SQL.
+
+    The processos_unificados/processo_documentos schemas are derived by
+    running this file's own aggregation SQL (moved from
+    scripts/reconcile_processos.py — see the constants above) over empty
+    sources, so --check can never drift from what render_all actually
+    computes.
+    """
+    scratch = duckdb.connect()
+    _synthetic_comunicacoes(scratch)
     _synthetic_tjro_juris(scratch)
     _synthetic_acordaos(scratch)
     _synthetic_datajud_capa(scratch)
@@ -379,17 +716,24 @@ def _synthetic_processo_documentos(con: duckdb.DuckDBPyConnection) -> None:
     _synthetic_from_reconcile_sql(con, "processo_documentos", _DOCUMENTOS_SQL)
 
 
+# acordaos/tjro_juris/datajud_capa MUST come before processos_unificados/
+# processo_documentos: those two build synthetic empty fallbacks for any
+# source not already registered (_ensure_view), which would collide with a
+# later CREATE VIEW from this same source's own spec if the order were
+# reversed. comunicacoes has no standalone spec — no .qmd queries it
+# directly, only _register_processos_unificados does (via
+# _register_comunicacoes internally).
 VIEW_SPECS: tuple[ViewSpec, ...] = (
     ViewSpec("manifest", _register_manifest, _synthetic_manifest),
     ViewSpec("lawyer_ratings", _register_lawyer_ratings, _synthetic_lawyer_ratings),
     ViewSpec("ratings_history", _register_ratings_history, _synthetic_ratings_history),
     ViewSpec("acordaos", _register_acordaos, _synthetic_acordaos),
+    ViewSpec("tjro_juris", _register_tjro_juris, _synthetic_tjro_juris),
+    ViewSpec("datajud_capa", _register_datajud_capa, _synthetic_datajud_capa),
     ViewSpec(
         "processos_unificados", _register_processos_unificados, _synthetic_processos_unificados
     ),
     ViewSpec("processo_documentos", _register_processo_documentos, _synthetic_processo_documentos),
-    ViewSpec("tjro_juris", _register_tjro_juris, _synthetic_tjro_juris),
-    ViewSpec("datajud_capa", _register_datajud_capa, _synthetic_datajud_capa),
 )
 
 
