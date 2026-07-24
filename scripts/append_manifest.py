@@ -31,13 +31,15 @@ from pathlib import Path
 
 import structlog
 
+from causaganha.consolidate import manifest_reader
+
 
 logger = structlog.get_logger()
 
 IA_CATALOG_ITEM = "causaganha-catalog"
 FALLBACK_MANIFEST_URL = "https://archive.org/download/causaganha-catalog/manifest.jsonl"
 LOCAL_MANIFEST_PATH = Path("data/manifest.jsonl")
-SYNC_MANIFEST_PATH = Path("data/sync-manifest.csv")
+SYNC_MANIFEST_PATH = Path("data/sync-manifest.parquet")
 
 
 def download_existing_manifest() -> list[dict]:
@@ -61,9 +63,7 @@ def download_existing_manifest() -> list[dict]:
 
 
 def get_new_uploads() -> list[dict]:
-    """Extract uploaded ZIPs from sync-manifest.csv.
-
-    Reads the canonical state file written by djen-backup/engine.py.
+    """Extract uploaded ZIPs from the materialized manifest and event log.
     Returns all entries with ia_status=uploaded, deduplication is handled
     by the caller via (date, tribunal) keying.
     """
@@ -75,22 +75,14 @@ def get_new_uploads() -> list[dict]:
     now_str = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
     try:
-        for raw_line in SYNC_MANIFEST_PATH.read_text(encoding="utf-8").splitlines():
-            stripped = raw_line.strip()
-            if not stripped or stripped.startswith("tribunal"):
+        for entry in manifest_reader.entries(SYNC_MANIFEST_PATH):
+            if entry.ia_status != "uploaded":
                 continue
-            parts = stripped.split(",")
-            if len(parts) < 3:
-                continue
-            tribunal = parts[0].upper()
-            date_str = parts[1]
-            ia_status = parts[2]
-            if ia_status != "uploaded":
-                continue
-            updated_at = parts[5] if len(parts) > 5 else now_str
-            year = date_str[:4]
+            tribunal = entry.tribunal
+            date_str = entry.date.isoformat()
+            updated_at = entry.updated_at or now_str
             filename = f"djen-{date_str}-{tribunal}.zip"
-            item_id = f"djen-{tribunal.lower()}-{year}"
+            item_id = f"djen-{tribunal.lower()}-{entry.date.year}"
             rows.append(
                 {
                     "date": date_str,
@@ -117,7 +109,7 @@ def main() -> int:
     logger.info("new_rows_from_state", count=len(new_rows))
 
     # Only entries NOT yet in the existing manifest are truly new.
-    # sync-manifest.csv accumulates all historical uploads, so comparing
+    # The materialized manifest accumulates all historical uploads, so comparing
     # against the existing manifest.jsonl avoids spurious has_new_uploads=true.
     existing_keys = {(r.get("date"), r.get("tribunal")) for r in existing_rows}
     truly_new = [r for r in new_rows if (r.get("date"), r.get("tribunal")) not in existing_keys]

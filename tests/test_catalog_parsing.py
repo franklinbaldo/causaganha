@@ -2,6 +2,8 @@ import tempfile
 from datetime import date
 from pathlib import Path
 
+import duckdb
+
 from scripts.generate_catalog import (
     calculate_completed_items,
     get_items_from_sync_manifest,
@@ -13,32 +15,27 @@ from scripts.generate_catalog import (
 
 def test_get_items_from_sync_manifest() -> None:
     # 1. Missing file
-    res = get_items_from_sync_manifest(Path("non_existent_sync_manifest.csv"))
+    res = get_items_from_sync_manifest(Path("non_existent_sync_manifest.parquet"))
     assert res == []
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        manifest_file = Path(tmpdir) / "sync-manifest.csv"
-
-        # 2. Valid CSV with multiple uploaded entries across tribunals/years
-        manifest_file.write_text(
-            "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
-            "TJSP,2026-01-01,uploaded,available,200,2026-01-01T10:00:00Z\n"
-            "TJMG,2026-01-02,uploaded,available,200,2026-01-02T10:00:00Z\n"
-            "TJRO,2025-12-31,uploaded,available,200,2025-12-31T10:00:00Z\n"
-        )
+        manifest_file = Path(tmpdir) / "sync-manifest.parquet"
+        con = duckdb.connect()
+        con.execute("CREATE TABLE manifest AS SELECT * FROM (VALUES ('TJSP', DATE '2026-01-01', 'uploaded', 'available', '200', '2026-01-01T10:00:00Z'), ('TJMG', DATE '2026-01-02', 'uploaded', 'available', '200', '2026-01-02T10:00:00Z'), ('TJRO', DATE '2025-12-31', 'uploaded', 'available', '200', '2025-12-31T10:00:00Z')) AS t(tribunal, date, ia_status, djen_status, djen_raw, updated_at)")
+        con.execute("COPY manifest TO ? (FORMAT PARQUET)", [str(manifest_file)])
         res = get_items_from_sync_manifest(manifest_file)
         assert sorted(res) == ["djen-tjmg-2026", "djen-tjro-2025", "djen-tjsp-2026"]
 
         # 3. Only non-uploaded entries → empty
-        manifest_file.write_text(
-            "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
-            "TJSP,2026-01-01,pending,available,200,2026-01-01T10:00:00Z\n"
-        )
+        con.execute("DELETE FROM manifest; INSERT INTO manifest VALUES ('TJSP', DATE '2026-01-01', 'pending', 'available', '200', '2026-01-01T10:00:00Z')")
+        con.execute("COPY manifest TO ? (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE)", [str(manifest_file)])
         res = get_items_from_sync_manifest(manifest_file)
         assert res == []
 
         # 4. Empty file (header only) → empty
-        manifest_file.write_text("tribunal,date,ia_status,djen_status,djen_raw,updated_at\n")
+        con.execute("DELETE FROM manifest")
+        con.execute("COPY manifest TO ? (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE)", [str(manifest_file)])
+        con.close()
         res = get_items_from_sync_manifest(manifest_file)
         assert res == []
 

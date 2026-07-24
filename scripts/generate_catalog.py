@@ -60,6 +60,7 @@ import duckdb
 import structlog
 
 from causaganha.config import TRIBUNAIS
+from causaganha.consolidate import manifest_reader
 
 
 logger = structlog.get_logger()
@@ -69,7 +70,7 @@ DJEN_START_DATE = date(2024, 1, 1)
 
 IA_CATALOG_ITEM = "causaganha-catalog"
 
-SYNC_MANIFEST_PATH = Path("data/sync-manifest.csv")
+SYNC_MANIFEST_PATH = Path("data/sync-manifest.parquet")
 
 # Known table names from consolidation output
 KNOWN_TABLE_NAMES = {
@@ -134,30 +135,12 @@ def run_ia_command(args: list[str], timeout: int = 300) -> str:
 def get_items_from_sync_manifest(
     manifest_path: Path = SYNC_MANIFEST_PATH,
 ) -> list[str]:
-    """Get IA item IDs from sync-manifest.csv (uploaded entries only).
-
-    Replaces the old get_items_from_ia_state() which read the deprecated
-    ia-state.json. The new djen-backup engine writes to sync-manifest.csv
-    using the canonical item format djen-{tribunal.lower()}-{year}.
-    """
-    if not manifest_path.exists():
-        logger.info("sync_manifest_not_found", path=str(manifest_path))
-        return []
-
+    """Get uploaded IA item IDs from parquet plus pending manifest-log events."""
     item_ids: set[str] = set()
     try:
-        for raw_line in manifest_path.read_text(encoding="utf-8").splitlines():
-            stripped = raw_line.strip()
-            if not stripped or stripped.startswith("tribunal"):
-                continue
-            parts = stripped.split(",")
-            if len(parts) < 3:
-                continue
-            tribunal = parts[0].lower()
-            date_str = parts[1]
-            ia_status = parts[2]
-            if ia_status == "uploaded" and len(date_str) >= 4:
-                item_ids.add(f"djen-{tribunal}-{date_str[:4]}")
+        for entry in manifest_reader.entries(manifest_path):
+            if entry.ia_status == "uploaded":
+                item_ids.add(f"djen-{entry.tribunal.lower()}-{entry.date.year}")
     except Exception as e:
         logger.warning("failed_to_parse_sync_manifest", error=str(e))
         return []
@@ -293,25 +276,22 @@ def generate_collect_progress(
 ) -> dict:
     """Generate download (collect) progress metrics for dashboard.
 
-    Reads sync-manifest.csv (written by djen-backup/engine.py) instead of the
-    old djen_state.coverage DuckDB table which is no longer populated.
+    Reads the canonical parquet materialization and pending manifest-log
+    segments instead of the retired CSV or old coverage DuckDB table.
     """
     target_start = date(2024, 1, 1)
     target_end = datetime.now(tz=UTC).date()
     target_days = (target_end - target_start).days + 1
 
     uploaded_dates: set[str] = set()
-    if sync_manifest_path.exists():
-        try:
-            for raw_line in sync_manifest_path.read_text(encoding="utf-8").splitlines():
-                stripped = raw_line.strip()
-                if not stripped or stripped.startswith("tribunal"):
-                    continue
-                parts = stripped.split(",")
-                if len(parts) >= 3 and parts[2] == "uploaded":
-                    uploaded_dates.add(parts[1])
-        except Exception as e:
-            logger.warning("collect_progress_manifest_read_failed", error=str(e))
+    try:
+        uploaded_dates = {
+            entry.date.isoformat()
+            for entry in manifest_reader.entries(sync_manifest_path)
+            if entry.ia_status == "uploaded"
+        }
+    except Exception as e:
+        logger.warning("collect_progress_manifest_read_failed", error=str(e))
 
     unique_days = len(uploaded_dates)
     dates_sorted = sorted(uploaded_dates) if uploaded_dates else []

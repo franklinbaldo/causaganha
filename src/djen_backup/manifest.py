@@ -72,6 +72,33 @@ def _read_parquet_rows(path: str) -> list[tuple]:
         con.close()
 
 
+def load_materialized_manifest(parquet_path: Path, segment_dir: Path) -> "SyncManifest":
+    """Load a local manifest materialization and its pending event segments.
+
+    This is the synchronous counterpart to :meth:`SyncManifest.load_from_ia`.
+    Consumers that have downloaded the dashboard state must use it rather than
+    reconstructing the retired CSV: the base parquet is replayed first and
+    lexically ordered, un-compacted segments are then applied with the same
+    field-level last-write-wins rules as the IA reader.
+    """
+    manifest = SyncManifest()
+    if parquet_path.exists():
+        for tribunal, d, ia_status, djen_status, djen_raw, updated_at in _read_parquet_rows(
+            str(parquet_path)
+        ):
+            manifest.apply_event(
+                tribunal,
+                d,
+                ia_status=ia_status or "",
+                djen_status=djen_status or "",
+                djen_raw=djen_raw or "",
+                updated_at=updated_at or "",
+            )
+    for segment_path in sorted(segment_dir.glob("*.csv")) if segment_dir.exists() else []:
+        manifest.apply_segment_csv(segment_path.read_text(encoding="utf-8"))
+    return manifest
+
+
 class ManifestCounts(NamedTuple):
     """Aggregate counts for progress display."""
 

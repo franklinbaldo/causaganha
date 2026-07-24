@@ -64,6 +64,7 @@ from causaganha.consolidate.consolidation_manifest import (
     collect_table_stats,
     update_consolidation_manifest,
 )
+from causaganha.consolidate import manifest_reader
 from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
 from causaganha.consolidate.schema_registry import (
     CURRENT_VERSION,
@@ -115,11 +116,11 @@ class ConsolidationContext:
 _CHECKPOINT_STATE_FILE = Path("data/consolidate-checkpoint.json")
 
 # Sync manifest path (written by djen-backup/engine.py)
-_SYNC_MANIFEST_FILE = Path("data/sync-manifest.csv")
+_SYNC_MANIFEST_FILE = Path("data/sync-manifest.parquet")
 
 
 def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[str, Any]]]:
-    """Load sync-manifest.csv into a by-date lookup.
+    """Load the materialized manifest into a by-date lookup.
 
     The sync-manifest is the canonical state written by djen-backup/engine.py.
     Using it as an intermediate source avoids the slow IA metadata API fallback
@@ -134,41 +135,17 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
         as "present" for the completeness check).
         Empty dict if file does not exist.
     """
-    if not path.exists():
-        logger.info("sync_manifest_not_found", path=str(path))
-        return {}
-
     by_date: dict[str, list[dict[str, Any]]] = {}
     try:
-        for line in path.read_text(encoding="utf-8").splitlines():
-            stripped_line = line.strip()
-            if not stripped_line or stripped_line.startswith("tribunal"):
-                continue
-            parts = stripped_line.split(",")
-            if len(parts) < 3:
-                continue
-            tribunal = parts[0].upper()
-            date_str = parts[1]
-            ia_status = parts[2]
-            djen_status = parts[3] if len(parts) > 3 else ""
-
-            if ia_status == "uploaded":
-                year = date_str[:4]
-                item_id = f"djen-{tribunal.lower()}-{year}"
-                filename = f"djen-{date_str}-{tribunal}.zip"
+        for entry in manifest_reader.entries(path):
+            date_str = entry.date.isoformat()
+            if entry.ia_status == "uploaded":
                 by_date.setdefault(date_str, []).append(
-                    {
-                        "tribunal": tribunal,
-                        "item_id": item_id,
-                        "filename": filename,
-                        "absent": False,
-                    }
+                    {"tribunal": entry.tribunal, "item_id": f"djen-{entry.tribunal.lower()}-{entry.date.year}", "filename": f"djen-{date_str}-{entry.tribunal}.zip", "absent": False}
                 )
-            elif djen_status == "absent":
-                # Tribunal confirmed no publication on this date — counts as "present"
-                # for the completeness check but produces no ZIP to download.
+            elif entry.djen_status == "absent":
                 by_date.setdefault(date_str, []).append(
-                    {"tribunal": tribunal, "item_id": "", "filename": "", "absent": True}
+                    {"tribunal": entry.tribunal, "item_id": "", "filename": "", "absent": True}
                 )
     except Exception as e:
         logger.warning("sync_manifest_load_failed", path=str(path), error=str(e))

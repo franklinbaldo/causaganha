@@ -6,17 +6,11 @@ runs:
     - shell: bash
       run: |
         mkdir -p data
-        HEADER='tribunal,date,ia_status,djen_status,djen_raw,updated_at'
-        # Download the manifest (primary state file). Phase 3: the canonical
-        # source on IA is the parquet — export it to the local CSV that
-        # downstream local-only consumers (append_manifest.py,
-        # generate_catalog.py) still read, unchanged.
-        if curl -sSfL -o data/sync-manifest.parquet \
-          "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"; then
-          uv run --no-dev python -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")" \
-            || echo "$HEADER" > data/sync-manifest.csv
-        else
-          echo "$HEADER" > data/sync-manifest.csv
-        fi
+        # Consumers replay the canonical parquet plus pending log segments.
+        curl -sSfL -o data/sync-manifest.parquet \
+          "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet" || true
+        ia download causaganha-dashboard 'manifest-log/*.csv' --destdir data --no-directories || true
+        mkdir -p data/manifest-log
+        find data -maxdepth 1 -name '*.csv' -exec mv {} data/manifest-log/ \;
         echo "State files:"
         ls -lh data/

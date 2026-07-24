@@ -308,8 +308,8 @@ def main() -> None:
     parser.add_argument(
         "--manifest",
         type=Path,
-        default=Path("data/sync-manifest.csv"),
-        help="Path to sync-manifest.csv",
+        default=Path("data/sync-manifest.parquet"),
+        help="Path to canonical sync-manifest.parquet (with sibling manifest-log/)",
     )
     args = parser.parse_args()
 

@@ -28,7 +28,7 @@ def ctx() -> dict:
     target_fixture="manifest",
 )
 def manifest_with_three_dates(tmp_path: Path, count: int, d1: str, d2: str, d3: str) -> Path:
-    path = tmp_path / "sync-manifest.csv"
+    path = tmp_path / "sync-manifest.parquet"
     write_manifest(
         path,
         [
@@ -52,28 +52,28 @@ def _noop_already_uploaded() -> None:
 )
 def manifest_with_mixed(tmp_path: Path, count: int) -> Path:
     # The following step-defs populate it specifically
-    path = tmp_path / "sync-manifest.csv"
+    path = tmp_path / "sync-manifest.parquet"
     write_manifest(path, [])
     return path
 
 
 @given(parsers.parse('date {date_str} has ia_status="uploaded"'))
 def append_uploaded(manifest: Path, date_str: str) -> None:
-    existing = manifest.read_text().strip().splitlines()
-    existing.append(f"TJSP,{date_str},uploaded,,200,")
-    manifest.write_text("\n".join(existing) + "\n")
+    segment = manifest.parent / "manifest-log" / f"{date_str}-uploaded.csv"
+    segment.parent.mkdir(exist_ok=True)
+    segment.write_text(f"tribunal,date,ia_status,djen_status,djen_raw,updated_at\nTJSP,{date_str},uploaded,,200,{date_str}T00:00:00Z\n")
 
 
 @given(parsers.parse('date {date_str} has djen_status="absent" and no ia_status'))
 def append_absent(manifest: Path, date_str: str) -> None:
-    existing = manifest.read_text().strip().splitlines()
-    existing.append(f"TJSP,{date_str},,absent,404,")
-    manifest.write_text("\n".join(existing) + "\n")
+    segment = manifest.parent / "manifest-log" / f"{date_str}-absent.csv"
+    segment.parent.mkdir(exist_ok=True)
+    segment.write_text(f"tribunal,date,ia_status,djen_status,djen_raw,updated_at\nTJSP,{date_str},,absent,404,{date_str}T00:00:00Z\n")
 
 
 @given("no sync-manifest file exists", target_fixture="manifest")
 def no_manifest(tmp_path: Path) -> Path:
-    return tmp_path / "absent.csv"
+    return tmp_path / "absent.parquet"
 
 
 @given(
@@ -81,7 +81,7 @@ def no_manifest(tmp_path: Path) -> Path:
     target_fixture="manifest",
 )
 def manifest_with_counts(tmp_path: Path, up: int, ab: int, unk: int) -> Path:
-    path = tmp_path / "sync-manifest.csv"
+    path = tmp_path / "sync-manifest.parquet"
     rows: list[dict] = [
         {"tribunal": "TJSP", "date": f"2026-01-{i + 1:02d}", "ia_status": "uploaded"}
         for i in range(up)

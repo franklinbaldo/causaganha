@@ -49,13 +49,14 @@ jobs:
       - name: Download sync-manifest from IA
         run: |
           mkdir -p data
-          # Phase 3: the canonical source on IA is the parquet — download it
-          # and export to the local CSV downstream steps still read. No
-          # fallback (matches prior behavior: fail hard if unavailable).
+          # Read the canonical parquet and un-compacted event segments; the
+          # roundtrip consumer replays them without rebuilding a CSV.
           curl -sSfL -o data/sync-manifest.parquet \
             "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
-          uv run --no-dev python -c "import duckdb; duckdb.connect().execute(\"COPY (SELECT * FROM read_parquet('data/sync-manifest.parquet')) TO 'data/sync-manifest.csv' (FORMAT CSV, HEADER)\")"
-          echo "Manifest rows: $(tail -n +2 data/sync-manifest.csv | wc -l)"
+          ia download causaganha-dashboard 'manifest-log/*.csv' --destdir data --no-directories || true
+          mkdir -p data/manifest-log
+          find data -maxdepth 1 -name '*.csv' -exec mv {} data/manifest-log/ \;
+          echo "Manifest parquet downloaded."
 
       - name: Run roundtrip equivalence check
         run: |
