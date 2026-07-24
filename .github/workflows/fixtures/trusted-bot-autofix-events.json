@@ -1,0 +1,34 @@
+[
+  {
+    "name": "same-repository Dependabot pull request",
+    "repository": "causaganha/causaganha",
+    "head_repository": "causaganha/causaganha",
+    "pull_request_author": "dependabot[bot]",
+    "actor": "dependabot[bot]",
+    "allowed": true
+  },
+  {
+    "name": "forked Dependabot pull request",
+    "repository": "causaganha/causaganha",
+    "head_repository": "forker/causaganha",
+    "pull_request_author": "dependabot[bot]",
+    "actor": "dependabot[bot]",
+    "allowed": false
+  },
+  {
+    "name": "unapproved bot",
+    "repository": "causaganha/causaganha",
+    "head_repository": "causaganha/causaganha",
+    "pull_request_author": "renovate[bot]",
+    "actor": "renovate[bot]",
+    "allowed": false
+  },
+  {
+    "name": "maintainer rerun of Dependabot pull request",
+    "repository": "causaganha/causaganha",
+    "head_repository": "causaganha/causaganha",
+    "pull_request_author": "dependabot[bot]",
+    "actor": "maintainer",
+    "allowed": false
+  }
+]

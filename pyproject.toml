@@ -76,6 +76,7 @@ dev = [
     "pytest-cov>=6.2.1",
     "respx>=0.22.0",
     "ruff>=0.12.0",
+    "vulture>=2.14",
     # Runtime of deployment/relay/function/main.py (Cloud Run relay) — needed
     # to import and unit-test it; not used anywhere else in the repo.
     "functions-framework>=3.0.0",

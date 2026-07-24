@@ -1,0 +1,54 @@
+name: Trusted bot lint auto-fix
+
+on:
+  pull_request_target:
+    types: [opened, reopened, synchronize]
+
+# This is intentionally the only write-capable CI workflow. It is guarded below
+# before it checks out or executes PR-controlled code, and references no secrets.
+permissions:
+  contents: write
+
+jobs:
+  auto-fix:
+    # Approved bots must be listed explicitly. Keep this expression synchronized
+    # with fixtures/trusted-bot-autofix-events.json and its workflow test.
+    if: >-
+      github.event.pull_request.head.repo.full_name == github.repository &&
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: ./.github/actions/setup
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: web/package-lock.json
+      - name: Install locked frontend tools
+        run: npm ci --prefix web
+      - name: Auto-fix linting issues
+        env:
+          # checkout deliberately does not persist credentials; use this token
+          # only for the final, same-repository branch push.
+          PUSH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          uv run ruff format .
+          uv run ruff check --fix .
+          uv run python scripts/check_notebooks_synced.py --fix
+          npm --prefix web exec prettier -- --write .
+
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+            git add .
+            git commit -m "style: auto-fix lint violations [bot]"
+            git remote set-url origin "https://x-access-token:${PUSH_TOKEN}@github.com/${{ github.repository }}.git"
+            git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          fi

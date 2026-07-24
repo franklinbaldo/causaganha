@@ -253,7 +253,7 @@ Common local commands:
 uv run pytest -q
 uv run ruff format --check
 uv run ruff check
-uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
+uv run vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
 cd web && npm ci && npm run lint && npm test && npm run build
 ```
 
@@ -278,6 +278,13 @@ The main CI workflow is [test.yml](.github/workflows/test.yml). It currently run
 3. Notebook sync check (`scripts/check_notebooks_synced.py`)
 4. Python tests
 5. Frontend lint, test, and build
+
+Normal CI always uses read-only repository permissions. The separate
+[trusted bot auto-fix workflow](.github/workflows/trusted-bot-autofix.yml) is
+the only workflow that can push formatting fixes. Its allowlist currently
+contains only `dependabot[bot]`; a pull request must also originate from a
+branch in this repository (forks are never eligible). Add another bot only by
+updating the workflow condition and its event-condition fixture together.
 
 ## Documentation
 
