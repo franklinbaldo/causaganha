@@ -15,7 +15,8 @@
     "codegen:djen-zod": "orval --config orval.config.ts",
     "prebuild": "npm run codegen:djen && npm run codegen:djen-zod",
     "pretest": "npm run codegen:djen && npm run codegen:djen-zod",
-    "pretypecheck": "npm run codegen:djen && npm run codegen:djen-zod"
+    "pretypecheck": "npm run codegen:djen && npm run codegen:djen-zod",
+    "test:rendered-contracts": "vitest run src/lib/data/renderedContracts.integration.test.ts"
   },
   "dependencies": {
     "@astrojs/check": "^0.9.8",
