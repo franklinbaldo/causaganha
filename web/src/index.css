@@ -3,6 +3,7 @@
 @import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Piazzolla:ital,wght@0,400;0,500;0,700;1,400;1,500&display=swap');
 
 @import './styles/tokens.css';
+@import './styles/cobogo-mapping.css';
 @import './styles/base.css';
 @import './styles/layout.css';
 @import './styles/navigation.css';
