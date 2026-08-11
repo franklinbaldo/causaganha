@@ -190,6 +190,7 @@ def normalizar_cnj(n: str) -> str:
     d = re.sub(r"\D", "", n or "")
     return d if len(d) == 20 else ""
 
+
 def formatar_cnj(n: str) -> str:
     """20 dígitos → NNNNNNN-DD.AAAA.J.TR.OOOO."""
     if len(n) != 20:

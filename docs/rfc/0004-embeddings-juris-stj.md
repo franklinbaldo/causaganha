@@ -198,6 +198,7 @@ Criar tabelas `tjro_juris` e `stj_primeira_secao` no LanceDB existente
 class TJROJurisSource:
     """Itera sobre os Parquets do TJRO JURIS e produz (texto, metadados)."""
 
+
 # src/causaganha/analysis/sources/stj_source.py
 class STJSource:
     """Itera sobre o Parquet consolidado do STJ e produz (texto, metadados)."""

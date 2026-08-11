@@ -76,14 +76,14 @@ DuckDB compila e executa como SQL.
 **Errado:**
 ```python
 rows = []
-for record in ndjson_data:       # Python loop → O(n) overhead
+for record in ndjson_data:  # Python loop → O(n) overhead
     rows.append(transform(record))
 ```
 
 **Certo:**
 ```python
-t = con.read_json(path)          # DuckDB lê e transforma em SQL
-result = (t.select(...).filter(...).mutate(...))  # expressão lazy
+t = con.read_json(path)  # DuckDB lê e transforma em SQL
+result = t.select(...).filter(...).mutate(...)  # expressão lazy
 ```
 
 ### 2.3 Delay de materialização — `.execute()` só no `COPY`
