@@ -32,12 +32,14 @@ Usage:
         --guideline-version v7.3 \
         --dependency-lock-hash <sha256 of uv.lock>
 
-Not runnable in this environment (no `opf` CLI installed) -- written ahead
-of the val/test corpus existing, per explicit instruction to write the
-trainer now and run it once real validation data is available. Confirm the
-`opf train`/`opf eval` flags below against `opf train --help` /
-`opf eval --help` before the first real run; they are carried over from
-`train_decision_segmenter.py`, not independently re-verified here.
+Verified against a real `opf train` on a GPU Kaggle kernel (2026-07-19,
+synthetic release, not real corpus data -- the real corpus has no
+adjudicated val/test yet): the flags below were carried over from
+`train_decision_segmenter.py` and one didn't match `opf train`'s actual CLI
+(`--seed` doesn't exist; `opf train` only has `--shuffle-seed`), which
+`opf train --help` would have caught but no local test could, since no
+local environment here has `opf` installed. Fixed; see
+`test_run_opf_train_epoch_uses_shuffle_seed_not_seed`.
 """
 
 from __future__ import annotations
@@ -109,7 +111,7 @@ def _run_opf_train_epoch(
         "1",
         "--batch-size",
         str(batch_size),
-        "--seed",
+        "--shuffle-seed",
         str(seed),
     ]
     if resume_from is not None:

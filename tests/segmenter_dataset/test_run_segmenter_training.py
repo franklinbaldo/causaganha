@@ -8,9 +8,45 @@ from scripts.run_segmenter_training import (
     _EpochResult,
     _load_label_space,
     _macro_f1_from_metrics,
+    _run_opf_train_epoch,
     _select_best_epoch,
     main,
 )
+
+
+def test_run_opf_train_epoch_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
+    """`opf train`'s real CLI has no `--seed` flag (only `--shuffle-seed`) --
+    confirmed against a real `opf train --help` on a GPU Kaggle kernel, which
+    failed with "unrecognized arguments: --seed 42" before this fix. Locks in
+    the fix since nothing else exercised the constructed subprocess command.
+    """
+    captured_cmd = {}
+
+    class _FakeResult:
+        returncode = 0
+
+    def fake_run(cmd, *, check=False):
+        del check
+        captured_cmd["cmd"] = cmd
+        return _FakeResult()
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    _run_opf_train_epoch(
+        tmp_path / "train.jsonl",
+        tmp_path / "val.jsonl",
+        tmp_path / "label_space.json",
+        tmp_path / "epoch-1",
+        resume_from=None,
+        batch_size=2,
+        seed=42,
+        device="cpu",
+    )
+
+    cmd = captured_cmd["cmd"]
+    assert "--seed" not in cmd
+    assert "--shuffle-seed" in cmd
+    assert cmd[cmd.index("--shuffle-seed") + 1] == "42"
 
 
 def test_load_label_space_requires_o_first(tmp_path):
