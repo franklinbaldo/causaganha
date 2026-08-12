@@ -69,6 +69,19 @@ export function parseTimestamp(value: string | null | undefined): number | null 
  * Ausente ou imparseável → null (o chamador exibe um fallback explícito,
  * nunca "Invalid Date UTC").
  */
+/**
+ * Valor para o atributo `datetime` de `<time>`: mesmo instante que
+ * `formatUtcDateTime` renderiza para humanos, em ISO 8601 UTC.
+ *
+ * O texto visível continua em pt-BR; isto existe para que leitores de tela,
+ * feeds e verificações automáticas de frescor consigam ler a data.
+ */
+export function utcDateTimeAttr(value: string | null | undefined): string | null {
+  const ms = parseTimestamp(value);
+  if (ms === null) return null;
+  return new Date(ms).toISOString();
+}
+
 export function formatUtcDateTime(value: string | null | undefined): string | null {
   const ms = parseTimestamp(value);
   if (ms === null) return null;

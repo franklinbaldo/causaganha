@@ -7,6 +7,7 @@ import {
   evaluateSourceFreshness,
   freshnessDisplayLabel,
   formatUtcDateTime,
+  utcDateTimeAttr,
   parseTimestamp,
   pctOfTotal,
   STALE_BUILD_LIMIT_MS,
@@ -255,6 +256,22 @@ describe('timestamp display helpers', () => {
   it('formatUtcDateTime: invalid input → null, so pages render an explicit fallback', () => {
     expect(formatUtcDateTime('Invalid Date')).toBeNull();
     expect(formatUtcDateTime(null)).toBeNull();
+  });
+
+  it('utcDateTimeAttr: invalid input → null, so <time> is omitted instead of carrying junk', () => {
+    expect(utcDateTimeAttr('Invalid Date')).toBeNull();
+    expect(utcDateTimeAttr(null)).toBeNull();
+    expect(utcDateTimeAttr(undefined)).toBeNull();
+  });
+
+  it('utcDateTimeAttr: emits ISO 8601 UTC for the same instant the human label shows', () => {
+    const raw = '2026-07-10T08:30:00Z';
+    expect(utcDateTimeAttr(raw)).toBe('2026-07-10T08:30:00.000Z');
+    expect(formatUtcDateTime(raw)).toContain('10/07/2026');
+  });
+
+  it('utcDateTimeAttr: normalises a non-UTC offset to the same instant', () => {
+    expect(utcDateTimeAttr('2026-07-10T05:30:00-03:00')).toBe('2026-07-10T08:30:00.000Z');
   });
 
   it('formatUtcDateTime: valid ISO renders pt-BR UTC, never "Invalid Date UTC"', () => {

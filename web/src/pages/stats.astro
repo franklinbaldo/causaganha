@@ -10,6 +10,7 @@ import {
   evaluateSourceFreshness,
   freshnessDisplayLabel,
   formatUtcDateTime,
+  utcDateTimeAttr,
   pctOfTotal,
 } from '../lib/data/siteStatus';
 
@@ -34,6 +35,7 @@ const weeklyPattern = (await loadContract('weekly_pattern')) ?? [];
 // nascer como um novo contrato .qmd, não de um snapshot paralelo.
 const tribunalCoverage = (await loadContract('tribunal_coverage')) ?? [];
 const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
+const generatedAtIso = utcDateTimeAttr(siteStatus.generated_at);
 
 function coverageTone(pct: number): string {
   if (pct >= 80) return 'success';
@@ -49,6 +51,8 @@ const djenFreshness = evaluateSourceFreshness(djen, Date.now());
 const freshnessLabel = freshnessDisplayLabel(djenFreshness);
 const lastAttempt = formatUtcDateTime(djen.last_attempt_at);
 const lastSuccess = formatUtcDateTime(djen.last_success_at);
+const lastAttemptIso = utcDateTimeAttr(djen.last_attempt_at);
+const lastSuccessIso = utcDateTimeAttr(djen.last_success_at);
 const avgCoverage30 = statsCoverage?.avg_coverage ?? 0;
 const bestCount = statsCoverage?.best_count ?? 0;
 const bestDay = statsCoverage?.best_day ?? null;
@@ -89,7 +93,7 @@ const base = import.meta.env.BASE_URL;
     <article>
       <header>
         <strong>Resumo de Cobertura</strong>
-        <small data-tone="muted">Últimos 30 dias · Fonte DJEN: {freshnessLabel} — última tentativa {lastAttempt ?? 'desconhecida'} · último sucesso {lastSuccess ?? 'desconhecido'}</small>
+        <small data-tone="muted">Últimos 30 dias · Fonte DJEN: {freshnessLabel} — última tentativa {lastAttempt && lastAttemptIso ? (<time datetime={lastAttemptIso}>{lastAttempt}</time>) : 'desconhecida'} · último sucesso {lastSuccess && lastSuccessIso ? (<time datetime={lastSuccessIso}>{lastSuccess}</time>) : 'desconhecido'}</small>
       </header>
       <div class="auto-grid">
         <StatCard
@@ -176,20 +180,23 @@ const base = import.meta.env.BASE_URL;
     <article>
       <header>
         <strong>Cobertura por tribunal</strong>
-        <small data-tone="muted">Contrato tribunal_coverage, renderizado do manifesto canônico (sync-manifest.parquet) · gerado em {generatedAtLabel}</small>
+        <small data-tone="muted">Contrato tribunal_coverage, renderizado do manifesto canônico (sync-manifest.parquet) · gerado em {generatedAtIso ? (<time datetime={generatedAtIso}>{generatedAtLabel}</time>) : generatedAtLabel}</small>
       </header>
       {tribunalCoverage.length > 0 ? (
         <div class="table-wrap">
           <table>
+            <caption class="sr-only">
+              Cobertura por tribunal: ZIPs arquivados no Internet Archive, pendentes, ausentes e desconhecidos, percentual de cobertura e período arquivado para cada tribunal.
+            </caption>
             <thead>
               <tr>
-                <th>Tribunal</th>
-                <th>ZIPs no IA</th>
-                <th>Pendente</th>
-                <th>Ausente</th>
-                <th>Desconhecido</th>
-                <th>Cobertura</th>
-                <th>Período arquivado</th>
+                <th scope="col">Tribunal</th>
+                <th scope="col">ZIPs no IA</th>
+                <th scope="col">Pendente</th>
+                <th scope="col">Ausente</th>
+                <th scope="col">Desconhecido</th>
+                <th scope="col">Cobertura</th>
+                <th scope="col">Período arquivado</th>
               </tr>
             </thead>
             <tbody>
