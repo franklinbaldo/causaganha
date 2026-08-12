@@ -8,13 +8,18 @@ consumers observe a newly uploaded segment before the next compaction.
 
 from __future__ import annotations
 
-from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import structlog
 
 from djen_backup.manifest import load_materialized_manifest
+
+
+if TYPE_CHECKING:
+    from collections.abc import Iterator
+
+    from djen_backup.manifest import ManifestEntry, SyncManifest
 
 
 log = structlog.get_logger()
@@ -23,7 +28,7 @@ DEFAULT_MANIFEST_PATH = Path("data/sync-manifest.parquet")
 DEFAULT_SEGMENT_DIR = Path("data/manifest-log")
 
 
-def _manifest(path: Path, segment_dir: Path | None = None):
+def _manifest(path: Path, segment_dir: Path | None = None) -> SyncManifest:
     """Return the local parquet base with pending segments replayed."""
     segments = segment_dir if segment_dir is not None else path.parent / "manifest-log"
     if not path.exists():
@@ -31,20 +36,22 @@ def _manifest(path: Path, segment_dir: Path | None = None):
     return load_materialized_manifest(path, segments)
 
 
-def entries(path: Path = DEFAULT_MANIFEST_PATH):
+def entries(path: Path = DEFAULT_MANIFEST_PATH) -> list[ManifestEntry]:
     """Return entries from the canonical base with pending segments replayed."""
-    return _manifest(path)._entries.values()
+    return _manifest(path).all_entries()
 
 
 def dates_with_uploads(path: Path = DEFAULT_MANIFEST_PATH) -> Iterator[str]:
     """Yield uploaded dates, newest first, including un-compacted updates."""
-    entries = _manifest(path)._entries.values()
+    entries = _manifest(path).all_entries()
     yield from sorted(
         {entry.date.isoformat() for entry in entries if entry.ia_status == "uploaded"}, reverse=True
     )
 
 
-def uploaded_zips_for_date(date_str: str, path: Path = DEFAULT_MANIFEST_PATH) -> list[dict[str, Any]]:
+def uploaded_zips_for_date(
+    date_str: str, path: Path = DEFAULT_MANIFEST_PATH
+) -> list[dict[str, Any]]:
     """Return uploaded ZIP entries for one date after replaying pending segments."""
     return [
         {
@@ -53,7 +60,7 @@ def uploaded_zips_for_date(date_str: str, path: Path = DEFAULT_MANIFEST_PATH) ->
             "filename": f"djen-{entry.date.isoformat()}-{entry.tribunal}.zip",
             "absent": False,
         }
-        for entry in _manifest(path)._entries.values()
+        for entry in _manifest(path).all_entries()
         if entry.date.isoformat() == date_str and entry.ia_status == "uploaded"
     ]
 
@@ -70,14 +77,14 @@ def uploaded_zips_for_tribunal_year(
             "filename": f"djen-{entry.date.isoformat()}-{tribunal}.zip",
             "absent": False,
         }
-        for entry in _manifest(path)._entries.values()
+        for entry in _manifest(path).all_entries()
         if entry.tribunal == tribunal and entry.date.year == year and entry.ia_status == "uploaded"
     ]
 
 
 def counts_summary(path: Path = DEFAULT_MANIFEST_PATH) -> dict[str, int]:
     """Return manifest status counts after replaying pending segments."""
-    entries = list(_manifest(path)._entries.values())
+    entries = _manifest(path).all_entries()
     return {
         "uploaded": sum(entry.ia_status == "uploaded" for entry in entries),
         "absent": sum(entry.djen_status == "absent" for entry in entries),

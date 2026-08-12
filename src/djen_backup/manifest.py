@@ -72,7 +72,7 @@ def _read_parquet_rows(path: str) -> list[tuple]:
         con.close()
 
 
-def load_materialized_manifest(parquet_path: Path, segment_dir: Path) -> "SyncManifest":
+def load_materialized_manifest(parquet_path: Path, segment_dir: Path) -> SyncManifest:
     """Load a local manifest materialization and its pending event segments.
 
     This is the synchronous counterpart to :meth:`SyncManifest.load_from_ia`.
@@ -156,6 +156,10 @@ class SyncManifest:
     def __len__(self) -> int:
         """Return number of manifest entries."""
         return len(self._entries)
+
+    def all_entries(self) -> list[ManifestEntry]:
+        """Return a snapshot of every manifest entry."""
+        return list(self._entries.values())
 
     @staticmethod
     def _key(tribunal: str, d: date) -> str:

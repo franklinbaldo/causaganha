@@ -61,14 +61,18 @@ def manifest_with_mixed(tmp_path: Path, count: int) -> Path:
 def append_uploaded(manifest: Path, date_str: str) -> None:
     segment = manifest.parent / "manifest-log" / f"{date_str}-uploaded.csv"
     segment.parent.mkdir(exist_ok=True)
-    segment.write_text(f"tribunal,date,ia_status,djen_status,djen_raw,updated_at\nTJSP,{date_str},uploaded,,200,{date_str}T00:00:00Z\n")
+    segment.write_text(
+        f"tribunal,date,ia_status,djen_status,djen_raw,updated_at\nTJSP,{date_str},uploaded,,200,{date_str}T00:00:00Z\n"
+    )
 
 
 @given(parsers.parse('date {date_str} has djen_status="absent" and no ia_status'))
 def append_absent(manifest: Path, date_str: str) -> None:
     segment = manifest.parent / "manifest-log" / f"{date_str}-absent.csv"
     segment.parent.mkdir(exist_ok=True)
-    segment.write_text(f"tribunal,date,ia_status,djen_status,djen_raw,updated_at\nTJSP,{date_str},,absent,404,{date_str}T00:00:00Z\n")
+    segment.write_text(
+        f"tribunal,date,ia_status,djen_status,djen_raw,updated_at\nTJSP,{date_str},,absent,404,{date_str}T00:00:00Z\n"
+    )
 
 
 @given("no sync-manifest file exists", target_fixture="manifest")

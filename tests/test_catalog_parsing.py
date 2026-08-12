@@ -21,20 +21,37 @@ def test_get_items_from_sync_manifest() -> None:
     with tempfile.TemporaryDirectory() as tmpdir:
         manifest_file = Path(tmpdir) / "sync-manifest.parquet"
         con = duckdb.connect()
-        con.execute("CREATE TABLE manifest AS SELECT * FROM (VALUES ('TJSP', DATE '2026-01-01', 'uploaded', 'available', '200', '2026-01-01T10:00:00Z'), ('TJMG', DATE '2026-01-02', 'uploaded', 'available', '200', '2026-01-02T10:00:00Z'), ('TJRO', DATE '2025-12-31', 'uploaded', 'available', '200', '2025-12-31T10:00:00Z')) AS t(tribunal, date, ia_status, djen_status, djen_raw, updated_at)")
+        con.execute(
+            "CREATE TABLE manifest AS SELECT * FROM (VALUES "
+            "('TJSP', DATE '2026-01-01', 'uploaded', 'available', '200', "
+            "'2026-01-01T10:00:00Z'), "
+            "('TJMG', DATE '2026-01-02', 'uploaded', 'available', '200', "
+            "'2026-01-02T10:00:00Z'), "
+            "('TJRO', DATE '2025-12-31', 'uploaded', 'available', '200', "
+            "'2025-12-31T10:00:00Z')) AS t("
+            "tribunal, date, ia_status, djen_status, djen_raw, updated_at)"
+        )
         con.execute("COPY manifest TO ? (FORMAT PARQUET)", [str(manifest_file)])
         res = get_items_from_sync_manifest(manifest_file)
         assert sorted(res) == ["djen-tjmg-2026", "djen-tjro-2025", "djen-tjsp-2026"]
 
         # 3. Only non-uploaded entries → empty
-        con.execute("DELETE FROM manifest; INSERT INTO manifest VALUES ('TJSP', DATE '2026-01-01', 'pending', 'available', '200', '2026-01-01T10:00:00Z')")
-        con.execute("COPY manifest TO ? (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE)", [str(manifest_file)])
+        con.execute(
+            "DELETE FROM manifest; INSERT INTO manifest VALUES "
+            "('TJSP', DATE '2026-01-01', 'pending', 'available', '200', "
+            "'2026-01-01T10:00:00Z')"
+        )
+        con.execute(
+            "COPY manifest TO ? (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE)", [str(manifest_file)]
+        )
         res = get_items_from_sync_manifest(manifest_file)
         assert res == []
 
         # 4. Empty file (header only) → empty
         con.execute("DELETE FROM manifest")
-        con.execute("COPY manifest TO ? (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE)", [str(manifest_file)])
+        con.execute(
+            "COPY manifest TO ? (FORMAT PARQUET, OVERWRITE_OR_IGNORE TRUE)", [str(manifest_file)]
+        )
         con.close()
         res = get_items_from_sync_manifest(manifest_file)
         assert res == []

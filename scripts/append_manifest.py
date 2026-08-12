@@ -64,6 +64,7 @@ def download_existing_manifest() -> list[dict]:
 
 def get_new_uploads() -> list[dict]:
     """Extract uploaded ZIPs from the materialized manifest and event log.
+
     Returns all entries with ia_status=uploaded, deduplication is handled
     by the caller via (date, tribunal) keying.
     """

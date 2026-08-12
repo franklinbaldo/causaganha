@@ -20,10 +20,12 @@ Usage:
 
 import argparse
 import asyncio
+import contextlib
 import decimal
 import json
 import os
 import shutil
+import sys
 import tempfile
 import threading
 import time
@@ -45,9 +47,6 @@ from typing import Any
 # which triggers InvalidOperation if traps are enabled.
 decimal.getcontext().traps[decimal.InvalidOperation] = False
 
-import contextlib
-import sys
-
 import duckdb
 import httpx
 import ibis
@@ -60,11 +59,11 @@ from tenacity import (
 )
 
 from causaganha.config import TRIBUNAIS
+from causaganha.consolidate import manifest_reader
 from causaganha.consolidate.consolidation_manifest import (
     collect_table_stats,
     update_consolidation_manifest,
 )
-from causaganha.consolidate import manifest_reader
 from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
 from causaganha.consolidate.schema_registry import (
     CURRENT_VERSION,
@@ -141,7 +140,12 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
             date_str = entry.date.isoformat()
             if entry.ia_status == "uploaded":
                 by_date.setdefault(date_str, []).append(
-                    {"tribunal": entry.tribunal, "item_id": f"djen-{entry.tribunal.lower()}-{entry.date.year}", "filename": f"djen-{date_str}-{entry.tribunal}.zip", "absent": False}
+                    {
+                        "tribunal": entry.tribunal,
+                        "item_id": f"djen-{entry.tribunal.lower()}-{entry.date.year}",
+                        "filename": f"djen-{date_str}-{entry.tribunal}.zip",
+                        "absent": False,
+                    }
                 )
             elif entry.djen_status == "absent":
                 by_date.setdefault(date_str, []).append(
