@@ -7,10 +7,9 @@ the public dashboard reflects fresh data. This script closes that gap with
 two independent checks against the real, deployed system:
 
 1. Freshness/sanity of the public site-status.json (deployed dashboard data).
-   Reuses the same 48h threshold already established for `last_success_at`
-   by evaluateSourceFreshness() in web/src/lib/data/siteStatus.ts, so the
-   canary's SLO matches what the dashboard itself already promises, rather
-   than inventing a new number.
+   The artifact itself must have been regenerated within 48h. Its
+   `last_success_at` must reach the previous Brazilian business day, so a
+   normal weekend does not page while a missed Monday is caught on Tuesday.
 2. A single live DJEN lookup (get_caderno_url) for a stable tribunal on the
    most recent Brazilian business day, using the same client/proxy path
    production collection uses. Distinguishes "DJEN client is broken" from
@@ -42,10 +41,8 @@ log = structlog.get_logger()
 
 SITE_STATUS_URL = "https://franklinbaldo.github.io/causaganha/data/site-status.json"
 
-# Matches FRESHNESS_THRESHOLD_MS in web/src/lib/data/siteStatus.ts — the
-# dashboard's own SLO for "atualizado" vs "atrasado". Kept in sync
-# deliberately: this canary alarms on exactly what the site already
-# considers stale, not a new arbitrary number.
+# Maximum acceptable age for the deployed artifact itself. Source success
+# uses a business-day deadline below instead of wall-clock hours.
 FRESHNESS_THRESHOLD_HOURS = 48
 
 # TJRO is the most-documented DJEN tribunal in this codebase (CLAUDE.md IA
@@ -83,7 +80,9 @@ def last_business_day(today: date, br_holidays: Brazil) -> date:
     return d
 
 
-def check_site_status(now: datetime) -> tuple[list[str], list[str]]:
+def check_site_status(
+    now: datetime, br_holidays: Brazil | None = None
+) -> tuple[list[str], list[str]]:
     """Return (failures, warnings) from the public site-status.json."""
     failures: list[str] = []
     warnings: list[str] = []
@@ -106,15 +105,20 @@ def check_site_status(now: datetime) -> tuple[list[str], list[str]]:
         )
 
     djen = payload.get("sources", {}).get("djen", {})
-    success_age = _age_hours(_parse_iso(djen.get("last_success_at")), now)
-    if success_age is None:
+    success_at = _parse_iso(djen.get("last_success_at"))
+    if success_at is None:
         failures.append("sources.djen.last_success_at missing or unparseable")
-    elif success_age > FRESHNESS_THRESHOLD_HOURS:
-        failures.append(
-            f"sources.djen.last_success_at is {success_age:.1f}h old "
-            f"(> {FRESHNESS_THRESHOLD_HOURS}h) — sync engine stopped confirming "
-            "successes even if the site still deploys"
-        )
+    else:
+        holidays = br_holidays if br_holidays is not None else Brazil()
+        expected_day = last_business_day(now.date(), holidays)
+        if success_at.date() < expected_day:
+            success_age = _age_hours(success_at, now)
+            assert success_age is not None
+            failures.append(
+                f"sources.djen.last_success_at is {success_age:.1f}h old "
+                f"and predates expected business day {expected_day} — sync engine "
+                "stopped confirming successes even if the site still deploys"
+            )
 
     coverage_pct = djen.get("coverage_pct")
     if coverage_pct is not None and not (0 <= coverage_pct <= MAX_PERCENT):
@@ -173,7 +177,7 @@ async def main() -> int:
     br_holidays = Brazil()
     target_date = last_business_day(now.date(), br_holidays)
 
-    site_failures, site_warnings = check_site_status(now)
+    site_failures, site_warnings = check_site_status(now, br_holidays)
     djen_failures, djen_warnings = await check_djen_live(target_date)
 
     failures = site_failures + djen_failures

@@ -103,3 +103,9 @@ data/segmenter_work/
 
 # Claude Code subagent worktrees (transient)
 .claude/worktrees/
+
+# Cloudflare Wrangler local state and secrets
+.wrangler/
+.dev.vars*
+deployment/relay-cf/node_modules/
+deployment/relay-cf/dist/
