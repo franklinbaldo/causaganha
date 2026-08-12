@@ -4,8 +4,8 @@
 #
 # CI (test.yml) only proves the frontend builds against synthetic stub data.
 # This is the one job that checks the real, deployed system: the public
-# site-status.json is fresh (same 48h SLO the dashboard itself already uses
-# via evaluateSourceFreshness()) and sane, and a live DJEN lookup for a
+# site-status.json is freshly deployed and its latest conclusive DJEN result
+# covers the previous Brazilian business day, and a live DJEN lookup for a
 # stable tribunal still resolves to a definitive verdict. A single daily
 # run, timed after the consolidate -> catalog -> deploy-web chain settles.
 #
@@ -17,7 +17,7 @@ name: Canary
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # 10:00 UTC — after the 07:00 consolidate -> catalog -> deploy-web chain
+    - cron: '30 12 * * *'  # 12:30 UTC — after the observed daily pipeline settles (~11:30 UTC)
   workflow_dispatch:
 
 permissions:

@@ -1,0 +1,16 @@
+{
+  "name": "causaganha-relay-cf",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "check": "wrangler deploy --dry-run",
+    "deploy": "wrangler deploy",
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "0.21.1",
+    "vitest": "^4.1.0",
+    "wrangler": "4.121.0"
+  }
+}
