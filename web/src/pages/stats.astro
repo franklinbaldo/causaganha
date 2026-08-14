@@ -215,7 +215,15 @@ const base = import.meta.env.BASE_URL;
                     </td>
                     <td>
                       {t.earliest_upload ? (
-                        <small>{t.earliest_upload} → {t.latest_upload}</small>
+                        <small>
+                          <time datetime={t.earliest_upload}>{t.earliest_upload}</time>
+                          {' → '}
+                          {t.latest_upload ? (
+                            <time datetime={t.latest_upload}>{t.latest_upload}</time>
+                          ) : (
+                            <span data-tone="muted">—</span>
+                          )}
+                        </small>
                       ) : (
                         <span data-tone="muted">—</span>
                       )}
