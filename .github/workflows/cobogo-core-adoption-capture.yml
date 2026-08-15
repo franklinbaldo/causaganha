@@ -1,0 +1,89 @@
+name: Cobogo Core Adoption Capture
+
+on:
+  pull_request:
+    paths:
+      - 'web/src/**'
+      - 'tests/test_cobogo_core_adoption.py'
+      - '.github/workflows/cobogo-core-adoption-capture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compare-stats:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout proposed state
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          path: head
+
+      - name: Checkout base state
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          path: base
+
+      - name: Setup Node
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+
+      - name: Create identical stats fixtures
+        shell: bash
+        run: |
+          for tree in base head; do
+            mkdir -p "$tree/web/public/data"
+            now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            printf '{"generated_at":"%s","sources":{"djen":{"zips_archived":3,"pairs_total":4,"tribunals_with_data":2,"tribunals_total":3,"coverage_pct":75,"earliest_tracked_date":"2026-01-01","earliest_upload_date":"2026-01-01","latest_upload_date":"2026-01-03","absent_confirmed":1,"pending_real":0,"errors_transient":0,"never_checked":0,"last_attempt_at":"2026-08-15T18:00:00Z","last_success_at":"2026-08-15T17:55:00Z"}}}' "$now" > "$tree/web/public/data/site-status.json"
+            echo '{"total":4,"uploaded":3,"pending":0,"absent":1,"unknown":0,"coverage_pct":75,"tribunals_total":3,"tribunals_with_data":2}' > "$tree/web/public/data/totals.json"
+            echo '{"avg_coverage":2.5,"best_count":3,"best_day":"2026-08-14","worst_count":2,"worst_day":"2026-08-13"}' > "$tree/web/public/data/stats_coverage.json"
+            echo '[{"court":"TJRO","collected":30,"absent":0,"total":30,"rate":1},{"court":"TJSP","collected":27,"absent":3,"total":30,"rate":0.9},{"court":"TJAC","collected":21,"absent":9,"total":30,"rate":0.7}]' > "$tree/web/public/data/court_reliability.json"
+            echo '[{"day_idx":0,"name":"Dom","avg":1,"days_count":4},{"day_idx":1,"name":"Seg","avg":2.5,"days_count":4},{"day_idx":2,"name":"Ter","avg":2.7,"days_count":4},{"day_idx":3,"name":"Qua","avg":2.8,"days_count":4},{"day_idx":4,"name":"Qui","avg":2.6,"days_count":4},{"day_idx":5,"name":"Sex","avg":2.4,"days_count":4},{"day_idx":6,"name":"Sab","avg":1.5,"days_count":4}]' > "$tree/web/public/data/weekly_pattern.json"
+            echo '[{"tribunal":"TJRO","uploaded":30,"pending":0,"absent":0,"unknown":0,"total":30,"coverage_pct":100,"earliest_upload":"2026-01-01","latest_upload":"2026-01-30"},{"tribunal":"TJSP","uploaded":27,"pending":0,"absent":3,"unknown":0,"total":30,"coverage_pct":90,"earliest_upload":"2026-01-01","latest_upload":"2026-01-30"},{"tribunal":"TJAC","uploaded":21,"pending":3,"absent":3,"unknown":3,"total":30,"coverage_pct":70,"earliest_upload":"2026-01-01","latest_upload":"2026-01-30"}]' > "$tree/web/public/data/tribunal_coverage.json"
+            echo '[{"tribunal":"TJRO","date":"2026-01-01","status":"uploaded"}]' > "$tree/web/public/data/tribunal_calendar.json"
+          done
+
+      - name: Install and build both states
+        shell: bash
+        run: |
+          for tree in base head; do
+            (cd "$tree/web" && npm ci && npm run build)
+          done
+
+      - name: Install Chromium
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Serve both builds
+        shell: bash
+        run: |
+          mkdir -p /tmp/before/causaganha /tmp/after/causaganha
+          cp -R base/web/dist/. /tmp/before/causaganha/
+          cp -R head/web/dist/. /tmp/after/causaganha/
+          python3 -m http.server 4173 --directory /tmp/before >/tmp/before.log 2>&1 &
+          python3 -m http.server 4174 --directory /tmp/after >/tmp/after.log 2>&1 &
+          sleep 2
+
+      - name: Capture stats before and after
+        shell: bash
+        run: |
+          mkdir -p captures
+          npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
+            http://127.0.0.1:4173/causaganha/stats.html captures/stats-before.png
+          npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
+            http://127.0.0.1:4174/causaganha/stats.html captures/stats-after.png
+          sha256sum captures/*.png | tee captures/sha256.txt
+          if cmp -s captures/stats-before.png captures/stats-after.png; then
+            echo 'resting_pixels=identical' | tee captures/comparison.txt
+          else
+            echo 'resting_pixels=different' | tee captures/comparison.txt
+          fi
+
+      - name: Upload visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobogo-core-stats-before-after
+          path: captures/
+          if-no-files-found: error
