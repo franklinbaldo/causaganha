@@ -1,0 +1,53 @@
+name: OKF knowledge
+
+on:
+  pull_request:
+    paths:
+      - "knowledge/**"
+      - ".github/workflows/okf.yml"
+  push:
+    branches: [main]
+    paths:
+      - "knowledge/**"
+      - ".github/workflows/okf.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout CausaGanha
+        uses: actions/checkout@v4
+
+      - name: Checkout pinned okf-parser
+        uses: actions/checkout@v4
+        with:
+          repository: franklinbaldo/okf-parser
+          ref: 173deee7a0a7bb91a79e396f31cb74250cf772aa
+          path: .okf-parser
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b
+        with:
+          version: "0.11.21"
+
+      - name: Validate OKF and relational integrity
+        run: >-
+          uv run --project .okf-parser --frozen okf-parser check knowledge
+          --relational-schema okf.schema.sql
+
+      - name: Compile typed Ibis relations
+        run: |
+          uv run --project .okf-parser --frozen python - <<'PY'
+          from pathlib import Path
+
+          from okf_parser import load_bundle
+
+          bundle = load_bundle(Path("knowledge"))
+          with bundle.compile_types(".okf/specs/{slug}.md") as typed:
+              assert typed.tables == ("Fonte", "Pipeline")
+              assert typed["Fonte"].count().execute() == 4
+              assert typed["Pipeline"].count().execute() == 4
+          PY
