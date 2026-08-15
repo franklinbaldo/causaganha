@@ -27,10 +27,6 @@ h3, h4, h5, h6 {
   font-family: var(--font-sans);
 }
 
-code, kbd {
-  font-family: var(--font-mono);
-}
-
 /* ═══════════════════════════════════════════
    Scrollbar
    ═══════════════════════════════════════════ */
@@ -288,29 +284,13 @@ table tbody tr:hover {
    Focus Visibility (Keyboard / Switch Access)
    ═══════════════════════════════════════════ */
 
+/* Cobogó core owns :focus-visible. Keep only the compatibility reset so
+ * pointer focus does not regain a second browser/Pico outline. */
 @supports selector(:focus-visible) {
   :focus { outline: none; }
 }
 
-:focus-visible {
-  outline: 2px solid var(--color-accent);
-  outline-offset: 2px;
-  border-radius: var(--radius-sm);
-}
-
-
-/* ═══════════════════════════════════════════
-   Reduced Motion (WCAG 2.3.3)
-   ═══════════════════════════════════════════ */
-
-@media (prefers-reduced-motion: reduce) {
-  *, *::before, *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
+/* Reduced-motion semantics are owned by the pinned Cobogó core. */
 
 /* ═══════════════════════════════════════════
    Touch Target Minimums (WCAG 2.5.5)
