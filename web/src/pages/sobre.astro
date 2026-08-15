@@ -4,6 +4,11 @@ import PageHeader from '../components/PageHeader.astro';
 import Breadcrumbs from '../components/Breadcrumbs.astro';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const CATALOG_ITEM_URL = 'https://archive.org/details/causaganha-catalog';
+const CATALOG_DB_URL = 'https://archive.org/download/causaganha-catalog/catalog.duckdb';
+const MANIFEST_URL = 'https://archive.org/download/causaganha-dashboard/sync-manifest.parquet';
+const DUCKDB_QUERY = `ATTACH '${CATALOG_DB_URL}' AS cg (READ_ONLY);
+SELECT * FROM cg.comunicacoes LIMIT 100;`;
 ---
 
 <Layout
@@ -45,12 +50,26 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
     <article>
       <h2>Acesso aos Dados</h2>
-      <p>Todos os dados coletados são disponibilizados de maneira estruturada:</p>
+      <p>
+        O acervo pode ser usado pelo próprio site ou levado para análise externa. Os artefatos públicos ficam preservados no Internet Archive e podem ser consultados diretamente com ferramentas como DuckDB.
+      </p>
       <ul>
-        <li><strong>ZIPs originais:</strong> Um ZIP por par (tribunal × dia), arquivado no Internet Archive em itens anuais (ex: <code>djen-tjro-2025</code>).</li>
-        <li><strong>Catálogo Parquet:</strong> Um catálogo completo e indexado pode ser baixado e consultado utilizando ferramentas modernas como o DuckDB.</li>
-        <li><strong>Dashboard Público:</strong> Interface simplificada para acompanhar a cobertura diária e encontrar os arquivos de cada tribunal.</li>
+        <li><strong>ZIPs originais:</strong> um ZIP por par (tribunal × dia), arquivado em itens anuais. Por exemplo, os arquivos do TJRO de 2025 ficam no item <a href="https://archive.org/details/djen-tjro-2025" rel="noopener" target="_blank"><code>djen-tjro-2025</code></a>.</li>
+        <li><strong>Catálogo:</strong> o item <a href={CATALOG_ITEM_URL} rel="noopener" target="_blank"><code>causaganha-catalog</code></a> reúne o catálogo reutilizável do projeto; o banco DuckDB canônico pode ser aberto diretamente pela URL pública.</li>
+        <li><strong>Manifesto canônico:</strong> <a href={MANIFEST_URL} rel="noopener" target="_blank"><code>sync-manifest.parquet</code></a> registra o estado de sincronização por tribunal e data e é a fonte de verdade usada para derivar as superfícies de cobertura.</li>
+        <li><strong>Dashboard público:</strong> para explorar cobertura e arquivos sem escrever SQL, volte ao <a href={BASE}>painel do CausaGanha</a>.</li>
       </ul>
+
+      <details>
+        <summary>Consultar o catálogo com DuckDB</summary>
+        <p>
+          A consulta abaixo usa o mesmo banco público referenciado pela interface de acesso a dados do CausaGanha. Ela anexa o catálogo em modo somente leitura e retorna uma amostra de até 100 comunicações.
+        </p>
+        <pre><code>{DUCKDB_QUERY}</code></pre>
+        <p>
+          URL canônica: <a href={CATALOG_DB_URL} rel="noopener" target="_blank"><code>{CATALOG_DB_URL}</code></a>.
+        </p>
+      </details>
     </article>
 
     <article>
