@@ -54,11 +54,20 @@ jobs:
           echo "Validating manifest data Integrity..."
           uv run python scripts/validate_manifest.py data/manifest.jsonl
 
-      - name: Generate and upload catalog
+      - name: Generate reconstructible catalog
         if: steps.append.outputs.has_new_uploads == 'true'
         run: |
           echo "Generating catalog from IA data..."
-          uv run python scripts/generate_catalog.py --upload
+          uv run python scripts/generate_catalog.py --output ./catalog
+          cp docs/CATALOG.md catalog/README.md
+
+          echo "Publishing public catalog artifacts (excluding local DuckDB materialization)..."
+          mapfile -d '' files < <(find catalog -maxdepth 1 -type f ! -name '*.duckdb' -print0 | sort -z)
+          if [ "${#files[@]}" -eq 0 ]; then
+            echo "No public catalog artifacts were generated."
+            exit 1
+          fi
+          ia upload causaganha-catalog "${files[@]}" --no-derive
           echo "Catalog updated."
 
       - name: Reconcile processos (DJEN x JURIS x STJ x DataJud)
