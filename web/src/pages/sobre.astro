@@ -35,14 +35,26 @@ duckdb causaganha.duckdb "SELECT * FROM comunicacoes LIMIT 100;"`;
     <article>
       <h2>Metodologia</h2>
       <p>
-        O sistema opera através de um pipeline automatizado no GitHub Actions com três cadências: a cada 20 minutos um robô consulta o DJEN para descobrir e baixar novos cadernos; a cada 15 minutos outro robô esvazia a fila dos arquivos já confirmados, enviando-os ao Internet Archive; e diariamente os ZIPs do dia anterior são consolidados em tabelas Parquet por (tribunal, ano), também publicadas no Internet Archive. Toda a evolução do estado é registrada num manifesto canônico (<code>sync-manifest.parquet</code>, compactado de um log de eventos append-only) também arquivado, garantindo que o histórico nunca se perca mesmo que os sistemas de origem fiquem indisponíveis.
+        O CausaGanha combina pipelines diferentes porque cada fonte cumpre um papel distinto. O <strong>DJEN</strong> forma o arquivo principal de comunicações judiciais: robôs descobrem e baixam cadernos, enviam os ZIPs confirmados ao Internet Archive e consolidam os dados em tabelas Parquet. O estado dessa sincronização é registrado em um manifesto canônico (<code>sync-manifest.parquet</code>), compactado de um log de eventos append-only.
+      </p>
+      <p>
+        Além do arquivo DJEN, o projeto mantém pipelines próprios para <strong>jurisprudência do TJRO</strong>, <strong>acórdãos do STJ</strong> e <strong>metadados processuais do DataJud</strong>. Esses fluxos alimentam tarefas diferentes — corpus de decisões, reconciliação e consulta processual, e enriquecimento de metadados e facetas — e não devem ser lidos como se tivessem a mesma cobertura ou o mesmo grau de publicação pública.
       </p>
     </article>
 
     <article>
       <h2>Fontes de Dados</h2>
       <p>
-        Os dados são provenientes integralmente de plataformas públicas, primordialmente do <strong>Diário de Justiça Eletrônico Nacional (DJEN)</strong> e dos sistemas próprios de publicação de cada tribunal (como STF, STJ, TST, Tribunais de Justiça Estaduais, entre outros).
+        O projeto trabalha hoje com quatro fontes oficiais, cada uma com função própria:
+      </p>
+      <ul>
+        <li><strong>DJEN (CNJ):</strong> comunicações judiciais usadas pelo pipeline de arquivamento e consolidação.</li>
+        <li><strong>TJRO JURIS:</strong> jurisprudência do Tribunal de Justiça de Rondônia usada para decisões e documentos judiciais estruturados.</li>
+        <li><strong>STJ Acórdãos:</strong> acórdãos do Superior Tribunal de Justiça incorporados à reconciliação e às superfícies de consulta processual.</li>
+        <li><strong>DataJud (CNJ):</strong> metadados e facetas processuais usados para enriquecimento e consultas ao vivo.</li>
+      </ul>
+      <p>
+        A existência de um pipeline não implica, por si só, cobertura completa nem que todos os seus produtos estejam publicados como arquivo reutilizável. Quando há artefatos públicos disponíveis, a seção abaixo aponta para os caminhos canônicos de acesso.
       </p>
       <p>
         Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
