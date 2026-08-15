@@ -1,0 +1,204 @@
+/* COBOGÓ Core Web
+ * Framework-agnostic semantic foundations.
+ * Values below are defaults, not Brazilian identity claims.
+ * Consumers may override concrete values while preserving role meaning.
+ */
+
+:root {
+  color-scheme: light dark;
+
+  /* Color roles */
+  --cobogo-canvas: #f8f7f2;
+  --cobogo-surface: #ffffff;
+  --cobogo-surface-muted: #efede5;
+  --cobogo-text: #211f1b;
+  --cobogo-text-muted: #666158;
+  --cobogo-border: #d3cec4;
+  --cobogo-accent: #1b4d6b;
+  /* Focus is a relation between two tones, not one colour: the ring plus the tone
+   * that fills the offset gap so the ring always has something to separate from. */
+  --cobogo-focus: #1769aa;
+  --cobogo-focus-contrast: var(--cobogo-canvas);
+  /* The same relation re-toned for regions marked `data-cobogo-inverted`. Derived from
+   * existing roles, so a consumer that rethemes gets a coherent inverted pair for free —
+   * and so the pair flips by itself under a dark theme, where an inverted region is the
+   * light one. */
+  --cobogo-focus-inverted: var(--cobogo-surface);
+  --cobogo-focus-contrast-inverted: var(--cobogo-text);
+  --cobogo-info: #1b4d6b;
+  --cobogo-success: #2e6b4a;
+  --cobogo-warning: #8a5a00;
+  --cobogo-danger: #a13827;
+
+  /* Typography roles */
+  --cobogo-font-body: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cobogo-font-display: var(--cobogo-font-body);
+  --cobogo-font-inscription: var(--cobogo-font-body);
+  --cobogo-font-data: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --cobogo-leading-body: 1.55;
+  --cobogo-leading-tight: 1.15;
+  --cobogo-reading-measure: 70ch;
+
+  /* Spatial relations */
+  --cobogo-space-adjacent: 0.375rem;
+  --cobogo-space-group: 0.875rem;
+  --cobogo-space-section: 2rem;
+  --cobogo-space-pause: 4rem;
+
+  /* Geometry / layering */
+  --cobogo-radius-control: 0.375rem;
+  --cobogo-radius-surface: 0.5rem;
+  --cobogo-shadow-raised: 0 0.25rem 1rem rgb(0 0 0 / 0.08);
+
+  /* Motion roles */
+  --cobogo-motion-state: 140ms;
+  --cobogo-motion-spatial: 220ms;
+  --cobogo-ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+[data-cobogo-theme="dark"] {
+  color-scheme: dark;
+  --cobogo-canvas: #191816;
+  --cobogo-surface: #24221f;
+  --cobogo-surface-muted: #302d29;
+  --cobogo-text: #f1eee7;
+  --cobogo-text-muted: #c0bbb0;
+  --cobogo-border: #4b4740;
+  --cobogo-accent: #8fc2df;
+  --cobogo-focus: #9ed2ff;
+  --cobogo-focus-contrast: var(--cobogo-canvas);
+  --cobogo-info: #8fc2df;
+  --cobogo-success: #83c69f;
+  --cobogo-warning: #e6bc62;
+  --cobogo-danger: #f09a8b;
+  --cobogo-shadow-raised: 0 0.25rem 1rem rgb(0 0 0 / 0.28);
+}
+
+:where(html) {
+  background: var(--cobogo-canvas);
+  color: var(--cobogo-text);
+  font-family: var(--cobogo-font-body);
+  line-height: var(--cobogo-leading-body);
+}
+
+:where(body) {
+  margin: 0;
+  background: var(--cobogo-canvas);
+  color: var(--cobogo-text);
+}
+
+:where(h1, h2, h3, h4, h5, h6) {
+  color: var(--cobogo-text);
+  font-family: var(--cobogo-font-display);
+  line-height: var(--cobogo-leading-tight);
+  text-wrap: balance;
+}
+
+:where(p, li, blockquote) {
+  max-inline-size: var(--cobogo-reading-measure);
+}
+
+:where(a) {
+  color: var(--cobogo-accent);
+  text-underline-offset: 0.18em;
+}
+
+:where(:focus-visible) {
+  outline: 0.1875rem solid var(--cobogo-focus);
+  outline-offset: 0.1875rem;
+  box-shadow: 0 0 0 0.1875rem var(--cobogo-focus-contrast);
+}
+
+:where(button, input, select, textarea) {
+  font: inherit;
+}
+
+:where(button, input, select, textarea, [role="button"]) {
+  border-radius: var(--cobogo-radius-control);
+}
+
+:where(table) {
+  border-collapse: collapse;
+  inline-size: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+:where(th, td) {
+  padding: var(--cobogo-space-group);
+  border-block-end: 1px solid var(--cobogo-border);
+  text-align: start;
+  vertical-align: top;
+}
+
+:where(th) {
+  font-family: var(--cobogo-font-inscription);
+  font-weight: 700;
+}
+
+:where(code, kbd, samp, [data-cobogo-data]) {
+  font-family: var(--cobogo-font-data);
+  font-variant-numeric: tabular-nums;
+}
+
+:where([data-cobogo-inscription]) {
+  color: var(--cobogo-text-muted);
+  font-family: var(--cobogo-font-inscription);
+  font-size: 0.875em;
+}
+
+:where([data-cobogo-surface]) {
+  background: var(--cobogo-surface);
+  border: 1px solid var(--cobogo-border);
+  border-radius: var(--cobogo-radius-surface);
+  padding: var(--cobogo-space-section);
+}
+
+:where([data-cobogo-surface="muted"]) {
+  background: var(--cobogo-surface-muted);
+}
+
+/* A region whose background is inverted relative to the document: a dark hero, banner or
+ * context band inside an otherwise light page. This marker paints nothing — the consumer
+ * still owns the region's own colours. It exists because the document-level focus tones
+ * are chosen against the document-level canvas and silently fail on such a region, and a
+ * consumer has no way to know it must re-derive them. */
+:where([data-cobogo-inverted]) {
+  --cobogo-focus: var(--cobogo-focus-inverted);
+  --cobogo-focus-contrast: var(--cobogo-focus-contrast-inverted);
+}
+
+:where([data-cobogo-state]) {
+  border-inline-start: 0.25rem solid currentColor;
+  padding-inline-start: var(--cobogo-space-group);
+}
+
+:where([data-cobogo-state="info"]) { color: var(--cobogo-info); }
+:where([data-cobogo-state="success"]) { color: var(--cobogo-success); }
+:where([data-cobogo-state="warning"]) { color: var(--cobogo-warning); }
+:where([data-cobogo-state="danger"]) { color: var(--cobogo-danger); }
+
+:where([data-cobogo-stack]) > * + * {
+  margin-block-start: var(--cobogo-space-group);
+}
+
+:where([data-cobogo-flow]) > * + * {
+  margin-block-start: var(--cobogo-space-section);
+}
+
+:where([data-cobogo-pause]) {
+  margin-block: var(--cobogo-space-pause);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --cobogo-motion-state: 0ms;
+    --cobogo-motion-spatial: 0ms;
+  }
+
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+  }
+}
