@@ -34,9 +34,10 @@
   const duckdbQuery = (fileName: string) =>
     `SELECT * FROM read_parquet('${baseUrl}/${fileName}') LIMIT 100;`;
 
-  const catalogQuery = $derived(`-- Query all ${tribunalCode} data via the CausaGanha catalog
-ATTACH 'https://archive.org/download/causaganha-catalog/catalog.duckdb' AS cg (READ_ONLY);
-SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
+  const catalogRecipe = $derived(`# Rebuild the CausaGanha catalog in your own DuckDB
+curl -L https://archive.org/download/causaganha-catalog/catalog.sql -o catalog.sql
+duckdb causaganha.duckdb < catalog.sql
+duckdb causaganha.duckdb "SELECT * FROM comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;"`);
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard?.writeText(text);
@@ -96,11 +97,12 @@ SELECT * FROM cg.comunicacoes WHERE tribunal = '${tribunalCode}' LIMIT 100;`);
     </header>
 
     <section>
-      <h5>Consulta via Catálogo (DuckDB)</h5>
-      <button type="button" class="outline secondary" onclick={() => copyToClipboard(catalogQuery, 'catalog')}>
+      <h5>Reconstruir o catálogo no seu DuckDB</h5>
+      <p>O catálogo público é SQL em texto sobre os Parquets preservados. Você baixa o contrato e cria o banco localmente.</p>
+      <button type="button" class="outline secondary" onclick={() => copyToClipboard(catalogRecipe, 'catalog')}>
         {copied === 'catalog' ? 'Copiado!' : 'Copiar'}
       </button>
-      <pre><code>{catalogQuery}</code></pre>
+      <pre><code>{catalogRecipe}</code></pre>
     </section>
 
     {#if loading}
