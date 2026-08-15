@@ -5,10 +5,11 @@ import Breadcrumbs from '../components/Breadcrumbs.astro';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const CATALOG_ITEM_URL = 'https://archive.org/details/causaganha-catalog';
-const CATALOG_DB_URL = 'https://archive.org/download/causaganha-catalog/catalog.duckdb';
+const CATALOG_SQL_URL = 'https://archive.org/download/causaganha-catalog/catalog.sql';
 const MANIFEST_URL = 'https://archive.org/download/causaganha-dashboard/sync-manifest.parquet';
-const DUCKDB_QUERY = `ATTACH '${CATALOG_DB_URL}' AS cg (READ_ONLY);
-SELECT * FROM cg.comunicacoes LIMIT 100;`;
+const DUCKDB_RECIPE = `curl -L ${CATALOG_SQL_URL} -o catalog.sql
+duckdb causaganha.duckdb < catalog.sql
+duckdb causaganha.duckdb "SELECT * FROM comunicacoes LIMIT 100;"`;
 ---
 
 <Layout
@@ -55,19 +56,19 @@ SELECT * FROM cg.comunicacoes LIMIT 100;`;
       </p>
       <ul>
         <li><strong>ZIPs originais:</strong> um ZIP por par (tribunal × dia), arquivado em itens anuais. Por exemplo, os arquivos do TJRO de 2025 ficam no item <a href="https://archive.org/details/djen-tjro-2025" rel="noopener" target="_blank"><code>djen-tjro-2025</code></a>.</li>
-        <li><strong>Catálogo:</strong> o item <a href={CATALOG_ITEM_URL} rel="noopener" target="_blank"><code>causaganha-catalog</code></a> reúne o catálogo reutilizável do projeto; o banco DuckDB canônico pode ser aberto diretamente pela URL pública.</li>
+        <li><strong>Catálogo:</strong> o item <a href={CATALOG_ITEM_URL} rel="noopener" target="_blank"><code>causaganha-catalog</code></a> reúne manifests e o contrato <a href={CATALOG_SQL_URL} rel="noopener" target="_blank"><code>catalog.sql</code></a>, que cria views DuckDB sobre os Parquets públicos. Cada consumidor materializa seu próprio banco local.</li>
         <li><strong>Manifesto canônico:</strong> <a href={MANIFEST_URL} rel="noopener" target="_blank"><code>sync-manifest.parquet</code></a> registra o estado de sincronização por tribunal e data e é a fonte de verdade usada para derivar as superfícies de cobertura.</li>
         <li><strong>Dashboard público:</strong> para explorar cobertura e arquivos sem escrever SQL, volte ao <a href={BASE}>painel do CausaGanha</a>.</li>
       </ul>
 
       <details>
-        <summary>Consultar o catálogo com DuckDB</summary>
+        <summary>Reconstruir o catálogo com DuckDB</summary>
         <p>
-          A consulta abaixo usa o mesmo banco público referenciado pela interface de acesso a dados do CausaGanha. Ela anexa o catálogo em modo somente leitura e retorna uma amostra de até 100 comunicações.
+          O catálogo canônico é texto SQL auditável. Baixe o contrato, aplique-o a um DuckDB seu e consulte as views que apontam para os Parquets preservados no Internet Archive.
         </p>
-        <pre><code>{DUCKDB_QUERY}</code></pre>
+        <pre><code>{DUCKDB_RECIPE}</code></pre>
         <p>
-          URL canônica: <a href={CATALOG_DB_URL} rel="noopener" target="_blank"><code>{CATALOG_DB_URL}</code></a>.
+          Contrato canônico: <a href={CATALOG_SQL_URL} rel="noopener" target="_blank"><code>{CATALOG_SQL_URL}</code></a>.
         </p>
       </details>
     </article>
