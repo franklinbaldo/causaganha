@@ -37,3 +37,17 @@ jobs:
         run: >-
           uv run --project .okf-parser --frozen okf-parser check knowledge
           --relational-schema okf.schema.sql
+
+      - name: Compile typed Ibis relations
+        run: |
+          uv run --project .okf-parser --frozen python - <<'PY'
+          from pathlib import Path
+
+          from okf_parser import load_bundle
+
+          bundle = load_bundle(Path("knowledge"))
+          with bundle.compile_types(".okf/specs/{slug}.md") as typed:
+              assert typed.tables == ("Fonte", "Pipeline")
+              assert typed["Fonte"].count().execute() == 4
+              assert typed["Pipeline"].count().execute() == 4
+          PY
