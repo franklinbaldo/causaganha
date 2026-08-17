@@ -50,6 +50,7 @@ from pathlib import Path
 import duckdb
 import httpx
 import ibis
+import tenacity
 
 from causaganha.pipeline.ia_s3 import create_upload_client, upload_to_ia
 
@@ -79,14 +80,30 @@ _CSV_TYPES = (
 # Fetch base + event sources from IA
 # ---------------------------------------------------------------------------
 
+# archive.org occasionally times out (slow handshake, transient unreachability)
+# well within a single 30-min compaction cycle. Retry a few times before
+# treating it as "no base available" / "no file listing" — those are for the
+# genuinely-missing case, not a one-off network blip.
+_RETRY_IA_GET = tenacity.retry(
+    retry=tenacity.retry_if_exception_type((urllib.error.URLError, OSError)),
+    stop=tenacity.stop_after_attempt(3),
+    wait=tenacity.wait_exponential(multiplier=5, min=5, max=30),
+    reraise=True,
+)
+
+
+@_RETRY_IA_GET
+def _urlopen_bytes(url: str, *, timeout: int) -> bytes:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return resp.read()
+
 
 def ensure_base_parquet() -> Path | None:
     """Fetch the current parquet base from IA; None when it doesn't exist yet."""
     LOCAL_BASE_PARQUET.parent.mkdir(parents=True, exist_ok=True)
     print(f"Downloading parquet base from {MANIFEST_PARQUET_URL}...")
     try:
-        with urllib.request.urlopen(MANIFEST_PARQUET_URL, timeout=120) as resp:
-            LOCAL_BASE_PARQUET.write_bytes(resp.read())
+        LOCAL_BASE_PARQUET.write_bytes(_urlopen_bytes(MANIFEST_PARQUET_URL, timeout=120))
     except (urllib.error.URLError, OSError) as exc:
         print(f"  no parquet base available ({exc})")
         return None
@@ -97,8 +114,7 @@ def ensure_base_parquet() -> Path | None:
 def fetch_ia_file_names() -> list[str]:
     """List all file names in the dashboard item via the metadata API."""
     try:
-        with urllib.request.urlopen(IA_FILES_METADATA_URL, timeout=30) as resp:
-            payload = json.loads(resp.read().decode())
+        payload = json.loads(_urlopen_bytes(IA_FILES_METADATA_URL, timeout=30).decode())
     except (urllib.error.URLError, OSError, ValueError) as exc:
         print(f"  warning: could not fetch IA file listing: {exc}")
         return []
@@ -137,8 +153,7 @@ def download_segments(names: list[str]) -> list[tuple[str, Path]]:
     for name in names:
         local = LOCAL_SEGMENT_DIR / name.split("/")[-1]
         try:
-            with urllib.request.urlopen(f"{IA_DOWNLOAD_BASE}/{name}", timeout=60) as resp:
-                local.write_bytes(resp.read())
+            local.write_bytes(_urlopen_bytes(f"{IA_DOWNLOAD_BASE}/{name}", timeout=60))
         except (urllib.error.URLError, OSError) as exc:
             print(f"  warning: could not download segment {name}: {exc}")
             continue
