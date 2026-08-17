@@ -83,7 +83,10 @@ _CSV_TYPES = (
 # archive.org occasionally times out (slow handshake, transient unreachability)
 # well within a single 30-min compaction cycle. Retry a few times before
 # treating it as "no base available" / "no file listing" — those are for the
-# genuinely-missing case, not a one-off network blip.
+# genuinely-missing case, not a one-off network blip. This policy is only for
+# the two single, load-bearing reads (base parquet, file listing) — it is
+# deliberately NOT reused for per-segment downloads below, see
+# _RETRY_IA_SEGMENT.
 _RETRY_IA_GET = tenacity.retry(
     retry=tenacity.retry_if_exception_type((urllib.error.URLError, OSError)),
     stop=tenacity.stop_after_attempt(3),
@@ -91,9 +94,35 @@ _RETRY_IA_GET = tenacity.retry(
     reraise=True,
 )
 
+# Segments are downloaded one by one in a loop (download_segments below); the
+# generous _RETRY_IA_GET policy applied per-segment would multiply the whole
+# compaction cycle's duration during a real outage (N segments x 3 attempts x
+# up to 30s backoff each). Keep it cheap and bounded instead — a failed
+# segment is simply left for the next scheduled run either way — and pair it
+# with a consecutive-failure circuit breaker in download_segments so a full
+# IA outage aborts quickly rather than working through every segment.
+_RETRY_IA_SEGMENT = tenacity.retry(
+    retry=tenacity.retry_if_exception_type((urllib.error.URLError, OSError)),
+    stop=tenacity.stop_after_attempt(2),
+    wait=tenacity.wait_exponential(multiplier=2, min=2, max=4),
+    reraise=True,
+)
+
+# After this many consecutive segment-download failures, download_segments
+# stops attempting the rest of the batch — IA is very likely down entirely,
+# and retrying every remaining segment would only stretch out the cycle for
+# no benefit; they're picked up by the next scheduled run instead.
+SEGMENT_CIRCUIT_BREAKER_THRESHOLD = 2
+
 
 @_RETRY_IA_GET
 def _urlopen_bytes(url: str, *, timeout: int) -> bytes:
+    with urllib.request.urlopen(url, timeout=timeout) as resp:
+        return resp.read()
+
+
+@_RETRY_IA_SEGMENT
+def _urlopen_bytes_segment(url: str, *, timeout: int) -> bytes:
     with urllib.request.urlopen(url, timeout=timeout) as resp:
         return resp.read()
 
@@ -147,16 +176,30 @@ def download_segments(names: list[str]) -> list[tuple[str, Path]]:
     Only successfully downloaded segments are merged — and only merged
     segments are pruned afterwards, so a failed download simply leaves the
     segment for the next compaction run.
+
+    Each segment gets a short, bounded retry (_RETRY_IA_SEGMENT). After
+    SEGMENT_CIRCUIT_BREAKER_THRESHOLD consecutive failures, the rest of the
+    batch is skipped outright rather than attempted one by one — see the
+    comment above _RETRY_IA_SEGMENT for why.
     """
     LOCAL_SEGMENT_DIR.mkdir(parents=True, exist_ok=True)
     out: list[tuple[str, Path]] = []
-    for name in names:
+    consecutive_failures = 0
+    for i, name in enumerate(names):
+        if consecutive_failures >= SEGMENT_CIRCUIT_BREAKER_THRESHOLD:
+            print(
+                f"  {consecutive_failures} consecutive segment failures — IA looks "
+                f"unavailable, skipping remaining {len(names) - i} segment(s) for next run"
+            )
+            break
         local = LOCAL_SEGMENT_DIR / name.split("/")[-1]
         try:
-            local.write_bytes(_urlopen_bytes(f"{IA_DOWNLOAD_BASE}/{name}", timeout=60))
+            local.write_bytes(_urlopen_bytes_segment(f"{IA_DOWNLOAD_BASE}/{name}", timeout=60))
         except (urllib.error.URLError, OSError) as exc:
             print(f"  warning: could not download segment {name}: {exc}")
+            consecutive_failures += 1
             continue
+        consecutive_failures = 0
         out.append((name, local))
     return out
 
