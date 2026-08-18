@@ -1,0 +1,51 @@
+name: Public Catalog Smoke
+
+on:
+  workflow_run:
+    workflows: ["Update Catalog"]
+    types: [completed]
+  workflow_dispatch:
+  schedule:
+    - cron: "17 9 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  public-catalog-smoke:
+    name: Rebuild catalog from public contract
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Fetch published catalog.sql
+        run: |
+          curl --fail --location \
+            --retry 3 --retry-all-errors --retry-delay 2 \
+            --connect-timeout 20 --max-time 120 \
+            https://archive.org/download/causaganha-catalog/catalog.sql \
+            --output catalog.sql
+          test -s catalog.sql
+
+      - name: Materialize locally and execute a public-data query
+        run: |
+          uv run python - <<'PY'
+          import duckdb
+
+          sql = open("catalog.sql", encoding="utf-8").read()
+          con = duckdb.connect("causaganha-smoke.duckdb")
+          con.execute(sql)
+          row = con.execute(
+              "SELECT COUNT(*) FROM (SELECT 1 FROM comunicacoes LIMIT 1)"
+          ).fetchone()
+          if row != (1,):
+              raise SystemExit(f"public catalog query returned unexpected smoke result: {row!r}")
+          print("public_catalog_smoke_rows=1")
+          PY
