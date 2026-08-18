@@ -1,6 +1,12 @@
 name: Update Catalog
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/update-catalog.yml"
+      - "scripts/generate_catalog.py"
+      - "docs/CATALOG.md"
   workflow_dispatch:
     inputs:
       force_reconcile:
@@ -55,11 +61,26 @@ jobs:
           uv run python scripts/validate_manifest.py data/manifest.jsonl
 
       - name: Generate reconstructible catalog
-        if: steps.append.outputs.has_new_uploads == 'true'
+        if: steps.append.outputs.has_new_uploads == 'true' || github.event_name == 'push'
         run: |
           echo "Generating catalog from IA data..."
           uv run python scripts/generate_catalog.py --output ./catalog
           cp docs/CATALOG.md catalog/README.md
+
+          # The public manifest currently has no duration_s column. Preserve the
+          # historical helper-view shape without making catalog.sql depend on a
+          # column that is not part of the published manifest contract.
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("catalog/catalog.sql")
+          sql = path.read_text(encoding="utf-8")
+          old = "    AVG(duration_s) as avg_latency_s"
+          new = "    CAST(NULL AS DOUBLE) as avg_latency_s"
+          if old not in sql:
+              raise SystemExit("expected collection_status latency expression not found")
+          path.write_text(sql.replace(old, new, 1), encoding="utf-8")
+          PY
 
           echo "Publishing public catalog artifacts (excluding local DuckDB materialization)..."
           mapfile -d '' files < <(find catalog -maxdepth 1 -type f ! -name '*.duckdb' -print0 | sort -z)
