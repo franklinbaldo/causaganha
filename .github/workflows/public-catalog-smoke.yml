@@ -1,21 +1,9 @@
 name: Public Catalog Smoke
 
 on:
-  pull_request:
-    paths:
-      - ".github/workflows/public-catalog-smoke.yml"
-      - "docs/CATALOG.md"
-      - "scripts/generate_catalog.py"
-      - "web/src/pages/sobre.astro"
-      - "web/src/components/DataAccessPanel.svelte"
-  push:
-    branches: [main]
-    paths:
-      - ".github/workflows/public-catalog-smoke.yml"
-      - "docs/CATALOG.md"
-      - "scripts/generate_catalog.py"
-      - "web/src/pages/sobre.astro"
-      - "web/src/components/DataAccessPanel.svelte"
+  workflow_run:
+    workflows: ["Update Catalog"]
+    types: [completed]
   workflow_dispatch:
   schedule:
     - cron: "17 9 * * 1"
@@ -26,6 +14,7 @@ permissions:
 jobs:
   public-catalog-smoke:
     name: Rebuild catalog from public contract
+    if: github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
