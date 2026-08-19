@@ -24,6 +24,8 @@ pipelines, calling their ``service.py`` directly — never the other tools via
 the MCP protocol itself) and translates every tool's ``title``/
 ``description``/output field names to Portuguese, since the product and its
 users are Brazilian and this text can be shown directly to a host's user.
+The aggregate catalog is now sourced from the typed OKF ``Pipeline`` relation;
+only the direct Python execution bindings remain in code.
 
 RFC 0014 M2 adds ``processo_consultar`` — the first tool that serves the
 end user directly, not the pipeline operator. It reads the canonical
@@ -38,7 +40,14 @@ from __future__ import annotations
 
 from fastmcp import FastMCP
 
-from causaganha_mcp.tools import datajud, djen_backup, processo, status, stj_acordaos, tjro_juris
+from causaganha_mcp.tools import (
+    datajud,
+    djen_backup,
+    processo,
+    status_catalog,
+    stj_acordaos,
+    tjro_juris,
+)
 
 
 def build_server() -> FastMCP:
@@ -65,7 +74,7 @@ def build_server() -> FastMCP:
     tjro_juris.register(mcp)
     stj_acordaos.register(mcp)
     djen_backup.register(mcp)
-    status.register(mcp)
+    status_catalog.register(mcp)
     processo.register(mcp)
     return mcp
 
