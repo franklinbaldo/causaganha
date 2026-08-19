@@ -38,6 +38,9 @@ dependencies = [
     # tests/causaganha_mcp/test_tool_schema.py depend on, landed in 2.10.0.
     # Matches the floor already adopted in the sibling repo `pink`.
     "fastmcp>=3.4.2",
+    # OKF relation consumption — #877. 0.43 is the first published line used
+    # here for the in-process Bundle.compile_types()/TypedRelations surface.
+    "okf-parser>=0.43,<0.44",
     # djen_backup/tjro_juris/stj_acordaos/datajud CLIs — RFC 0013 Fase 4.
     # Was already present transitively (fastmcp[server]'s own CLI depends on
     # cyclopts>=4.0.0); declared directly now that the four CLIs use its
