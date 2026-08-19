@@ -21,11 +21,11 @@ jobs:
       - name: Checkout CausaGanha
         uses: actions/checkout@v4
 
-      - name: Checkout pinned okf-parser
+      - name: Checkout published okf-parser
         uses: actions/checkout@v4
         with:
           repository: franklinbaldo/okf-parser
-          ref: 173deee7a0a7bb91a79e396f31cb74250cf772aa
+          ref: v0.43.0
           path: .okf-parser
 
       - name: Install uv
@@ -46,7 +46,7 @@ jobs:
           from okf_parser import load_bundle
 
           bundle = load_bundle(Path("knowledge"))
-          with bundle.compile_types(".okf/specs/{slug}.md") as typed:
+          with bundle.compile_types(".okf/specs/{slug}.schema.sql") as typed:
               assert typed.tables == ("Fonte", "Pipeline")
               assert typed["Fonte"].count().execute() == 4
               assert typed["Pipeline"].count().execute() == 4
