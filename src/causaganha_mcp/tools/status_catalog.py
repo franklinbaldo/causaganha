@@ -12,6 +12,10 @@ from collections.abc import Callable
 from types import ModuleType
 from typing import TYPE_CHECKING
 
+import datajud.service as datajud_service
+import djen_backup.service as djen_backup_service
+import stj_acordaos.service as stj_acordaos_service
+import tjro_juris.service as tjro_juris_service
 from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
 from causaganha_mcp.tools.status import (
     CausaganhaStatusResult,
@@ -21,10 +25,6 @@ from causaganha_mcp.tools.status import (
     _stj_acordaos_status,
     _tjro_juris_status,
 )
-import datajud.service as datajud_service
-import djen_backup.service as djen_backup_service
-import stj_acordaos.service as stj_acordaos_service
-import tjro_juris.service as tjro_juris_service
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
