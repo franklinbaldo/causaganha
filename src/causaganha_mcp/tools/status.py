@@ -19,9 +19,9 @@ import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
 import tjro_juris.service as tjro_juris_service
 from causaganha_mcp import knowledge
-
 from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
