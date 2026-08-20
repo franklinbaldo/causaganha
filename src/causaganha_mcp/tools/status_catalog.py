@@ -9,20 +9,15 @@ Python service calls remain the execution boundary (never recursive MCP).
 from __future__ import annotations
 
 from collections.abc import Callable
-from types import ModuleType
+from importlib import import_module
 from typing import TYPE_CHECKING
-
-import datajud.service as datajud_service
-import djen_backup.service as djen_backup_service
-import stj_acordaos.service as stj_acordaos_service
-import tjro_juris.service as tjro_juris_service
 
 from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
 from causaganha_mcp.tools.status import (
     CausaganhaStatusResult,
+    PipelineStatus,
     _datajud_status,
     _djen_status,
-    PipelineStatus,
     _stj_acordaos_status,
     _tjro_juris_status,
 )
@@ -32,16 +27,15 @@ if TYPE_CHECKING:
 
 
 _StatusLoader = Callable[[], PipelineStatus]
-_Binding = tuple[str, ModuleType, _StatusLoader]
 
 # Keys are executable MCP surface names, not a second product catalog. The
 # Pipeline relation supplies pipeline identity/package/source; these bindings
-# say only which direct Python service implementation backs each declared tool.
-_BINDINGS: tuple[_Binding, ...] = (
-    ("djen_backup_status", djen_backup_service, _djen_status),
-    ("tjro_juris_status", tjro_juris_service, _tjro_juris_status),
-    ("stj_acordaos_status", stj_acordaos_service, _stj_acordaos_status),
-    ("datajud_status", datajud_service, _datajud_status),
+# say only which direct status implementation backs each declared MCP surface.
+_BINDINGS: tuple[tuple[str, _StatusLoader], ...] = (
+    ("djen_backup_status", _djen_status),
+    ("tjro_juris_status", _tjro_juris_status),
+    ("stj_acordaos_status", _stj_acordaos_status),
+    ("datajud_status", _datajud_status),
 )
 
 
@@ -55,7 +49,7 @@ def _pipeline_statuses(
         message = "knowledge Pipeline relation contains duplicate mcp_status values"
         raise RuntimeError(message)
 
-    expected_tools = {tool for tool, _service, _loader in _BINDINGS}
+    expected_tools = {tool for tool, _loader in _BINDINGS}
     declared_tools = set(by_tool)
     if declared_tools != expected_tools:
         missing = sorted(expected_tools - declared_tools)
@@ -66,14 +60,14 @@ def _pipeline_statuses(
         raise RuntimeError(message)
 
     results: list[PipelineStatus] = []
-    for tool_name, service_module, loader in _BINDINGS:
+    for tool_name, loader in _BINDINGS:
         item = by_tool[tool_name]
-        package = service_module.__name__.split(".", maxsplit=1)[0]
-        if item.pacote != package:
-            message = (
-                f"Pipeline {item.nome!r} declares package {item.pacote!r}; code uses {package!r}"
-            )
-            raise RuntimeError(message)
+        try:
+            import_module(f"{item.pacote}.service")
+        except ImportError as error:
+            message = f"Pipeline {item.nome!r} declares unavailable package {item.pacote!r}"
+            raise RuntimeError(message) from error
+
         result = loader()
         if result.nome != item.nome:
             message = f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
