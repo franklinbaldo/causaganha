@@ -7,7 +7,7 @@ import inspect
 import pytest
 
 from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
-from causaganha_mcp.tools import status_catalog
+from causaganha_mcp.tools import status
 
 
 _EXPECTED = {
@@ -37,11 +37,11 @@ def test_catalog_divergence_fails_explicitly_instead_of_using_a_hidden_fallback(
     )
 
     with pytest.raises(RuntimeError, match="declares unavailable package"):
-        status_catalog._pipeline_statuses(broken)
+        status._pipeline_statuses(broken)
 
 
 def test_catalog_dispatch_remains_in_process_and_never_recurses_through_mcp() -> None:
-    source = inspect.getsource(status_catalog)
+    source = inspect.getsource(status)
     assert "get_tool" not in source
     assert "call_tool" not in source
     assert "Client(" not in source
