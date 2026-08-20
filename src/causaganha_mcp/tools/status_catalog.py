@@ -11,8 +11,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
-from causaganha_mcp.tools import status
+from ..knowledge import PipelineMetadata, load_pipeline_metadata
+from . import status
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
