@@ -1,36 +1,14 @@
 """``causaganha_status`` — panorama agregado dos quatro pipelines (RFC 0014 M1).
 
-Chama `service.py` de cada pacote diretamente (`datajud.service`,
-`tjro_juris.service`, `stj_acordaos.service`, `djen_backup.service`) — nunca
-as tools `*_status` através do próprio protocolo MCP. Ir por dentro do
-protocolo para montar uma resposta que o próprio protocolo vai servir de
-novo seria indireção sem propósito, e acoplaria esta tool ao registro de
-tools do servidor em vez de à camada de serviço (RFC 0014 §3).
-
-Cada pipeline aparece com `total` (comum, sem interpretação) e `contagens`
-— um dict específico do pipeline, com os mesmos nomes de campo que a tool
-`*_status` correspondente já usa. Não existe um "concluído"/"pendente"
-genérico: mapear isso teria exigido decidir, por exemplo, se uma entrada
-`ausente` do DJEN conta como concluída ou pendente — uma interpretação de
-negócio que a RFC 0014 explicitamente não autoriza ainda (§3: "sem
-saudável/degradado", só fatos).
-
-Um pipeline quebrado (I/O ou manifest malformado) vira resultado parcial
-(`encontrado=False` + `aviso`), nunca falha a chamada inteira — cada
-`_<pipeline>_status()` captura só o que seu loader pode genuinamente
-levantar, nunca `except Exception`: `OSError` (falha de I/O, comum às
-quatro) mais `ManifestFormatError` só em `tjro_juris`/`datajud`, cujos
-loaders usam `csv.DictReader` com acesso direto a colunas
-(`row["tipo"]`/`int(row["docs"])` podem levantar `KeyError`/`ValueError`
-num CSV malformado — ver `ManifestFormatError` em cada `manifest.py`).
-`djen_backup`/`stj_acordaos` não precisam disso: seus loaders já usam
-`split(",")` posicional com checagem de tamanho de linha e
-`try/except ValueError` ao redor de cada conversão numérica/de data,
-então uma linha malformada é só ignorada, nunca uma exceção.
+Os fatos de cada pipeline continuam vindo diretamente de seus ``service.py``.
+A identidade estável do produto — nome, pacote, fonte e tool de status — vem
+agora da relação tipada ``Pipeline`` em ``knowledge/``. Não há chamada MCP
+recursiva e nenhum contrato físico de dados foi movido para Markdown.
 """
 
 from __future__ import annotations
 
+from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -40,11 +18,14 @@ import datajud.service as datajud_service
 import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
 import tjro_juris.service as tjro_juris_service
+from causaganha_mcp import knowledge
 from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from fastmcp import FastMCP
 
 
@@ -212,6 +193,54 @@ def _datajud_status() -> PipelineStatus:
     )
 
 
+def pipeline_status_loaders() -> tuple[tuple[str, Callable[[], PipelineStatus]], ...]:
+    """Return direct in-process bindings for aggregate pipeline status."""
+    return (
+        ("djen_backup_status", _djen_status),
+        ("tjro_juris_status", _tjro_juris_status),
+        ("stj_acordaos_status", _stj_acordaos_status),
+        ("datajud_status", _datajud_status),
+    )
+
+
+def _pipeline_statuses(
+    metadata: tuple[knowledge.PipelineMetadata, ...] | None = None,
+) -> list[PipelineStatus]:
+    """Resolve the typed OKF product catalog to established direct loaders."""
+    declared = metadata if metadata is not None else knowledge.load_pipeline_metadata()
+    by_tool = {item.mcp_status: item for item in declared}
+    if len(by_tool) != len(declared):
+        message = "knowledge Pipeline relation contains duplicate mcp_status values"
+        raise RuntimeError(message)
+
+    bindings = pipeline_status_loaders()
+    expected_tools = {tool for tool, _loader in bindings}
+    declared_tools = set(by_tool)
+    if declared_tools != expected_tools:
+        missing = sorted(expected_tools - declared_tools)
+        unknown = sorted(declared_tools - expected_tools)
+        message = (
+            f"knowledge Pipeline bindings disagree with code: missing={missing}, unknown={unknown}"
+        )
+        raise RuntimeError(message)
+
+    results: list[PipelineStatus] = []
+    for tool_name, loader in bindings:
+        item = by_tool[tool_name]
+        try:
+            import_module(f"{item.pacote}.service")
+        except ImportError as error:
+            message = f"Pipeline {item.nome!r} declares unavailable package {item.pacote!r}"
+            raise RuntimeError(message) from error
+
+        result = loader()
+        if result.nome != item.nome:
+            message = f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
+            raise RuntimeError(message)
+        results.append(result)
+    return results
+
+
 def register(mcp: FastMCP) -> None:
     """Registra ``causaganha_status`` em *mcp*."""
 
@@ -226,27 +255,12 @@ def register(mcp: FastMCP) -> None:
         },
     )
     def causaganha_status() -> CausaganhaStatusResult:
-        """Panorama dos quatro pipelines locais (DJEN, TJRO JURIS, STJ, DataJud) numa só chamada.
+        """Panorama dos pipelines declarados no catálogo OKF do CausaGanha.
 
-        Chama a mesma camada de serviço que `djen_backup_status`,
-        `tjro_juris_status`, `stj_acordaos_status` e `datajud_status` usam
-        individualmente — não invoca essas tools via protocolo MCP. Um
-        pipeline sem manifest nesta máquina aparece com `encontrado=False`
-        e contagens vazias; isso nunca falha a chamada inteira, mesmo que
-        outros pipelines tenham dado.
-
-        Não retorna um veredito de saúde ("saudável"/"degradado") — só
-        fatos: total, contagens específicas do pipeline, quando foi
-        atualizado pela última vez, se a fonte é o próprio manifest ou um
-        cache que pode estar atrasado, e uma ressalva quando existir. Para
-        contagens detalhadas por pipeline, prefira a tool `<pipeline>_status`
-        individual — esta é um resumo amplo, não um substituto.
+        O catálogo ``Pipeline`` fornece identidade estável e binding de produto;
+        cada loader continua chamando diretamente a camada ``service.py`` já
+        estabelecida. Falha de um manifest individual continua virando resultado
+        parcial, enquanto divergência do catálogo é explícita para evitar um
+        panorama silenciosamente obsoleto.
         """
-        return CausaganhaStatusResult(
-            pipelines=[
-                _djen_status(),
-                _tjro_juris_status(),
-                _stj_acordaos_status(),
-                _datajud_status(),
-            ]
-        )
+        return CausaganhaStatusResult(pipelines=_pipeline_statuses())

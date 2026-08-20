@@ -21,11 +21,11 @@ jobs:
       - name: Checkout CausaGanha
         uses: actions/checkout@v4
 
-      - name: Checkout pinned okf-parser
+      - name: Checkout published okf-parser
         uses: actions/checkout@v4
         with:
           repository: franklinbaldo/okf-parser
-          ref: 173deee7a0a7bb91a79e396f31cb74250cf772aa
+          ref: v0.43.0
           path: .okf-parser
 
       - name: Install uv
