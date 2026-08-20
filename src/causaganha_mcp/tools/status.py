@@ -31,6 +31,7 @@ então uma linha malformada é só ignorada, nunca uma exceção.
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -212,6 +213,21 @@ def _datajud_status() -> PipelineStatus:
     )
 
 
+def pipeline_status_loaders() -> tuple[tuple[str, Callable[[], PipelineStatus]], ...]:
+    """Return direct in-process bindings for aggregate pipeline status.
+
+    The keys are MCP surface names; the callables are the established direct
+    service-backed loaders. Consumers can resolve metadata around these bindings
+    without calling the MCP protocol recursively or depending on private names.
+    """
+    return (
+        ("djen_backup_status", _djen_status),
+        ("tjro_juris_status", _tjro_juris_status),
+        ("stj_acordaos_status", _stj_acordaos_status),
+        ("datajud_status", _datajud_status),
+    )
+
+
 def register(mcp: FastMCP) -> None:
     """Registra ``causaganha_status`` em *mcp*."""
 
@@ -243,10 +259,5 @@ def register(mcp: FastMCP) -> None:
         individual — esta é um resumo amplo, não um substituto.
         """
         return CausaganhaStatusResult(
-            pipelines=[
-                _djen_status(),
-                _tjro_juris_status(),
-                _stj_acordaos_status(),
-                _datajud_status(),
-            ]
+            pipelines=[loader() for _tool_name, loader in pipeline_status_loaders()]
         )
