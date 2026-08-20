@@ -15,9 +15,9 @@ from typing import TYPE_CHECKING
 from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
 from causaganha_mcp.tools.status import (
     CausaganhaStatusResult,
-    PipelineStatus,
     _datajud_status,
     _djen_status,
+    PipelineStatus,
     _stj_acordaos_status,
     _tjro_juris_status,
 )
