@@ -31,7 +31,6 @@ então uma linha malformada é só ignorada, nunca uma exceção.
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
@@ -46,6 +45,8 @@ from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatEr
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from fastmcp import FastMCP
 
 
