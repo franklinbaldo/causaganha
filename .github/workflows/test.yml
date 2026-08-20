@@ -41,7 +41,7 @@ jobs:
         # from the same view registry the render uses. No network needed.
         run: uv run python scripts/render_queries.py --check
       - name: Auto-fix linting issues
-        if: failure() && github.event_name == 'pull_request' && endsWith(github.actor, '[bot]')
+        if: failure() && github.event_name == 'pull_request'
         run: |
           uvx ruff format . || true
           uvx ruff check --fix . || true
