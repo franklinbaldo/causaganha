@@ -11,8 +11,8 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-import causaganha_mcp.knowledge as knowledge
-import causaganha_mcp.tools.status as status
+from causaganha_mcp import knowledge
+from causaganha_mcp.tools import status
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
