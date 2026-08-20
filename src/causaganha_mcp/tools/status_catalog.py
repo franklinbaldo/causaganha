@@ -11,18 +11,18 @@ from __future__ import annotations
 from importlib import import_module
 from typing import TYPE_CHECKING
 
-from ..knowledge import PipelineMetadata, load_pipeline_metadata
-from . import status
+import causaganha_mcp.knowledge as knowledge
+import causaganha_mcp.tools.status as status
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
 def _pipeline_statuses(
-    metadata: tuple[PipelineMetadata, ...] | None = None,
+    metadata: tuple[knowledge.PipelineMetadata, ...] | None = None,
 ) -> list[status.PipelineStatus]:
     """Resolve declared pipeline metadata to direct service-layer loaders."""
-    declared = metadata if metadata is not None else load_pipeline_metadata()
+    declared = metadata if metadata is not None else knowledge.load_pipeline_metadata()
     by_tool = {item.mcp_status: item for item in declared}
     if len(by_tool) != len(declared):
         message = "knowledge Pipeline relation contains duplicate mcp_status values"
