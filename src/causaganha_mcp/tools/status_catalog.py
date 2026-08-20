@@ -8,40 +8,19 @@ Python service calls remain the execution boundary (never recursive MCP).
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from importlib import import_module
 from typing import TYPE_CHECKING
 
 from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
-from causaganha_mcp.tools.status import (
-    _datajud_status,
-    _djen_status,
-    _stj_acordaos_status,
-    _tjro_juris_status,
-    CausaganhaStatusResult,
-    PipelineStatus,
-)
+from causaganha_mcp.tools import status
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
-_StatusLoader = Callable[[], PipelineStatus]
-
-# Keys are executable MCP surface names, not a second product catalog. The
-# Pipeline relation supplies pipeline identity/package/source; these bindings
-# say only which direct status implementation backs each declared MCP surface.
-_BINDINGS: tuple[tuple[str, _StatusLoader], ...] = (
-    ("djen_backup_status", _djen_status),
-    ("tjro_juris_status", _tjro_juris_status),
-    ("stj_acordaos_status", _stj_acordaos_status),
-    ("datajud_status", _datajud_status),
-)
-
-
 def _pipeline_statuses(
     metadata: tuple[PipelineMetadata, ...] | None = None,
-) -> list[PipelineStatus]:
+) -> list[status.PipelineStatus]:
     """Resolve declared pipeline metadata to direct service-layer loaders."""
     declared = metadata if metadata is not None else load_pipeline_metadata()
     by_tool = {item.mcp_status: item for item in declared}
@@ -49,7 +28,8 @@ def _pipeline_statuses(
         message = "knowledge Pipeline relation contains duplicate mcp_status values"
         raise RuntimeError(message)
 
-    expected_tools = {tool for tool, _loader in _BINDINGS}
+    bindings = status.pipeline_status_loaders()
+    expected_tools = {tool for tool, _loader in bindings}
     declared_tools = set(by_tool)
     if declared_tools != expected_tools:
         missing = sorted(expected_tools - declared_tools)
@@ -59,8 +39,8 @@ def _pipeline_statuses(
         )
         raise RuntimeError(message)
 
-    results: list[PipelineStatus] = []
-    for tool_name, loader in _BINDINGS:
+    results: list[status.PipelineStatus] = []
+    for tool_name, loader in bindings:
         item = by_tool[tool_name]
         try:
             import_module(f"{item.pacote}.service")
@@ -89,7 +69,7 @@ def register(mcp: FastMCP) -> None:
             "openWorldHint": False,
         },
     )
-    def causaganha_status() -> CausaganhaStatusResult:
+    def causaganha_status() -> status.CausaganhaStatusResult:
         """Panorama dos pipelines declarados no catálogo OKF do CausaGanha.
 
         Identidade, pacote, fonte e tool de status vêm da relação tipada
@@ -99,4 +79,4 @@ def register(mcp: FastMCP) -> None:
         resultado parcial, mas falha/divergência do catálogo de metadados é
         explícita para não retornar silenciosamente um panorama obsoleto.
         """
-        return CausaganhaStatusResult(pipelines=_pipeline_statuses())
+        return status.CausaganhaStatusResult(pipelines=_pipeline_statuses())
