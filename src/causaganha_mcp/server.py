@@ -1,53 +1,16 @@
 """FastMCP server assembly for ``causaganha_mcp`` (RFC 0013 Fase 3, RFC 0014).
 
 Tool registration happens explicitly inside ``build_server()``, not as an
-import-time side effect of decorating module-level functions — the same
-lesson RFC 0013 Fase 2 drew from ``djen_backup``'s old import-time
-``structlog.configure()``/stdio reconfiguration: a process that imports
-this module (a test, a supervisor, another tool) should not get side
-effects it didn't ask for. Each ``tools/*.py`` module exposes a
-``register(mcp)`` function instead of decorating at import time.
-
-RFC 0013 Fase 3A scope: read-only, local, deterministic status tools —
-``datajud_status``, ``tjro_juris_status``, ``stj_acordaos_status``,
-``djen_backup_status``. None of them touch Internet Archive credentials or
-make network calls; each reads whatever manifest already exists on local
-disk. Fase 3B adds ``datajud_facetas``: still read-only and credential-free,
-but it makes a real call to the public DataJud API — a different error
-category (timeout, rate limit, network) from the local/deterministic Fase
-3A foundation, hence ``openWorldHint=True`` on that one tool only. Ingestion/
-upload operations (the full sync, ``drain``, ``consolidate``, ``enrich``
-with upload) stay CLI/CI-only per the RFC — they never become tools.
-
-RFC 0014 M1 adds ``causaganha_status`` (a panorama over the same four local
-pipelines, calling their ``service.py`` directly — never the other tools via
-the MCP protocol itself) and translates every tool's ``title``/
-``description``/output field names to Portuguese, since the product and its
-users are Brazilian and this text can be shown directly to a host's user.
-The aggregate catalog is now sourced from the typed OKF ``Pipeline`` relation;
-only the direct Python execution bindings remain in code.
-
-RFC 0014 M2 adds ``processo_consultar`` — the first tool that serves the
-end user directly, not the pipeline operator. It reads the canonical
-cross-source parquets published to Internet Archive (``causaganha_mcp.tools
-.processo`` → ``causaganha.processos.service``), the same artifacts the web
-dashboard's ``/processo`` page reads — not a local manifest, and not a
-second, independently-published copy of the data. Like ``datajud_facetas``,
-it is a real network call (``openWorldHint=True``).
+import-time side effect. Pipeline status tools keep their direct Python service
+boundary; the aggregate ``causaganha_status`` now reads stable product metadata
+from the typed OKF ``Pipeline`` relation before dispatching those same loaders.
 """
 
 from __future__ import annotations
 
 from fastmcp import FastMCP
 
-from causaganha_mcp.tools import (
-    datajud,
-    djen_backup,
-    processo,
-    status_catalog,
-    stj_acordaos,
-    tjro_juris,
-)
+from causaganha_mcp.tools import datajud, djen_backup, processo, status, stj_acordaos, tjro_juris
 
 
 def build_server() -> FastMCP:
@@ -74,7 +37,7 @@ def build_server() -> FastMCP:
     tjro_juris.register(mcp)
     stj_acordaos.register(mcp)
     djen_backup.register(mcp)
-    status_catalog.register(mcp)
+    status.register(mcp)
     processo.register(mcp)
     return mcp
 
