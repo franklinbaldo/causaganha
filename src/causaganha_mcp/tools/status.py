@@ -21,7 +21,7 @@ import tjro_juris.service as tjro_juris_service
 from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
 
-from .. import knowledge
+from causaganha_mcp import knowledge
 
 if TYPE_CHECKING:
     from collections.abc import Callable
