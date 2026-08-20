@@ -14,8 +14,7 @@ from typing import TYPE_CHECKING, Literal
 
 from pydantic import BaseModel, Field
 
-from causaganha_mcp import knowledge
-
+import causaganha_mcp.knowledge as knowledge
 import datajud.service as datajud_service
 import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
