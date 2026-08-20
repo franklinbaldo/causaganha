@@ -4,14 +4,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel, Field
-
 from okf_parser import load_bundle
+from pydantic import BaseModel, Field
 
 
 _REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 _KNOWLEDGE_ROOT = _REPOSITORY_ROOT / "knowledge"
-_SPEC_TEMPLATE = ".okf/specs/{slug}.schema.sql"
+_SPEC_TEMPLATE = ".okf/specs/{slug}.md"
 
 
 class PipelineMetadata(BaseModel):
@@ -34,14 +33,17 @@ def load_pipeline_metadata(root: Path = _KNOWLEDGE_ROOT) -> tuple[PipelineMetada
     """
     bundle = load_bundle(root)
     if not bundle.is_conformant:
-        raise RuntimeError("knowledge bundle is not OKF-conformant")
+        message = "knowledge bundle is not OKF-conformant"
+        raise RuntimeError(message)
 
     with bundle.compile_types(_SPEC_TEMPLATE) as typed:
         if "Pipeline" not in typed.tables:
-            raise RuntimeError("knowledge bundle has no declared Pipeline relation")
+            message = "knowledge bundle has no declared Pipeline relation"
+            raise RuntimeError(message)
         rows = typed["Pipeline"].execute().to_dict(orient="records")
 
     metadata = tuple(PipelineMetadata.model_validate(row) for row in rows)
     if not metadata:
-        raise RuntimeError("knowledge Pipeline relation is empty")
+        message = "knowledge Pipeline relation is empty"
+        raise RuntimeError(message)
     return metadata
