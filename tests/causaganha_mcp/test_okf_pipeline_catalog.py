@@ -36,7 +36,7 @@ def test_catalog_divergence_fails_explicitly_instead_of_using_a_hidden_fallback(
         for item in metadata
     )
 
-    with pytest.raises(RuntimeError, match="declares package"):
+    with pytest.raises(RuntimeError, match="declares unavailable package"):
         status_catalog._pipeline_statuses(broken)
 
 
@@ -45,10 +45,5 @@ def test_catalog_dispatch_remains_in_process_and_never_recurses_through_mcp() ->
     assert "get_tool" not in source
     assert "call_tool" not in source
     assert "Client(" not in source
-    for module in (
-        "datajud.service",
-        "djen_backup.service",
-        "stj_acordaos.service",
-        "tjro_juris.service",
-    ):
-        assert module in source
+    assert "import_module" in source
+    assert 'f"{item.pacote}.service"' in source
