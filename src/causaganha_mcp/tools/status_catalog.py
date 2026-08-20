@@ -8,12 +8,9 @@ Python service calls remain the execution boundary (never recursive MCP).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Callable
-
-import datajud.service as datajud_service
-import djen_backup.service as djen_backup_service
-import stj_acordaos.service as stj_acordaos_service
-import tjro_juris.service as tjro_juris_service
+from collections.abc import Callable
+from types import ModuleType
+from typing import TYPE_CHECKING
 
 from causaganha_mcp.knowledge import PipelineMetadata, load_pipeline_metadata
 from causaganha_mcp.tools.status import (
@@ -24,17 +21,22 @@ from causaganha_mcp.tools.status import (
     _stj_acordaos_status,
     _tjro_juris_status,
 )
+import datajud.service as datajud_service
+import djen_backup.service as djen_backup_service
+import stj_acordaos.service as stj_acordaos_service
+import tjro_juris.service as tjro_juris_service
 
 if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
 _StatusLoader = Callable[[], PipelineStatus]
+_Binding = tuple[str, ModuleType, _StatusLoader]
 
 # Keys are executable MCP surface names, not a second product catalog. The
 # Pipeline relation supplies pipeline identity/package/source; these bindings
 # say only which direct Python service implementation backs each declared tool.
-_BINDINGS: tuple[tuple[str, Any, _StatusLoader], ...] = (
+_BINDINGS: tuple[_Binding, ...] = (
     ("djen_backup_status", djen_backup_service, _djen_status),
     ("tjro_juris_status", tjro_juris_service, _tjro_juris_status),
     ("stj_acordaos_status", stj_acordaos_service, _stj_acordaos_status),
@@ -49,30 +51,32 @@ def _pipeline_statuses(
     declared = metadata if metadata is not None else load_pipeline_metadata()
     by_tool = {item.mcp_status: item for item in declared}
     if len(by_tool) != len(declared):
-        raise RuntimeError("knowledge Pipeline relation contains duplicate mcp_status values")
+        message = "knowledge Pipeline relation contains duplicate mcp_status values"
+        raise RuntimeError(message)
 
     expected_tools = {tool for tool, _service, _loader in _BINDINGS}
     declared_tools = set(by_tool)
     if declared_tools != expected_tools:
         missing = sorted(expected_tools - declared_tools)
         unknown = sorted(declared_tools - expected_tools)
-        raise RuntimeError(
+        message = (
             f"knowledge Pipeline bindings disagree with code: missing={missing}, unknown={unknown}"
         )
+        raise RuntimeError(message)
 
     results: list[PipelineStatus] = []
     for tool_name, service_module, loader in _BINDINGS:
         item = by_tool[tool_name]
         package = service_module.__name__.split(".", maxsplit=1)[0]
         if item.pacote != package:
-            raise RuntimeError(
+            message = (
                 f"Pipeline {item.nome!r} declares package {item.pacote!r}; code uses {package!r}"
             )
+            raise RuntimeError(message)
         result = loader()
         if result.nome != item.nome:
-            raise RuntimeError(
-                f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
-            )
+            message = f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
+            raise RuntimeError(message)
         results.append(result)
     return results
 
