@@ -9,13 +9,11 @@ Python service calls remain the execution boundary (never recursive MCP).
 from __future__ import annotations
 
 from importlib import import_module
-from typing import TYPE_CHECKING
+
+from fastmcp import FastMCP
 
 from causaganha_mcp import knowledge
 from causaganha_mcp.tools import status
-
-if TYPE_CHECKING:
-    from fastmcp import FastMCP
 
 
 def _pipeline_statuses(
