@@ -22,6 +22,7 @@ TOOL_NAMES = [
     "djen_backup_status",
     "causaganha_status",
     "processo_consultar",
+    "publicacoes_buscar",
 ]
 
 _CREDENTIAL_SUBSTRINGS = ("key", "secret", "token", "credential", "password")
@@ -75,6 +76,21 @@ _EXPECTED_OUTPUT_FIELDS = {
         "web_url",
         "web_path",
     },
+    "publicacoes_buscar": {
+        "resumo",
+        "total_encontrado",
+        "resultados",
+        "pagina",
+        "limite",
+        "resultados_truncados",
+        "cobertura",
+        "criterios",
+        "consultado_em",
+        "natureza",
+        "fonte",
+        "avisos",
+        "next_actions",
+    },
 }
 
 _EXPECTED_INPUT_FIELDS = {
@@ -92,6 +108,20 @@ _EXPECTED_INPUT_FIELDS = {
     },
     "causaganha_status": set(),
     "processo_consultar": {"cnj", "incluir_documentos", "limite_documentos"},
+    "publicacoes_buscar": {
+        "processo",
+        "oab",
+        "uf_oab",
+        "parte",
+        "advogado",
+        "texto",
+        "tribunal",
+        "data_inicio",
+        "data_fim",
+        "incluir_trecho",
+        "limite",
+        "pagina",
+    },
 }
 
 
