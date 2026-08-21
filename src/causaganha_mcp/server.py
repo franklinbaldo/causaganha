@@ -31,7 +31,7 @@ def build_server() -> FastMCP:
             "conhecimento dos schemas, arquivos, pipelines ou mecanismos de armazenamento. "
             "Para um CNJ, use `processo_consultar` quando a pergunta for sobre o ARQUIVO "
             "reconciliado (publicações preservadas, decisões/documentos e metadados do snapshot) "
-            "e `datajud_processo` quando a pergunta for sobre ESTADO atual (movimentos, graus "
+            "e `processo_estado` quando a pergunta for sobre ESTADO atual (movimentos, graus "
             "e último marco no DataJud oficial). Um movimento não revela necessariamente o TEOR "
             "do ato; para saber o que uma decisão diz, procure o documento/decisão no arquivo. "
             "`datajud_facetas` serve para perguntas agregadas sobre o acervo oficial do DataJud; "
