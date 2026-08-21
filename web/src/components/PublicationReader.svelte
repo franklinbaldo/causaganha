@@ -14,6 +14,7 @@
     source,
     usedFallback,
     processNumber,
+    processHref = null,
     metaChips = [],
     identityRows = [],
     parties = [],
@@ -30,6 +31,7 @@
     source?: "djen" | "ia";
     usedFallback?: boolean;
     processNumber: string | null;
+    processHref?: string | null;
     metaChips?: MetaChip[];
     identityRows?: MetaChip[];
     parties?: string[];
@@ -80,13 +82,18 @@
       <small><time>{dateStr}</time></small>
     </div>
     {#if processNumber}
-      <h2 class="process-number process-number-xl">{processNumber}</h2>
+      {#if processHref}
+        <h2><a class="process-number process-number-xl" href={processHref}>{processNumber}</a></h2>
+      {:else}
+        <h2 class="process-number process-number-xl">{processNumber}</h2>
+      {/if}
     {/if}
     {#if pub.nomeOrgao}
       <p class="orgao-name-reader">{pub.nomeOrgao}</p>
     {/if}
     <PublicationActions
       link={pub.link}
+      {processHref}
       {activeCopied}
       shareContext="reader"
       {onShare}
