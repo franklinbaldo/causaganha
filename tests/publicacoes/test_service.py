@@ -182,7 +182,7 @@ def test_busca_por_oab_faz_join_interno_sem_expor_schema(tmp_path: Path) -> None
     manifest, backfill = _fixture_archive(tmp_path)
 
     result = buscar_publicacoes(
-        oab="RO 1234",
+        oab="1234",
         uf_oab="ro",
         tribunal="TJRO",
         manifest_url=manifest,
@@ -191,7 +191,7 @@ def test_busca_por_oab_faz_join_interno_sem_expor_schema(tmp_path: Path) -> None
 
     assert result.total_encontrado == 1
     assert result.resultados[0].id == "c1"
-    assert result.criterios["oab"] == "RO1234"
+    assert result.criterios["oab"] == "1234"
     assert result.criterios["uf_oab"] == "RO"
 
 
