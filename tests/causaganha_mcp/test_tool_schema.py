@@ -16,7 +16,7 @@ from datajud.client import FACET_FIELDS
 TOOL_NAMES = [
     "datajud_status",
     "datajud_facetas",
-    "datajud_processo",
+    "processo_estado",
     "tjro_juris_status",
     "stj_acordaos_status",
     "djen_backup_status",
@@ -35,7 +35,7 @@ _EXPECTED_OUTPUT_FIELDS = {
     "djen_backup_status": _ENVELOPE_FIELDS
     | {"enviados", "disponiveis", "ausentes", "desconhecidos"},
     "datajud_facetas": {"tribunal", "por", "total", "grupos", "consultado_em"},
-    "datajud_processo": {
+    "processo_estado": {
         "encontrado",
         "cnj",
         "cnj_formatado",
@@ -83,7 +83,7 @@ _EXPECTED_INPUT_FIELDS = {
     "stj_acordaos_status": {"caminho_manifesto"},
     "djen_backup_status": {"arquivo_manifesto"},
     "datajud_facetas": {"tribunal", "por", "limite"},
-    "datajud_processo": {
+    "processo_estado": {
         "cnj",
         "tribunal",
         "incluir_movimentos",
