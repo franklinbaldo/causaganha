@@ -1,4 +1,4 @@
-"""Behavior tests for the agent-oriented ``datajud_processo`` tool."""
+"""Behavior tests for the agent-oriented ``processo_estado`` tool."""
 
 from __future__ import annotations
 
@@ -86,11 +86,11 @@ def mcp():
 
 
 async def _fn(mcp):
-    tool = await mcp.get_tool("datajud_processo")
+    tool = await mcp.get_tool("processo_estado")
     return tool.fn
 
 
-async def test_datajud_processo_returns_summary_first_and_filters_noise(mcp) -> None:
+async def test_processo_estado_returns_summary_first_and_filters_noise(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(200, json=_payload())
@@ -116,7 +116,7 @@ async def test_datajud_processo_returns_summary_first_and_filters_noise(mcp) -> 
     assert any("não contém" in item for item in result.limitacoes)
 
 
-async def test_datajud_processo_full_movements_are_explicit_opt_in(mcp) -> None:
+async def test_processo_estado_full_movements_are_explicit_opt_in(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(200, json=_payload())
@@ -131,7 +131,7 @@ async def test_datajud_processo_full_movements_are_explicit_opt_in(mcp) -> None:
     assert result.movimentos_truncados is False
 
 
-async def test_datajud_processo_last_marco_is_computed_across_all_graus(mcp) -> None:
+async def test_processo_estado_last_marco_is_computed_across_all_graus(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(200, json=_payload())
@@ -143,7 +143,7 @@ async def test_datajud_processo_last_marco_is_computed_across_all_graus(mcp) -> 
     assert result.ultimo_marco.data_hora == "2026-08-21T13:00:00Z"
 
 
-async def test_datajud_processo_not_found_is_not_process_nonexistence(mcp) -> None:
+async def test_processo_estado_not_found_is_not_process_nonexistence(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
@@ -155,7 +155,7 @@ async def test_datajud_processo_not_found_is_not_process_nonexistence(mcp) -> No
     assert result.next_actions[0].tool == "processo_consultar"
 
 
-async def test_datajud_processo_rejects_invalid_cnj_before_network(mcp) -> None:
+async def test_processo_estado_rejects_invalid_cnj_before_network(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock(assert_all_called=False) as router:
         route = router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
@@ -164,12 +164,12 @@ async def test_datajud_processo_rejects_invalid_cnj_before_network(mcp) -> None:
         assert route.called is False
 
 
-async def test_datajud_processo_has_hard_interactive_timeout(mcp) -> None:
-    tool = await mcp.get_tool("datajud_processo")
+async def test_processo_estado_has_hard_interactive_timeout(mcp) -> None:
+    tool = await mcp.get_tool("processo_estado")
     assert tool.timeout == tool_module._PROCESSO_TOOL_TIMEOUT
 
 
-async def test_datajud_processo_auth_failure_is_actionable(mcp) -> None:
+async def test_processo_estado_auth_failure_is_actionable(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock() as router:
         router.post(ENDPOINT).respond(401)
