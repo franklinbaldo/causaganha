@@ -5,9 +5,10 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 <footer class="site-footer" aria-labelledby="footer-brand">
   <p id="footer-brand" class="footer-brand">CausaGanha</p>
   <nav aria-label="Links do rodapé" class="footer-nav">
-    <a href={BASE + 'publicacoes'}>Publicações</a>
     <a href={BASE + 'processo'}>Consultar processo</a>
-    <a href={BASE + 'sobre'}>Metodologia</a>
+    <a href={BASE + 'publicacoes'}>Pesquisar publicações</a>
+    <a href={BASE + 'stats'}>Explorar cobertura</a>
+    <a href={BASE + 'sobre'}>Projeto & dados</a>
     <a
       href="https://github.com/franklinbaldo/causaganha"
       target="_blank"
@@ -19,10 +20,6 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
       </svg>
     </a>
-    {/* A antiga rota /dados ("Dados Abertos", alimentada pelos snapshots
-        legados manifest-summary/ia-snapshot) não existe mais — o link
-        apontava para 404. Estatísticas canônicas vivem em /stats. */}
-    <a href={BASE + 'stats'}>Indicadores</a>
   </nav>
-  <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Inspirado no modernismo brasileiro</p>
+  <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Fontes oficiais, arquivo público e proveniência explícita</p>
 </footer>
