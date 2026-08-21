@@ -1,4 +1,4 @@
-"""``datajud_processo`` — live process state from the official DataJud API.
+"""``processo_estado`` — live process state from the official DataJud API.
 
 The tool exposes *estado*, not *teor*: movements prove that events were
 registered, but do not reveal the reasoning or content of the underlying
@@ -26,7 +26,13 @@ from datajud.client import (
     DataJudProtocolError,
     DataJudRateLimitError,
 )
-from datajud.models import Movimento, ProcessoCapa, formatar_cnj, normalizar_cnj, normalizar_data14
+from datajud.models import (
+    Movimento,
+    ProcessoCapa,
+    formatar_cnj,
+    normalizar_cnj,
+    normalizar_data14,
+)
 
 
 if TYPE_CHECKING:
@@ -181,9 +187,7 @@ def _to_result(
         )
 
     movimentos_all = [
-        _movement_result(capa, mov)
-        for capa in capas
-        for mov in capa.movimentos
+        _movement_result(capa, mov) for capa in capas for mov in capa.movimentos
     ]
     movimentos_all.sort(key=_movement_sort_key, reverse=True)
     marcos_all = [m for m in movimentos_all if m.codigo not in _RUIDO_MOVIMENTO_CODES]
@@ -218,7 +222,7 @@ def _to_result(
             ProximaAcaoResult(
                 quando="Se você precisa inspecionar também movimentos de rotina que foram omitidos do resumo.",
                 acao="Repetir a consulta incluindo a linha completa de movimentos.",
-                tool="datajud_processo",
+                tool="processo_estado",
                 argumentos={
                     "cnj": formatted,
                     "tribunal": tribunal_normalized,
@@ -279,7 +283,7 @@ def register(mcp: FastMCP) -> None:
     """Register the live process-state tool."""
 
     @mcp.tool(
-        name="datajud_processo",
+        name="processo_estado",
         timeout=_PROCESSO_TOOL_TIMEOUT,
         annotations={
             "title": "Consulta o estado atual de um processo no DataJud",
@@ -289,7 +293,7 @@ def register(mcp: FastMCP) -> None:
             "openWorldHint": True,
         },
     )
-    async def datajud_processo(
+    async def processo_estado(
         cnj: str,
         tribunal: str = DEFAULT_TRIBUNAL,
         incluir_movimentos: bool = False,
