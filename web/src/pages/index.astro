@@ -1,6 +1,5 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import TribunalCalendar from '../components/TribunalCalendar.svelte';
 import {
   loadSiteStatus,
   evaluateSourceFreshness,
@@ -16,12 +15,7 @@ const djen = siteStatus.sources.djen;
 const totalZips = djen.zips_archived;
 const tribunalsWithData = djen.tribunals_with_data;
 const tribunalsTotal = djen.tribunals_total;
-// Lacuna honesta: pares sem ZIP e SEM ausência confirmada pelo DJEN. Um dia
-// em que o DJEN respondeu "não há publicação" (absent_confirmed) não é
-// cobertura faltante — não existe caderno a arquivar.
 const gaps = djen.pending_real + djen.errors_transient + djen.never_checked;
-// Frescor derivado do último SUCESSO (tentativas falhando não contam) —
-// ver evaluateSourceFreshness() em lib/data/siteStatus.ts.
 const djenFreshness = evaluateSourceFreshness(djen, Date.now());
 const freshnessLabel = freshnessDisplayLabel(djenFreshness);
 const sinceYear = (djen.earliest_upload_date ?? '').slice(0, 4) || null;
@@ -40,23 +34,49 @@ function fmtDate(iso: string | null): string {
 }
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
+const sources = [
+  {
+    sigla: 'DJEN',
+    papel: 'Arquivo',
+    title: 'O que foi publicado.',
+    body: 'Comunicações judiciais preservadas no Internet Archive, com busca, cobertura e ZIP original.',
+  },
+  {
+    sigla: 'DataJud',
+    papel: 'Estado',
+    title: 'Onde o processo está.',
+    body: 'Capa, classe, assuntos, órgão, grau, datas e movimentos processuais registrados pelo CNJ.',
+  },
+  {
+    sigla: 'TJRO JURIS',
+    papel: 'Teor',
+    title: 'O que a decisão diz.',
+    body: 'Decisões e documentos de jurisprudência do TJRO quando presentes no corpus publicado.',
+  },
+  {
+    sigla: 'STJ',
+    papel: 'Teor',
+    title: 'O que chegou ao tribunal superior.',
+    body: 'Acórdãos e metadados do STJ vinculados ao processo quando a fonte correspondente tem registro.',
+  },
+];
 ---
 
 <Layout
-  title="CausaGanha — um arquivo público do judiciário brasileiro"
-  description={`O CausaGanha preserva, no Internet Archive, as publicações diárias do DJEN — diários, acórdãos, intimações e editais de ${tribunalsWithData} tribunais brasileiros.`}
+  title="CausaGanha — o rastro verificável do processo judicial"
+  description="Consulte processos, pesquise publicações e acompanhe a proveniência entre DJEN, TJRO JURIS, STJ e DataJud sobre um arquivo público reproduzível."
   fullWidth={true}
   showNetworkBanner={false}
 >
-  <!-- Hero -->
   <header class="hero" aria-labelledby="hero-title">
     <div class="hero__inner">
-      <div class="hero__tiles" aria-hidden="true" id="hero-tiles"></div>
-      <span class="kicker">§ Busca pública · sem cadastro · fontes oficiais reunidas</span>
-      <h1 class="mega" id="hero-title">Consulte processos.<br/>Pesquise <em>publicações.</em></h1>
+      <span class="kicker">§ Consulta pública · fontes oficiais · proveniência explícita</span>
+      <h1 class="mega" id="hero-title">Um processo deixa<br/>rastros <em>diferentes.</em></h1>
       <p class="hero__lede">
-        Cole um número CNJ para abrir o dossiê consolidado do processo, reconciliado entre DJEN, JURIS (TJRO), STJ e DataJud.
-        Pesquise também por OAB, parte ou palavra-chave nas publicações do DJEN. O acervo preservado reúne {fmt(totalZips)} ZIPs de diários arquivados (pares tribunal × dia){sinceYear ? ` desde ${sinceYear}` : ''}, de {tribunalsWithData} tribunais brasileiros.
+        Consulte um número CNJ para ver o que diferentes fontes oficiais registram sobre o mesmo processo.
+        Pesquise também publicações do DJEN por OAB, parte ou texto livre. O CausaGanha preserva o arquivo,
+        reconcilia as fontes e mantém visível de onde veio cada fato.
       </p>
       <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
         <fieldset role="group">
@@ -87,107 +107,139 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
         </button>
       </div>
       <dl class="hero__meta">
-        <div><dt class="k">ZIPs arquivados</dt><dd class="v">{fmt(totalZips)}</dd></div>
-        <div><dt class="k">Tribunais</dt><dd class="v">{tribunalsWithData} de {tribunalsTotal}</dd></div>
+        <div><dt class="k">ZIPs DJEN preservados</dt><dd class="v">{fmt(totalZips)}</dd></div>
+        <div><dt class="k">Tribunais no arquivo</dt><dd class="v">{tribunalsWithData} de {tribunalsTotal}</dd></div>
         <div><dt class="k">Espelho público</dt><dd class="v">archive.org</dd></div>
-        <div><dt class="k">Última data coberta</dt><dd class="v">{fmtDate(djen.latest_upload_date)}</dd></div>
+        <div><dt class="k">Última data DJEN</dt><dd class="v">{fmtDate(djen.latest_upload_date)}</dd></div>
       </dl>
     </div>
   </header>
 
-  <!-- §01 KPI Stats -->
-  <section aria-labelledby="kpi-h">
+  <section aria-labelledby="sources-h" class="source-section">
     <div class="wrap wrap--wide">
       <div class="sec-head">
-        <span class="sec-num">§01 — Estado da coleta</span>
-        <h2 id="kpi-h">Quatro números, <em>um arquivo.</em></h2>
-        <p class="lede">Métricas do manifesto canônico em <code>archive.org/download/causaganha-dashboard</code>, renderizadas neste build em {generatedAtLabel}.</p>
+        <span class="sec-num">§01 — Um CNJ, evidências diferentes</span>
+        <h2 id="sources-h">Arquivo, estado e teor <em>não são a mesma coisa.</em></h2>
+        <p class="lede">
+          O CausaGanha não cola tudo numa resposta sem origem. Cada fonte prova uma coisa diferente — e pode ter cobertura diferente para o mesmo processo.
+        </p>
+      </div>
+      <div class="source-grid">
+        {sources.map((source) => (
+          <article class="card source-card">
+            <div class="source-card__head">
+              <span class="kicker">{source.sigla}</span>
+              <span class="source-card__role">{source.papel}</span>
+            </div>
+            <h3>{source.title}</h3>
+            <p>{source.body}</p>
+          </article>
+        ))}
+      </div>
+      <p class="source-note">
+        Uma fonte ausente para um CNJ não significa automaticamente que o fato não existe. O dossiê distingue fontes presentes, cobertura do dataset e avisos de indisponibilidade sempre que o contrato permite.
+      </p>
+    </div>
+  </section>
+
+  <section aria-labelledby="archive-h">
+    <div class="wrap wrap--wide">
+      <div class="sec-head">
+        <span class="sec-num">§02 — A fundação é pública</span>
+        <h2 id="archive-h">O arquivo DJEN é <em>prova e infraestrutura.</em></h2>
+        <p class="lede">
+          O CausaGanha preserva o original e publica o estado da própria coleta. Estes números vêm do manifesto canônico em archive.org, renderizado neste build em {generatedAtLabel}.
+        </p>
       </div>
       <div class="grid-4">
         <article class="card">
-          <div class="kicker">Acumulado</div>
+          <div class="kicker">Rastreado</div>
           <div class="stat__n stat__n--azul">{fmt(djen.pairs_total)}</div>
-          <div class="stat__label">Pares (tribunal × dia) no manifesto</div>
-          <div class="stat__sub">{djen.earliest_tracked_date ? `rastreados desde ${fmtDate(djen.earliest_tracked_date)}` : 'intervalo rastreado indisponível'}</div>
+          <div class="stat__label">Pares tribunal × dia no manifesto</div>
+          <div class="stat__sub">{djen.earliest_tracked_date ? `desde ${fmtDate(djen.earliest_tracked_date)}` : 'intervalo indisponível'}</div>
         </article>
         <article class="card card--azul">
-          <div class="kicker">No arquivo</div>
+          <div class="kicker">Preservado</div>
           <div class="stat__n" style="color: var(--ocre);">{fmt(totalZips)}</div>
-          <div class="stat__label">ZIPs arquivados no Internet Archive</div>
-          <div class="stat__sub" style="color: rgba(255,255,255,0.6);">{tribunalsWithData} de {tribunalsTotal} tribunais</div>
+          <div class="stat__label">ZIPs originais no Internet Archive</div>
+          <div class="stat__sub" style="color: rgba(255,255,255,0.6);">{sinceYear ? `desde ${sinceYear} · ` : ''}{tribunalsWithData} tribunais com dados</div>
         </article>
         <article class="card">
-          <div class="kicker">Lacunas</div>
+          <div class="kicker">Lacunas honestas</div>
           <div class="stat__n stat__n--ocre">{fmt(gaps)}</div>
-          <div class="stat__label">Pares sem ZIP arquivado, com caderno possível</div>
-          <div class="stat__sub">{fmt(djen.pending_real)} pendentes · {fmt(djen.errors_transient)} erros transitórios · {fmt(djen.never_checked)} nunca verificados — exclui {fmt(djen.absent_confirmed)} ausências confirmadas (dias sem publicação)</div>
+          <div class="stat__label">Pares sem ZIP, com caderno possível</div>
+          <div class="stat__sub">exclui {fmt(djen.absent_confirmed)} ausências confirmadas</div>
         </article>
         <article class="card card--sunken">
           <div class="kicker">Fonte DJEN</div>
           <div class="stat__n stat__n--accent" aria-label={`Estado da fonte DJEN: ${freshnessLabel}`}>
             <span class="stat__live-badge">{freshnessLabel}</span>
           </div>
-          <div class="stat__label">Estado da sincronização</div>
-          <div class="stat__sub">última tentativa {lastAttempt ?? 'desconhecida'} · último sucesso {lastSuccess ?? 'desconhecido'}</div>
+          <div class="stat__label">Freshness da sincronização</div>
+          <div class="stat__sub">tentativa {lastAttempt ?? 'desconhecida'} · sucesso {lastSuccess ?? 'desconhecido'}</div>
+        </article>
+      </div>
+      <div class="archive-actions">
+        <a class="btn" href={BASE + 'stats'}>Explorar cobertura →</a>
+        <a class="btn" href={BASE + 'sobre'}>Entender a metodologia →</a>
+      </div>
+    </div>
+  </section>
+
+  <section aria-labelledby="interfaces-h" class="interfaces-section">
+    <div class="wrap wrap--wide">
+      <div class="sec-head">
+        <span class="sec-num">§03 — O mesmo sistema, três interfaces</span>
+        <h2 id="interfaces-h">Navegue, reproduza ou <em>consulte por agente.</em></h2>
+      </div>
+      <div class="grid-3">
+        <article class="card interface-card">
+          <div class="kicker">01 · Site</div>
+          <h3>Consulte sem montar infraestrutura.</h3>
+          <p>Abra um dossiê por CNJ, pesquise publicações e explore cobertura diretamente no navegador.</p>
+          <a href={BASE + 'processo'}>Consultar processo →</a>
+        </article>
+        <article class="card interface-card">
+          <div class="kicker">02 · Dados</div>
+          <h3>Leve o acervo para o seu DuckDB.</h3>
+          <p>ZIPs, Parquets, manifesto e catálogo SQL ficam públicos e reproduzíveis no Internet Archive.</p>
+          <a href={BASE + 'sobre'}>Ver acesso aos dados →</a>
+        </article>
+        <article class="card interface-card">
+          <div class="kicker">03 · Agentes</div>
+          <h3>Use a mesma proveniência via MCP.</h3>
+          <p>O servidor read-only expõe status, facetas DataJud e o dossiê processual para assistentes compatíveis.</p>
+          <a href="https://github.com/franklinbaldo/causaganha#3-agentes--mcp">Ver MCP no GitHub →</a>
         </article>
       </div>
     </div>
   </section>
 
-  <!-- §02 Tribunal Calendar -->
-  <section aria-labelledby="cal-h" style="background: var(--papel-20); border-top: 1.5px solid var(--concreto-90);">
-    <div class="wrap wrap--wide">
-      <div class="sec-head">
-        <span class="sec-num">§02 — Calendário</span>
-        <h2 id="cal-h">Doze meses, <em>um tribunal.</em></h2>
-        <p class="lede">
-          Escolha um tribunal. Cada quadradinho é um dia: cobalto se o diário daquele dia
-          está no arquivo, ocre se parcial, vermelho se houve erro, vazio se ausente.
-        </p>
-        <p style="font-family: var(--font-mono); font-size: var(--t-micro); color: var(--fg-muted); margin-top: var(--s-2);">
-          <span class="badge">Demonstração</span> — dados ilustrativos. Calendário real disponível na página de cada tribunal.
-        </p>
-
-      </div>
-      <TribunalCalendar client:load />
-      <div style="margin-top: var(--s-5); padding: var(--s-3) var(--s-4); background: var(--papel-00); border: 1px solid var(--border); display: flex; gap: var(--s-5); flex-wrap: wrap; font-family: var(--font-mono); font-size: var(--t-micro); color: var(--fg-muted); align-items: center;">
-        <span><i style="display:inline-block; width:11px; height:11px; background:var(--azul); margin-right:6px; vertical-align:-1px;"></i>arquivado</span>
-        <span><i style="display:inline-block; width:11px; height:11px; background:var(--ocre); margin-right:6px; vertical-align:-1px;"></i>parcial</span>
-        <span><i style="display:inline-block; width:11px; height:11px; background:var(--papel-20); border: 1px solid var(--border); margin-right:6px; vertical-align:-1px;"></i>ausente</span>
-        <span><i style="display:inline-block; width:11px; height:11px; background:var(--vermelho); margin-right:6px; vertical-align:-1px;"></i>erro</span>
-        <span style="margin-left:auto;"><i style="display:inline-block; width:11px; height:11px; background:transparent; box-shadow: inset 0 0 0 2px var(--vermelho); margin-right:6px; vertical-align:-1px;"></i>hoje</span>
-      </div>
-    </div>
-  </section>
-
-  <!-- §03 Why -->
   <section aria-labelledby="why-h">
     <div class="wrap wrap--wide">
       <div class="sec-head">
-        <span class="sec-num">§03 — Por que arquivar</span>
-        <h2 id="why-h">Três razões para que <em>nada se perca.</em></h2>
+        <span class="sec-num">§04 — Por que isso importa</span>
+        <h2 id="why-h">Preservar não basta. É preciso <em>saber o que cada registro prova.</em></h2>
       </div>
       <div class="grid-3">
         <article class="card">
-          <div class="kicker">01 · Memória</div>
+          <div class="kicker">Memória</div>
           <h3>O efêmero tem peso jurídico.</h3>
-          <p>O DJEN publica diariamente atos com efeito de citação: prazos correm a partir dessas publicações. Quando o portal de um tribunal cai ou muda de URL, processos podem perder rastreabilidade. O Internet Archive guarda a versão imutável.</p>
+          <p>Publicações desaparecem de superfícies, URLs mudam e integrações quebram. O original preservado mantém uma referência pública durável.</p>
         </article>
         <article class="card">
-          <div class="kicker">02 · Acesso</div>
-          <h3>Pesquisa pública,<br/><em>sem cadastro.</em></h3>
-          <p>Jornalistas, pesquisadores, advogados e cidadãos podem ler, baixar e citar qualquer publicação sem login, sem CAPTCHA, sem rate-limit. Os ZIPs originais e os derivados em Parquet ficam acessíveis via DuckDB direto no navegador.</p>
+          <div class="kicker">Proveniência</div>
+          <h3>Movimento não é inteiro teor.</h3>
+          <p>DataJud pode dizer que houve uma sentença; somente a fonte textual adequada pode sustentar o que a sentença decidiu e por quê.</p>
         </article>
         <article class="card">
-          <div class="kicker">03 · Auditoria</div>
-          <h3>O estado da coleta é o produto.</h3>
-          <p>Não escondemos as lacunas. O manifesto exibe explicitamente o que falta — quais tribunais responderam <code>404</code>, quais retornaram <code>403</code> sob rate-limit, quais nunca foram tentados. Auditável por qualquer pessoa.</p>
+          <div class="kicker">Auditoria</div>
+          <h3>Lacuna também é informação.</h3>
+          <p>O sistema distingue ausência confirmada, erro transitório, fonte indisponível e dado ainda não observado em vez de esconder tudo atrás de “não encontrado”.</p>
         </article>
       </div>
       <blockquote class="pull" style="margin-top: var(--s-8);">
-        Um arquivo público não é apenas armazenamento — é uma <em>promessa</em> de
-        que o que foi dito em juízo continua dito, no mesmo lugar, com a mesma
-        forma, daqui a dez ou cinquenta anos.
+        O valor do CausaGanha não é produzir uma resposta única. É permitir que você veja <em>qual evidência sustenta cada parte dela.</em>
       </blockquote>
     </div>
   </section>
@@ -196,62 +248,100 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 <script>
   import { buildHeroSearchRedirect } from '../lib/processoCnj';
 
-  // Um CNJ colado na busca da home vai direto para o dossiê reconciliado
-  // (/processo), não para a busca DJEN-only em /publicacoes — é lá que o
-  // usuário vê as quatro fontes (DJEN, JURIS, STJ, DataJud) juntas. A decisão
-  // em si (buildHeroSearchRedirect) fica em lib/processoCnj para ser testável
-  // sem montar o formulário.
   const heroForm = document.querySelector<HTMLFormElement>('.hero__search');
   const heroInput = heroForm?.querySelector<HTMLInputElement>('input[name="texto"]');
-  heroForm?.addEventListener('submit', (e) => {
+
+  heroForm?.addEventListener('submit', (event) => {
     const raw = heroInput?.value ?? '';
     const processoHref = heroForm.dataset.processoHref ?? 'processo';
     const redirect = buildHeroSearchRedirect(raw, processoHref);
     if (!redirect) return;
-    e.preventDefault();
+    event.preventDefault();
     window.location.href = redirect;
   });
 
-  // Hero tiles — Bulcão-inspired ornament
-  function mulberry32(seed: number) {
-    return function() {
-      seed |= 0; seed = seed + 0x6D2B79F5 | 0;
-      let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
-      return ((t ^ t >>> 14) >>> 0) / 4294967296;
-    };
-  }
-  function heroTiles(rows: number = 6, cols: number = 8) {
-    const rng = mulberry32(20260526);
-    const colors = ["var(--vermelho)","var(--azul)","var(--ocre)","var(--papel-20)","var(--papel-30)","var(--concreto-90)","var(--verde)"];
-    let html = '';
-    for (let i = 0; i < rows * cols; i++) {
-      const c = colors[Math.floor(rng() * colors.length)];
-      const shape = rng();
-      if (shape < 0.5) {
-        html += `<div style="background: ${c};"></div>`;
-      } else if (shape < 0.7) {
-        const c2 = colors[Math.floor(rng() * colors.length)];
-        html += `<div style="background: linear-gradient(135deg, ${c} 49.5%, ${c2} 50%);"></div>`;
-      } else if (shape < 0.85) {
-        const c2 = colors[Math.floor(rng() * colors.length)];
-        html += `<div style="background: ${c2}; position:relative;"><svg viewBox="0 0 10 10" style="position:absolute; inset:0; width:100%; height:100%;" preserveAspectRatio="none"><path d="M0,10 A10,10 0 0 1 10,0 L10,10 Z" fill="${c}"/></svg></div>`;
-      } else {
-        const c2 = colors[Math.floor(rng() * colors.length)];
-        html += `<div style="background: ${c2}; position:relative;"><svg viewBox="0 0 10 10" style="position:absolute; inset:0; width:100%; height:100%;"><circle cx="5" cy="5" r="3.5" fill="${c}"/></svg></div>`;
-      }
-    }
-    return html;
-  }
-  const tiles = document.getElementById('hero-tiles');
-  if (tiles) tiles.innerHTML = heroTiles(6, 8);
-
-  // Search chips fill input
-  const form = document.querySelector('.hero__search') as HTMLFormElement | null;
-  const input = form?.querySelector('input') as HTMLInputElement | null;
-  document.querySelectorAll<HTMLButtonElement>('.hero__chips .search-hint').forEach(chip => {
-    chip.addEventListener('click', () => {
-      if (input) { input.value = chip.dataset.q ?? ''; input.focus(); }
+  document.querySelectorAll<HTMLButtonElement>('.search-hint').forEach((button) => {
+    button.addEventListener('click', () => {
+      if (!heroInput) return;
+      heroInput.value = button.dataset.q ?? '';
+      heroInput.focus();
     });
   });
 </script>
+
+<style>
+  .source-section,
+  .interfaces-section {
+    background: var(--papel-20);
+    border-block: 1.5px solid var(--concreto-90);
+  }
+
+  .source-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+
+  .source-card {
+    min-height: 16rem;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .source-card__head {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-2);
+    align-items: center;
+  }
+
+  .source-card__role {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    border: 1px solid var(--border);
+    padding: 0.2rem 0.45rem;
+  }
+
+  .source-card h3,
+  .interface-card h3 {
+    margin-top: auto;
+  }
+
+  .source-note {
+    margin-top: var(--s-5);
+    max-width: 72ch;
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    color: var(--fg-muted);
+  }
+
+  .archive-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+    margin-top: var(--s-5);
+  }
+
+  .interface-card a {
+    display: inline-block;
+    margin-top: auto;
+    font-family: var(--font-mono);
+    font-weight: 700;
+  }
+
+  @media (max-width: 64rem) {
+    .source-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+
+  @media (max-width: 40rem) {
+    .source-grid {
+      grid-template-columns: 1fr;
+    }
+
+    .source-card {
+      min-height: auto;
+    }
+  }
+</style>
