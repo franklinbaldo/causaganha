@@ -25,9 +25,10 @@ Exemplos:
 - comunicações DJEN arquivadas;
 - capa DataJud presente no snapshot;
 - documentos JURIS/STJ incorporados ao acervo;
-- `processo_consultar`.
+- `processo_consultar`;
+- `publicacoes_buscar`, que pesquisa diretamente os Parquets canônicos DJEN publicados no Internet Archive.
 
-Arquivo pode estar defasado em relação ao processo real. A data do dataset faz parte da evidência.
+Arquivo pode estar defasado em relação ao processo real. A data/cobertura do acervo faz parte da evidência. A API live do DJEN não é fallback silencioso de uma consulta ao arquivo.
 
 ### Estado
 
@@ -49,11 +50,27 @@ Estas devem dominar a experiência de um agente comum:
 
 - `processo_consultar(cnj)` — “o que o acervo sabe sobre este processo?”;
 - `processo_estado(cnj, tribunal?)` — “o que aconteceu mais recentemente?”;
-- `publicacoes_buscar(...)` — “quais publicações correspondem a este CNJ/OAB/parte/texto?”;
+- `publicacoes_buscar(...)` — “quais publicações arquivadas correspondem a este CNJ/OAB/parte/advogado/texto/período?”;
 - uma superfície de teor (`decisoes_buscar` ou equivalente) — “há decisão/acórdão e o que ele diz?”;
 - cobertura contextual quando uma ausência precisa ser qualificada.
 
 Os nomes e docstrings devem falar no vocabulário dessas perguntas, não no vocabulário do pipeline. A proveniência continua explícita no resultado mesmo quando o nome da tool não contém o nome da fonte.
+
+### `publicacoes_buscar`: arquivo público como fonte normal
+
+`publicacoes_buscar` não é um wrapper da API live do DJEN. Ela consulta o acervo que o CausaGanha publica no Internet Archive.
+
+A implementação pode conhecer `manifest.parquet`, itens `djen-{tribunal}-{ano}`, tabelas consolidadas, joins e DuckDB/httpfs. O agente não conhece nada disso. Ele fornece critérios de trabalho — processo, OAB, pessoa, texto, tribunal e período — e recebe publicações, provenance e cobertura.
+
+O planejamento físico deve reduzir custo sem alterar o contrato da tool:
+
+- filtrar tribunal e anos no catálogo antes de abrir Parquets de conteúdo;
+- incluir tabelas auxiliares apenas quando o critério as exige;
+- manter texto/trecho opt-in quando ele não é necessário para selecionar a publicação;
+- bindar toda entrada do usuário; nenhum SQL, URL ou nome de tabela é input MCP;
+- consultar lacunas conhecidas para que zero resultados não seja automaticamente tratado como ausência comprovada.
+
+Uma eventual consulta DJEN live deve ser outra operação semanticamente explícita. Arquivo e live não são fontes intercambiáveis.
 
 ### Operação
 
@@ -72,7 +89,7 @@ Campos semânticos preferidos, quando aplicáveis:
 - `natureza` — `arquivo`, `estado` ou `teor`;
 - `fonte_oficial` ou origem inteligível;
 - timestamp de observação/geração;
-- `limitacoes` — por que uma ausência ou defasagem muda a inferência;
+- `limitacoes`/`avisos` — por que uma ausência ou defasagem muda a inferência;
 - `next_actions` — próximas consultas semanticamente úteis;
 - URL pública quando houver uma superfície humana equivalente.
 
@@ -84,9 +101,11 @@ Detalhes de transporte como `parquet_ia`, `manifest_local`, `loaded_local` e `lo
 
 Exemplos:
 
+- publicação encontrada para um único CNJ → `processo_consultar` para contexto multi-fonte;
+- publicação encontrada, mas a pergunta pede atualidade → `processo_estado`;
 - snapshot encontrado, mas a pergunta pede atualidade → consultar estado live;
 - movimento encontrado, mas a pergunta pede fundamento → buscar teor;
-- processo não aparece no snapshot → verificar cobertura/freshness e, quando possível, consultar fonte live;
+- processo/publicação não aparece no arquivo → considerar cobertura antes de inferir ausência;
 - documentos foram truncados → buscar continuação em vez de inferir que a lista é completa.
 
 A action deve dizer **quando** é útil e apontar para uma tool existente. Não anunciar tools inexistentes como se já estivessem disponíveis.
@@ -100,7 +119,7 @@ A fachada deve preservar quatro estados diferentes:
 3. consulta válida sem registro;
 4. cobertura insuficiente para tratar a ausência como evidência forte.
 
-Erro de transporte não vira “não encontrado”. Ausência em um snapshot não vira “o processo não existe”.
+Erro de transporte não vira “não encontrado”. Ausência em um snapshot não vira “o processo não existe”. Em `publicacoes_buscar`, lacunas conhecidas do arquivo acompanham o zero de resultados em vez de serem escondidas.
 
 ## Critério de teste
 
@@ -109,6 +128,7 @@ Além de testes de schema e serviço, a superfície MCP deve ser testada como um
 Cenários mínimos:
 
 - “o que sabemos sobre este CNJ?” seleciona `processo_consultar` sem status prévio;
+- “quais publicações mencionam esta OAB/parte/texto?” seleciona `publicacoes_buscar` sem conhecimento do schema DJEN;
 - “qual o último andamento?” deve selecionar `processo_estado`, não inferir atualidade do snapshot;
 - “o que a decisão diz?” não é respondido apenas por movimento DataJud;
 - ausência em fonte incompleta produz limitação/next action;
@@ -118,4 +138,4 @@ Cenários mínimos:
 
 A migração é incremental. Campos operacionais e tools antigas não precisam ser removidos de uma vez. A prioridade é construir uma camada semântica estável por cima, marcar claramente o que é diagnóstico e só depois avaliar deprecações.
 
-Relacionado a #914, #890, #891 e #892.
+Relacionado a #914, #890, #891, #892 e #917.
