@@ -19,6 +19,10 @@
   import PublicationReader from "./PublicationReader.svelte";
   import PublicationResultItem from "./PublicationResultItem.svelte";
 
+  const BASE = import.meta.env.BASE_URL.endsWith("/")
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`;
+
   let {
     pub,
     seq,
@@ -58,6 +62,9 @@
   });
 
   const processNumber = $derived(formatProcessNumber(pub.numero_processo));
+  const processHref = $derived(
+    processNumber ? `${BASE}processo?cnj=${encodeURIComponent(processNumber)}` : null,
+  );
   const textParts = $derived(pub.textoRender?.kind === "text" ? parseText(pub.textoRender.content) : []);
   const terms = $derived<HighlightTerm[]>([
     ...buildSearchTerms(highlightTerms),
@@ -169,6 +176,7 @@
     {source}
     {usedFallback}
     {processNumber}
+    {processHref}
     {metaChips}
     {parties}
     {lawyers}
@@ -187,6 +195,7 @@
     {source}
     {usedFallback}
     {processNumber}
+    {processHref}
     {metaChips}
     {identityRows}
     {parties}
@@ -209,13 +218,18 @@
         <small><time>{dateStr}</time></small>
       </div>
       {#if processNumber}
-        <strong class="process-number process-number-lg">{processNumber}</strong>
+        {#if processHref}
+          <a class="process-number process-number-lg" href={processHref}>{processNumber}</a>
+        {:else}
+          <strong class="process-number process-number-lg">{processNumber}</strong>
+        {/if}
       {/if}
       {#if pub.nomeOrgao}
         <small class="orgao-name-block">{pub.nomeOrgao}</small>
       {/if}
       <PublicationActions
         link={pub.link}
+        {processHref}
         {activeCopied}
         shareContext="main"
         onShare={handleShare}
