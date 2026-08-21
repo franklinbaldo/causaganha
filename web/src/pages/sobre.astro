@@ -10,93 +10,347 @@ const MANIFEST_URL = 'https://archive.org/download/causaganha-dashboard/sync-man
 const DUCKDB_RECIPE = `curl -L ${CATALOG_SQL_URL} -o catalog.sql
 duckdb causaganha.duckdb < catalog.sql
 duckdb causaganha.duckdb "SELECT * FROM comunicacoes LIMIT 100;"`;
+
+const fontes = [
+  {
+    nome: 'DJEN',
+    prova: 'Publicações e comunicações judiciais preservadas.',
+    naoProva: 'Não substitui o estado processual live nem garante inteiro teor de toda decisão.',
+    papel: 'Arquivo',
+  },
+  {
+    nome: 'DataJud',
+    prova: 'Capa, classe, assunto, órgão, grau, datas e movimentos.',
+    naoProva: 'Nome do movimento não prova fundamento, ratio ou conteúdo integral do ato.',
+    papel: 'Estado',
+  },
+  {
+    nome: 'TJRO JURIS',
+    prova: 'Decisões e documentos de jurisprudência do TJRO quando presentes no corpus.',
+    naoProva: 'Não implica cobertura universal de todos os processos do tribunal.',
+    papel: 'Teor',
+  },
+  {
+    nome: 'STJ Acórdãos',
+    prova: 'Acórdãos e metadados do STJ ligados aos processos encontrados na fonte.',
+    naoProva: 'Não descreve sozinho a trajetória completa do processo fora do STJ.',
+    papel: 'Teor',
+  },
+];
 ---
 
 <Layout
-  title="Sobre o Projeto — CausaGanha"
-  description="Entenda a metodologia, as fontes de dados e a licença do projeto CausaGanha — acervo público do DJEN preservado no Internet Archive."
+  title="Como funciona — CausaGanha"
+  description="Entenda como o CausaGanha combina arquivo, estado e teor entre DJEN, DataJud, TJRO JURIS e STJ, com proveniência e dados públicos reproduzíveis."
   showNetworkBanner={false}
 >
-  <PageHeader title="Projeto" backHref={BASE} backLabel="Início" tile="sobre" />
+  <PageHeader title="Como funciona" backHref={BASE} backLabel="Início" tile="sobre" />
 
   <Breadcrumbs crumbs={[
     { label: 'Início', href: BASE },
-    { label: 'Projeto' }
+    { label: 'Como funciona' }
   ]} />
 
-  <section class="container">
-    <article>
-      <h2>O Projeto</h2>
-      <p>
-        O <strong>CausaGanha</strong> é uma iniciativa independente e de código aberto dedicada a promover a transparência no mercado jurídico brasileiro. Nosso objetivo é coletar, estruturar e arquivar publicações de tribunais de todo o país, tornando-as acessíveis gratuitamente e preservadas de forma permanente.
-      </p>
-    </article>
+  <section class="container about-intro" aria-labelledby="about-intro-h">
+    <span class="kicker">§ Produto público verificável</span>
+    <h2 id="about-intro-h">Um processo não vive em <em>uma fonte só.</em></h2>
+    <p class="about-lede">
+      O CausaGanha preserva publicações, reconcilia fontes oficiais e mantém explícito de onde veio cada fato. A ideia não é fabricar uma “verdade unificada”, mas tornar legível o rastro público do processo — inclusive quando as fontes têm épocas, coberturas e funções diferentes.
+    </p>
+  </section>
 
-    <article>
-      <h2>Metodologia</h2>
-      <p>
-        O CausaGanha combina pipelines diferentes porque cada fonte cumpre um papel distinto. O <strong>DJEN</strong> forma o arquivo principal de comunicações judiciais: robôs descobrem e baixam cadernos, enviam os ZIPs confirmados ao Internet Archive e consolidam os dados em tabelas Parquet. O estado dessa sincronização é registrado em um manifesto canônico (<code>sync-manifest.parquet</code>), compactado de um log de eventos append-only.
-      </p>
-      <p>
-        Além do arquivo DJEN, o projeto mantém pipelines próprios para <strong>jurisprudência do TJRO</strong>, <strong>acórdãos do STJ</strong> e <strong>metadados processuais do DataJud</strong>. Esses fluxos alimentam tarefas diferentes — corpus de decisões, reconciliação e consulta processual, e enriquecimento de metadados e facetas — e não devem ser lidos como se tivessem a mesma cobertura ou o mesmo grau de publicação pública.
-      </p>
-    </article>
+  <section class="container" aria-labelledby="evidence-h">
+    <div class="section-heading">
+      <span class="kicker">§01 — Modelo de evidência</span>
+      <h2 id="evidence-h">Arquivo, estado e teor <em>não são sinônimos.</em></h2>
+    </div>
+    <div class="evidence-grid">
+      <article class="evidence-card">
+        <span class="evidence-card__tag">Arquivo</span>
+        <h3>O que foi publicado e preservado?</h3>
+        <p>O DJEN forma a base de preservação: ZIP original, cobertura, manifesto e derivados públicos. Um snapshot preservado não prova que nada aconteceu depois dele.</p>
+      </article>
+      <article class="evidence-card">
+        <span class="evidence-card__tag">Estado</span>
+        <h3>Onde o processo está?</h3>
+        <p>O DataJud registra metadata e movimentação processual. Um movimento chamado “Sentença” prova o registro do ato, não o conteúdo ou o fundamento da sentença.</p>
+      </article>
+      <article class="evidence-card">
+        <span class="evidence-card__tag">Teor</span>
+        <h3>O que a decisão efetivamente diz?</h3>
+        <p>Quando presentes, documentos do TJRO JURIS e acórdãos do STJ fornecem evidência textual. Teor não é inferido a partir de metadata.</p>
+      </article>
+    </div>
+    <blockquote class="about-rule">
+      A regra central é simples: <strong>arquivo ≠ estado ≠ teor</strong>. Eles podem ser compostos, mas a proveniência precisa sobreviver à composição.
+    </blockquote>
+  </section>
 
-    <article>
-      <h2>Fontes de Dados</h2>
-      <p>
-        O projeto trabalha hoje com quatro fontes oficiais, cada uma com função própria:
-      </p>
-      <ul>
-        <li><strong>DJEN (CNJ):</strong> comunicações judiciais usadas pelo pipeline de arquivamento e consolidação.</li>
-        <li><strong>TJRO JURIS:</strong> jurisprudência do Tribunal de Justiça de Rondônia usada para decisões e documentos judiciais estruturados.</li>
-        <li><strong>STJ Acórdãos:</strong> acórdãos do Superior Tribunal de Justiça incorporados à reconciliação e às superfícies de consulta processual.</li>
-        <li><strong>DataJud (CNJ):</strong> metadados e facetas processuais usados para enriquecimento e consultas ao vivo.</li>
-      </ul>
-      <p>
-        A existência de um pipeline não implica, por si só, cobertura completa nem que todos os seus produtos estejam publicados como arquivo reutilizável. Quando há artefatos públicos disponíveis, a seção abaixo aponta para os caminhos canônicos de acesso.
-      </p>
-      <p>
-        Não armazenamos dados sigilosos ou que estejam sob segredo de justiça, limitando a coleta estritamente ao que já é de domínio público de acordo com a legislação brasileira.
-      </p>
-    </article>
+  <section class="container" aria-labelledby="sources-h">
+    <div class="section-heading">
+      <span class="kicker">§02 — Quatro fontes, quatro papéis</span>
+      <h2 id="sources-h">Cada fonte prova uma coisa — e <em>não prova outra.</em></h2>
+    </div>
+    <div class="source-table" role="list">
+      {fontes.map((fonte) => (
+        <article class="source-row" role="listitem">
+          <div class="source-row__identity">
+            <span class="source-row__role">{fonte.papel}</span>
+            <h3>{fonte.nome}</h3>
+          </div>
+          <div>
+            <span class="source-row__label">O que sustenta</span>
+            <p>{fonte.prova}</p>
+          </div>
+          <div>
+            <span class="source-row__label">Limite</span>
+            <p>{fonte.naoProva}</p>
+          </div>
+        </article>
+      ))}
+    </div>
+    <p class="about-note">
+      A existência de um pipeline não implica cobertura completa, atualização equivalente ou disponibilidade pública idêntica. O produto deve mostrar freshness e limitações por fonte, não transformar integração em promessa.
+    </p>
+  </section>
 
-    <article>
-      <h2>Acesso aos Dados</h2>
-      <p>
-        O acervo pode ser usado pelo próprio site ou levado para análise externa. Os artefatos públicos ficam preservados no Internet Archive e podem ser consultados diretamente com ferramentas como DuckDB.
-      </p>
-      <ul>
-        <li><strong>ZIPs originais:</strong> um ZIP por par (tribunal × dia), arquivado em itens anuais. Por exemplo, os arquivos do TJRO de 2025 ficam no item <a href="https://archive.org/details/djen-tjro-2025" rel="noopener" target="_blank"><code>djen-tjro-2025</code></a>.</li>
-        <li><strong>Catálogo:</strong> o item <a href={CATALOG_ITEM_URL} rel="noopener" target="_blank"><code>causaganha-catalog</code></a> reúne manifests e o contrato <a href={CATALOG_SQL_URL} rel="noopener" target="_blank"><code>catalog.sql</code></a>, que cria views DuckDB sobre os Parquets públicos. Cada consumidor materializa seu próprio banco local.</li>
-        <li><strong>Manifesto canônico:</strong> <a href={MANIFEST_URL} rel="noopener" target="_blank"><code>sync-manifest.parquet</code></a> registra o estado de sincronização por tribunal e data e é a fonte de verdade usada para derivar as superfícies de cobertura.</li>
-        <li><strong>Dashboard público:</strong> para explorar cobertura e arquivos sem escrever SQL, volte ao <a href={BASE}>painel do CausaGanha</a>.</li>
-      </ul>
+  <section class="container" aria-labelledby="flow-h">
+    <div class="section-heading">
+      <span class="kicker">§03 — Da fonte à consulta</span>
+      <h2 id="flow-h">O conteúdo continua ligado à <em>origem.</em></h2>
+    </div>
+    <ol class="flow-list">
+      <li>
+        <span class="flow-list__n">01</span>
+        <div><strong>Coletar ou consultar a fonte oficial.</strong><p>DJEN, JURIS, STJ e DataJud têm clientes e contratos próprios.</p></div>
+      </li>
+      <li>
+        <span class="flow-list__n">02</span>
+        <div><strong>Preservar e estruturar sem apagar a proveniência.</strong><p>ZIPs e Parquets permanecem identificáveis por fonte e artefato.</p></div>
+      </li>
+      <li>
+        <span class="flow-list__n">03</span>
+        <div><strong>Indexar o processo sem copiar tudo para uma tabela monolítica.</strong><p><code>indice_processual.parquet</code> aponta para os arquivos de origem que possuem aquele CNJ.</p></div>
+      </li>
+      <li>
+        <span class="flow-list__n">04</span>
+        <div><strong>Montar a superfície adequada ao job.</strong><p>Site, DuckDB ou MCP consultam o mesmo conjunto de evidências com contratos diferentes.</p></div>
+      </li>
+    </ol>
+  </section>
 
-      <details>
-        <summary>Reconstruir o catálogo com DuckDB</summary>
-        <p>
-          O catálogo canônico é texto SQL auditável. Baixe o contrato, aplique-o a um DuckDB seu e consulte as views que apontam para os Parquets preservados no Internet Archive.
-        </p>
-        <pre><code>{DUCKDB_RECIPE}</code></pre>
-        <p>
-          Contrato canônico: <a href={CATALOG_SQL_URL} rel="noopener" target="_blank"><code>{CATALOG_SQL_URL}</code></a>.
-        </p>
-      </details>
-    </article>
+  <section class="container" id="acesso-aos-dados" aria-labelledby="data-h">
+    <div class="section-heading">
+      <span class="kicker">§04 — Dados abertos</span>
+      <h2 id="data-h">Você não precisa confiar no dashboard. <em>Reproduza.</em></h2>
+    </div>
+    <p>
+      A fundação pública do CausaGanha fica no Internet Archive. O catálogo é distribuído como SQL auditável; cada consumidor pode materializar seu próprio DuckDB e consultar diretamente os Parquets publicados.
+    </p>
+    <div class="data-grid">
+      <article>
+        <h3>1. Abra o original</h3>
+        <p>ZIPs DJEN ficam em itens anuais, como <a href="https://archive.org/details/djen-tjro-2025" rel="noopener" target="_blank"><code>djen-tjro-2025</code></a>.</p>
+      </article>
+      <article>
+        <h3>2. Inspecione a cobertura</h3>
+        <p>O <a href={MANIFEST_URL} rel="noopener" target="_blank"><code>sync-manifest.parquet</code></a> registra o estado da sincronização por tribunal e data.</p>
+      </article>
+      <article>
+        <h3>3. Recrie o catálogo</h3>
+        <p>O item <a href={CATALOG_ITEM_URL} rel="noopener" target="_blank"><code>causaganha-catalog</code></a> publica o contrato <a href={CATALOG_SQL_URL} rel="noopener" target="_blank"><code>catalog.sql</code></a>.</p>
+      </article>
+    </div>
+    <details open>
+      <summary>Consulta mínima com DuckDB</summary>
+      <pre><code>{DUCKDB_RECIPE}</code></pre>
+    </details>
+  </section>
 
-    <article>
-      <h2>Licença</h2>
-      <p>
-        O código-fonte do pipeline, do painel de controle e das ferramentas de extração é 100% aberto sob a <strong>Licença MIT</strong>. Os textos dos atos oficiais não são protegidos por direito autoral (Lei 9.610/98, art. 8º, IV); os direitos que eventualmente pertençam ao próprio projeto sobre os datasets derivados e metadados são disponibilizados sob <a href="https://creativecommons.org/publicdomain/zero/1.0/" rel="noopener" target="_blank">CC0 1.0</a>. Encorajamos pesquisadores, jornalistas e legaltechs a utilizar este acervo de forma livre e responsável.
-      </p>
-    </article>
+  <section class="container" aria-labelledby="interfaces-h">
+    <div class="section-heading">
+      <span class="kicker">§05 — Além do navegador</span>
+      <h2 id="interfaces-h">O mesmo sistema também fala <em>com agentes.</em></h2>
+    </div>
+    <div class="interface-grid">
+      <article>
+        <h3>Site</h3>
+        <p>Consulta por CNJ, pesquisa de publicações e exploração de cobertura sem precisar montar infraestrutura.</p>
+        <a href={BASE + 'processo'}>Consultar processo →</a>
+      </article>
+      <article>
+        <h3>Dados</h3>
+        <p>Catálogo, Parquets e manifestos para quem precisa reproduzir ou analisar o acervo diretamente.</p>
+        <a href="#acesso-aos-dados">Usar os dados →</a>
+      </article>
+      <article>
+        <h3>MCP read-only</h3>
+        <p>Status de pipelines, facetas DataJud e dossiê processual podem ser consultados por assistentes compatíveis sem expor operações de ingestão ou upload.</p>
+        <a href="https://github.com/franklinbaldo/causaganha#3-agentes--mcp" rel="noopener" target="_blank">Ver a interface MCP →</a>
+      </article>
+    </div>
+  </section>
 
-    <article>
-      <h2>Governança de Dados</h2>
-      <p>
-        A regra do CausaGanha é a <strong>preservação integral das publicações oficiais</strong>. O acervo registra fielmente o que o Poder Judiciário publicou em cada data — inclusive quando a fonte depois altera ou suprime a publicação, pois preservar esse registro histórico é justamente a função do arquivo. Conteúdo não é removido por decurso do tempo ou por ser desfavorável a alguém; correção ou remoção ocorrem apenas em duas hipóteses objetivas — erro de processamento do próprio projeto ou determinação de autoridade competente — conforme a <a href="https://github.com/franklinbaldo/causaganha/blob/main/docs/GOVERNANCE.md" rel="noopener" target="_blank">política pública de governança de dados</a>. Os indicadores analíticos do projeto — classificação de resultados e estatísticas de atuação por advogado — são estimativas automatizadas derivadas exclusivamente desse registro público, com metodologia aberta: um indicador desfavorável não gera direito à remoção, mas erro de classificação ou de atribuição demonstrado contra o registro é erro do projeto e será corrigido. Erros de qualidade de dados podem ser reportados nas <a href="https://github.com/franklinbaldo/causaganha/issues" rel="noopener" target="_blank">issues do repositório</a>; solicitações envolvendo conteúdo sensível têm canal privado indicado na política.
-      </p>
-    </article>
+  <section class="container" aria-labelledby="limits-h">
+    <div class="section-heading">
+      <span class="kicker">§06 — Limites e governança</span>
+      <h2 id="limits-h">Transparência inclui dizer <em>o que não sabemos.</em></h2>
+    </div>
+    <div class="limits-grid">
+      <article>
+        <h3>Cobertura</h3>
+        <p>Fonte não carregada, fonte indisponível e ausência de registro para um CNJ são estados diferentes. O CausaGanha não deve colapsá-los em “não existe”.</p>
+      </article>
+      <article>
+        <h3>Conteúdo público</h3>
+        <p>A coleta se limita a materiais oficialmente públicos. O projeto não trata conteúdo sob segredo de justiça como parte do acervo público.</p>
+      </article>
+      <article>
+        <h3>Lab experimental</h3>
+        <p>Classificação, embeddings, segmentação e modelos são inferências derivadas. Elas não recebem automaticamente o mesmo status epistêmico de um registro oficial.</p>
+      </article>
+    </div>
+    <p>
+      A regra de preservação, correção e restrição está documentada em <a href="https://github.com/franklinbaldo/causaganha/blob/main/docs/GOVERNANCE.md" rel="noopener" target="_blank">GOVERNANCE.md</a>. O código é MIT; direitos do projeto sobre datasets derivados e metadados são disponibilizados sob CC0 1.0, respeitados os regimes jurídicos aplicáveis aos materiais de origem.
+    </p>
   </section>
 </Layout>
+
+<style>
+  .about-intro {
+    padding-top: var(--s-8);
+  }
+
+  .about-lede {
+    max-width: 72ch;
+    font-size: clamp(1.15rem, 2vw, 1.55rem);
+    line-height: 1.55;
+  }
+
+  .section-heading {
+    margin-bottom: var(--s-5);
+  }
+
+  .section-heading h2 {
+    max-width: 24ch;
+  }
+
+  .evidence-grid,
+  .interface-grid,
+  .limits-grid,
+  .data-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-3);
+  }
+
+  .evidence-card,
+  .interface-grid article,
+  .limits-grid article,
+  .data-grid article {
+    border: 1px solid var(--border);
+    padding: var(--s-4);
+    background: var(--papel-20);
+  }
+
+  .evidence-card__tag,
+  .source-row__role,
+  .source-row__label {
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  .evidence-card__tag,
+  .source-row__role {
+    display: inline-block;
+    padding: 0.2rem 0.45rem;
+    border: 1px solid var(--border);
+  }
+
+  .about-rule {
+    margin-top: var(--s-5);
+    padding: var(--s-4);
+    border-left: 4px solid var(--verde);
+    background: var(--papel-20);
+  }
+
+  .source-table {
+    border-top: 1px solid var(--border);
+  }
+
+  .source-row {
+    display: grid;
+    grid-template-columns: minmax(9rem, 0.8fr) 1.4fr 1.4fr;
+    gap: var(--s-4);
+    padding: var(--s-4) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .source-row h3 {
+    margin: 0.55rem 0 0;
+  }
+
+  .source-row p {
+    margin-bottom: 0;
+  }
+
+  .source-row__label {
+    color: var(--fg-muted);
+  }
+
+  .about-note {
+    max-width: 76ch;
+    margin-top: var(--s-4);
+    font-family: var(--font-mono);
+    font-size: var(--t-small);
+    color: var(--fg-muted);
+  }
+
+  .flow-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-top: 1px solid var(--border);
+  }
+
+  .flow-list li {
+    display: grid;
+    grid-template-columns: 4rem 1fr;
+    gap: var(--s-3);
+    padding: var(--s-4) 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .flow-list__n {
+    font-family: var(--font-mono);
+    color: var(--verde);
+    font-weight: 800;
+  }
+
+  .flow-list p {
+    margin: 0.25rem 0 0;
+    color: var(--fg-muted);
+  }
+
+  .interface-grid a,
+  .data-grid a {
+    font-family: var(--font-mono);
+    font-weight: 700;
+  }
+
+  @media (max-width: 52rem) {
+    .evidence-grid,
+    .interface-grid,
+    .limits-grid,
+    .data-grid,
+    .source-row {
+      grid-template-columns: 1fr;
+    }
+
+    .source-row {
+      gap: var(--s-2);
+    }
+  }
+</style>
