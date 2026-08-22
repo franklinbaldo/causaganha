@@ -98,6 +98,7 @@ async def test_processo_estado_returns_summary_first_and_filters_noise(mcp) -> N
 
     assert result.encontrado is True
     assert result.natureza == "estado"
+    assert result.fonte_oficial == "DataJud/CNJ"
     assert result.tribunal == "tjro"
     assert result.total_movimentos == 3
     assert len(result.graus) == 2
