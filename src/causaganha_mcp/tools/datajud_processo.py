@@ -284,19 +284,15 @@ def _tool_error(exc: Exception) -> ToolError:
         )
     if isinstance(exc, DataJudRateLimitError):
         return ToolError(
-            (
-                "O DataJud limitou a consulta além do orçamento interativo de retry. "
-                "Tente novamente mais tarde."
-            )
+            "O DataJud limitou a consulta além do orçamento interativo de retry. "
+            "Tente novamente mais tarde."
         )
     if isinstance(exc, DataJudProtocolError):
         return ToolError(f"O DataJud retornou uma resposta não interpretável: {exc}")
     if isinstance(exc, httpx.TimeoutException | httpx.TransportError):
         return ToolError(
-            (
-                "Erro de rede ao consultar o processo no DataJud. Tente novamente; "
-                "se persistir, a API oficial pode estar indisponível."
-            )
+            "Erro de rede ao consultar o processo no DataJud. Tente novamente; "
+            "se persistir, a API oficial pode estar indisponível."
         )
     if isinstance(exc, httpx.HTTPStatusError):
         return ToolError(f"O DataJud retornou HTTP {exc.response.status_code} para esta consulta.")
