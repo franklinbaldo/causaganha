@@ -7,7 +7,7 @@ from pathlib import Path
 import duckdb
 import pytest
 
-from causaganha.publicacoes.models import CriteriosInvalidosError
+from causaganha.publicacoes.models import CriteriosInvalidosError, PublicacoesQuery
 from causaganha.publicacoes.service import buscar_publicacoes
 
 
@@ -26,7 +26,12 @@ def _write_parquet(path: Path, columns: str, rows: list[tuple]) -> None:
         con.close()
 
 
-def _fixture_archive(tmp_path: Path, *, include_texts: bool = True) -> tuple[str, str]:
+def _fixture_archive(
+    tmp_path: Path,
+    *,
+    include_texts: bool = True,
+    include_other_tribunal_poison: bool = False,
+) -> tuple[str, str]:
     item = "djen-tjro-2026"
     comunicacoes = tmp_path / "comunicacoes.parquet"
     textos = tmp_path / "textos.parquet"
@@ -127,7 +132,6 @@ def _fixture_archive(tmp_path: Path, *, include_texts: bool = True) -> tuple[str
     if include_texts:
         table_paths["textos"] = textos
 
-    manifest = tmp_path / "manifest.parquet"
     manifest_rows = [
         (
             None,
@@ -141,6 +145,21 @@ def _fixture_archive(tmp_path: Path, *, include_texts: bool = True) -> tuple[str
         )
         for table, path in table_paths.items()
     ]
+    if include_other_tribunal_poison:
+        manifest_rows.append(
+            (
+                None,
+                "TJAC",
+                "parquet",
+                "comunicacoes",
+                "comunicacoes.parquet",
+                "djen-tjac-2026",
+                str(tmp_path / "arquivo-que-nao-existe.parquet"),
+                "2026-08-21T12:00:00+00:00",
+            )
+        )
+
+    manifest = tmp_path / "manifest.parquet"
     _write_parquet(
         manifest,
         """
@@ -159,15 +178,18 @@ def _fixture_archive(tmp_path: Path, *, include_texts: bool = True) -> tuple[str
     return str(manifest), str(backfill)
 
 
+def _search(
+    query: PublicacoesQuery,
+    manifest: str,
+    backfill: str,
+):
+    return buscar_publicacoes(query, manifest_url=manifest, backfill_url=backfill)
+
+
 def test_busca_por_cnj_usa_arquivo_e_qualifica_cobertura(tmp_path: Path) -> None:
     manifest, backfill = _fixture_archive(tmp_path)
 
-    result = buscar_publicacoes(
-        processo=CNJ,
-        tribunal="tjro",
-        manifest_url=manifest,
-        backfill_url=backfill,
-    )
+    result = _search(PublicacoesQuery(processo=CNJ, tribunal="tjro"), manifest, backfill)
 
     assert result.total_encontrado == 1
     assert result.resultados[0].id == "c1"
@@ -181,12 +203,10 @@ def test_busca_por_cnj_usa_arquivo_e_qualifica_cobertura(tmp_path: Path) -> None
 def test_busca_por_oab_faz_join_interno_sem_expor_schema(tmp_path: Path) -> None:
     manifest, backfill = _fixture_archive(tmp_path)
 
-    result = buscar_publicacoes(
-        oab="1234",
-        uf_oab="ro",
-        tribunal="TJRO",
-        manifest_url=manifest,
-        backfill_url=backfill,
+    result = _search(
+        PublicacoesQuery(oab="1234", uf_oab="ro", tribunal="TJRO"),
+        manifest,
+        backfill,
     )
 
     assert result.total_encontrado == 1
@@ -198,11 +218,10 @@ def test_busca_por_oab_faz_join_interno_sem_expor_schema(tmp_path: Path) -> None
 def test_busca_por_texto_retorna_trecho_economico(tmp_path: Path) -> None:
     manifest, backfill = _fixture_archive(tmp_path)
 
-    result = buscar_publicacoes(
-        texto="servidor público",
-        tribunal="TJRO",
-        manifest_url=manifest,
-        backfill_url=backfill,
+    result = _search(
+        PublicacoesQuery(texto="servidor público", tribunal="TJRO"),
+        manifest,
+        backfill,
     )
 
     assert result.total_encontrado == 1
@@ -214,12 +233,7 @@ def test_busca_por_texto_retorna_trecho_economico(tmp_path: Path) -> None:
 def test_tabela_necessaria_ausente_vira_cobertura_insuficiente(tmp_path: Path) -> None:
     manifest, backfill = _fixture_archive(tmp_path, include_texts=False)
 
-    result = buscar_publicacoes(
-        texto="servidor",
-        tribunal="TJRO",
-        manifest_url=manifest,
-        backfill_url=backfill,
-    )
+    result = _search(PublicacoesQuery(texto="servidor", tribunal="TJRO"), manifest, backfill)
 
     assert result.total_encontrado == 0
     assert result.cobertura.status == "insuficiente"
@@ -229,11 +243,10 @@ def test_tabela_necessaria_ausente_vira_cobertura_insuficiente(tmp_path: Path) -
 def test_zero_com_gap_nao_parece_prova_de_ausencia(tmp_path: Path) -> None:
     manifest, backfill = _fixture_archive(tmp_path)
 
-    result = buscar_publicacoes(
-        advogado="Pessoa inexistente",
-        tribunal="TJRO",
-        manifest_url=manifest,
-        backfill_url=backfill,
+    result = _search(
+        PublicacoesQuery(advogado="Pessoa inexistente", tribunal="TJRO"),
+        manifest,
+        backfill,
     )
 
     assert result.total_encontrado == 0
@@ -241,6 +254,15 @@ def test_zero_com_gap_nao_parece_prova_de_ausencia(tmp_path: Path) -> None:
     assert result.cobertura.lacunas_conhecidas == 1
 
 
+def test_tribunal_poda_parquet_de_outro_tribunal_antes_da_consulta(tmp_path: Path) -> None:
+    manifest, backfill = _fixture_archive(tmp_path, include_other_tribunal_poison=True)
+
+    result = _search(PublicacoesQuery(processo=CNJ, tribunal="TJRO"), manifest, backfill)
+
+    assert result.total_encontrado == 1
+    assert result.cobertura.itens_consultados == 1
+
+
 def test_rejeita_consulta_sem_criterio() -> None:
     with pytest.raises(CriteriosInvalidosError, match="ao menos um critério"):
-        buscar_publicacoes()
+        buscar_publicacoes(PublicacoesQuery())
