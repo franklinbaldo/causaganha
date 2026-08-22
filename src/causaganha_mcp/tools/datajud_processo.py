@@ -58,7 +58,9 @@ class DatajudMovimentoResult(BaseModel):
     nome: str | None = None
     data_hora: str | None = Field(
         default=None,
-        description="Timestamp returned by DataJud. Ordering uses this raw value before presentation.",
+        description=(
+            "Timestamp returned by DataJud. Ordering uses this raw value before presentation."
+        ),
     )
     grau: str = ""
     orgao_julgador: str | None = None
@@ -95,7 +97,9 @@ class DatajudProcessoResult(BaseModel):
     tribunal: str
     natureza: Literal["estado"] = Field(
         default="estado",
-        description="This tool reports current process-state metadata/movements, not archived content.",
+        description=(
+            "This tool reports current process-state metadata/movements, not archived content."
+        ),
     )
     resumo: str
     graus: list[DatajudGrauResult] = Field(default_factory=list)
@@ -174,11 +178,17 @@ def _to_result(
             consultado_em=consulted_at,
             limitacoes=[
                 "Não encontrado neste índice não significa que o processo não existe.",
-                "Confirme se o tribunal consultado corresponde ao processo antes de tratar a ausência como evidência.",
+                (
+                    "Confirme se o tribunal consultado corresponde ao processo antes de "
+                    "tratar a ausência como evidência."
+                ),
             ],
             next_actions=[
                 ProximaAcaoResult(
-                    quando="Se você precisa saber se o CausaGanha já preservou publicações ou decisões deste CNJ.",
+                    quando=(
+                        "Se você precisa saber se o CausaGanha já preservou publicações "
+                        "ou decisões deste CNJ."
+                    ),
                     acao="Consultar o snapshot arquivado multi-fonte.",
                     tool="processo_consultar",
                     argumentos={"cnj": formatted},
@@ -209,7 +219,10 @@ def _to_result(
 
     next_actions = [
         ProximaAcaoResult(
-            quando="Se a pergunta exige publicações preservadas, decisão, ementa ou outro teor documental.",
+            quando=(
+                "Se a pergunta exige publicações preservadas, decisão, ementa "
+                "ou outro teor documental."
+            ),
             acao="Abrir o dossiê arquivado multi-fonte do mesmo CNJ.",
             tool="processo_consultar",
             argumentos={"cnj": formatted},
@@ -218,7 +231,10 @@ def _to_result(
     if not incluir_movimentos and movimentos_all:
         next_actions.append(
             ProximaAcaoResult(
-                quando="Se você precisa inspecionar também movimentos de rotina que foram omitidos do resumo.",
+                quando=(
+                    "Se você precisa inspecionar também movimentos de rotina que foram "
+                    "omitidos do resumo."
+                ),
                 acao="Repetir a consulta incluindo a linha completa de movimentos.",
                 tool="processo_estado",
                 argumentos={
@@ -247,8 +263,14 @@ def _to_result(
         movimentos_truncados=incluir_movimentos and len(movimentos_all) > limite_movimentos,
         consultado_em=consulted_at,
         limitacoes=[
-            "DataJud informa metadados e movimentos; um movimento de sentença/decisão não contém, por si só, a fundamentação ou o teor do ato.",
-            "A consulta é ao índice oficial do tribunal indicado e reflete o que o DataJud retornou no instante consultado.",
+            (
+                "DataJud informa metadados e movimentos; um movimento de sentença/decisão "
+                "não contém, por si só, a fundamentação ou o teor do ato."
+            ),
+            (
+                "A consulta é ao índice oficial do tribunal indicado e reflete o que o "
+                "DataJud retornou no instante consultado."
+            ),
         ],
         next_actions=next_actions,
     )
@@ -262,13 +284,19 @@ def _tool_error(exc: Exception) -> ToolError:
         )
     if isinstance(exc, DataJudRateLimitError):
         return ToolError(
-            "O DataJud limitou a consulta além do orçamento interativo de retry. Tente novamente mais tarde."
+            (
+                "O DataJud limitou a consulta além do orçamento interativo de retry. "
+                "Tente novamente mais tarde."
+            )
         )
     if isinstance(exc, DataJudProtocolError):
         return ToolError(f"O DataJud retornou uma resposta não interpretável: {exc}")
     if isinstance(exc, httpx.TimeoutException | httpx.TransportError):
         return ToolError(
-            "Erro de rede ao consultar o processo no DataJud. Tente novamente; se persistir, a API oficial pode estar indisponível."
+            (
+                "Erro de rede ao consultar o processo no DataJud. Tente novamente; "
+                "se persistir, a API oficial pode estar indisponível."
+            )
         )
     if isinstance(exc, httpx.HTTPStatusError):
         return ToolError(f"O DataJud retornou HTTP {exc.response.status_code} para esta consulta.")
@@ -294,6 +322,7 @@ def register(mcp: FastMCP) -> None:
     async def processo_estado(
         cnj: str,
         tribunal: str = DEFAULT_TRIBUNAL,
+        *,
         incluir_movimentos: bool = False,
         limite_marcos: Annotated[
             int, Field(ge=1, le=100, description="Máximo de marcos não-ruído a retornar.")
@@ -318,9 +347,8 @@ def register(mcp: FastMCP) -> None:
         """
         normalized = normalizar_cnj(cnj)
         if not normalized:
-            raise ToolError(
-                "CNJ inválido: informe os 20 dígitos do número do processo, com ou sem máscara."
-            )
+            msg = "CNJ inválido: informe os 20 dígitos do número do processo, com ou sem máscara."
+            raise ToolError(msg)
 
         try:
             capas = await process_service.consultar_processo(
