@@ -1,0 +1,39 @@
+name: Temporary format MCP 917
+
+on:
+  push:
+    branches:
+      - mcp/917-publicacoes-archive
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+        with:
+          ref: mcp/917-publicacoes-archive
+      - uses: ./.github/actions/setup
+      - name: Apply repository formatter
+        run: |
+          uv run ruff format \
+            src/causaganha/publicacoes/service.py \
+            src/causaganha_mcp/tools/datajud_processo.py \
+            tests/causaganha_mcp/test_publicacoes_buscar.py \
+            tests/publicacoes/test_publicacoes_service.py
+      - name: Commit exact formatter output
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git config user.name 'github-actions[bot]'
+            git config user.email 'github-actions[bot]@users.noreply.github.com'
+            git add \
+              src/causaganha/publicacoes/service.py \
+              src/causaganha_mcp/tools/datajud_processo.py \
+              tests/causaganha_mcp/test_publicacoes_buscar.py \
+              tests/publicacoes/test_publicacoes_service.py
+            git commit -m 'style: apply Ruff 0.15.22 formatting'
+            git push origin HEAD:mcp/917-publicacoes-archive
+          fi
