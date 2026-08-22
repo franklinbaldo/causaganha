@@ -13,6 +13,7 @@ from causaganha.publicacoes.models import (
     CatalogoIndisponivelError,
     CriteriosInvalidosError,
     PublicacoesBusca,
+    PublicacoesQuery,
 )
 
 
@@ -102,7 +103,10 @@ def _next_actions(result: PublicacoesBusca) -> list[ProximaAcaoResult]:
             argumentos={"cnj": cnj},
         ),
         ProximaAcaoResult(
-            quando="Se a pergunta é sobre o andamento processual atual, não apenas publicações arquivadas.",
+            quando=(
+                "Se a pergunta é sobre o andamento processual atual, não apenas "
+                "publicações arquivadas."
+            ),
             acao="Consultar o estado processual live.",
             tool="processo_estado",
             argumentos={"cnj": cnj},
@@ -208,30 +212,31 @@ def register(mcp: FastMCP) -> None:
         """Busca publicações preservadas por processo, OAB, pessoa, texto, tribunal ou período.
 
         Use esta tool para responder **o que o arquivo público do CausaGanha preservou** do DJEN.
-        Ela consulta diretamente os Parquets canônicos publicados no Internet Archive; o agente não
-        precisa conhecer catálogo, tabelas, joins, DuckDB ou nomes de arquivos. A API live do DJEN
-        não é consultada e nunca funciona como fallback silencioso.
+        Ela consulta diretamente os Parquets canônicos publicados no Internet Archive; o agente
+        não precisa conhecer catálogo, tabelas, joins, DuckDB ou nomes de arquivos. A API live do
+        DJEN não é consultada e nunca funciona como fallback silencioso.
 
         Para contexto multi-fonte de um CNJ use `processo_consultar`. Para andamento atual use
-        `processo_estado`. Zero resultados só é forte quando a própria resposta qualifica a cobertura.
-        `incluir_trecho=True` custa mais porque consulta também o Parquet de textos; deixe False quando
-        metadados e identidade da publicação forem suficientes.
+        `processo_estado`. Zero resultados só é forte quando a própria resposta qualifica a
+        cobertura. `incluir_trecho=True` custa mais porque consulta também o Parquet de textos;
+        deixe False quando metadados e identidade da publicação forem suficientes.
         """
+        query = PublicacoesQuery(
+            processo=processo,
+            oab=oab,
+            uf_oab=uf_oab,
+            parte=parte,
+            advogado=advogado,
+            texto=texto,
+            tribunal=tribunal,
+            data_inicio=data_inicio,
+            data_fim=data_fim,
+            incluir_trecho=incluir_trecho,
+            limite=limite,
+            pagina=pagina,
+        )
         try:
-            result = service.buscar_publicacoes(
-                processo=processo,
-                oab=oab,
-                uf_oab=uf_oab,
-                parte=parte,
-                advogado=advogado,
-                texto=texto,
-                tribunal=tribunal,
-                data_inicio=data_inicio,
-                data_fim=data_fim,
-                incluir_trecho=incluir_trecho,
-                limite=limite,
-                pagina=pagina,
-            )
+            result = service.buscar_publicacoes(query)
         except (
             CriteriosInvalidosError,
             CatalogoIndisponivelError,
