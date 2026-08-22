@@ -270,12 +270,8 @@ def _build_relations(
             ]
         )
     if query.parte:
-        ctes.append(
-            f"destinatarios AS (SELECT * FROM {_read_parquet_sql(urls['destinatarios'])})"
-        )
-        joins.append(
-            "JOIN destinatarios d ON d.comunicacao_id = c.id AND d.tribunal = c.tribunal"
-        )
+        ctes.append(f"destinatarios AS (SELECT * FROM {_read_parquet_sql(urls['destinatarios'])})")
+        joins.append("JOIN destinatarios d ON d.comunicacao_id = c.id AND d.tribunal = c.tribunal")
 
     use_texts = bool(query.texto or (query.incluir_trecho and urls.get("textos")))
     if use_texts:
@@ -290,14 +286,10 @@ def _build_filters(
     where: list[str] = []
     params: list[Any] = []
     if query.processo:
-        where.append(
-            "regexp_replace(CAST(c.numero_processo AS VARCHAR), '[^0-9]', '', 'g') = ?"
-        )
+        where.append("regexp_replace(CAST(c.numero_processo AS VARCHAR), '[^0-9]', '', 'g') = ?")
         params.append(query.processo)
     if query.oab:
-        where.append(
-            "regexp_replace(upper(COALESCE(a.numero_oab, '')), '[^A-Z0-9]', '', 'g') = ?"
-        )
+        where.append("regexp_replace(upper(COALESCE(a.numero_oab, '')), '[^A-Z0-9]', '', 'g') = ?")
         params.append(query.oab)
     if query.uf_oab:
         where.append("upper(COALESCE(a.uf_oab, '')) = ?")
@@ -355,7 +347,7 @@ def _query_parts(
                 {trecho_expr} AS trecho,
                 c.p_item_ia
             FROM comunicacoes c
-            {' '.join(joins)}
+            {" ".join(joins)}
             WHERE {where_sql}
         )
         SELECT *, COUNT(*) OVER()::BIGINT AS total_encontrado

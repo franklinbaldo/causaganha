@@ -205,6 +205,7 @@ def register(mcp: FastMCP) -> None:
         tribunal: str | None = None,
         data_inicio: str | None = None,
         data_fim: str | None = None,
+        *,
         incluir_trecho: bool = False,
         limite: Annotated[int, Field(ge=1, le=50)] = 10,
         pagina: Annotated[int, Field(ge=1, le=1000)] = 1,

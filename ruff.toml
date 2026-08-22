@@ -129,6 +129,10 @@ ignore = [
 # user input; the CNJ itself is always a bind parameter.
 "src/causaganha/processos/service.py" = ["S608"]
 
+# S608: SQL structure contains only manifest-selected archive URLs and static
+# table fragments; every user-supplied search value remains a bind parameter.
+"src/causaganha/publicacoes/service.py" = ["S608"]
+
 # ── causaganha_mcp tools ─────────────────────────────────────────────────────
 # FBT001/FBT002: incluir_documentos is a genuine on/off MCP tool parameter —
 # same idiom already accepted for CLI boolean flags (datajud/__main__.py
