@@ -63,7 +63,9 @@ def _result() -> PublicacoesBusca:
     )
 
 
-async def test_publicacoes_buscar_maps_archive_provenance_and_next_actions(mcp, monkeypatch) -> None:
+async def test_publicacoes_buscar_maps_archive_provenance_and_next_actions(
+    mcp, monkeypatch
+) -> None:
     monkeypatch.setattr(tool_module.service, "buscar_publicacoes", lambda **kwargs: _result())
 
     fn = await _fn(mcp)

@@ -240,9 +240,7 @@ def _query_parts(
     if missing:
         return "", [], sorted(set(missing))
 
-    ctes = [
-        f"comunicacoes AS (SELECT * FROM {_read_parquet_sql(urls['comunicacoes'])})"
-    ]
+    ctes = [f"comunicacoes AS (SELECT * FROM {_read_parquet_sql(urls['comunicacoes'])})"]
     joins: list[str] = []
     where: list[str] = []
     params: list[Any] = []
@@ -261,12 +259,8 @@ def _query_parts(
             ]
         )
     if needs_partes:
-        ctes.append(
-            f"destinatarios AS (SELECT * FROM {_read_parquet_sql(urls['destinatarios'])})"
-        )
-        joins.append(
-            "JOIN destinatarios d ON d.comunicacao_id = c.id AND d.tribunal = c.tribunal"
-        )
+        ctes.append(f"destinatarios AS (SELECT * FROM {_read_parquet_sql(urls['destinatarios'])})")
+        joins.append("JOIN destinatarios d ON d.comunicacao_id = c.id AND d.tribunal = c.tribunal")
 
     use_texts = needs_textos or (incluir_trecho and bool(urls.get("textos")))
     if use_texts:
@@ -274,14 +268,10 @@ def _query_parts(
         joins.append("LEFT JOIN textos t ON t.id = c.texto_id")
 
     if criteria["processo"]:
-        where.append(
-            "regexp_replace(CAST(c.numero_processo AS VARCHAR), '[^0-9]', '', 'g') = ?"
-        )
+        where.append("regexp_replace(CAST(c.numero_processo AS VARCHAR), '[^0-9]', '', 'g') = ?")
         params.append(criteria["processo"])
     if criteria["oab"]:
-        where.append(
-            "regexp_replace(upper(COALESCE(a.numero_oab, '')), '[^A-Z0-9]', '', 'g') = ?"
-        )
+        where.append("regexp_replace(upper(COALESCE(a.numero_oab, '')), '[^A-Z0-9]', '', 'g') = ?")
         params.append(criteria["oab"])
     if criteria["uf_oab"]:
         where.append("upper(COALESCE(a.uf_oab, '')) = ?")
@@ -328,7 +318,7 @@ def _query_parts(
                 {trecho_expr} AS trecho,
                 c.p_item_ia
             FROM comunicacoes c
-            {' '.join(joins)}
+            {" ".join(joins)}
             WHERE {where_sql}
         )
         SELECT *, COUNT(*) OVER()::BIGINT AS total_encontrado
@@ -424,7 +414,9 @@ def _to_publicacao(row: tuple[Any, ...]) -> PublicacaoArquivo:
     mascara = formatar_cnj(cnj) if cnj else (str(numero_mascara) if numero_mascara else None)
     return PublicacaoArquivo(
         id=str(id_),
-        data=data_value.isoformat() if hasattr(data_value, "isoformat") else str(data_value or "") or None,
+        data=data_value.isoformat()
+        if hasattr(data_value, "isoformat")
+        else str(data_value or "") or None,
         tribunal=str(tribunal) if tribunal else None,
         tipo=str(tipo) if tipo else None,
         orgao=str(orgao) if orgao else None,
