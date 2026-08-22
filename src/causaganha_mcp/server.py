@@ -15,6 +15,7 @@ from causaganha_mcp.tools import (
     datajud_processo,
     djen_backup,
     processo,
+    publicacoes,
     status,
     stj_acordaos,
     tjro_juris,
@@ -29,6 +30,9 @@ def build_server() -> FastMCP:
             "CausaGanha é uma infraestrutura cívica de dados judiciais públicos. "
             "Use as tools de produto para responder perguntas do usuário sem exigir "
             "conhecimento dos schemas, arquivos, pipelines ou mecanismos de armazenamento. "
+            "Use `publicacoes_buscar` quando a pergunta for localizar publicações preservadas "
+            "por processo, OAB, parte, advogado, texto, tribunal ou período; ela pesquisa o "
+            "ARQUIVO público do CausaGanha no Internet Archive e não consulta o DJEN live. "
             "Para um CNJ, use `processo_consultar` quando a pergunta for sobre o ARQUIVO "
             "reconciliado (publicações preservadas, decisões/documentos e metadados do snapshot) "
             "e `processo_estado` quando a pergunta for sobre ESTADO atual (movimentos, graus "
@@ -51,6 +55,7 @@ def build_server() -> FastMCP:
     djen_backup.register(mcp)
     status.register(mcp)
     processo.register(mcp)
+    publicacoes.register(mcp)
     return mcp
 
 
