@@ -66,7 +66,10 @@ def _result() -> PublicacoesBusca:
 async def test_publicacoes_buscar_maps_archive_provenance_and_next_actions(
     mcp, monkeypatch
 ) -> None:
-    monkeypatch.setattr(tool_module.service, "buscar_publicacoes", lambda **kwargs: _result())
+    def stub(_query: object) -> PublicacoesBusca:
+        return _result()
+
+    monkeypatch.setattr(tool_module.service, "buscar_publicacoes", stub)
 
     fn = await _fn(mcp)
     result = fn(processo=CNJ, tribunal="TJRO")
@@ -102,7 +105,11 @@ async def test_zero_with_partial_coverage_is_not_described_as_proof_of_absence(
         criterios={"tribunal": "TJRO"},
         consultado_em="2026-08-21T20:00:00+00:00",
     )
-    monkeypatch.setattr(tool_module.service, "buscar_publicacoes", lambda **kwargs: partial)
+
+    def stub(_query: object) -> PublicacoesBusca:
+        return partial
+
+    monkeypatch.setattr(tool_module.service, "buscar_publicacoes", stub)
 
     fn = await _fn(mcp)
     result = fn(tribunal="TJRO")
@@ -112,8 +119,9 @@ async def test_zero_with_partial_coverage_is_not_described_as_proof_of_absence(
 
 
 async def test_validation_error_becomes_actionable_tool_error(mcp, monkeypatch) -> None:
-    def fail(**kwargs):
-        raise CriteriosInvalidosError("Informe ao menos um critério")
+    def fail(_query: object) -> PublicacoesBusca:
+        msg = "Informe ao menos um critério"
+        raise CriteriosInvalidosError(msg)
 
     monkeypatch.setattr(tool_module.service, "buscar_publicacoes", fail)
     fn = await _fn(mcp)
@@ -123,8 +131,9 @@ async def test_validation_error_becomes_actionable_tool_error(mcp, monkeypatch) 
 
 
 async def test_catalog_failure_does_not_leak_internal_detail(mcp, monkeypatch) -> None:
-    def fail(**kwargs):
-        raise CatalogoIndisponivelError("/tmp/internal-secret-path")
+    def fail(_query: object) -> PublicacoesBusca:
+        msg = "internal-secret-marker"
+        raise CatalogoIndisponivelError(msg)
 
     monkeypatch.setattr(tool_module.service, "buscar_publicacoes", fail)
     fn = await _fn(mcp)
@@ -134,7 +143,7 @@ async def test_catalog_failure_does_not_leak_internal_detail(mcp, monkeypatch) -
 
     message = str(exc_info.value)
     assert "catálogo público" in message
-    assert "internal-secret-path" not in message
+    assert "internal-secret-marker" not in message
 
 
 async def test_publicacoes_buscar_has_hard_interactive_timeout(mcp) -> None:
