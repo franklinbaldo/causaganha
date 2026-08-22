@@ -65,6 +65,7 @@ A implementação pode conhecer `manifest.parquet`, itens `djen-{tribunal}-{ano}
 O planejamento físico deve reduzir custo sem alterar o contrato da tool:
 
 - filtrar tribunal e anos no catálogo antes de abrir Parquets de conteúdo;
+- tratar essa poda como invariante observável: arquivo fora do escopo não deve sequer ser aberto;
 - incluir tabelas auxiliares apenas quando o critério as exige;
 - manter texto/trecho opt-in quando ele não é necessário para selecionar a publicação;
 - bindar toda entrada do usuário; nenhum SQL, URL ou nome de tabela é input MCP;
