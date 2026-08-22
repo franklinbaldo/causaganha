@@ -22,6 +22,24 @@ class AcervoIndisponivelError(PublicacoesError):
 
 
 @dataclass(frozen=True)
+class PublicacoesQuery:
+    """Critérios semânticos de busca, independentes do schema físico do arquivo."""
+
+    processo: str | None = None
+    oab: str | None = None
+    uf_oab: str | None = None
+    parte: str | None = None
+    advogado: str | None = None
+    texto: str | None = None
+    tribunal: str | None = None
+    data_inicio: str | None = None
+    data_fim: str | None = None
+    incluir_trecho: bool = False
+    limite: int = 10
+    pagina: int = 1
+
+
+@dataclass(frozen=True)
 class PublicacaoArquivo:
     """Uma comunicação DJEN preservada no arquivo do CausaGanha."""
 
