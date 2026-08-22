@@ -33,7 +33,7 @@ Arquivo pode estar defasado em relação ao processo real. A data do dataset faz
 
 O que a fonte oficial registra agora sobre a trajetória processual: movimentos, graus e marco mais recente conhecido.
 
-A superfície planejada é `processo_estado(cnj, tribunal?)`, alimentada por consulta DataJud live. O nome público descreve o job; a resposta preserva DataJud/CNJ como proveniência. Estado não é teor: um movimento “Sentença” prova que o evento foi registrado, não o conteúdo da sentença.
+A superfície é `processo_estado(cnj, tribunal?)`, alimentada por consulta DataJud live. O nome público descreve o job; a resposta preserva DataJud/CNJ como proveniência. Estado não é teor: um movimento “Sentença” prova que o evento foi registrado, não o conteúdo da sentença.
 
 ### Teor
 
@@ -48,7 +48,7 @@ JURIS/STJ e documentos associados são superfícies de teor. Não reconstruir o 
 Estas devem dominar a experiência de um agente comum:
 
 - `processo_consultar(cnj)` — “o que o acervo sabe sobre este processo?”;
-- `processo_estado(cnj, tribunal?)` — “o que aconteceu mais recentemente?” (planejada em #890);
+- `processo_estado(cnj, tribunal?)` — “o que aconteceu mais recentemente?”;
 - `publicacoes_buscar(...)` — “quais publicações correspondem a este CNJ/OAB/parte/texto?”;
 - uma superfície de teor (`decisoes_buscar` ou equivalente) — “há decisão/acórdão e o que ele diz?”;
 - cobertura contextual quando uma ausência precisa ser qualificada.
