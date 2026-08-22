@@ -24,6 +24,7 @@ from causaganha.publicacoes.models import (
     CriteriosInvalidosError,
     PublicacaoArquivo,
     PublicacoesBusca,
+    PublicacoesQuery,
 )
 
 
@@ -34,6 +35,7 @@ BACKFILL_URL = f"{IA_CATALOG_BASE}/backfill-needed.parquet"
 _ITEM_YEAR_RE = re.compile(r"-(20\d{2})$")
 _MAX_LIMIT = 50
 _MAX_PAGE = 1000
+_YEAR_PREFIX_LEN = 4
 
 
 @dataclass(frozen=True)
@@ -49,9 +51,20 @@ class _ManifestEntry:
         match = _ITEM_YEAR_RE.search(self.ia_item)
         if match:
             return int(match.group(1))
-        if self.date_value and len(self.date_value) >= 4 and self.date_value[:4].isdigit():
-            return int(self.date_value[:4])
+        if (
+            self.date_value
+            and len(self.date_value) >= _YEAR_PREFIX_LEN
+            and self.date_value[:_YEAR_PREFIX_LEN].isdigit()
+        ):
+            return int(self.date_value[:_YEAR_PREFIX_LEN])
         return None
+
+
+@dataclass(frozen=True)
+class _ValidatedQuery:
+    query: PublicacoesQuery
+    start: date | None
+    end: date | None
 
 
 def _sql_literal(value: str) -> str:
@@ -99,54 +112,62 @@ def _normalize_optional(value: str | None) -> str | None:
     return stripped or None
 
 
-def _validate_query(
-    *,
-    processo: str | None,
-    oab: str | None,
-    uf_oab: str | None,
-    parte: str | None,
-    advogado: str | None,
-    texto: str | None,
-    tribunal: str | None,
-    data_inicio: str | None,
-    data_fim: str | None,
-    limite: int,
-    pagina: int,
-) -> tuple[dict[str, str | None], date | None, date | None]:
-    values = {
-        "processo": _normalize_optional(processo),
-        "oab": _normalize_oab(oab),
-        "uf_oab": _normalize_optional(uf_oab),
-        "parte": _normalize_optional(parte),
-        "advogado": _normalize_optional(advogado),
-        "texto": _normalize_optional(texto),
-        "tribunal": _normalize_optional(tribunal),
-    }
-    if not any(values.values()) and not data_inicio and not data_fim:
-        raise CriteriosInvalidosError(
-            "Informe ao menos um critério: processo, OAB, parte, advogado, texto, tribunal ou período."
-        )
-    if values["processo"]:
-        normalized = normalizar_cnj(values["processo"])
-        if not normalized:
-            raise CriteriosInvalidosError(
-                "CNJ inválido: informe os 20 dígitos, com ou sem máscara."
-            )
-        values["processo"] = normalized
-    if values["uf_oab"]:
-        values["uf_oab"] = values["uf_oab"].upper()
-    if values["tribunal"]:
-        values["tribunal"] = values["tribunal"].upper()
-    if not 1 <= limite <= _MAX_LIMIT:
-        raise CriteriosInvalidosError(f"limite deve estar entre 1 e {_MAX_LIMIT}.")
-    if not 1 <= pagina <= _MAX_PAGE:
-        raise CriteriosInvalidosError(f"pagina deve estar entre 1 e {_MAX_PAGE}.")
+def _normalize_query(query: PublicacoesQuery) -> PublicacoesQuery:
+    processo = _normalize_optional(query.processo)
+    if processo:
+        processo = normalizar_cnj(processo)
+        if not processo:
+            msg = "CNJ inválido: informe os 20 dígitos, com ou sem máscara."
+            raise CriteriosInvalidosError(msg)
 
-    start = _parse_date(data_inicio, "data_inicio")
-    end = _parse_date(data_fim, "data_fim")
+    return PublicacoesQuery(
+        processo=processo,
+        oab=_normalize_oab(query.oab),
+        uf_oab=(_normalize_optional(query.uf_oab) or "").upper() or None,
+        parte=_normalize_optional(query.parte),
+        advogado=_normalize_optional(query.advogado),
+        texto=_normalize_optional(query.texto),
+        tribunal=(_normalize_optional(query.tribunal) or "").upper() or None,
+        data_inicio=_normalize_optional(query.data_inicio),
+        data_fim=_normalize_optional(query.data_fim),
+        incluir_trecho=query.incluir_trecho,
+        limite=query.limite,
+        pagina=query.pagina,
+    )
+
+
+def _validate_query(query: PublicacoesQuery) -> _ValidatedQuery:
+    normalized = _normalize_query(query)
+    semantic_values = (
+        normalized.processo,
+        normalized.oab,
+        normalized.uf_oab,
+        normalized.parte,
+        normalized.advogado,
+        normalized.texto,
+        normalized.tribunal,
+        normalized.data_inicio,
+        normalized.data_fim,
+    )
+    if not any(semantic_values):
+        msg = (
+            "Informe ao menos um critério: processo, OAB, parte, advogado, "
+            "texto, tribunal ou período."
+        )
+        raise CriteriosInvalidosError(msg)
+    if not 1 <= normalized.limite <= _MAX_LIMIT:
+        msg = f"limite deve estar entre 1 e {_MAX_LIMIT}."
+        raise CriteriosInvalidosError(msg)
+    if not 1 <= normalized.pagina <= _MAX_PAGE:
+        msg = f"pagina deve estar entre 1 e {_MAX_PAGE}."
+        raise CriteriosInvalidosError(msg)
+
+    start = _parse_date(normalized.data_inicio, "data_inicio")
+    end = _parse_date(normalized.data_fim, "data_fim")
     if start and end and start > end:
-        raise CriteriosInvalidosError("data_inicio não pode ser posterior a data_fim.")
-    return values, start, end
+        msg = "data_inicio não pode ser posterior a data_fim."
+        raise CriteriosInvalidosError(msg)
+    return _ValidatedQuery(query=normalized, start=start, end=end)
 
 
 def _load_manifest(con: duckdb.DuckDBPyConnection, manifest_url: str) -> list[_ManifestEntry]:
@@ -161,9 +182,8 @@ def _load_manifest(con: duckdb.DuckDBPyConnection, manifest_url: str) -> list[_M
             """
         ).fetchall()
     except duckdb.Error as exc:
-        raise CatalogoIndisponivelError(
-            "Não foi possível abrir o catálogo público de Parquets do CausaGanha."
-        ) from exc
+        msg = "Não foi possível abrir o catálogo público de Parquets do CausaGanha."
+        raise CatalogoIndisponivelError(msg) from exc
 
     return [
         _ManifestEntry(
@@ -210,46 +230,37 @@ def _urls_by_table(entries: list[_ManifestEntry]) -> dict[str, list[str]]:
     return {name: sorted(urls) for name, urls in grouped.items()}
 
 
-def _query_parts(
-    urls: dict[str, list[str]],
-    criteria: dict[str, str | None],
-    *,
-    start: date | None,
-    end: date | None,
-    incluir_trecho: bool,
-) -> tuple[str, list[Any], list[str]]:
-    """Build the internal query and its bind parameters.
+def _required_tables(query: PublicacoesQuery) -> set[str]:
+    required = {"comunicacoes"}
+    if query.oab or query.uf_oab or query.advogado:
+        required.update({"advogados", "comunicacao_advogados"})
+    if query.parte:
+        required.add("destinatarios")
+    if query.texto:
+        required.add("textos")
+    return required
 
-    Only manifest-selected URLs are interpolated. Every user-provided value is
-    a bind parameter; the MCP never exposes arbitrary SQL, table names or URLs.
-    """
-    missing: list[str] = []
-    if not urls.get("comunicacoes"):
-        missing.append("comunicacoes")
-    needs_advogados = bool(criteria["oab"] or criteria["uf_oab"] or criteria["advogado"])
-    needs_partes = bool(criteria["parte"])
-    needs_textos = bool(criteria["texto"])
-    if needs_advogados:
-        for table in ("advogados", "comunicacao_advogados"):
-            if not urls.get(table):
-                missing.append(table)
-    if needs_partes and not urls.get("destinatarios"):
-        missing.append("destinatarios")
-    if needs_textos and not urls.get("textos"):
-        missing.append("textos")
-    if missing:
-        return "", [], sorted(set(missing))
 
+def _missing_tables(urls: dict[str, list[str]], query: PublicacoesQuery) -> list[str]:
+    required = _required_tables(query)
+    return sorted(table for table in required if not urls.get(table))
+
+
+def _build_relations(
+    urls: dict[str, list[str]], query: PublicacoesQuery
+) -> tuple[list[str], list[str], bool]:
     ctes = [f"comunicacoes AS (SELECT * FROM {_read_parquet_sql(urls['comunicacoes'])})"]
     joins: list[str] = []
-    where: list[str] = []
-    params: list[Any] = []
 
-    if needs_advogados:
-        ctes.append(f"advogados AS (SELECT * FROM {_read_parquet_sql(urls['advogados'])})")
-        ctes.append(
-            "comunicacao_advogados AS "
-            f"(SELECT * FROM {_read_parquet_sql(urls['comunicacao_advogados'])})"
+    if query.oab or query.uf_oab or query.advogado:
+        ctes.extend(
+            [
+                f"advogados AS (SELECT * FROM {_read_parquet_sql(urls['advogados'])})",
+                (
+                    "comunicacao_advogados AS (SELECT * FROM "
+                    f"{_read_parquet_sql(urls['comunicacao_advogados'])})"
+                ),
+            ]
         )
         joins.extend(
             [
@@ -258,43 +269,69 @@ def _query_parts(
                 "JOIN advogados a ON a.id = ca.advogado_id AND a.tribunal = c.tribunal",
             ]
         )
-    if needs_partes:
-        ctes.append(f"destinatarios AS (SELECT * FROM {_read_parquet_sql(urls['destinatarios'])})")
-        joins.append("JOIN destinatarios d ON d.comunicacao_id = c.id AND d.tribunal = c.tribunal")
+    if query.parte:
+        ctes.append(
+            f"destinatarios AS (SELECT * FROM {_read_parquet_sql(urls['destinatarios'])})"
+        )
+        joins.append(
+            "JOIN destinatarios d ON d.comunicacao_id = c.id AND d.tribunal = c.tribunal"
+        )
 
-    use_texts = needs_textos or (incluir_trecho and bool(urls.get("textos")))
+    use_texts = bool(query.texto or (query.incluir_trecho and urls.get("textos")))
     if use_texts:
         ctes.append(f"textos AS (SELECT * FROM {_read_parquet_sql(urls['textos'])})")
         joins.append("LEFT JOIN textos t ON t.id = c.texto_id")
+    return ctes, joins, use_texts
 
-    if criteria["processo"]:
-        where.append("regexp_replace(CAST(c.numero_processo AS VARCHAR), '[^0-9]', '', 'g') = ?")
-        params.append(criteria["processo"])
-    if criteria["oab"]:
-        where.append("regexp_replace(upper(COALESCE(a.numero_oab, '')), '[^A-Z0-9]', '', 'g') = ?")
-        params.append(criteria["oab"])
-    if criteria["uf_oab"]:
+
+def _build_filters(
+    query: PublicacoesQuery, start: date | None, end: date | None
+) -> tuple[list[str], list[Any]]:
+    where: list[str] = []
+    params: list[Any] = []
+    if query.processo:
+        where.append(
+            "regexp_replace(CAST(c.numero_processo AS VARCHAR), '[^0-9]', '', 'g') = ?"
+        )
+        params.append(query.processo)
+    if query.oab:
+        where.append(
+            "regexp_replace(upper(COALESCE(a.numero_oab, '')), '[^A-Z0-9]', '', 'g') = ?"
+        )
+        params.append(query.oab)
+    if query.uf_oab:
         where.append("upper(COALESCE(a.uf_oab, '')) = ?")
-        params.append(criteria["uf_oab"])
-    if criteria["advogado"]:
+        params.append(query.uf_oab)
+    if query.advogado:
         where.append("COALESCE(a.nome, '') ILIKE '%' || ? || '%'")
-        params.append(criteria["advogado"])
-    if criteria["parte"]:
+        params.append(query.advogado)
+    if query.parte:
         where.append("COALESCE(d.nome, '') ILIKE '%' || ? || '%'")
-        params.append(criteria["parte"])
-    if criteria["texto"]:
+        params.append(query.parte)
+    if query.texto:
         where.append("COALESCE(t.texto, '') ILIKE '%' || ? || '%'")
-        params.append(criteria["texto"])
-    if criteria["tribunal"]:
+        params.append(query.texto)
+    if query.tribunal:
         where.append("upper(COALESCE(c.tribunal, '')) = ?")
-        params.append(criteria["tribunal"])
+        params.append(query.tribunal)
     if start:
         where.append("c.data_disponibilizacao >= ?")
         params.append(start.isoformat())
     if end:
         where.append("c.data_disponibilizacao <= ?")
         params.append(end.isoformat())
+    return where, params
 
+
+def _query_parts(
+    urls: dict[str, list[str]], validated: _ValidatedQuery
+) -> tuple[str, list[Any], list[str]]:
+    missing = _missing_tables(urls, validated.query)
+    if missing:
+        return "", [], missing
+
+    ctes, joins, use_texts = _build_relations(urls, validated.query)
+    where, params = _build_filters(validated.query, validated.start, validated.end)
     trecho_expr = (
         "left(regexp_replace(COALESCE(t.texto, ''), '<[^>]+>', ' ', 'g'), 500)"
         if use_texts
@@ -318,7 +355,7 @@ def _query_parts(
                 {trecho_expr} AS trecho,
                 c.p_item_ia
             FROM comunicacoes c
-            {" ".join(joins)}
+            {' '.join(joins)}
             WHERE {where_sql}
         )
         SELECT *, COUNT(*) OVER()::BIGINT AS total_encontrado
@@ -414,9 +451,11 @@ def _to_publicacao(row: tuple[Any, ...]) -> PublicacaoArquivo:
     mascara = formatar_cnj(cnj) if cnj else (str(numero_mascara) if numero_mascara else None)
     return PublicacaoArquivo(
         id=str(id_),
-        data=data_value.isoformat()
-        if hasattr(data_value, "isoformat")
-        else str(data_value or "") or None,
+        data=(
+            data_value.isoformat()
+            if hasattr(data_value, "isoformat")
+            else str(data_value or "") or None
+        ),
         tribunal=str(tribunal) if tribunal else None,
         tipo=str(tipo) if tipo else None,
         orgao=str(orgao) if orgao else None,
@@ -430,125 +469,116 @@ def _to_publicacao(row: tuple[Any, ...]) -> PublicacaoArquivo:
     )
 
 
-def buscar_publicacoes(
+def _criteria_dict(validated: _ValidatedQuery) -> dict[str, str | bool | int | None]:
+    query = validated.query
+    return {
+        "processo": query.processo,
+        "oab": query.oab,
+        "uf_oab": query.uf_oab,
+        "parte": query.parte,
+        "advogado": query.advogado,
+        "texto": query.texto,
+        "tribunal": query.tribunal,
+        "data_inicio": validated.start.isoformat() if validated.start else None,
+        "data_fim": validated.end.isoformat() if validated.end else None,
+        "incluir_trecho": query.incluir_trecho,
+    }
+
+
+def _insufficient_result(
+    validated: _ValidatedQuery,
+    missing: list[str],
     *,
-    processo: str | None = None,
-    oab: str | None = None,
-    uf_oab: str | None = None,
-    parte: str | None = None,
-    advogado: str | None = None,
-    texto: str | None = None,
-    tribunal: str | None = None,
-    data_inicio: str | None = None,
-    data_fim: str | None = None,
-    incluir_trecho: bool = False,
-    limite: int = 10,
-    pagina: int = 1,
+    arquivos: int,
+    itens: int,
+) -> PublicacoesBusca:
+    aviso = (
+        "O catálogo não contém todos os Parquets necessários para estes critérios "
+        f"no escopo selecionado: {', '.join(missing)}."
+    )
+    cobertura = CoberturaArquivo(
+        status="insuficiente",
+        lacunas_conhecidas=None,
+        arquivos_consultados=arquivos,
+        itens_consultados=itens,
+        aviso=aviso,
+    )
+    return PublicacoesBusca(
+        resultados=[],
+        total_encontrado=0,
+        pagina=validated.query.pagina,
+        limite=validated.query.limite,
+        resultados_truncados=False,
+        cobertura=cobertura,
+        criterios=_criteria_dict(validated),
+        consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
+        avisos=[aviso],
+    )
+
+
+def buscar_publicacoes(
+    query: PublicacoesQuery,
+    *,
     manifest_url: str = MANIFEST_URL,
     backfill_url: str = BACKFILL_URL,
 ) -> PublicacoesBusca:
-    """Busca publicações no arquivo canônico, sem expor o schema físico ao chamador."""
-    criteria, start, end = _validate_query(
-        processo=processo,
-        oab=oab,
-        uf_oab=uf_oab,
-        parte=parte,
-        advogado=advogado,
-        texto=texto,
-        tribunal=tribunal,
-        data_inicio=data_inicio,
-        data_fim=data_fim,
-        limite=limite,
-        pagina=pagina,
-    )
+    """Busca publicações no arquivo canônico sem expor schema físico ao chamador."""
+    validated = _validate_query(query)
     con = duckdb.connect()
     try:
         manifest = _load_manifest(con, manifest_url)
         scoped = _scope_manifest(
             manifest,
-            tribunal=criteria["tribunal"],
-            start=start,
-            end=end,
+            tribunal=validated.query.tribunal,
+            start=validated.start,
+            end=validated.end,
         )
         urls = _urls_by_table(scoped)
-        query_sql, params, missing = _query_parts(
-            urls,
-            criteria,
-            start=start,
-            end=end,
-            incluir_trecho=incluir_trecho,
-        )
+        query_sql, params, missing = _query_parts(urls, validated)
         communication_entries = [entry for entry in scoped if entry.table_name == "comunicacoes"]
         itens = {entry.ia_item for entry in communication_entries}
         arquivos = len(communication_entries)
 
         if missing:
-            cobertura = CoberturaArquivo(
-                status="insuficiente",
-                lacunas_conhecidas=None,
-                arquivos_consultados=arquivos,
-                itens_consultados=len(itens),
-                aviso=(
-                    "O catálogo não contém todos os Parquets necessários para estes critérios "
-                    f"no escopo selecionado: {', '.join(missing)}."
-                ),
-            )
-            return PublicacoesBusca(
-                resultados=[],
-                total_encontrado=0,
-                pagina=pagina,
-                limite=limite,
-                resultados_truncados=False,
-                cobertura=cobertura,
-                criterios={
-                    **criteria,
-                    "data_inicio": start.isoformat() if start else None,
-                    "data_fim": end.isoformat() if end else None,
-                    "incluir_trecho": incluir_trecho,
-                },
-                consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
-                avisos=[cobertura.aviso] if cobertura.aviso else [],
+            return _insufficient_result(
+                validated,
+                missing,
+                arquivos=arquivos,
+                itens=len(itens),
             )
 
         selected_urls = sorted({url for values in urls.values() for url in values})
         _load_httpfs(con, manifest_url, backfill_url, *selected_urls)
-        offset = (pagina - 1) * limite
+        offset = (validated.query.pagina - 1) * validated.query.limite
         try:
-            rows = con.execute(query_sql, [*params, limite, offset]).fetchall()
+            rows = con.execute(
+                query_sql,
+                [*params, validated.query.limite, offset],
+            ).fetchall()
         except duckdb.Error as exc:
-            raise AcervoIndisponivelError(
-                "Não foi possível consultar os Parquets necessários no arquivo público."
-            ) from exc
+            msg = "Não foi possível consultar os Parquets necessários no arquivo público."
+            raise AcervoIndisponivelError(msg) from exc
 
         total = int(rows[0][-1]) if rows else 0
         resultados = [_to_publicacao(row) for row in rows]
         cobertura = _coverage(
             con,
             backfill_url=backfill_url,
-            tribunal=criteria["tribunal"],
-            start=start,
-            end=end,
+            tribunal=validated.query.tribunal,
+            start=validated.start,
+            end=validated.end,
             arquivos_consultados=arquivos,
             itens_consultados=len(itens),
         )
         avisos = [cobertura.aviso] if cobertura.aviso else []
-        if incluir_trecho and not urls.get("textos"):
-            avisos.append(
-                "Trechos não puderam ser carregados porque textos.parquet não existe neste escopo."
-            )
         return PublicacoesBusca(
             resultados=resultados,
             total_encontrado=total,
-            pagina=pagina,
-            limite=limite,
+            pagina=validated.query.pagina,
+            limite=validated.query.limite,
             resultados_truncados=offset + len(resultados) < total,
             cobertura=cobertura,
-            criterios={
-                **criteria,
-                "data_inicio": start.isoformat() if start else None,
-                "data_fim": end.isoformat() if end else None,
-                "incluir_trecho": incluir_trecho,
-            },
+            criterios=_criteria_dict(validated),
             consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
             avisos=avisos,
         )
