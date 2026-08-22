@@ -186,9 +186,7 @@ def _to_result(
             ],
         )
 
-    movimentos_all = [
-        _movement_result(capa, mov) for capa in capas for mov in capa.movimentos
-    ]
+    movimentos_all = [_movement_result(capa, mov) for capa in capas for mov in capa.movimentos]
     movimentos_all.sort(key=_movement_sort_key, reverse=True)
     marcos_all = [m for m in movimentos_all if m.codigo not in _RUIDO_MOVIMENTO_CODES]
     marcos = marcos_all[:limite_marcos]
