@@ -86,7 +86,8 @@ def build_bundle(
     expected_names = _payload_names(tribunal)
     paths = (capa_path, movimentos_path, manifest_path)
     payloads = {
-        name: path.read_bytes() for name, path in zip(expected_names, paths, strict=True)
+        name: path.read_bytes()
+        for name, path in zip(expected_names, paths, strict=True)
     }
     generation = _generation(payloads)
     metadata = {
