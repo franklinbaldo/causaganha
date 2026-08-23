@@ -1,4 +1,4 @@
-"""Parquet build + Internet Archive upload for DataJud metadata.
+"""Parquet build + Internet Archive transfer for DataJud metadata.
 
 Capa and movimentos live in separate parquet files (a process can have
 hundreds of movements; the capa stays light for joins):
@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 log = structlog.get_logger()
 
 HTTP_OK = 200
+HTTP_NOT_FOUND = 404
 _RETRIABLE = frozenset({408, 429, 500, 502, 503, 504})
 _MAX_RETRIES = 5
 
@@ -102,7 +103,7 @@ def _write_parquet(rows: list[dict], schema: pa.Schema, path: Path) -> int:
     return table.num_rows
 
 
-# ── IA upload ────────────────────────────────────────────────────────────
+# ── IA transfer ──────────────────────────────────────────────────────────
 
 
 def _build_upload_headers(ia_key: str, ia_secret: str, tribunal: str) -> dict[str, str]:
@@ -124,10 +125,61 @@ def _build_upload_headers(ia_key: str, ia_secret: str, tribunal: str) -> dict[st
     }
 
 
-def upload_parquet(file_path: Path, tribunal: str, ia_key: str, ia_secret: str) -> bool:
-    """Upload a parquet file to the ``datajud-{tribunal}`` IA item via httpx.
+def _download_url(file_name: str, tribunal: str) -> str:
+    return f"https://archive.org/download/{item_id(tribunal)}/{file_name}"
 
-    Retries transient statuses/transport errors; returns True on success.
+
+def download_file(file_name: str, tribunal: str) -> bytes | None:
+    """Download one file from the tribunal item.
+
+    Returns ``None`` only for a definitive HTTP 404. Transport failures,
+    exhausted transient statuses and other HTTP errors raise ``OSError`` so a
+    caller cannot accidentally treat an unavailable remote state as bootstrap.
+    """
+    url = _download_url(file_name, tribunal)
+    with httpx.Client(timeout=300, follow_redirects=True) as client:
+        for attempt in range(_MAX_RETRIES + 1):
+            try:
+                response = client.get(url)
+            except httpx.HTTPError as exc:
+                log.warning(
+                    "datajud_download_http_error",
+                    attempt=attempt,
+                    file=file_name,
+                    error=str(exc),
+                )
+                if attempt >= _MAX_RETRIES:
+                    msg = f"Internet Archive download failed for {file_name}: {exc}"
+                    raise OSError(msg) from exc
+                continue
+
+            if response.status_code == HTTP_OK:
+                return response.content
+            if response.status_code == HTTP_NOT_FOUND:
+                return None
+            if response.status_code not in _RETRIABLE:
+                msg = f"Internet Archive returned HTTP {response.status_code} for {file_name}"
+                raise OSError(msg)
+
+            log.warning(
+                "datajud_download_retriable_error",
+                attempt=attempt,
+                status=response.status_code,
+                file=file_name,
+            )
+            if attempt >= _MAX_RETRIES:
+                msg = f"Internet Archive download exhausted retries for {file_name}"
+                raise OSError(msg)
+
+    msg = f"Internet Archive download failed for {file_name}"
+    raise OSError(msg)
+
+
+def upload_file(file_path: Path, tribunal: str, ia_key: str, ia_secret: str) -> bool:
+    """Upload one DataJud artifact to the tribunal IA item via httpx.
+
+    Retries transient statuses/transport errors; returns ``True`` on success.
+    The artifact may be a Parquet or the coherent state bundle.
     """
     url = f"https://s3.us.archive.org/{item_id(tribunal)}/{file_path.name}"
     headers = _build_upload_headers(ia_key, ia_secret, tribunal)
@@ -173,3 +225,8 @@ def upload_parquet(file_path: Path, tribunal: str, ia_key: str, ia_secret: str) 
 
     log.warning("datajud_upload_exhausted_retries", file=file_path.name)
     return False
+
+
+def upload_parquet(file_path: Path, tribunal: str, ia_key: str, ia_secret: str) -> bool:
+    """Backward-compatible wrapper for callers that publish one Parquet."""
+    return upload_file(file_path, tribunal, ia_key, ia_secret)
