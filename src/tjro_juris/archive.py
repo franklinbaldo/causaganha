@@ -38,6 +38,7 @@ IA_ITEM_METADATA_TEMPLATE = {
 }
 
 _HTTP_NOT_FOUND = 404
+_STATUS_READ_TIMEOUT_S = 10.0
 
 # IA's S3-compatible endpoint 503s ("Slow Down") under sustained upload
 # volume — observed live during the 1988-2026 historical backfill (a whole
@@ -125,6 +126,20 @@ async def upload_file(local_path: Path, year: int, remote_name: str) -> None:
 async def upload_manifest(local_path: Path) -> None:
     """Upload the crawl manifest CSV to its dedicated IA item."""
     await _put_object(local_path, MANIFEST_ITEM_ID, MANIFEST_REMOTE_NAME)
+
+
+def read_manifest_text(*, timeout: float = _STATUS_READ_TIMEOUT_S) -> str | None:
+    """Read the published manifest without creating local state.
+
+    ``None`` means the authoritative object does not exist (404). Transport,
+    timeout and other HTTP failures remain errors so callers can distinguish
+    absence from an unverifiable source.
+    """
+    resp = httpx.get(MANIFEST_DOWNLOAD_URL, follow_redirects=True, timeout=timeout)
+    if resp.status_code == _HTTP_NOT_FOUND:
+        return None
+    resp.raise_for_status()
+    return resp.text
 
 
 def download_manifest(dest: Path) -> bool:
