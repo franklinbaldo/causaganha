@@ -20,7 +20,7 @@ from datajud.client import (
     DataJudProtocolError,
     DataJudRateLimitError,
 )
-from datajud.manifest import ManifestDataJud, ManifestFormatError, STATUS_OK
+from datajud.manifest import STATUS_OK, ManifestDataJud, ManifestFormatError
 
 
 if TYPE_CHECKING:
@@ -98,7 +98,9 @@ class DatajudStatusResult(BaseModel):
     )
     canonica: bool = Field(
         default=True,
-        description="True somente para o bundle remoto coerente que governa continuidade do pipeline.",
+        description=(
+            "True somente para o bundle remoto coerente que governa continuidade do pipeline."
+        ),
     )
     aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
@@ -274,10 +276,11 @@ def register(mcp: FastMCP) -> None:
         try:
             published = state.read_remote_state(tribunal)
         except state.RemoteStateError as exc:
-            raise ToolError(
+            message = (
                 "Não foi possível verificar o estado DataJud publicado. A produção remota "
                 "pode estar indisponível ou inconsistente; isso não significa dataset vazio."
-            ) from exc
+            )
+            raise ToolError(message) from exc
         if published is None:
             return _status_result(
                 None,
@@ -293,10 +296,11 @@ def register(mcp: FastMCP) -> None:
                 source=state.bundle_name(tribunal),
             )
         except ManifestFormatError as exc:
-            raise ToolError(
+            message = (
                 "A geração DataJud publicada passou pela verificação de bytes, mas seu "
                 "manifest não pôde ser interpretado."
-            ) from exc
+            )
+            raise ToolError(message) from exc
         artifacts = {
             name: DatajudArtifact(sha256=str(meta["sha256"]), size=int(meta["size"]))
             for name, meta in published.files.items()
