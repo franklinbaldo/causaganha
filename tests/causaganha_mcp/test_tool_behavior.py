@@ -88,6 +88,33 @@ async def test_datajud_status_defaults_to_published_generation(
     assert "datajud-manifest.csv" in result.artefatos
 
 
+async def test_datajud_status_preserves_old_snapshot_timestamps(
+    mcp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    old_timestamp = "2026-01-01T00:00:00+00:00"
+    manifest_text = (
+        "cnj,tribunal,docs,consultado_em,status\n"
+        f"00000010220248220001,tjro,2,{old_timestamp},ok\n"
+    )
+    published = state.PublishedState(
+        tribunal="tjro",
+        generation="generation-old",
+        manifest_text=manifest_text,
+        published_at=old_timestamp,
+        files={},
+    )
+    monkeypatch.setattr(state, "read_remote_state", lambda _tribunal: published)
+
+    fn = await _tool_fn(mcp, "datajud_status")
+    result = fn()
+
+    # datajud_status exposes evidence, not a hidden freshness policy. The
+    # multi-pipeline health contract (#892) can apply its own threshold.
+    assert result.publicado_em == old_timestamp
+    assert result.ultima_atualizacao == old_timestamp
+    assert result.geracao == "generation-old"
+
+
 async def test_datajud_status_published_absent_is_explicit(
     mcp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -110,8 +137,11 @@ async def test_datajud_status_published_absent_is_explicit(
 async def test_datajud_status_remote_failure_is_not_empty_dataset(
     mcp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fail_download(_file_name: str, _tribunal: str, **_kwargs) -> bytes | None:
-        raise OSError("network unavailable")
+    def fail_download(
+        _file_name: str, _tribunal: str, **_kwargs: object
+    ) -> bytes | None:
+        message = "network unavailable"
+        raise OSError(message)
 
     monkeypatch.setattr(archive, "download_file", fail_download)
     fn = await _tool_fn(mcp, "datajud_status")
