@@ -85,8 +85,8 @@ def _run(data_dir: Path) -> service.EnrichResult:
         30,
         50,
         skip_upload=False,
-        ia_key="key",
-        ia_secret="secret",
+        ia_key=data_dir.name,
+        ia_secret=data_dir.parent.name,
     )
 
 
