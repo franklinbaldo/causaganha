@@ -18,10 +18,13 @@ import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
 import tjro_juris.service as tjro_juris_service
 from causaganha_mcp import knowledge
-from datajud import service as datajud_service, state as datajud_state
+from datajud import service as datajud_service
+from datajud import state as datajud_state
 from datajud.manifest import (
     STATUS_OK,
     ManifestDataJud,
+)
+from datajud.manifest import (
     ManifestFormatError as DatajudManifestFormatError,
 )
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
