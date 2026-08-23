@@ -137,9 +137,7 @@ async def test_datajud_status_published_absent_is_explicit(
 async def test_datajud_status_remote_failure_is_not_empty_dataset(
     mcp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fail_download(
-        _file_name: str, _tribunal: str, **_kwargs: object
-    ) -> bytes | None:
+    def fail_download(_file_name: str, _tribunal: str, **_kwargs: object) -> bytes | None:
         message = "network unavailable"
         raise OSError(message)
 
