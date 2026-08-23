@@ -71,7 +71,9 @@ class DatajudStatusResult(BaseModel):
     )
     total: int = Field(default=0, description="CNJs consultados até agora.")
     ok: int = Field(default=0, description="CNJs cuja última consulta teve sucesso.")
-    com_docs: int = Field(default=0, description="CNJs consultados com pelo menos um documento.")
+    com_docs: int = Field(
+        default=0, description="CNJs consultados com pelo menos um documento."
+    )
     sem_docs: int = Field(
         default=0, description="CNJs consultados sem nenhum documento encontrado."
     )
@@ -100,7 +102,9 @@ class DatajudStatusResult(BaseModel):
         default=True,
         description="True somente para o bundle remoto coerente que governa continuidade do pipeline.",
     )
-    aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
+    aviso: str | None = Field(
+        default=None, description="Ressalva relevante, quando houver."
+    )
 
 
 class DatajudFacetaBucket(BaseModel):
