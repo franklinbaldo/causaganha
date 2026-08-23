@@ -10,7 +10,7 @@ import httpx
 from fastmcp.exceptions import ToolError
 from pydantic import BaseModel, Field
 
-from datajud import service
+from datajud import service, state
 from datajud.client import (
     API_KEY_ENV,
     DEFAULT_TRIBUNAL,
@@ -20,6 +20,7 @@ from datajud.client import (
     DataJudProtocolError,
     DataJudRateLimitError,
 )
+from datajud.manifest import STATUS_OK, ManifestDataJud, ManifestFormatError
 
 
 if TYPE_CHECKING:
@@ -52,11 +53,21 @@ _FACETAS_BACKOFF_BASE = 1.0
 _FACETAS_TOOL_TIMEOUT = 45.0
 
 
+class DatajudArtifact(BaseModel):
+    """Identidade verificável de um artefato dentro da geração publicada."""
+
+    sha256: str = Field(description="SHA-256 do artefato na geração coerente.")
+    size: int = Field(description="Tamanho em bytes do artefato na geração coerente.")
+
+
 class DatajudStatusResult(BaseModel):
-    """Resumo do manifest local do DataJud."""
+    """Resumo do estado DataJud, publicado por default ou local por opt-in."""
 
     encontrado: bool = Field(
-        description="False quando o manifest não existe ou não tem nenhuma entrada."
+        description="False somente quando a fonte escolhida não contém estado algum."
+    )
+    tribunal: str = Field(
+        default=DEFAULT_TRIBUNAL, description="Tribunal representado pelo estado."
     )
     total: int = Field(default=0, description="CNJs consultados até agora.")
     ok: int = Field(default=0, description="CNJs cuja última consulta teve sucesso.")
@@ -67,16 +78,29 @@ class DatajudStatusResult(BaseModel):
     com_erro: int = Field(default=0, description="CNJs cuja última consulta falhou.")
     ultima_atualizacao: str | None = Field(
         default=None,
-        description="Timestamp (ISO 8601) da consulta mais recente registrada no manifest, "
-        "ou None quando não há nenhuma entrada.",
+        description="Timestamp (ISO 8601) da consulta mais recente registrada no manifest.",
     )
-    fonte: Literal["manifest_local"] = Field(
-        default="manifest_local", description="Este manifest local é a fonte dos dados."
+    publicado_em: str | None = Field(
+        default=None,
+        description="Timestamp de criação/publicação da geração, quando registrado pelo bundle.",
+    )
+    geracao: str | None = Field(
+        default=None,
+        description="Identidade content-addressed da geração coerente publicada.",
+    )
+    artefatos: dict[str, DatajudArtifact] = Field(
+        default_factory=dict,
+        description="Hashes e tamanhos dos artefatos pertencentes à mesma geração.",
+    )
+    fonte: Literal["bundle_publicado", "manifest_local"] = Field(
+        default="bundle_publicado",
+        description="Proveniência do status: geração publicada ou manifest local de trabalho.",
     )
     canonica: bool = Field(
         default=True,
-        description="True: este manifest é a própria fonte de verdade do pipeline DataJud "
-        "(não há um artefato remoto canônico separado dele).",
+        description=(
+            "True somente para o bundle remoto coerente que governa continuidade do pipeline."
+        ),
     )
     aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
@@ -103,6 +127,63 @@ class DatajudFacetasResult(BaseModel):
     consultado_em: str = Field(
         description="Timestamp (ISO 8601) desta própria consulta — não há manifest local "
         "para datajud_facetas, então não existe um 'última atualização' persistido."
+    )
+
+
+def _manifest_summary(manifest: ManifestDataJud) -> service.ManifestStatus | None:
+    entries = manifest.all_entries()
+    if not entries:
+        return None
+    ok = sum(1 for entry in entries if entry.status == STATUS_OK)
+    com_docs = sum(1 for entry in entries if entry.status == STATUS_OK and entry.docs > 0)
+    ultima_atualizacao = max(
+        (entry.consultado_em for entry in entries if entry.consultado_em), default=""
+    )
+    return service.ManifestStatus(
+        total=len(entries),
+        ok=ok,
+        com_docs=com_docs,
+        ultima_atualizacao=ultima_atualizacao,
+    )
+
+
+def _status_result(
+    summary: service.ManifestStatus | None,
+    *,
+    tribunal: str,
+    fonte: Literal["bundle_publicado", "manifest_local"],
+    canonica: bool,
+    publicado_em: str | None = None,
+    geracao: str | None = None,
+    artefatos: dict[str, DatajudArtifact] | None = None,
+    aviso: str | None = None,
+) -> DatajudStatusResult:
+    if summary is None:
+        return DatajudStatusResult(
+            encontrado=False,
+            tribunal=tribunal.lower(),
+            fonte=fonte,
+            canonica=canonica,
+            publicado_em=publicado_em,
+            geracao=geracao,
+            artefatos=artefatos or {},
+            aviso=aviso,
+        )
+    return DatajudStatusResult(
+        encontrado=True,
+        tribunal=tribunal.lower(),
+        total=summary.total,
+        ok=summary.ok,
+        com_docs=summary.com_docs,
+        sem_docs=summary.sem_docs,
+        com_erro=summary.com_erro,
+        ultima_atualizacao=summary.ultima_atualizacao or None,
+        publicado_em=publicado_em,
+        geracao=geracao,
+        artefatos=artefatos or {},
+        fonte=fonte,
+        canonica=canonica,
+        aviso=aviso,
     )
 
 
@@ -147,43 +228,98 @@ def register(mcp: FastMCP) -> None:
     @mcp.tool(
         name="datajud_status",
         annotations={
-            "title": "Status do manifest do DataJud",
+            "title": "Status publicado do DataJud",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
-            "openWorldHint": False,
+            "openWorldHint": True,
         },
     )
     def datajud_status(
+        tribunal: str = DEFAULT_TRIBUNAL,
+        fonte: Literal["publicado", "local"] = "publicado",
         diretorio_dados: str = str(service.DEFAULT_DATA_DIR),
     ) -> DatajudStatusResult:
-        """Resume o manifest local do DataJud: quantos CNJs foram consultados e encontrados.
+        """Resume o estado operacional do pipeline DataJud.
 
-        Lê `datajud-manifest.csv` em `diretorio_dados`, só do disco local —
-        nenhuma chamada de rede, nenhuma credencial envolvida. Use para
-        checar o progresso de execuções do `datajud enrich` (ex.: após o
-        cron diário `datajud-enrich.yml`) sem precisar de um shell. Nunca
-        dispara uma nova consulta ou upload; para isso, use o comando
-        `enrich` da CLI `datajud`. `encontrado=False` (contagens zeradas)
-        quando o manifest ainda não existe ou não tem entradas — não é um
-        erro, só um pipeline vazio.
+        Por default lê o bundle coerente publicado no Internet Archive — a
+        mesma geração que runners efêmeros restauram antes de continuar o
+        pipeline. Assim um MCP recém-instalado observa produção, não a ausência
+        acidental de um arquivo local. A opção ``fonte='local'`` existe apenas
+        para inspecionar explicitamente um diretório de trabalho.
+
+        A fonte publicada valida hashes e generation id antes de retornar.
+        Falha de rede, corrupção ou manifest inválido geram ToolError e nunca
+        são convertidos em contagens zeradas. ``encontrado=False`` no modo
+        publicado significa que o bundle coerente realmente não existe.
 
         Args:
-            diretorio_dados: Diretório com o manifest e os parquets do
-                DataJud. Default "data/datajud", o caminho que o workflow
-                agendado usa.
+            tribunal: Tribunal representado pelo estado, ex. ``tjro``.
+            fonte: ``publicado`` (default) ou ``local`` para diagnóstico de uma
+                execução neste host.
+            diretorio_dados: Diretório usado somente quando ``fonte='local'``.
         """
-        result = service.manifest_status(Path(diretorio_dados))
-        if result is None:
-            return DatajudStatusResult(encontrado=False)
-        return DatajudStatusResult(
-            encontrado=True,
-            total=result.total,
-            ok=result.ok,
-            com_docs=result.com_docs,
-            sem_docs=result.sem_docs,
-            com_erro=result.com_erro,
-            ultima_atualizacao=result.ultima_atualizacao or None,
+        tribunal = tribunal.lower()
+        if fonte == "local":
+            summary = service.manifest_status(Path(diretorio_dados))
+            return _status_result(
+                summary,
+                tribunal=tribunal,
+                fonte="manifest_local",
+                canonica=False,
+                aviso=(
+                    "Estado local de trabalho; não representa necessariamente a geração "
+                    "publicada do pipeline."
+                ),
+            )
+
+        try:
+            published = state.read_remote_state(tribunal)
+        except state.RemoteStateError as exc:
+            message = (
+                "Não foi possível verificar o estado DataJud publicado. A produção remota "
+                "pode estar indisponível ou inconsistente; isso não significa dataset vazio."
+            )
+            raise ToolError(message) from exc
+        if published is None:
+            return _status_result(
+                None,
+                tribunal=tribunal,
+                fonte="bundle_publicado",
+                canonica=True,
+                aviso="Nenhuma geração coerente DataJud foi publicada para este tribunal.",
+            )
+
+        try:
+            manifest = ManifestDataJud.load_text(
+                published.manifest_text,
+                source=state.bundle_name(tribunal),
+            )
+        except ManifestFormatError as exc:
+            message = (
+                "A geração DataJud publicada passou pela verificação de bytes, mas seu "
+                "manifest não pôde ser interpretado."
+            )
+            raise ToolError(message) from exc
+        artifacts = {
+            name: DatajudArtifact(sha256=str(meta["sha256"]), size=int(meta["size"]))
+            for name, meta in published.files.items()
+        }
+        warning = None
+        if not published.published_at:
+            warning = (
+                "Esta geração foi publicada antes de o bundle registrar timestamp de publicação; "
+                "use ultima_atualizacao como sinal temporal do conteúdo."
+            )
+        return _status_result(
+            _manifest_summary(manifest),
+            tribunal=tribunal,
+            fonte="bundle_publicado",
+            canonica=True,
+            publicado_em=published.published_at or None,
+            geracao=published.generation,
+            artefatos=artifacts,
+            aviso=warning,
         )
 
     @mcp.tool(
@@ -207,14 +343,14 @@ def register(mcp: FastMCP) -> None:
         """Agrega o acervo de DataJud de um tribunal por uma dimensão (classe, assunto, ...).
 
         Consulta a API pública do DataJud ao vivo (chamada de rede, ao
-        contrário de `datajud_status`) para contar documentos agrupados por
-        *por*, sem baixar nenhum documento. Use para responder perguntas
-        como "quais são as 10 principais classes no acervo do TJRO?" sem
-        buscar ou enriquecer processos individuais. Retorna o total do
+        contrário do modo local de `datajud_status`) para contar documentos
+        agrupados por *por*, sem baixar nenhum documento. Use para responder
+        perguntas como "quais são as 10 principais classes no acervo do TJRO?"
+        sem buscar ou enriquecer processos individuais. Retorna o total do
         acervo inteiro mais os `limite` grupos com mais documentos.
-        Um orçamento interno de tempo mais apertado que o do `datajud
-        enrich` da CLI, mais um deadline rígido por chamada, mantêm o pior
-        caso bem abaixo de um minuto, não minutos.
+        Um orçamento interno de tempo mais apertado que o do `datajud enrich`
+        da CLI, mais um deadline rígido por chamada, mantêm o pior caso bem
+        abaixo de um minuto, não minutos.
 
         Args:
             tribunal: Tribunal a consultar, minúsculo (ex.: "tjro"). Default

@@ -129,16 +129,25 @@ def _download_url(file_name: str, tribunal: str) -> str:
     return f"https://archive.org/download/{item_id(tribunal)}/{file_name}"
 
 
-def download_file(file_name: str, tribunal: str) -> bytes | None:
+def download_file(
+    file_name: str,
+    tribunal: str,
+    *,
+    timeout: float = 300,
+    max_retries: int = _MAX_RETRIES,
+) -> bytes | None:
     """Download one file from the tribunal item.
 
     Returns ``None`` only for a definitive HTTP 404. Transport failures,
     exhausted transient statuses and other HTTP errors raise ``OSError`` so a
     caller cannot accidentally treat an unavailable remote state as bootstrap.
+
+    ``timeout`` and ``max_retries`` let interactive consumers use a tighter
+    budget without weakening the ingestion defaults used by ephemeral runners.
     """
     url = _download_url(file_name, tribunal)
-    with httpx.Client(timeout=300, follow_redirects=True) as client:
-        for attempt in range(_MAX_RETRIES + 1):
+    with httpx.Client(timeout=timeout, follow_redirects=True) as client:
+        for attempt in range(max_retries + 1):
             try:
                 response = client.get(url)
             except httpx.HTTPError as exc:
@@ -148,7 +157,7 @@ def download_file(file_name: str, tribunal: str) -> bytes | None:
                     file=file_name,
                     error=str(exc),
                 )
-                if attempt >= _MAX_RETRIES:
+                if attempt >= max_retries:
                     msg = f"Internet Archive download failed for {file_name}: {exc}"
                     raise OSError(msg) from exc
                 continue
@@ -167,7 +176,7 @@ def download_file(file_name: str, tribunal: str) -> bytes | None:
                 status=response.status_code,
                 file=file_name,
             )
-            if attempt >= _MAX_RETRIES:
+            if attempt >= max_retries:
                 msg = f"Internet Archive download exhausted retries for {file_name}"
                 raise OSError(msg)
 

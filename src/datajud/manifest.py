@@ -51,17 +51,13 @@ class ManifestDataJud:
         return (cnj, tribunal.lower())
 
     @classmethod
-    def load_local(cls, path: Path) -> ManifestDataJud:
-        """Load the manifest from a local CSV file (empty when missing).
+    def load_text(cls, text: str, *, source: str = "manifest") -> ManifestDataJud:
+        """Load a manifest from CSV text.
 
-        Raises `ManifestFormatError` on a malformed row (missing column,
-        non-numeric `docs`) instead of leaking a bare `KeyError`/
-        `ValueError` — callers get one nominal exception type to handle.
+        This is the format boundary shared by local manifests and the
+        generation-coherent manifest embedded in the published state bundle.
         """
         manifest = cls()
-        if not path.exists():
-            return manifest
-        text = path.read_text(encoding="utf-8")
         reader = csv.DictReader(io.StringIO(text))
         for row in reader:
             try:
@@ -73,10 +69,22 @@ class ManifestDataJud:
                     status=row.get("status", ""),
                 )
             except (KeyError, ValueError) as exc:
-                msg = f"malformed row in {path}: {exc}"
+                msg = f"malformed row in {source}: {exc}"
                 raise ManifestFormatError(msg) from exc
             manifest._entries[cls._key(entry.cnj, entry.tribunal)] = entry
         return manifest
+
+    @classmethod
+    def load_local(cls, path: Path) -> ManifestDataJud:
+        """Load the manifest from a local CSV file (empty when missing).
+
+        Raises `ManifestFormatError` on a malformed row (missing column,
+        non-numeric `docs`) instead of leaking a bare `KeyError`/
+        `ValueError` — callers get one nominal exception type to handle.
+        """
+        if not path.exists():
+            return cls()
+        return cls.load_text(path.read_text(encoding="utf-8"), source=str(path))
 
     def save_local(self, path: Path) -> None:
         """Persist the manifest to a local CSV file."""

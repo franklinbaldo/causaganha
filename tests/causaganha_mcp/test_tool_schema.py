@@ -30,7 +30,17 @@ _CREDENTIAL_SUBSTRINGS = ("key", "secret", "token", "credential", "password")
 _ENVELOPE_FIELDS = {"encontrado", "total", "ultima_atualizacao", "fonte", "canonica", "aviso"}
 
 _EXPECTED_OUTPUT_FIELDS = {
-    "datajud_status": _ENVELOPE_FIELDS | {"ok", "com_docs", "sem_docs", "com_erro"},
+    "datajud_status": _ENVELOPE_FIELDS
+    | {
+        "tribunal",
+        "ok",
+        "com_docs",
+        "sem_docs",
+        "com_erro",
+        "publicado_em",
+        "geracao",
+        "artefatos",
+    },
     "tjro_juris_status": _ENVELOPE_FIELDS | {"enviados", "pendentes"},
     "stj_acordaos_status": _ENVELOPE_FIELDS | {"enviados", "pendentes"},
     "djen_backup_status": _ENVELOPE_FIELDS
@@ -94,7 +104,7 @@ _EXPECTED_OUTPUT_FIELDS = {
 }
 
 _EXPECTED_INPUT_FIELDS = {
-    "datajud_status": {"diretorio_dados"},
+    "datajud_status": {"tribunal", "fonte", "diretorio_dados"},
     "tjro_juris_status": {"diretorio_dados"},
     "stj_acordaos_status": {"caminho_manifesto"},
     "djen_backup_status": {"arquivo_manifesto"},
