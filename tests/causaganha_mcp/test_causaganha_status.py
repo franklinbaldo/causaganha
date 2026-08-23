@@ -24,7 +24,11 @@ def mcp():
 
 @pytest.fixture(autouse=True)
 def _default_datajud_remote_absent(monkeypatch):
-    monkeypatch.setattr(status_module.datajud_state, "read_remote_state", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(
+        status_module.datajud_state,
+        "read_remote_state",
+        lambda *_args, **_kwargs: None,
+    )
 
 
 async def _status_fn(mcp):
