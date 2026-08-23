@@ -24,7 +24,7 @@ import httpx
 import structlog
 from pydantic import ValidationError
 
-from datajud import archive
+from datajud import archive, state
 from datajud.client import DataJudClient, DataJudError
 from datajud.dedup import capa_row_key, dedup_capas, merge_capa_rows, merge_movimento_rows
 from datajud.manifest import STATUS_OK, ManifestDataJud
@@ -206,6 +206,7 @@ class EnrichResult:
     status: Literal[
         "no_cnjs",
         "nothing_to_do",
+        "restore_error",
         "fetch_error",
         "missing_credentials",
         "upload_error",
@@ -218,22 +219,8 @@ class EnrichResult:
     n_capa: int = 0
     n_mov: int = 0
     manifest_entries: int = 0
-
-
-def _upload_step(
-    capa_path: Path,
-    mov_path: Path,
-    tribunal: str,
-    ia_key: str,
-    ia_secret: str,
-) -> tuple[Literal["missing_credentials", "upload_error"], str] | None:
-    """Attempt the IA upload for ``enrich``; returns ``(status, error)`` on failure, else None."""
-    if not ia_key or not ia_secret:
-        return "missing_credentials", ""
-    result = upload_parquets([capa_path, mov_path], tribunal, ia_key, ia_secret)
-    if not result.ok:
-        return "upload_error", result.failed_file or ""
-    return None
+    restore_status: str = ""
+    generation: str = ""
 
 
 def _pending_cnjs(
@@ -256,6 +243,10 @@ def _pending_cnjs(
     return pending[:limit] if limit > 0 else pending
 
 
+def _candidate_manifest_path(data_dir: Path) -> Path:
+    return data_dir / f".{MANIFEST_NAME}.pending"
+
+
 def enrich(
     tribunal: str,
     data_dir: Path,
@@ -270,46 +261,79 @@ def enrich(
     ia_key: str,
     ia_secret: str,
 ) -> EnrichResult:
-    """Consulta capa + movimentos dos CNJs pendentes e arquiva parquets no IA."""
+    """Consulta capa + movimentos dos CNJs pendentes e arquiva estado coerente no IA."""
+    restore_status = ""
+    if not skip_upload:
+        try:
+            restored = state.restore_remote_state(data_dir, tribunal)
+        except state.RemoteStateError as exc:
+            return EnrichResult(status="restore_error", error=str(exc))
+        restore_status = restored.status
+
     candidates = gather_cnjs(cnj, cnj_file, sources_dir)
     if not candidates:
-        return EnrichResult(status="no_cnjs")
+        return EnrichResult(status="no_cnjs", restore_status=restore_status)
 
     manifest = ManifestDataJud.load_local(manifest_path(data_dir))
     pending = _pending_cnjs(candidates, manifest, tribunal, max_age_days, limit)
 
     if not pending:
-        return EnrichResult(status="nothing_to_do")
+        return EnrichResult(status="nothing_to_do", restore_status=restore_status)
 
     log.info("datajud_consulting", count=len(pending), tribunal=tribunal.upper())
     try:
         capas = dedup_capas(asyncio.run(fetch_capas(pending, tribunal, batch_size)))
     except (DataJudError, httpx.HTTPError) as exc:
-        return EnrichResult(status="fetch_error", error=str(exc))
+        return EnrichResult(status="fetch_error", error=str(exc), restore_status=restore_status)
 
     capa_path, mov_path, n_capa, n_mov = persist(capas, tribunal, data_dir)
-
-    # Mark the manifest fresh only after a successful upload (or an explicit
-    # --skip-upload) — otherwise a failed IA push would be indistinguishable
-    # from a completed one, and needs_refresh() would skip these CNJs for up
-    # to max_age_days before the upload is ever retried.
-    if not skip_upload:
-        failure = _upload_step(capa_path, mov_path, tribunal, ia_key, ia_secret)
-        if failure is not None:
-            status, error = failure
-            return EnrichResult(
-                status=status,
-                error=error,
-                capa_path=capa_path,
-                mov_path=mov_path,
-                n_capa=n_capa,
-                n_mov=n_mov,
-            )
 
     found = Counter(capa.cnj for capa in capas)
     for consulted in pending:
         manifest.upsert(consulted, tribunal, docs=found.get(consulted, 0), status=STATUS_OK)
-    manifest.save_local(manifest_path(data_dir))
+
+    generation = ""
+    if skip_upload:
+        manifest.save_local(manifest_path(data_dir))
+    else:
+        if not ia_key or not ia_secret:
+            return EnrichResult(
+                status="missing_credentials",
+                pending=pending,
+                capa_path=capa_path,
+                mov_path=mov_path,
+                n_capa=n_capa,
+                n_mov=n_mov,
+                restore_status=restore_status,
+            )
+
+        candidate_manifest = _candidate_manifest_path(data_dir)
+        manifest.save_local(candidate_manifest)
+        try:
+            published = state.publish_remote_state(
+                capa_path,
+                mov_path,
+                candidate_manifest,
+                tribunal,
+                ia_key,
+                ia_secret,
+            )
+            if not published.ok:
+                return EnrichResult(
+                    status="upload_error",
+                    error=published.failed_file or "",
+                    pending=pending,
+                    capa_path=capa_path,
+                    mov_path=mov_path,
+                    n_capa=n_capa,
+                    n_mov=n_mov,
+                    restore_status=restore_status,
+                    generation=published.generation,
+                )
+            generation = published.generation
+            candidate_manifest.replace(manifest_path(data_dir))
+        finally:
+            candidate_manifest.unlink(missing_ok=True)
 
     return EnrichResult(
         status="done",
@@ -319,6 +343,8 @@ def enrich(
         n_capa=n_capa,
         n_mov=n_mov,
         manifest_entries=len(manifest),
+        restore_status=restore_status,
+        generation=generation,
     )
 
 
