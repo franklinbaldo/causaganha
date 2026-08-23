@@ -17,6 +17,10 @@ log = structlog.get_logger()
 HEADER = "arquivo,tipo,data_extracao,ia_status,n_registros,updated_at"
 
 
+class ManifestFormatError(ValueError):
+    """The manifest CSV cannot be interpreted as an STJ sync manifest."""
+
+
 class ManifestSTJEntry:
     """A single STJ resource file with its sync state."""
 
@@ -49,17 +53,25 @@ class ManifestSTJ:
 
     # ── Persistence ──────────────────────────────────────────────────────
 
-    def load(self) -> int:
-        """Load entries from the CSV file. Returns count of rows loaded."""
-        if not self._path.exists():
-            return 0
+    def load_text(self, text: str, *, source: str = "<memory>", strict: bool = True) -> int:
+        """Load entries from CSV text, optionally failing closed on malformed rows."""
+        self._entries.clear()
+        lines = text.splitlines()
+        header = next((line.strip() for line in lines if line.strip()), "")
+        if strict and header != HEADER:
+            msg = f"malformed manifest {source}: expected header {HEADER!r}, got {header!r}"
+            raise ManifestFormatError(msg)
+
         count = 0
-        for line in self._path.read_text(encoding="utf-8").splitlines():
-            line = line.strip()
+        for raw_line in lines:
+            line = raw_line.strip()
             if not line or line.startswith("arquivo"):
                 continue
             parts = line.split(",")
             if len(parts) < 6:  # noqa: PLR2004
+                if strict:
+                    msg = f"malformed row in {source}: expected 6 columns, got {len(parts)}"
+                    raise ManifestFormatError(msg)
                 continue
             arquivo, tipo, data_extracao, ia_status, n_registros_str, updated_at = (
                 parts[0],
@@ -71,7 +83,10 @@ class ManifestSTJ:
             )
             try:
                 n_registros = int(n_registros_str)
-            except ValueError:
+            except ValueError as exc:
+                if strict:
+                    msg = f"malformed row in {source}: invalid n_registros {n_registros_str!r}"
+                    raise ManifestFormatError(msg) from exc
                 n_registros = 0
             self._entries[arquivo] = ManifestSTJEntry(
                 arquivo=arquivo,
@@ -82,6 +97,17 @@ class ManifestSTJ:
                 updated_at=updated_at,
             )
             count += 1
+        return count
+
+    def load(self) -> int:
+        """Load entries from the CSV file. Returns count of rows loaded."""
+        if not self._path.exists():
+            return 0
+        count = self.load_text(
+            self._path.read_text(encoding="utf-8"),
+            source=str(self._path),
+            strict=False,
+        )
         log.info("stj_manifest_loaded", path=str(self._path), count=count)
         return count
 
