@@ -159,7 +159,10 @@ def _tjro_juris_status() -> PipelineStatus:
             aviso="Nenhum manifest TJRO JURIS foi publicado no Internet Archive.",
         )
     try:
-        manifest = ManifestJuris.load_text(text, source=tjro_juris_archive.MANIFEST_DOWNLOAD_URL)
+        manifest = ManifestJuris.load_text(
+            text,
+            source=tjro_juris_archive.MANIFEST_DOWNLOAD_URL,
+        )
     except TjroJurisManifestFormatError as exc:
         return PipelineStatus(
             nome="tjro_juris",
@@ -173,7 +176,9 @@ def _tjro_juris_status() -> PipelineStatus:
         )
     entries = manifest.all_entries()
     uploaded = sum(1 for entry in entries if entry.ia_status == "uploaded")
-    ultima_atualizacao = max((entry.updated_at for entry in entries if entry.updated_at), default="")
+    ultima_atualizacao = max(
+        (entry.updated_at for entry in entries if entry.updated_at), default=""
+    )
     return PipelineStatus(
         nome="tjro_juris",
         observacao="present",
@@ -234,7 +239,9 @@ def _stj_acordaos_status() -> PipelineStatus:
         )
     rows = manifest.to_df() if count else []
     uploaded = sum(1 for row in rows if row["ia_status"] == "uploaded")
-    ultima_atualizacao = max((row["updated_at"] for row in rows if row["updated_at"]), default="")
+    ultima_atualizacao = max(
+        (row["updated_at"] for row in rows if row["updated_at"]), default=""
+    )
     return PipelineStatus(
         nome="stj_acordaos",
         observacao="present",
@@ -346,7 +353,8 @@ def _pipeline_statuses(
     declared = metadata if metadata is not None else knowledge.load_pipeline_metadata()
     by_tool = {item.mcp_status: item for item in declared}
     if len(by_tool) != len(declared):
-        raise RuntimeError("knowledge Pipeline relation contains duplicate mcp_status values")
+        message = "knowledge Pipeline relation contains duplicate mcp_status values"
+        raise RuntimeError(message)
 
     bindings = pipeline_status_loaders()
     expected_tools = {tool for tool, _loader in bindings}
@@ -354,9 +362,10 @@ def _pipeline_statuses(
     if declared_tools != expected_tools:
         missing = sorted(expected_tools - declared_tools)
         unknown = sorted(declared_tools - expected_tools)
-        raise RuntimeError(
+        message = (
             f"knowledge Pipeline bindings disagree with code: missing={missing}, unknown={unknown}"
         )
+        raise RuntimeError(message)
 
     results: list[PipelineStatus] = []
     for tool_name, loader in bindings:
@@ -364,15 +373,13 @@ def _pipeline_statuses(
         try:
             import_module(f"{item.pacote}.service")
         except ImportError as error:
-            raise RuntimeError(
-                f"Pipeline {item.nome!r} declares unavailable package {item.pacote!r}"
-            ) from error
+            message = f"Pipeline {item.nome!r} declares unavailable package {item.pacote!r}"
+            raise RuntimeError(message) from error
 
         result = loader()
         if result.nome != item.nome:
-            raise RuntimeError(
-                f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
-            )
+            message = f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
+            raise RuntimeError(message)
         results.append(result)
     return results
 
