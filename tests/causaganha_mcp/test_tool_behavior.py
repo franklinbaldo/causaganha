@@ -234,7 +234,7 @@ async def test_djen_backup_status_populated_manifest(mcp, tmp_path: Path) -> Non
     assert result.encontrado is True
     assert result.total == 4
     assert result.enviados == 1
-    assert result.pendentes == 1
+    assert result.disponiveis == 1
     assert result.ausentes == 1
     assert result.desconhecidos == 1
     assert result.ultima_atualizacao == "2026-01-03T00:00:00"
