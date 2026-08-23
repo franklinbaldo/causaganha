@@ -66,7 +66,9 @@ class DatajudStatusResult(BaseModel):
     encontrado: bool = Field(
         description="False somente quando a fonte escolhida não contém estado algum."
     )
-    tribunal: str = Field(default=DEFAULT_TRIBUNAL, description="Tribunal representado pelo estado.")
+    tribunal: str = Field(
+        default=DEFAULT_TRIBUNAL, description="Tribunal representado pelo estado."
+    )
     total: int = Field(default=0, description="CNJs consultados até agora.")
     ok: int = Field(default=0, description="CNJs cuja última consulta teve sucesso.")
     com_docs: int = Field(default=0, description="CNJs consultados com pelo menos um documento.")
@@ -370,7 +372,8 @@ def register(mcp: FastMCP) -> None:
             por=por,
             total=total,
             grupos=[
-                DatajudFacetaBucket(chave=bucket["chave"], qtd=bucket["qtd"]) for bucket in buckets
+                DatajudFacetaBucket(chave=bucket["chave"], qtd=bucket["qtd"])
+                for bucket in buckets
             ],
             consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
         )
