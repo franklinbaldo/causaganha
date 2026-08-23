@@ -177,16 +177,27 @@ def _verified_payloads(content: bytes, tribunal: str) -> tuple[dict[str, bytes],
     return payloads, generation, metadata
 
 
-def read_remote_state(tribunal: str) -> PublishedState | None:
+def read_remote_state(
+    tribunal: str,
+    *,
+    timeout: float = 15.0,
+    max_retries: int = 1,
+) -> PublishedState | None:
     """Read the authoritative published generation without mutating local state.
 
     Returns ``None`` only when the coherent bundle itself is absent (HTTP 404).
     Transport failures, malformed bundles and checksum mismatches fail closed as
     ``RemoteStateError`` so callers cannot confuse an unavailable remote with an
-    empty dataset.
+    empty dataset. Interactive reads intentionally use a tighter network budget
+    than the ingestion restore path.
     """
     try:
-        content = archive.download_file(bundle_name(tribunal), tribunal)
+        content = archive.download_file(
+            bundle_name(tribunal),
+            tribunal,
+            timeout=timeout,
+            max_retries=max_retries,
+        )
     except OSError as exc:
         msg = f"failed to download DataJud state bundle: {exc}"
         raise RemoteStateError(msg) from exc
@@ -200,15 +211,22 @@ def read_remote_state(tribunal: str) -> PublishedState | None:
     except UnicodeDecodeError as exc:
         msg = "DataJud state manifest is not valid UTF-8"
         raise RemoteStateError(msg) from exc
+    published_at = metadata.get("published_at") or ""
+    if not isinstance(published_at, str):
+        msg = "DataJud state published_at is not a string"
+        raise RemoteStateError(msg)
     files = {
-        name: {"sha256": str(values["sha256"]), "size": int(values["size"])}
-        for name, values in metadata["files"].items()
+        name: {
+            "sha256": str(metadata["files"][name]["sha256"]),
+            "size": int(metadata["files"][name]["size"]),
+        }
+        for name in _payload_names(tribunal)
     }
     return PublishedState(
         tribunal=tribunal.lower(),
         generation=generation,
         manifest_text=manifest_text,
-        published_at=str(metadata.get("published_at") or ""),
+        published_at=published_at,
         files=files,
     )
 
