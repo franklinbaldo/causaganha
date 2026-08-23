@@ -63,7 +63,9 @@ async def test_datajud_status_defaults_to_published_generation(
     monkeypatch.setattr(
         archive,
         "download_file",
-        lambda file_name, _tribunal: bundle if file_name == state.bundle_name("tjro") else None,
+        lambda file_name, _tribunal, **_kwargs: (
+            bundle if file_name == state.bundle_name("tjro") else None
+        ),
     )
 
     fn = await _tool_fn(mcp, "datajud_status")
@@ -89,7 +91,11 @@ async def test_datajud_status_defaults_to_published_generation(
 async def test_datajud_status_published_absent_is_explicit(
     mcp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    monkeypatch.setattr(archive, "download_file", lambda _file_name, _tribunal: None)
+    monkeypatch.setattr(
+        archive,
+        "download_file",
+        lambda _file_name, _tribunal, **_kwargs: None,
+    )
     fn = await _tool_fn(mcp, "datajud_status")
 
     result = fn()
@@ -104,7 +110,7 @@ async def test_datajud_status_published_absent_is_explicit(
 async def test_datajud_status_remote_failure_is_not_empty_dataset(
     mcp, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    def fail_download(_file_name: str, _tribunal: str) -> bytes | None:
+    def fail_download(_file_name: str, _tribunal: str, **_kwargs) -> bytes | None:
         raise OSError("network unavailable")
 
     monkeypatch.setattr(archive, "download_file", fail_download)
