@@ -85,10 +85,7 @@ def build_bundle(
     """Build a content-addressed state bundle from the three local artifacts."""
     expected_names = _payload_names(tribunal)
     paths = (capa_path, movimentos_path, manifest_path)
-    payloads = {
-        name: path.read_bytes()
-        for name, path in zip(expected_names, paths, strict=True)
-    }
+    payloads = {name: path.read_bytes() for name, path in zip(expected_names, paths, strict=True)}
     generation = _generation(payloads)
     metadata = {
         "schema_version": STATE_SCHEMA_VERSION,
