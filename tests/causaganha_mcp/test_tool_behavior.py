@@ -12,8 +12,10 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 import pytest
+from fastmcp.exceptions import ToolError
 
 from causaganha_mcp.server import build_server
+from datajud import archive, state
 from datajud.manifest import STATUS_OK, ManifestDataJud
 from djen_backup.manifest import HEADER, SyncManifest
 from stj_acordaos.manifest import ManifestSTJ
@@ -37,35 +39,97 @@ async def _tool_fn(mcp, name: str):
 # ── datajud_status ──────────────────────────────────────────────────────
 
 
-async def test_datajud_status_empty_manifest(mcp, tmp_path: Path) -> None:
-    fn = await _tool_fn(mcp, "datajud_status")
-    result = fn(diretorio_dados=str(tmp_path / "datajud"))
-    assert result.encontrado is False
-    assert result.total == 0
-    assert result.ultima_atualizacao is None
-    assert result.fonte == "manifest_local"
-    assert result.canonica is True
-
-
-async def test_datajud_status_populated_manifest(mcp, tmp_path: Path) -> None:
-    data_dir = tmp_path / "datajud"
+def _published_bundle(tmp_path: Path) -> tuple[bytes, str]:
+    data_dir = tmp_path / "published"
     data_dir.mkdir()
-    manifest = ManifestDataJud.load_local(data_dir / "datajud-manifest.csv")
+    capa = data_dir / archive.capa_parquet_name("tjro")
+    movimentos = data_dir / archive.movimentos_parquet_name("tjro")
+    manifest_path = data_dir / "datajud-manifest.csv"
+    capa.write_bytes(b"capa")
+    movimentos.write_bytes(b"movimentos")
+
+    manifest = ManifestDataJud()
     manifest.upsert("00000010220248220001", "tjro", docs=2, status=STATUS_OK)
     manifest.upsert("00000020320248220002", "tjro", docs=0, status=STATUS_OK)
     manifest.upsert("00000030420248220003", "tjro", docs=0, status="erro")
-    manifest.save_local(data_dir / "datajud-manifest.csv")
+    manifest.save_local(manifest_path)
+    return state.build_bundle(capa, movimentos, manifest_path, "tjro")
+
+
+async def test_datajud_status_defaults_to_published_generation(
+    mcp, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    bundle, generation = _published_bundle(tmp_path)
+    monkeypatch.setattr(
+        archive,
+        "download_file",
+        lambda file_name, _tribunal: bundle if file_name == state.bundle_name("tjro") else None,
+    )
 
     fn = await _tool_fn(mcp, "datajud_status")
-    result = fn(diretorio_dados=str(data_dir))
+    result = fn()
 
     assert result.encontrado is True
+    assert result.tribunal == "tjro"
     assert result.total == 3
     assert result.ok == 2
     assert result.com_docs == 1
     assert result.sem_docs == 1
     assert result.com_erro == 1
     assert result.ultima_atualizacao is not None
+    assert result.publicado_em is not None
+    assert result.geracao == generation
+    assert result.fonte == "bundle_publicado"
+    assert result.canonica is True
+    assert state.bundle_name("tjro") not in result.artefatos
+    assert archive.capa_parquet_name("tjro") in result.artefatos
+    assert "datajud-manifest.csv" in result.artefatos
+
+
+async def test_datajud_status_published_absent_is_explicit(
+    mcp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(archive, "download_file", lambda _file_name, _tribunal: None)
+    fn = await _tool_fn(mcp, "datajud_status")
+
+    result = fn()
+
+    assert result.encontrado is False
+    assert result.total == 0
+    assert result.fonte == "bundle_publicado"
+    assert result.canonica is True
+    assert result.aviso is not None
+
+
+async def test_datajud_status_remote_failure_is_not_empty_dataset(
+    mcp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_download(_file_name: str, _tribunal: str) -> bytes | None:
+        raise OSError("network unavailable")
+
+    monkeypatch.setattr(archive, "download_file", fail_download)
+    fn = await _tool_fn(mcp, "datajud_status")
+
+    with pytest.raises(ToolError, match="não significa dataset vazio"):
+        fn()
+
+
+async def test_datajud_status_local_is_explicitly_noncanonical(mcp, tmp_path: Path) -> None:
+    data_dir = tmp_path / "datajud"
+    data_dir.mkdir()
+    manifest = ManifestDataJud.load_local(data_dir / "datajud-manifest.csv")
+    manifest.upsert("00000010220248220001", "tjro", docs=2, status=STATUS_OK)
+    manifest.save_local(data_dir / "datajud-manifest.csv")
+
+    fn = await _tool_fn(mcp, "datajud_status")
+    result = fn(fonte="local", diretorio_dados=str(data_dir))
+
+    assert result.encontrado is True
+    assert result.total == 1
+    assert result.fonte == "manifest_local"
+    assert result.canonica is False
+    assert result.geracao is None
+    assert result.aviso is not None
 
 
 # ── tjro_juris_status ───────────────────────────────────────────────────
@@ -170,7 +234,7 @@ async def test_djen_backup_status_populated_manifest(mcp, tmp_path: Path) -> Non
     assert result.encontrado is True
     assert result.total == 4
     assert result.enviados == 1
-    assert result.disponiveis == 1
+    assert result.pendentes == 1
     assert result.ausentes == 1
     assert result.desconhecidos == 1
     assert result.ultima_atualizacao == "2026-01-03T00:00:00"
