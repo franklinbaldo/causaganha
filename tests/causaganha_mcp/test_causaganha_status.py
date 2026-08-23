@@ -132,7 +132,7 @@ async def test_no_health_verdict_field_anywhere_in_the_schema(mcp) -> None:
         assert banned not in schema_text.lower()
 
 
-def test_reuses_service_layer_directly_not_the_other_tools_via_mcp() -> None:
+def test_reuses_authorities_directly_not_the_other_tools_via_mcp() -> None:
     """Build the aggregate in-process, never by recursively calling sibling MCP tools."""
     source = inspect.getsource(status_module)
     assert "causaganha_mcp.tools" not in source
@@ -140,7 +140,7 @@ def test_reuses_service_layer_directly_not_the_other_tools_via_mcp() -> None:
     assert "call_tool" not in source
     assert "Client(" not in source
     for module in (
-        "datajud.service",
+        "datajud_state",
         "djen_backup.service",
         "stj_acordaos.service",
         "tjro_juris.service",
