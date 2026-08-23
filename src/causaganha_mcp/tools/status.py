@@ -1,9 +1,9 @@
 """``causaganha_status`` — panorama agregado dos quatro pipelines (RFC 0014 M1).
 
-Os fatos de cada pipeline continuam vindo diretamente de seus ``service.py``.
-A identidade estável do produto — nome, pacote, fonte e tool de status — vem
-agora da relação tipada ``Pipeline`` em ``knowledge/``. Não há chamada MCP
-recursiva e nenhum contrato físico de dados foi movido para Markdown.
+Os fatos de cada pipeline continuam vindo diretamente de sua autoridade já
+estabelecida. A identidade estável do produto — nome, pacote, fonte e tool de
+status — vem da relação tipada ``Pipeline`` em ``knowledge/``. Não há chamada
+MCP recursiva e nenhum contrato físico de dados foi movido para Markdown.
 """
 
 from __future__ import annotations
@@ -18,8 +18,8 @@ import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
 import tjro_juris.service as tjro_juris_service
 from causaganha_mcp import knowledge
-from datajud import service as datajud_service
 from datajud import state as datajud_state
+from datajud.client import DEFAULT_TRIBUNAL
 from datajud.manifest import (
     STATUS_OK,
     ManifestDataJud,
@@ -184,9 +184,8 @@ def _stj_acordaos_status() -> PipelineStatus:
 
 
 def _datajud_status() -> PipelineStatus:
-    tribunal = datajud_service.DEFAULT_TRIBUNAL
     try:
-        published = datajud_state.read_remote_state(tribunal)
+        published = datajud_state.read_remote_state(DEFAULT_TRIBUNAL)
     except datajud_state.RemoteStateError as exc:
         return PipelineStatus(
             nome="datajud",
@@ -217,7 +216,7 @@ def _datajud_status() -> PipelineStatus:
     try:
         manifest = ManifestDataJud.load_text(
             published.manifest_text,
-            source=datajud_state.bundle_name(tribunal),
+            source=datajud_state.bundle_name(DEFAULT_TRIBUNAL),
         )
     except DatajudManifestFormatError as exc:
         return PipelineStatus(
@@ -330,10 +329,10 @@ def register(mcp: FastMCP) -> None:
     def causaganha_status() -> CausaganhaStatusResult:
         """Panorama dos pipelines declarados no catálogo OKF do CausaGanha.
 
-        O catálogo ``Pipeline`` fornece identidade estável e binding de produto;
-        cada loader continua chamando diretamente a camada ``service.py`` já
-        estabelecida. A observação DataJud usa a mesma geração publicada que
-        governa restore incremental; falha de uma fonte individual continua
-        virando resultado parcial, enquanto divergência do catálogo é explícita.
+        O catálogo ``Pipeline`` fornece identidade estável e binding de produto.
+        DJEN/TJRO JURIS/STJ consultam seus services; DataJud consulta a mesma
+        geração publicada e verificada que governa restore incremental. Falha de
+        uma fonte individual continua virando resultado parcial, enquanto
+        divergência do catálogo é explícita.
         """
         return CausaganhaStatusResult(pipelines=_pipeline_statuses())
