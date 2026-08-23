@@ -12,22 +12,21 @@ from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
 
+import httpx
 from pydantic import BaseModel, Field
 
 import djen_backup.service as djen_backup_service
-import stj_acordaos.service as stj_acordaos_service
-import tjro_juris.service as tjro_juris_service
 from causaganha_mcp import knowledge
 from datajud import state as datajud_state
 from datajud.client import DEFAULT_TRIBUNAL
-from datajud.manifest import (
-    STATUS_OK,
-    ManifestDataJud,
-)
-from datajud.manifest import (
-    ManifestFormatError as DatajudManifestFormatError,
-)
+from datajud.manifest import STATUS_OK, ManifestDataJud
+from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
+from stj_acordaos import archive as stj_acordaos_archive
+from stj_acordaos.manifest import ManifestFormatError as StjManifestFormatError
+from stj_acordaos.manifest import ManifestSTJ
+from tjro_juris import archive as tjro_juris_archive
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
+from tjro_juris.manifest import ManifestJuris
 
 
 if TYPE_CHECKING:
@@ -35,8 +34,6 @@ if TYPE_CHECKING:
 
     from fastmcp import FastMCP
 
-
-_TJRO_JURIS_DEFAULT_DATA_DIR = "data/tjro-juris"
 
 _DJEN_CANONICAL_NOTE = (
     "Origem local, não canônica: a fonte de verdade do DJEN é o "
@@ -79,10 +76,12 @@ class PipelineStatus(BaseModel):
         default=None,
         description="Identidade verificável da geração observada, quando disponível.",
     )
-    fonte: Literal["manifest_local", "cache_local", "bundle_publicado"] = Field(
+    fonte: Literal[
+        "manifest_local", "manifest_publicado", "cache_local", "bundle_publicado"
+    ] = Field(
         description=(
-            "Proveniência concreta da observação: manifest local, cache local ou "
-            "bundle publicado e verificado."
+            "Proveniência concreta da observação: manifest/cache local ou estado publicado "
+            "no Internet Archive."
         )
     )
     canonica: bool = Field(
@@ -133,52 +132,117 @@ def _djen_status() -> PipelineStatus:
 
 def _tjro_juris_status() -> PipelineStatus:
     try:
-        result = tjro_juris_service.manifest_status(Path(_TJRO_JURIS_DEFAULT_DATA_DIR))
-    except (OSError, TjroJurisManifestFormatError) as exc:
+        text = tjro_juris_archive.read_manifest_text()
+    except httpx.HTTPError as exc:
         return PipelineStatus(
             nome="tjro_juris",
             observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
-            fonte="manifest_local",
+            fonte="manifest_publicado",
             canonica=True,
-            aviso=f"Não foi possível ler o manifest local: {exc}",
+            aviso=(
+                "Não foi possível verificar o manifest TJRO JURIS publicado; "
+                f"isso não significa dataset vazio: {exc}"
+            ),
         )
+    if text is None:
+        return PipelineStatus(
+            nome="tjro_juris",
+            observacao="absent",
+            encontrado=False,
+            total=0,
+            contagens={},
+            fonte="manifest_publicado",
+            canonica=True,
+            aviso="Nenhum manifest TJRO JURIS foi publicado no Internet Archive.",
+        )
+    try:
+        manifest = ManifestJuris.load_text(text, source=tjro_juris_archive.MANIFEST_DOWNLOAD_URL)
+    except TjroJurisManifestFormatError as exc:
+        return PipelineStatus(
+            nome="tjro_juris",
+            observacao="unavailable",
+            encontrado=False,
+            total=0,
+            contagens={},
+            fonte="manifest_publicado",
+            canonica=True,
+            aviso=f"O manifest TJRO JURIS publicado existe, mas é inválido: {exc}",
+        )
+    entries = manifest.all_entries()
+    uploaded = sum(1 for entry in entries if entry.ia_status == "uploaded")
+    ultima_atualizacao = max((entry.updated_at for entry in entries if entry.updated_at), default="")
     return PipelineStatus(
         nome="tjro_juris",
-        observacao="present" if result.total > 0 else "absent",
-        encontrado=result.total > 0,
-        total=result.total,
-        contagens={"enviados": result.uploaded, "pendentes": result.pending},
-        ultima_atualizacao=result.ultima_atualizacao or None,
-        fonte="manifest_local",
+        observacao="present",
+        encontrado=bool(entries),
+        total=len(entries),
+        contagens={"enviados": uploaded, "pendentes": len(entries) - uploaded},
+        ultima_atualizacao=ultima_atualizacao or None,
+        fonte="manifest_publicado",
         canonica=True,
     )
 
 
 def _stj_acordaos_status() -> PipelineStatus:
     try:
-        result = stj_acordaos_service.manifest_summary(stj_acordaos_service.DEFAULT_MANIFEST)
-    except OSError as exc:
+        text = stj_acordaos_archive.read_manifest_text()
+    except httpx.HTTPError as exc:
         return PipelineStatus(
             nome="stj_acordaos",
             observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
-            fonte="manifest_local",
+            fonte="manifest_publicado",
             canonica=True,
-            aviso=f"Não foi possível ler o manifest local: {exc}",
+            aviso=(
+                "Não foi possível verificar o manifest STJ publicado; "
+                f"isso não significa dataset vazio: {exc}"
+            ),
         )
+    if text is None:
+        return PipelineStatus(
+            nome="stj_acordaos",
+            observacao="absent",
+            encontrado=False,
+            total=0,
+            contagens={},
+            fonte="manifest_publicado",
+            canonica=True,
+            aviso="Nenhum manifest STJ foi publicado no Internet Archive.",
+        )
+    manifest = ManifestSTJ(Path("stj-manifest-publicado.csv"))
+    try:
+        count = manifest.load_text(
+            text,
+            source=stj_acordaos_archive.MANIFEST_DOWNLOAD_URL,
+            strict=True,
+        )
+    except StjManifestFormatError as exc:
+        return PipelineStatus(
+            nome="stj_acordaos",
+            observacao="unavailable",
+            encontrado=False,
+            total=0,
+            contagens={},
+            fonte="manifest_publicado",
+            canonica=True,
+            aviso=f"O manifest STJ publicado existe, mas é inválido: {exc}",
+        )
+    rows = manifest.to_df() if count else []
+    uploaded = sum(1 for row in rows if row["ia_status"] == "uploaded")
+    ultima_atualizacao = max((row["updated_at"] for row in rows if row["updated_at"]), default="")
     return PipelineStatus(
         nome="stj_acordaos",
-        observacao="present" if result.count > 0 else "absent",
-        encontrado=result.count > 0,
-        total=result.count,
-        contagens={"enviados": result.uploaded, "pendentes": result.pending},
-        ultima_atualizacao=result.ultima_atualizacao or None,
-        fonte="manifest_local",
+        observacao="present",
+        encontrado=bool(rows),
+        total=count,
+        contagens={"enviados": uploaded, "pendentes": count - uploaded},
+        ultima_atualizacao=ultima_atualizacao or None,
+        fonte="manifest_publicado",
         canonica=True,
     )
 
@@ -282,8 +346,7 @@ def _pipeline_statuses(
     declared = metadata if metadata is not None else knowledge.load_pipeline_metadata()
     by_tool = {item.mcp_status: item for item in declared}
     if len(by_tool) != len(declared):
-        message = "knowledge Pipeline relation contains duplicate mcp_status values"
-        raise RuntimeError(message)
+        raise RuntimeError("knowledge Pipeline relation contains duplicate mcp_status values")
 
     bindings = pipeline_status_loaders()
     expected_tools = {tool for tool, _loader in bindings}
@@ -291,10 +354,9 @@ def _pipeline_statuses(
     if declared_tools != expected_tools:
         missing = sorted(expected_tools - declared_tools)
         unknown = sorted(declared_tools - expected_tools)
-        message = (
+        raise RuntimeError(
             f"knowledge Pipeline bindings disagree with code: missing={missing}, unknown={unknown}"
         )
-        raise RuntimeError(message)
 
     results: list[PipelineStatus] = []
     for tool_name, loader in bindings:
@@ -302,13 +364,15 @@ def _pipeline_statuses(
         try:
             import_module(f"{item.pacote}.service")
         except ImportError as error:
-            message = f"Pipeline {item.nome!r} declares unavailable package {item.pacote!r}"
-            raise RuntimeError(message) from error
+            raise RuntimeError(
+                f"Pipeline {item.nome!r} declares unavailable package {item.pacote!r}"
+            ) from error
 
         result = loader()
         if result.nome != item.nome:
-            message = f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
-            raise RuntimeError(message)
+            raise RuntimeError(
+                f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
+            )
         results.append(result)
     return results
 
@@ -330,9 +394,9 @@ def register(mcp: FastMCP) -> None:
         """Panorama dos pipelines declarados no catálogo OKF do CausaGanha.
 
         O catálogo ``Pipeline`` fornece identidade estável e binding de produto.
-        DJEN/TJRO JURIS/STJ consultam seus services; DataJud consulta a mesma
-        geração publicada e verificada que governa restore incremental. Falha de
-        uma fonte individual continua virando resultado parcial, enquanto
-        divergência do catálogo é explícita.
+        TJRO JURIS/STJ/DataJud consultam a mesma autoridade publicada que governa
+        sua continuidade; DJEN permanece explicitamente local/não canônico até
+        seu boundary remoto ser ligado. Falha de uma fonte individual continua
+        virando resultado parcial, enquanto divergência do catálogo é explícita.
         """
         return CausaganhaStatusResult(pipelines=_pipeline_statuses())
