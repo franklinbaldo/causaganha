@@ -19,10 +19,13 @@ import io
 import json
 import zipfile
 from dataclasses import dataclass
-from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from datajud import archive
+
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 STATE_SCHEMA_VERSION = 1
