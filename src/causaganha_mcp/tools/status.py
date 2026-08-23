@@ -15,11 +15,12 @@ from typing import TYPE_CHECKING, Literal
 from pydantic import BaseModel, Field
 
 import datajud.service as datajud_service
+import datajud.state as datajud_state
 import djen_backup.service as djen_backup_service
 import stj_acordaos.service as stj_acordaos_service
 import tjro_juris.service as tjro_juris_service
 from causaganha_mcp import knowledge
-from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
+from datajud.manifest import STATUS_OK, ManifestDataJud, ManifestFormatError as DatajudManifestFormatError
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
 
 
@@ -39,13 +40,20 @@ _DJEN_CANONICAL_NOTE = (
 
 
 class PipelineStatus(BaseModel):
-    """Panorama de um único pipeline dentro do resultado agregado."""
+    """Panorama factual de um único pipeline dentro do resultado agregado."""
 
     nome: Literal["djen", "tjro_juris", "stj_acordaos", "datajud"] = Field(
         description="Identificador do pipeline."
     )
+    observacao: Literal["present", "absent", "unavailable"] = Field(
+        description=(
+            "Estado factual da observação desta fonte: present quando foi lida, "
+            "absent quando a fonte autoritativa não contém estado, unavailable "
+            "quando a fonte existe/é esperada mas não pôde ser verificada."
+        )
+    )
     encontrado: bool = Field(
-        description="False quando não há manifest ou dado algum nesta máquina para este pipeline."
+        description="True quando a fonte observada contém pelo menos um item registrado."
     )
     total: int = Field(description="Total de itens registrados (unidade específica do pipeline).")
     contagens: dict[str, int] = Field(
@@ -57,20 +65,28 @@ class PipelineStatus(BaseModel):
         description="Timestamp (ISO 8601) da entrada mais recentemente atualizada, ou "
         "None quando não há nenhuma entrada.",
     )
-    fonte: Literal["manifest_local", "cache_local"] = Field(
-        description="'manifest_local': o manifest é a própria fonte de verdade. "
-        "'cache_local': cache que pode estar atrasado em relação a uma fonte canônica "
-        "remota (ver `canonica`/`aviso`)."
+    publicado_em: str | None = Field(
+        default=None,
+        description="Timestamp de publicação da geração observada, quando a fonte o registra.",
+    )
+    geracao: str | None = Field(
+        default=None,
+        description="Identidade verificável da geração observada, quando disponível.",
+    )
+    fonte: Literal["manifest_local", "cache_local", "bundle_publicado"] = Field(
+        description=(
+            "Proveniência concreta da observação: manifest local, cache local ou "
+            "bundle publicado e verificado."
+        )
     )
     canonica: bool = Field(
-        description="False quando existe uma fonte remota mais autoritativa que este "
-        "manifest local (ver `aviso`)."
+        description="False quando existe uma fonte remota mais autoritativa que esta observação."
     )
     aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
 
 class CausaganhaStatusResult(BaseModel):
-    """Panorama agregado dos quatro pipelines locais do CausaGanha."""
+    """Panorama agregado dos quatro pipelines do CausaGanha."""
 
     pipelines: list[PipelineStatus] = Field(
         description="Um item por pipeline: djen, tjro_juris, stj_acordaos, datajud."
@@ -83,6 +99,7 @@ def _djen_status() -> PipelineStatus:
     except OSError as exc:
         return PipelineStatus(
             nome="djen",
+            observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
@@ -92,6 +109,7 @@ def _djen_status() -> PipelineStatus:
         )
     return PipelineStatus(
         nome="djen",
+        observacao="present" if result.total > 0 else "absent",
         encontrado=result.total > 0,
         total=result.total,
         contagens={
@@ -113,6 +131,7 @@ def _tjro_juris_status() -> PipelineStatus:
     except (OSError, TjroJurisManifestFormatError) as exc:
         return PipelineStatus(
             nome="tjro_juris",
+            observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
@@ -122,6 +141,7 @@ def _tjro_juris_status() -> PipelineStatus:
         )
     return PipelineStatus(
         nome="tjro_juris",
+        observacao="present" if result.total > 0 else "absent",
         encontrado=result.total > 0,
         total=result.total,
         contagens={"enviados": result.uploaded, "pendentes": result.pending},
@@ -137,6 +157,7 @@ def _stj_acordaos_status() -> PipelineStatus:
     except OSError as exc:
         return PipelineStatus(
             nome="stj_acordaos",
+            observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
@@ -146,6 +167,7 @@ def _stj_acordaos_status() -> PipelineStatus:
         )
     return PipelineStatus(
         nome="stj_acordaos",
+        observacao="present" if result.count > 0 else "absent",
         encontrado=result.count > 0,
         total=result.count,
         contagens={"enviados": result.uploaded, "pendentes": result.pending},
@@ -156,40 +178,85 @@ def _stj_acordaos_status() -> PipelineStatus:
 
 
 def _datajud_status() -> PipelineStatus:
+    tribunal = datajud_service.DEFAULT_TRIBUNAL
     try:
-        result = datajud_service.manifest_status(datajud_service.DEFAULT_DATA_DIR)
-    except (OSError, DatajudManifestFormatError) as exc:
+        published = datajud_state.read_remote_state(tribunal)
+    except datajud_state.RemoteStateError as exc:
         return PipelineStatus(
             nome="datajud",
+            observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
-            fonte="manifest_local",
+            fonte="bundle_publicado",
             canonica=True,
-            aviso=f"Não foi possível ler o manifest local: {exc}",
+            aviso=(
+                "Não foi possível verificar a geração DataJud publicada; "
+                f"isso não significa dataset vazio: {exc}"
+            ),
         )
-    if result is None:
+
+    if published is None:
         return PipelineStatus(
             nome="datajud",
+            observacao="absent",
             encontrado=False,
             total=0,
             contagens={},
-            fonte="manifest_local",
+            fonte="bundle_publicado",
             canonica=True,
+            aviso="Nenhuma geração coerente DataJud foi publicada para este tribunal.",
+        )
+
+    try:
+        manifest = ManifestDataJud.load_text(
+            published.manifest_text,
+            source=datajud_state.bundle_name(tribunal),
+        )
+    except DatajudManifestFormatError as exc:
+        return PipelineStatus(
+            nome="datajud",
+            observacao="unavailable",
+            encontrado=False,
+            total=0,
+            contagens={},
+            publicado_em=published.published_at or None,
+            geracao=published.generation,
+            fonte="bundle_publicado",
+            canonica=True,
+            aviso=f"A geração publicada existe, mas seu manifest é inválido: {exc}",
+        )
+
+    entries = manifest.all_entries()
+    ok = sum(1 for entry in entries if entry.status == STATUS_OK)
+    com_docs = sum(1 for entry in entries if entry.status == STATUS_OK and entry.docs > 0)
+    ultima_atualizacao = max(
+        (entry.consultado_em for entry in entries if entry.consultado_em),
+        default="",
+    )
+    warning = None
+    if not published.published_at:
+        warning = (
+            "Esta geração antecede o timestamp de publicação no bundle; "
+            "use ultima_atualizacao como sinal temporal do conteúdo."
         )
     return PipelineStatus(
         nome="datajud",
-        encontrado=True,
-        total=result.total,
+        observacao="present",
+        encontrado=bool(entries),
+        total=len(entries),
         contagens={
-            "ok": result.ok,
-            "com_docs": result.com_docs,
-            "sem_docs": result.sem_docs,
-            "com_erro": result.com_erro,
+            "ok": ok,
+            "com_docs": com_docs,
+            "sem_docs": ok - com_docs,
+            "com_erro": len(entries) - ok,
         },
-        ultima_atualizacao=result.ultima_atualizacao or None,
-        fonte="manifest_local",
+        ultima_atualizacao=ultima_atualizacao or None,
+        publicado_em=published.published_at or None,
+        geracao=published.generation,
+        fonte="bundle_publicado",
         canonica=True,
+        aviso=warning,
     )
 
 
@@ -251,7 +318,7 @@ def register(mcp: FastMCP) -> None:
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
-            "openWorldHint": False,
+            "openWorldHint": True,
         },
     )
     def causaganha_status() -> CausaganhaStatusResult:
@@ -259,8 +326,8 @@ def register(mcp: FastMCP) -> None:
 
         O catálogo ``Pipeline`` fornece identidade estável e binding de produto;
         cada loader continua chamando diretamente a camada ``service.py`` já
-        estabelecida. Falha de um manifest individual continua virando resultado
-        parcial, enquanto divergência do catálogo é explícita para evitar um
-        panorama silenciosamente obsoleto.
+        estabelecida. A observação DataJud usa a mesma geração publicada que
+        governa restore incremental; falha de uma fonte individual continua
+        virando resultado parcial, enquanto divergência do catálogo é explícita.
         """
         return CausaganhaStatusResult(pipelines=_pipeline_statuses())
