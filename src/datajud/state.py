@@ -144,9 +144,8 @@ def _verified_payloads(content: bytes, tribunal: str) -> tuple[dict[str, bytes],
                 except KeyError as exc:
                     msg = f"DataJud state bundle missing {name}"
                     raise RemoteStateError(msg) from exc
-                if (
-                    len(payload) != file_meta.get("size")
-                    or _sha256(payload) != file_meta.get("sha256")
+                if len(payload) != file_meta.get("size") or _sha256(payload) != file_meta.get(
+                    "sha256"
                 ):
                     msg = f"DataJud state checksum mismatch for {name}"
                     raise RemoteStateError(msg)
