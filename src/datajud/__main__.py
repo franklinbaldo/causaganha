@@ -118,6 +118,9 @@ def enrich(
     if result.status == "nothing_to_do":
         print("Nothing to do — all CNJs are fresh in the manifest.")
         return 0
+    if result.status == "restore_error":
+        print(f"State restore FAILED: {result.error}", file=sys.stderr)
+        return 1
     if result.status == "fetch_error":
         print(f"ERROR: {result.error}", file=sys.stderr)
         return 1
