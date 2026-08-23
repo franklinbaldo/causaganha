@@ -10,6 +10,7 @@ from __future__ import annotations
 import inspect
 from unittest.mock import Mock
 
+import httpx
 import pytest
 
 import causaganha_mcp.tools.status as status_module
@@ -24,12 +25,14 @@ def mcp():
 
 
 @pytest.fixture(autouse=True)
-def _default_datajud_remote_absent(monkeypatch):
+def _default_remote_sources_absent(monkeypatch):
     monkeypatch.setattr(
         status_module.datajud_state,
         "read_remote_state",
         lambda *_args, **_kwargs: None,
     )
+    monkeypatch.setattr(status_module.tjro_juris_archive, "read_manifest_text", lambda: None)
+    monkeypatch.setattr(status_module.stj_acordaos_archive, "read_manifest_text", lambda: None)
 
 
 async def _status_fn(mcp):
@@ -37,7 +40,7 @@ async def _status_fn(mcp):
     return tool.fn
 
 
-async def test_all_four_pipelines_appear_even_with_no_local_data(mcp, tmp_path, monkeypatch):
+async def test_all_four_pipelines_appear_even_with_no_state(mcp, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
 
     fn = await _status_fn(mcp)
@@ -57,10 +60,105 @@ async def test_all_four_pipelines_appear_even_with_no_local_data(mcp, tmp_path, 
     assert djen.aviso is not None
 
     tjro, stj, datajud = result.pipelines[1:]
-    assert tjro.fonte == "manifest_local"
-    assert stj.fonte == "manifest_local"
+    assert tjro.fonte == "manifest_publicado"
+    assert stj.fonte == "manifest_publicado"
     assert datajud.fonte == "bundle_publicado"
+    assert tjro.canonica is True
+    assert stj.canonica is True
     assert datajud.canonica is True
+
+
+async def test_tjro_and_stj_reflect_published_manifests(mcp, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(
+        status_module.tjro_juris_archive,
+        "read_manifest_text",
+        lambda: (
+            "tipo,mes_ano,ia_status,n_docs,updated_at\n"
+            "ACORDAO,2026-07,uploaded,12,2026-08-23T10:00:00+00:00\n"
+            "DECISAO,2026-08,,4,2026-08-23T12:00:00+00:00\n"
+        ),
+    )
+    monkeypatch.setattr(
+        status_module.stj_acordaos_archive,
+        "read_manifest_text",
+        lambda: (
+            "arquivo,tipo,data_extracao,ia_status,n_registros,updated_at\n"
+            "a.zip,zip,2026-08-22,uploaded,10,2026-08-23T09:00:00+00:00\n"
+            "b.json,json,2026-08-23,,5,2026-08-23T13:00:00+00:00\n"
+        ),
+    )
+
+    fn = await _status_fn(mcp)
+    result = fn()
+
+    tjro = next(p for p in result.pipelines if p.nome == "tjro_juris")
+    assert tjro.observacao == "present"
+    assert tjro.encontrado is True
+    assert tjro.total == 2
+    assert tjro.contagens == {"enviados": 1, "pendentes": 1}
+    assert tjro.ultima_atualizacao == "2026-08-23T12:00:00+00:00"
+    assert tjro.fonte == "manifest_publicado"
+    assert tjro.canonica is True
+
+    stj = next(p for p in result.pipelines if p.nome == "stj_acordaos")
+    assert stj.observacao == "present"
+    assert stj.encontrado is True
+    assert stj.total == 2
+    assert stj.contagens == {"enviados": 1, "pendentes": 1}
+    assert stj.ultima_atualizacao == "2026-08-23T13:00:00+00:00"
+    assert stj.fonte == "manifest_publicado"
+    assert stj.canonica is True
+
+
+@pytest.mark.parametrize("pipeline", ["tjro", "stj"])
+async def test_published_manifest_transport_failure_is_unavailable_not_empty(
+    pipeline, mcp, tmp_path, monkeypatch
+):
+    monkeypatch.chdir(tmp_path)
+    error = httpx.ConnectError("archive unavailable")
+    target = (
+        status_module.tjro_juris_archive
+        if pipeline == "tjro"
+        else status_module.stj_acordaos_archive
+    )
+    monkeypatch.setattr(target, "read_manifest_text", Mock(side_effect=error))
+
+    fn = await _status_fn(mcp)
+    result = fn()
+
+    name = "tjro_juris" if pipeline == "tjro" else "stj_acordaos"
+    entry = next(p for p in result.pipelines if p.nome == name)
+    assert entry.observacao == "unavailable"
+    assert entry.encontrado is False
+    assert entry.total == 0
+    assert entry.fonte == "manifest_publicado"
+    assert entry.canonica is True
+    assert "não significa dataset vazio" in entry.aviso.lower()
+    assert len(result.pipelines) == 4
+
+
+@pytest.mark.parametrize("pipeline", ["tjro", "stj"])
+async def test_malformed_published_manifest_is_unavailable(pipeline, mcp, tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    target = (
+        status_module.tjro_juris_archive
+        if pipeline == "tjro"
+        else status_module.stj_acordaos_archive
+    )
+    monkeypatch.setattr(target, "read_manifest_text", lambda: "wrong,columns\n1,2\n")
+
+    fn = await _status_fn(mcp)
+    result = fn()
+
+    name = "tjro_juris" if pipeline == "tjro" else "stj_acordaos"
+    entry = next(p for p in result.pipelines if p.nome == name)
+    assert entry.observacao == "unavailable"
+    assert entry.encontrado is False
+    assert entry.total == 0
+    assert entry.fonte == "manifest_publicado"
+    assert "inválido" in entry.aviso.lower()
+    assert len(result.pipelines) == 4
 
 
 async def test_datajud_pipeline_reflects_the_verified_published_generation(
@@ -142,8 +240,8 @@ def test_reuses_authorities_directly_not_the_other_tools_via_mcp() -> None:
     for module in (
         "datajud_state",
         "djen_backup.service",
-        "stj_acordaos.service",
-        "tjro_juris.service",
+        "stj_acordaos_archive",
+        "tjro_juris_archive",
     ):
         assert module in source
 
@@ -165,24 +263,3 @@ async def test_one_pipeline_erroring_does_not_fail_the_whole_call(mcp, tmp_path,
     assert djen_entry.encontrado is False
     assert djen_entry.aviso is not None
     assert len(result.pipelines) == 4
-
-
-async def test_a_genuinely_malformed_manifest_also_yields_a_partial_result(
-    mcp, tmp_path, monkeypatch
-):
-    monkeypatch.chdir(tmp_path)
-    data_dir = tmp_path / "data" / "tjro-juris"
-    data_dir.mkdir(parents=True)
-    (data_dir / "tjro-juris-manifest.csv").write_text(
-        "mes_ano,ia_status,n_docs,updated_at\n2024-01,uploaded,10,\n", encoding="utf-8"
-    )
-
-    fn = await _status_fn(mcp)
-    result = fn()
-
-    tjro_juris_entry = next(p for p in result.pipelines if p.nome == "tjro_juris")
-    assert tjro_juris_entry.observacao == "unavailable"
-    assert tjro_juris_entry.encontrado is False
-    assert tjro_juris_entry.aviso is not None
-    assert len(result.pipelines) == 4
-    assert {p.nome for p in result.pipelines} == {"djen", "tjro_juris", "stj_acordaos", "datajud"}
