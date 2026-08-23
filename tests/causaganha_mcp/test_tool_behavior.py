@@ -93,8 +93,7 @@ async def test_datajud_status_preserves_old_snapshot_timestamps(
 ) -> None:
     old_timestamp = "2026-01-01T00:00:00+00:00"
     manifest_text = (
-        "cnj,tribunal,docs,consultado_em,status\n"
-        f"00000010220248220001,tjro,2,{old_timestamp},ok\n"
+        f"cnj,tribunal,docs,consultado_em,status\n00000010220248220001,tjro,2,{old_timestamp},ok\n"
     )
     published = state.PublishedState(
         tribunal="tjro",
