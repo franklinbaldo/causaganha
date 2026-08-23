@@ -8,6 +8,7 @@ failure in one source must not hide the other pipelines.
 from __future__ import annotations
 
 import inspect
+from unittest.mock import Mock
 
 import pytest
 
@@ -103,11 +104,12 @@ async def test_datajud_remote_failure_is_unavailable_not_empty_and_keeps_partial
     mcp, tmp_path, monkeypatch
 ):
     monkeypatch.chdir(tmp_path)
-
-    def fail(*_args, **_kwargs):
-        raise datajud_state.RemoteStateError("archive unavailable")
-
-    monkeypatch.setattr(status_module.datajud_state, "read_remote_state", fail)
+    remote_error = datajud_state.RemoteStateError("archive unavailable")
+    monkeypatch.setattr(
+        status_module.datajud_state,
+        "read_remote_state",
+        Mock(side_effect=remote_error),
+    )
 
     fn = await _status_fn(mcp)
     result = fn()
