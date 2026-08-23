@@ -85,7 +85,9 @@ def build_bundle(
     """Build a content-addressed state bundle from the three local artifacts."""
     expected_names = _payload_names(tribunal)
     paths = (capa_path, movimentos_path, manifest_path)
-    payloads = {name: path.read_bytes() for name, path in zip(expected_names, paths, strict=True)}
+    payloads = {
+        name: path.read_bytes() for name, path in zip(expected_names, paths, strict=True)
+    }
     generation = _generation(payloads)
     metadata = {
         "schema_version": STATE_SCHEMA_VERSION,
@@ -144,7 +146,10 @@ def _verified_payloads(content: bytes, tribunal: str) -> tuple[dict[str, bytes],
                 except KeyError as exc:
                     msg = f"DataJud state bundle missing {name}"
                     raise RemoteStateError(msg) from exc
-                if len(payload) != file_meta.get("size") or _sha256(payload) != file_meta.get("sha256"):
+                if (
+                    len(payload) != file_meta.get("size")
+                    or _sha256(payload) != file_meta.get("sha256")
+                ):
                     msg = f"DataJud state checksum mismatch for {name}"
                     raise RemoteStateError(msg)
                 payloads[name] = payload
