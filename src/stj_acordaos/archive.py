@@ -24,6 +24,7 @@ MANIFEST_DOWNLOAD_URL = f"https://archive.org/download/{IA_ITEM_ID}/{MANIFEST_RE
 
 HTTP_OK = 200
 _HTTP_NOT_FOUND = 404
+_STATUS_READ_TIMEOUT_S = 10.0
 _RETRIABLE = frozenset({408, 429, 500, 502, 503, 504})
 
 
@@ -44,6 +45,15 @@ def _build_upload_headers(ia_key: str, ia_secret: str, content_type: str) -> dic
             "obtidos via portal de dados abertos."
         ),
     }
+
+
+def read_manifest_text(*, timeout: float = _STATUS_READ_TIMEOUT_S) -> str | None:
+    """Read the authoritative public manifest without mutating local state."""
+    resp = httpx.get(MANIFEST_DOWNLOAD_URL, follow_redirects=True, timeout=timeout)
+    if resp.status_code == _HTTP_NOT_FOUND:
+        return None
+    resp.raise_for_status()
+    return resp.text
 
 
 def fetch_manifest(dest: Path) -> bool:
