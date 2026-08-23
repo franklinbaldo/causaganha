@@ -19,6 +19,7 @@ import io
 import json
 import zipfile
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
 
 from datajud import archive
@@ -51,6 +52,17 @@ class PublishResult:
     ok: bool
     failed_file: str | None = None
     generation: str = ""
+
+
+@dataclass(frozen=True)
+class PublishedState:
+    """Verified metadata and manifest from the authoritative remote bundle."""
+
+    tribunal: str
+    generation: str
+    manifest_text: str
+    published_at: str
+    files: dict[str, dict[str, int | str]]
 
 
 def bundle_name(tribunal: str) -> str:
@@ -94,6 +106,7 @@ def build_bundle(
         "schema_version": STATE_SCHEMA_VERSION,
         "tribunal": tribunal.lower(),
         "generation": generation,
+        "published_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "files": {
             name: {"sha256": _sha256(content), "size": len(content)}
             for name, content in payloads.items()
@@ -131,7 +144,7 @@ def _parse_metadata(bundle: zipfile.ZipFile, tribunal: str) -> dict:
     return metadata
 
 
-def _verified_payloads(content: bytes, tribunal: str) -> tuple[dict[str, bytes], str]:
+def _verified_payloads(content: bytes, tribunal: str) -> tuple[dict[str, bytes], str, dict]:
     expected_names = _payload_names(tribunal)
     try:
         with zipfile.ZipFile(io.BytesIO(content), mode="r") as bundle:
@@ -161,7 +174,43 @@ def _verified_payloads(content: bytes, tribunal: str) -> tuple[dict[str, bytes],
     if generation != metadata.get("generation"):
         msg = "DataJud state generation does not match its payloads"
         raise RemoteStateError(msg)
-    return payloads, generation
+    return payloads, generation, metadata
+
+
+def read_remote_state(tribunal: str) -> PublishedState | None:
+    """Read the authoritative published generation without mutating local state.
+
+    Returns ``None`` only when the coherent bundle itself is absent (HTTP 404).
+    Transport failures, malformed bundles and checksum mismatches fail closed as
+    ``RemoteStateError`` so callers cannot confuse an unavailable remote with an
+    empty dataset.
+    """
+    try:
+        content = archive.download_file(bundle_name(tribunal), tribunal)
+    except OSError as exc:
+        msg = f"failed to download DataJud state bundle: {exc}"
+        raise RemoteStateError(msg) from exc
+    if content is None:
+        return None
+
+    payloads, generation, metadata = _verified_payloads(content, tribunal)
+    manifest_name = _payload_names(tribunal)[2]
+    try:
+        manifest_text = payloads[manifest_name].decode("utf-8")
+    except UnicodeDecodeError as exc:
+        msg = "DataJud state manifest is not valid UTF-8"
+        raise RemoteStateError(msg) from exc
+    files = {
+        name: {"sha256": str(values["sha256"]), "size": int(values["size"])}
+        for name, values in metadata["files"].items()
+    }
+    return PublishedState(
+        tribunal=tribunal.lower(),
+        generation=generation,
+        manifest_text=manifest_text,
+        published_at=str(metadata.get("published_at") or ""),
+        files=files,
+    )
 
 
 def _replace_file(path: Path, content: bytes) -> None:
@@ -185,7 +234,7 @@ def restore_remote_state(data_dir: Path, tribunal: str) -> RestoreResult:
         raise RemoteStateError(msg) from exc
 
     if bundle is not None:
-        payloads, generation = _verified_payloads(bundle, tribunal)
+        payloads, generation, _metadata = _verified_payloads(bundle, tribunal)
         capa_name, movimentos_name, manifest_name = _payload_names(tribunal)
         _replace_file(data_dir / capa_name, payloads[capa_name])
         _replace_file(data_dir / movimentos_name, payloads[movimentos_name])
