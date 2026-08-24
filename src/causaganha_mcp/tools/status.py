@@ -76,12 +76,12 @@ class PipelineStatus(BaseModel):
         default=None,
         description="Identidade verificável da geração observada, quando disponível.",
     )
-    fonte: Literal[
-        "manifest_local", "manifest_publicado", "cache_local", "bundle_publicado"
-    ] = Field(
-        description=(
-            "Proveniência concreta da observação: manifest/cache local ou estado publicado "
-            "no Internet Archive."
+    fonte: Literal["manifest_local", "manifest_publicado", "cache_local", "bundle_publicado"] = (
+        Field(
+            description=(
+                "Proveniência concreta da observação: manifest/cache local ou estado publicado "
+                "no Internet Archive."
+            )
         )
     )
     canonica: bool = Field(
