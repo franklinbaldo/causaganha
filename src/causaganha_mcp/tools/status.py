@@ -177,7 +177,8 @@ def _tjro_juris_status() -> PipelineStatus:
     entries = manifest.all_entries()
     uploaded = sum(1 for entry in entries if entry.ia_status == "uploaded")
     ultima_atualizacao = max(
-        (entry.updated_at for entry in entries if entry.updated_at), default=""
+        (entry.updated_at for entry in entries if entry.updated_at),
+        default="",
     )
     return PipelineStatus(
         nome="tjro_juris",
@@ -240,7 +241,8 @@ def _stj_acordaos_status() -> PipelineStatus:
     rows = manifest.to_df() if count else []
     uploaded = sum(1 for row in rows if row["ia_status"] == "uploaded")
     ultima_atualizacao = max(
-        (row["updated_at"] for row in rows if row["updated_at"]), default=""
+        (row["updated_at"] for row in rows if row["updated_at"]),
+        default="",
     )
     return PipelineStatus(
         nome="stj_acordaos",
