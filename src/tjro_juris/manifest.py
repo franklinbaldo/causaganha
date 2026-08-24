@@ -17,7 +17,7 @@ HEADER = "tipo,mes_ano,ia_status,n_docs,updated_at"
 
 
 class ManifestFormatError(ValueError):
-    """The local manifest CSV is malformed (missing column, non-numeric n_docs, ...)."""
+    """The manifest CSV is malformed (missing column, non-numeric n_docs, ...)."""
 
 
 @dataclass
@@ -43,18 +43,15 @@ class ManifestJuris:
         return (tipo, mes_ano)
 
     @classmethod
-    def load_local(cls, path: Path) -> ManifestJuris:
-        """Load manifest from a local CSV file.
-
-        Raises `ManifestFormatError` on a malformed row (missing column,
-        non-numeric `n_docs`) instead of leaking a bare `KeyError`/
-        `ValueError` — callers get one nominal exception type to handle.
-        """
+    def load_text(cls, text: str, *, source: str = "<memory>") -> ManifestJuris:
+        """Load a manifest from UTF-8 CSV text without touching local state."""
         m = cls()
-        if not path.exists():
-            return m
-        text = path.read_text(encoding="utf-8")
         reader = csv.DictReader(io.StringIO(text))
+        required = {"tipo", "mes_ano", "ia_status", "n_docs", "updated_at"}
+        if reader.fieldnames is None or not required.issubset(reader.fieldnames):
+            missing = sorted(required - set(reader.fieldnames or ()))
+            msg = f"malformed manifest {source}: missing columns {missing}"
+            raise ManifestFormatError(msg)
         for row in reader:
             try:
                 entry = ManifestJurisEntry(
@@ -65,10 +62,22 @@ class ManifestJuris:
                     updated_at=row.get("updated_at", ""),
                 )
             except (KeyError, ValueError) as exc:
-                msg = f"malformed row in {path}: {exc}"
+                msg = f"malformed row in {source}: {exc}"
                 raise ManifestFormatError(msg) from exc
             m._entries[cls._key(entry.tipo, entry.mes_ano)] = entry
         return m
+
+    @classmethod
+    def load_local(cls, path: Path) -> ManifestJuris:
+        """Load manifest from a local CSV file.
+
+        Raises `ManifestFormatError` on a malformed row (missing column,
+        non-numeric `n_docs`) instead of leaking a bare `KeyError`/
+        `ValueError` — callers get one nominal exception type to handle.
+        """
+        if not path.exists():
+            return cls()
+        return cls.load_text(path.read_text(encoding="utf-8"), source=str(path))
 
     def save_local(self, path: Path) -> None:
         """Save manifest to a local CSV file."""
