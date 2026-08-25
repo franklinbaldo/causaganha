@@ -33,7 +33,16 @@ def test_valid_parquet_requires_verifiable_files_metadata(monkeypatch) -> None:
     monkeypatch.setattr(
         published,
         "_read_parquet_rows",
-        lambda _path: [("TJRO", date(2026, 8, 25), "uploaded", "", "", "2026-08-25T08:00:00+00:00")],
+        lambda _path: [
+            (
+                "TJRO",
+                date(2026, 8, 25),
+                "uploaded",
+                "",
+                "",
+                "2026-08-25T08:00:00+00:00",
+            )
+        ],
     )
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -43,7 +52,10 @@ def test_valid_parquet_requires_verifiable_files_metadata(monkeypatch) -> None:
 
     client = _client(handler)
     try:
-        with pytest.raises(published.PublishedManifestUnavailable, match="metadata is malformed"):
+        with pytest.raises(
+            published.PublishedManifestUnavailable,
+            match="metadata is malformed",
+        ):
             published.read_published_manifest(client=client)
     finally:
         client.close()
@@ -65,7 +77,10 @@ def test_expected_segment_must_be_readable(monkeypatch) -> None:
 
     client = _client(handler)
     try:
-        with pytest.raises(published.PublishedManifestUnavailable, match="segment.*HTTP 404"):
+        with pytest.raises(
+            published.PublishedManifestUnavailable,
+            match="segment.*HTTP 404",
+        ):
             published.read_published_manifest(client=client)
     finally:
         client.close()
@@ -75,7 +90,16 @@ def test_replays_published_parquet_and_pending_segments(monkeypatch) -> None:
     monkeypatch.setattr(
         published,
         "_read_parquet_rows",
-        lambda _path: [("TJRO", date(2026, 8, 22), "uploaded", "", "", "2026-08-23T10:00:00+00:00")],
+        lambda _path: [
+            (
+                "TJRO",
+                date(2026, 8, 22),
+                "uploaded",
+                "",
+                "",
+                "2026-08-23T10:00:00+00:00",
+            )
+        ],
     )
     segment = (
         "tribunal,date,ia_status,djen_status,djen_raw,updated_at\n"
