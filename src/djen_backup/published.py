@@ -17,6 +17,7 @@ import httpx
 from djen_backup.manifest import IA_PARQUET_FILENAME, IA_STATE_ITEM, SyncManifest
 from djen_backup.segments import SEGMENT_COMPACTED_DIR, SEGMENT_DIR
 
+
 _DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
 _FILES_URL = f"https://archive.org/metadata/{IA_STATE_ITEM}/files"
 _DEFAULT_TIMEOUT_SECONDS = 10.0
