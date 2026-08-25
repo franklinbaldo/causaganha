@@ -15,12 +15,12 @@ from typing import TYPE_CHECKING, Literal
 import httpx
 from pydantic import BaseModel, Field
 
-import djen_backup.service as djen_backup_service
 from causaganha_mcp import knowledge
 from datajud import state as datajud_state
 from datajud.client import DEFAULT_TRIBUNAL
 from datajud.manifest import STATUS_OK, ManifestDataJud
 from datajud.manifest import ManifestFormatError as DatajudManifestFormatError
+from djen_backup import published as djen_published
 from stj_acordaos import archive as stj_acordaos_archive
 from stj_acordaos.manifest import ManifestFormatError as StjManifestFormatError
 from stj_acordaos.manifest import ManifestSTJ
@@ -33,13 +33,6 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fastmcp import FastMCP
-
-
-_DJEN_CANONICAL_NOTE = (
-    "Origem local, não canônica: a fonte de verdade do DJEN é o "
-    "sync-manifest.parquet no Internet Archive — este manifest local pode "
-    "estar atrasado em relação a ele."
-)
 
 
 class PipelineStatus(BaseModel):
@@ -100,33 +93,48 @@ class CausaganhaStatusResult(BaseModel):
 
 def _djen_status() -> PipelineStatus:
     try:
-        result = djen_backup_service.manifest_status(djen_backup_service.DEFAULT_MANIFEST_FILE)
-    except OSError as exc:
+        manifest = djen_published.read_published_manifest()
+    except djen_published.PublishedManifestUnavailable as exc:
         return PipelineStatus(
             nome="djen",
             observacao="unavailable",
             encontrado=False,
             total=0,
             contagens={},
-            fonte="cache_local",
-            canonica=False,
-            aviso=f"Não foi possível ler o manifest local: {exc}",
+            fonte="manifest_publicado",
+            canonica=True,
+            aviso=(
+                "Não foi possível verificar o manifest DJEN publicado; "
+                f"isso não significa dataset vazio: {exc}"
+            ),
         )
+    if manifest is None:
+        return PipelineStatus(
+            nome="djen",
+            observacao="absent",
+            encontrado=False,
+            total=0,
+            contagens={},
+            fonte="manifest_publicado",
+            canonica=True,
+            aviso="Nenhum manifest DJEN foi publicado no Internet Archive.",
+        )
+
+    counts = manifest.counts()
     return PipelineStatus(
         nome="djen",
-        observacao="present" if result.total > 0 else "absent",
-        encontrado=result.total > 0,
-        total=result.total,
+        observacao="present",
+        encontrado=counts.total > 0,
+        total=counts.total,
         contagens={
-            "enviados": result.uploaded,
-            "disponiveis": result.available,
-            "ausentes": result.absent,
-            "desconhecidos": result.unknown,
+            "enviados": counts.uploaded,
+            "disponiveis": counts.available,
+            "ausentes": counts.absent,
+            "desconhecidos": counts.unknown,
         },
-        ultima_atualizacao=result.ultima_atualizacao or None,
-        fonte="cache_local",
-        canonica=False,
-        aviso=_DJEN_CANONICAL_NOTE,
+        ultima_atualizacao=counts.ultima_atualizacao or None,
+        fonte="manifest_publicado",
+        canonica=True,
     )
 
 
@@ -403,9 +411,8 @@ def register(mcp: FastMCP) -> None:
         """Panorama dos pipelines declarados no catálogo OKF do CausaGanha.
 
         O catálogo ``Pipeline`` fornece identidade estável e binding de produto.
-        TJRO JURIS/STJ/DataJud consultam a mesma autoridade publicada que governa
-        sua continuidade; DJEN permanece explicitamente local/não canônico até
-        seu boundary remoto ser ligado. Falha de uma fonte individual continua
-        virando resultado parcial, enquanto divergência do catálogo é explícita.
+        DJEN/TJRO JURIS/STJ/DataJud consultam a mesma autoridade publicada que
+        governa sua continuidade. Falha de uma fonte individual continua virando
+        resultado parcial, enquanto divergência do catálogo é explícita.
         """
         return CausaganhaStatusResult(pipelines=_pipeline_statuses())

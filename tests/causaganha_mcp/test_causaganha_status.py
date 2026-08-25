@@ -8,6 +8,7 @@ failure in one source must not hide the other pipelines.
 from __future__ import annotations
 
 import inspect
+from datetime import date
 from unittest.mock import Mock
 
 import httpx
@@ -17,6 +18,7 @@ import causaganha_mcp.tools.status as status_module
 from causaganha_mcp.server import build_server
 from datajud import state as datajud_state
 from datajud.manifest import STATUS_OK, ManifestDataJud
+from djen_backup.manifest import SyncManifest
 
 
 @pytest.fixture
@@ -26,6 +28,7 @@ def mcp():
 
 @pytest.fixture(autouse=True)
 def _default_remote_sources_absent(monkeypatch):
+    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: None)
     monkeypatch.setattr(
         status_module.datajud_state,
         "read_remote_state",
@@ -54,18 +57,73 @@ async def test_all_four_pipelines_appear_even_with_no_state(mcp, tmp_path, monke
         assert pipeline.ultima_atualizacao is None
         assert pipeline.observacao == "absent"
 
-    djen = result.pipelines[0]
-    assert djen.fonte == "cache_local"
-    assert djen.canonica is False
-    assert djen.aviso is not None
-
-    tjro, stj, datajud = result.pipelines[1:]
+    djen, tjro, stj, datajud = result.pipelines
+    assert djen.fonte == "manifest_publicado"
+    assert djen.canonica is True
     assert tjro.fonte == "manifest_publicado"
     assert stj.fonte == "manifest_publicado"
     assert datajud.fonte == "bundle_publicado"
     assert tjro.canonica is True
     assert stj.canonica is True
     assert datajud.canonica is True
+
+
+async def test_djen_reflects_published_materialization(mcp, monkeypatch):
+    manifest = SyncManifest()
+    manifest.apply_event(
+        "TJRO",
+        date(2026, 8, 22),
+        ia_status="uploaded",
+        updated_at="2026-08-23T12:00:00+00:00",
+    )
+    manifest.apply_event(
+        "TJRO",
+        date(2026, 8, 25),
+        djen_status="available",
+        djen_raw="200",
+        updated_at="2026-08-25T08:00:00+00:00",
+    )
+    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: manifest)
+
+    fn = await _status_fn(mcp)
+    result = fn()
+
+    djen = result.pipelines[0]
+    assert djen.observacao == "present"
+    assert djen.encontrado is True
+    assert djen.total == 2
+    assert djen.contagens == {
+        "enviados": 1,
+        "disponiveis": 1,
+        "ausentes": 0,
+        "desconhecidos": 0,
+    }
+    assert djen.ultima_atualizacao == "2026-08-25T08:00:00+00:00"
+    assert djen.fonte == "manifest_publicado"
+    assert djen.canonica is True
+
+
+async def test_djen_published_failure_is_unavailable_not_empty_and_keeps_partial_result(
+    mcp, monkeypatch
+):
+    error = status_module.djen_published.PublishedManifestUnavailable("archive unavailable")
+    monkeypatch.setattr(
+        status_module.djen_published,
+        "read_published_manifest",
+        Mock(side_effect=error),
+    )
+
+    fn = await _status_fn(mcp)
+    result = fn()
+
+    djen = result.pipelines[0]
+    assert djen.observacao == "unavailable"
+    assert djen.encontrado is False
+    assert djen.total == 0
+    assert djen.fonte == "manifest_publicado"
+    assert djen.canonica is True
+    assert "não significa dataset vazio" in djen.aviso.lower()
+    assert len(result.pipelines) == 4
 
 
 async def test_tjro_and_stj_reflect_published_manifests(mcp, tmp_path, monkeypatch):
@@ -223,7 +281,6 @@ async def test_datajud_remote_failure_is_unavailable_not_empty_and_keeps_partial
 
 
 async def test_no_health_verdict_field_anywhere_in_the_schema(mcp) -> None:
-    """#892 foundation remains factual until freshness policy is explicitly frozen."""
     tool = await mcp.get_tool("causaganha_status")
     schema_text = str(tool.output_schema)
     for banned in ("saudavel", "saúde", "health", "degradado", "status_geral"):
@@ -231,7 +288,6 @@ async def test_no_health_verdict_field_anywhere_in_the_schema(mcp) -> None:
 
 
 def test_reuses_authorities_directly_not_the_other_tools_via_mcp() -> None:
-    """Build the aggregate in-process, never by recursively calling sibling MCP tools."""
     source = inspect.getsource(status_module)
     assert "causaganha_mcp.tools" not in source
     assert "get_tool" not in source
@@ -239,27 +295,8 @@ def test_reuses_authorities_directly_not_the_other_tools_via_mcp() -> None:
     assert "Client(" not in source
     for module in (
         "datajud_state",
-        "djen_backup.service",
+        "djen_published",
         "stj_acordaos_archive",
         "tjro_juris_archive",
     ):
         assert module in source
-
-
-async def test_one_pipeline_erroring_does_not_fail_the_whole_call(mcp, tmp_path, monkeypatch):
-    monkeypatch.chdir(tmp_path)
-
-    from djen_backup import service as djen_backup_service
-
-    broken_path = tmp_path / "data" / "sync-manifest.csv"
-    broken_path.mkdir(parents=True)
-    monkeypatch.setattr(djen_backup_service, "DEFAULT_MANIFEST_FILE", broken_path)
-
-    fn = await _status_fn(mcp)
-    result = fn()
-
-    djen_entry = next(p for p in result.pipelines if p.nome == "djen")
-    assert djen_entry.observacao == "unavailable"
-    assert djen_entry.encontrado is False
-    assert djen_entry.aviso is not None
-    assert len(result.pipelines) == 4
