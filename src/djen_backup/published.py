@@ -49,9 +49,7 @@ class PublishedManifestUnavailable(RuntimeError):  # noqa: N818
         applied: int,
         expected: int,
     ) -> PublishedManifestUnavailable:
-        return cls(
-            f"published segment {name!r} is malformed: applied {applied} of {expected} rows"
-        )
+        return cls(f"published segment {name!r} is malformed: applied {applied} of {expected} rows")
 
 
 def _read_parquet_rows(path: Path) -> list[tuple]:
@@ -158,7 +156,9 @@ def _fetch_segment_names(http: httpx.Client) -> list[str]:
     return _pending_segment_names(payload)
 
 
-def _apply_remote_segments(http: httpx.Client, manifest: SyncManifest, names: Iterable[str]) -> None:
+def _apply_remote_segments(
+    http: httpx.Client, manifest: SyncManifest, names: Iterable[str]
+) -> None:
     for name in names:
         try:
             response = http.get(_DOWNLOAD_URL.format(name))
