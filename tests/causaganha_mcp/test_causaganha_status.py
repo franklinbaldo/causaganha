@@ -28,11 +28,7 @@ def mcp():
 
 @pytest.fixture(autouse=True)
 def _default_remote_sources_absent(monkeypatch):
-    monkeypatch.setattr(
-        status_module.djen_published,
-        "read_published_manifest",
-        lambda: None,
-    )
+    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: None)
     monkeypatch.setattr(
         status_module.datajud_state,
         "read_remote_state",
@@ -87,11 +83,7 @@ async def test_djen_reflects_published_materialization(mcp, monkeypatch):
         djen_raw="200",
         updated_at="2026-08-25T08:00:00+00:00",
     )
-    monkeypatch.setattr(
-        status_module.djen_published,
-        "read_published_manifest",
-        lambda: manifest,
-    )
+    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: manifest)
 
     fn = await _status_fn(mcp)
     result = fn()
@@ -205,9 +197,7 @@ async def test_published_manifest_transport_failure_is_unavailable_not_empty(
 
 
 @pytest.mark.parametrize("pipeline", ["tjro", "stj"])
-async def test_malformed_published_manifest_is_unavailable(
-    pipeline, mcp, tmp_path, monkeypatch
-):
+async def test_malformed_published_manifest_is_unavailable(pipeline, mcp, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     target = (
         status_module.tjro_juris_archive
