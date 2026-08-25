@@ -12,14 +12,10 @@ import tempfile
 from collections.abc import Iterable
 from pathlib import Path
 
+import duckdb
 import httpx
 
-from djen_backup.manifest import (
-    IA_PARQUET_FILENAME,
-    IA_STATE_ITEM,
-    SyncManifest,
-    _read_parquet_rows,
-)
+from djen_backup.manifest import IA_PARQUET_FILENAME, IA_STATE_ITEM, SyncManifest
 from djen_backup.segments import SEGMENT_COMPACTED_DIR, SEGMENT_DIR
 
 _DOWNLOAD_URL = f"https://archive.org/download/{IA_STATE_ITEM}/{{}}"
@@ -33,6 +29,18 @@ class PublishedManifestUnavailable(RuntimeError):
 
 def _response_error(label: str, response: httpx.Response) -> PublishedManifestUnavailable:
     return PublishedManifestUnavailable(f"{label} returned HTTP {response.status_code}")
+
+
+def _read_parquet_rows(path: Path) -> list[tuple]:
+    connection = duckdb.connect()
+    try:
+        return connection.execute(
+            "SELECT tribunal, date, ia_status, djen_status, djen_raw, updated_at "
+            "FROM read_parquet(?)",
+            [str(path)],
+        ).fetchall()
+    finally:
+        connection.close()
 
 
 def _pending_segment_names(payload: object) -> list[str]:
@@ -60,17 +68,14 @@ def _apply_rows(manifest: SyncManifest, rows: Iterable[tuple]) -> None:
         if len(row) != 6:
             raise PublishedManifestUnavailable("published parquet has an unexpected row shape")
         tribunal, day, ia_status, djen_status, djen_raw, updated_at = row
-        try:
-            manifest.apply_event(
-                str(tribunal),
-                day,
-                ia_status=ia_status or "",
-                djen_status=djen_status or "",
-                djen_raw=djen_raw or "",
-                updated_at=updated_at or "",
-            )
-        except (TypeError, ValueError) as exc:
-            raise PublishedManifestUnavailable(f"published parquet row is invalid: {exc}") from exc
+        manifest.apply_event(
+            str(tribunal),
+            day,
+            ia_status=ia_status or "",
+            djen_status=djen_status or "",
+            djen_raw=djen_raw or "",
+            updated_at=updated_at or "",
+        )
 
 
 def _apply_segment_strict(manifest: SyncManifest, name: str, text: str) -> None:
@@ -113,8 +118,8 @@ def read_published_manifest(
             tmp_path = Path(tmp.name)
         try:
             try:
-                rows = _read_parquet_rows(str(tmp_path))
-            except Exception as exc:
+                rows = _read_parquet_rows(tmp_path)
+            except (duckdb.Error, OSError, ValueError) as exc:
                 raise PublishedManifestUnavailable(f"published parquet is invalid: {exc}") from exc
         finally:
             tmp_path.unlink(missing_ok=True)
