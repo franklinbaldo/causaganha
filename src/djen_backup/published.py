@@ -50,10 +50,14 @@ def _pending_segment_names(payload: object) -> list[str]:
     names: list[str] = []
     for item in payload["result"]:
         if not isinstance(item, dict):
-            raise PublishedManifestUnavailable("Internet Archive files metadata contains invalid item")
+            raise PublishedManifestUnavailable(
+                "Internet Archive files metadata contains invalid item"
+            )
         name = item.get("name")
         if not isinstance(name, str):
-            raise PublishedManifestUnavailable("Internet Archive files metadata contains invalid name")
+            raise PublishedManifestUnavailable(
+                "Internet Archive files metadata contains invalid name"
+            )
         if (
             name.startswith(f"{SEGMENT_DIR}/")
             and not name.startswith(f"{SEGMENT_COMPACTED_DIR}/")
@@ -66,7 +70,9 @@ def _pending_segment_names(payload: object) -> list[str]:
 def _apply_rows(manifest: SyncManifest, rows: Iterable[tuple]) -> None:
     for row in rows:
         if len(row) != 6:
-            raise PublishedManifestUnavailable("published parquet has an unexpected row shape")
+            raise PublishedManifestUnavailable(
+                "published parquet has an unexpected row shape"
+            )
         tribunal, day, ia_status, djen_status, djen_raw, updated_at = row
         manifest.apply_event(
             str(tribunal),
@@ -79,11 +85,16 @@ def _apply_rows(manifest: SyncManifest, rows: Iterable[tuple]) -> None:
 
 
 def _apply_segment_strict(manifest: SyncManifest, name: str, text: str) -> None:
-    rows = [line for line in text.splitlines() if line.strip() and not line.startswith("tribunal")]
+    rows = [
+        line
+        for line in text.splitlines()
+        if line.strip() and not line.startswith("tribunal")
+    ]
     applied = manifest.apply_segment_csv(text)
     if applied != len(rows):
         raise PublishedManifestUnavailable(
-            f"published segment {name!r} is malformed: applied {applied} of {len(rows)} rows"
+            f"published segment {name!r} is malformed: "
+            f"applied {applied} of {len(rows)} rows"
         )
 
 
@@ -106,7 +117,9 @@ def read_published_manifest(
         try:
             parquet = http.get(_DOWNLOAD_URL.format(IA_PARQUET_FILENAME))
         except httpx.HTTPError as exc:
-            raise PublishedManifestUnavailable(f"could not read published parquet: {exc}") from exc
+            raise PublishedManifestUnavailable(
+                f"could not read published parquet: {exc}"
+            ) from exc
 
         if parquet.status_code == httpx.codes.NOT_FOUND:
             return None
@@ -120,7 +133,9 @@ def read_published_manifest(
             try:
                 rows = _read_parquet_rows(tmp_path)
             except (duckdb.Error, OSError, ValueError) as exc:
-                raise PublishedManifestUnavailable(f"published parquet is invalid: {exc}") from exc
+                raise PublishedManifestUnavailable(
+                    f"published parquet is invalid: {exc}"
+                ) from exc
         finally:
             tmp_path.unlink(missing_ok=True)
 
@@ -130,19 +145,25 @@ def read_published_manifest(
         try:
             metadata = http.get(_FILES_URL)
         except httpx.HTTPError as exc:
-            raise PublishedManifestUnavailable(f"could not verify published segments: {exc}") from exc
+            raise PublishedManifestUnavailable(
+                f"could not verify published segments: {exc}"
+            ) from exc
         if metadata.status_code != httpx.codes.OK:
             raise _response_error("Internet Archive files metadata", metadata)
         try:
             segment_names = _pending_segment_names(metadata.json())
         except ValueError as exc:
-            raise PublishedManifestUnavailable("Internet Archive files metadata is not JSON") from exc
+            raise PublishedManifestUnavailable(
+                "Internet Archive files metadata is not JSON"
+            ) from exc
 
         for name in segment_names:
             try:
                 segment = http.get(_DOWNLOAD_URL.format(name))
             except httpx.HTTPError as exc:
-                raise PublishedManifestUnavailable(f"could not read published segment {name!r}: {exc}") from exc
+                raise PublishedManifestUnavailable(
+                    f"could not read published segment {name!r}: {exc}"
+                ) from exc
             if segment.status_code != httpx.codes.OK:
                 raise _response_error(f"published segment {name!r}", segment)
             _apply_segment_strict(manifest, name, segment.text)
