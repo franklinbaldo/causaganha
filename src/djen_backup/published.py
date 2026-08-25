@@ -87,8 +87,7 @@ def _apply_segment_strict(manifest: SyncManifest, name: str, text: str) -> None:
     applied = manifest.apply_segment_csv(text)
     if applied != len(rows):
         raise PublishedManifestUnavailable(
-            f"published segment {name!r} is malformed: "
-            f"applied {applied} of {len(rows)} rows"
+            f"published segment {name!r} is malformed: applied {applied} of {len(rows)} rows"
         )
 
 
