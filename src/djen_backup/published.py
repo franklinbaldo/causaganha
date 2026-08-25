@@ -27,19 +27,19 @@ _DEFAULT_TIMEOUT_SECONDS = 10.0
 _PARQUET_ROW_FIELDS = 6
 
 
-class PublishedManifestUnavailableError(RuntimeError):
+class PublishedManifestUnavailable(RuntimeError):  # noqa: N818
     """The published DJEN authority exists or is expected but is unverifiable."""
 
     @classmethod
-    def response(cls, label: str, status_code: int) -> PublishedManifestUnavailableError:
+    def response(cls, label: str, status_code: int) -> PublishedManifestUnavailable:
         return cls(f"{label} returned HTTP {status_code}")
 
     @classmethod
-    def transport(cls, label: str, exc: Exception) -> PublishedManifestUnavailableError:
+    def transport(cls, label: str, exc: Exception) -> PublishedManifestUnavailable:
         return cls(f"could not {label}: {exc}")
 
     @classmethod
-    def invalid(cls, detail: str) -> PublishedManifestUnavailableError:
+    def invalid(cls, detail: str) -> PublishedManifestUnavailable:
         return cls(detail)
 
     @classmethod
@@ -48,7 +48,7 @@ class PublishedManifestUnavailableError(RuntimeError):
         name: str,
         applied: int,
         expected: int,
-    ) -> PublishedManifestUnavailableError:
+    ) -> PublishedManifestUnavailable:
         return cls(
             f"published segment {name!r} is malformed: applied {applied} of {expected} rows"
         )
@@ -69,17 +69,17 @@ def _read_parquet_rows(path: Path) -> list[tuple]:
 def _pending_segment_names(payload: object) -> list[str]:
     if not isinstance(payload, dict) or not isinstance(payload.get("result"), list):
         detail = "Internet Archive files metadata is malformed"
-        raise PublishedManifestUnavailableError.invalid(detail)
+        raise PublishedManifestUnavailable.invalid(detail)
 
     names: list[str] = []
     for item in payload["result"]:
         if not isinstance(item, dict):
             detail = "Internet Archive files metadata contains invalid item"
-            raise PublishedManifestUnavailableError.invalid(detail)
+            raise PublishedManifestUnavailable.invalid(detail)
         name = item.get("name")
         if not isinstance(name, str):
             detail = "Internet Archive files metadata contains invalid name"
-            raise PublishedManifestUnavailableError.invalid(detail)
+            raise PublishedManifestUnavailable.invalid(detail)
         if (
             name.startswith(f"{SEGMENT_DIR}/")
             and not name.startswith(f"{SEGMENT_COMPACTED_DIR}/")
@@ -93,7 +93,7 @@ def _apply_rows(manifest: SyncManifest, rows: Iterable[tuple]) -> None:
     for row in rows:
         if len(row) != _PARQUET_ROW_FIELDS:
             detail = "published parquet has an unexpected row shape"
-            raise PublishedManifestUnavailableError.invalid(detail)
+            raise PublishedManifestUnavailable.invalid(detail)
         tribunal, day, ia_status, djen_status, djen_raw, updated_at = row
         manifest.apply_event(
             str(tribunal),
@@ -109,20 +109,20 @@ def _apply_segment_strict(manifest: SyncManifest, name: str, text: str) -> None:
     rows = [line for line in text.splitlines() if line.strip() and not line.startswith("tribunal")]
     applied = manifest.apply_segment_csv(text)
     if applied != len(rows):
-        raise PublishedManifestUnavailableError.malformed_segment(name, applied, len(rows))
+        raise PublishedManifestUnavailable.malformed_segment(name, applied, len(rows))
 
 
 def _fetch_parquet_rows(http: httpx.Client) -> list[tuple] | None:
     try:
         response = http.get(_DOWNLOAD_URL.format(IA_PARQUET_FILENAME))
     except httpx.HTTPError as exc:
-        raise PublishedManifestUnavailableError.transport("read published parquet", exc) from exc
+        raise PublishedManifestUnavailable.transport("read published parquet", exc) from exc
 
     if response.status_code == httpx.codes.NOT_FOUND:
         return None
     if response.status_code != httpx.codes.OK:
         label = "published parquet"
-        raise PublishedManifestUnavailableError.response(label, response.status_code)
+        raise PublishedManifestUnavailable.response(label, response.status_code)
 
     with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
         tmp.write(response.content)
@@ -131,7 +131,7 @@ def _fetch_parquet_rows(http: httpx.Client) -> list[tuple] | None:
         try:
             return _read_parquet_rows(tmp_path)
         except (duckdb.Error, OSError, ValueError) as exc:
-            raise PublishedManifestUnavailableError.transport(
+            raise PublishedManifestUnavailable.transport(
                 "parse published parquet",
                 exc,
             ) from exc
@@ -143,18 +143,18 @@ def _fetch_segment_names(http: httpx.Client) -> list[str]:
     try:
         response = http.get(_FILES_URL)
     except httpx.HTTPError as exc:
-        raise PublishedManifestUnavailableError.transport(
+        raise PublishedManifestUnavailable.transport(
             "verify published segments",
             exc,
         ) from exc
     if response.status_code != httpx.codes.OK:
         label = "Internet Archive files metadata"
-        raise PublishedManifestUnavailableError.response(label, response.status_code)
+        raise PublishedManifestUnavailable.response(label, response.status_code)
     try:
         payload = response.json()
     except ValueError as exc:
         detail = "Internet Archive files metadata is not JSON"
-        raise PublishedManifestUnavailableError.invalid(detail) from exc
+        raise PublishedManifestUnavailable.invalid(detail) from exc
     return _pending_segment_names(payload)
 
 
@@ -164,10 +164,10 @@ def _apply_remote_segments(http: httpx.Client, manifest: SyncManifest, names: It
             response = http.get(_DOWNLOAD_URL.format(name))
         except httpx.HTTPError as exc:
             label = f"read published segment {name!r}"
-            raise PublishedManifestUnavailableError.transport(label, exc) from exc
+            raise PublishedManifestUnavailable.transport(label, exc) from exc
         if response.status_code != httpx.codes.OK:
             label = f"published segment {name!r}"
-            raise PublishedManifestUnavailableError.response(label, response.status_code)
+            raise PublishedManifestUnavailable.response(label, response.status_code)
         _apply_segment_strict(manifest, name, response.text)
 
 
@@ -181,7 +181,7 @@ def read_published_manifest(
     ``None`` has one meaning only: the canonical parquet itself returned 404,
     so no published DJEN manifest exists. Transport errors, 5xx responses,
     malformed parquet/files metadata, and unavailable expected segments raise
-    :class:`PublishedManifestUnavailableError`.
+    :class:`PublishedManifestUnavailable`.
     """
     owns_client = client is None
     http = client or httpx.Client(timeout=timeout_seconds, follow_redirects=True)
