@@ -28,7 +28,11 @@ def mcp():
 
 @pytest.fixture(autouse=True)
 def _default_remote_sources_absent(monkeypatch):
-    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: None)
+    monkeypatch.setattr(
+        status_module.djen_published,
+        "read_published_manifest",
+        lambda: None,
+    )
     monkeypatch.setattr(
         status_module.datajud_state,
         "read_remote_state",
@@ -45,8 +49,10 @@ async def _status_fn(mcp):
 
 async def test_all_four_pipelines_appear_even_with_no_state(mcp, tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
+
     fn = await _status_fn(mcp)
     result = fn()
+
     names = [p.nome for p in result.pipelines]
     assert names == ["djen", "tjro_juris", "stj_acordaos", "datajud"]
     for pipeline in result.pipelines:
@@ -54,6 +60,7 @@ async def test_all_four_pipelines_appear_even_with_no_state(mcp, tmp_path, monke
         assert pipeline.total == 0
         assert pipeline.ultima_atualizacao is None
         assert pipeline.observacao == "absent"
+
     djen, tjro, stj, datajud = result.pipelines
     assert djen.fonte == "manifest_publicado"
     assert djen.canonica is True
@@ -80,9 +87,15 @@ async def test_djen_reflects_published_materialization(mcp, monkeypatch):
         djen_raw="200",
         updated_at="2026-08-25T08:00:00+00:00",
     )
-    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: manifest)
+    monkeypatch.setattr(
+        status_module.djen_published,
+        "read_published_manifest",
+        lambda: manifest,
+    )
+
     fn = await _status_fn(mcp)
     result = fn()
+
     djen = result.pipelines[0]
     assert djen.observacao == "present"
     assert djen.encontrado is True
@@ -107,8 +120,10 @@ async def test_djen_published_failure_is_unavailable_not_empty_and_keeps_partial
         "read_published_manifest",
         Mock(side_effect=error),
     )
+
     fn = await _status_fn(mcp)
     result = fn()
+
     djen = result.pipelines[0]
     assert djen.observacao == "unavailable"
     assert djen.encontrado is False
@@ -139,8 +154,10 @@ async def test_tjro_and_stj_reflect_published_manifests(mcp, tmp_path, monkeypat
             "b.json,json,2026-08-23,,5,2026-08-23T13:00:00+00:00\n"
         ),
     )
+
     fn = await _status_fn(mcp)
     result = fn()
+
     tjro = next(p for p in result.pipelines if p.nome == "tjro_juris")
     assert tjro.observacao == "present"
     assert tjro.encontrado is True
@@ -149,6 +166,7 @@ async def test_tjro_and_stj_reflect_published_manifests(mcp, tmp_path, monkeypat
     assert tjro.ultima_atualizacao == "2026-08-23T12:00:00+00:00"
     assert tjro.fonte == "manifest_publicado"
     assert tjro.canonica is True
+
     stj = next(p for p in result.pipelines if p.nome == "stj_acordaos")
     assert stj.observacao == "present"
     assert stj.encontrado is True
@@ -165,10 +183,16 @@ async def test_published_manifest_transport_failure_is_unavailable_not_empty(
 ):
     monkeypatch.chdir(tmp_path)
     error = httpx.ConnectError("archive unavailable")
-    target = status_module.tjro_juris_archive if pipeline == "tjro" else status_module.stj_acordaos_archive
+    target = (
+        status_module.tjro_juris_archive
+        if pipeline == "tjro"
+        else status_module.stj_acordaos_archive
+    )
     monkeypatch.setattr(target, "read_manifest_text", Mock(side_effect=error))
+
     fn = await _status_fn(mcp)
     result = fn()
+
     name = "tjro_juris" if pipeline == "tjro" else "stj_acordaos"
     entry = next(p for p in result.pipelines if p.nome == name)
     assert entry.observacao == "unavailable"
@@ -181,12 +205,20 @@ async def test_published_manifest_transport_failure_is_unavailable_not_empty(
 
 
 @pytest.mark.parametrize("pipeline", ["tjro", "stj"])
-async def test_malformed_published_manifest_is_unavailable(pipeline, mcp, tmp_path, monkeypatch):
+async def test_malformed_published_manifest_is_unavailable(
+    pipeline, mcp, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
-    target = status_module.tjro_juris_archive if pipeline == "tjro" else status_module.stj_acordaos_archive
+    target = (
+        status_module.tjro_juris_archive
+        if pipeline == "tjro"
+        else status_module.stj_acordaos_archive
+    )
     monkeypatch.setattr(target, "read_manifest_text", lambda: "wrong,columns\n1,2\n")
+
     fn = await _status_fn(mcp)
     result = fn()
+
     name = "tjro_juris" if pipeline == "tjro" else "stj_acordaos"
     entry = next(p for p in result.pipelines if p.nome == name)
     assert entry.observacao == "unavailable"
@@ -197,12 +229,15 @@ async def test_malformed_published_manifest_is_unavailable(pipeline, mcp, tmp_pa
     assert len(result.pipelines) == 4
 
 
-async def test_datajud_pipeline_reflects_the_verified_published_generation(mcp, tmp_path, monkeypatch):
+async def test_datajud_pipeline_reflects_the_verified_published_generation(
+    mcp, tmp_path, monkeypatch
+):
     monkeypatch.chdir(tmp_path)
     manifest_path = tmp_path / "manifest.csv"
     manifest = ManifestDataJud.load_local(manifest_path)
     manifest.upsert("00000010220248220001", "tjro", docs=2, status=STATUS_OK)
     manifest.save_local(manifest_path)
+
     published = datajud_state.PublishedState(
         tribunal="tjro",
         generation="generation-123",
@@ -210,9 +245,15 @@ async def test_datajud_pipeline_reflects_the_verified_published_generation(mcp, 
         published_at="2026-08-23T12:00:00+00:00",
         files={},
     )
-    monkeypatch.setattr(status_module.datajud_state, "read_remote_state", lambda *_args, **_kwargs: published)
+    monkeypatch.setattr(
+        status_module.datajud_state,
+        "read_remote_state",
+        lambda *_args, **_kwargs: published,
+    )
+
     fn = await _status_fn(mcp)
     result = fn()
+
     datajud_entry = next(p for p in result.pipelines if p.nome == "datajud")
     assert datajud_entry.observacao == "present"
     assert datajud_entry.encontrado is True
@@ -230,9 +271,15 @@ async def test_datajud_remote_failure_is_unavailable_not_empty_and_keeps_partial
 ):
     monkeypatch.chdir(tmp_path)
     remote_error = datajud_state.RemoteStateError("archive unavailable")
-    monkeypatch.setattr(status_module.datajud_state, "read_remote_state", Mock(side_effect=remote_error))
+    monkeypatch.setattr(
+        status_module.datajud_state,
+        "read_remote_state",
+        Mock(side_effect=remote_error),
+    )
+
     fn = await _status_fn(mcp)
     result = fn()
+
     datajud_entry = next(p for p in result.pipelines if p.nome == "datajud")
     assert datajud_entry.observacao == "unavailable"
     assert datajud_entry.encontrado is False
@@ -256,5 +303,10 @@ def test_reuses_authorities_directly_not_the_other_tools_via_mcp() -> None:
     assert "get_tool" not in source
     assert "call_tool" not in source
     assert "Client(" not in source
-    for module in ("datajud_state", "djen_published", "stj_acordaos_archive", "tjro_juris_archive"):
+    for module in (
+        "datajud_state",
+        "djen_published",
+        "stj_acordaos_archive",
+        "tjro_juris_archive",
+    ):
         assert module in source
