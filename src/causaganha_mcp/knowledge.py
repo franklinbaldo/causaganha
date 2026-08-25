@@ -20,6 +20,12 @@ class PipelineMetadata(BaseModel):
     fonte: str = Field(min_length=1)
     pacote: str = Field(min_length=1)
     mcp_status: str = Field(min_length=1)
+    workflow: str = Field(min_length=1)
+    cadencia_cron: str = Field(min_length=1)
+    tentativa_semantica: str = Field(min_length=1)
+    sucesso_semantica: str = Field(min_length=1)
+    publicacao_semantica: str = Field(min_length=1)
+    canario_semantica: str = Field(min_length=1)
 
 
 def load_pipeline_metadata(root: Path = _KNOWLEDGE_ROOT) -> tuple[PipelineMetadata, ...]:
