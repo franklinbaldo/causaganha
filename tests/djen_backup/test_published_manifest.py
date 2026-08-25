@@ -79,7 +79,7 @@ def test_expected_segment_must_be_readable(monkeypatch) -> None:
     try:
         with pytest.raises(
             published.PublishedManifestUnavailable,
-            match="segment.*HTTP 404",
+            match=r"segment.*HTTP 404",
         ):
             published.read_published_manifest(client=client)
     finally:
