@@ -70,9 +70,7 @@ def _pending_segment_names(payload: object) -> list[str]:
 def _apply_rows(manifest: SyncManifest, rows: Iterable[tuple]) -> None:
     for row in rows:
         if len(row) != 6:
-            raise PublishedManifestUnavailable(
-                "published parquet has an unexpected row shape"
-            )
+            raise PublishedManifestUnavailable("published parquet has an unexpected row shape")
         tribunal, day, ia_status, djen_status, djen_raw, updated_at = row
         manifest.apply_event(
             str(tribunal),
@@ -85,11 +83,7 @@ def _apply_rows(manifest: SyncManifest, rows: Iterable[tuple]) -> None:
 
 
 def _apply_segment_strict(manifest: SyncManifest, name: str, text: str) -> None:
-    rows = [
-        line
-        for line in text.splitlines()
-        if line.strip() and not line.startswith("tribunal")
-    ]
+    rows = [line for line in text.splitlines() if line.strip() and not line.startswith("tribunal")]
     applied = manifest.apply_segment_csv(text)
     if applied != len(rows):
         raise PublishedManifestUnavailable(
@@ -117,9 +111,7 @@ def read_published_manifest(
         try:
             parquet = http.get(_DOWNLOAD_URL.format(IA_PARQUET_FILENAME))
         except httpx.HTTPError as exc:
-            raise PublishedManifestUnavailable(
-                f"could not read published parquet: {exc}"
-            ) from exc
+            raise PublishedManifestUnavailable(f"could not read published parquet: {exc}") from exc
 
         if parquet.status_code == httpx.codes.NOT_FOUND:
             return None
@@ -133,9 +125,7 @@ def read_published_manifest(
             try:
                 rows = _read_parquet_rows(tmp_path)
             except (duckdb.Error, OSError, ValueError) as exc:
-                raise PublishedManifestUnavailable(
-                    f"published parquet is invalid: {exc}"
-                ) from exc
+                raise PublishedManifestUnavailable(f"published parquet is invalid: {exc}") from exc
         finally:
             tmp_path.unlink(missing_ok=True)
 
