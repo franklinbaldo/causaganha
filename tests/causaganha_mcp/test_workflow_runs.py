@@ -43,10 +43,7 @@ def test_observes_schedule_attempt_and_success_as_distinct_clocks() -> None:
         ],
     }
     with _client(payload) as client:
-        result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml",
-            client=client,
-        )
+        result = observe_workflow_runs(".github/workflows/collect-zips.yml", client=client)
 
     assert result.observacao == "present"
     assert result.ultima_tentativa == "2026-08-26T02:00:00Z"
@@ -69,10 +66,7 @@ def test_push_success_never_counts_as_pipeline_success() -> None:
         ],
     }
     with _client(payload) as client:
-        result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml",
-            client=client,
-        )
+        result = observe_workflow_runs(".github/workflows/collect-zips.yml", client=client)
 
     assert result.observacao == "unknown"
     assert result.ultima_tentativa is None
@@ -94,9 +88,7 @@ def test_no_success_in_truncated_window_is_not_false_absence() -> None:
     }
     with _client(payload) as client:
         result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml",
-            client=client,
-            limit=1,
+            ".github/workflows/collect-zips.yml", client=client, limit=1
         )
 
     assert result.observacao == "present"
@@ -108,10 +100,7 @@ def test_no_success_in_truncated_window_is_not_false_absence() -> None:
 
 def test_zero_total_is_the_only_absent_state() -> None:
     with _client({"total_count": 0, "workflow_runs": []}) as client:
-        result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml",
-            client=client,
-        )
+        result = observe_workflow_runs(".github/workflows/collect-zips.yml", client=client)
 
     assert result.observacao == "absent"
     assert result.janela_completa is True
@@ -120,10 +109,7 @@ def test_zero_total_is_the_only_absent_state() -> None:
 
 def test_transport_failure_is_unavailable_not_absent() -> None:
     with _client({"message": "boom"}, status_code=503) as client:
-        result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml",
-            client=client,
-        )
+        result = observe_workflow_runs(".github/workflows/collect-zips.yml", client=client)
 
     assert result.observacao == "unavailable"
     assert result.ultima_tentativa is None
@@ -133,10 +119,7 @@ def test_transport_failure_is_unavailable_not_absent() -> None:
 
 def test_malformed_success_response_is_unavailable() -> None:
     with _client({"total_count": 10}) as client:
-        result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml",
-            client=client,
-        )
+        result = observe_workflow_runs(".github/workflows/collect-zips.yml", client=client)
 
     assert result.observacao == "unavailable"
 
@@ -144,10 +127,7 @@ def test_malformed_success_response_is_unavailable() -> None:
 def test_limit_is_bounded_by_github_api_contract() -> None:
     for invalid in (0, 101):
         try:
-            observe_workflow_runs(
-                ".github/workflows/collect-zips.yml",
-                limit=invalid,
-            )
+            observe_workflow_runs(".github/workflows/collect-zips.yml", limit=invalid)
         except ValueError as exc:
             assert "between 1 and 100" in str(exc)
         else:  # pragma: no cover - assertion aid
