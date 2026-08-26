@@ -15,7 +15,7 @@ def test_published_object_clock_reads_last_modified(monkeypatch):
         headers={"Last-Modified": "Wed, 26 Aug 2026 14:12:00 GMT"},
         request=httpx.Request("HEAD", "https://archive.org/object"),
     )
-    monkeypatch.setattr(status_module.httpx, "head", lambda *args, **kwargs: response)
+    monkeypatch.setattr(status_module.httpx, "head", lambda *_args, **_kwargs: response)
 
     state, timestamp, warning = status_module._published_object_clock("https://archive.org/object")
 
@@ -26,7 +26,7 @@ def test_published_object_clock_reads_last_modified(monkeypatch):
 
 def test_published_object_clock_preserves_unknown_without_header(monkeypatch):
     response = httpx.Response(200, request=httpx.Request("HEAD", "https://archive.org/object"))
-    monkeypatch.setattr(status_module.httpx, "head", lambda *args, **kwargs: response)
+    monkeypatch.setattr(status_module.httpx, "head", lambda *_args, **_kwargs: response)
 
     state, timestamp, warning = status_module._published_object_clock("https://archive.org/object")
 
@@ -69,7 +69,7 @@ def test_execution_clock_is_composed_without_overwriting_publication(monkeypatch
     monkeypatch.setattr(
         status_module.workflow_runs,
         "observe_workflow_runs",
-        lambda workflow: SimpleNamespace(
+        lambda _workflow: SimpleNamespace(
             observacao="present",
             ultima_tentativa="2026-08-26T14:00:00+00:00",
             ultimo_sucesso="2026-08-26T14:02:00+00:00",
