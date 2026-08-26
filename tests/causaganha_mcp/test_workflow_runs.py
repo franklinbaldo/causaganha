@@ -87,9 +87,7 @@ def test_no_success_in_truncated_window_is_not_false_absence() -> None:
         ],
     }
     with _client(payload) as client:
-        result = observe_workflow_runs(
-            ".github/workflows/collect-zips.yml", client=client, limit=1
-        )
+        result = observe_workflow_runs(".github/workflows/collect-zips.yml", client=client, limit=1)
 
     assert result.observacao == "present"
     assert result.ultima_tentativa == "2026-08-26T02:00:00Z"
