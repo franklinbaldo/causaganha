@@ -8,7 +8,6 @@ GitHub token: the repository and workflows are public.
 
 from __future__ import annotations
 
-from pathlib import PurePosixPath
 from typing import Literal
 
 import httpx
@@ -17,6 +16,7 @@ from pydantic import BaseModel, Field
 _REPOSITORY = "franklinbaldo/causaganha"
 _ELIGIBLE_EVENTS = frozenset({"schedule", "workflow_dispatch"})
 _DEFAULT_LIMIT = 100
+_MAX_LIMIT = 100
 _DEFAULT_TIMEOUT = 5.0
 
 
@@ -80,10 +80,11 @@ def observe_workflow_runs(
     event while older runs exist, the answer is ``unknown`` rather than a false
     ``absent``.
     """
-    if not 1 <= limit <= 100:
-        raise ValueError("limit must be between 1 and 100")
+    if not 1 <= limit <= _MAX_LIMIT:
+        message = f"limit must be between 1 and {_MAX_LIMIT}"
+        raise ValueError(message)
 
-    workflow_name = PurePosixPath(workflow).name
+    workflow_name = workflow.rsplit("/", maxsplit=1)[-1]
     url = f"https://api.github.com/repos/{_REPOSITORY}/actions/workflows/{workflow_name}/runs"
     owned_client = client is None
     resolved = client or httpx.Client(timeout=_DEFAULT_TIMEOUT, follow_redirects=True)
