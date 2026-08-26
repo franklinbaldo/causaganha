@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
 from causaganha_mcp.workflow_runs import observe_workflow_runs
 
@@ -124,9 +125,5 @@ def test_malformed_success_response_is_unavailable() -> None:
 
 def test_limit_is_bounded_by_github_api_contract() -> None:
     for invalid in (0, 101):
-        try:
+        with pytest.raises(ValueError, match="between 1 and 100"):
             observe_workflow_runs(".github/workflows/collect-zips.yml", limit=invalid)
-        except ValueError as exc:
-            assert "between 1 and 100" in str(exc)
-        else:  # pragma: no cover - assertion aid
-            raise AssertionError("invalid limit must fail before network")
