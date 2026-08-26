@@ -13,6 +13,7 @@ from typing import Literal
 import httpx
 from pydantic import BaseModel, Field
 
+
 _REPOSITORY = "franklinbaldo/causaganha"
 _ELIGIBLE_EVENTS = frozenset({"schedule", "workflow_dispatch"})
 _DEFAULT_LIMIT = 100
