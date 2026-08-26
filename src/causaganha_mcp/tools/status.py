@@ -8,6 +8,7 @@ MCP recursiva e nenhum contrato físico de dados foi movido para Markdown.
 
 from __future__ import annotations
 
+from email.utils import parsedate_to_datetime
 from importlib import import_module
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal
@@ -15,7 +16,7 @@ from typing import TYPE_CHECKING, Literal
 import httpx
 from pydantic import BaseModel, Field
 
-from causaganha_mcp import knowledge
+from causaganha_mcp import knowledge, workflow_runs
 from datajud import state as datajud_state
 from datajud.client import DEFAULT_TRIBUNAL
 from datajud.manifest import STATUS_OK, ManifestDataJud
@@ -33,6 +34,11 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
     from fastmcp import FastMCP
+
+
+_ClockState = Literal["present", "absent", "unknown", "unavailable"]
+_PUBLICATION_TIMEOUT_S = 5.0
+_HTTP_NOT_FOUND = 404
 
 
 class PipelineStatus(BaseModel):
@@ -80,6 +86,36 @@ class PipelineStatus(BaseModel):
     canonica: bool = Field(
         description="False quando existe uma fonte remota mais autoritativa que esta observação."
     )
+    execucao_observacao: _ClockState = Field(
+        default="unknown",
+        description="Estado factual do relógio de runs schedule/workflow_dispatch no GitHub Actions.",
+    )
+    ultima_tentativa: str | None = Field(
+        default=None,
+        description="Início da tentativa elegível mais recente observada no workflow.",
+    )
+    ultimo_sucesso: str | None = Field(
+        default=None,
+        description="Conclusão do sucesso elegível mais recente observado no workflow.",
+    )
+    execucao_aviso: str | None = Field(
+        default=None,
+        description="Ressalva da janela bounded de runs, quando necessária.",
+    )
+    publicacao_observacao: _ClockState = Field(
+        default="unknown",
+        description=(
+            "Estado factual do relógio de publicação da autoridade do pipeline; não é health verdict."
+        ),
+    )
+    ultima_publicacao: str | None = Field(
+        default=None,
+        description="Timestamp da publicação autoritativa mais recente que pôde ser provada.",
+    )
+    publicacao_aviso: str | None = Field(
+        default=None,
+        description="Ressalva específica do relógio de publicação, quando necessária.",
+    )
     aviso: str | None = Field(default=None, description="Ressalva relevante, quando houver.")
 
 
@@ -89,6 +125,31 @@ class CausaganhaStatusResult(BaseModel):
     pipelines: list[PipelineStatus] = Field(
         description="Um item por pipeline: djen, tjro_juris, stj_acordaos, datajud."
     )
+
+
+def _published_object_clock(url: str) -> tuple[_ClockState, str | None, str | None]:
+    """Observe the modification clock of one already-authoritative IA object.
+
+    This is deliberately independent from content-state timestamps. A missing or
+    malformed ``Last-Modified`` header yields ``unknown``; transport failure yields
+    ``unavailable``. Callers only use this after/alongside their normal authority read.
+    """
+    try:
+        response = httpx.head(url, follow_redirects=True, timeout=_PUBLICATION_TIMEOUT_S)
+        if response.status_code == _HTTP_NOT_FOUND:
+            return "absent", None, "O objeto autoritativo não existe no Internet Archive."
+        response.raise_for_status()
+    except httpx.HTTPError as exc:
+        return "unavailable", None, f"Não foi possível verificar metadata de publicação: {exc}"
+
+    raw = response.headers.get("Last-Modified")
+    if not raw:
+        return "unknown", None, "O objeto foi lido, mas não expôs Last-Modified verificável."
+    try:
+        timestamp = parsedate_to_datetime(raw).isoformat()
+    except (TypeError, ValueError, OverflowError):
+        return "unknown", None, f"Last-Modified inválido no objeto autoritativo: {raw!r}"
+    return "present", timestamp, None
 
 
 def _djen_status() -> PipelineStatus:
@@ -103,6 +164,11 @@ def _djen_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao="unavailable",
+            publicacao_aviso=(
+                "A autoridade composta DJEN não pôde ser verificada; "
+                "não há relógio de publicação observável."
+            ),
             aviso=(
                 "Não foi possível verificar o manifest DJEN publicado; "
                 f"isso não significa dataset vazio: {exc}"
@@ -117,6 +183,7 @@ def _djen_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao="absent",
             aviso="Nenhum manifest DJEN foi publicado no Internet Archive.",
         )
 
@@ -135,6 +202,11 @@ def _djen_status() -> PipelineStatus:
         ultima_atualizacao=counts.ultima_atualizacao or None,
         fonte="manifest_publicado",
         canonica=True,
+        publicacao_observacao="unknown",
+        publicacao_aviso=(
+            "DJEN usa autoridade composta (sync-manifest.parquet + manifest-log pendente); "
+            "o strict reader ainda não expõe metadata coerente de todos os componentes."
+        ),
     )
 
 
@@ -150,6 +222,8 @@ def _tjro_juris_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao="unavailable",
+            publicacao_aviso="O manifest autoritativo não pôde ser verificado.",
             aviso=(
                 "Não foi possível verificar o manifest TJRO JURIS publicado; "
                 f"isso não significa dataset vazio: {exc}"
@@ -164,6 +238,7 @@ def _tjro_juris_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao="absent",
             aviso="Nenhum manifest TJRO JURIS foi publicado no Internet Archive.",
         )
     try:
@@ -172,6 +247,9 @@ def _tjro_juris_status() -> PipelineStatus:
             source=tjro_juris_archive.MANIFEST_DOWNLOAD_URL,
         )
     except TjroJurisManifestFormatError as exc:
+        clock_state, last_publication, clock_warning = _published_object_clock(
+            tjro_juris_archive.MANIFEST_DOWNLOAD_URL
+        )
         return PipelineStatus(
             nome="tjro_juris",
             observacao="unavailable",
@@ -180,6 +258,9 @@ def _tjro_juris_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao=clock_state,
+            ultima_publicacao=last_publication,
+            publicacao_aviso=clock_warning,
             aviso=f"O manifest TJRO JURIS publicado existe, mas é inválido: {exc}",
         )
     entries = manifest.all_entries()
@@ -187,6 +268,9 @@ def _tjro_juris_status() -> PipelineStatus:
     ultima_atualizacao = max(
         (entry.updated_at for entry in entries if entry.updated_at),
         default="",
+    )
+    clock_state, last_publication, clock_warning = _published_object_clock(
+        tjro_juris_archive.MANIFEST_DOWNLOAD_URL
     )
     return PipelineStatus(
         nome="tjro_juris",
@@ -197,6 +281,9 @@ def _tjro_juris_status() -> PipelineStatus:
         ultima_atualizacao=ultima_atualizacao or None,
         fonte="manifest_publicado",
         canonica=True,
+        publicacao_observacao=clock_state,
+        ultima_publicacao=last_publication,
+        publicacao_aviso=clock_warning,
     )
 
 
@@ -212,6 +299,8 @@ def _stj_acordaos_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao="unavailable",
+            publicacao_aviso="O manifest autoritativo não pôde ser verificado.",
             aviso=(
                 "Não foi possível verificar o manifest STJ publicado; "
                 f"isso não significa dataset vazio: {exc}"
@@ -226,6 +315,7 @@ def _stj_acordaos_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao="absent",
             aviso="Nenhum manifest STJ foi publicado no Internet Archive.",
         )
     manifest = ManifestSTJ(Path("stj-manifest-publicado.csv"))
@@ -236,6 +326,9 @@ def _stj_acordaos_status() -> PipelineStatus:
             strict=True,
         )
     except StjManifestFormatError as exc:
+        clock_state, last_publication, clock_warning = _published_object_clock(
+            stj_acordaos_archive.MANIFEST_DOWNLOAD_URL
+        )
         return PipelineStatus(
             nome="stj_acordaos",
             observacao="unavailable",
@@ -244,6 +337,9 @@ def _stj_acordaos_status() -> PipelineStatus:
             contagens={},
             fonte="manifest_publicado",
             canonica=True,
+            publicacao_observacao=clock_state,
+            ultima_publicacao=last_publication,
+            publicacao_aviso=clock_warning,
             aviso=f"O manifest STJ publicado existe, mas é inválido: {exc}",
         )
     rows = manifest.to_df() if count else []
@@ -251,6 +347,9 @@ def _stj_acordaos_status() -> PipelineStatus:
     ultima_atualizacao = max(
         (row["updated_at"] for row in rows if row["updated_at"]),
         default="",
+    )
+    clock_state, last_publication, clock_warning = _published_object_clock(
+        stj_acordaos_archive.MANIFEST_DOWNLOAD_URL
     )
     return PipelineStatus(
         nome="stj_acordaos",
@@ -261,6 +360,9 @@ def _stj_acordaos_status() -> PipelineStatus:
         ultima_atualizacao=ultima_atualizacao or None,
         fonte="manifest_publicado",
         canonica=True,
+        publicacao_observacao=clock_state,
+        ultima_publicacao=last_publication,
+        publicacao_aviso=clock_warning,
     )
 
 
@@ -276,6 +378,8 @@ def _datajud_status() -> PipelineStatus:
             contagens={},
             fonte="bundle_publicado",
             canonica=True,
+            publicacao_observacao="unavailable",
+            publicacao_aviso="A geração DataJud autoritativa não pôde ser verificada.",
             aviso=(
                 "Não foi possível verificar a geração DataJud publicada; "
                 f"isso não significa dataset vazio: {exc}"
@@ -291,7 +395,16 @@ def _datajud_status() -> PipelineStatus:
             contagens={},
             fonte="bundle_publicado",
             canonica=True,
+            publicacao_observacao="absent",
             aviso="Nenhuma geração coerente DataJud foi publicada para este tribunal.",
+        )
+
+    publication_state: _ClockState = "present" if published.published_at else "unknown"
+    publication_warning = None
+    if not published.published_at:
+        publication_warning = (
+            "Esta geração antecede o campo published_at; o horário de publicação não pode ser "
+            "inferido de consultado_em ou de outro relógio."
         )
 
     try:
@@ -310,6 +423,9 @@ def _datajud_status() -> PipelineStatus:
             geracao=published.generation,
             fonte="bundle_publicado",
             canonica=True,
+            publicacao_observacao=publication_state,
+            ultima_publicacao=published.published_at or None,
+            publicacao_aviso=publication_warning,
             aviso=f"A geração publicada existe, mas seu manifest é inválido: {exc}",
         )
 
@@ -320,12 +436,6 @@ def _datajud_status() -> PipelineStatus:
         (entry.consultado_em for entry in entries if entry.consultado_em),
         default="",
     )
-    warning = None
-    if not published.published_at:
-        warning = (
-            "Esta geração antecede o timestamp de publicação no bundle; "
-            "use ultima_atualizacao como sinal temporal do conteúdo."
-        )
     return PipelineStatus(
         nome="datajud",
         observacao="present",
@@ -342,7 +452,9 @@ def _datajud_status() -> PipelineStatus:
         geracao=published.generation,
         fonte="bundle_publicado",
         canonica=True,
-        aviso=warning,
+        publicacao_observacao=publication_state,
+        ultima_publicacao=published.published_at or None,
+        publicacao_aviso=publication_warning,
     )
 
 
@@ -359,7 +471,7 @@ def pipeline_status_loaders() -> tuple[tuple[str, Callable[[], PipelineStatus]],
 def _pipeline_statuses(
     metadata: tuple[knowledge.PipelineMetadata, ...] | None = None,
 ) -> list[PipelineStatus]:
-    """Resolve the typed OKF product catalog to established direct loaders."""
+    """Resolve typed product metadata to authority loaders and execution clocks."""
     declared = metadata if metadata is not None else knowledge.load_pipeline_metadata()
     by_tool = {item.mcp_status: item for item in declared}
     if len(by_tool) != len(declared):
@@ -390,6 +502,16 @@ def _pipeline_statuses(
         if result.nome != item.nome:
             message = f"Pipeline {item.nome!r} is bound to loader returning {result.nome!r}"
             raise RuntimeError(message)
+
+        execution = workflow_runs.observe_workflow_runs(item.workflow)
+        result = result.model_copy(
+            update={
+                "execucao_observacao": execution.observacao,
+                "ultima_tentativa": execution.ultima_tentativa,
+                "ultimo_sucesso": execution.ultimo_sucesso,
+                "execucao_aviso": execution.aviso,
+            }
+        )
         results.append(result)
     return results
 
@@ -412,7 +534,7 @@ def register(mcp: FastMCP) -> None:
 
         O catálogo ``Pipeline`` fornece identidade estável e binding de produto.
         DJEN/TJRO JURIS/STJ/DataJud consultam a mesma autoridade publicada que
-        governa sua continuidade. Falha de uma fonte individual continua virando
-        resultado parcial, enquanto divergência do catálogo é explícita.
+        governa sua continuidade. Tentativa, sucesso e publicação permanecem
+        relógios independentes; falha individual continua virando resultado parcial.
         """
         return CausaganhaStatusResult(pipelines=_pipeline_statuses())
