@@ -88,7 +88,7 @@ class PipelineStatus(BaseModel):
     )
     execucao_observacao: _ClockState = Field(
         default="unknown",
-        description="Estado factual dos runs schedule/workflow_dispatch observados no GitHub Actions.",
+        description="Estado factual dos runs schedule/workflow_dispatch no GitHub Actions.",
     )
     ultima_tentativa: str | None = Field(
         default=None,
