@@ -105,7 +105,8 @@ class PipelineStatus(BaseModel):
     publicacao_observacao: _ClockState = Field(
         default="unknown",
         description=(
-            "Estado factual do relógio de publicação da autoridade do pipeline; não é health verdict."
+            "Estado factual do relógio de publicação da autoridade do pipeline; "
+            "não é classificação global."
         ),
     )
     ultima_publicacao: str | None = Field(
