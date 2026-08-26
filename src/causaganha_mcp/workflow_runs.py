@@ -1,7 +1,7 @@
 """Bounded factual observation of GitHub Actions workflow clocks.
 
 The health contract in #892 distinguishes *attempt*, *successful execution* and
-*publication*.  This module observes only the first two clocks.  It deliberately
+*publication*. This module observes only the first two clocks. It deliberately
 does not derive freshness or a healthy/stale verdict, and it does not use a
 GitHub token: the repository and workflows are public.
 """
@@ -14,7 +14,6 @@ from typing import Literal
 import httpx
 from pydantic import BaseModel, Field
 
-
 _REPOSITORY = "franklinbaldo/causaganha"
 _ELIGIBLE_EVENTS = frozenset({"schedule", "workflow_dispatch"})
 _DEFAULT_LIMIT = 100
@@ -24,15 +23,13 @@ _DEFAULT_TIMEOUT = 5.0
 class WorkflowRunObservation(BaseModel):
     """Factual clocks observed in a bounded GitHub Actions run window."""
 
-    workflow: str = Field(
-        description="Workflow path declared by the Pipeline relation.",
-    )
+    workflow: str = Field(description="Workflow path declared by the Pipeline relation.")
     observacao: Literal["present", "absent", "unknown", "unavailable"] = Field(
         description=(
             "present when an eligible schedule/workflow_dispatch run was observed; absent only "
             "when GitHub reports no runs at all; unknown when the bounded window cannot establish "
             "whether an eligible run exists; unavailable when GitHub could not be verified."
-        ),
+        )
     )
     ultima_tentativa: str | None = Field(
         default=None,
@@ -40,14 +37,10 @@ class WorkflowRunObservation(BaseModel):
     )
     ultimo_sucesso: str | None = Field(
         default=None,
-        description=(
-            "Completion timestamp of the newest observed eligible run with "
-            "conclusion=success."
-        ),
+        description="Completion timestamp of the newest eligible run with conclusion=success.",
     )
     runs_observados: int = Field(
-        ge=0,
-        description="Number of runs inspected in the bounded window.",
+        ge=0, description="Number of runs inspected in the bounded window."
     )
     total_runs_reportado: int | None = Field(
         default=None,
@@ -55,15 +48,9 @@ class WorkflowRunObservation(BaseModel):
         description="GitHub total_count when the response exposes it.",
     )
     janela_completa: bool = Field(
-        description=(
-            "True only when the inspected page covers every run GitHub reports "
-            "for the workflow."
-        ),
+        description="True only when the inspected page covers every run GitHub reports."
     )
-    aviso: str | None = Field(
-        default=None,
-        description="Boundary/transport caveat, when needed.",
-    )
+    aviso: str | None = Field(default=None, description="Boundary/transport caveat, when needed.")
 
 
 def _run_timestamp(run: dict[str, object], *fields: str) -> str | None:
@@ -87,9 +74,9 @@ def observe_workflow_runs(
 ) -> WorkflowRunObservation:
     """Observe attempt/success clocks without turning them into a health verdict.
 
-    One bounded request is used per workflow.  ``schedule`` and
+    One bounded request is used per workflow. ``schedule`` and
     ``workflow_dispatch`` are the only events that count because that is the
-    semantics frozen by #927.  If the first ``limit`` runs contain no eligible
+    semantics frozen by #927. If the first ``limit`` runs contain no eligible
     event while older runs exist, the answer is ``unknown`` rather than a false
     ``absent``.
     """
@@ -97,10 +84,7 @@ def observe_workflow_runs(
         raise ValueError("limit must be between 1 and 100")
 
     workflow_name = PurePosixPath(workflow).name
-    url = (
-        f"https://api.github.com/repos/{_REPOSITORY}/actions/workflows/"
-        f"{workflow_name}/runs"
-    )
+    url = f"https://api.github.com/repos/{_REPOSITORY}/actions/workflows/{workflow_name}/runs"
     owned_client = client is None
     resolved = client or httpx.Client(timeout=_DEFAULT_TIMEOUT, follow_redirects=True)
     try:
@@ -153,10 +137,7 @@ def observe_workflow_runs(
         caveat = (
             "Nenhum run schedule/workflow_dispatch apareceu na janela completa."
             if complete
-            else (
-                "Nenhum run schedule/workflow_dispatch apareceu na janela limitada; "
-                "runs mais antigos podem existir."
-            )
+            else "Nenhum run elegível apareceu na janela limitada; runs mais antigos podem existir."
         )
         return WorkflowRunObservation(
             workflow=workflow,
@@ -169,17 +150,12 @@ def observe_workflow_runs(
 
     successful = [run for run in eligible if run.get("conclusion") == "success"]
     last_attempt = _newest_timestamp(eligible, "run_started_at", "created_at")
-    last_success = _newest_timestamp(
-        successful,
-        "updated_at",
-        "run_started_at",
-        "created_at",
-    )
+    last_success = _newest_timestamp(successful, "updated_at", "run_started_at", "created_at")
     warning = None
     if last_success is None and not complete:
         warning = (
-            "Há tentativa elegível na janela, mas nenhum sucesso nela; um sucesso "
-            "anterior pode existir fora da janela limitada."
+            "Há tentativa elegível na janela, mas nenhum sucesso nela; um sucesso anterior pode "
+            "existir fora da janela limitada."
         )
 
     return WorkflowRunObservation(
