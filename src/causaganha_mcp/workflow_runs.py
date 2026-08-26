@@ -25,14 +25,14 @@ class WorkflowRunObservation(BaseModel):
     """Factual clocks observed in a bounded GitHub Actions run window."""
 
     workflow: str = Field(
-        description="Workflow path declared by the Pipeline relation."
+        description="Workflow path declared by the Pipeline relation.",
     )
     observacao: Literal["present", "absent", "unknown", "unavailable"] = Field(
         description=(
             "present when an eligible schedule/workflow_dispatch run was observed; absent only "
             "when GitHub reports no runs at all; unknown when the bounded window cannot establish "
             "whether an eligible run exists; unavailable when GitHub could not be verified."
-        )
+        ),
     )
     ultima_tentativa: str | None = Field(
         default=None,
@@ -46,7 +46,8 @@ class WorkflowRunObservation(BaseModel):
         ),
     )
     runs_observados: int = Field(
-        ge=0, description="Number of runs inspected in the bounded window."
+        ge=0,
+        description="Number of runs inspected in the bounded window.",
     )
     total_runs_reportado: int | None = Field(
         default=None,
@@ -57,10 +58,11 @@ class WorkflowRunObservation(BaseModel):
         description=(
             "True only when the inspected page covers every run GitHub reports "
             "for the workflow."
-        )
+        ),
     )
     aviso: str | None = Field(
-        default=None, description="Boundary/transport caveat, when needed."
+        default=None,
+        description="Boundary/transport caveat, when needed.",
     )
 
 
@@ -168,7 +170,10 @@ def observe_workflow_runs(
     successful = [run for run in eligible if run.get("conclusion") == "success"]
     last_attempt = _newest_timestamp(eligible, "run_started_at", "created_at")
     last_success = _newest_timestamp(
-        successful, "updated_at", "run_started_at", "created_at"
+        successful,
+        "updated_at",
+        "run_started_at",
+        "created_at",
     )
     warning = None
     if last_success is None and not complete:
