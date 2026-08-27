@@ -9,6 +9,8 @@ from an authority that could not be verified.
 from __future__ import annotations
 
 import tempfile
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 
 import duckdb
@@ -53,6 +55,34 @@ class PublishedManifestUnavailable(RuntimeError):  # noqa: N818
         return cls(f"published segment {name!r} is malformed: applied {applied} of {expected} rows")
 
 
+@dataclass(frozen=True)
+class PublishedComponent:
+    """One file that participated in the strict published DJEN observation."""
+
+    name: str
+    modified_at: str | None
+
+
+@dataclass(frozen=True)
+class PublishedManifestObservation:
+    """Materialized DJEN authority plus publication provenance from the same read."""
+
+    manifest: SyncManifest
+    components: tuple[PublishedComponent, ...]
+
+    @property
+    def missing_publication_components(self) -> tuple[str, ...]:
+        """Return participating components without a verifiable IA modification clock."""
+        return tuple(component.name for component in self.components if component.modified_at is None)
+
+    @property
+    def latest_publication(self) -> str | None:
+        """Return the newest component clock only when every participant is verified."""
+        if self.missing_publication_components:
+            return None
+        return max(component.modified_at for component in self.components if component.modified_at)
+
+
 def _read_parquet_rows(path: Path) -> list[tuple]:
     connection = duckdb.connect()
     try:
@@ -65,12 +95,24 @@ def _read_parquet_rows(path: Path) -> list[tuple]:
         connection.close()
 
 
-def _pending_segment_names(payload: object) -> list[str]:
+def _parse_mtime(value: object) -> str | None:
+    """Parse Internet Archive file ``mtime`` (Unix seconds) as an aware ISO timestamp."""
+    if not isinstance(value, (str, int, float)):
+        return None
+    try:
+        return datetime.fromtimestamp(float(value), tz=UTC).isoformat()
+    except (OSError, OverflowError, TypeError, ValueError):
+        return None
+
+
+def _published_components(payload: object) -> tuple[PublishedComponent, ...]:
+    """Select the exact parquet + pending segments represented by one IA metadata read."""
     if not isinstance(payload, dict) or not isinstance(payload.get("result"), list):
         detail = "Internet Archive files metadata is malformed"
         raise PublishedManifestUnavailable.invalid(detail)
 
-    names: list[str] = []
+    file_mtimes: dict[str, str | None] = {}
+    pending: list[str] = []
     for item in payload["result"]:
         if not isinstance(item, dict):
             detail = "Internet Archive files metadata contains invalid item"
@@ -79,13 +121,16 @@ def _pending_segment_names(payload: object) -> list[str]:
         if not isinstance(name, str):
             detail = "Internet Archive files metadata contains invalid name"
             raise PublishedManifestUnavailable.invalid(detail)
+        file_mtimes[name] = _parse_mtime(item.get("mtime"))
         if (
             name.startswith(f"{SEGMENT_DIR}/")
             and not name.startswith(f"{SEGMENT_COMPACTED_DIR}/")
             and name.endswith(".csv")
         ):
-            names.append(name)
-    return sorted(names)
+            pending.append(name)
+
+    names = (IA_PARQUET_FILENAME, *sorted(pending))
+    return tuple(PublishedComponent(name=name, modified_at=file_mtimes.get(name)) for name in names)
 
 
 def _apply_rows(manifest: SyncManifest, rows: list[tuple]) -> None:
@@ -137,7 +182,7 @@ def _fetch_parquet_rows(http: httpx.Client) -> list[tuple] | None:
         tmp_path.unlink(missing_ok=True)
 
 
-def _fetch_segment_names(http: httpx.Client) -> list[str]:
+def _fetch_components(http: httpx.Client) -> tuple[PublishedComponent, ...]:
     try:
         response = http.get(_FILES_URL)
     except httpx.HTTPError as exc:
@@ -151,11 +196,18 @@ def _fetch_segment_names(http: httpx.Client) -> list[str]:
     except ValueError as exc:
         detail = "Internet Archive files metadata is not JSON"
         raise PublishedManifestUnavailable.invalid(detail) from exc
-    return _pending_segment_names(payload)
+    return _published_components(payload)
 
 
-def _apply_remote_segments(http: httpx.Client, manifest: SyncManifest, names: list[str]) -> None:
-    for name in names:
+def _apply_remote_segments(
+    http: httpx.Client,
+    manifest: SyncManifest,
+    components: tuple[PublishedComponent, ...],
+) -> None:
+    for component in components:
+        name = component.name
+        if name == IA_PARQUET_FILENAME:
+            continue
         try:
             response = http.get(_DOWNLOAD_URL.format(name))
         except httpx.HTTPError as exc:
@@ -167,17 +219,16 @@ def _apply_remote_segments(http: httpx.Client, manifest: SyncManifest, names: li
         _apply_segment_strict(manifest, name, response.text)
 
 
-def read_published_manifest(
+def read_published_manifest_observation(
     *,
     client: httpx.Client | None = None,
     timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
-) -> SyncManifest | None:
-    """Read the canonical published DJEN materialization without silent degradation.
+) -> PublishedManifestObservation | None:
+    """Read the strict DJEN authority and preserve component clocks from that same read.
 
-    ``None`` has one meaning only: the canonical parquet itself returned 404,
-    so no published DJEN manifest exists. Transport errors, 5xx responses,
-    malformed parquet/files metadata, and unavailable expected segments raise
-    :class:`PublishedManifestUnavailable`.
+    ``None`` still has one meaning only: the canonical parquet returned 404.
+    Content validity remains strict. Missing or malformed ``mtime`` does not
+    invalidate readable content; it makes only the publication clock unknown.
     """
     owns_client = client is None
     http = client or httpx.Client(timeout=timeout_seconds, follow_redirects=True)
@@ -185,10 +236,29 @@ def read_published_manifest(
         rows = _fetch_parquet_rows(http)
         if rows is None:
             return None
+        components = _fetch_components(http)
         manifest = SyncManifest()
         _apply_rows(manifest, rows)
-        _apply_remote_segments(http, manifest, _fetch_segment_names(http))
-        return manifest
+        _apply_remote_segments(http, manifest, components)
+        return PublishedManifestObservation(manifest=manifest, components=components)
     finally:
         if owns_client:
             http.close()
+
+
+def read_published_manifest(
+    *,
+    client: httpx.Client | None = None,
+    timeout_seconds: float = _DEFAULT_TIMEOUT_SECONDS,
+) -> SyncManifest | None:
+    """Read the canonical published DJEN materialization without silent degradation.
+
+    Compatibility wrapper for existing content consumers. Publication-aware
+    callers should use :func:`read_published_manifest_observation` so the exact
+    component clocks observed alongside the manifest are not discarded.
+    """
+    observation = read_published_manifest_observation(
+        client=client,
+        timeout_seconds=timeout_seconds,
+    )
+    return observation.manifest if observation is not None else None
