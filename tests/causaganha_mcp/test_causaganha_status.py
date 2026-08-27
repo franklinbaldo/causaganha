@@ -28,7 +28,11 @@ def mcp():
 
 @pytest.fixture(autouse=True)
 def _default_remote_sources_absent(monkeypatch):
-    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: None)
+    monkeypatch.setattr(
+        status_module.djen_published,
+        "read_published_manifest_observation",
+        lambda: None,
+    )
     monkeypatch.setattr(
         status_module.datajud_state,
         "read_remote_state",
@@ -83,7 +87,21 @@ async def test_djen_reflects_published_materialization(mcp, monkeypatch):
         djen_raw="200",
         updated_at="2026-08-25T08:00:00+00:00",
     )
-    monkeypatch.setattr(status_module.djen_published, "read_published_manifest", lambda: manifest)
+    publication = "2026-08-25T09:00:00+00:00"
+    observation = status_module.djen_published.PublishedManifestObservation(
+        manifest=manifest,
+        components=(
+            status_module.djen_published.PublishedComponent(
+                name=status_module.djen_published.IA_PARQUET_FILENAME,
+                modified_at=publication,
+            ),
+        ),
+    )
+    monkeypatch.setattr(
+        status_module.djen_published,
+        "read_published_manifest_observation",
+        lambda: observation,
+    )
 
     fn = await _status_fn(mcp)
     result = fn()
@@ -101,6 +119,8 @@ async def test_djen_reflects_published_materialization(mcp, monkeypatch):
     assert djen.ultima_atualizacao == "2026-08-25T08:00:00+00:00"
     assert djen.fonte == "manifest_publicado"
     assert djen.canonica is True
+    assert djen.publicacao_observacao == "present"
+    assert djen.ultima_publicacao == publication
 
 
 async def test_djen_published_failure_is_unavailable_not_empty_and_keeps_partial_result(
@@ -109,7 +129,7 @@ async def test_djen_published_failure_is_unavailable_not_empty_and_keeps_partial
     error = status_module.djen_published.PublishedManifestUnavailable("archive unavailable")
     monkeypatch.setattr(
         status_module.djen_published,
-        "read_published_manifest",
+        "read_published_manifest_observation",
         Mock(side_effect=error),
     )
 
