@@ -155,7 +155,7 @@ def _published_object_clock(url: str) -> tuple[_ClockState, str | None, str | No
 
 def _djen_status() -> PipelineStatus:
     try:
-        manifest = djen_published.read_published_manifest()
+        observation = djen_published.read_published_manifest_observation()
     except djen_published.PublishedManifestUnavailable as exc:
         return PipelineStatus(
             nome="djen",
@@ -175,7 +175,7 @@ def _djen_status() -> PipelineStatus:
                 f"isso não significa dataset vazio: {exc}"
             ),
         )
-    if manifest is None:
+    if observation is None:
         return PipelineStatus(
             nome="djen",
             observacao="absent",
@@ -188,7 +188,18 @@ def _djen_status() -> PipelineStatus:
             aviso="Nenhum manifest DJEN foi publicado no Internet Archive.",
         )
 
+    manifest = observation.manifest
     counts = manifest.counts()
+    missing_components = observation.missing_publication_components
+    publication_state: _ClockState = "unknown" if missing_components else "present"
+    publication_warning = None
+    if missing_components:
+        missing = ", ".join(missing_components)
+        publication_warning = (
+            "A autoridade composta foi lida, mas estes componentes não expuseram "
+            f"mtime verificável na mesma observação: {missing}."
+        )
+
     return PipelineStatus(
         nome="djen",
         observacao="present",
@@ -203,11 +214,9 @@ def _djen_status() -> PipelineStatus:
         ultima_atualizacao=counts.ultima_atualizacao or None,
         fonte="manifest_publicado",
         canonica=True,
-        publicacao_observacao="unknown",
-        publicacao_aviso=(
-            "DJEN usa autoridade composta (sync-manifest.parquet + manifest-log pendente); "
-            "o strict reader ainda não expõe metadata coerente de todos os componentes."
-        ),
+        publicacao_observacao=publication_state,
+        ultima_publicacao=observation.latest_publication,
+        publicacao_aviso=publication_warning,
     )
 
 
