@@ -102,10 +102,11 @@ def _parse_mtime(value: object) -> str | None:
     if not isinstance(value, (str, int, float)):
         return None
     try:
-        parsed = datetime.fromtimestamp(float(value), tz=UTC).isoformat()
+        parsed = datetime.fromtimestamp(float(value), tz=UTC)
     except (OSError, OverflowError, TypeError, ValueError):
         return None
-    return parsed
+    else:
+        return parsed.isoformat()
 
 
 def _published_components(payload: object) -> tuple[PublishedComponent, ...]:
