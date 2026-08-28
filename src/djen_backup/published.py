@@ -52,9 +52,7 @@ class PublishedManifestUnavailable(RuntimeError):  # noqa: N818
         expected: int,
     ) -> PublishedManifestUnavailable:
         """Build an error for a segment that could not be fully replayed."""
-        return cls(
-            f"published segment {name!r} is malformed: applied {applied} of {expected} rows"
-        )
+        return cls(f"published segment {name!r} is malformed: applied {applied} of {expected} rows")
 
 
 @dataclass(frozen=True)
