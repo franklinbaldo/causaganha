@@ -74,9 +74,7 @@ class PublishedManifestObservation:
     def missing_publication_components(self) -> tuple[str, ...]:
         """Return participating components without a verifiable IA modification clock."""
         return tuple(
-            component.name
-            for component in self.components
-            if component.modified_at is None
+            component.name for component in self.components if component.modified_at is None
         )
 
     @property
