@@ -86,11 +86,7 @@ class PublishedManifestObservation:
         """Return the newest component clock only when every participant is verified."""
         if self.missing_publication_components:
             return None
-        return max(
-            component.modified_at
-            for component in self.components
-            if component.modified_at
-        )
+        return max(component.modified_at for component in self.components if component.modified_at)
 
 
 def _read_parquet_rows(path: Path) -> list[tuple]:
@@ -140,9 +136,7 @@ def _published_components(payload: object) -> tuple[PublishedComponent, ...]:
             pending.append(name)
 
     names = (IA_PARQUET_FILENAME, *sorted(pending))
-    return tuple(
-        PublishedComponent(name=name, modified_at=file_mtimes.get(name)) for name in names
-    )
+    return tuple(PublishedComponent(name=name, modified_at=file_mtimes.get(name)) for name in names)
 
 
 def _apply_rows(manifest: SyncManifest, rows: list[tuple]) -> None:
