@@ -1291,14 +1291,14 @@ def upload_to_ia(files: list[Path]) -> bool:
             text=True,
             timeout=600,
         )
-        if result.returncode == 0:
-            logger.info("upload_success")
-            return True
-        logger.error("upload_failed", stderr=result.stderr[:400])
-        return False
     except subprocess.TimeoutExpired:
         logger.exception("upload_timeout")
         return False
+    if result.returncode == 0:
+        logger.info("upload_success")
+        return True
+    logger.error("upload_failed", stderr=result.stderr[:400])
+    return False
 
 
 def main() -> int:

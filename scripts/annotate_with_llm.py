@@ -445,11 +445,12 @@ def annotate_batch(
             spans = item.get("spans", [])
             if doc_id and isinstance(spans, list):
                 result[str(doc_id)] = spans
-        return result
 
     except Exception:
         logger.exception("batch_llm_annotation_failed")
         return {}
+    else:
+        return result
 
 
 def annotate_text(
@@ -485,11 +486,11 @@ def annotate_text(
             logger.error("llm_invalid_format", raw=content[:200])
             return []
 
-        return data
-
     except Exception:
         logger.exception("llm_annotation_failed")
         return []
+    else:
+        return data
 
 
 def main() -> int:
