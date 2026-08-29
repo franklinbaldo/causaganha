@@ -41,13 +41,13 @@ async def test_djen_connectivity() -> None:
         return
     except httpx.ConnectError:
         return
-    except Exception:
+    except httpx.HTTPError:
         return
 
     # Test 2: Initialize PJe client
     try:
         client = PJeAPIClient()
-    except Exception:
+    except (OSError, RuntimeError, ValueError):
         return
 
     # Test 3: Test API endpoint with minimal request
@@ -73,7 +73,7 @@ async def test_djen_connectivity() -> None:
         return
     except httpx.ConnectError:
         return
-    except Exception:
+    except httpx.HTTPError:
         return
 
     # Test 4: Test data quality

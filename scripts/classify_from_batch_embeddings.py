@@ -158,7 +158,7 @@ def main() -> None:
 
             outcome_counts[prediction["outcome"]] += 1
 
-        except Exception as e:
+        except (duckdb.Error, KeyError, ValueError, TypeError) as e:
             console.print(f"[red]Erro no ID {intimation_id}: {e}[/red]")
             continue
 

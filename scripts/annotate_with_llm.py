@@ -568,7 +568,7 @@ def main() -> int:
             approved_models = json.loads(approved_models_path.read_text(encoding="utf-8")).get(
                 "approved_models", []
             )
-        except Exception:
+        except (OSError, json.JSONDecodeError, AttributeError):
             logger.warning("failed_to_load_approved_models")
 
     # If default model was requested but we have approved models, use the top approved model

@@ -98,7 +98,7 @@ def append_progress_jsonl(path: Path, data: dict) -> None:
         with path.open("a") as f:
             f.write(json.dumps(data, ensure_ascii=False) + "\n")
         logger.info("jsonl_appended", path=str(path))
-    except Exception as e:
+    except OSError as e:
         logger.warning("jsonl_append_failed", path=str(path), error=str(e))
 
 
@@ -124,7 +124,7 @@ def run_ia_command(args: list[str], timeout: int = 300) -> str:
     except FileNotFoundError:
         logger.exception("ia_cli_not_found")
         return ""
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         logger.warning("ia_command_error", error=str(e))
         return ""
     else:
@@ -158,7 +158,7 @@ def get_items_from_sync_manifest(
             ia_status = parts[2]
             if ia_status == "uploaded" and len(date_str) >= 4:
                 item_ids.add(f"djen-{tribunal}-{date_str[:4]}")
-    except Exception as e:
+    except (OSError, UnicodeDecodeError, ValueError) as e:
         logger.warning("failed_to_parse_sync_manifest", error=str(e))
         return []
 
@@ -220,7 +220,7 @@ async def fetch_item_files(
         except TimeoutError:
             if attempt == 2:
                 logger.warning("item_fetch_timeout", item=item_id)
-        except Exception as e:
+        except (aiohttp.ClientError, OSError, ValueError) as e:
             if attempt == 2:
                 logger.warning("item_fetch_error", item=item_id, error=str(e))
 
@@ -243,7 +243,7 @@ def list_item_files(item_id: str) -> list[dict]:
             filename = parts[-1] if parts else ""
             if filename and filename.endswith((".zip", ".parquet", ".absent")):
                 files.append({"name": filename, "item": item_id})
-        except Exception:
+        except (IndexError, AttributeError):
             continue
     return files
 
@@ -283,7 +283,7 @@ def get_local_coverage(con: duckdb.DuckDBPyConnection) -> set[tuple[str, str]]:
         return {(str(r[0]), str(r[1])) for r in result}
     except duckdb.CatalogException:
         return set()
-    except Exception as e:
+    except duckdb.Error as e:
         logger.warning("local_coverage_fetch_failed", error=str(e))
         return set()
 
@@ -310,7 +310,7 @@ def generate_collect_progress(
                 parts = stripped.split(",")
                 if len(parts) >= 3 and parts[2] == "uploaded":
                     uploaded_dates.add(parts[1])
-        except Exception as e:
+        except (OSError, UnicodeDecodeError) as e:
             logger.warning("collect_progress_manifest_read_failed", error=str(e))
 
     unique_days = len(uploaded_dates)
@@ -586,7 +586,7 @@ def load_completed_items() -> set[str]:
                 return items
     except urllib.error.URLError as e:
         logger.info("no_completed_items_found", error=str(e))
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         logger.info("completed_items_error", error=str(e))
 
     return set()
@@ -714,7 +714,7 @@ def load_existing_manifest() -> list[dict]:
         # Check if file exists by trying to describe it
         try:
             con.execute(f"DESCRIBE SELECT * FROM read_parquet('{manifest_url}')")
-        except Exception:
+        except duckdb.Error:
             logger.info("no_existing_manifest_found_at_url")
             return []
 
@@ -724,7 +724,7 @@ def load_existing_manifest() -> list[dict]:
 
         records = df.to_dict("records")
         logger.info("loaded_existing_manifest", records=len(records))
-    except Exception as e:
+    except duckdb.Error as e:
         logger.warning("load_manifest_failed", error=str(e))
         return []
     else:
@@ -741,16 +741,17 @@ def get_item_date(item_id: str) -> date | None:
     """
     if not item_id.startswith("djen-"):
         return None
+    suffix = item_id[len("djen-") :]
+    # New format: djen-{tribunal}-{year} — no specific date available
+    if not suffix[:1].isdigit():
+        return None
+    # Old format: suffix starts with a digit (year)
     try:
-        suffix = item_id[len("djen-") :]
-        # Old format: suffix starts with a digit (year)
-        if suffix[:1].isdigit():
-            date_str = suffix[:10]
-            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
-        # New format: djen-{tribunal}-{year} — no specific date available
+        parsed = datetime.strptime(suffix[:10], "%Y-%m-%d").replace(tzinfo=UTC)
+    except ValueError:
         return None
-    except Exception:
-        return None
+    else:
+        return parsed.date()
 
 
 def generate_manifest(
@@ -1390,7 +1391,7 @@ def main() -> int:
         logger.info(
             "completed_items_saved", count=len(new_completed_items), path=str(completed_items_path)
         )
-    except Exception as e:
+    except OSError as e:
         logger.warning("completed_items_save_failed", error=str(e))
 
     # Calculate Omission Cost
@@ -1399,7 +1400,7 @@ def main() -> int:
     try:
         omission_stats_path.write_text(json.dumps(omission_stats, indent=2))
         logger.info("omission_stats_saved", path=str(omission_stats_path))
-    except Exception as e:
+    except OSError as e:
         logger.warning("omission_stats_save_failed", error=str(e))
 
     # 4. Get local coverage and generate backfill list
@@ -1411,7 +1412,7 @@ def main() -> int:
             con = duckdb.connect(str(main_db_path), read_only=True)
             local_coverage = get_local_coverage(con)
             con.close()
-        except Exception as e:
+        except duckdb.Error as e:
             logger.warning("local_state_read_failed", error=str(e))
 
     backfill = generate_backfill_list(manifest, start_date, end_date, local_coverage)
