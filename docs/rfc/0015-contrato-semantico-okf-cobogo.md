@@ -22,6 +22,7 @@ Esta RFC decide que:
 - **OKF v0.2 é o formato canônico no qual o contrato semântico do produto é autorado, versionado e inspecionado**;
 - **specs/TypeContracts do CausaGanha, mantidos dentro desse bundle, definem o schema de domínio que os runtimes devem obedecer**;
 - **`okf-parser` é o compilador/validador relacional desse contrato**, inclusive para materializar uma representação DuckDB/Ibis consultável do conhecimento, tipos e relações;
+- **JSON Schema e Zod gerados pelo `okf-parser` são bindings derivados do mesmo TypeContract**, e o Zod gerado orienta e valida as fronteiras de dados do frontend em vez de a Web manter um schema manual concorrente;
 - **os dados em massa continuam vindo das fontes que já existem**, preservados e transformados segundo as decisões vigentes; OKF não se torna origem nem espelho integral do acervo;
 - **Parquet/DuckDB continuam sendo o plano canônico de dados e consulta em escala**;
 - **Cobogó é a camada de apresentação da nova Web**;
@@ -44,10 +45,13 @@ adaptação semântica conformante
       │
       ↓
 modelo CausaGanha
-  ↑
+      ↑
 OKF + TypeContracts
-  ↓
-okf-parser → DuckDB/Ibis de referência
+      ↓
+  okf-parser
+   ├────────→ DuckDB/Ibis              query relacional de referência
+   ├────────→ JSON Schema              binding interoperável
+   └────────→ Zod                      binding executável do frontend
       │
       ├────────→ perfis CNJ/OASIS/LexML       prova de interoperabilidade
       │
@@ -57,7 +61,7 @@ projeções orientadas à tarefa
 Web/Cobogó | MCP | exportações      superfícies de produto
 ```
 
-**OKF é canônico para o significado e para o modelo autorado; Parquet é canônico para os registros em escala; os artefatos preservados são canônicos para aquilo que foi arquivado da fonte.** Essas afirmações governam planos diferentes e não criam fontes de verdade concorrentes.
+**OKF é canônico para o significado e para o modelo autorado; Parquet é canônico para os registros em escala; os artefatos preservados são canônicos para aquilo que foi arquivado da fonte.** DuckDB/Ibis, JSON Schema e Zod gerados são representações derivadas do contrato, não novas autoridades semânticas. Essas afirmações governam planos diferentes e não criam fontes de verdade concorrentes.
 
 ## 2. Problema
 
@@ -86,6 +90,12 @@ Do mesmo modo, uma representação relacional excelente para consulta não preci
 É possível construir um modelo internamente consistente e ainda assim modelar mal um processo judicial. Validar apenas nossos próprios schemas prova consistência, não aderência ao domínio.
 
 O modelo deve, portanto, demonstrar que consegue projetar seu núcleo portável para modelos jurídicos externos reconhecidos sem inventar fatos e sem descartar silenciosamente informação essencial.
+
+### 2.6. Tipos de frontend não podem ser uma cópia manual do domínio
+
+Mesmo quando o backend possui um bom modelo, declarar à mão uma segunda versão em TypeScript/Zod reintroduz exatamente a divergência que esta RFC pretende remover. Nulabilidade, listas, tipos temporais e campos novos podem derivar silenciosamente.
+
+O frontend precisa de um contrato executável para validar os dados que recebe, mas esse contrato deve ser **gerado do mesmo TypeContract autorado no bundle**.
 
 ## 3. Decisão arquitetural
 
@@ -123,7 +133,39 @@ Isso **não** significa copiar milhões de processos para o DuckDB produzido a p
 
 Os dois podem compartilhar a mesma álgebra relacional e, quando útil, as mesmas views/mapeamentos, mas têm escalas e responsabilidades diferentes.
 
-### 3.3. OKF não vira banco de dados judicial
+### 3.3. JSON Schema e Zod são bindings gerados
+
+O `okf-parser` compila o mesmo `TypeContract` para JSON Schema e para código Zod. Esses produtos são adotados como **artefatos derivados**, nunca como contratos autorados em paralelo.
+
+Para a Web, o Zod gerado é o binding preferencial porque combina:
+
+- tipos inferíveis pelo TypeScript;
+- validação em runtime na fronteira de entrada;
+- nulabilidade e opcionalidade derivadas do contrato;
+- suporte a tipos declarados, listas e estruturas aninhadas;
+- integração direta com o runtime frontend e, quando conveniente, `astro:content`.
+
+O fluxo esperado é:
+
+```text
+knowledge/.okf/specs/*.md
+        ↓
+TypeContract
+        ↓
+okf-parser export Zod
+        ↓
+generated/domain-schemas.ts
+        ↓
+frontend / Cobogó
+```
+
+O arquivo gerado pode ser commitado ou produzido no build conforme a estratégia do repositório, mas **não pode ser editado manualmente**. Se for commitado, o CI regenera e exige diff vazio; se for produzido no build, o CI deve compilar e testar o resultado.
+
+A Web pode derivar tipos estáticos a partir dos schemas Zod gerados. Não deve manter interfaces manuais semanticamente equivalentes a `Processo`, `Publicacao`, `EventoProcessual` etc. salvo wrappers estritamente de apresentação.
+
+JSON Schema cumpre papel complementar: interoperabilidade com tooling que não usa Zod, documentação de bindings e conformance entre runtimes.
+
+### 3.4. OKF não vira banco de dados judicial
 
 Esta RFC **não** manda converter milhões de publicações ou processos em milhões de arquivos Markdown.
 
@@ -131,13 +173,13 @@ Os registros em massa continuam em Parquet e são localizados pelos manifests, c
 
 Esta distinção é normativa: uma implementação que mantenha uma cópia OKF persistente de todo o acervo como nova fonte de verdade viola esta RFC.
 
-### 3.4. Preservação no Internet Archive permanece independente
+### 3.5. Preservação no Internet Archive permanece independente
 
 A publicação de snapshots no Internet Archive continua preservando a representação definida pelos pipelines de arquivo. A RFC não exige reempacotar esses snapshots em OKF, MNI, MTD ou qualquer outro modelo semântico.
 
 A camada semântica deve conseguir apontar para o artefato preservado que sustenta uma afirmação e registrar a política usada para interpretá-lo. O artefato arquivado é evidência; o contrato OKF explica como o CausaGanha o entende.
 
-### 3.5. Uma fronteira normativa, implementações conformantes
+### 3.6. Uma fronteira normativa, implementações conformantes
 
 Existe uma única **fronteira e especificação normativa de adaptação** entre o plano físico e o modelo de domínio. Não é necessário que Web e MCP executem o mesmo binário.
 
@@ -373,6 +415,26 @@ Cada execução deve produzir um relatório determinístico que classifique prop
 
 O objetivo não é atingir 100% de equivalência com um padrão. É impedir que o CausaGanha crie sem perceber uma ontologia incompatível com o domínio que pretende representar.
 
+### 8.5. Anti-drift dos bindings gerados
+
+O CI também deve verificar que as representações derivadas do TypeContract continuam sincronizadas:
+
+```text
+OKF/TypeContract
+   ├─→ DuckDB/Ibis
+   ├─→ JSON Schema
+   └─→ Zod
+```
+
+Para o Zod, o gate mínimo é:
+
+1. gerar os schemas a partir do bundle com a versão fixada do `okf-parser`;
+2. compilar o TypeScript produzido;
+3. validar as fixtures canônicas com os schemas gerados;
+4. se o arquivo gerado estiver versionado, exigir diff vazio após regeneração.
+
+A mesma fixture que passa pela adaptação do data plane e pelos perfis externos deve ser aceita pelo Zod do frontend. Isso torna uma mudança de contrato visível no CI antes que Web e MCP divirjam.
+
 ## 9. Projeções de produto
 
 O contrato é mais rico que uma resposta de tela ou uma tool individual. Consumidores não precisam receber o grafo inteiro.
@@ -406,7 +468,7 @@ Cobogó é adotado como camada visual da nova Web. Ele deve receber modelos já 
 
 ### 10.1. Regra de dependência
 
-Componentes de apresentação podem conhecer `Processo`, `Publicacao`, `EventoProcessual` e demais projeções de produto. Não podem conhecer:
+Componentes de apresentação podem conhecer `Processo`, `Publicacao`, `EventoProcessual` e demais projeções de produto por meio dos bindings gerados. Não podem conhecer:
 
 - nomes de arquivos Parquet;
 - partições por ano/tribunal;
@@ -417,14 +479,16 @@ Componentes de apresentação podem conhecer `Processo`, `Publicacao`, `EventoPr
 O padrão desejado é:
 
 ```text
-consulta → adaptação semântica → ProcessoView → componente Cobogó
+consulta → adaptação semântica → Zod gerado → ProcessoView → componente Cobogó
 ```
 
 Não:
 
 ```text
-consulta → row DuckDB → componente que interpreta a row
+consulta → row DuckDB → interface TypeScript manual → componente que interpreta a row
 ```
+
+Schemas Zod do domínio validam a fronteira de dados; componentes podem definir tipos próprios exclusivamente para estado visual, composição e apresentação.
 
 ### 10.2. Hierarquia do produto
 
@@ -459,10 +523,13 @@ A implementação deve:
 3. estender contratos relacionais para identidade, cardinalidade e referências que sejam realmente invariantes;
 4. validar o bundle em CI com versão exata de `okf-parser`;
 5. materializar uma representação DuckDB/Ibis de referência para inspeção e queries do modelo;
-6. manter fixtures pequenas e representativas de projeções oriundas de DJEN, DataJud, TJRO JURIS e STJ;
-7. testar implementações de adaptação contra essas fixtures e contra casos de conflito/ausência parcial;
-8. executar os perfis de conformidade externos da seção 7;
-9. usar relatórios determinísticos do parser para falhar de forma legível quando o contrato for violado.
+6. exportar JSON Schema e Zod a partir dos mesmos TypeContracts;
+7. usar o Zod gerado como binding de domínio do frontend e validar as fixtures na fronteira de entrada;
+8. impedir drift de artefatos gerados por regeneração determinística no CI;
+9. manter fixtures pequenas e representativas de projeções oriundas de DJEN, DataJud, TJRO JURIS e STJ;
+10. testar implementações de adaptação contra essas fixtures e contra casos de conflito/ausência parcial;
+11. executar os perfis de conformidade externos da seção 7;
+12. usar relatórios determinísticos do parser para falhar de forma legível quando o contrato for violado.
 
 Se uma capacidade necessária existir apenas em versão posterior do `okf-parser`, a atualização da dependência deve ser explícita e testada; esta RFC não autoriza faixa de versão móvel.
 
@@ -490,11 +557,11 @@ Nada nesta RFC exige alterar uma representação já escolhida para preservaçã
 
 A migração será incremental e não exige reescrita dos pipelines de coleta ou arquivo.
 
-### Fase 1 — contrato OKF e DuckDB de referência
+### Fase 1 — contrato OKF e bindings derivados
 
-Modelar `Processo`, `Publicacao`, `EventoProcessual`, `Documento`, `Pessoa`, `InscricaoOAB` e `OrgaoJudicial`; criar specs/TypeContracts; ampliar os contratos relacionais; criar fixtures cross-fonte; materializar e consultar o modelo pelo `okf-parser`/DuckDB.
+Modelar `Processo`, `Publicacao`, `EventoProcessual`, `Documento`, `Pessoa`, `InscricaoOAB` e `OrgaoJudicial`; criar specs/TypeContracts; ampliar os contratos relacionais; criar fixtures cross-fonte; materializar e consultar o modelo pelo `okf-parser`/DuckDB; gerar JSON Schema e Zod.
 
-**Gate:** um CNJ representativo, com dados de mais de uma fonte quando disponíveis, é reconstruído por relações tipadas e consultável sem que o consumidor conheça schemas físicos.
+**Gate:** um CNJ representativo, com dados de mais de uma fonte quando disponíveis, é reconstruído por relações tipadas, consultável sem que o consumidor conheça schemas físicos e aceito pelo schema Zod gerado do mesmo contrato.
 
 ### Fase 2 — perfis externos de conformidade
 
@@ -506,13 +573,13 @@ Implementar primeiro `cnj-mtd`, depois `cnj-mni`, `oasis-ecf` e os perfis LexML 
 
 Criar a nova homepage e navegação primária com Cobogó, mantendo o site estático e a busca como protagonista. A homepage não migra dashboards operacionais, calendário demonstrativo ou componentes antigos por inércia.
 
-**Gate:** o usuário consegue iniciar busca por CNJ/texto sem exposição prévia a detalhes de armazenamento.
+**Gate:** o usuário consegue iniciar busca por CNJ/texto sem exposição prévia a detalhes de armazenamento e os dados consumidos pela casca passam pela validação Zod gerada.
 
 ### Fase 4 — dossiê de processo
 
 Reimplementar a página de processo consumindo a projeção `Processo`, com conteúdo primeiro e proveniência auditável por evento/publicação/documento.
 
-**Gate:** nenhum componente do dossiê interpreta row DuckDB crua e a fixture usada pela Web também passa pelos perfis externos aplicáveis.
+**Gate:** nenhum componente do dossiê interpreta row DuckDB crua; o dossiê consome tipos derivados do Zod gerado; e a fixture usada pela Web também passa pelos perfis externos aplicáveis.
 
 ### Fase 5 — publicações
 
@@ -548,13 +615,14 @@ Esta RFC não pretende:
 - colocar regras visuais do Cobogó no modelo de domínio;
 - fazer o OKF depender da Web;
 - obrigar MCP e Web a usarem a mesma serialização ou o mesmo runtime;
+- tornar o Zod uma segunda fonte de verdade;
 - remover proveniência em nome de uma visão “unificada”.
 
 ## 17. Alternativas rejeitadas
 
-### 17.1. Tipos TypeScript como contrato canônico
+### 17.1. Tipos TypeScript ou Zod autorados como contrato canônico
 
-Resolveriam a Web, mas deixariam Python/MCP e outros consumidores com semântica duplicada. Também fariam o contrato do produto pertencer à camada de apresentação.
+Resolveriam a Web, mas deixariam Python/MCP e outros consumidores com semântica duplicada. Zod é valioso como binding executável **gerado**, não como lugar onde o significado do domínio nasce.
 
 ### 17.2. Pydantic como contrato canônico
 
@@ -584,20 +652,23 @@ A decisão é considerada implementada quando:
 
 1. o bundle `knowledge/` contém specs/TypeContracts mínimos do domínio público e passa na validação `okf-parser`;
 2. o modelo pode ser consultado em uma representação DuckDB/Ibis de referência gerada/compilada a partir do bundle;
-3. existem regras relacionais para as invariantes adotadas, sem transformar convenções frágeis em constraints normativas;
-4. existe uma única especificação normativa de adaptação, com todas as implementações de runtime passando pelo mesmo corpus de conformidade;
-5. fixtures representativas cobrem processo, publicação, proveniência, ausência parcial e conflito entre fontes;
-6. identificadores de registros externos são namespaced e chaves sintéticas têm algoritmo/versionamento explícitos;
-7. pelo menos o perfil `cnj-mtd` valida estrutural e semanticamente uma fixture de processo; os demais perfis são adicionados conforme a Fase 2;
-8. o CI publica relatório de cobertura de mapeamento e não aceita `unmapped` em propriedade marcada como portável;
-9. uma projeção de processo é consumida tanto pela nova Web quanto pelo MCP sem redefinição independente de identidade/proveniência;
-10. componentes Cobogó não conhecem Parquet, manifests ou rows DuckDB;
-11. `publicacoes_buscar` e a Web de publicações compartilham a mesma semântica de domínio;
-12. todo evento/publicação exibido consegue expor sua origem quando ela existe;
-13. ausência de registro e ausência de cobertura permanecem distinguíveis até as superfícies de produto;
-14. a nova Web mantém o modelo estático por padrão e não introduz servidor de runtime apenas para sustentar esta arquitetura;
-15. a preservação no Internet Archive continua independente da representação semântica;
-16. RFC 0005, RFC 0009 e RFC 0014 permanecem válidas — esta RFC as conecta em uma fronteira semântica única.
+3. JSON Schema e Zod são gerados do mesmo TypeContract e o output gerado passa por gate anti-drift;
+4. fixtures de domínio são validadas pelo Zod gerado antes de serem consumidas pelo frontend;
+5. a Web não mantém um segundo schema manual para os conceitos de domínio cobertos pelo binding gerado;
+6. existem regras relacionais para as invariantes adotadas, sem transformar convenções frágeis em constraints normativas;
+7. existe uma única especificação normativa de adaptação, com todas as implementações de runtime passando pelo mesmo corpus de conformidade;
+8. fixtures representativas cobrem processo, publicação, proveniência, ausência parcial e conflito entre fontes;
+9. identificadores de registros externos são namespaced e chaves sintéticas têm algoritmo/versionamento explícitos;
+10. pelo menos o perfil `cnj-mtd` valida estrutural e semanticamente uma fixture de processo; os demais perfis são adicionados conforme a Fase 2;
+11. o CI publica relatório de cobertura de mapeamento e não aceita `unmapped` em propriedade marcada como portável;
+12. uma projeção de processo é consumida tanto pela nova Web quanto pelo MCP sem redefinição independente de identidade/proveniência;
+13. componentes Cobogó não conhecem Parquet, manifests ou rows DuckDB;
+14. `publicacoes_buscar` e a Web de publicações compartilham a mesma semântica de domínio;
+15. todo evento/publicação exibido consegue expor sua origem quando ela existe;
+16. ausência de registro e ausência de cobertura permanecem distinguíveis até as superfícies de produto;
+17. a nova Web mantém o modelo estático por padrão e não introduz servidor de runtime apenas para sustentar esta arquitetura;
+18. a preservação no Internet Archive continua independente da representação semântica;
+19. RFC 0005, RFC 0009 e RFC 0014 permanecem válidas — esta RFC as conecta em uma fronteira semântica única.
 
 ## 19. Consequências
 
@@ -605,6 +676,8 @@ A decisão é considerada implementada quando:
 
 - uma linguagem de domínio única para humanos, agentes e UI;
 - modelagem inicial simples em Markdown, com relações imediatamente consultáveis por DuckDB/Ibis;
+- schemas Zod e JSON Schema derivados automaticamente do mesmo contrato;
+- frontend com validação runtime e tipos estáticos sem duplicar manualmente o domínio;
 - possibilidade de testar joins, cardinalidades e conflitos antes de aplicá-los ao acervo massivo;
 - menor acoplamento entre armazenamento e produto;
 - preservação e consulta deixam de competir por uma única representação física;
@@ -620,6 +693,7 @@ A decisão é considerada implementada quando:
 
 - passa a existir uma camada explícita de adaptação;
 - o vocabulário semântico precisa de governança e versionamento;
+- artefatos gerados precisam de política clara de build ou versionamento;
 - os perfis externos exigem mappings e fixtures de conformidade mantidos;
 - schemas externos precisam ser fixados e atualizados deliberadamente;
 - algumas estruturas hoje construídas diretamente em UI terão de ser movidas para o domínio;
@@ -634,6 +708,8 @@ Novos conceitos entram no contrato por necessidade observada de produto, não po
 Uma nova fonte pode exigir um adaptador novo; não deve exigir que Cobogó ou cada tool aprendam seu schema. Uma nova interface pode exigir uma projeção nova; não deve redefinir `Processo`, `Publicacao` ou a proveniência.
 
 Um novo padrão externo pode adicionar um perfil de conformidade sem se tornar fonte normativa do nosso domínio.
+
+Uma mudança de TypeContract deve ser tratada como mudança do contrato de produto: regenerar DuckDB/Ibis, JSON Schema e Zod é parte da mesma revisão. Um diff no Zod gerado é evidência da mudança, não lugar para corrigi-la manualmente.
 
 A pergunta de revisão para qualquer extensão passa a ser:
 
