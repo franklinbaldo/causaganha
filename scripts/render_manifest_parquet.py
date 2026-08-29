@@ -30,19 +30,13 @@ Status:  production — runs every 30 min via render-manifest-parquet.yml
 
 from __future__ import annotations
 
+import asyncio
+
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
-import asyncio
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -53,6 +47,11 @@ import ibis
 import tenacity
 
 from causaganha.pipeline.ia_s3 import create_upload_client, upload_to_ia
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 IA_ITEM = "causaganha-dashboard"

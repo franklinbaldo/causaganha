@@ -10,19 +10,13 @@ Status:   ops/research — named 'daily' but no scheduling workflow was found. R
           should this run on a cron/GitHub Actions schedule, or stay manual?
 """
 
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import argparse
 import asyncio
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -34,6 +28,11 @@ from rich.progress import track
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 from causaganha.analysis.llm_analyzer import LLMAnalyzer
 from causaganha.analysis.models import DecisionAnalysis
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()
@@ -222,7 +221,7 @@ def main() -> int:
                 console.print(
                     f"  [cyan]ID {int_id}[/cyan]: LLM={analysis.outcome} | Heurística={heur_outcome} (conf: {heur_conf:.2f})"  # noqa: E501
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — LLMAnalyzer re-raises the provider's own exception (llm_analyzer.py), whose type depends on the LiteLLM backend in use
                 console.print(f"[red]Erro ao processar ID {int_id}: {e}[/red]")
 
     asyncio.run(process_all())
@@ -274,7 +273,7 @@ def main() -> int:
                 ),
             )
             inserted_count += 1
-        except Exception as e:
+        except (duckdb.Error, ValueError, TypeError) as e:
             console.print(f"[red]Erro ao salvar ID {int_id}: {e}[/red]")
 
     conn.commit()

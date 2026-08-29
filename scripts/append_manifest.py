@@ -13,14 +13,6 @@ Status:   production — invoked by the collect/backfill workflows.
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import json
 import os
 import sys
@@ -30,6 +22,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import structlog
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 logger = structlog.get_logger()

@@ -13,16 +13,9 @@ Status:   experiment/analysis — the headline-best approach in the R&D track, b
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import json
 import os
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -34,6 +27,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 from rich.table import Table
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()
@@ -223,7 +221,7 @@ def main() -> None:
 
             outcome_counts[prediction["outcome"]] += 1
 
-        except Exception as e:
+        except (duckdb.Error, KeyError, ValueError, TypeError) as e:
             console.print(f"[red]Erro no ID {intimation_id}: {e}[/red]")
             continue
 

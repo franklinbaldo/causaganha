@@ -26,17 +26,6 @@ CloudFront/WAF blocks — the rate limit signal we're looking for.
 
 from __future__ import annotations
 
-import contextlib
-
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import argparse
 import asyncio
 import contextlib
@@ -50,6 +39,14 @@ from pathlib import Path
 
 import httpx
 from rich.console import Console
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 # Safely reconfigure standard output encoding error handling on Windows

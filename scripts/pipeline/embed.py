@@ -175,7 +175,7 @@ def generate_embeddings(
             stats["processed"] += len(batch)
             logger.info("batch_saved", batch=i // BATCH_SIZE + 1, saved=saved)
 
-        except Exception as e:
+        except (OSError, duckdb.Error, RuntimeError, ValueError) as e:
             logger.warning("batch_failed", error=str(e))
             stats["failed"] += len(batch)
 
