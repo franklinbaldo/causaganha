@@ -14,16 +14,9 @@ Status:   research / experiment — part of the embeddings R&D track (experiment
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -33,6 +26,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()
@@ -188,7 +186,7 @@ def main() -> None:
             },
         )
         console.print(f"[green]✓ Arquivo enviado: {uploaded_file.name}[/green]\n")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — google-genai raises SDK-specific errors that are not importable without the optional dependency installed
         console.print(f"[red]Erro no upload: {e}[/red]")
         return
 
@@ -204,7 +202,7 @@ def main() -> None:
             },
         )
         console.print(f"[green]✓ Batch job criado: {job.name}[/green]\n")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 — google-genai raises SDK-specific errors that are not importable without the optional dependency installed
         console.print(f"[red]Erro ao criar job: {e}[/red]")
         return
 
@@ -252,7 +250,7 @@ def main() -> None:
                     f"[dim]Para verificar depois: client.batches.get(name='{job.name}')[/dim]\n",
                 )
                 return
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — google-genai raises SDK-specific errors that are not importable without the optional dependency installed
                 console.print(f"\n[red]Erro ao verificar status: {e}[/red]")
                 time.sleep(check_interval)
 

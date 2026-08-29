@@ -29,31 +29,29 @@ Data sources available in SQL: see VIEW_SPECS below.
 
 from __future__ import annotations
 
+import argparse
 import contextlib
+import json
+import re
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
+import duckdb
+import yaml
 
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
         with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
 
-import argparse
-import json
-import re
-import urllib.request
-from dataclasses import dataclass
-from pathlib import Path
-from typing import TYPE_CHECKING, Any
-
 
 if TYPE_CHECKING:
     from collections.abc import Callable
-
-import duckdb
-import yaml
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -63,9 +61,11 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
-from djen_backup.manifest import HEADER as _MANIFEST_HEADER
-from tjro_juris.service import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA
+from datajud.archive import (  # noqa: E402 — importado após o bootstrap de sys.path acima
+    CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA,
+)
+from djen_backup.manifest import HEADER as _MANIFEST_HEADER  # noqa: E402 — idem
+from tjro_juris.service import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA  # noqa: E402 — idem
 
 
 QUERIES_DIR = ROOT / "web" / "src" / "queries"

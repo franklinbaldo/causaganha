@@ -18,17 +18,6 @@ Status:   ops workaround — runs via the drain-unknowns workflow while the engi
 
 from __future__ import annotations
 
-import contextlib
-
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import asyncio
 import contextlib
 import os
@@ -45,6 +34,14 @@ from djen_backup.djen import (
     get_caderno_url,
 )
 from djen_backup.manifest import SyncManifest
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 DJEN_PROXY_FALLBACK = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"

@@ -6,11 +6,21 @@ line-length = 100
 
 # marimo notebooks (notebooks/*.py) are authored in marimo's own cell format
 # and embed Colab-only snippets. Their committed .ipynb is verified separately.
-extend-exclude = ["notebooks", ".claude"]
+# vulture_whitelist.py is a vulture artifact (`vulture --make-whitelist`), not
+# source: it names symbols as bare expressions so vulture counts them as used,
+# and is parsed statically by vulture, never imported or executed. Linting it
+# as Python reports undefined names by construction.
+extend-exclude = ["notebooks", ".claude", "vulture_whitelist.py"]
 
 [lint]
 extend-select = ["TRY", "BLE"]
 
 [lint.per-file-ignores]
+# Decimal traps must be disabled before ibis/sqlglot are imported (see the
+# comment beside each statement), so these two modules run one statement ahead
+# of their import block on purpose.
+"scripts/pipeline/consolidate.py" = ["E402"]
+"src/causaganha/consolidate/transforms.py" = ["E402"]
+
 # Batch CLI: one failed archive should not abort processing of the remaining inputs.
 "src/stj_acordaos/__main__.py" = ["BLE001"]

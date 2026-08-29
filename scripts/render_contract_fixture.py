@@ -22,7 +22,7 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
-import scripts.render_queries as renderer
+import scripts.render_queries as renderer  # noqa: E402 — importado após o bootstrap de sys.path acima
 
 
 def _write_relation(con: duckdb.DuckDBPyConnection, name: str, destination: Path) -> None:
