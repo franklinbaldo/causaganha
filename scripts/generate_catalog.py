@@ -741,16 +741,17 @@ def get_item_date(item_id: str) -> date | None:
     """
     if not item_id.startswith("djen-"):
         return None
+    suffix = item_id[len("djen-") :]
+    # New format: djen-{tribunal}-{year} — no specific date available
+    if not suffix[:1].isdigit():
+        return None
+    # Old format: suffix starts with a digit (year)
     try:
-        suffix = item_id[len("djen-") :]
-        # Old format: suffix starts with a digit (year)
-        if suffix[:1].isdigit():
-            date_str = suffix[:10]
-            return datetime.strptime(date_str, "%Y-%m-%d").replace(tzinfo=UTC).date()
-        # New format: djen-{tribunal}-{year} — no specific date available
+        parsed = datetime.strptime(suffix[:10], "%Y-%m-%d").replace(tzinfo=UTC)
+    except ValueError:
         return None
-    except Exception:
-        return None
+    else:
+        return parsed.date()
 
 
 def generate_manifest(
@@ -1290,14 +1291,14 @@ def upload_to_ia(files: list[Path]) -> bool:
             text=True,
             timeout=600,
         )
-        if result.returncode == 0:
-            logger.info("upload_success")
-            return True
-        logger.error("upload_failed", stderr=result.stderr[:400])
-        return False
     except subprocess.TimeoutExpired:
         logger.exception("upload_timeout")
         return False
+    if result.returncode == 0:
+        logger.info("upload_success")
+        return True
+    logger.error("upload_failed", stderr=result.stderr[:400])
+    return False
 
 
 def main() -> int:
