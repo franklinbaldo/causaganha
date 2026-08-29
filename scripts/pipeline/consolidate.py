@@ -49,6 +49,7 @@ import sys
 import duckdb
 import httpx
 import ibis
+from ibis.common.exceptions import IbisError
 import structlog
 from tenacity import (
     retry,
@@ -168,7 +169,7 @@ def load_sync_manifest(path: Path = _SYNC_MANIFEST_FILE) -> dict[str, list[dict[
                 by_date.setdefault(date_str, []).append(
                     {"tribunal": tribunal, "item_id": "", "filename": "", "absent": True}
                 )
-    except Exception as e:
+    except (OSError, UnicodeDecodeError, ValueError) as e:
         logger.warning("sync_manifest_load_failed", path=str(path), error=str(e))
         return {}
 
@@ -199,7 +200,7 @@ def load_checkpoint_state() -> dict[str, Any]:
     try:
         with _CHECKPOINT_STATE_FILE.open("r") as f:
             return json.load(f)
-    except Exception as e:
+    except (OSError, json.JSONDecodeError) as e:
         logger.warning("checkpoint_load_failed", error=str(e))
         return {
             "current_date": None,
@@ -294,7 +295,7 @@ def fetch_manifest_records() -> list[dict]:
         # Download manifest with retry
         try:
             _download_manifest_file(manifest_url, tmp_path)
-        except Exception as e:
+        except (httpx.HTTPError, OSError) as e:
             logger.warning("manifest_download_failed", error=str(e))
             return []
 
@@ -304,15 +305,15 @@ def fetch_manifest_records() -> list[dict]:
             # Fetch all records
             df = con.execute(f"SELECT * FROM read_parquet('{tmp_path}')").df()
             records = df.to_dict("records")
-        except Exception:
+        except duckdb.Error:
             logger.warning("manifest_invalid_parquet")
             records = []
         finally:
             con.close()
-            with contextlib.suppress(Exception):
+            with contextlib.suppress(OSError):
                 tmp_path.unlink()
 
-    except Exception as e:
+    except (OSError, duckdb.Error) as e:
         logger.warning("fetch_manifest_failed", error=str(e))
         return []
     else:
@@ -350,7 +351,7 @@ def fetch_consolidation_candidates(
                 .tolist()
             )
             return [str(d) for d in result]
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, IbisError) as e:
             logger.warning("fetch_candidates_failed_memory", error=str(e))
             return []
 
@@ -373,7 +374,7 @@ def fetch_consolidation_candidates(
         if candidates:
             logger.info("candidates_from_manifest_parquet", count=len(candidates))
             return candidates
-    except Exception as e:
+    except duckdb.Error as e:
         logger.warning("fetch_candidates_from_manifest_parquet_failed", error=str(e))
     finally:
         con.close()
@@ -562,7 +563,7 @@ def list_zips_for_date(
                     elif filename == target_absent:
                         present.add(tribunal)
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, KeyError) as e:
             logger.warning("metadata_fetch_failed", item_id=item_id, error=str(e))
 
     logger.info("zips_found_via_api", count=len(zips), date=date)
@@ -1102,7 +1103,7 @@ def _is_tribunal_stopped(
                 ctx.tribunal_stopped_cache[tribunal][date_str] = result
                 return result
 
-        except Exception:
+        except (httpx.HTTPError, ValueError):
             # On error, assume not stopped (conservative)
             result = False
             ctx.tribunal_stopped_cache[tribunal][date_str] = result
@@ -1221,7 +1222,7 @@ def _needs_consolidation(
 
                         if has_zip:
                             present_tribunais.add(trib)
-                    except Exception:
+                    except (httpx.HTTPError, ValueError):
                         pass  # missing
 
             # Must have data for all active (non-stopped) tribunals
@@ -1236,7 +1237,7 @@ def _needs_consolidation(
                 return False
 
         result = True
-    except Exception:
+    except (httpx.HTTPError, ValueError):
         return False
     else:
         return result
@@ -1457,7 +1458,7 @@ def process_zip_entry(
     if local_zips and "local_path" in zip_entry:
         try:
             shutil.copy2(zip_entry["local_path"], zip_path)
-        except Exception as e:
+        except OSError as e:
             logger.warning("local_copy_failed", filename=filename, error=str(e))
             return 0, 0
     else:
@@ -1678,7 +1679,7 @@ def consolidate_tribunal_year(
                             circuit_breaker=ia_circuit_breaker,
                         )
                         results.append(res)
-                    except Exception as exc:
+                    except (OSError, duckdb.Error, httpx.HTTPError, RuntimeError) as exc:
                         results.append(exc)
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):
@@ -1906,7 +1907,7 @@ def consolidate_date(
                             circuit_breaker=ia_circuit_breaker,
                         )
                         results.append(res)
-                    except Exception as exc:
+                    except (OSError, duckdb.Error, httpx.HTTPError, RuntimeError) as exc:
                         results.append(exc)
                 for table_name, result in zip(TABLES, results, strict=True):
                     if isinstance(result, Exception):

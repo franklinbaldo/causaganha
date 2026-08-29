@@ -221,7 +221,7 @@ def main() -> int:
                 console.print(
                     f"  [cyan]ID {int_id}[/cyan]: LLM={analysis.outcome} | Heurística={heur_outcome} (conf: {heur_conf:.2f})"  # noqa: E501
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 — LLMAnalyzer re-raises the provider's own exception (llm_analyzer.py), whose type depends on the LiteLLM backend in use
                 console.print(f"[red]Erro ao processar ID {int_id}: {e}[/red]")
 
     asyncio.run(process_all())
@@ -273,7 +273,7 @@ def main() -> int:
                 ),
             )
             inserted_count += 1
-        except Exception as e:
+        except (duckdb.Error, ValueError, TypeError) as e:
             console.print(f"[red]Erro ao salvar ID {int_id}: {e}[/red]")
 
     conn.commit()

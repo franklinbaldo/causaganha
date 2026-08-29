@@ -30,6 +30,7 @@ from pathlib import Path
 
 import httpx
 import ibis
+from ibis.common.exceptions import IbisError
 import structlog
 from google import genai
 
@@ -97,7 +98,7 @@ def _download_parquet(url: str, timeout: int = 120) -> str | None:
                     tmp.write(response.content)
                     return tmp.name
             return None
-    except Exception:
+    except (httpx.HTTPError, OSError):
         return None
 
 
@@ -113,7 +114,7 @@ def fetch_consolidated_dates() -> list[str]:
                 return sorted(data.get("dates_consolidated", []))
             logger.warning("catalog_fetch_failed", status=response.status_code)
             return []
-    except Exception as e:
+    except (httpx.HTTPError, ValueError) as e:
         logger.warning("catalog_error", error=str(e))
         return []
 
@@ -138,7 +139,7 @@ def fetch_texts_from_ia(con: ibis.BaseBackend, date: str, tribunal: str) -> ibis
         if row_count == 0:
             return None
         result = t
-    except Exception as e:
+    except (IbisError, OSError) as e:
         logger.warning("texts_download_failed", date=date, tribunal=tribunal, error=str(e))
         return None
     else:
@@ -165,7 +166,7 @@ def fetch_existing_embedding_ids(con: ibis.BaseBackend, date: str, tribunal: str
         ids = t.select("id").to_pyarrow().column("id").to_pylist()
         logger.info("existing_embeddings_found", date=date, tribunal=tribunal, count=len(ids))
         return set(ids)
-    except Exception as e:
+    except (IbisError, OSError) as e:
         logger.info("embeddings_check_failed", date=date, tribunal=tribunal, error=str(e))
         return set()
     finally:
@@ -306,7 +307,7 @@ def generate_embeddings_for_date(
                 else:
                     stats["failed"] += len(batch)
 
-            except Exception as e:
+            except (IbisError, OSError, RuntimeError, ValueError) as e:
                 logger.warning("batch_failed", date=date, tribunal=tribunal, error=str(e))
                 stats["failed"] += len(batch)
 

@@ -104,11 +104,12 @@ async def _drain_one(
                 ok = await upload_zip(
                     upload_client, item_id, zip_path, circuit_breaker=breaker, try_lock=True
                 )
+            except ItemBusyError:
+                await asyncio.sleep(0.5 * (attempt + 1))
+            else:
                 if ok:
                     await delta_writer.mark_uploaded(tribunal, d)
                 return
-            except ItemBusyError:
-                await asyncio.sleep(0.5 * (attempt + 1))
     except DJENNotFoundError as exc:
         # Verified absence — record the raw transport code alongside the
         # verdict (404/400, or no_publications for 200 "Sem comunicações").

@@ -39,7 +39,7 @@ def fetch_remote_line_count(url: str) -> int:
     except urllib.error.URLError as e:
         print(f"Warning: Failed to fetch remote manifest at {url}: {e}")
         return 0
-    except Exception as e:
+    except (TimeoutError, OSError, UnicodeDecodeError) as e:
         print(f"Warning: Unexpected error fetching remote manifest at {url}: {e}")
         return 0
     return 0
@@ -60,7 +60,7 @@ def main():
 
     try:
         content = manifest_path.read_text(encoding="utf-8").strip()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         print(f"Error: Failed to read manifest file '{manifest_path}': {e}")
         sys.exit(1)
 
