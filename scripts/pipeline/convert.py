@@ -1,23 +1,3 @@
-#!/usr/bin/env python3
-
-MIN_ITEM_ID_PARTS = 4
-
-"""Convert DJEN ZIP files to Parquet format.
-
-This script downloads ZIP files from Internet Archive, converts them to
-Parquet format, and uploads the Parquet files back to IA.
-
-Usage:
-    # Convert recent files (finds ZIPs without corresponding Parquets)
-    python scripts/pipeline/convert.py
-
-    # Convert specific date
-    python scripts/pipeline/convert.py --date 2026-01-27
-
-    # Limit number of items
-    python scripts/pipeline/convert.py --max-items 10
-"""
-
 import argparse
 import json
 import subprocess
@@ -38,6 +18,26 @@ from causaganha.storage.djen_schema import (
     FIELD_UF_OAB,
     get_field,
 )
+
+#!/usr/bin/env python3
+
+MIN_ITEM_ID_PARTS = 4
+
+"""Convert DJEN ZIP files to Parquet format.
+
+This script downloads ZIP files from Internet Archive, converts them to
+Parquet format, and uploads the Parquet files back to IA.
+
+Usage:
+    # Convert recent files (finds ZIPs without corresponding Parquets)
+    python scripts/pipeline/convert.py
+
+    # Convert specific date
+    python scripts/pipeline/convert.py --date 2026-01-27
+
+    # Limit number of items
+    python scripts/pipeline/convert.py --max-items 10
+"""
 
 
 logger = structlog.get_logger()

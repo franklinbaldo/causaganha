@@ -15,18 +15,8 @@ Status:   production diagnostic — runs in the backfill-probe workflow, which
 
 from __future__ import annotations
 
-import contextlib
-
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import asyncio
+import contextlib
 import os
 import random
 import sys
@@ -38,6 +28,14 @@ from typing import Any
 
 import duckdb
 import httpx
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 MANIFEST_PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"

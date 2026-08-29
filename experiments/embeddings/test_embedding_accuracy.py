@@ -1,18 +1,17 @@
+import asyncio
+
+import duckdb
+import structlog
+from causaganha.infrastructure.ai.embeddings import EmbeddingAnalyzer
+from rich.console import Console
+from rich.table import Table
+
 #!/usr/bin/env python3
 
 ACCEPTABLE_ACCURACY_THRESHOLD = 60
 GOOD_ACCURACY_THRESHOLD = 80
 
 """Test embedding-based analysis vs LLM analysis."""
-
-import asyncio
-
-import duckdb
-import structlog
-from rich.console import Console
-from rich.table import Table
-
-from causaganha.infrastructure.ai.embeddings import EmbeddingAnalyzer
 
 
 logger = structlog.get_logger()

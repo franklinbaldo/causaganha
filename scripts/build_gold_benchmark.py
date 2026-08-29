@@ -11,20 +11,14 @@ Status:   research/data-build — produces the benchmark consumed by
           daily_benchmark_update.
 """
 
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import argparse
 import asyncio
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import os
 import random
+import sys
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,6 +32,11 @@ from rich.table import Table
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 from causaganha.analysis.llm_analyzer import LLMAnalyzer
 from causaganha.analysis.models import DecisionAnalysis
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()

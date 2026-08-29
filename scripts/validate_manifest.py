@@ -10,22 +10,20 @@ Strategy: Parse every line as JSON and assert the expected schema/row invariants
 Status:   production — gate step in the manifest publish workflow.
 """
 
+import argparse
+
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
-import argparse
 import json
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 def fetch_remote_line_count(url: str) -> int:

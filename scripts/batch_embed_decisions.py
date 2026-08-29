@@ -14,16 +14,9 @@ Status:   research / experiment — part of the embeddings R&D track (experiment
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import json
 import os
+import sys
 import time
 from pathlib import Path
 
@@ -33,6 +26,11 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()

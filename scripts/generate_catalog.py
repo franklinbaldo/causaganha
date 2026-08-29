@@ -23,25 +23,6 @@ Usage:
     python scripts/generate_catalog.py --output ./catalog/
 """
 
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
-SATURDAY_WEEKDAY = 5
-HTTP_200_OK = 200
-MIN_ITEM_ID_PARTS = 3
-MIN_ITEM_ID_PARTS_FOR_TRIBUNAL = 4
-MAX_DAY_OF_MONTH = 31
-MAX_MONTH = 12
-MAX_YEAR_CUTOFF = 2030
-MIN_YEAR_CUTOFF = 2020
-
 import argparse
 import asyncio
 import contextlib
@@ -60,6 +41,23 @@ import duckdb
 import structlog
 
 from causaganha.config import TRIBUNAIS
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
+
+SATURDAY_WEEKDAY = 5
+HTTP_200_OK = 200
+MIN_ITEM_ID_PARTS = 3
+MIN_ITEM_ID_PARTS_FOR_TRIBUNAL = 4
+MAX_DAY_OF_MONTH = 31
+MAX_MONTH = 12
+MAX_YEAR_CUTOFF = 2030
+MIN_YEAR_CUTOFF = 2020
 
 
 logger = structlog.get_logger()

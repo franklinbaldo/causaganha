@@ -10,19 +10,13 @@ Status:   ops/research — named 'daily' but no scheduling workflow was found. R
           should this run on a cron/GitHub Actions schedule, or stay manual?
 """
 
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import argparse
 import asyncio
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import os
+import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -34,6 +28,11 @@ from rich.progress import track
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 from causaganha.analysis.llm_analyzer import LLMAnalyzer
 from causaganha.analysis.models import DecisionAnalysis
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()

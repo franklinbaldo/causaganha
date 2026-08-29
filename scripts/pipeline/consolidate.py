@@ -1,9 +1,4 @@
 #!/usr/bin/env python3
-
-SATURDAY_WEEKDAY = 5
-MIN_ITEM_ID_PARTS = 4
-HTTP_200_OK = 200
-
 """Consolidate DJEN ZIP files into daily Parquet files.
 
 This script downloads all ZIP files for a specific date from Internet Archive,
@@ -38,6 +33,9 @@ from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
+SATURDAY_WEEKDAY = 5
+MIN_ITEM_ID_PARTS = 4
+HTTP_200_OK = 200
 
 # Disable strict decimal traps that cause crashes in ibis/sqlglot
 # See: https://github.com/ibis-project/ibis/issues/9638 (similar)

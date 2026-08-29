@@ -34,25 +34,23 @@ Usage:
 
 from __future__ import annotations
 
+import argparse
 import contextlib
+import json
+import logging
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
-import argparse
-import json
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import duckdb
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 logger = logging.getLogger("generate_homepage_widgets")

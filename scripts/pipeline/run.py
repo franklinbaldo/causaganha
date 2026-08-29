@@ -1,5 +1,3 @@
-SATURDAY_WEEKDAY = 5
-
 """CausaGanha Data Pipeline - KISS Version.
 
 Orchestrates pipeline steps sequentially, processing exactly ONE day per run.
@@ -25,11 +23,12 @@ from dataclasses import dataclass, field
 from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+SATURDAY_WEEKDAY = 5
 
 # Ensure src is in path for causaganha imports
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "src"))
 
-from causaganha.config import DJEN_PROXY_URL
+from causaganha.config import DJEN_PROXY_URL  # noqa: E402 — importado após o bootstrap de sys.path acima
 
 
 # ── Immutable Data Types ──────────────────────────────────────

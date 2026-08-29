@@ -12,5 +12,11 @@ extend-exclude = ["notebooks", ".claude"]
 extend-select = ["TRY", "BLE"]
 
 [lint.per-file-ignores]
+# Decimal traps must be disabled before ibis/sqlglot are imported (see the
+# comment beside each statement), so these two modules run one statement ahead
+# of their import block on purpose.
+"scripts/pipeline/consolidate.py" = ["E402"]
+"src/causaganha/consolidate/transforms.py" = ["E402"]
+
 # Batch CLI: one failed archive should not abort processing of the remaining inputs.
 "src/stj_acordaos/__main__.py" = ["BLE001"]
