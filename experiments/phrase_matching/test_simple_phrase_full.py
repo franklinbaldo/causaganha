@@ -1,13 +1,5 @@
-from collections import Counter
-
-
-#!/usr/bin/env python3
-
-GOOD_ACCURACY_THRESHOLD = 70
-
-"""Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
-
 import os
+from collections import Counter
 
 import duckdb
 import numpy as np
@@ -16,6 +8,12 @@ from rich.console import Console
 from rich.panel import Panel
 from rich.progress import track
 from rich.table import Table
+
+#!/usr/bin/env python3
+
+GOOD_ACCURACY_THRESHOLD = 70
+
+"""Testa 2 frases-chave com TODAS as 30 decisões do ground truth."""
 
 
 console = Console()

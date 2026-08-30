@@ -1,18 +1,5 @@
 from __future__ import annotations
 
-
-"""Shared Internet Archive S3-compatible upload utilities.
-
-This is the canonical module for uploading files to Internet Archive
-using the httpx-based S3-compatible API. All pipeline scripts should
-import upload logic from here instead of defining their own.
-
-CRITICAL: We use httpx (direct HTTP PUT) instead of boto3 or the
-``internetarchive`` Python library. boto3 forces ``x-amz-meta-*`` headers
-while IA requires ``x-archive-meta-*``. See CONTRIBUTING.md and PR #348.
-"""
-
-
 import configparser
 import hashlib
 import os
@@ -29,6 +16,17 @@ from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponen
 # without duplicating the implementation. The class supports both sync
 # (is_open / record_*) and async (allow_request) APIs.
 from djen_backup.circuit_breaker import CircuitBreaker as CircuitBreaker  # noqa: PLC0414, TC001
+
+"""Shared Internet Archive S3-compatible upload utilities.
+
+This is the canonical module for uploading files to Internet Archive
+using the httpx-based S3-compatible API. All pipeline scripts should
+import upload logic from here instead of defining their own.
+
+CRITICAL: We use httpx (direct HTTP PUT) instead of boto3 or the
+``internetarchive`` Python library. boto3 forces ``x-amz-meta-*`` headers
+while IA requires ``x-archive-meta-*``. See CONTRIBUTING.md and PR #348.
+"""
 
 
 logger = structlog.get_logger()

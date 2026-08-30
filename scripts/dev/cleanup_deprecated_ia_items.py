@@ -52,10 +52,11 @@ def delete_ia_file(client: httpx.Client, item_id: str, filename: str) -> bool:
         # IA S3 requires a DELETE request for removal
         resp = client.delete(url)
         resp.raise_for_status()
-        return True
     except Exception as e:
         logger.exception("file_deletion_failed", item_id=item_id, file=filename, error=str(e))
         return False
+    else:
+        return True
 
 
 def cleanup_deprecated_items():

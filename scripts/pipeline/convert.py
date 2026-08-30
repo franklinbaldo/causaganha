@@ -1,23 +1,3 @@
-#!/usr/bin/env python3
-
-MIN_ITEM_ID_PARTS = 4
-
-"""Convert DJEN ZIP files to Parquet format.
-
-This script downloads ZIP files from Internet Archive, converts them to
-Parquet format, and uploads the Parquet files back to IA.
-
-Usage:
-    # Convert recent files (finds ZIPs without corresponding Parquets)
-    python scripts/pipeline/convert.py
-
-    # Convert specific date
-    python scripts/pipeline/convert.py --date 2026-01-27
-
-    # Limit number of items
-    python scripts/pipeline/convert.py --max-items 10
-"""
-
 import argparse
 import json
 import subprocess
@@ -38,6 +18,26 @@ from causaganha.storage.djen_schema import (
     FIELD_UF_OAB,
     get_field,
 )
+
+#!/usr/bin/env python3
+
+MIN_ITEM_ID_PARTS = 4
+
+"""Convert DJEN ZIP files to Parquet format.
+
+This script downloads ZIP files from Internet Archive, converts them to
+Parquet format, and uploads the Parquet files back to IA.
+
+Usage:
+    # Convert recent files (finds ZIPs without corresponding Parquets)
+    python scripts/pipeline/convert.py
+
+    # Convert specific date
+    python scripts/pipeline/convert.py --date 2026-01-27
+
+    # Limit number of items
+    python scripts/pipeline/convert.py --max-items 10
+"""
 
 
 logger = structlog.get_logger()
@@ -88,7 +88,7 @@ def get_unconverted_zips() -> list[dict]:
             except subprocess.TimeoutExpired:
                 continue
 
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError, ValueError) as e:
         logger.warning("search_failed", error=str(e))
 
     # Find ZIPs without Parquets
@@ -110,7 +110,7 @@ def download_zip(item_id: str, filename: str, output_path: Path) -> bool:
             timeout=120,
         )
         return result.returncode == 0 and output_path.exists()
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError) as e:
         logger.warning("download_failed", error=str(e))
         return False
 
@@ -219,7 +219,7 @@ def convert_to_parquet(records: list[dict], output_dir: Path, base_name: str) ->
             output_files.append(output_path)
             logger.debug("parquet_created", path=str(output_path), rows=len(data))
 
-        except Exception as e:
+        except (duckdb.Error, OSError) as e:
             logger.warning("parquet_creation_failed", table=table_name, error=str(e))
 
     con.close()
@@ -245,7 +245,7 @@ def upload_parquets(item_id: str, files: list[Path]) -> int:
             )
             if result.returncode == 0:
                 success += 1
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             continue
     return success
 

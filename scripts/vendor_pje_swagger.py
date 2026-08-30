@@ -10,21 +10,19 @@ Status:   dev/maintenance tool — run manually to refresh the vendored spec.
 
 from __future__ import annotations
 
+import argparse
 import contextlib
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import sys
-
+from pathlib import Path
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
 
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
         with contextlib.suppress(AttributeError):
             stream.reconfigure(errors="replace")
-
-import argparse
-from pathlib import Path
-from urllib.error import HTTPError
-from urllib.request import Request, urlopen
 
 
 HTTP_403_FORBIDDEN = 403

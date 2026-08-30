@@ -10,22 +10,20 @@ Strategy: Parse every line as JSON and assert the expected schema/row invariants
 Status:   production — gate step in the manifest publish workflow.
 """
 
+import argparse
+
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
-import argparse
 import json
 import sys
 import urllib.error
 import urllib.request
 from pathlib import Path
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 def fetch_remote_line_count(url: str) -> int:
@@ -41,7 +39,7 @@ def fetch_remote_line_count(url: str) -> int:
     except urllib.error.URLError as e:
         print(f"Warning: Failed to fetch remote manifest at {url}: {e}")
         return 0
-    except Exception as e:
+    except (TimeoutError, OSError, UnicodeDecodeError) as e:
         print(f"Warning: Unexpected error fetching remote manifest at {url}: {e}")
         return 0
     return 0
@@ -62,7 +60,7 @@ def main():
 
     try:
         content = manifest_path.read_text(encoding="utf-8").strip()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         print(f"Error: Failed to read manifest file '{manifest_path}': {e}")
         sys.exit(1)
 

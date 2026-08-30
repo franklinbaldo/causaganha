@@ -11,20 +11,14 @@ Status:   research/data-build — produces the benchmark consumed by
           daily_benchmark_update.
 """
 
-# Safely reconfigure standard output and standard error encoding error handling on Windows
-import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import argparse
 import asyncio
+
+# Safely reconfigure standard output and standard error encoding error handling on Windows
+import contextlib
 import os
 import random
+import sys
 from collections import defaultdict
 from datetime import UTC, datetime
 from pathlib import Path
@@ -38,6 +32,11 @@ from rich.table import Table
 from causaganha.analysis.keyword_classifier import KeywordClassifier
 from causaganha.analysis.llm_analyzer import LLMAnalyzer
 from causaganha.analysis.models import DecisionAnalysis
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()
@@ -306,7 +305,7 @@ def main() -> int:
                             console.print(
                                 f"[yellow]  Sem resultado para ID {int_id} no batch[/yellow]"
                             )
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 — LLMAnalyzer re-raises the provider's own exception (llm_analyzer.py), whose type depends on the LiteLLM backend in use
                     console.print(f"[red]  Falha no batch: {e}[/red]")
 
                 # Sleep to avoid hitting Gemini's strict 15 RPM (requests per minute) rate limit
@@ -359,7 +358,7 @@ def main() -> int:
                 ),
             )
             inserted_count += 1
-        except Exception as e:
+        except (duckdb.Error, ValueError, TypeError) as e:
             console.print(f"[red]Erro ao salvar UUID {text_uuid}: {e}[/red]")
 
     conn.commit()

@@ -19,11 +19,11 @@ Subcommands
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import sys
 from itertools import pairwise
 from pathlib import Path
-
 
 SPAN_FIELDS = ("label", "spans")
 
@@ -154,9 +154,6 @@ def validate(path: str, label_space: str | None) -> int:
         return 1
     print(f"\nOK: {len(warnings)} warning(s)")
     return 0
-
-
-import contextlib
 
 
 # ------------------------------------------------------------------------- from-spans

@@ -3,15 +3,8 @@
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import os
+import sys
 from typing import Any
 
 import duckdb
@@ -20,6 +13,11 @@ from google import genai
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()

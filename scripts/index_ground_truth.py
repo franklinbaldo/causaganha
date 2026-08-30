@@ -13,15 +13,8 @@ Status:   research/setup — prerequisite for analyze_with_rag and
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
-import sys
-
-
-for stream in (sys.stdout, sys.stderr):
-    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
-        with contextlib.suppress(AttributeError):
-            stream.reconfigure(errors="replace")
-
 import os
+import sys
 from collections import Counter
 from pathlib import Path
 from typing import Any
@@ -32,6 +25,11 @@ from google import genai
 from rich.console import Console
 from rich.progress import track
 from rich.table import Table
+
+for stream in (sys.stdout, sys.stderr):
+    if stream and stream.encoding and stream.encoding.lower() != "utf-8":
+        with contextlib.suppress(AttributeError):
+            stream.reconfigure(errors="replace")
 
 
 console = Console()
