@@ -1,0 +1,121 @@
+---
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const pathname = Astro.url.pathname;
+
+const links = [
+  { href: BASE + 'processo', label: 'Consultar processo', match: '/processo' },
+  { href: BASE + 'publicacoes', label: 'Pesquisar publicações', match: '/publicacoes' },
+  { href: BASE + 'stats', label: 'Explorar cobertura', match: '/stats' },
+  { href: BASE + 'sobre', label: 'Projeto & dados', match: '/sobre' },
+];
+---
+
+<header class="site-nav-shell">
+  <nav class="site-nav" aria-label="Navegação principal">
+    <a class="site-nav__brand" href={BASE} aria-label="CausaGanha — início">
+      <span aria-hidden="true" class="site-nav__mark">§</span>
+      <span>CausaGanha</span>
+    </a>
+
+    <div class="site-nav__links">
+      {links.map((link) => (
+        <a
+          href={link.href}
+          aria-current={pathname.includes(link.match) ? 'page' : undefined}
+        >
+          {link.label}
+        </a>
+      ))}
+    </div>
+  </nav>
+</header>
+
+<style>
+  .site-nav-shell {
+    position: relative;
+    z-index: 20;
+    border-bottom: 1px solid var(--border);
+    background: color-mix(in srgb, var(--color-canvas, var(--papel-00)) 94%, transparent);
+    backdrop-filter: blur(10px);
+  }
+
+  .site-nav {
+    width: min(100% - 2rem, 88rem);
+    margin: 0 auto;
+    min-height: 3.75rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4, 1rem);
+  }
+
+  .site-nav__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    color: var(--fg);
+    font-family: var(--font-display, var(--font-sans));
+    font-weight: 800;
+    letter-spacing: -0.02em;
+    text-decoration: none;
+    white-space: nowrap;
+  }
+
+  .site-nav__mark {
+    display: inline-grid;
+    place-items: center;
+    width: 1.65rem;
+    height: 1.65rem;
+    background: var(--verde, var(--color-accent));
+    color: white;
+    font-family: var(--font-mono);
+    font-weight: 800;
+  }
+
+  .site-nav__links {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.25rem;
+    flex-wrap: wrap;
+  }
+
+  .site-nav__links a {
+    padding: 0.55rem 0.7rem;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro, 0.78rem);
+    font-weight: 650;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+  }
+
+  .site-nav__links a:hover,
+  .site-nav__links a:focus-visible,
+  .site-nav__links a[aria-current='page'] {
+    color: var(--fg);
+    border-bottom-color: var(--verde, var(--color-accent));
+  }
+
+  @media (max-width: 48rem) {
+    .site-nav {
+      align-items: flex-start;
+      flex-direction: column;
+      gap: 0;
+      padding: 0.7rem 0;
+    }
+
+    .site-nav__links {
+      width: 100%;
+      justify-content: flex-start;
+      overflow-x: auto;
+      flex-wrap: nowrap;
+      padding-top: 0.4rem;
+      scrollbar-width: thin;
+    }
+
+    .site-nav__links a {
+      white-space: nowrap;
+    }
+  }
+</style>

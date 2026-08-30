@@ -4,6 +4,7 @@ import { ClientRouter } from 'astro:transitions';
 import Footer from '../components/Footer.astro';
 import NetworkStatusBanner from '../components/NetworkStatusBanner.astro';
 import CommandPalette from '../components/CommandPalette.astro';
+import SiteNav from '../components/SiteNav.astro';
 
 interface Props {
   title: string;
@@ -16,7 +17,13 @@ interface Props {
   showNetworkBanner?: boolean;
 }
 
-const { title, description = 'CausaGanha — acervo público de comunicações judiciais brasileiras (DJEN), arquivado no Internet Archive.', ogImage, fullWidth = false, showNetworkBanner = true } = Astro.props;
+const {
+  title,
+  description = 'CausaGanha — consulte o rastro verificável de processos judiciais brasileiros, com publicações preservadas, fontes oficiais e proveniência explícita.',
+  ogImage,
+  fullWidth = false,
+  showNetworkBanner = true,
+} = Astro.props;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL(`${BASE}og-image.svg`, Astro.site).toString();
@@ -56,7 +63,6 @@ const ogImageUrl = ogImage || new URL(`${BASE}og-image.svg`, Astro.site).toStrin
     <script is:inline>
       // Apply saved theme before paint. When no preference saved, fall back to
       // the user's system setting so dark-mode users don't get a flash of light.
-      // Apply saved preference, or fall back to system preference.
       // We resolve to an explicit "dark"/"light" rather than "auto" because
       // our custom --color-base-* tokens live in [data-theme="dark"], not in
       // a @media block, so they would not activate under data-theme="auto".
@@ -80,6 +86,7 @@ const ogImageUrl = ogImage || new URL(`${BASE}og-image.svg`, Astro.site).toStrin
       Ir para o conteúdo principal
     </a>
     {showNetworkBanner && <NetworkStatusBanner />}
+    <SiteNav />
     <main id="main-content" class:list={[{ container: !fullWidth }]}>
       <slot />
     </main>
