@@ -1,7 +1,14 @@
-name: Cobogo Core Adoption Capture
+name: Product Surface Visual Capture
 
 on:
   pull_request:
+    paths:
+      - 'web/src/**'
+      - 'tests/test_cobogo_core_adoption.py'
+      - '.github/workflows/cobogo-core-adoption-capture.yml'
+  push:
+    branches:
+      - main
     paths:
       - 'web/src/**'
       - 'tests/test_cobogo_core_adoption.py'
@@ -11,9 +18,9 @@ permissions:
   contents: read
 
 jobs:
-  compare-stats:
+  compare-product-surfaces:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - name: Checkout proposed state
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -23,7 +30,7 @@ jobs:
       - name: Checkout base state
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
           path: base
 
       - name: Setup Node
@@ -31,7 +38,7 @@ jobs:
         with:
           node-version: '22'
 
-      - name: Create identical stats fixtures
+      - name: Create identical public-data fixtures
         shell: bash
         run: |
           for tree in base head; do
@@ -66,24 +73,49 @@ jobs:
           python3 -m http.server 4174 --directory /tmp/after >/tmp/after.log 2>&1 &
           sleep 2
 
-      - name: Capture stats before and after
+      - name: Capture desktop and mobile product surfaces
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p captures
-          npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
-            http://127.0.0.1:4173/causaganha/stats.html captures/stats-before.png
-          npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
-            http://127.0.0.1:4174/causaganha/stats.html captures/stats-after.png
-          sha256sum captures/*.png | tee captures/sha256.txt
-          if cmp -s captures/stats-before.png captures/stats-after.png; then
-            echo 'resting_pixels=identical' | tee captures/comparison.txt
-          else
-            echo 'resting_pixels=different' | tee captures/comparison.txt
-          fi
+
+          capture() {
+            state="$1"
+            port="$2"
+            page="$3"
+            viewport="$4"
+            suffix="$5"
+            npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="$viewport" --full-page \
+              "http://127.0.0.1:${port}/causaganha/${page}" "captures/${page//\//-}-${suffix}-${state}.png"
+          }
+
+          for state_port in before:4173 after:4174; do
+            state="${state_port%%:*}"
+            port="${state_port##*:}"
+            capture "$state" "$port" "index.html" "1280,900" "desktop"
+            capture "$state" "$port" "index.html" "390,844" "mobile"
+            capture "$state" "$port" "sobre.html" "1280,900" "desktop"
+            capture "$state" "$port" "sobre.html" "390,844" "mobile"
+            capture "$state" "$port" "stats.html" "1280,900" "desktop"
+          done
+
+          sha256sum captures/*.png | sort | tee captures/sha256.txt
+
+          : > captures/comparison.txt
+          for surface in index.html-desktop index.html-mobile sobre.html-desktop sobre.html-mobile stats.html-desktop; do
+            before="captures/${surface}-before.png"
+            after="captures/${surface}-after.png"
+            if cmp -s "$before" "$after"; then
+              echo "$surface=identical" >> captures/comparison.txt
+            else
+              echo "$surface=different" >> captures/comparison.txt
+            fi
+          done
+          cat captures/comparison.txt
 
       - name: Upload visual evidence
         uses: actions/upload-artifact@v4
         with:
-          name: cobogo-core-stats-before-after
+          name: product-surfaces-before-after
           path: captures/
           if-no-files-found: error
