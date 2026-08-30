@@ -31,6 +31,7 @@ Esta RFC decide que:
 - **os dados em massa continuam vindo das fontes que já existem**, preservados e transformados segundo as decisões vigentes; OKF não se torna origem nem espelho integral do acervo;
 - **Parquet/DuckDB continuam sendo o plano canônico de dados e consulta em escala**;
 - **Cobogó é a camada de apresentação da nova Web**;
+- Web, MCP e futuras exportações derivam suas representações do mesmo modelo semântico, em vez de reconstruir conceitos diretamente a partir de rows, SQL ou componentes de UI;
 - o modelo interno deve ser continuamente testado contra **perfis externos de interoperabilidade judicial**, sem permitir que esses padrões externos substituam ou estreitem o TypeContract interno.
 
 Em forma curta:
@@ -223,7 +224,9 @@ PublicacoesBuscar
   + paginacao
 ```
 
-O mecanismo concreto de declaração pode evoluir com o `okf-parser`, mas precisa produzir uma definição única da composição e bindings equivalentes em Zod/TypeScript e Pydantic/Python.
+O mecanismo de declaração é o **export referencial com projeções declaradas** do `okf-parser` (RFC 0018 daquele repositório, `rfcs/0018-referential-schema-export-and-projections.md`, aceita em 29/08/2026): a composição é lida do `okf.schema.sql` do bundle — que já declara as chaves estrangeiras entre tipos — e um documento `type: Projection` nomeia a raiz e as relações a percorrer. O binding gerado **referencia** `ProcessoSchema`, em vez de re-inlinar a estrutura de `Processo` dentro da projeção.
+
+Essa distinção é normativa e não é detalhe de implementação. Uma projeção que inline a estrutura dos tipos referenciados produz uma segunda cópia do domínio que pode divergir do tipo-base sem que nenhum gate da seção 8.5 perceba, porque cada artefato permanece internamente consistente. Uma projeção que só é aceitável se referenciar não pode ser aproximada por inlining enquanto o mecanismo não existe.
 
 Uma view puramente visual pode envolver uma projeção declarada, porém não pode acrescentar fatos ou relações de domínio. Se `ProcessoView` possui um campo que muda o significado do processo, esse campo pertence à projeção contratual; se possui apenas `expanded`, `selectedTab` ou `isLoading`, pertence à UI.
 
@@ -500,7 +503,10 @@ O gate mínimo é:
 4. validar a mesma fixture canônica com Zod e Pydantic;
 5. validar projeções declaradas, e não apenas tipos atômicos;
 6. se artefatos gerados estiverem versionados, exigir diff vazio após regeneração;
-7. falhar se o barrel TypeScript ou wrappers Python redescreverem estrutura de domínio coberta pelo contrato.
+7. falhar se o barrel TypeScript contiver qualquer coisa além de reexports do arquivo gerado e aliases `z.infer` — verificação sintática determinística, e o barrel deixa de existir quando o gerador emitir os aliases;
+8. falhar se uma projeção — declarada ou transitória — inlinar campos de um tipo referenciado em vez de referenciar seu schema gerado.
+
+Cópias estruturais em modelos Pydantic manuais não são mecanicamente detectáveis e permanecem critério de revisão humana, não gate de CI. A RFC não finge que o CI as pega.
 
 A mesma fixture que passa pela adaptação do data plane deve ser aceita pelos bindings gerados dos runtimes que a consomem. Web e MCP não podem divergir silenciosamente porque um deles copiou o schema.
 
@@ -624,7 +630,13 @@ A implementação deve:
 
 Se uma capacidade necessária existir apenas em versão posterior do `okf-parser`, a atualização da dependência deve ser explícita e testada; esta RFC não autoriza faixa de versão móvel.
 
-Se a versão pinada ainda não gerar diretamente alguma forma desejada de projeção, a Fase 1a pode estabilizar o contrato antes de atualizar o parser. A solução transitória não pode introduzir um segundo schema manual permanente.
+A versão pinada hoje (`okf-parser 0.43`) **não** possui o mecanismo exigido pela seção 3.4: `build_schema_contracts` compila um contrato fechado por tipo, sem nó de referência entre tipos, e a camada de export não lê o `okf.schema.sql`.
+
+O mecanismo existe no `main` do `okf-parser` desde 30/08/2026 — export referencial (`--relational-schema`, `--refs=key|embed`), documentos `type: Projection` e export das projeções pelos três formatos —, mas **ainda não em versão publicada**: o `pyproject.toml` daquele repositório declara `0.45.4` e a última release pública é `v0.45.2`. A condição da Fase 1b, portanto, deixou de ser "o parser precisa ganhar o mecanismo" e passou a ser "o mecanismo precisa estar numa versão consumível": publicação da versão e atualização explícita e testada do pin. Esta RFC não autoriza consumir código não publicado, nem faixa de versão móvel. A Fase 1a não depende de nada disso e pode começar imediatamente.
+
+Enquanto o pin não alcançar o mecanismo, é permitido compor a projeção no consumidor **desde que a composição referencie os schemas gerados** (`z.object({ processo: ProcessoSchema, ... })`), nunca redeclarando os campos dos tipos referenciados. Essa composição é transitória, deve viver em um único arquivo por runtime e é substituída pela projeção declarada assim que o parser a suportar. Inlinar estrutura de tipo referenciado, em qualquer runtime, é violação desta RFC mesmo em regime transitório.
+
+Pelo mesmo motivo, o barrel fino da seção 3.3 é transitório: quando o renderer Zod emitir os aliases `export type X = z.infer<typeof XSchema>`, o arquivo gerado passa a ser a superfície pública completa e o barrel deve ser removido em vez de fiscalizado.
 
 ## 13. O que permanece no plano de dados e de preservação
 
@@ -658,7 +670,7 @@ Modelar `Processo`, `Publicacao`, `EventoProcessual`, `Documento`, `Pessoa`, `In
 
 ### Fase 1b — bindings e primeira projeção compartilhada
 
-Gerar JSON Schema, Zod e Pydantic; introduzir o barrel TypeScript fino; declarar pelo menos `ProcessoConsultar`; validar a mesma fixture nos bindings de frontend e Python e consumir essa projeção em um caminho mínimo da Web/backend.
+Gerar JSON Schema, Zod e Pydantic; declarar pelo menos `ProcessoConsultar`; validar a mesma fixture nos bindings de frontend e Python e consumir essa projeção em um caminho mínimo da Web/backend. **Depende** de uma versão publicada do `okf-parser` que carregue o export referencial e as projeções declaradas, e da atualização explícita e testada do pin; até lá vale a composição referencial transitória da seção 12.
 
 **Gate:** a fixture `ProcessoConsultar` é aceita pelo Zod e pelo Pydantic gerados, TypeScript passa no typecheck usando apenas tipos derivados, Python importa/valida o modelo gerado, e não existe interface/model Pydantic manual semanticamente paralelo.
 
