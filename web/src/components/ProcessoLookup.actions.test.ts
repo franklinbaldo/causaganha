@@ -130,4 +130,38 @@ describe('ProcessoLookup — next actions', () => {
     const link = component.getByText('Pesquisar este CNJ no DJEN');
     expect(link.getAttribute('href')).toContain(`numeroProcesso=${CNJ}`);
   });
+
+  // Issue #907: a "não encontrado" state must also expose the snapshot's
+  // freshness — buscarProcesso() already returns datasetGeradoEm on the
+  // not-found result (processoCnj.ts), but nothing rendered it, so an old
+  // snapshot's absence looked identical to a fresh one's.
+  it('warns that the snapshot may be stale when the CNJ is absent from an old dataset', async () => {
+    const staleTimestamp = new Date(Date.now() - 60 * 60 * 60 * 1000).toISOString(); // 60h ago
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({
+      encontrado: false,
+      legado: false,
+      datasetGeradoEm: staleTimestamp,
+    } as never);
+    const component = render(ProcessoLookup);
+
+    await submit(component);
+
+    await waitFor(() => expect(component.container.textContent).toContain('Pesquisar este CNJ no DJEN'));
+    expect(component.container.textContent).toContain('pode estar desatualizado');
+  });
+
+  it('shows the dataset generation timestamp without a staleness warning when it is fresh', async () => {
+    const freshTimestamp = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(); // 1h ago
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({
+      encontrado: false,
+      legado: false,
+      datasetGeradoEm: freshTimestamp,
+    } as never);
+    const component = render(ProcessoLookup);
+
+    await submit(component);
+
+    await waitFor(() => expect(component.container.textContent).toContain('dataset gerado em'));
+    expect(component.container.textContent).not.toContain('pode estar desatualizado');
+  });
 });
