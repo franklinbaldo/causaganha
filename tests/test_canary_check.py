@@ -105,9 +105,7 @@ def _install_json(monkeypatch, payload: dict[str, object]) -> None:
 
 
 def test_stj_published_artifact_with_data_passes(monkeypatch) -> None:
-    _install_json(
-        monkeypatch, {"total": 84, "total_temas": 15, "ultima_decisao": "20260623"}
-    )
+    _install_json(monkeypatch, {"total": 84, "total_temas": 15, "ultima_decisao": "20260623"})
 
     failures, warnings = canary_check.check_stj_published()
 

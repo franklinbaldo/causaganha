@@ -15,6 +15,9 @@ two independent checks against the real, deployed system:
    production collection uses. Distinguishes "DJEN client is broken" from
    "no publication that day" (404/400) and from "rate limited" (403, a
    known-transient WAF response — logged as a warning, never a failure).
+3. Reachability/structure of the public stj_totals.json artifact. STJ has no
+   per-pair manifest like DJEN, so this proves only that the pipeline still
+   produces a non-empty, well-formed artifact — not freshness (see #892).
 
 Exit 0 = all good (warnings allowed). Exit 1 = hard failure.
 
@@ -40,6 +43,7 @@ from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, get_cadern
 log = structlog.get_logger()
 
 SITE_STATUS_URL = "https://franklinbaldo.github.io/causaganha/data/site-status.json"
+STJ_TOTALS_URL = "https://franklinbaldo.github.io/causaganha/data/stj_totals.json"
 
 # Maximum acceptable age for the deployed artifact itself. Source success
 # uses a business-day deadline below instead of wall-clock hours.
@@ -147,6 +151,40 @@ def check_site_status(
     return failures, warnings
 
 
+def check_stj_published() -> tuple[list[str], list[str]]:
+    """Return (failures, warnings) from the public stj_totals.json artifact.
+
+    STJ has no per-pair manifest to derive a freshness SLO from (unlike DJEN),
+    so this proves only reachability and non-empty structure — matching #892's
+    guidance to not turn a source limitation into a false operational promise.
+    """
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    try:
+        resp = httpx.get(STJ_TOTALS_URL, timeout=30, follow_redirects=True)
+        resp.raise_for_status()
+        payload = resp.json()
+    except (httpx.HTTPError, ValueError) as exc:
+        failures.append(f"could not fetch/parse {STJ_TOTALS_URL}: {exc}")
+        return failures, warnings
+
+    total = payload.get("total")
+    if total is None:
+        failures.append("stj_totals.json missing 'total'")
+    elif not total:
+        failures.append("stj_totals.json total is zero/empty — STJ artifact looks empty")
+
+    total_temas = payload.get("total_temas")
+    if total_temas is None:
+        failures.append("stj_totals.json missing 'total_temas'")
+
+    if not payload.get("ultima_decisao"):
+        failures.append("stj_totals.json missing 'ultima_decisao'")
+
+    return failures, warnings
+
+
 async def check_djen_live(target_date: date) -> tuple[list[str], list[str]]:
     """Return (failures, warnings) from one live DJEN lookup."""
     failures: list[str] = []
@@ -195,9 +233,10 @@ async def main() -> int:
 
     site_failures, site_warnings = check_site_status(now, br_holidays)
     djen_failures, djen_warnings = await check_djen_live(target_date)
+    stj_failures, stj_warnings = check_stj_published()
 
-    failures = site_failures + djen_failures
-    warnings = site_warnings + djen_warnings
+    failures = site_failures + djen_failures + stj_failures
+    warnings = site_warnings + djen_warnings + stj_warnings
 
     report = {
         "generated_at": now.isoformat(),
