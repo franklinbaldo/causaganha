@@ -95,3 +95,46 @@ def test_pending_real_above_threshold_fails(monkeypatch) -> None:
         "pending_real" in failure and "publication→archive backlog" in failure
         for failure in failures
     )
+
+
+def _install_json(monkeypatch, payload: dict[str, object]) -> None:
+    def fake_get(*_args: object, **_kwargs: object) -> httpx.Response:
+        return httpx.Response(200, json=payload, request=httpx.Request("GET", "https://stj"))
+
+    monkeypatch.setattr(canary_check.httpx, "get", fake_get)
+
+
+def test_stj_published_artifact_with_data_passes(monkeypatch) -> None:
+    _install_json(monkeypatch, {"total": 84, "total_temas": 15, "ultima_decisao": "20260623"})
+
+    failures, warnings = canary_check.check_stj_published()
+
+    assert failures == []
+    assert warnings == []
+
+
+def test_stj_published_artifact_empty_fails(monkeypatch) -> None:
+    _install_json(monkeypatch, {"total": 0, "total_temas": 0, "ultima_decisao": None})
+
+    failures, _ = canary_check.check_stj_published()
+
+    assert any("total" in failure and "empty" in failure for failure in failures)
+
+
+def test_stj_published_artifact_missing_field_fails(monkeypatch) -> None:
+    _install_json(monkeypatch, {"total": 84})
+
+    failures, _ = canary_check.check_stj_published()
+
+    assert any("total_temas" in failure for failure in failures)
+
+
+def test_stj_published_artifact_unreachable_fails(monkeypatch) -> None:
+    def fake_get(*_args: object, **_kwargs: object) -> httpx.Response:
+        return httpx.Response(500, request=httpx.Request("GET", "https://stj"))
+
+    monkeypatch.setattr(canary_check.httpx, "get", fake_get)
+
+    failures, _ = canary_check.check_stj_published()
+
+    assert any("stj_totals.json" in failure for failure in failures)
