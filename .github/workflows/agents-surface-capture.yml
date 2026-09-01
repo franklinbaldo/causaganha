@@ -71,6 +71,16 @@ jobs:
           mkdir -p /tmp/before/causaganha /tmp/after/causaganha
           cp -R base/web/dist/. /tmp/before/causaganha/
           cp -R head/web/dist/. /tmp/after/causaganha/
+
+          # GitHub Pages serves generated `agentes.html` at the clean public route
+          # `/causaganha/agentes`. SimpleHTTPRequestHandler does not. Mirror that
+          # resolution only when the generated file exists, so the base capture still
+          # proves that the route was absent before this PR.
+          if [ -f /tmp/after/causaganha/agentes.html ]; then
+            mkdir -p /tmp/after/causaganha/agentes
+            cp /tmp/after/causaganha/agentes.html /tmp/after/causaganha/agentes/index.html
+          fi
+
           python3 -m http.server 4173 --directory /tmp/before >/tmp/agents-before.log 2>&1 &
           python3 -m http.server 4174 --directory /tmp/after >/tmp/agents-after.log 2>&1 &
           sleep 2
