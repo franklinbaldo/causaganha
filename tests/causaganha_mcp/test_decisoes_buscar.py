@@ -30,7 +30,7 @@ async def test_decision_search_maps_content_and_process_next_actions(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite: DecisionSearchResult(
+        lambda _texto, _plan, *, limite, cnj=None: DecisionSearchResult(
             resultados=[
                 DecisionHit(
                     fonte="stj",
@@ -128,7 +128,7 @@ async def test_coverage_limitation_survives_successful_other_source(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite: DecisionSearchResult(datasets_consultados=1),
+        lambda _texto, _plan, *, limite, cnj=None: DecisionSearchResult(datasets_consultados=1),
     )
 
     fn = await _tool_fn(mcp, "decisoes_buscar")

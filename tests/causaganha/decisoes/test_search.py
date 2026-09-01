@@ -151,8 +151,8 @@ def test_cnj_lookup_matches_exact_process_across_sources_without_texto(
 
     result = search_decisions(None, plan, cnj="00000010220248220001")
 
-    assert [item.fonte for item in result.resultados] == ["stj"]
-    assert result.resultados[0].cnj == "00000010220248220001"
+    assert {item.fonte for item in result.resultados} == {"juris", "stj"}
+    assert all(item.cnj == "00000010220248220001" for item in result.resultados)
     assert result.limitacoes == []
 
 

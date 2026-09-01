@@ -211,6 +211,30 @@ def _next_actions(r: ProcessoConsultaResult) -> list[ProximaAcaoResult]:
             argumentos={"processo": r.nr_processo},
         ),
     ]
+    if r.stj is not None:
+        actions.append(
+            ProximaAcaoResult(
+                quando=(
+                    "Se o resumo do STJ já retornado não basta e você precisa do teor "
+                    "completo do acórdão."
+                ),
+                acao="Buscar o teor completo do acórdão STJ deste processo.",
+                tool="decisoes_buscar",
+                argumentos={"cnj": r.nr_processo, "fonte": "stj"},
+            )
+        )
+    if r.juris is not None:
+        actions.append(
+            ProximaAcaoResult(
+                quando=(
+                    "Se o resumo do TJRO JURIS já retornado não basta e você precisa do "
+                    "teor completo da decisão."
+                ),
+                acao="Buscar o teor completo da decisão JURIS deste processo.",
+                tool="decisoes_buscar",
+                argumentos={"cnj": r.nr_processo, "fonte": "juris"},
+            )
+        )
     return actions
 
 
