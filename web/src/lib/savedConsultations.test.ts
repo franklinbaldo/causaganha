@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { formatCnj } from './processoCnj';
 import {
+  SAVED_CONSULTATIONS_SCHEMA_VERSION,
   parseSavedConsultations,
   removeSavedConsultation,
   renameSavedConsultation,
@@ -186,5 +187,31 @@ describe('savedConsultations — DJEN search (busca)', () => {
     const removed = removeSavedConsultation(renamed, searchId);
     expect(removed).toHaveLength(1);
     expect(removed[0].type).toBe('processo');
+  });
+});
+
+describe('savedConsultations — storage schema migration', () => {
+  it('reads a pre-versioning bare-array payload, the shape every existing user has on disk today', () => {
+    const items = saveProcessConsultation([], CNJ, 'Caso', '2026-08-21T12:00:00.000Z');
+    const legacyBareArrayRaw = JSON.stringify(items);
+
+    expect(parseSavedConsultations(legacyBareArrayRaw)).toEqual(items);
+  });
+
+  it('upgrades a legacy bare-array payload to the versioned envelope on re-serialization', () => {
+    const items = saveProcessConsultation([], CNJ, 'Caso', '2026-08-21T12:00:00.000Z');
+    const legacyBareArrayRaw = JSON.stringify(items);
+
+    const migrated = parseSavedConsultations(legacyBareArrayRaw);
+    const reserialized = JSON.parse(serializeSavedConsultations(migrated));
+
+    expect(reserialized).toEqual({ version: SAVED_CONSULTATIONS_SCHEMA_VERSION, items });
+  });
+
+  it('reads back the versioned envelope written by the current schema version', () => {
+    const items = saveSearchConsultation([], { siglaTribunal: 'TJRO' }, 'Busca TJRO');
+    const raw = serializeSavedConsultations(items);
+
+    expect(parseSavedConsultations(raw)).toEqual(items);
   });
 });

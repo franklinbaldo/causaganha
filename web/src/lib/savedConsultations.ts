@@ -4,6 +4,25 @@ import type { DjenComunicacaoQuery } from './djen';
 
 export const SAVED_CONSULTATIONS_STORAGE_KEY = 'causaganha:saved-consultations:v1';
 
+/**
+ * Bumped whenever the persisted payload *shape* changes (not per-field
+ * additions, which parseSavedConsultations already tolerates). Every
+ * existing user's storage today is a bare array with no version marker
+ * at all — that shape is read as the implicit predecessor of version 1.
+ */
+export const SAVED_CONSULTATIONS_SCHEMA_VERSION = 1;
+
+type SavedConsultationsPayload = { version: number; items: unknown[] };
+
+function isVersionedPayload(value: unknown): value is SavedConsultationsPayload {
+  return (
+    !!value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Array.isArray((value as SavedConsultationsPayload).items)
+  );
+}
+
 export type SavedProcessConsultation = {
   id: string;
   type: 'processo';
@@ -64,8 +83,9 @@ export function parseSavedConsultations(raw: string | null): SavedConsultation[]
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed
+    const rawItems = Array.isArray(parsed) ? parsed : isVersionedPayload(parsed) ? parsed.items : null;
+    if (!rawItems) return [];
+    return rawItems
       .map((item): SavedConsultation | null => {
         if (isSavedProcess(item)) {
           const cnj = normalizeCnj(item.cnj);
@@ -86,7 +106,8 @@ export function parseSavedConsultations(raw: string | null): SavedConsultation[]
 }
 
 export function serializeSavedConsultations(items: SavedConsultation[]): string {
-  return JSON.stringify(items);
+  const payload: SavedConsultationsPayload = { version: SAVED_CONSULTATIONS_SCHEMA_VERSION, items };
+  return JSON.stringify(payload);
 }
 
 export function saveProcessConsultation(
