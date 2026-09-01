@@ -10,7 +10,7 @@ from holidays import Brazil
 from scripts import canary_check
 
 
-def _status(last_success_at: str) -> dict[str, object]:
+def _status(last_success_at: str, pending_real: int = 0) -> dict[str, object]:
     return {
         "generated_at": "2026-08-10T11:30:00Z",
         "sources": {
@@ -19,6 +19,7 @@ def _status(last_success_at: str) -> dict[str, object]:
                 "coverage_pct": 25.0,
                 "pairs_total": 100,
                 "tribunals_total": 10,
+                "pending_real": pending_real,
             }
         },
     }
@@ -63,3 +64,34 @@ def test_business_day_success_does_not_hide_stale_deploy(monkeypatch) -> None:
     )
 
     assert any("deploy-web pipeline appears stalled" in failure for failure in failures)
+
+
+def test_pending_real_within_threshold_passes(monkeypatch) -> None:
+    payload = _status(
+        "2026-08-10T03:00:00Z",
+        pending_real=canary_check.PENDING_REAL_THRESHOLD,
+    )
+    _install_status(monkeypatch, payload)
+
+    failures, _ = canary_check.check_site_status(
+        datetime(2026, 8, 11, 12, 30, tzinfo=UTC), Brazil()
+    )
+
+    assert not any("pending_real" in failure for failure in failures)
+
+
+def test_pending_real_above_threshold_fails(monkeypatch) -> None:
+    payload = _status(
+        "2026-08-10T03:00:00Z",
+        pending_real=canary_check.PENDING_REAL_THRESHOLD + 1,
+    )
+    _install_status(monkeypatch, payload)
+
+    failures, _ = canary_check.check_site_status(
+        datetime(2026, 8, 11, 12, 30, tzinfo=UTC), Brazil()
+    )
+
+    assert any(
+        "pending_real" in failure and "publication→archive backlog" in failure
+        for failure in failures
+    )

@@ -45,6 +45,15 @@ SITE_STATUS_URL = "https://franklinbaldo.github.io/causaganha/data/site-status.j
 # uses a business-day deadline below instead of wall-clock hours.
 FRESHNESS_THRESHOLD_HOURS = 48
 
+# docs/SERVICE_OBJECTIVES.md declares a 24h publication→archive SLO, but
+# site-status.json only exposes the aggregate pending_real count (pairs DJEN
+# confirmed available but not yet uploaded to IA), not per-pair timestamps.
+# This is a coarse proxy alarm on backlog size, not a literal delay
+# measurement — live pending_real is normally 0, so any sustained backlog
+# past this threshold is anomalous. Tune once real backlog episodes give a
+# baseline.
+PENDING_REAL_THRESHOLD = 50
+
 # TJRO is the most-documented DJEN tribunal in this codebase (CLAUDE.md IA
 # naming example, site_status.qmd worked example) — a stable, known-good
 # canary target.
@@ -127,6 +136,13 @@ def check_site_status(
         failures.append("pairs_total is zero/missing — manifest looks empty")
     if not djen.get("tribunals_total"):
         failures.append("tribunals_total is zero/missing — manifest looks empty")
+
+    pending_real = djen.get("pending_real")
+    if pending_real is not None and pending_real > PENDING_REAL_THRESHOLD:
+        failures.append(
+            f"pending_real is {pending_real} (> {PENDING_REAL_THRESHOLD}) — "
+            "publication→archive backlog growing, see docs/SERVICE_OBJECTIVES.md"
+        )
 
     return failures, warnings
 
