@@ -149,7 +149,18 @@ _EXPECTED_INPUT_FIELDS = {
         "limite",
         "pagina",
     },
-    "decisoes_buscar": {"texto", "fonte", "data_inicio", "data_fim", "limite", "cnj", "offset"},
+    "decisoes_buscar": {
+        "texto",
+        "fonte",
+        "data_inicio",
+        "data_fim",
+        "limite",
+        "cnj",
+        "offset",
+        "classe",
+        "orgao",
+        "relator",
+    },
 }
 
 

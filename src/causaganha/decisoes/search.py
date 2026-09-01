@@ -78,6 +78,9 @@ def _juris_sql(urls: list[str]) -> str:
           AND (? IS NULL OR NULLIF(regexp_replace(nr_processo, '[^0-9]', '', 'g'), '') = ?)
           AND (? IS NULL OR TRY_CAST(data_julgamento AS DATE) >= CAST(? AS DATE))
           AND (? IS NULL OR TRY_CAST(data_julgamento AS DATE) <= CAST(? AS DATE))
+          AND (? IS NULL OR lower(coalesce(classe_judicial, '')) LIKE lower(?))
+          AND (? IS NULL OR lower(coalesce(relator, '')) LIKE lower(?))
+          AND (? IS NULL OR lower(coalesce(orgao, '')) LIKE lower(?))
         ORDER BY data DESC NULLS LAST, id_documento
         LIMIT ?
     """
@@ -103,6 +106,8 @@ def _stj_sql(urls: list[str]) -> str:
           AND (? IS NULL OR NULLIF(regexp_replace("numeroProcesso", '[^0-9]', '', 'g'), '') = ?)
           AND (? IS NULL OR TRY_CAST("dataDecisao" AS DATE) >= CAST(? AS DATE))
           AND (? IS NULL OR TRY_CAST("dataDecisao" AS DATE) <= CAST(? AS DATE))
+          AND (? IS NULL OR lower(coalesce("siglaClasse", '')) LIKE lower(?))
+          AND (? IS NULL OR lower(coalesce("ministroRelator", '')) LIKE lower(?))
         ORDER BY data DESC NULLS LAST, id_documento
         LIMIT ?
     """
@@ -113,12 +118,19 @@ def _params(
     cnj: str | None,
     plan: DecisionSearchPlan,
     limite: int,
+    *,
+    classe: str | None,
+    relator: str | None,
+    orgao: str | None = None,
+    include_orgao: bool = False,
 ) -> list[str | int | None]:
     start = plan.data_inicio.isoformat() if plan.data_inicio else None
     end = plan.data_fim.isoformat() if plan.data_fim else None
     texto_pattern = f"%{texto}%" if texto else None
     cnj_digits = _only_digits(cnj) if cnj else None
-    return [
+    classe_pattern = f"%{classe}%" if classe else None
+    relator_pattern = f"%{relator}%" if relator else None
+    params: list[str | int | None] = [
         texto_pattern,
         texto_pattern,
         cnj_digits,
@@ -127,8 +139,16 @@ def _params(
         start,
         end,
         end,
-        limite + 1,
+        classe_pattern,
+        classe_pattern,
+        relator_pattern,
+        relator_pattern,
     ]
+    if include_orgao:
+        orgao_pattern = f"%{orgao}%" if orgao else None
+        params.extend([orgao_pattern, orgao_pattern])
+    params.append(limite + 1)
+    return params
 
 
 def _row_to_hit(row: tuple[Any, ...]) -> DecisionHit:
@@ -156,12 +176,26 @@ def _search_source(
     cnj: str | None,
     plan: DecisionSearchPlan,
     limite: int,
+    classe: str | None,
+    relator: str | None,
+    orgao: str | None = None,
 ) -> tuple[list[DecisionHit], bool, str | None]:
     if not urls:
         return [], False, None
-    sql = _juris_sql(urls) if fonte == "juris" else _stj_sql(urls)
+    is_juris = fonte == "juris"
+    sql = _juris_sql(urls) if is_juris else _stj_sql(urls)
+    params = _params(
+        texto,
+        cnj,
+        plan,
+        limite,
+        classe=classe,
+        relator=relator,
+        orgao=orgao,
+        include_orgao=is_juris,
+    )
     try:
-        rows = con.execute(sql, _params(texto, cnj, plan, limite)).fetchall()
+        rows = con.execute(sql, params).fetchall()
     except duckdb.Error as exc:
         return [], False, f"Fonte {fonte} indisponível para esta busca: {exc}"
     truncated = len(rows) > limite
@@ -178,12 +212,24 @@ def search_decisions(
     limite: int = 20,
     cnj: str | None = None,
     offset: int = 0,
+    classe: str | None = None,
+    orgao: str | None = None,
+    relator: str | None = None,
 ) -> DecisionSearchResult:
     """Search decision content without crossing the dataset budget in ``plan``.
 
     ``texto`` and ``cnj`` combine as additional filters when both are given.
     A CNJ-only lookup (``texto=None``) is how a caller with a known process
     number finds teor without guessing a keyword.
+
+    ``classe`` and ``relator`` filter both sources: JURIS and STJ each have a
+    real, comparable column for both. ``orgao`` only filters JURIS — STJ's
+    "órgão colegiado julgador" is not a verified column in the published
+    dataset, so honoring it there would risk exactly the kind of schema-drift
+    binder error already seen once on this project (see #872). Rather than
+    silently ignore the criterion for STJ, ``orgao`` skips STJ from the
+    search entirely and records an explicit limitation. There is no
+    ``assunto`` filter: neither source has a legitimate equivalent field.
 
     ``offset`` pages through the globally sorted, cross-source result set.
     The window (``offset + limite``) is bounded to keep the remote scan cost
@@ -213,13 +259,26 @@ def search_decisions(
 
     texto_query = query or None
     cnj_query = cnj_digits or None
+    classe_query = classe.strip() or None if classe else None
+    orgao_query = orgao.strip() or None if orgao else None
+    relator_query = relator.strip() or None if relator else None
+    skip_stj_for_orgao = bool(orgao_query) and bool(plan.stj)
+
     con = duckdb.connect()
     _load_httpfs(con)
     hits: list[DecisionHit] = []
     limitations: list[str] = []
     truncated = False
+    if skip_stj_for_orgao:
+        limitations.append(
+            "STJ: filtro de órgão não é aplicado — o dataset publicado hoje não "
+            "expõe órgão colegiado julgador de forma verificada; resultados STJ "
+            "desta busca ignoram esse critério."
+        )
     try:
         for fonte, datasets in (("juris", plan.juris), ("stj", plan.stj)):
+            if fonte == "stj" and skip_stj_for_orgao:
+                continue
             source_hits, source_truncated, error = _search_source(
                 con,
                 fonte=fonte,
@@ -228,6 +287,9 @@ def search_decisions(
                 cnj=cnj_query,
                 plan=plan,
                 limite=window_end,
+                classe=classe_query,
+                relator=relator_query,
+                orgao=orgao_query,
             )
             hits.extend(source_hits)
             truncated = truncated or source_truncated

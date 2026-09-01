@@ -30,22 +30,24 @@ async def test_decision_search_maps_content_and_process_next_actions(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite, cnj=None, offset=0: DecisionSearchResult(
-            resultados=[
-                DecisionHit(
-                    fonte="stj",
-                    id_documento="s1",
-                    cnj="00000010220248220001",
-                    data="2026-03-15",
-                    tipo="REsp",
-                    orgao=None,
-                    relator="MIN. EXEMPLO",
-                    classe="REsp",
-                    trecho="Dano moral e responsabilidade civil.",
-                    url=None,
-                )
-            ],
-            datasets_consultados=1,
+        lambda _texto, _plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None: (
+            DecisionSearchResult(
+                resultados=[
+                    DecisionHit(
+                        fonte="stj",
+                        id_documento="s1",
+                        cnj="00000010220248220001",
+                        data="2026-03-15",
+                        tipo="REsp",
+                        orgao=None,
+                        relator="MIN. EXEMPLO",
+                        classe="REsp",
+                        trecho="Dano moral e responsabilidade civil.",
+                        url=None,
+                    )
+                ],
+                datasets_consultados=1,
+            )
         ),
     )
 
@@ -80,7 +82,9 @@ async def test_cnj_lookup_bypasses_juris_thematic_period_requirement(
     monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
     captured: dict[str, object] = {}
 
-    def _fake_search(_texto, _plan, *, limite, cnj=None, offset=0):
+    def _fake_search(
+        _texto, _plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None
+    ):
         captured["cnj"] = cnj
         return DecisionSearchResult(
             resultados=[
@@ -117,7 +121,9 @@ async def test_offset_is_forwarded_and_next_offset_reported_when_truncated(
     monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
     captured: dict[str, object] = {}
 
-    def _fake_search(_texto, _plan, *, limite, cnj=None, offset=0):
+    def _fake_search(
+        _texto, _plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None
+    ):
         captured["offset"] = offset
         return DecisionSearchResult(
             resultados=[
@@ -158,8 +164,8 @@ async def test_proximo_offset_is_none_when_not_truncated(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite, cnj=None, offset=0: DecisionSearchResult(
-            resultados=[], resultados_truncados=False, datasets_consultados=1
+        lambda _texto, _plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None: (
+            DecisionSearchResult(resultados=[], resultados_truncados=False, datasets_consultados=1)
         ),
     )
 
@@ -227,8 +233,8 @@ async def test_coverage_limitation_survives_successful_other_source(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite, cnj=None, offset=0: DecisionSearchResult(
-            datasets_consultados=1
+        lambda _texto, _plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None: (
+            DecisionSearchResult(datasets_consultados=1)
         ),
     )
 

@@ -243,9 +243,7 @@ def test_classe_filter_matches_only_the_source_with_that_classe(tmp_path: Path) 
     _write_juris(juris)
     _write_stj(stj)
 
-    juris_only = search_decisions(
-        "responsabilidade civil", _plan(juris, stj), classe="apelação"
-    )
+    juris_only = search_decisions("responsabilidade civil", _plan(juris, stj), classe="apelação")
     stj_only = search_decisions("responsabilidade civil", _plan(juris, stj), classe="resp")
 
     assert [item.fonte for item in juris_only.resultados] == ["juris"]
