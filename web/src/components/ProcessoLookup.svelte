@@ -38,6 +38,7 @@
   let queryError = $state(null);
   let processo = $state(null);
   let notFoundLegado = $state(false);
+  let notFoundDatasetGeradoEm = $state(null);
 
   let documentosStatus = $state('idle'); // 'idle' | 'loading' | 'ready' | 'error'
   let documentosError = $state(null);
@@ -61,10 +62,16 @@
   const documentosVazio = $derived(
     status === 'found' && documentosStatus === 'ready' && isDocumentosVazio(documentos, 0) && documentosOffset === 0,
   );
-  const datasetGeneratedAtLabel = $derived(
-    processo?.datasetGeradoEm ? (formatUtcDateTime(processo.datasetGeradoEm) ?? 'desconhecido') : 'desconhecido',
+  // 'found' and 'not_found' both carry a datasetGeradoEm from the same
+  // snapshot (buscarProcesso() returns it either way) — an old snapshot must
+  // not look identical to a fresh one just because this CNJ wasn't in it.
+  const activeDatasetGeradoEm = $derived(
+    status === 'found' ? (processo?.datasetGeradoEm ?? null) : status === 'not_found' ? notFoundDatasetGeradoEm : null,
   );
-  const datasetStale = $derived(processo ? isDatasetStale(processo.datasetGeradoEm, Date.now()) : false);
+  const datasetGeneratedAtLabel = $derived(
+    activeDatasetGeradoEm ? (formatUtcDateTime(activeDatasetGeradoEm) ?? 'desconhecido') : 'desconhecido',
+  );
+  const datasetStale = $derived(activeDatasetGeradoEm ? isDatasetStale(activeDatasetGeradoEm, Date.now()) : false);
   const publicacoesHref = $derived(
     lastQueriedCnj
       ? `${BASE}publicacoes?numeroProcesso=${encodeURIComponent(lastQueriedCnj)}`
@@ -188,6 +195,7 @@
     queryError = null;
     processo = null;
     notFoundLegado = false;
+    notFoundDatasetGeradoEm = null;
     documentos = [];
     documentosStatus = 'idle';
     documentosOffset = 0;
@@ -211,6 +219,7 @@
       if (!resultado.encontrado) {
         status = 'not_found';
         notFoundLegado = resultado.legado;
+        notFoundDatasetGeradoEm = resultado.datasetGeradoEm ?? null;
         return;
       }
 
@@ -312,6 +321,13 @@
         significa que o CNJ não apareceu em nenhuma das fontes reconciliadas (DJEN, JURIS, STJ,
         DataJud) até a última geração do dataset — não que o processo não existe.
       </p>
+      <p class="meta-text">Snapshot consultado: dataset gerado em {datasetGeneratedAtLabel}.</p>
+      {#if datasetStale}
+        <p class="meta-text" data-tone="warning">
+          Este snapshot pode estar desatualizado (dataset gerado há mais de 48h) — a ausência de
+          registro pode não refletir o estado mais recente das fontes.
+        </p>
+      {/if}
       {#if lastQueriedCnj}
         <div class="processo-dossie__actions" aria-label="Outras formas de procurar este processo">
           <a class="outline" href={publicacoesHref}>Pesquisar este CNJ no DJEN</a>
