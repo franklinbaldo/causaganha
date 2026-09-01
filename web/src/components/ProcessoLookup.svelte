@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import { getDuckDB } from '../lib/duckdbSingleton';
   import { formatUtcDateTime } from '../lib/data/siteStatus';
+  import { absoluteUrl, buildProcessoPermalink, buildPublicacoesCnjUrl } from '../lib/processoActions';
   import {
     ALL_FONTES,
     FONTE_LABELS,
@@ -17,6 +18,8 @@
     readCnjParam,
   } from '../lib/processoCnj';
 
+  const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+
   let input = $state('');
   let dbStatus = $state('initializing'); // 'initializing' | 'ready' | 'error'
   let dbError = $state(null);
@@ -27,6 +30,7 @@
   let queryError = $state(null);
   let processo = $state(null);
   let notFoundLegado = $state(false);
+  let actionFeedback = $state(null);
 
   let documentosStatus = $state('idle'); // 'idle' | 'loading' | 'ready' | 'error'
   let documentosError = $state(null);
@@ -49,6 +53,12 @@
   );
   const datasetGeneratedAtLabel = $derived(
     processo?.datasetGeradoEm ? (formatUtcDateTime(processo.datasetGeradoEm) ?? 'desconhecido') : 'desconhecido',
+  );
+  const processoPermalink = $derived(
+    lastQueriedCnj ? buildProcessoPermalink(BASE, lastQueriedCnj) : null,
+  );
+  const publicacoesCnjUrl = $derived(
+    lastQueriedCnj ? buildPublicacoesCnjUrl(BASE, lastQueriedCnj) : null,
   );
 
   async function init() {
@@ -98,12 +108,32 @@
     loadDocumentos(lastQueriedCnj, documentosOffset + DOCUMENTOS_PAGE_SIZE);
   }
 
+  async function copyAction(label, value) {
+    actionFeedback = null;
+    if (!value || typeof navigator === 'undefined' || !navigator.clipboard) {
+      actionFeedback = 'Seu navegador não disponibilizou a área de transferência.';
+      return;
+    }
+    try {
+      await navigator.clipboard.writeText(value);
+      actionFeedback = `${label} copiado.`;
+    } catch {
+      actionFeedback = `Não foi possível copiar ${label.toLowerCase()}.`;
+    }
+  }
+
+  function copyPermalink() {
+    if (!processoPermalink || typeof window === 'undefined') return;
+    copyAction('Permalink', absoluteUrl(processoPermalink, window.location.origin));
+  }
+
   async function search(rawInput, { updateUrl = true } = {}) {
     // Every call — including invalid/empty input — claims a new generation,
     // so a still-in-flight older search can never clobber whatever the user
     // triggered next (see the generation checks below and in loadDocumentos).
     const generation = ++searchGeneration;
     const kind = classifyCnjInput(rawInput);
+    actionFeedback = null;
 
     if (kind === 'empty') {
       status = 'idle';
@@ -256,6 +286,9 @@
         significa que o CNJ não apareceu em nenhuma das fontes reconciliadas (DJEN, JURIS, STJ,
         DataJud) até a última geração do dataset — não que o processo não existe.
       </p>
+      {#if publicacoesCnjUrl}
+        <p><a href={publicacoesCnjUrl}>Pesquisar este CNJ nas publicações DJEN</a></p>
+      {/if}
     </article>
   {/if}
 
@@ -277,6 +310,14 @@
           dataset gerado em {datasetGeneratedAtLabel}
         </p>
       </header>
+
+      <nav aria-label="Próximas ações do processo">
+        <button type="button" class="secondary outline" onclick={() => copyAction('CNJ', lastQueriedCnj)}>Copiar CNJ</button>
+        <button type="button" class="secondary outline" onclick={copyPermalink}>Copiar permalink</button>
+        {#if publicacoesCnjUrl}<a href={publicacoesCnjUrl}>Pesquisar no DJEN</a>{/if}
+        <a href="#documentos-title">Ir para decisões/documentos</a>
+      </nav>
+      {#if actionFeedback}<p class="meta-text" role="status">{actionFeedback}</p>{/if}
 
       {#if processo.avisos.length > 0}
         <aside role="status" class="alert" data-level="warning">
