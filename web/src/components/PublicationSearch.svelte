@@ -124,6 +124,12 @@
     const base = BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`;
     return `${base}processo?cnj=${encodeURIComponent(formatCnj(smart.patch.numeroProcesso))}`;
   });
+  const tribunalCoverageHref = $derived.by(() => {
+    const tribunal = submittedQuery?.siglaTribunal?.trim();
+    if (!tribunal) return null;
+    const base = BASE_URL.endsWith('/') ? BASE_URL : `${BASE_URL}/`;
+    return `${base}publicacoes/${encodeURIComponent(tribunal.toLowerCase())}`;
+  });
   const effectiveQuery = $derived<DjenComunicacaoQuery>({ ...filters, ...smart.patch });
   const criteriaFilters = $derived({
     siglaTribunal: filters.siglaTribunal,
@@ -619,10 +625,24 @@
         <button type="button" onclick={handleSubmit}>Tentar novamente</button>
       </div>
     {:else if status === 'empty'}
-      <p class="meta-text" data-tone="muted">
-        <strong>Nenhum resultado.</strong>
-        Ajuste os filtros ou amplie o período.
-      </p>
+      <article class="empty-search" aria-label="Busca sem resultados">
+        <strong>Nenhum resultado nesta consulta.</strong>
+        <p>
+          Isso significa apenas que os critérios enviados não retornaram publicações na cobertura consultada.
+          Não prova que a publicação não exista fora do período, do tribunal selecionado ou em uma lacuna de cobertura.
+        </p>
+        <div class="empty-search__actions">
+          <button type="button" class="secondary outline" onclick={() => (showFilters = true)}>
+            Revisar filtros
+          </button>
+          {#if tribunalCoverageHref}
+            <a class="secondary outline" role="button" href={tribunalCoverageHref}>
+              Ver cobertura de {submittedQuery?.siglaTribunal}
+            </a>
+          {/if}
+          <a class="secondary outline" role="button" href={historicalArchiveHref}>Consultar arquivo histórico</a>
+        </div>
+      </article>
     {:else if status === 'success'}
       {@const perPage = filters.itensPorPagina ?? 30}
       {@const currentPage = filters.pagina ?? 1}
@@ -676,6 +696,26 @@
     margin: 0.5rem 0 0;
     font-size: 0.875rem;
     color: var(--fg-muted, var(--color-content-tertiary));
+  }
+
+  .empty-search {
+    display: grid;
+    gap: 0.75rem;
+    padding: 1rem;
+    border: 1px solid var(--border, var(--concreto-90, #d8d8d8));
+    border-radius: var(--radius, 0.75rem);
+    background: var(--papel-20, rgba(0, 0, 0, 0.02));
+  }
+
+  .empty-search p {
+    margin: 0;
+    color: var(--fg-muted, var(--color-content-tertiary));
+  }
+
+  .empty-search__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
   }
 
   .criteria-summary {
