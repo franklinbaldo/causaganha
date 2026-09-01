@@ -13,6 +13,7 @@ from fastmcp import FastMCP
 from causaganha_mcp.tools import (
     datajud,
     datajud_processo,
+    decisoes,
     djen_backup,
     processo,
     publicacoes,
@@ -36,16 +37,17 @@ def build_server() -> FastMCP:
             "Para um CNJ, use `processo_consultar` quando a pergunta for sobre o ARQUIVO "
             "reconciliado (publicações preservadas, decisões/documentos e metadados do snapshot) "
             "e `processo_estado` quando a pergunta for sobre ESTADO atual (movimentos, graus "
-            "e último marco no DataJud oficial). Um movimento não revela necessariamente o TEOR "
-            "do ato; para saber o que uma decisão diz, procure o documento/decisão no arquivo. "
-            "`datajud_facetas` serve para perguntas agregadas sobre o acervo oficial do DataJud; "
-            "não use uma faceta para inferir o teor de uma decisão ou o estado de um processo "
-            "individual. As tools `*_status` e `causaganha_status` são de diagnóstico operacional: "
-            "use-as quando a pergunta for sobre saúde, freshness ou execução dos coletores, não "
-            "como etapa obrigatória antes de uma consulta. Ausência de registro em uma fonte não "
-            "prova inexistência do processo ou do ato; considere a cobertura e as limitações "
-            "retornadas pela tool. Todas as tools MCP são somente-leitura: ingestão, upload e "
-            "backfill continuam fora desta interface por design."
+            "e último marco no DataJud oficial). Use `decisoes_buscar` quando a pergunta depender "
+            "do TEOR de decisão, acórdão, ementa ou tese; busca temática em JURIS exige período "
+            "limitado e a tool preserva a fonte de cada resultado. Um movimento não revela "
+            "necessariamente o teor do ato. `datajud_facetas` serve para perguntas agregadas sobre "
+            "o acervo oficial do DataJud; não use uma faceta para inferir o teor de uma decisão "
+            "ou o estado de um processo individual. As tools `*_status` e `causaganha_status` "
+            "são de diagnóstico operacional: use-as quando a pergunta for sobre saúde, freshness "
+            "ou execução dos coletores, não como etapa obrigatória antes de uma consulta. "
+            "Ausência de registro em uma fonte não prova inexistência do processo ou do ato; "
+            "considere a cobertura e as limitações retornadas pela tool. Todas as tools MCP são "
+            "somente-leitura: ingestão, upload e backfill continuam fora desta interface por design."
         ),
     )
     datajud.register(mcp)
@@ -56,6 +58,7 @@ def build_server() -> FastMCP:
     status.register(mcp)
     processo.register(mcp)
     publicacoes.register(mcp)
+    decisoes.register(mcp)
     return mcp
 
 
