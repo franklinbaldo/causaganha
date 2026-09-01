@@ -150,6 +150,74 @@
   const resultsHeadingId = 'publication-search-results';
   const historicalArchiveHref = 'https://archive.org/details/causaganha-dashboard';
 
+  let searchLinkCopied = $state(false);
+  let searchLinkTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (searchLinkTimeout) clearTimeout(searchLinkTimeout);
+    };
+  });
+
+  function copySearchLink() {
+    navigator.clipboard.writeText(window.location.href);
+    if (searchLinkTimeout) clearTimeout(searchLinkTimeout);
+    searchLinkCopied = true;
+    searchLinkTimeout = setTimeout(() => {
+      searchLinkCopied = false;
+      searchLinkTimeout = null;
+    }, 1800);
+  }
+
+  function csvField(value: unknown): string {
+    const text = value == null ? '' : String(value);
+    return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
+  }
+
+  function exportCurrentPageCsv() {
+    if (!submittedQuery) return;
+    const page = submittedQuery.pagina ?? 1;
+    const criteria = buildCriteriaSummary(submittedQuery)
+      .filter((item) => item.value !== '—' && item.value !== 'Todos')
+      .map((item) => `${item.label}: ${item.value}`)
+      .join(' · ') || 'sem critério adicional';
+    const generatedAt = new Date().toISOString();
+
+    const rows = [
+      `# Exportação CausaGanha — página ${page} dos resultados (não é o conjunto completo de ${totalCount} resultado(s))`,
+      `# Critério: ${criteria}`,
+      `# Gerado em: ${generatedAt}`,
+      `# Itens nesta página: ${results.length}`,
+      '',
+      ['numeroComunicacao', 'siglaTribunal', 'dataDisponibilizacao', 'tipoDocumento', 'orgao', 'texto']
+        .map(csvField)
+        .join(','),
+      ...results.map((pub) =>
+        [
+          pub.numeroComunicacao,
+          pub.siglaTribunal,
+          pub.data_disponibilizacao,
+          pub.tipoDocumento,
+          pub.nomeOrgao,
+          pub.texto,
+        ]
+          .map(csvField)
+          .join(','),
+      ),
+    ];
+
+    const timestampSlug = generatedAt.replace(/[:.]/g, '-');
+    const filename = `publicacoes-pagina-${page}-${results.length}-itens-${timestampSlug}.csv`;
+
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   function parsePublicationHash(hash: string): PublicationHashTarget | null {
     const value = hash.replace(/^#/, '');
     if (!value) return null;
@@ -629,6 +697,19 @@
       {@const totalPages = Math.max(1, Math.ceil(totalCount / perPage))}
       <header id={resultsHeadingId} class="publication-search__results-header">
         <small class="meta-text">{totalCount.toLocaleString('pt-BR')} resultado(s)</small>
+        <div class="publication-search__result-actions">
+          <button type="button" class="secondary outline" onclick={copySearchLink}>
+            {searchLinkCopied ? 'Link copiado' : 'Copiar link desta busca'}
+          </button>
+          <button
+            type="button"
+            class="secondary outline"
+            onclick={exportCurrentPageCsv}
+            title={`Exporta apenas os ${results.length} resultado(s) desta página, não os ${totalCount.toLocaleString('pt-BR')} resultado(s) totais`}
+          >
+            Exportar CSV (página atual)
+          </button>
+        </div>
         <div class="publication-search__pagination">
           <button
             type="button"
@@ -676,6 +757,13 @@
     margin: 0.5rem 0 0;
     font-size: 0.875rem;
     color: var(--fg-muted, var(--color-content-tertiary));
+  }
+
+  .publication-search__result-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin: 0.5rem 0;
   }
 
   .criteria-summary {
