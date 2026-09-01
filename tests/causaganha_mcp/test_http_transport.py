@@ -16,7 +16,9 @@ if TYPE_CHECKING:
     from fastmcp import FastMCP
 
 
-async def _catalog_signature(server: FastMCP) -> dict[str, tuple[dict[str, Any], dict[str, Any] | None]]:
+async def _catalog_signature(
+    server: FastMCP,
+) -> dict[str, tuple[dict[str, Any], dict[str, Any] | None]]:
     tools = await server.list_tools()
     return {
         tool.name: (
@@ -27,8 +29,14 @@ async def _catalog_signature(server: FastMCP) -> dict[str, tuple[dict[str, Any],
     }
 
 
-def test_http_settings_are_loopback_safe_by_default(monkeypatch: pytest.MonkeyPatch) -> None:
-    for key in ("CAUSAGANHA_MCP_HOST", "CAUSAGANHA_MCP_PORT", "CAUSAGANHA_MCP_PATH"):
+def test_http_settings_are_loopback_safe_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    for key in (
+        "CAUSAGANHA_MCP_HOST",
+        "CAUSAGANHA_MCP_PORT",
+        "CAUSAGANHA_MCP_PATH",
+    ):
         monkeypatch.delenv(key, raising=False)
 
     settings = HttpSettings.from_env()
@@ -38,7 +46,9 @@ def test_http_settings_are_loopback_safe_by_default(monkeypatch: pytest.MonkeyPa
     assert settings.path == "/mcp"
 
 
-def test_http_settings_support_explicit_deployment_bind(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_http_settings_support_explicit_deployment_bind(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("CAUSAGANHA_MCP_HOST", "0.0.0.0")
     monkeypatch.setenv("CAUSAGANHA_MCP_PORT", "8080")
     monkeypatch.setenv("CAUSAGANHA_MCP_PATH", "/api/mcp")
@@ -61,14 +71,18 @@ def test_http_settings_reject_invalid_port(
         HttpSettings.from_env()
 
 
-def test_http_settings_reject_path_without_leading_slash(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_http_settings_reject_path_without_leading_slash(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     monkeypatch.setenv("CAUSAGANHA_MCP_PATH", "mcp")
 
     with pytest.raises(ValueError, match="CAUSAGANHA_MCP_PATH"):
         HttpSettings.from_env()
 
 
-def test_http_entrypoint_uses_streamable_http_stateless(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_http_entrypoint_uses_streamable_http_stateless(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: list[dict[str, object]] = []
 
     class FakeServer:
