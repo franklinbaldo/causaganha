@@ -82,7 +82,7 @@ async function submit(component: ReturnType<typeof render>) {
 }
 
 describe('ProcessoLookup — next actions', () => {
-  it('links the dossier to the DJEN search for the same CNJ', async () => {
+  it('links the dossier to the DJEN search and does not invent a documents jump', async () => {
     vi.mocked(processoCnj.buscarProcesso).mockResolvedValue(foundProcess() as never);
     const component = render(ProcessoLookup);
 
@@ -90,6 +90,7 @@ describe('ProcessoLookup — next actions', () => {
 
     const link = await waitFor(() => component.getByText('Ver publicações DJEN'));
     expect(link.getAttribute('href')).toContain(`numeroProcesso=${CNJ}`);
+    expect(component.queryByText('Ir para documentos')).toBeNull();
     expect(component.container.textContent).toContain('Estes valores descrevem o acervo publicado do CausaGanha');
   });
 
@@ -115,5 +116,17 @@ describe('ProcessoLookup — next actions', () => {
     const link = await waitFor(() => component.getByText('Pesquisar este CNJ no DJEN'));
     expect(link.getAttribute('href')).toContain(`numeroProcesso=${CNJ}`);
     expect(component.container.textContent).toContain('não que o processo não existe');
+  });
+
+  it('keeps source failure distinct from absence and offers an independent route', async () => {
+    vi.mocked(processoCnj.buscarProcesso).mockRejectedValue(new Error('archive offline'));
+    const component = render(ProcessoLookup);
+
+    await submit(component);
+
+    await waitFor(() => expect(component.container.textContent).toContain('Fonte indisponível'));
+    expect(component.container.textContent).toContain('O erro não significa ausência do processo');
+    const link = component.getByText('Pesquisar este CNJ no DJEN');
+    expect(link.getAttribute('href')).toContain(`numeroProcesso=${CNJ}`);
   });
 });
