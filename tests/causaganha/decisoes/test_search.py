@@ -56,6 +56,31 @@ def _write_stj(path: Path) -> None:
         con.close()
 
 
+def _write_stj_multi(path: Path) -> None:
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE stj AS
+            SELECT * FROM (VALUES
+                ('s1', '00000010220248220001', DATE '2026-03-15', 'REsp',
+                 'MIN. EXEMPLO', 'Responsabilidade civil', 'Há dever de indenizar.',
+                 'Recurso especial. Dano moral. Responsabilidade civil um.'),
+                ('s2', '00000020220248220001', DATE '2026-03-14', 'REsp',
+                 'MIN. EXEMPLO', 'Responsabilidade civil', 'Há dever de indenizar.',
+                 'Recurso especial. Dano moral. Responsabilidade civil dois.'),
+                ('s3', '00000030220248220001', DATE '2026-03-13', 'REsp',
+                 'MIN. EXEMPLO', 'Responsabilidade civil', 'Há dever de indenizar.',
+                 'Recurso especial. Dano moral. Responsabilidade civil três.')
+            ) AS t(id, "numeroProcesso", "dataDecisao", "siglaClasse",
+                   "ministroRelator", "tema", "teseJuridica", "ementa")
+            """
+        )
+        con.execute("COPY stj TO ? (FORMAT PARQUET)", [str(path)])
+    finally:
+        con.close()
+
+
 def _plan(juris: Path, stj: Path) -> DecisionSearchPlan:
     return DecisionSearchPlan(
         juris=(
@@ -154,6 +179,41 @@ def test_cnj_lookup_matches_exact_process_across_sources_without_texto(
     assert {item.fonte for item in result.resultados} == {"juris", "stj"}
     assert all(item.cnj == "00000010220248220001" for item in result.resultados)
     assert result.limitacoes == []
+
+
+def test_offset_pages_through_globally_sorted_results(tmp_path: Path) -> None:
+    stj = tmp_path / "stj.parquet"
+    _write_stj_multi(stj)
+    plan = DecisionSearchPlan(juris=(), stj=(PublishedDecisionDataset(fonte="stj", url=str(stj)),),
+                               data_inicio=None, data_fim=None)
+
+    page1 = search_decisions("responsabilidade civil", plan, limite=1, offset=0)
+    page2 = search_decisions("responsabilidade civil", plan, limite=1, offset=1)
+    page3 = search_decisions("responsabilidade civil", plan, limite=1, offset=2)
+    page4 = search_decisions("responsabilidade civil", plan, limite=1, offset=3)
+
+    assert [item.id_documento for item in page1.resultados] == ["s1"]
+    assert page1.resultados_truncados is True
+    assert [item.id_documento for item in page2.resultados] == ["s2"]
+    assert page2.resultados_truncados is True
+    assert [item.id_documento for item in page3.resultados] == ["s3"]
+    assert page3.resultados_truncados is False
+    assert page4.resultados == []
+    assert page4.resultados_truncados is False
+
+
+def test_negative_offset_is_rejected_before_query() -> None:
+    empty = DecisionSearchPlan(juris=(), stj=(), data_inicio=None, data_fim=None)
+
+    with pytest.raises(ValueError, match="offset"):
+        search_decisions("ok", empty, offset=-1)
+
+
+def test_offset_beyond_budget_is_rejected_before_query() -> None:
+    empty = DecisionSearchPlan(juris=(), stj=(), data_inicio=None, data_fim=None)
+
+    with pytest.raises(ValueError, match="offset"):
+        search_decisions("ok", empty, limite=100, offset=500)
 
 
 def test_cnj_lookup_can_combine_with_texto_as_additional_filter(tmp_path: Path) -> None:
