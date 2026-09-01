@@ -4,6 +4,8 @@ import {
   removeSavedConsultation,
   renameSavedConsultation,
   saveProcessConsultation,
+  saveSearchConsultation,
+  searchConsultationId,
   serializeSavedConsultations,
 } from './savedConsultations';
 
@@ -57,5 +59,99 @@ describe('savedConsultations', () => {
 
   it('rejects invalid CNJs', () => {
     expect(() => saveProcessConsultation([], '123')).toThrow('CNJ inválido');
+  });
+});
+
+describe('savedConsultations — DJEN search (busca)', () => {
+  it('saves a search keyed by its canonical params', () => {
+    const items = saveSearchConsultation(
+      [],
+      { siglaTribunal: 'TJRO', texto: 'contrato' },
+      'Contratos TJRO',
+      '2026-08-21T12:00:00.000Z',
+    );
+
+    expect(items).toEqual([
+      {
+        id: searchConsultationId({ siglaTribunal: 'TJRO', texto: 'contrato' }),
+        type: 'busca',
+        params: 'siglaTribunal=TJRO&texto=contrato',
+        label: 'Contratos TJRO',
+        savedAt: '2026-08-21T12:00:00.000Z',
+      },
+    ]);
+  });
+
+  it('treats page and key order as the same search identity', () => {
+    const idA = searchConsultationId({ texto: 'contrato', siglaTribunal: 'TJRO', pagina: 1 });
+    const idB = searchConsultationId({ pagina: 3, siglaTribunal: 'TJRO', texto: 'contrato' });
+
+    expect(idA).toBe(idB);
+  });
+
+  it('deduplicates the same search and preserves the original savedAt', () => {
+    const first = saveSearchConsultation(
+      [],
+      { siglaTribunal: 'TJRO', texto: 'contrato' },
+      'Primeiro nome',
+      '2026-08-20T12:00:00.000Z',
+    );
+    const second = saveSearchConsultation(
+      first,
+      { siglaTribunal: 'TJRO', texto: 'contrato', pagina: 2 },
+      'Apelido novo',
+      '2026-08-21T12:00:00.000Z',
+    );
+
+    expect(second).toHaveLength(1);
+    expect(second[0].label).toBe('Apelido novo');
+    expect(second[0].savedAt).toBe('2026-08-20T12:00:00.000Z');
+  });
+
+  it('keeps the previous label when saving again without an explicit one', () => {
+    const first = saveSearchConsultation([], { siglaTribunal: 'TJRO' }, 'Meu apelido');
+    const second = saveSearchConsultation(first, { siglaTribunal: 'TJRO' });
+
+    expect(second[0].label).toBe('Meu apelido');
+  });
+
+  it('rejects a search with no criteria at all', () => {
+    expect(() => saveSearchConsultation([], {})).toThrow('Busca vazia');
+    expect(() => saveSearchConsultation([], { pagina: 2, itensPorPagina: 30 })).toThrow(
+      'Busca vazia',
+    );
+  });
+
+  it('round-trips mixed processo + busca entries and drops malformed ones', () => {
+    const withProcess = saveProcessConsultation([], CNJ, 'Caso', '2026-08-21T12:00:00.000Z');
+    const withBoth = saveSearchConsultation(
+      withProcess,
+      { siglaTribunal: 'TJRO' },
+      'Busca TJRO',
+      '2026-08-22T12:00:00.000Z',
+    );
+
+    const raw = JSON.stringify([
+      ...withBoth,
+      { type: 'busca', params: '', label: 'vazio', savedAt: '2026-08-01T00:00:00.000Z' },
+      { type: 'busca', label: 'sem params', savedAt: '2026-08-01T00:00:00.000Z' },
+    ]);
+
+    expect(parseSavedConsultations(raw)).toEqual(withBoth);
+    expect(parseSavedConsultations(serializeSavedConsultations(withBoth))).toEqual(withBoth);
+  });
+
+  it('renames and removes a busca item alongside a processo item', () => {
+    const withProcess = saveProcessConsultation([], CNJ, 'Caso', '2026-08-21T12:00:00.000Z');
+    const items = saveSearchConsultation(withProcess, { siglaTribunal: 'TJRO' }, 'Busca TJRO');
+    const searchId = items.find((item) => item.type === 'busca')!.id;
+
+    const renamed = renameSavedConsultation(items, searchId, 'Novo nome da busca');
+    expect(renamed.find((item) => item.id === searchId)?.label).toBe('Novo nome da busca');
+    expect(renamed.find((item) => item.type === 'processo')?.label).toBe('Caso');
+
+    const removed = removeSavedConsultation(renamed, searchId);
+    expect(removed).toHaveLength(1);
+    expect(removed[0].type).toBe('processo');
   });
 });
