@@ -63,10 +63,11 @@
 <section class="saved-consultations" aria-labelledby="saved-consultations-title">
   <div class="saved-consultations__intro">
     <span class="kicker">Uso recorrente</span>
-    <h2 id="saved-consultations-title">Seus processos, <em>neste navegador.</em></h2>
+    <h2 id="saved-consultations-title">Suas consultas, <em>neste navegador.</em></h2>
     <p>
-      Guarde os CNJs que você consulta com frequência. A lista fica somente neste dispositivo:
-      não exige conta, não é enviada ao CausaGanha e desaparece se você limpar os dados locais do navegador.
+      Guarde os CNJs e as buscas DJEN que você consulta com frequência. A lista fica somente neste
+      dispositivo: não exige conta, não é enviada ao CausaGanha e desaparece se você limpar os dados
+      locais do navegador.
     </p>
   </div>
 
@@ -102,24 +103,41 @@
     <p aria-busy="true">Carregando consultas salvas…</p>
   {:else if items.length === 0}
     <article class="empty-state">
-      <h3>Nenhum processo salvo ainda</h3>
-      <p>Adicione um CNJ acima. Depois, um clique reabre o dossiê já com o número preenchido.</p>
+      <h3>Nenhuma consulta salva ainda</h3>
+      <p>
+        Adicione um CNJ acima, ou volte a uma busca em <a href={`${BASE}publicacoes`}>Publicações</a>
+        e use "Salvar busca". Depois, um clique reabre a consulta já preenchida.
+      </p>
     </article>
   {:else}
-    <ol class="saved-consultations__list" aria-label="Processos salvos">
+    <ol class="saved-consultations__list" aria-label="Consultas salvas">
       {#each items as item}
         <li>
-          <div>
-            <strong>{item.label}</strong>
-            <code>{formatCnj(item.cnj)}</code>
-          </div>
-          <div class="saved-consultations__actions">
-            <a class="button" href={`${BASE}processo?cnj=${encodeURIComponent(formatCnj(item.cnj))}`}>
-              Abrir dossiê
-            </a>
-            <button type="button" class="outline secondary" onclick={() => renameItem(item)}>Renomear</button>
-            <button type="button" class="outline secondary" onclick={() => removeItem(item.id)}>Remover</button>
-          </div>
+          {#if item.type === 'processo'}
+            <div>
+              <strong>{item.label}</strong>
+              <code>{formatCnj(item.cnj)}</code>
+            </div>
+            <div class="saved-consultations__actions">
+              <a class="button" href={`${BASE}processo?cnj=${encodeURIComponent(formatCnj(item.cnj))}`}>
+                Abrir dossiê
+              </a>
+              <button type="button" class="outline secondary" onclick={() => renameItem(item)}>Renomear</button>
+              <button type="button" class="outline secondary" onclick={() => removeItem(item.id)}>Remover</button>
+            </div>
+          {:else}
+            <div>
+              <strong>{item.label}</strong>
+              <code>busca DJEN</code>
+            </div>
+            <div class="saved-consultations__actions">
+              <a class="button" href={`${BASE}publicacoes?${item.params}`}>
+                Reabrir busca
+              </a>
+              <button type="button" class="outline secondary" onclick={() => renameItem(item)}>Renomear</button>
+              <button type="button" class="outline secondary" onclick={() => removeItem(item.id)}>Remover</button>
+            </div>
+          {/if}
         </li>
       {/each}
     </ol>

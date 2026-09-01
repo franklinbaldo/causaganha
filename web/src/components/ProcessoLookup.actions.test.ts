@@ -103,7 +103,8 @@ describe('ProcessoLookup — next actions', () => {
 
     const saved = parseSavedConsultations(localStorage.getItem(SAVED_CONSULTATIONS_STORAGE_KEY));
     expect(saved).toHaveLength(1);
-    expect(saved[0].cnj).toBe(CNJ);
+    expect(saved[0].type).toBe('processo');
+    if (saved[0].type === 'processo') expect(saved[0].cnj).toBe(CNJ);
     expect(component.getByText('Salvo em Minhas consultas')).toBeTruthy();
   });
 

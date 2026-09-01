@@ -16,6 +16,14 @@
     hasAnyQueryValue,
   } from '../lib/searchQueryString';
   import { formatCnj } from '../lib/processoCnj';
+  import {
+    SAVED_CONSULTATIONS_STORAGE_KEY,
+    parseSavedConsultations,
+    removeSavedConsultation,
+    saveSearchConsultation,
+    searchConsultationId,
+    serializeSavedConsultations,
+  } from '../lib/savedConsultations';
   import PublicationCard from './PublicationCard.svelte';
   import SmartSearchInput from './SmartSearchInput.svelte';
   import SearchFilters from './SearchFilters.svelte';
@@ -173,6 +181,62 @@
       searchLinkCopied = false;
       searchLinkTimeout = null;
     }, 1800);
+  }
+
+  // "Minhas consultas" (#908) — a saved search is identified by its
+  // canonical, pagina-less query (see `searchConsultationId`), so paging
+  // through the same search never creates a duplicate entry.
+  let savedSearchIds = $state<Set<string>>(new Set());
+  let searchSaveNotice = $state<string | null>(null);
+  let searchSaveNoticeTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  $effect(() => {
+    return () => {
+      if (searchSaveNoticeTimeout) clearTimeout(searchSaveNoticeTimeout);
+    };
+  });
+
+  function readSavedConsultations() {
+    return parseSavedConsultations(localStorage.getItem(SAVED_CONSULTATIONS_STORAGE_KEY));
+  }
+
+  function refreshSavedSearchIds() {
+    savedSearchIds = new Set(
+      readSavedConsultations()
+        .filter((item) => item.type === 'busca')
+        .map((item) => item.id),
+    );
+  }
+
+  const currentSearchId = $derived(submittedQuery ? searchConsultationId(submittedQuery) : null);
+  const isCurrentSearchSaved = $derived(currentSearchId !== null && savedSearchIds.has(currentSearchId));
+
+  function defaultSearchLabel(query: DjenComunicacaoQuery): string {
+    const parts = buildCriteriaSummary(query)
+      .filter((item) => item.value !== '—' && item.value !== 'Todos')
+      .map((item) => item.value);
+    return parts.length ? parts.join(' · ') : 'Busca DJEN';
+  }
+
+  function toggleSaveSearch() {
+    if (!submittedQuery) return;
+    const wasSaved = isCurrentSearchSaved;
+    const id = searchConsultationId(submittedQuery);
+    const items = readSavedConsultations();
+    const next = wasSaved
+      ? removeSavedConsultation(items, id)
+      : saveSearchConsultation(items, submittedQuery, defaultSearchLabel(submittedQuery));
+    localStorage.setItem(SAVED_CONSULTATIONS_STORAGE_KEY, serializeSavedConsultations(next));
+    refreshSavedSearchIds();
+
+    if (searchSaveNoticeTimeout) clearTimeout(searchSaveNoticeTimeout);
+    searchSaveNotice = wasSaved
+      ? 'Busca removida de Minhas consultas.'
+      : 'Busca salva em Minhas consultas.';
+    searchSaveNoticeTimeout = setTimeout(() => {
+      searchSaveNotice = null;
+      searchSaveNoticeTimeout = null;
+    }, 2400);
   }
 
   function csvField(value: unknown): string {
@@ -543,6 +607,7 @@
   // Hydrate from URL on mount
   onMount(() => {
     if (typeof window === 'undefined') return;
+    refreshSavedSearchIds();
     pendingPublicationTarget = parsePublicationHash(window.location.hash);
     const sp = new URLSearchParams(window.location.search);
     if ([...sp.keys()].length === 0) {
@@ -729,6 +794,17 @@
           >
             Exportar CSV (página atual)
           </button>
+          <button
+            type="button"
+            class="secondary outline"
+            onclick={toggleSaveSearch}
+            title="Guarda esta busca em Minhas consultas, somente neste navegador"
+          >
+            {isCurrentSearchSaved ? 'Remover de Minhas consultas' : 'Salvar busca'}
+          </button>
+          {#if searchSaveNotice}
+            <span role="status" class="meta-text">{searchSaveNotice}</span>
+          {/if}
         </div>
         <div class="publication-search__pagination">
           <button
