@@ -126,3 +126,48 @@ def test_invalid_text_and_limit_fail_before_query() -> None:
 
     with pytest.raises(ValueError, match="1 e 100"):
         search_decisions("ok", empty, limite=0)
+
+
+def test_neither_texto_nor_cnj_is_rejected_before_query() -> None:
+    empty = DecisionSearchPlan(juris=(), stj=(), data_inicio=None, data_fim=None)
+
+    with pytest.raises(ValueError, match="cnj"):
+        search_decisions(None, empty)
+
+
+def test_cnj_lookup_matches_exact_process_across_sources_without_texto(
+    tmp_path: Path,
+) -> None:
+    juris = tmp_path / "juris.parquet"
+    stj = tmp_path / "stj.parquet"
+    _write_juris(juris)
+    _write_stj(stj)
+    plan = DecisionSearchPlan(
+        juris=(PublishedDecisionDataset(fonte="juris", url=str(juris), periodo="2026-02"),),
+        stj=(PublishedDecisionDataset(fonte="stj", url=str(stj)),),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    result = search_decisions(None, plan, cnj="00000010220248220001")
+
+    assert [item.fonte for item in result.resultados] == ["stj"]
+    assert result.resultados[0].cnj == "00000010220248220001"
+    assert result.limitacoes == []
+
+
+def test_cnj_lookup_can_combine_with_texto_as_additional_filter(tmp_path: Path) -> None:
+    juris = tmp_path / "juris.parquet"
+    _write_juris(juris)
+    plan = DecisionSearchPlan(
+        juris=(PublishedDecisionDataset(fonte="juris", url=str(juris), periodo="2026-02"),),
+        stj=(),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    matched = search_decisions("responsabilidade civil", plan, cnj="00000010220248220001")
+    unmatched = search_decisions("responsabilidade civil", plan, cnj="99999999999999999999")
+
+    assert [item.fonte for item in matched.resultados] == ["juris"]
+    assert unmatched.resultados == []
