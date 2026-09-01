@@ -7,8 +7,8 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 import causaganha_mcp.__main__ as stdio_entry
-import causaganha_mcp.http as http_entry
-from causaganha_mcp.http import HttpSettings
+import causaganha_mcp.http_server as http_entry
+from causaganha_mcp.http_server import HttpSettings
 from causaganha_mcp.server import build_server
 
 
