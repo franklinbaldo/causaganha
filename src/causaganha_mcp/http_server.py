@@ -4,13 +4,23 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+from starlette.responses import JSONResponse
+
+from causaganha_mcp import __version__
 from causaganha_mcp.server import mcp
+
+
+if TYPE_CHECKING:
+    from starlette.requests import Request
 
 
 _DEFAULT_HOST = "127.0.0.1"
 _DEFAULT_PORT = 8000
 _DEFAULT_PATH = "/mcp"
+_COMMIT_ENV_VAR = "CAUSAGANHA_MCP_COMMIT"
+_UNKNOWN_COMMIT = "unknown"
 
 
 @dataclass(frozen=True, slots=True)
@@ -46,6 +56,25 @@ class HttpSettings:
             raise ValueError(msg)
 
         return cls(host=host, port=port, path=path)
+
+
+def _deployment_commit() -> str:
+    """Read the deployed commit from the environment, without shelling out to git."""
+    return os.getenv(_COMMIT_ENV_VAR, "").strip() or _UNKNOWN_COMMIT
+
+
+@mcp.custom_route("/health", methods=["GET"])
+async def _health(request: Request) -> JSONResponse:
+    """Prove the MCP catalog is up and report version/commit, with no upstream calls."""
+    tools = await mcp.list_tools()
+    return JSONResponse(
+        {
+            "status": "ok",
+            "version": __version__,
+            "commit": _deployment_commit(),
+            "tools": len(tools),
+        }
+    )
 
 
 def main() -> None:
