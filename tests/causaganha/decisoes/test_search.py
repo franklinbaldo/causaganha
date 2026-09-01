@@ -184,8 +184,12 @@ def test_cnj_lookup_matches_exact_process_across_sources_without_texto(
 def test_offset_pages_through_globally_sorted_results(tmp_path: Path) -> None:
     stj = tmp_path / "stj.parquet"
     _write_stj_multi(stj)
-    plan = DecisionSearchPlan(juris=(), stj=(PublishedDecisionDataset(fonte="stj", url=str(stj)),),
-                               data_inicio=None, data_fim=None)
+    plan = DecisionSearchPlan(
+        juris=(),
+        stj=(PublishedDecisionDataset(fonte="stj", url=str(stj)),),
+        data_inicio=None,
+        data_fim=None,
+    )
 
     page1 = search_decisions("responsabilidade civil", plan, limite=1, offset=0)
     page2 = search_decisions("responsabilidade civil", plan, limite=1, offset=1)
