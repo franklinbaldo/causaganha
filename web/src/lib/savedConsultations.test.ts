@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { formatCnj } from './processoCnj';
 import {
   parseSavedConsultations,
   removeSavedConsultation,
@@ -122,6 +123,21 @@ describe('savedConsultations — DJEN search (busca)', () => {
     );
   });
 
+  it('migrates a legacy busca record missing `label` instead of dropping it', () => {
+    const params = 'siglaTribunal=TJRO&texto=contrato';
+    const legacyRaw = JSON.stringify([{ type: 'busca', params, savedAt: '2026-08-21T12:00:00.000Z' }]);
+
+    expect(parseSavedConsultations(legacyRaw)).toEqual([
+      {
+        id: `busca:${params}`,
+        type: 'busca',
+        params,
+        label: 'Busca DJEN',
+        savedAt: '2026-08-21T12:00:00.000Z',
+      },
+    ]);
+  });
+
   it('round-trips mixed processo + busca entries and drops malformed ones', () => {
     const withProcess = saveProcessConsultation([], CNJ, 'Caso', '2026-08-21T12:00:00.000Z');
     const withBoth = saveSearchConsultation(
@@ -139,6 +155,23 @@ describe('savedConsultations — DJEN search (busca)', () => {
 
     expect(parseSavedConsultations(raw)).toEqual(withBoth);
     expect(parseSavedConsultations(serializeSavedConsultations(withBoth))).toEqual(withBoth);
+  });
+
+  it('migrates a legacy processo record missing `label` instead of dropping it', () => {
+    // Minimal fixture for a pre-label schema shape (label was introduced
+    // after `type`/`cnj`/`savedAt`) — a record like this should recover a
+    // derived label, not be silently discarded as malformed.
+    const legacyRaw = JSON.stringify([{ type: 'processo', cnj: CNJ, savedAt: '2026-08-21T12:00:00.000Z' }]);
+
+    expect(parseSavedConsultations(legacyRaw)).toEqual([
+      {
+        id: `processo:${DIGITS}`,
+        type: 'processo',
+        cnj: DIGITS,
+        label: formatCnj(DIGITS),
+        savedAt: '2026-08-21T12:00:00.000Z',
+      },
+    ]);
   });
 
   it('renames and removes a busca item alongside a processo item', () => {

@@ -23,26 +23,29 @@ export type SavedSearchConsultation = {
 
 export type SavedConsultation = SavedProcessConsultation | SavedSearchConsultation;
 
-function isSavedProcess(value: unknown): value is SavedProcessConsultation {
+// `label` was added to the schema after `type`/`cnj`/`params`/`savedAt` — a
+// stored record predating it is a legacy shape to migrate forward with a
+// derived label, not a malformed one to discard (see #908).
+function isSavedProcess(value: unknown): value is Omit<SavedProcessConsultation, 'label'> & { label?: string } {
   if (!value || typeof value !== 'object') return false;
   const item = value as Partial<SavedProcessConsultation>;
   return (
     item.type === 'processo' &&
     typeof item.cnj === 'string' &&
     classifyCnjInput(item.cnj) === 'valid' &&
-    typeof item.label === 'string' &&
+    (item.label === undefined || typeof item.label === 'string') &&
     typeof item.savedAt === 'string'
   );
 }
 
-function isSavedSearch(value: unknown): value is SavedSearchConsultation {
+function isSavedSearch(value: unknown): value is Omit<SavedSearchConsultation, 'label'> & { label?: string } {
   if (!value || typeof value !== 'object') return false;
   const item = value as Partial<SavedSearchConsultation>;
   return (
     item.type === 'busca' &&
     typeof item.params === 'string' &&
     item.params.length > 0 &&
-    typeof item.label === 'string' &&
+    (item.label === undefined || typeof item.label === 'string') &&
     typeof item.savedAt === 'string'
   );
 }
@@ -66,10 +69,12 @@ export function parseSavedConsultations(raw: string | null): SavedConsultation[]
       .map((item): SavedConsultation | null => {
         if (isSavedProcess(item)) {
           const cnj = normalizeCnj(item.cnj);
-          return { ...item, id: `processo:${cnj}`, cnj, label: item.label.trim() };
+          const label = item.label?.trim() || formatCnj(cnj);
+          return { ...item, id: `processo:${cnj}`, cnj, label };
         }
         if (isSavedSearch(item)) {
-          return { ...item, id: `busca:${item.params}`, label: item.label.trim() };
+          const label = item.label?.trim() || 'Busca DJEN';
+          return { ...item, id: `busca:${item.params}`, label };
         }
         return null;
       })
