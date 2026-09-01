@@ -43,7 +43,7 @@ jobs:
         run: |
           for tree in base head; do
             mkdir -p "$tree/web/public/data"
-            now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            now="2026-08-21T12:00:00Z"
             printf '{"generated_at":"%s","sources":{"djen":{"zips_archived":3,"pairs_total":4,"tribunals_with_data":2,"tribunals_total":3,"coverage_pct":75,"earliest_tracked_date":"2026-01-01","earliest_upload_date":"2026-01-01","latest_upload_date":"2026-01-03","absent_confirmed":1,"pending_real":0,"errors_transient":0,"never_checked":0,"last_attempt_at":"2026-08-15T18:00:00Z","last_success_at":"2026-08-15T17:55:00Z"}}}' "$now" > "$tree/web/public/data/site-status.json"
             echo '{"total":4,"uploaded":3,"pending":0,"absent":1,"unknown":0,"coverage_pct":75,"tribunals_total":3,"tribunals_with_data":2}' > "$tree/web/public/data/totals.json"
             echo '{"avg_coverage":2.5,"best_count":3,"best_day":"2026-08-14","worst_count":2,"worst_day":"2026-08-13"}' > "$tree/web/public/data/stats_coverage.json"
@@ -97,12 +97,24 @@ jobs:
             capture "$state" "$port" "sobre.html" "1280,900" "desktop"
             capture "$state" "$port" "sobre.html" "390,844" "mobile"
             capture "$state" "$port" "stats.html" "1280,900" "desktop"
+            capture "$state" "$port" "processo.html" "1280,900" "desktop"
+            capture "$state" "$port" "processo.html" "390,844" "mobile"
+            capture "$state" "$port" "publicacoes.html" "1280,900" "desktop"
+            capture "$state" "$port" "publicacoes.html" "390,844" "mobile"
+            capture "$state" "$port" "minhas-consultas.html" "1280,900" "desktop"
+            capture "$state" "$port" "minhas-consultas.html" "390,844" "mobile"
           done
 
           sha256sum captures/*.png | sort | tee captures/sha256.txt
 
           : > captures/comparison.txt
-          for surface in index.html-desktop index.html-mobile sobre.html-desktop sobre.html-mobile stats.html-desktop; do
+          for surface in \
+            index.html-desktop index.html-mobile \
+            sobre.html-desktop sobre.html-mobile \
+            stats.html-desktop \
+            processo.html-desktop processo.html-mobile \
+            publicacoes.html-desktop publicacoes.html-mobile \
+            minhas-consultas.html-desktop minhas-consultas.html-mobile; do
             before="captures/${surface}-before.png"
             after="captures/${surface}-after.png"
             if cmp -s "$before" "$after"; then
