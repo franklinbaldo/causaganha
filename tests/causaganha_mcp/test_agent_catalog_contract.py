@@ -46,6 +46,17 @@ async def test_publication_search_is_archive_first_and_points_to_process_context
     assert "cobertura" in description
 
 
+async def test_decision_search_is_content_first_and_not_current_process_state(mcp) -> None:
+    description = await _description(mcp, "decisoes_buscar")
+
+    assert "decisão" in description
+    assert "acórdão" in description
+    assert "teor" in description
+    assert "data_inicio" in description
+    assert "processo_estado" in description
+    assert "processo_consultar" in description
+
+
 async def test_status_tools_are_described_as_operational_not_product_prerequisites(mcp) -> None:
     server = mcp.instructions.lower()
 
@@ -60,6 +71,7 @@ async def test_server_teaches_archive_state_content_boundary(mcp) -> None:
     assert "arquivo" in instructions
     assert "estado" in instructions
     assert "teor" in instructions
+    assert "decisoes_buscar" in instructions
     assert "movimento" in instructions
     assert "não prova inexistência" in instructions
 
@@ -70,6 +82,7 @@ async def test_product_catalog_does_not_require_storage_vocabulary_for_tool_sele
         "processo_consultar",
         "processo_estado",
         "publicacoes_buscar",
+        "decisoes_buscar",
     }
     for name in product_tools:
         tool = await mcp.get_tool(name)

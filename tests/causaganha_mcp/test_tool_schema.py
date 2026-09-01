@@ -23,6 +23,7 @@ TOOL_NAMES = [
     "causaganha_status",
     "processo_consultar",
     "publicacoes_buscar",
+    "decisoes_buscar",
 ]
 
 _CREDENTIAL_SUBSTRINGS = ("key", "secret", "token", "credential", "password")
@@ -102,6 +103,19 @@ _EXPECTED_OUTPUT_FIELDS = {
         "avisos",
         "next_actions",
     },
+    "decisoes_buscar": {
+        "resumo",
+        "resultados",
+        "resultados_truncados",
+        "datasets_consultados",
+        "fonte_solicitada",
+        "data_inicio",
+        "data_fim",
+        "natureza",
+        "consultado_em",
+        "limitacoes",
+        "next_actions",
+    },
 }
 
 _EXPECTED_INPUT_FIELDS = {
@@ -133,6 +147,7 @@ _EXPECTED_INPUT_FIELDS = {
         "limite",
         "pagina",
     },
+    "decisoes_buscar": {"texto", "fonte", "data_inicio", "data_fim", "limite"},
 }
 
 
