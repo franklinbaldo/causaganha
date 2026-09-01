@@ -10,6 +10,7 @@
     source,
     usedFallback,
     processNumber,
+    processHref = null,
     metaChips = [],
     parties = [],
     lawyers = [],
@@ -26,6 +27,7 @@
     source?: "djen" | "ia";
     usedFallback?: boolean;
     processNumber: string | null;
+    processHref?: string | null;
     metaChips?: MetaChip[];
     parties?: string[];
     lawyers?: string[];
@@ -85,6 +87,8 @@
           onclick={onExpand}
           title="Abrir detalhes da publicação"
         >{processNumber}</button>
+      {:else if processHref}
+        <a class="process-number process-number-lg" href={processHref}>{processNumber}</a>
       {:else}
         <strong class="process-number process-number-lg">{processNumber}</strong>
       {/if}
@@ -132,6 +136,7 @@
     {/if}
     <PublicationActions
       link={pub.link}
+      {processHref}
       {activeCopied}
       shareContext="compact"
       shareLabel="Link"
