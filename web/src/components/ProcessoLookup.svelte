@@ -16,6 +16,16 @@
     normalizeCnj,
     readCnjParam,
   } from '../lib/processoCnj';
+  import {
+    SAVED_CONSULTATIONS_STORAGE_KEY,
+    parseSavedConsultations,
+    saveProcessConsultation,
+    serializeSavedConsultations,
+  } from '../lib/savedConsultations';
+
+  const BASE = import.meta.env.BASE_URL.endsWith('/')
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`;
 
   let input = $state('');
   let dbStatus = $state('initializing'); // 'initializing' | 'ready' | 'error'
@@ -34,6 +44,9 @@
   let documentosOffset = $state(0);
   let documentosHasMore = $state(false);
   let lastQueriedCnj = $state(null);
+  let linkCopied = $state(false);
+  let savedLocally = $state(false);
+  let feedbackTimeout = null;
 
   let conn = null;
   let cancelled = false;
@@ -49,6 +62,11 @@
   );
   const datasetGeneratedAtLabel = $derived(
     processo?.datasetGeradoEm ? (formatUtcDateTime(processo.datasetGeradoEm) ?? 'desconhecido') : 'desconhecido',
+  );
+  const publicacoesHref = $derived(
+    lastQueriedCnj
+      ? `${BASE}publicacoes?numeroProcesso=${encodeURIComponent(lastQueriedCnj)}`
+      : `${BASE}publicacoes`,
   );
 
   async function init() {
@@ -98,6 +116,40 @@
     loadDocumentos(lastQueriedCnj, documentosOffset + DOCUMENTOS_PAGE_SIZE);
   }
 
+  function refreshSavedState(digits) {
+    if (typeof localStorage === 'undefined' || !digits) {
+      savedLocally = false;
+      return;
+    }
+    const items = parseSavedConsultations(localStorage.getItem(SAVED_CONSULTATIONS_STORAGE_KEY));
+    savedLocally = items.some((item) => item.id === `processo:${digits}`);
+  }
+
+  async function copyPermalink() {
+    if (!lastQueriedCnj || typeof window === 'undefined') return;
+    const qs = buildCnjSearchParams(window.location.search, lastQueriedCnj);
+    const url = `${window.location.origin}${window.location.pathname}${qs}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      linkCopied = true;
+      if (feedbackTimeout) clearTimeout(feedbackTimeout);
+      feedbackTimeout = setTimeout(() => {
+        linkCopied = false;
+        feedbackTimeout = null;
+      }, 1800);
+    } catch {
+      linkCopied = false;
+    }
+  }
+
+  function saveCurrentProcess() {
+    if (!lastQueriedCnj || typeof localStorage === 'undefined') return;
+    const items = parseSavedConsultations(localStorage.getItem(SAVED_CONSULTATIONS_STORAGE_KEY));
+    const next = saveProcessConsultation(items, lastQueriedCnj);
+    localStorage.setItem(SAVED_CONSULTATIONS_STORAGE_KEY, serializeSavedConsultations(next));
+    savedLocally = true;
+  }
+
   async function search(rawInput, { updateUrl = true } = {}) {
     // Every call — including invalid/empty input — claims a new generation,
     // so a still-in-flight older search can never clobber whatever the user
@@ -120,6 +172,9 @@
     }
 
     const digits = normalizeCnj(rawInput);
+    lastQueriedCnj = digits;
+    refreshSavedState(digits);
+    linkCopied = false;
 
     if (updateUrl && typeof window !== 'undefined') {
       const qs = buildCnjSearchParams(window.location.search, digits);
@@ -154,12 +209,10 @@
       if (!resultado.encontrado) {
         status = 'not_found';
         notFoundLegado = resultado.legado;
-        lastQueriedCnj = digits;
         return;
       }
 
       processo = resultado;
-      lastQueriedCnj = digits;
       status = 'found';
     } catch (err) {
       if (generation !== searchGeneration) return;
@@ -197,6 +250,7 @@
     })();
     return () => {
       cancelled = true;
+      if (feedbackTimeout) clearTimeout(feedbackTimeout);
     };
   });
 </script>
@@ -249,13 +303,24 @@
 
   {#if status === 'not_found'}
     <article class="empty-state">
-      <h3>Processo não localizado</h3>
+      <h3>Processo não localizado neste snapshot</h3>
       <p>
         Nenhum registro para <code>{lastQueriedCnj ? formatCnj(lastQueriedCnj) : ''}</code> em
         {notFoundLegado ? 'processos_unificados.parquet' : 'indice_processual.parquet'}. Isso
         significa que o CNJ não apareceu em nenhuma das fontes reconciliadas (DJEN, JURIS, STJ,
         DataJud) até a última geração do dataset — não que o processo não existe.
       </p>
+      {#if lastQueriedCnj}
+        <div class="processo-dossie__actions" aria-label="Outras formas de procurar este processo">
+          <a class="outline" href={publicacoesHref}>Pesquisar este CNJ no DJEN</a>
+          <button type="button" class="outline secondary" onclick={copyPermalink}>
+            {linkCopied ? 'Link copiado' : 'Copiar link desta consulta'}
+          </button>
+          <button type="button" class="outline secondary" onclick={saveCurrentProcess}>
+            {savedLocally ? 'Salvo em Minhas consultas' : 'Salvar em Minhas consultas'}
+          </button>
+        </div>
+      {/if}
     </article>
   {/if}
 
@@ -263,20 +328,55 @@
     <article role="alert" data-tone="error">
       <h3>Fonte indisponível</h3>
       <p>Não foi possível consultar o dataset: {queryError}</p>
-      <p>Isso costuma indicar uma falha de rede ao buscar o parquet no Internet Archive. Tente novamente.</p>
-      <button class="secondary outline" onclick={retry}>Tentar novamente</button>
+      <p>Isso costuma indicar uma falha de rede ao buscar o parquet no Internet Archive. O erro não significa ausência do processo.</p>
+      <div class="processo-dossie__actions">
+        <button class="secondary outline" onclick={retry}>Tentar novamente</button>
+        {#if lastQueriedCnj}<a class="outline" href={publicacoesHref}>Pesquisar este CNJ no DJEN</a>{/if}
+      </div>
     </article>
   {/if}
 
   {#if status === 'found' && processo}
     <section class="processo-dossie" aria-label="Dossiê do processo">
       <header class="processo-dossie__header">
+        <span class="kicker">Snapshot reconciliado</span>
         <h2>{processo.nrProcessoMascara}</h2>
         <p class="meta-text">
           Registros encontrados em {fontesResumo.presentes.length} das {ALL_FONTES.length} fontes consultadas ·
           dataset gerado em {datasetGeneratedAtLabel}
         </p>
+        <div class="processo-dossie__actions" aria-label="Ações do processo">
+          <a class="outline" href={publicacoesHref}>Ver publicações DJEN</a>
+          {#if documentos.length > 0}<a class="outline secondary" href="#documentos-title">Ir para documentos</a>{/if}
+          <button type="button" class="outline secondary" onclick={copyPermalink}>
+            {linkCopied ? 'Link copiado' : 'Copiar link'}
+          </button>
+          <button type="button" class="outline secondary" onclick={saveCurrentProcess}>
+            {savedLocally ? 'Salvo em Minhas consultas' : 'Salvar em Minhas consultas'}
+          </button>
+        </div>
       </header>
+
+      <section class="processo-dossie__snapshot" aria-labelledby="snapshot-title">
+        <h3 id="snapshot-title">O que este snapshot já responde</h3>
+        <dl>
+          <div>
+            <dt>Publicações DJEN</dt>
+            <dd>{processo.djen.present ? (processo.djen.nPublicacoes ?? 'registro presente') : 'sem registro'}</dd>
+          </div>
+          <div>
+            <dt>DataJud</dt>
+            <dd>{processo.datajud.present ? (processo.datajud.ultimaAtualizacao ?? 'registro presente') : 'sem registro'}</dd>
+          </div>
+          <div>
+            <dt>Documentos carregados</dt>
+            <dd>{documentosStatus === 'ready' ? documentos.length : 'carregando…'}</dd>
+          </div>
+        </dl>
+        <p class="meta-text">
+          Estes valores descrevem o acervo publicado do CausaGanha. Eles não são uma consulta live do andamento atual do processo.
+        </p>
+      </section>
 
       {#if processo.avisos.length > 0}
         <aside role="status" class="alert" data-level="warning">
@@ -309,7 +409,7 @@
             <dt>Última atualização (DataJud)</dt><dd>{processo.datajud.ultimaAtualizacao ?? '—'}</dd>
           </dl>
         {:else}
-          <p class="meta-text" data-tone="muted">Sem enriquecimento DataJud para este processo.</p>
+          <p class="meta-text" data-tone="muted">Sem enriquecimento DataJud para este processo neste snapshot.</p>
         {/if}
       </article>
 
@@ -322,8 +422,10 @@
             <dt>Última publicação</dt><dd>{processo.djen.ultimaPub ?? '—'}</dd>
             <dt>Tribunais</dt><dd>{processo.djen.tribunais.join(', ') || '—'}</dd>
           </dl>
+          <p><a href={publicacoesHref}>Abrir a busca DJEN deste processo →</a></p>
         {:else}
-          <p class="meta-text" data-tone="muted">Sem publicações DJEN para este processo.</p>
+          <p class="meta-text" data-tone="muted">Sem publicações DJEN para este processo neste snapshot.</p>
+          <p><a href={publicacoesHref}>Mesmo assim, consultar o DJEN pelo CNJ →</a></p>
         {/if}
       </article>
 
@@ -344,7 +446,7 @@
         {#if documentosVazio}
           <p class="meta-text" data-tone="muted">
             Nenhum documento de decisão encontrado no JURIS ou no STJ para este processo.
-            As publicações do DJEN, quando existentes, aparecem no resumo acima.
+            Isso não significa que nenhuma decisão exista; apenas que este snapshot não possui um documento dessas fontes para o CNJ.
           </p>
         {/if}
 
@@ -370,3 +472,54 @@
     </section>
   {/if}
 </div>
+
+<style>
+  .processo-dossie__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 0.8rem;
+    align-items: center;
+  }
+
+  .processo-dossie__snapshot {
+    margin-block: 1.25rem;
+    padding: 1rem;
+    border: 1px solid var(--border);
+    background: var(--papel-20, var(--color-surface));
+  }
+
+  .processo-dossie__snapshot dl {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.75rem;
+    margin: 0.75rem 0;
+  }
+
+  .processo-dossie__snapshot dl > div {
+    display: grid;
+    gap: 0.2rem;
+  }
+
+  .processo-dossie__snapshot dt {
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro, 0.78rem);
+  }
+
+  .processo-dossie__snapshot dd {
+    margin: 0;
+    font-weight: 700;
+  }
+
+  @media (max-width: 48rem) {
+    .processo-dossie__snapshot dl {
+      grid-template-columns: 1fr;
+    }
+
+    .processo-dossie__actions > * {
+      flex: 1 1 12rem;
+      text-align: center;
+    }
+  }
+</style>
