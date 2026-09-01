@@ -235,3 +235,66 @@ def test_cnj_lookup_can_combine_with_texto_as_additional_filter(tmp_path: Path) 
 
     assert [item.fonte for item in matched.resultados] == ["juris"]
     assert unmatched.resultados == []
+
+
+def test_classe_filter_matches_only_the_source_with_that_classe(tmp_path: Path) -> None:
+    juris = tmp_path / "juris.parquet"
+    stj = tmp_path / "stj.parquet"
+    _write_juris(juris)
+    _write_stj(stj)
+
+    juris_only = search_decisions(
+        "responsabilidade civil", _plan(juris, stj), classe="apelação"
+    )
+    stj_only = search_decisions("responsabilidade civil", _plan(juris, stj), classe="resp")
+
+    assert [item.fonte for item in juris_only.resultados] == ["juris"]
+    assert [item.fonte for item in stj_only.resultados] == ["stj"]
+
+
+def test_relator_filter_matches_across_sources(tmp_path: Path) -> None:
+    juris = tmp_path / "juris.parquet"
+    stj = tmp_path / "stj.parquet"
+    _write_juris(juris)
+    _write_stj(stj)
+
+    both = search_decisions("responsabilidade civil", _plan(juris, stj), relator="exemplo")
+    juris_only = search_decisions(
+        "responsabilidade civil", _plan(juris, stj), relator="Des. Exemplo"
+    )
+
+    assert {item.fonte for item in both.resultados} == {"juris", "stj"}
+    assert [item.fonte for item in juris_only.resultados] == ["juris"]
+
+
+def test_orgao_filter_matches_juris_and_skips_stj_with_explicit_limitation(
+    tmp_path: Path,
+) -> None:
+    juris = tmp_path / "juris.parquet"
+    stj = tmp_path / "stj.parquet"
+    _write_juris(juris)
+    _write_stj(stj)
+
+    result = search_decisions("responsabilidade civil", _plan(juris, stj), orgao="Câmara")
+
+    assert [item.fonte for item in result.resultados] == ["juris"]
+    assert any(
+        "stj" in limitation.lower() and "órgão" in limitation.lower()
+        for limitation in result.limitacoes
+    )
+
+
+def test_orgao_filter_without_stj_in_plan_adds_no_limitation(tmp_path: Path) -> None:
+    juris = tmp_path / "juris.parquet"
+    _write_juris(juris)
+    plan = DecisionSearchPlan(
+        juris=(PublishedDecisionDataset(fonte="juris", url=str(juris), periodo="2026-02"),),
+        stj=(),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    result = search_decisions("responsabilidade civil", plan, orgao="Câmara")
+
+    assert [item.fonte for item in result.resultados] == ["juris"]
+    assert result.limitacoes == []

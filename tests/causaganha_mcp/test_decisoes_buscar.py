@@ -176,6 +176,44 @@ async def test_missing_texto_and_cnj_is_tool_error(mcp) -> None:
         fn(texto=None, fonte="stj")
 
 
+async def test_classe_orgao_relator_are_forwarded_to_search(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = PublishedDecisionDataset(fonte="stj", url="https://example/stj.parquet")
+    monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
+    captured: dict[str, object] = {}
+
+    def _fake_search(
+        _texto,
+        _plan,
+        *,
+        limite,
+        cnj=None,
+        offset=0,
+        classe=None,
+        orgao=None,
+        relator=None,
+    ):
+        captured["classe"] = classe
+        captured["orgao"] = orgao
+        captured["relator"] = relator
+        return DecisionSearchResult(datasets_consultados=1)
+
+    monkeypatch.setattr(decisoes, "search_decisions", _fake_search)
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    fn(
+        "responsabilidade civil",
+        fonte="stj",
+        classe="REsp",
+        orgao="2ª Turma",
+        relator="MIN. EXEMPLO",
+    )
+
+    assert captured == {"classe": "REsp", "orgao": "2ª Turma", "relator": "MIN. EXEMPLO"}
+
+
 async def test_coverage_limitation_survives_successful_other_source(
     mcp,
     monkeypatch: pytest.MonkeyPatch,
