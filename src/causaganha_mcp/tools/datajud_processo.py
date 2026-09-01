@@ -50,6 +50,22 @@ _PROCESSO_TOOL_TIMEOUT = 45.0
 # marcos instead of silently disappearing when the taxonomy evolves.
 _RUIDO_MOVIMENTO_CODES = frozenset({1051, 92, 1061, 60, 581})
 
+# Matched against the movement's own name, not a fixed TPU code list: DataJud
+# movement taxonomies vary across tribunals/instances, and a name-based match
+# stays conservative without trying to enumerate every judgment code by
+# court. False positives (a routine movement that happens to contain one of
+# these words) only cost an extra next_action suggestion, never a wrong
+# conclusion about content — the tool still never reads the ato itself.
+_DECISAO_MOVIMENTO_KEYWORDS = (
+    "sentença",
+    "sentenca",
+    "acórdão",
+    "acordao",
+    "julgamento",
+    "decisão",
+    "decisao",
+)
+
 
 class DatajudMovimentoResult(BaseModel):
     """One DataJud movement, preserving its source degree and raw timestamp."""
@@ -131,6 +147,11 @@ def _movement_result(capa: ProcessoCapa, mov: Movimento) -> DatajudMovimentoResu
         orgao_julgador=capa.orgao_julgador.nome,
         complementos=complementos or None,
     )
+
+
+def _is_decisao_movimento(mov: DatajudMovimentoResult) -> bool:
+    nome = (mov.nome or "").lower()
+    return any(keyword in nome for keyword in _DECISAO_MOVIMENTO_KEYWORDS)
 
 
 def _movement_sort_key(item: DatajudMovimentoResult) -> str:
@@ -228,6 +249,19 @@ def _to_result(
             argumentos={"cnj": formatted},
         )
     ]
+    if any(_is_decisao_movimento(m) for m in marcos_all):
+        next_actions.append(
+            ProximaAcaoResult(
+                quando=(
+                    "Se a pergunta depende do que a sentença/acórdão/decisão efetivamente "
+                    "diz — o movimento acima prova que o ato ocorreu, mas não contém seu "
+                    "teor; não infira o conteúdo a partir do nome do movimento."
+                ),
+                acao="Buscar o teor da decisão correspondente.",
+                tool="decisoes_buscar",
+                argumentos={"cnj": formatted},
+            )
+        )
     if not incluir_movimentos and movimentos_all:
         next_actions.append(
             ProximaAcaoResult(
