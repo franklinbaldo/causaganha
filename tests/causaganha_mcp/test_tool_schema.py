@@ -83,6 +83,7 @@ _EXPECTED_OUTPUT_FIELDS = {
         "fonte",
         "canonica",
         "avisos",
+        "next_actions",
         "web_url",
         "web_path",
     },

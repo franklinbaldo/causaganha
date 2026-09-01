@@ -54,6 +54,15 @@ class FonteCoberturaResult(BaseModel):
     )
 
 
+class ProximaAcaoResult(BaseModel):
+    """Próxima operação semântica útil para continuar a investigação do CNJ."""
+
+    quando: str
+    acao: str
+    tool: str
+    argumentos: dict[str, str | bool | int] = Field(default_factory=dict)
+
+
 class DocumentoResult(BaseModel):
     """Um documento JURIS ou STJ do processo."""
 
@@ -155,6 +164,10 @@ class ProcessoConsultarResult(BaseModel):
     avisos: list[str] = Field(
         default_factory=list, description="Ressalvas relevantes (ex.: relatório indisponível)."
     )
+    next_actions: list[ProximaAcaoResult] = Field(
+        default_factory=list,
+        description="Próximas consultas úteis sem executar outra fonte implicitamente.",
+    )
     web_url: str | None = Field(
         default=None,
         description=f"URL completa do dossiê no dashboard web, montada apenas quando a "
@@ -174,6 +187,31 @@ def _web_url(cnj_formatado: str) -> str | None:
     if not base:
         return None
     return f"{base.rstrip('/')}{_web_path(cnj_formatado)}"
+
+
+def _next_actions(r: ProcessoConsultaResult) -> list[ProximaAcaoResult]:
+    """Suggest explicit composition without silently crossing evidence boundaries."""
+    actions = [
+        ProximaAcaoResult(
+            quando=(
+                "Se a pergunta exige saber o andamento atual ou se houve movimento depois "
+                "da geração deste snapshot."
+            ),
+            acao="Consultar o estado processual live no DataJud.",
+            tool="processo_estado",
+            argumentos={"cnj": r.nr_processo},
+        ),
+        ProximaAcaoResult(
+            quando=(
+                "Se você precisa localizar as publicações DJEN preservadas deste processo "
+                "ou confirmar o detalhe de uma comunicação."
+            ),
+            acao="Buscar publicações arquivadas deste CNJ.",
+            tool="publicacoes_buscar",
+            argumentos={"processo": r.nr_processo},
+        ),
+    ]
+    return actions
 
 
 def _to_result(r: ProcessoConsultaResult) -> ProcessoConsultarResult:
@@ -242,6 +280,7 @@ def _to_result(r: ProcessoConsultaResult) -> ProcessoConsultarResult:
         dataset_gerado_em=r.dataset_gerado_em,
         consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
         avisos=r.avisos,
+        next_actions=_next_actions(r),
         web_url=_web_url(r.nr_processo_mascara),
         web_path=_web_path(r.nr_processo_mascara),
     )
@@ -291,6 +330,9 @@ def register(mcp: FastMCP) -> None:
         foi gerado), nunca um veredito. Um CNJ válido mas ausente de toda
         fonte retorna `encontrado=False`, não é um erro; um CNJ malformado
         (não são 20 dígitos) levanta erro de uso.
+
+        `next_actions` orienta a composição explícita com estado live ou com
+        a busca de publicações sem fazer chamadas ocultas a outras fontes.
 
         Args:
             cnj: Número do processo, com ou sem máscara (aceita ambos).
