@@ -284,3 +284,38 @@ describe('ProcessoLookup — source presence copy (no false completeness score)'
     await waitFor(() => expect(container.textContent).toContain('Nenhum documento de decisão encontrado no JURIS ou no STJ'));
   });
 });
+
+describe('ProcessoLookup — dataset staleness warning', () => {
+  async function searchAndResolveWithDataset(cnj: string, datasetGeradoEm: string | null) {
+    const { processoDeferreds, documentosDeferreds } = makeControllable();
+
+    const { getByLabelText, getByText, container } = render(ProcessoLookup);
+    const input = (await waitFor(() => getByLabelText(/Número do processo/i))) as HTMLInputElement;
+
+    await fireEvent.input(input, { target: { value: cnj } });
+    await fireEvent.click(getByText('Buscar'));
+    await waitFor(() => expect(processoDeferreds.has(cnj)).toBe(true));
+    processoDeferreds.get(cnj)!.resolve(processoResultado(cnj, { datasetGeradoEm }));
+    await waitFor(() => expect(documentosDeferreds.has(cnj)).toBe(true));
+    documentosDeferreds.get(cnj)!.resolve({ items: [], hasMore: false });
+
+    return container;
+  }
+
+  it('warns when the dataset snapshot is older than 48h — documents shown may not reflect current status', async () => {
+    const cnj = '00000080920248220008';
+    const staleTimestamp = new Date(Date.now() - 60 * 60 * 60 * 1000).toISOString(); // 60h ago
+    const container = await searchAndResolveWithDataset(cnj, staleTimestamp);
+
+    await waitFor(() => expect(container.textContent).toContain('pode estar desatualizado'));
+  });
+
+  it('does not warn when the dataset snapshot is fresh', async () => {
+    const cnj = '00000090920248220009';
+    const freshTimestamp = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(); // 1h ago
+    const container = await searchAndResolveWithDataset(cnj, freshTimestamp);
+
+    await waitFor(() => expect(container.textContent).toContain('dataset gerado em'));
+    expect(container.textContent).not.toContain('pode estar desatualizado');
+  });
+});

@@ -16,6 +16,7 @@ import {
   fontesPresenca,
   fonteUrls,
   formatCnj,
+  isDatasetStale,
   isDocumentosVazio,
   isValidCnj,
   mapDatajudRow,
@@ -435,6 +436,37 @@ describe('fetchCobertura', () => {
     } finally {
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe('isDatasetStale', () => {
+  // Matches FRESHNESS_THRESHOLD_MS (48h) from lib/data/siteStatus.ts — the
+  // same threshold the site-status dashboard already uses to decide
+  // "atualizado" vs "atrasado" for DJEN, reused here instead of inventing a
+  // parallel SLO (see docs/SERVICE_OBJECTIVES.md).
+  const NOW = Date.parse('2026-08-11T12:00:00Z');
+
+  it('is false when datasetGeradoEm is null — unknown freshness is not claimed as stale', () => {
+    expect(isDatasetStale(null, NOW)).toBe(false);
+  });
+
+  it('is false when datasetGeradoEm is unparseable — same "unknown, not stale" rule', () => {
+    expect(isDatasetStale('not-a-date', NOW)).toBe(false);
+  });
+
+  it('is false when the dataset was generated within the last 48h', () => {
+    const oneHourAgo = new Date(NOW - 60 * 60 * 1000).toISOString();
+    expect(isDatasetStale(oneHourAgo, NOW)).toBe(false);
+  });
+
+  it('is false exactly at the 48h boundary', () => {
+    const exactly48hAgo = new Date(NOW - 48 * 60 * 60 * 1000).toISOString();
+    expect(isDatasetStale(exactly48hAgo, NOW)).toBe(false);
+  });
+
+  it('is true once the dataset is older than 48h', () => {
+    const fortyNineHoursAgo = new Date(NOW - 49 * 60 * 60 * 1000).toISOString();
+    expect(isDatasetStale(fortyNineHoursAgo, NOW)).toBe(true);
   });
 });
 
