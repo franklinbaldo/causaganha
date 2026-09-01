@@ -10,6 +10,7 @@ parquets, without any network access.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
 import duckdb
@@ -25,6 +26,12 @@ if TYPE_CHECKING:
 CNJ_ALL = "00000010220248220001"
 CNJ_DJEN_ONLY = "00000020320248220002"
 CNJ_UNKNOWN = "00000030420248220003"
+
+# Matches fixtures["report"]'s generated_at below — used to keep the
+# "avisos == []" assertions deterministic instead of drifting with wall
+# clock time (the fixture's fixed timestamp will eventually be more than
+# 48h in the real past).
+GERADO_EM = datetime(2026, 7, 12, 18, 0, 0, tzinfo=UTC)
 
 
 def _copy_to_parquet(path: Path, sql: str) -> Path:
@@ -118,7 +125,10 @@ def fixtures(tmp_path: Path) -> dict[str, Path]:
 
 def test_multi_fonte_dossier(fixtures: dict[str, Path]) -> None:
     result = service.buscar_processo(
-        CNJ_ALL, indice_url=str(fixtures["indice"]), report_url=str(fixtures["report"])
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(fixtures["report"]),
+        agora=GERADO_EM,
     )
 
     assert result.encontrado is True
@@ -166,7 +176,10 @@ def test_single_fonte_dossier_leaves_other_fields_none(fixtures: dict[str, Path]
 
 def test_not_found_still_carries_cobertura(fixtures: dict[str, Path]) -> None:
     result = service.buscar_processo(
-        CNJ_UNKNOWN, indice_url=str(fixtures["indice"]), report_url=str(fixtures["report"])
+        CNJ_UNKNOWN,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(fixtures["report"]),
+        agora=GERADO_EM,
     )
 
     assert result.encontrado is False
@@ -175,6 +188,67 @@ def test_not_found_still_carries_cobertura(fixtures: dict[str, Path]) -> None:
     assert result.dataset_gerado_em == "2026-07-12T18:00:00Z"
     assert {c.fonte for c in result.cobertura_dataset} == {"djen", "juris", "stj", "datajud"}
     assert result.avisos == []
+
+
+def test_fresh_snapshot_has_no_staleness_aviso(fixtures: dict[str, Path]) -> None:
+    """dataset_gerado_em within the 48h SLO (docs/SERVICE_OBJECTIVES.md) is silent."""
+    quase_48h_depois = GERADO_EM + timedelta(hours=47)
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(fixtures["report"]),
+        agora=quase_48h_depois,
+    )
+
+    assert result.avisos == []
+
+
+def test_stale_snapshot_warns_and_points_to_live_state(fixtures: dict[str, Path]) -> None:
+    """A snapshot far older than the 48h SLO must not silently look current.
+
+    Mirrors issue #891's staleness rule: "não confundir 'o processo parou'
+    com 'a cópia parou'" — an old dataset_gerado_em must surface as an
+    explicit warning pointing at the live-state route, not be silent.
+    """
+    tres_dias_depois = GERADO_EM + timedelta(days=3)
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(fixtures["report"]),
+        agora=tres_dias_depois,
+    )
+
+    assert len(result.avisos) == 1
+    aviso = result.avisos[0]
+    assert "48" in aviso
+    assert "processo_estado" in aviso
+
+
+def test_stale_snapshot_also_warns_when_processo_not_found(fixtures: dict[str, Path]) -> None:
+    """Staleness is a property of the snapshot, independent of this CNJ's hit/miss."""
+    tres_dias_depois = GERADO_EM + timedelta(days=3)
+    result = service.buscar_processo(
+        CNJ_UNKNOWN,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(fixtures["report"]),
+        agora=tres_dias_depois,
+    )
+
+    assert result.encontrado is False
+    assert any("processo_estado" in a for a in result.avisos)
+
+
+def test_missing_report_has_no_staleness_aviso_beyond_its_own(
+    fixtures: dict[str, Path],
+) -> None:
+    """No dataset_gerado_em to compare against — never fabricate a staleness claim."""
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(fixtures["indice"].parent / "does-not-exist.report.json"),
+    )
+
+    assert result.avisos == [service._RELATORIO_INDISPONIVEL_AVISO]
 
 
 def test_invalid_cnj_raises_before_touching_any_parquet() -> None:

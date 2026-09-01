@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -56,6 +57,34 @@ _RELATORIO_INDISPONIVEL_AVISO = (
     "Relatório de cobertura (indice_processual.report.json) indisponível; "
     "sem detalhamento de quais fontes estavam carregadas na geração do dataset."
 )
+
+# Same 48h freshness SLO the canary/dashboard already alarm on
+# (docs/SERVICE_OBJECTIVES.md, FRESHNESS_THRESHOLD_MS in siteStatus.ts) —
+# not a new number invented for this check.
+_SNAPSHOT_STALENESS_THRESHOLD_HOURS = 48
+
+
+def _aviso_snapshot_desatualizado(dataset_gerado_em: str | None, agora: datetime) -> str | None:
+    """Sinaliza quando o snapshot está velho demais para responder sozinho.
+
+    Issue #891: "não confundir 'o processo parou' com 'a cópia parou'" — um
+    `dataset_gerado_em` antigo não prova ausência de movimento, só que esta
+    resposta pode não refletir andamento recente.
+    """
+    if dataset_gerado_em is None:
+        return None
+    try:
+        gerado_em = datetime.fromisoformat(dataset_gerado_em.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    idade_horas = (agora - gerado_em).total_seconds() / 3600
+    if idade_horas <= _SNAPSHOT_STALENESS_THRESHOLD_HOURS:
+        return None
+    return (
+        f"Snapshot gerado há {idade_horas:.1f}h (> {_SNAPSHOT_STALENESS_THRESHOLD_HOURS}h) — "
+        "pode não refletir andamento recente; consulte processo_estado (DataJud live) "
+        "se a pergunta depende do que aconteceu depois desta geração."
+    )
 
 
 def _url_list_sql(urls: list[str]) -> str:
@@ -350,6 +379,7 @@ def buscar_processo(
     limite_documentos: int = 10,
     indice_url: str = INDICE_PROCESSUAL_URL,
     report_url: str = REPORT_URL,
+    agora: datetime | None = None,
 ) -> ProcessoConsultaResult:
     """Busca o dossiê unificado de um CNJ via `indice_processual.parquet` + fontes de origem.
 
@@ -359,11 +389,16 @@ def buscar_processo(
     possível sem ele. Falha ao carregar um parquet de origem específico ou o
     relatório de cobertura vira resultado parcial (aviso + lacuna vazia),
     nunca propaga.
+
+    `agora` é injetável para testes determinísticos do alarme de snapshot
+    desatualizado (ver `_aviso_snapshot_desatualizado`); em produção usa o
+    relógio real.
     """
     nr_processo = normalizar_cnj(cnj)
     if not nr_processo:
         msg = f"CNJ inválido (esperado 20 dígitos): {cnj!r}"
         raise CnjInvalidoError(msg)
+    agora_efetivo = agora if agora is not None else datetime.now(UTC)
 
     with duckdb.connect() as con:
         _load_httpfs(con)
@@ -378,6 +413,10 @@ def buscar_processo(
             avisos.append(_RELATORIO_INDISPONIVEL_AVISO)
         else:
             cobertura, dataset_gerado_em = cobertura_result
+
+        aviso_staleness = _aviso_snapshot_desatualizado(dataset_gerado_em, agora_efetivo)
+        if aviso_staleness is not None:
+            avisos.append(aviso_staleness)
 
         if not rows:
             return ProcessoConsultaResult(
