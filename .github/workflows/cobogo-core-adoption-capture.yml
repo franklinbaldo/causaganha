@@ -41,9 +41,9 @@ jobs:
       - name: Create identical public-data fixtures
         shell: bash
         run: |
+          now="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           for tree in base head; do
             mkdir -p "$tree/web/public/data"
-            now="2026-08-21T12:00:00Z"
             printf '{"generated_at":"%s","sources":{"djen":{"zips_archived":3,"pairs_total":4,"tribunals_with_data":2,"tribunals_total":3,"coverage_pct":75,"earliest_tracked_date":"2026-01-01","earliest_upload_date":"2026-01-01","latest_upload_date":"2026-01-03","absent_confirmed":1,"pending_real":0,"errors_transient":0,"never_checked":0,"last_attempt_at":"2026-08-15T18:00:00Z","last_success_at":"2026-08-15T17:55:00Z"}}}' "$now" > "$tree/web/public/data/site-status.json"
             echo '{"total":4,"uploaded":3,"pending":0,"absent":1,"unknown":0,"coverage_pct":75,"tribunals_total":3,"tribunals_with_data":2}' > "$tree/web/public/data/totals.json"
             echo '{"avg_coverage":2.5,"best_count":3,"best_day":"2026-08-14","worst_count":2,"worst_day":"2026-08-13"}' > "$tree/web/public/data/stats_coverage.json"
