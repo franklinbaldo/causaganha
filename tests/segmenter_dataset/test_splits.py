@@ -3,7 +3,7 @@ from __future__ import annotations
 import pytest
 from conftest import make_annotation, make_document, make_review
 
-from segmenter_dataset.dedup import near_duplicate_ratio
+from segmenter_dataset.dedup import content_hash, near_duplicate_ratio
 from segmenter_dataset.splits import (
     EmptyEvalSplitError,
     GroupingKeys,
@@ -14,6 +14,7 @@ from segmenter_dataset.splits import (
     check_disjoint,
     evaluation_eligible_document_ids,
     train_eligible_document_ids,
+    validate_cross_pool_leakage,
     validate_split_leakage,
 )
 
@@ -280,3 +281,46 @@ def test_validate_split_leakage_detects_group_spanning_splits() -> None:
     )
     problems = validate_split_leakage(assignment, [doc_a, doc_b], groups)
     assert any("spans multiple splits" in p for p in problems)
+
+
+def test_validate_cross_pool_leakage_detects_document_id_reuse() -> None:
+    """#884: a fresh locked-holdout candidate must not reuse a document_id
+    already committed to a previously persisted split — even though that
+    split was never loaded into this same ``assign_splits`` call.
+    """
+    existing = make_document(text="texto do pool ja existente", source_uri="existing-1")
+    # Same source_uri -> same content-addressed document_id, different text.
+    candidate = make_document(text="texto totalmente diferente do candidato", source_uri="existing-1")
+
+    problems = validate_cross_pool_leakage(
+        [candidate],
+        existing_document_ids=frozenset({existing.document_id}),
+        existing_content_hashes=frozenset(),
+    )
+
+    assert any("document_id" in p and candidate.document_id in p for p in problems)
+
+
+def test_validate_cross_pool_leakage_detects_content_hash_reuse() -> None:
+    shared_text = "mesmo conteudo compartilhado entre pools distintos"
+    candidate = make_document(text=shared_text, source_uri="candidate-2")
+
+    problems = validate_cross_pool_leakage(
+        [candidate],
+        existing_document_ids=frozenset(),
+        existing_content_hashes=frozenset({content_hash(shared_text)}),
+    )
+
+    assert any("content_hash" in p for p in problems)
+
+
+def test_validate_cross_pool_leakage_passes_when_disjoint() -> None:
+    candidate = make_document(text="conteudo genuinamente novo e distinto", source_uri="new-3")
+
+    problems = validate_cross_pool_leakage(
+        [candidate],
+        existing_document_ids=frozenset({"doc_" + "0" * 32}),
+        existing_content_hashes=frozenset({"0" * 64}),
+    )
+
+    assert problems == []
