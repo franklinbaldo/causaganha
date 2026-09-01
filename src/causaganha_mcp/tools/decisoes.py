@@ -149,6 +149,32 @@ def register(mcp: FastMCP) -> None:
                 "um `proximo_offset` retornado anteriormente.",
             ),
         ] = 0,
+        classe: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description="Filtra por classe processual (JURIS `classe_judicial`, "
+                "STJ `siglaClasse`). Comparação por substring, sem diferenciar maiúsculas.",
+            ),
+        ] = None,
+        orgao: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description="Filtra por órgão julgador. Aplica-se somente a JURIS: o "
+                "dataset STJ publicado não expõe órgão colegiado julgador de forma "
+                "verificada, então resultados STJ desta busca ignoram esse critério "
+                "e a resposta traz uma limitação explícita em vez de fingir o filtro.",
+            ),
+        ] = None,
+        relator: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description="Filtra por relator (JURIS `relator`, STJ `ministroRelator`). "
+                "Comparação por substring, sem diferenciar maiúsculas.",
+            ),
+        ] = None,
     ) -> DecisoesBuscarResult:
         """Busca TEOR decisório preservado sem exigir schemas JURIS/STJ do agente.
 
@@ -168,6 +194,14 @@ def register(mcp: FastMCP) -> None:
         Quando ``resultados_truncados`` for True, o resultado traz
         ``proximo_offset``: repita a chamada com ``offset=proximo_offset`` para
         obter a próxima página sem alterar os demais argumentos.
+
+        ``classe`` e ``relator`` filtram ambas as fontes. ``orgao`` filtra
+        somente JURIS — filtrar por órgão em STJ exigiria um campo que o
+        dataset publicado hoje não expõe de forma verificada, então esse
+        critério nunca é aplicado silenciosamente aos resultados STJ: quando
+        usado, ``limitacoes`` explica que a fonte foi ignorada para esse
+        filtro. Não há filtro de assunto: nem JURIS nem STJ têm um campo
+        equivalente legítimo.
         """
         if not texto and not cnj:
             msg = "Informe texto (mínimo 2 caracteres) ou cnj."
@@ -181,7 +215,16 @@ def register(mcp: FastMCP) -> None:
                 data_fim=data_fim,
                 consulta_por_cnj=bool(cnj),
             )
-            found = search_decisions(texto, plan, limite=limite, cnj=cnj, offset=offset)
+            found = search_decisions(
+                texto,
+                plan,
+                limite=limite,
+                cnj=cnj,
+                offset=offset,
+                classe=classe,
+                orgao=orgao,
+                relator=relator,
+            )
         except (DecisionSearchBudgetError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
 
