@@ -21,6 +21,7 @@ export const GET: APIRoute = async ({ site }) => {
     { url: '/comparador', changefreq: 'daily', priority: '0.8' },
     { url: '/stats', changefreq: 'daily', priority: '0.8' },
     { url: '/explorador', changefreq: 'weekly', priority: '0.7' },
+    { url: '/agentes', changefreq: 'weekly', priority: '0.8' },
     { url: '/changelog', changefreq: 'weekly', priority: '0.6' },
     { url: '/sobre', changefreq: 'weekly', priority: '0.8' },
   ];
