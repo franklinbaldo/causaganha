@@ -107,6 +107,8 @@ _EXPECTED_OUTPUT_FIELDS = {
         "resumo",
         "resultados",
         "resultados_truncados",
+        "offset",
+        "proximo_offset",
         "datasets_consultados",
         "fonte_solicitada",
         "data_inicio",
@@ -147,7 +149,7 @@ _EXPECTED_INPUT_FIELDS = {
         "limite",
         "pagina",
     },
-    "decisoes_buscar": {"texto", "fonte", "data_inicio", "data_fim", "limite", "cnj"},
+    "decisoes_buscar": {"texto", "fonte", "data_inicio", "data_fim", "limite", "cnj", "offset"},
 }
 
 

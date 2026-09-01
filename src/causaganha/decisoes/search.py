@@ -168,18 +168,26 @@ def _search_source(
     return [_row_to_hit(row) for row in rows[:limite]], truncated, None
 
 
+_MAX_WINDOW = 500
+
+
 def search_decisions(
     texto: str | None,
     plan: DecisionSearchPlan,
     *,
     limite: int = 20,
     cnj: str | None = None,
+    offset: int = 0,
 ) -> DecisionSearchResult:
     """Search decision content without crossing the dataset budget in ``plan``.
 
     ``texto`` and ``cnj`` combine as additional filters when both are given.
     A CNJ-only lookup (``texto=None``) is how a caller with a known process
     number finds teor without guessing a keyword.
+
+    ``offset`` pages through the globally sorted, cross-source result set.
+    The window (``offset + limite``) is bounded to keep the remote scan cost
+    predictable, same spirit as the JURIS date-range budget in ``planner``.
 
     Source failures are isolated: a broken JURIS partition does not erase STJ
     results and vice versa. The caller receives the limitation explicitly.
@@ -194,6 +202,13 @@ def search_decisions(
         raise ValueError(msg)
     if not 1 <= limite <= 100:
         msg = "limite deve estar entre 1 e 100."
+        raise ValueError(msg)
+    if offset < 0:
+        msg = "offset deve ser maior ou igual a 0."
+        raise ValueError(msg)
+    window_end = offset + limite
+    if window_end > _MAX_WINDOW:
+        msg = f"offset + limite não pode exceder {_MAX_WINDOW}."
         raise ValueError(msg)
 
     texto_query = query or None
@@ -212,7 +227,7 @@ def search_decisions(
                 texto=texto_query,
                 cnj=cnj_query,
                 plan=plan,
-                limite=limite,
+                limite=window_end,
             )
             hits.extend(source_hits)
             truncated = truncated or source_truncated
@@ -222,9 +237,9 @@ def search_decisions(
         con.close()
 
     hits.sort(key=lambda item: (item.data or "", item.id_documento), reverse=True)
-    if len(hits) > limite:
-        hits = hits[:limite]
+    if len(hits) > window_end:
         truncated = True
+    hits = hits[offset:window_end]
     return DecisionSearchResult(
         resultados=hits,
         resultados_truncados=truncated,

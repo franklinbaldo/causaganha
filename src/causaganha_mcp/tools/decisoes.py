@@ -49,6 +49,12 @@ class DecisoesBuscarResult(BaseModel):
     resumo: str
     resultados: list[DecisaoResult] = Field(default_factory=list)
     resultados_truncados: bool = False
+    offset: int = 0
+    proximo_offset: int | None = Field(
+        default=None,
+        description="Offset a informar na próxima chamada para continuar a "
+        "paginação; None quando não há mais resultados.",
+    )
     datasets_consultados: int = 0
     fonte_solicitada: str
     data_inicio: str | None = None
@@ -135,6 +141,14 @@ def register(mcp: FastMCP) -> None:
                 "texto/período — dispensa data_inicio/data_fim em JURIS.",
             ),
         ] = None,
+        offset: Annotated[
+            int,
+            Field(
+                ge=0,
+                description="Deslocamento para continuar a paginação a partir de "
+                "um `proximo_offset` retornado anteriormente.",
+            ),
+        ] = 0,
     ) -> DecisoesBuscarResult:
         """Busca TEOR decisório preservado sem exigir schemas JURIS/STJ do agente.
 
@@ -150,6 +164,10 @@ def register(mcp: FastMCP) -> None:
         Não use para saber o andamento atual de um processo: isso é
         ``processo_estado``. Para um CNJ específico, ``processo_consultar`` é o
         caminho preferido para descobrir documentos já associados ao dossiê.
+
+        Quando ``resultados_truncados`` for True, o resultado traz
+        ``proximo_offset``: repita a chamada com ``offset=proximo_offset`` para
+        obter a próxima página sem alterar os demais argumentos.
         """
         if not texto and not cnj:
             msg = "Informe texto (mínimo 2 caracteres) ou cnj."
@@ -163,7 +181,7 @@ def register(mcp: FastMCP) -> None:
                 data_fim=data_fim,
                 consulta_por_cnj=bool(cnj),
             )
-            found = search_decisions(texto, plan, limite=limite, cnj=cnj)
+            found = search_decisions(texto, plan, limite=limite, cnj=cnj, offset=offset)
         except (DecisionSearchBudgetError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
 
@@ -191,6 +209,8 @@ def register(mcp: FastMCP) -> None:
             resumo=summary,
             resultados=results,
             resultados_truncados=found.resultados_truncados,
+            offset=offset,
+            proximo_offset=offset + limite if found.resultados_truncados else None,
             datasets_consultados=found.datasets_consultados,
             fonte_solicitada=fonte,
             data_inicio=data_inicio,
