@@ -12,6 +12,7 @@
     classifyCnjInput,
     fontesPresenca,
     formatCnj,
+    isDatasetStale,
     isDocumentosVazio,
     normalizeCnj,
     readCnjParam,
@@ -63,6 +64,7 @@
   const datasetGeneratedAtLabel = $derived(
     processo?.datasetGeradoEm ? (formatUtcDateTime(processo.datasetGeradoEm) ?? 'desconhecido') : 'desconhecido',
   );
+  const datasetStale = $derived(processo ? isDatasetStale(processo.datasetGeradoEm, Date.now()) : false);
   const publicacoesHref = $derived(
     lastQueriedCnj
       ? `${BASE}publicacoes?numeroProcesso=${encodeURIComponent(lastQueriedCnj)}`
@@ -345,6 +347,12 @@
           Registros encontrados em {fontesResumo.presentes.length} das {ALL_FONTES.length} fontes consultadas ·
           dataset gerado em {datasetGeneratedAtLabel}
         </p>
+        {#if datasetStale}
+          <p class="meta-text" data-tone="warning">
+            Este snapshot pode estar desatualizado (dataset gerado há mais de 48h). Os documentos
+            abaixo refletem a última coleta, não necessariamente o andamento atual do processo.
+          </p>
+        {/if}
         <div class="processo-dossie__actions" aria-label="Ações do processo">
           <a class="outline" href={publicacoesHref}>Ver publicações DJEN</a>
           {#if documentos.length > 0}<a class="outline secondary" href="#documentos-title">Ir para documentos</a>{/if}

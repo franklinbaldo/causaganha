@@ -16,6 +16,8 @@
  * Svelte, para serem testáveis sem montar UI.
  */
 
+import { FRESHNESS_THRESHOLD_MS, parseTimestamp } from './data/siteStatus';
+
 export const IA_DASHBOARD_BASE = 'https://archive.org/download/causaganha-dashboard';
 export const INDICE_PROCESSUAL_URL = `${IA_DASHBOARD_BASE}/indice_processual.parquet`;
 export const REPORT_URL = `${IA_DASHBOARD_BASE}/indice_processual.report.json`;
@@ -624,6 +626,20 @@ export interface FonteCobertura {
 export interface CoberturaResult {
   cobertura: FonteCobertura[];
   datasetGeradoEm: string | null;
+}
+
+/**
+ * True quando `datasetGeradoEm` já passou de FRESHNESS_THRESHOLD_MS (48h) —
+ * mesmo limiar que `evaluateSourceFreshness` usa para o site-status, reusado
+ * aqui em vez de inventar um SLO paralelo (docs/SERVICE_OBJECTIVES.md).
+ * Timestamp ausente/imparseável não é assumido como obsoleto: é
+ * "desconhecido", já coberto pelo rótulo de exibição — ver "risco
+ * silencioso" em #924.
+ */
+export function isDatasetStale(datasetGeradoEm: string | null, now: number): boolean {
+  const ts = parseTimestamp(datasetGeradoEm);
+  if (ts === null) return false;
+  return now - ts > FRESHNESS_THRESHOLD_MS;
 }
 
 /** Carrega indice_processual.report.json; null quando indisponível/ilegível — nunca lança. */
