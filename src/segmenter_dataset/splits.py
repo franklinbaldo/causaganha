@@ -415,3 +415,31 @@ def validate_split_leakage(
             )
 
     return problems
+
+
+def validate_cross_pool_leakage(
+    candidate_documents: list[DocumentRecord],
+    *,
+    existing_document_ids: frozenset[str] = frozenset(),
+    existing_content_hashes: frozenset[str] = frozenset(),
+) -> list[str]:
+    """Reject candidates reusing a document_id/content_hash from another pool.
+
+    ``validate_split_leakage`` above only sees documents loaded into one
+    ``assign_splits`` call. Freezing a new locked holdout (RFC 0012 §10's
+    reject list, per #884) instead needs to check a separately-assembled
+    candidate pool against splits persisted earlier — train/validation, or a
+    retired test split — without re-loading their full ``DocumentRecord``s;
+    only their previously-recorded ``document_id``s and content hashes.
+    """
+    problems: list[str] = []
+    for doc in candidate_documents:
+        if doc.document_id in existing_document_ids:
+            problems.append(f"document_id {doc.document_id} already used in an existing split")
+        digest = content_hash(doc.text)
+        if digest in existing_content_hashes:
+            problems.append(
+                f"content_hash {digest} (document_id {doc.document_id}) already used "
+                "in an existing split"
+            )
+    return problems

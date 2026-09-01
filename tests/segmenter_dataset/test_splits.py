@@ -290,7 +290,9 @@ def test_validate_cross_pool_leakage_detects_document_id_reuse() -> None:
     """
     existing = make_document(text="texto do pool ja existente", source_uri="existing-1")
     # Same source_uri -> same content-addressed document_id, different text.
-    candidate = make_document(text="texto totalmente diferente do candidato", source_uri="existing-1")
+    candidate = make_document(
+        text="texto totalmente diferente do candidato", source_uri="existing-1"
+    )
 
     problems = validate_cross_pool_leakage(
         [candidate],
