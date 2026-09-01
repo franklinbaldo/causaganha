@@ -3,6 +3,7 @@
 
   let {
     link,
+    processHref,
     activeCopied = null,
     shareContext,
     shareLabel = "Compartilhar",
@@ -21,6 +22,7 @@
     ariaLabel = "Ações da publicação",
   }: {
     link?: string;
+    processHref?: string | null;
     activeCopied?: PublicationActionContext | null;
     shareContext: PublicationActionContext;
     shareLabel?: string;
@@ -70,6 +72,12 @@
     <button type="button" class="outline" onclick={onOpenReader} title="Abrir Modo Leitura">
       Modo Leitura
     </button>
+  {/if}
+
+  {#if processHref}
+    <a class="outline" href={processHref}>
+      Abrir dossiê
+    </a>
   {/if}
 
   {#if link}
