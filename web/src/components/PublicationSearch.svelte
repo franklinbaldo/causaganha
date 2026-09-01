@@ -429,9 +429,12 @@
     }
   });
 
-  // Sync URL when a successful search completes
+  // Sync URL when a search settles, success or failure — a fetch error must
+  // not drop the query from a shareable/reloadable URL the way a successful
+  // search already preserves it (see status === 'error', which is distinct
+  // from an actual absence of results).
   $effect(() => {
-    if (searchQuery.isSuccess && submittedQuery) {
+    if ((searchQuery.isSuccess || searchQuery.isError) && submittedQuery) {
       pushQueryToUrl(submittedQuery);
     }
   });
@@ -755,7 +758,11 @@
       <div class="alert" data-level="error">
         <strong>Não foi possível buscar.</strong>
         <p>{errorMsg}</p>
-        <button type="button" onclick={handleSubmit}>Tentar novamente</button>
+        <p>Isso é uma falha de origem, não ausência de resultados — os critérios enviados não foram descartados.</p>
+        <div class="empty-search__actions">
+          <button type="button" onclick={handleSubmit}>Tentar novamente</button>
+          <a href={historicalArchiveHref} class="secondary outline" role="button">Consultar arquivo histórico</a>
+        </div>
       </div>
     {:else if status === 'empty'}
       <article class="empty-search" aria-label="Busca sem resultados">
