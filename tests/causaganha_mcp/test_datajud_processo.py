@@ -117,6 +117,57 @@ async def test_processo_estado_returns_summary_first_and_filters_noise(mcp) -> N
     assert any("não contém" in item for item in result.limitacoes)
 
 
+async def test_processo_estado_offers_teor_route_when_decision_movement_present(mcp) -> None:
+    fn = await _fn(mcp)
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(200, json=_payload())
+        result = await fn(cnj=CNJ, tribunal="tjro")
+
+    # The fixture's G2 movement is "Julgamento" — a decision-type event.
+    # DataJud only proves the event happened; it never carries the ato's
+    # content, so the tool must point at the explicit teor route instead of
+    # letting an agent infer content from the movement label.
+    teor_actions = [a for a in result.next_actions if a.tool == "decisoes_buscar"]
+    assert len(teor_actions) == 1
+    assert teor_actions[0].argumentos == {"cnj": result.cnj_formatado}
+    assert "teor" in teor_actions[0].acao.lower()
+    assert "não" in teor_actions[0].quando.lower()
+
+
+async def test_processo_estado_no_decision_movement_offers_no_teor_route(mcp) -> None:
+    fn = await _fn(mcp)
+    payload = {
+        "hits": {
+            "hits": [
+                {
+                    "_source": _source(
+                        grau="G1",
+                        orgao="1ª Vara",
+                        atualizado="2026-08-21T12:00:00Z",
+                        movimentos=[
+                            {
+                                "codigo": 26,
+                                "nome": "Distribuição",
+                                "dataHora": "2026-08-20T10:00:00Z",
+                            },
+                            {
+                                "codigo": 51,
+                                "nome": "Conclusão",
+                                "dataHora": "2026-08-21T09:00:00Z",
+                            },
+                        ],
+                    )
+                }
+            ]
+        }
+    }
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(200, json=payload)
+        result = await fn(cnj=CNJ, tribunal="tjro")
+
+    assert all(a.tool != "decisoes_buscar" for a in result.next_actions)
+
+
 async def test_processo_estado_full_movements_are_explicit_opt_in(mcp) -> None:
     fn = await _fn(mcp)
     with respx.mock() as router:
