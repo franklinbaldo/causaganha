@@ -92,6 +92,7 @@ analysis_results.txt
 causaganha.db
 *.png
 !web/public/apple-touch-icon.png
+!web/public/og-image.png
 *.log
 data_*.json
 ia_data.json
