@@ -1,0 +1,93 @@
+name: Agents Surface Visual Capture
+
+on:
+  pull_request:
+    paths:
+      - 'web/src/pages/agentes.astro'
+      - 'web/src/components/Header.astro'
+      - 'web/src/pages/sitemap.xml.ts'
+      - '.github/workflows/agents-surface-capture.yml'
+  push:
+    branches:
+      - main
+    paths:
+      - 'web/src/pages/agentes.astro'
+      - 'web/src/components/Header.astro'
+      - 'web/src/pages/sitemap.xml.ts'
+      - '.github/workflows/agents-surface-capture.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  capture-agents-surface:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout proposed state
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          path: head
+
+      - name: Checkout base state
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+          path: base
+
+      - name: Setup Node
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+
+      - name: Build both states
+        shell: bash
+        run: |
+          for tree in base head; do
+            (cd "$tree/web" && npm ci && npm run build)
+          done
+
+      - name: Install Chromium
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Serve both builds
+        shell: bash
+        run: |
+          mkdir -p /tmp/before/causaganha /tmp/after/causaganha
+          cp -R base/web/dist/. /tmp/before/causaganha/
+          cp -R head/web/dist/. /tmp/after/causaganha/
+          python3 -m http.server 4173 --directory /tmp/before >/tmp/agents-before.log 2>&1 &
+          python3 -m http.server 4174 --directory /tmp/after >/tmp/agents-after.log 2>&1 &
+          sleep 2
+
+      - name: Capture /agentes before and after
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p captures
+          for state_port in before:4173 after:4174; do
+            state="${state_port%%:*}"
+            port="${state_port##*:}"
+            for viewport_suffix in '1280,900:desktop' '390,844:mobile'; do
+              viewport="${viewport_suffix%%:*}"
+              suffix="${viewport_suffix##*:}"
+              npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="$viewport" --full-page \
+                "http://127.0.0.1:${port}/causaganha/agentes" "captures/agentes-${suffix}-${state}.png"
+            done
+          done
+          sha256sum captures/*.png | sort | tee captures/sha256.txt
+          for suffix in desktop mobile; do
+            if cmp -s "captures/agentes-${suffix}-before.png" "captures/agentes-${suffix}-after.png"; then
+              echo "agentes-${suffix}=identical"
+              exit 1
+            else
+              echo "agentes-${suffix}=different"
+            fi
+          done
+
+      - name: Upload agents visual evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: agents-surface-before-after
+          path: captures/
+          if-no-files-found: error
