@@ -11,7 +11,7 @@ MCP e site não são produtos paralelos. São duas projeções do mesmo produto 
 
 ## Norte do ciclo
 
-O ciclo termina quando dois testes passam:
+O ciclo termina quando dois testes passam.
 
 ### Teste do agente
 
@@ -19,6 +19,7 @@ Um agente sem conhecimento prévio do repositório recebe somente o catálogo MC
 
 - descobrir a tool correta para consultar um CNJ;
 - localizar publicações por CNJ/OAB/parte/texto;
+- localizar decisões/acórdãos quando a pergunta depende de teor;
 - distinguir arquivo, estado e teor;
 - entender quando um resultado é snapshot, live, ausente, indisponível ou limitado por cobertura;
 - seguir `next_actions` sem conhecer topologia interna;
@@ -68,33 +69,41 @@ Conveniência não autoriza fundir evidências heterogêneas. O produto deve con
 
 Nenhuma superfície deve transformar essas três proposições numa afirmação sintética sem origem verificável.
 
-## Pilha deste ciclo
+## Pilhas irmãs deste ciclo
 
-Esta mudança é a base de uma pilha de PRs, não uma entrega monolítica.
+A execução é intencionalmente dividida em duas stacks. Elas compartilham o contrato do produto, mas não criam dependência artificial entre código Python/MCP e frontend.
 
-### PR 1 — ciclo e contrato de produto
+### Stack MCP — prioridade
 
-Este documento fixa o norte, os testes de sucesso e a ordem de execução. Ele consolida, sem duplicar, o que já está espalhado por #904, #914 e issues filhas.
+1. **#942 — ciclo e contrato do produto.** Esta PR fixa o norte e os critérios de sucesso.
+2. **#943 — catálogo orientado a jobs.** Congela por teste a experiência de seleção das tools sem conhecimento do repositório.
+3. **#944 — composição explícita do dossiê.** `processo_consultar` passa a devolver próximas ações para estado live e publicações sem executar outra fonte implicitamente.
+4. **#945 — descoberta de datasets de teor.** JURIS é derivado do manifest publicado; STJ permanece uma autoridade distinta.
+5. **#947 — orçamento da busca temática.** Busca JURIS exige período e não pode abrir o histórico inteiro de Parquets.
+6. **#948 — serviço de busca de teor.** JURIS/STJ são consultados e normalizados preservando a origem e isolando falhas parciais.
+7. **#949 — `decisoes_buscar`.** A busca de teor vira uma tool de produto e completa a navegação explícita arquivo → estado → teor.
 
-### PR 2 — MCP orientado a jobs
+### Stack site — reaproveitada
 
-Reorganizar a apresentação/instruções do MCP para que tools de produto sejam primeira classe e tools `*_status` sejam claramente operacionais. Descrições precisam dizer quando usar, quando não usar e como compor as tools. Base: #914 e #891.
+A superfície humana já tinha uma sequência coerente aberta e não deve ser duplicada:
 
-### PR 3 — MCP: busca de teor
+1. **#911 — `Minhas consultas` local-first.** Conveniência recorrente sem conta nem backend pessoal.
+2. **#912 — dossiê por CNJ acionável.** Resultado deixa de ser relatório passivo e passa a oferecer próximas ações.
+3. **#913 — publicação → dossiê.** Um resultado DJEN com CNJ leva ao contexto multi-fonte em um clique.
 
-Adicionar a superfície de produto para localizar decisões/documentos JURIS/STJ por job, sem exigir que o agente conheça schemas de origem. Base: #918.
+Essa stack nasceu sobre uma cadeia anterior de repaginação. Ela deve ser reconciliada causalmente com `main`, preservando somente o delta útil; retargetar cegamente e reapresentar mudanças já absorvidas não é aceitável.
 
-### PR 4 — site: dossiê acionável
+### Convergência
 
-Transformar `/processo` em ponto de decisão: ações para publicações, teor, permalink e explicação de cobertura/freshness. Base: #905 e #907.
+O último degrau do ciclo é uma prova end-to-end compartilhada, baseada em #909 e #914:
 
-### PR 5 — site: publicação → processo
+- golden cases determinísticos quando úteis;
+- agent experience usando somente catálogo MCP;
+- fluxo humano CNJ → dossiê → publicação/documento e publicação → dossiê;
+- desktop/mobile/teclado nas superfícies humanas;
+- ausência, indisponibilidade e cobertura incompleta semanticamente distintas nas duas superfícies.
 
-Tornar o caminho publicação → dossiê explícito e reproduzível; preservar filtros e permalink e melhorar reutilização da busca. Base: #906.
-
-### PR 6 — prova end-to-end das duas superfícies
-
-Adicionar golden cases determinísticos e uma avaliação de agent experience do MCP, além de Playwright dos fluxos humanos relevantes. O objetivo é detectar regressões de utilidade, não apenas schema quebrado ou screenshot estático. Base: #909 e critérios de #914.
+A fixture pode ser compartilhada como evidência, mas não vira uma segunda ontologia do produto.
 
 ## O que fica fora deste ciclo
 
@@ -103,8 +112,6 @@ Adicionar golden cases determinísticos e uma avaliação de agent experience do
 - novas tools MCP que apenas espelhem pipelines;
 - login/conta para o site;
 - esconder lacunas de cobertura em nome de uma experiência “limpa”.
-
-`Minhas consultas` (#908) continua valiosa, mas vem depois do caminho principal CNJ/publicações estar redondo.
 
 ## Regra de priorização
 
