@@ -111,6 +111,7 @@ tjro-juris = "tjro_juris.__main__:app"
 datajud = "datajud.__main__:app"
 segmenter-dataset = "segmenter_dataset.__main__:app"
 causaganha-mcp = "causaganha_mcp.__main__:main"
+causaganha-mcp-http = "causaganha_mcp.http_server:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
