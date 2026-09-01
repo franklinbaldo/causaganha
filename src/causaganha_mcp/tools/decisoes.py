@@ -115,13 +115,26 @@ def register(mcp: FastMCP) -> None:
     )
     def decisoes_buscar(
         texto: Annotated[
-            str,
-            Field(min_length=2, description="Texto livre a localizar no teor/ementa/tese."),
-        ],
+            str | None,
+            Field(
+                default=None,
+                min_length=2,
+                description="Texto livre a localizar no teor/ementa/tese. "
+                "Opcional quando ``cnj`` é informado.",
+            ),
+        ] = None,
         fonte: Literal["todas", "juris", "stj"] = "todas",
         data_inicio: str | None = None,
         data_fim: str | None = None,
         limite: Annotated[int, Field(ge=1, le=50)] = 20,
+        cnj: Annotated[
+            str | None,
+            Field(
+                default=None,
+                description="CNJ do processo para localizar teor sem exigir "
+                "texto/período — dispensa data_inicio/data_fim em JURIS.",
+            ),
+        ] = None,
     ) -> DecisoesBuscarResult:
         """Busca TEOR decisório preservado sem exigir schemas JURIS/STJ do agente.
 
@@ -129,12 +142,18 @@ def register(mcp: FastMCP) -> None:
         efetivamente diz. Para busca temática que inclua TJRO JURIS, informe
         ``data_inicio`` e ``data_fim`` em AAAA-MM-DD; o intervalo é limitado a
         seis meses para impedir scans remotos históricos sem bound. Para pesquisar
-        apenas STJ, o período é opcional.
+        apenas STJ, o período é opcional. Quando o CNJ do processo já é conhecido
+        (por exemplo, a partir de ``processo_consultar``), informe ``cnj`` no lugar
+        de ``texto`` — a busca por CNJ é um lookup pontual e dispensa
+        ``data_inicio``/``data_fim`` mesmo em JURIS.
 
         Não use para saber o andamento atual de um processo: isso é
         ``processo_estado``. Para um CNJ específico, ``processo_consultar`` é o
         caminho preferido para descobrir documentos já associados ao dossiê.
         """
+        if not texto and not cnj:
+            msg = "Informe texto (mínimo 2 caracteres) ou cnj."
+            raise ToolError(msg)
         datasets, coverage_limitations = _datasets_for_source(fonte)
         try:
             plan = plan_decision_search(
@@ -142,8 +161,9 @@ def register(mcp: FastMCP) -> None:
                 fonte=fonte,
                 data_inicio=data_inicio,
                 data_fim=data_fim,
+                consulta_por_cnj=bool(cnj),
             )
-            found = search_decisions(texto, plan, limite=limite)
+            found = search_decisions(texto, plan, limite=limite, cnj=cnj)
         except (DecisionSearchBudgetError, ValueError) as exc:
             raise ToolError(str(exc)) from exc
 

@@ -30,7 +30,7 @@ async def test_decision_search_maps_content_and_process_next_actions(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite: DecisionSearchResult(
+        lambda _texto, _plan, *, limite, cnj=None: DecisionSearchResult(
             resultados=[
                 DecisionHit(
                     fonte="stj",
@@ -72,6 +72,49 @@ async def test_juris_thematic_search_without_period_becomes_tool_error(
         fn("responsabilidade civil", fonte="juris")
 
 
+async def test_cnj_lookup_bypasses_juris_thematic_period_requirement(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = PublishedDecisionDataset(fonte="juris", url="https://example/2026-02.parquet")
+    monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
+    captured: dict[str, object] = {}
+
+    def _fake_search(_texto, _plan, *, limite, cnj=None):
+        captured["cnj"] = cnj
+        return DecisionSearchResult(
+            resultados=[
+                DecisionHit(
+                    fonte="juris",
+                    id_documento="j1",
+                    cnj="00000010220248220001",
+                    data="2026-02-10",
+                    tipo="ACÓRDÃO",
+                    orgao="2ª Câmara",
+                    relator="Des. Exemplo",
+                    classe="Apelação",
+                    trecho="Responsabilidade civil.",
+                    url="https://juris.example/j1",
+                )
+            ],
+            datasets_consultados=1,
+        )
+
+    monkeypatch.setattr(decisoes, "search_decisions", _fake_search)
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    result = fn(texto=None, fonte="juris", cnj="00000010220248220001")
+
+    assert captured["cnj"] == "00000010220248220001"
+    assert result.resultados[0].id_documento == "j1"
+
+
+async def test_missing_texto_and_cnj_is_tool_error(mcp) -> None:
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    with pytest.raises(ToolError, match="texto.*cnj|cnj.*texto"):
+        fn(texto=None, fonte="stj")
+
+
 async def test_coverage_limitation_survives_successful_other_source(
     mcp,
     monkeypatch: pytest.MonkeyPatch,
@@ -85,7 +128,7 @@ async def test_coverage_limitation_survives_successful_other_source(
     monkeypatch.setattr(
         decisoes,
         "search_decisions",
-        lambda _texto, _plan, *, limite: DecisionSearchResult(datasets_consultados=1),
+        lambda _texto, _plan, *, limite, cnj=None: DecisionSearchResult(datasets_consultados=1),
     )
 
     fn = await _tool_fn(mcp, "decisoes_buscar")

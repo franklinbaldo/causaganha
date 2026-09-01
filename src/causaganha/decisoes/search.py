@@ -43,6 +43,10 @@ def _url_list_sql(urls: list[str]) -> str:
     return ", ".join(f"'{url}'" for url in escaped)
 
 
+def _only_digits(value: str) -> str:
+    return "".join(ch for ch in value if ch.isdigit())
+
+
 def _load_httpfs(con: duckdb.DuckDBPyConnection) -> None:
     with contextlib.suppress(duckdb.Error):
         con.execute("INSTALL httpfs; LOAD httpfs;")
@@ -70,7 +74,8 @@ def _juris_sql(urls: list[str]) -> str:
             left(texto_limpo, 1200) AS trecho,
             url_portal AS url
         FROM read_parquet([{_url_list_sql(urls)}], union_by_name=true)
-        WHERE lower(coalesce(texto_limpo, '')) LIKE lower(?)
+        WHERE (? IS NULL OR lower(coalesce(texto_limpo, '')) LIKE lower(?))
+          AND (? IS NULL OR NULLIF(regexp_replace(nr_processo, '[^0-9]', '', 'g'), '') = ?)
           AND (? IS NULL OR TRY_CAST(data_julgamento AS DATE) >= CAST(? AS DATE))
           AND (? IS NULL OR TRY_CAST(data_julgamento AS DATE) <= CAST(? AS DATE))
         ORDER BY data DESC NULLS LAST, id_documento
@@ -92,9 +97,10 @@ def _stj_sql(urls: list[str]) -> str:
             left(coalesce("ementa", "teseJuridica", "tema"), 1200) AS trecho,
             NULL::VARCHAR AS url
         FROM read_parquet([{_url_list_sql(urls)}], union_by_name=true)
-        WHERE lower(
+        WHERE (? IS NULL OR lower(
             concat_ws(' ', coalesce("ementa", ''), coalesce("teseJuridica", ''), coalesce("tema", ''))
-        ) LIKE lower(?)
+        ) LIKE lower(?))
+          AND (? IS NULL OR NULLIF(regexp_replace("numeroProcesso", '[^0-9]', '', 'g'), '') = ?)
           AND (? IS NULL OR TRY_CAST("dataDecisao" AS DATE) >= CAST(? AS DATE))
           AND (? IS NULL OR TRY_CAST("dataDecisao" AS DATE) <= CAST(? AS DATE))
         ORDER BY data DESC NULLS LAST, id_documento
@@ -102,10 +108,27 @@ def _stj_sql(urls: list[str]) -> str:
     """
 
 
-def _params(texto: str, plan: DecisionSearchPlan, limite: int) -> list[str | int | None]:
+def _params(
+    texto: str | None,
+    cnj: str | None,
+    plan: DecisionSearchPlan,
+    limite: int,
+) -> list[str | int | None]:
     start = plan.data_inicio.isoformat() if plan.data_inicio else None
     end = plan.data_fim.isoformat() if plan.data_fim else None
-    return [f"%{texto}%", start, start, end, end, limite + 1]
+    texto_pattern = f"%{texto}%" if texto else None
+    cnj_digits = _only_digits(cnj) if cnj else None
+    return [
+        texto_pattern,
+        texto_pattern,
+        cnj_digits,
+        cnj_digits,
+        start,
+        start,
+        end,
+        end,
+        limite + 1,
+    ]
 
 
 def _row_to_hit(row: tuple[Any, ...]) -> DecisionHit:
@@ -129,7 +152,8 @@ def _search_source(
     *,
     fonte: str,
     urls: list[str],
-    texto: str,
+    texto: str | None,
+    cnj: str | None,
     plan: DecisionSearchPlan,
     limite: int,
 ) -> tuple[list[DecisionHit], bool, str | None]:
@@ -137,7 +161,7 @@ def _search_source(
         return [], False, None
     sql = _juris_sql(urls) if fonte == "juris" else _stj_sql(urls)
     try:
-        rows = con.execute(sql, _params(texto, plan, limite)).fetchall()
+        rows = con.execute(sql, _params(texto, cnj, plan, limite)).fetchall()
     except duckdb.Error as exc:
         return [], False, f"Fonte {fonte} indisponível para esta busca: {exc}"
     truncated = len(rows) > limite
@@ -145,24 +169,35 @@ def _search_source(
 
 
 def search_decisions(
-    texto: str,
+    texto: str | None,
     plan: DecisionSearchPlan,
     *,
     limite: int = 20,
+    cnj: str | None = None,
 ) -> DecisionSearchResult:
     """Search decision content without crossing the dataset budget in ``plan``.
+
+    ``texto`` and ``cnj`` combine as additional filters when both are given.
+    A CNJ-only lookup (``texto=None``) is how a caller with a known process
+    number finds teor without guessing a keyword.
 
     Source failures are isolated: a broken JURIS partition does not erase STJ
     results and vice versa. The caller receives the limitation explicitly.
     """
-    query = texto.strip()
-    if len(query) < 2:
+    query = (texto or "").strip()
+    cnj_digits = _only_digits(cnj) if cnj else ""
+    if not query and not cnj_digits:
+        msg = "informe texto com pelo menos 2 caracteres, ou informe cnj."
+        raise ValueError(msg)
+    if query and len(query) < 2:
         msg = "texto deve ter pelo menos 2 caracteres."
         raise ValueError(msg)
     if not 1 <= limite <= 100:
         msg = "limite deve estar entre 1 e 100."
         raise ValueError(msg)
 
+    texto_query = query or None
+    cnj_query = cnj_digits or None
     con = duckdb.connect()
     _load_httpfs(con)
     hits: list[DecisionHit] = []
@@ -174,7 +209,8 @@ def search_decisions(
                 con,
                 fonte=fonte,
                 urls=[item.url for item in datasets],
-                texto=query,
+                texto=texto_query,
+                cnj=cnj_query,
                 plan=plan,
                 limite=limite,
             )
