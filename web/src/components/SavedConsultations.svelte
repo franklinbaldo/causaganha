@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte';
+  import { onMount, tick } from 'svelte';
   import { formatCnj } from '../lib/processoCnj';
   import {
     SAVED_CONSULTATIONS_STORAGE_KEY,
@@ -21,6 +21,7 @@
   let error = $state<string | null>(null);
   let notice = $state<string | null>(null);
   let ready = $state(false);
+  let cnjInput: HTMLInputElement;
 
   function persist(next: SavedConsultation[]) {
     items = next;
@@ -43,9 +44,15 @@
     }
   }
 
-  function removeItem(id: string) {
-    persist(removeSavedConsultation(items, id));
+  async function removeItem(id: string) {
+    const next = removeSavedConsultation(items, id);
+    persist(next);
     notice = 'Consulta removida.';
+
+    if (next.length === 0) {
+      await tick();
+      cnjInput.focus();
+    }
   }
 
   function renameItem(item: SavedConsultation) {
@@ -76,6 +83,7 @@
     <div class="saved-consultations__form-grid">
       <input
         id="saved-cnj"
+        bind:this={cnjInput}
         bind:value={cnj}
         placeholder="0000001-02.2024.8.22.0001"
         autocomplete="off"
