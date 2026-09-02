@@ -33,7 +33,9 @@ def _write_csv(path: Path) -> None:
         writer.writerow(row)
 
 
-def test_materialize_preserves_identity_provenance_and_excludes_visao_geral(tmp_path: Path) -> None:
+def test_materialize_preserves_identity_provenance_and_excludes_visao_geral(
+    tmp_path: Path,
+) -> None:
     source = tmp_path / "tcu-2026.csv"
     output = tmp_path / "tcu-2026.parquet"
     _write_csv(source)
@@ -48,7 +50,13 @@ def test_materialize_preserves_identity_provenance_and_excludes_visao_geral(tmp_
     assert count == 1
     con = duckdb.connect()
     try:
-        columns = [row[0] for row in con.execute("DESCRIBE SELECT * FROM read_parquet(?)", [str(output)]).fetchall()]
+        columns = [
+            row[0]
+            for row in con.execute(
+                "DESCRIBE SELECT * FROM read_parquet(?)",
+                [str(output)],
+            ).fetchall()
+        ]
         record = con.execute(
             "SELECT key, ano, acordao, source_url, source_sha256 FROM read_parquet(?)",
             [str(output)],
