@@ -58,17 +58,20 @@ def materialize_parquet(
         acquired_at=acquired_at,
     )
     records = transform_rows(load_csv(csv_path), provenance=provenance)
-    frame = pd.DataFrame.from_records((asdict(record) for record in records), columns=PRODUCT_COLUMNS)
+    frame = pd.DataFrame.from_records(
+        (asdict(record) for record in records),
+        columns=PRODUCT_COLUMNS,
+    )
 
     destination.parent.mkdir(parents=True, exist_ok=True)
     tmp = destination.with_name(f".{destination.name}.tmp")
+    tmp_sql = str(tmp).replace("'", "''")
     con = duckdb.connect()
     try:
         con.register("tcu_records", frame)
         con.execute(
-            "COPY (SELECT * FROM tcu_records ORDER BY ano, key) TO ? "
-            "(FORMAT PARQUET, COMPRESSION ZSTD)",
-            [str(tmp)],
+            "COPY (SELECT * FROM tcu_records ORDER BY ano, key) "
+            f"TO '{tmp_sql}' (FORMAT PARQUET, COMPRESSION ZSTD)"
         )
     finally:
         con.close()
