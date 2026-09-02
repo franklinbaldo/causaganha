@@ -10,3 +10,7 @@ Feature: Not Found Page
     When the 404 page loads
     Then I should see a "Buscar publicações" link
     And I should see an "Início" link
+
+  Scenario: Content does not duplicate the page heading
+    When the 404 page loads
+    Then the page content should not render its own level-1 heading

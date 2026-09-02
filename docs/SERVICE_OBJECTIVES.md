@@ -20,7 +20,8 @@ contra o sistema real e implantado.
 | Frescor do último sucesso de sincronização por fonte (`sources.djen.last_success_at`) | ≤ 48h | mesmo canário — pega o caso "coleta ativa mas nunca conclusiva" |
 | Sanidade do manifesto (`coverage_pct` em [0,100], `pairs_total`/`tribunals_total` > 0) | — | mesmo canário |
 | Cliente DJEN retorna veredito definitivo (disponível ou ausente, não erro) para um tribunal estável em dia útil recente | — | mesmo canário, 1 lookup ao vivo (TJRO) |
-| Atraso publicação→arquivo (`sources.djen.pending_real` em `site-status.json`) | ≤ `PENDING_REAL_THRESHOLD` (50) pares | mesmo canário |
+| Atraso publicação→arquivo — contagem (`sources.djen.pending_real`) | ≤ `PENDING_REAL_THRESHOLD` (50) pares | mesmo canário |
+| Atraso publicação→arquivo — idade literal (`sources.djen.pending_real_max_age_hours`) | ≤ `PENDING_REAL_MAX_AGE_HOURS_THRESHOLD` (24h) | mesmo canário |
 | Artefato público do STJ (`stj_totals.json`) alcançável e estruturalmente não-vazio (`total`, `total_temas`, `ultima_decisao`) | — (sem SLO de frescor: STJ não tem manifesto por par) | mesmo canário, `check_stj_published()` |
 | Manifesto próprio do TJRO JURIS (`tjro-juris-manifest.csv`) alcançável, estruturalmente válido e com pelo menos uma entrada | — (prova operacionalidade do pipeline, não da reconciliação — ver nota abaixo) | mesmo canário, `check_tjro_juris_published()` |
 | Bundle de estado coerente do DataJud (`datajud-state-{tribunal}.zip`) alcançável, com hashes/generation válidos e manifesto com pelo menos uma entrada | — (sem SLO de frescor: cadência de enriquecimento é limitada por rate-limit, não um intervalo fixo como o do DJEN) | mesmo canário, `check_datajud_published()` |
@@ -42,19 +43,27 @@ agendado é o canal — o mesmo mecanismo que já sinalizou, por exemplo, os
 (rate-limit da CloudFront/WAF) é registrado como aviso, nunca como falha —
 consistente com a regra de `CLAUDE.md`: 403 não é ausência.
 
-## Atraso publicação→arquivo: limitação conhecida do alarme
+## Atraso publicação→arquivo: contagem e idade literal
 
 A meta declarada é 24h entre DJEN confirmar disponibilidade e o ZIP estar no
 Internet Archive, alinhada à cadência diária real do pipeline
-(`consolidate-parquet.yml` roda às 07:00 UTC). O alarme do canário
-(`PENDING_REAL_THRESHOLD` em `scripts/canary_check.py`) é uma proxy por
-**contagem**, não uma medição literal de atraso em horas: `site-status.json`
-só expõe o agregado `pending_real` (pares que o DJEN confirmou disponíveis
-mas ainda sem upload no IA), sem timestamp por par. `pending_real` em
-produção fica normalmente em zero, então qualquer acúmulo sustentado acima
-do limiar já é anômalo — mas uma medição fiel ao SLO de 24h exigiria
-consultar o manifesto por linhas `djen_raw` disponível há mais de 24h sem
-`ia_status=uploaded`, o que este alarme não faz.
+(`consolidate-parquet.yml` roda às 07:00 UTC). Dois alarmes complementares
+cobrem essa meta:
+
+- `PENDING_REAL_THRESHOLD` (50 pares) é uma proxy por **contagem**:
+  `site-status.json` expõe o agregado `pending_real` (pares que o DJEN
+  confirmou disponíveis mas ainda sem upload no IA). Em produção fica
+  normalmente em zero, então qualquer acúmulo sustentado acima do limiar já
+  é anômalo — mas contagem sozinha não prova que nenhum par individual
+  ultrapassou as 24h.
+- `PENDING_REAL_MAX_AGE_HOURS_THRESHOLD` (24h) mede o SLO literalmente:
+  `sources.djen.pending_real_max_age_hours`, calculado em `site_status.qmd`
+  como `now() - MIN(updated_at)` entre os pares `pending_real` (uma única
+  passagem pelo manifesto já em curso na geração diária do artefato, não
+  uma varredura extra feita pelo canário). `null` quando `pending_real` é
+  zero — nunca inferido como "sem atraso", só "nada pendente para medir";
+  um artefato público antigo sem este campo (rollout) também não falha o
+  canário, só a contagem acima permanece ativa.
 
 ## TJRO JURIS: manifesto próprio vs. catálogo reconciliado
 

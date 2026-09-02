@@ -75,6 +75,14 @@ FRESHNESS_THRESHOLD_HOURS = 48
 # baseline.
 PENDING_REAL_THRESHOLD = 50
 
+# site-status.json also exposes pending_real_max_age_hours: the age, in
+# hours, of the oldest pending pair (computed once in site_status.qmd from
+# the full manifest, not scanned here). This is a literal measurement of the
+# declared 24h publication→archive SLO, complementing the coarse count-based
+# proxy above. Missing/null (older cached artifact, or nothing pending) never
+# fails — see docs/SERVICE_OBJECTIVES.md.
+PENDING_REAL_MAX_AGE_HOURS_THRESHOLD = 24
+
 # canary.yml runs daily; this heartbeat is checked weekly by a *separate*
 # workflow (canary-heartbeat.yml) so a broken/disabled canary.yml doesn't
 # also silence its own watchdog. The threshold needs enough slack to absorb
@@ -170,6 +178,18 @@ def check_site_status(
         failures.append(
             f"pending_real is {pending_real} (> {PENDING_REAL_THRESHOLD}) — "
             "publication→archive backlog growing, see docs/SERVICE_OBJECTIVES.md"
+        )
+
+    pending_real_max_age_hours = djen.get("pending_real_max_age_hours")
+    if (
+        pending_real_max_age_hours is not None
+        and pending_real_max_age_hours > PENDING_REAL_MAX_AGE_HOURS_THRESHOLD
+    ):
+        failures.append(
+            f"pending_real_max_age_hours is {pending_real_max_age_hours:.1f}h "
+            f"(> {PENDING_REAL_MAX_AGE_HOURS_THRESHOLD}h) — a pair DJEN confirmed available "
+            "has waited past the declared publication→archive SLO, see "
+            "docs/SERVICE_OBJECTIVES.md"
         )
 
     return failures, warnings

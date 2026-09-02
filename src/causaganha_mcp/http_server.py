@@ -29,6 +29,17 @@ _DEFAULT_MAX_CONCURRENCY = 4
 _COMMIT_ENV_VAR = "CAUSAGANHA_MCP_COMMIT"
 _UNKNOWN_COMMIT = "unknown"
 
+# Tools that accept a local-filesystem path argument, and which argument
+# name it is. All four read a manifest straight off disk (Path(...)) with
+# no validation — safe for a local stdio operator (RFC 0013 Fase 3A), never
+# safe for a remote HTTP caller. See PathArgumentGuardMiddleware below.
+_PATH_ARGUMENT_TOOLS: dict[str, str] = {
+    "tjro_juris_status": "diretorio_dados",
+    "datajud_status": "diretorio_dados",
+    "djen_backup_status": "arquivo_manifesto",
+    "stj_acordaos_status": "caminho_manifesto",
+}
+
 
 @dataclass(frozen=True, slots=True)
 class HttpSettings:
@@ -137,6 +148,35 @@ class OperationalLimitsMiddleware(Middleware):
             self._limiter.release()
 
 
+class PathArgumentGuardMiddleware(Middleware):
+    """Reject caller-supplied local filesystem paths on the remote transport.
+
+    A remote HTTP caller who can pass diretorio_dados/arquivo_manifesto/
+    caminho_manifesto could point these tools at an arbitrary path on the
+    server's own disk (#950 Segurança: "não aceitar... caminho de arquivo...
+    arbitrários"). A local stdio operator legitimately overrides these
+    defaults (RFC 0013 Fase 3A) — this middleware is only ever added to the
+    HTTP transport in main() below, so stdio keeps accepting the argument.
+    """
+
+    async def on_call_tool(
+        self,
+        context: MiddlewareContext,
+        call_next: Callable[[MiddlewareContext], Awaitable[Any]],
+    ) -> Any:
+        """Reject a tool call that supplies a guarded path argument explicitly."""
+        param = _PATH_ARGUMENT_TOOLS.get(context.message.name)
+        arguments = context.message.arguments or {}
+        if param is not None and arguments.get(param) is not None:
+            msg = (
+                f"'{param}' não é aceito remotamente por '{context.message.name}': o endpoint "
+                "HTTP não aceita caminho de arquivo arbitrário do chamador. Use o valor padrão "
+                "do servidor."
+            )
+            raise ToolError(msg)
+        return await call_next(context)
+
+
 def _deployment_commit() -> str:
     """Read the deployed commit from the environment, without shelling out to git."""
     return os.getenv(_COMMIT_ENV_VAR, "").strip() or _UNKNOWN_COMMIT
@@ -159,6 +199,7 @@ async def _health(request: Request) -> JSONResponse:
 def main() -> None:
     """Serve the canonical CausaGanha MCP catalog over Streamable HTTP."""
     settings = HttpSettings.from_env()
+    mcp.add_middleware(PathArgumentGuardMiddleware())
     mcp.add_middleware(
         OperationalLimitsMiddleware(
             timeout_seconds=settings.tool_timeout_seconds,

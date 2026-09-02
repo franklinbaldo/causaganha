@@ -11,7 +11,11 @@ from causaganha_mcp.workflow_runs import WorkflowRunObservation
 from scripts import canary_check
 
 
-def _status(last_success_at: str, pending_real: int = 0) -> dict[str, object]:
+def _status(
+    last_success_at: str,
+    pending_real: int = 0,
+    pending_real_max_age_hours: float | None = None,
+) -> dict[str, object]:
     return {
         "generated_at": "2026-08-10T11:30:00Z",
         "sources": {
@@ -21,6 +25,7 @@ def _status(last_success_at: str, pending_real: int = 0) -> dict[str, object]:
                 "pairs_total": 100,
                 "tribunals_total": 10,
                 "pending_real": pending_real,
+                "pending_real_max_age_hours": pending_real_max_age_hours,
             }
         },
     }
@@ -96,6 +101,49 @@ def test_pending_real_above_threshold_fails(monkeypatch) -> None:
         "pending_real" in failure and "publication→archive backlog" in failure
         for failure in failures
     )
+
+
+def test_pending_real_max_age_within_threshold_passes(monkeypatch) -> None:
+    payload = _status(
+        "2026-08-10T03:00:00Z",
+        pending_real=1,
+        pending_real_max_age_hours=canary_check.PENDING_REAL_MAX_AGE_HOURS_THRESHOLD,
+    )
+    _install_status(monkeypatch, payload)
+
+    failures, _ = canary_check.check_site_status(
+        datetime(2026, 8, 11, 12, 30, tzinfo=UTC), Brazil()
+    )
+
+    assert not any("pending_real_max_age_hours" in failure for failure in failures)
+
+
+def test_pending_real_max_age_above_threshold_fails(monkeypatch) -> None:
+    payload = _status(
+        "2026-08-10T03:00:00Z",
+        pending_real=1,
+        pending_real_max_age_hours=canary_check.PENDING_REAL_MAX_AGE_HOURS_THRESHOLD + 0.1,
+    )
+    _install_status(monkeypatch, payload)
+
+    failures, _ = canary_check.check_site_status(
+        datetime(2026, 8, 11, 12, 30, tzinfo=UTC), Brazil()
+    )
+
+    assert any("pending_real_max_age_hours" in failure and "SLO" in failure for failure in failures)
+
+
+def test_pending_real_max_age_missing_field_does_not_fail(monkeypatch) -> None:
+    """Rollout safety: an older cached artifact without this field must not page."""
+    payload = _status("2026-08-10T03:00:00Z", pending_real=1)
+    del payload["sources"]["djen"]["pending_real_max_age_hours"]  # type: ignore[index]
+    _install_status(monkeypatch, payload)
+
+    failures, _ = canary_check.check_site_status(
+        datetime(2026, 8, 11, 12, 30, tzinfo=UTC), Brazil()
+    )
+
+    assert not any("pending_real_max_age_hours" in failure for failure in failures)
 
 
 def _install_json(monkeypatch, payload: dict[str, object]) -> None:

@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import json
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 
 from scripts import render_queries as rq
 
 
-if TYPE_CHECKING:
-    from pathlib import Path
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SITE_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "site_status.qmd"
 
 
 def _write_qmd(
@@ -70,6 +72,40 @@ def manifest_parquet(tmp_path: Path) -> Path:
     finally:
         con.close()
     return path
+
+
+@pytest.fixture
+def manifest_parquet_with_pending(tmp_path: Path) -> tuple[Path, datetime]:
+    """A manifest with one pair DJEN confirmed available but not yet uploaded.
+
+    Returns the parquet path and the fixed `updated_at` used for that pending
+    row, so tests can assert the computed age against it.
+    """
+    import duckdb
+
+    pending_updated_at = datetime.now(UTC) - timedelta(hours=48)
+    path = tmp_path / "sync-manifest-pending.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-02', 'uploaded', 'available', '200', "
+            "'2025-01-02T12:00:00+00:00'), "
+            "('tjac', '2025-01-03', '', 'available', '200', ?)",
+            [pending_updated_at],
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path, pending_updated_at
 
 
 # ── parse_qmd / frontmatter ────────────────────────────────────────────────────
@@ -373,3 +409,49 @@ def test_register_comunicacoes_prefers_indice_when_available(tmp_path, monkeypat
     finally:
         con.close()
     assert rows == [("00000010220248220001",)]
+
+
+# ── site_status.qmd — pending_real_max_age_hours (#924 §3.4) ──────────────────
+
+
+def test_site_status_reports_pending_real_max_age_hours(tmp_path, manifest_parquet_with_pending):
+    """The literal publication→archive SLO age, not just a pending count.
+
+    docs/SERVICE_OBJECTIVES.md documents `pending_real` (a count) as a coarse
+    proxy for the declared 24h SLO. `pending_real_max_age_hours` closes that
+    gap: the age, in hours, of the oldest pair DJEN confirmed available
+    (djen_raw='200') but still missing from IA (ia_status != 'uploaded').
+    """
+    manifest_parquet, pending_updated_at = manifest_parquet_with_pending
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "site_status.qmd").write_text(SITE_STATUS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert failures == []
+    assert count == 1
+
+    payload = json.loads((public / "data" / "site-status.json").read_text())
+    djen = payload["sources"]["djen"]
+    assert djen["pending_real"] == 1
+
+    expected_age_hours = (datetime.now(UTC) - pending_updated_at).total_seconds() / 3600
+    assert djen["pending_real_max_age_hours"] == pytest.approx(expected_age_hours, abs=0.05)
+
+
+def test_site_status_pending_real_max_age_hours_is_null_when_nothing_pending(
+    tmp_path, manifest_parquet
+):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "site_status.qmd").write_text(SITE_STATUS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert failures == []
+
+    payload = json.loads((public / "data" / "site-status.json").read_text())
+    djen = payload["sources"]["djen"]
+    assert djen["pending_real"] == 0
+    assert djen["pending_real_max_age_hours"] is None

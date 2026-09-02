@@ -40,6 +40,7 @@ function validStatus(djenOverrides: Record<string, unknown> = {}) {
         latest_upload_date: '2026-07-10',
         absent_confirmed: 119_830,
         pending_real: 0,
+        pending_real_max_age_hours: null,
         errors_transient: 0,
         never_checked: 0,
         last_attempt_at: iso(NOW - 2 * HOUR),
