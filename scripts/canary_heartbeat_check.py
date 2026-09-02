@@ -33,8 +33,8 @@ from scripts.canary_check import check_canary_heartbeat
 log = structlog.get_logger()
 
 
-def main() -> int:
-    now = datetime.now(UTC)
+def main(now: datetime | None = None) -> int:
+    now = now or datetime.now(UTC)
     observation = observe_workflow_runs("canary.yml")
     failures, warnings = check_canary_heartbeat(observation, now)
 
