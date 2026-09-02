@@ -6,6 +6,7 @@ import { QUERY_KEYS } from '../lib/queryKeys';
 import { getQueryClient } from '../lib/queryClient';
 import YearSummaryCards from './YearSummaryCards.svelte';
 import CoverageTable from './CoverageTable.svelte';
+import AlertBanner from './AlertBanner.svelte';
 
 // Initialize context for this island (must run during component init, before createQuery)
 setQueryClientContext(getQueryClient());
@@ -31,6 +32,15 @@ function handleForceRefresh() {
 
 const results = $derived(coverageQuery.data ?? []);
 const loading = $derived(coverageQuery.isLoading || coverageQuery.isFetching);
+
+// `fetchAllTribunalMetadata` never throws: a total upstream failure (the IA
+// Advanced Search call itself) still resolves one row per tribunal, all
+// `notFound: true` with the same `error` message. Rendering that as a normal
+// 0%/N/A table would conflate "fonte indisponível" with a confirmed absence
+// of archived files (issue #907) — so it gets a distinct state instead.
+const sourceUnavailable = $derived(
+  !loading && results.length > 0 && results.every((r: TribunalMetadata) => r.error != null),
+);
 
 const expectedDays = $derived(getExpectedDays(year));
 const complete = $derived(results.filter((r: TribunalMetadata) => r.percentage >= 90).length);
@@ -75,16 +85,24 @@ const missing = $derived(results.filter((r: TribunalMetadata) => r.percentage ==
     </div>
   {/if}
 
-  <!-- Summary cards -->
-  {#if results.length > 0}
-    <YearSummaryCards {complete} {partial} {low} {missing} />
+  {#if sourceUnavailable}
+    <AlertBanner
+      level="error"
+      title="Não foi possível verificar a cobertura."
+      message="A consulta ao Internet Archive falhou; isso não confirma ausência de arquivos nos tribunais consultados." />
+    <button type="button" onclick={() => handleForceRefresh()}>Tentar novamente</button>
+  {:else}
+    <!-- Summary cards -->
+    {#if results.length > 0}
+      <YearSummaryCards {complete} {partial} {low} {missing} />
+    {/if}
+
+    <!-- Expected days info -->
+    <div>
+      Esperado: {expectedDays} dias ({year === currentYear ? 'dias decorridos até hoje' : `ano ${isLeapYear(year) ? 'bissexto' : 'normal'}`})
+    </div>
+
+    <!-- Table -->
+    <CoverageTable {results} {expectedDays} {year} {loading} />
   {/if}
-
-  <!-- Expected days info -->
-  <div>
-    Esperado: {expectedDays} dias ({year === currentYear ? 'dias decorridos até hoje' : `ano ${isLeapYear(year) ? 'bissexto' : 'normal'}`})
-  </div>
-
-  <!-- Table -->
-  <CoverageTable {results} {expectedDays} {year} {loading} />
 </div>
