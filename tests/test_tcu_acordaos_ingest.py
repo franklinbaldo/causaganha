@@ -82,7 +82,18 @@ def test_transform_rejects_duplicate_official_keys() -> None:
 
 def test_search_teor_matches_authoritative_fields_case_insensitively() -> None:
     records = transform_rows(
-        [_row(), _row(KEY="AC-456", ACORDAO="Matéria tributária sem relação.")],
+        [
+            _row(),
+            _row(
+                KEY="AC-456",
+                ASSUNTO="Tributário",
+                SUMARIO="Recurso sobre matéria tributária.",
+                ACORDAO="Matéria tributária sem relação.",
+                DECISAO="Negar provimento ao recurso.",
+                RELATORIO="Relatório sobre lançamento tributário.",
+                VOTO="Voto pelo desprovimento.",
+            ),
+        ],
         provenance=_provenance(),
     )
 
