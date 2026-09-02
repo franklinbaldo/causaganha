@@ -45,7 +45,13 @@ def parse_manifest(text: str) -> list[ManifestEntry]:
         msg = "TCU files manifest is missing the expected header"
         raise ValueError(msg)
 
-    return [ManifestEntry(base=row[0], ano=row[1], tamanho=row[2], url=row[3]) for row in rows[1:]]
+    entries: list[ManifestEntry] = []
+    for line_number, row in enumerate(rows[1:], start=3):
+        if len(row) != len(_EXPECTED_HEADER):
+            msg = f"TCU files manifest row {line_number} has {len(row)} fields; expected 4"
+            raise ValueError(msg)
+        entries.append(ManifestEntry(base=row[0], ano=row[1], tamanho=row[2], url=row[3]))
+    return entries
 
 
 def resolve_acordaos_url(entries: Iterable[ManifestEntry], *, year: str) -> str:
