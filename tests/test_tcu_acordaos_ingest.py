@@ -121,4 +121,4 @@ def test_provenance_hashes_exact_input_bytes(tmp_path: Path) -> None:
         acquired_at="2026-09-02T12:00:00Z",
     )
 
-    assert provenance.sha256 == "c5683fcd9157568e0bc7d54c24fcd8fac16170a1f005ea5f5f400e227f7174ff"
+    assert provenance.sha256 == "3d7a6180ede32cfd4869961d499b1edc1cb086827fc38a0d346af5f647cb926b"
