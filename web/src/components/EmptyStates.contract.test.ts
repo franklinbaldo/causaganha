@@ -7,6 +7,7 @@ import { render } from './__steps__/shared';
 import { clearDjenSearchCache } from '../lib/djen';
 import { getDuckDB } from '../lib/duckdbSingleton';
 import * as processoCnj from '../lib/processoCnj';
+import { formatCnj } from '../lib/processoCnj';
 
 vi.mock('../lib/duckdbSingleton', () => ({ getDuckDB: vi.fn() }));
 vi.mock('../lib/processoCnj', async () => {
@@ -73,7 +74,9 @@ describe('empty/error-state contract across public product surfaces (#907)', () 
 
     const alternative = await waitFor(() => component.getByText('Pesquisar este CNJ no DJEN'));
     const params = new URLSearchParams(window.location.search);
-    expect(params.get('cnj')).toBe(CNJ);
+    // ?cnj= is always written masked (see readCnjParam/buildCnjSearchParams contract
+    // in processoCnj.ts) — the raw CNJ only appears unmasked in numeroProcesso below.
+    expect(params.get('cnj')).toBe(formatCnj(CNJ));
     expect(params.get('ref')).toBe('empty-state-contract');
     expect(alternative.getAttribute('href')).toContain(`numeroProcesso=${CNJ}`);
     expect(component.container.textContent).toContain('não que o processo não existe');
