@@ -50,7 +50,31 @@ _PARQUET_SCHEMA = pa.schema(
         pa.field("texto_limpo", pa.string()),
         pa.field("url_portal", pa.string()),
         pa.field("extraido_em", pa.string()),
+        # Added per #1014/#821 — see crawler._extract_doc for why these and
+        # not the rest of the ~29 raw ES fields.
+        pa.field("id_processo", pa.int64()),
+        pa.field("cd_assunto_trf", pa.string()),
+        pa.field("ds_assunto_trf", pa.string()),
+        pa.field("cd_classe_judicial", pa.string()),
+        pa.field("nivel_sigilo_processo", pa.int64()),
+        pa.field("grau_jurisdicao", pa.int64()),
+        pa.field("ds_md5_documento", pa.string()),
+        pa.field("id_orgao_julgador", pa.int64()),
+        pa.field("id_orgao_julgador_colegiado", pa.int64()),
     ]
+)
+
+# Parquet-typed as int64 in _PARQUET_SCHEMA above — _rows_to_parquet uses this
+# to decide int-coercion vs plain string for every other field.
+_INT_FIELD_NAMES = frozenset(
+    {
+        "id_documento",
+        "id_processo",
+        "nivel_sigilo_processo",
+        "grau_jurisdicao",
+        "id_orgao_julgador",
+        "id_orgao_julgador_colegiado",
+    }
 )
 
 
@@ -180,6 +204,15 @@ def _to_row(src: dict) -> dict:
         "texto_limpo": src.get("texto_limpo") or clean_html(src.get("ds_modelo_documento") or ""),
         "url_portal": src.get("url_portal") or "",
         "extraido_em": src.get("extraido_em") or datetime.now(UTC).isoformat(),
+        "id_processo": src.get("id_processo"),
+        "cd_assunto_trf": src.get("cd_assunto_trf") or "",
+        "ds_assunto_trf": src.get("ds_assunto_trf") or "",
+        "cd_classe_judicial": src.get("cd_classe_judicial") or "",
+        "nivel_sigilo_processo": src.get("nivel_sigilo_processo"),
+        "grau_jurisdicao": src.get("grau_jurisdicao"),
+        "ds_md5_documento": src.get("ds_md5_documento") or "",
+        "id_orgao_julgador": src.get("id_orgao_julgador"),
+        "id_orgao_julgador_colegiado": src.get("id_orgao_julgador_colegiado"),
     }
 
 
@@ -199,7 +232,7 @@ def _rows_to_parquet(rows: list[dict], out: Path) -> None:
     for row in rows:
         for field in _PARQUET_SCHEMA:
             val = row.get(field.name)
-            if field.name == "id_documento":
+            if field.name in _INT_FIELD_NAMES:
                 arrays[field.name].append(int(val) if val is not None else None)
             elif field.name == "data_julgamento":
                 arrays[field.name].append(val)
