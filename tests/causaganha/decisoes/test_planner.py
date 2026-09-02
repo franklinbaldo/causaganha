@@ -32,6 +32,10 @@ def _datasets() -> list[PublishedDecisionDataset]:
             fonte="stj",
             url="https://example/stj.parquet",
         ),
+        PublishedDecisionDataset(
+            fonte="tcu",
+            url="https://example/tcu.parquet",
+        ),
     ]
 
 
@@ -60,7 +64,8 @@ def test_date_window_selects_only_published_juris_partitions_in_range() -> None:
 
     assert [item.periodo for item in plan.juris] == ["2026-01", "2026-02"]
     assert [item.fonte for item in plan.stj] == ["stj"]
-    assert plan.total_datasets == 3
+    assert [item.fonte for item in plan.tcu] == ["tcu"]
+    assert plan.total_datasets == 4
 
 
 def test_stj_only_does_not_require_juris_partition_window() -> None:
@@ -68,6 +73,16 @@ def test_stj_only_does_not_require_juris_partition_window() -> None:
 
     assert plan.juris == ()
     assert len(plan.stj) == 1
+
+
+def test_tcu_only_selects_tcu_datasets_without_requiring_a_date_window() -> None:
+    plan = plan_decision_search(_datasets(), fonte="tcu")
+
+    assert plan.juris == ()
+    assert plan.stj == ()
+    assert len(plan.tcu) == 1
+    assert plan.tcu[0].fonte == "tcu"
+    assert plan.total_datasets == 1
 
 
 def test_cnj_path_may_skip_thematic_window_because_selection_is_already_bounded() -> None:

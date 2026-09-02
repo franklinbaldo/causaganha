@@ -14,7 +14,7 @@ from typing import Literal
 from causaganha.decisoes.published import PublishedDecisionDataset
 
 
-DecisionSource = Literal["todas", "juris", "stj"]
+DecisionSource = Literal["todas", "juris", "stj", "tcu"]
 _MAX_JURIS_MONTHS = 6
 
 
@@ -30,11 +30,12 @@ class DecisionSearchPlan:
     stj: tuple[PublishedDecisionDataset, ...]
     data_inicio: date | None
     data_fim: date | None
+    tcu: tuple[PublishedDecisionDataset, ...] = ()
     max_juris_months: int = _MAX_JURIS_MONTHS
 
     @property
     def total_datasets(self) -> int:
-        return len(self.juris) + len(self.stj)
+        return len(self.juris) + len(self.stj) + len(self.tcu)
 
 
 def _parse_iso_date(value: str | None, field: str) -> date | None:
@@ -83,7 +84,8 @@ def plan_decision_search(
     ``consulta_por_cnj=True`` only records that a caller already has an equally
     bounded source-selection path. The first thematic search surface requires a
     complete date interval whenever JURIS participates, capped at six calendar
-    months. STJ is one canonical dataset and can be date-filtered inside DuckDB.
+    months. STJ and TCU are each one canonical dataset and can be
+    date-filtered inside DuckDB.
     """
     start = _parse_iso_date(data_inicio, "data_inicio")
     end = _parse_iso_date(data_fim, "data_fim")
@@ -118,9 +120,11 @@ def plan_decision_search(
         ]
 
     stj = [item for item in datasets if item.fonte == "stj"] if fonte in {"todas", "stj"} else []
+    tcu = [item for item in datasets if item.fonte == "tcu"] if fonte in {"todas", "tcu"} else []
     return DecisionSearchPlan(
         juris=tuple(juris),
         stj=tuple(stj),
+        tcu=tuple(tcu),
         data_inicio=start,
         data_fim=end,
     )

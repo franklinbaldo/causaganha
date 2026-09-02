@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastmcp.exceptions import ToolError
 
-from causaganha.decisoes.published import PublishedDecisionDataset
+from causaganha.decisoes.published import TCU_PARQUET_URL, PublishedDecisionDataset
 from causaganha.decisoes.search import DecisionHit, DecisionSearchResult
 from causaganha_mcp.server import build_server
 from causaganha_mcp.tools import decisoes
@@ -248,3 +248,53 @@ async def test_coverage_limitation_survives_successful_other_source(
 
     assert result.resultados == []
     assert result.limitacoes == ["JURIS indisponível"]
+
+
+def test_datasets_for_source_tcu_adds_dataset_and_coverage_limitation() -> None:
+    datasets, limitations = decisoes._datasets_for_source("tcu")
+
+    assert [d.fonte for d in datasets] == ["tcu"]
+    assert datasets[0].url == TCU_PARQUET_URL
+    assert any("2017" in item and "2026" in item for item in limitations)
+
+
+async def test_tcu_source_is_accepted_and_results_map_to_teor(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dataset = PublishedDecisionDataset(fonte="tcu", url="https://example/tcu.parquet")
+    monkeypatch.setattr(
+        decisoes,
+        "_datasets_for_source",
+        lambda _fonte: ([dataset], ["TCU: cobertura restrita a 2017–2026."]),
+    )
+    monkeypatch.setattr(
+        decisoes,
+        "search_decisions",
+        lambda _texto, _plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None: (
+            DecisionSearchResult(
+                resultados=[
+                    DecisionHit(
+                        fonte="tcu",
+                        id_documento="TCU-2026-1",
+                        cnj=None,
+                        data="2026-01-10",
+                        tipo="Acórdão",
+                        orgao="Plenário",
+                        relator="Ministro Exemplo",
+                        classe=None,
+                        trecho="Texto autoritativo do acórdão.",
+                        url=None,
+                    )
+                ],
+                datasets_consultados=1,
+            )
+        ),
+    )
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    result = fn("licitação", fonte="tcu")
+
+    assert result.resultados[0].fonte == "tcu"
+    assert result.natureza == "teor"
+    assert any("2017" in item for item in result.limitacoes)

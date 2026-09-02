@@ -81,6 +81,38 @@ def _write_stj_multi(path: Path) -> None:
         con.close()
 
 
+def _write_tcu(path: Path) -> None:
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE tcu AS SELECT
+                'TCU-2026-1'::VARCHAR AS key,
+                '1'::VARCHAR AS numero,
+                '2026'::VARCHAR AS ano,
+                'Plenário'::VARCHAR AS colegiado,
+                '000.001/2026-0'::VARCHAR AS processo,
+                DATE '2026-01-10' AS data_sessao,
+                'Ministro Exemplo'::VARCHAR AS relator,
+                'Definitiva'::VARCHAR AS situacao,
+                'Licitação irregular'::VARCHAR AS titulo,
+                'licitação'::VARCHAR AS assunto,
+                'Resumo do acórdão sobre licitação.'::VARCHAR AS sumario,
+                'Texto autoritativo do acórdão sobre responsabilidade civil.'::VARCHAR AS acordao,
+                'Decisão do plenário.'::VARCHAR AS decisao,
+                'Relatório do processo.'::VARCHAR AS relatorio,
+                'Voto do relator.'::VARCHAR AS voto,
+                'https://sites.tcu.gov.br/dados-abertos/acordao-completo-2026.csv'::VARCHAR AS source_url,
+                '2026-09-02T18:00:00+00:00'::VARCHAR AS acquired_at,
+                repeat('a', 64)::VARCHAR AS source_sha256,
+                'Resumo gerado por IA que não pode virar TEOR pesquisável.'::VARCHAR AS "VISAOGERAL"
+            """
+        )
+        con.execute("COPY tcu TO ? (FORMAT PARQUET)", [str(path)])
+    finally:
+        con.close()
+
+
 def _plan(juris: Path, stj: Path) -> DecisionSearchPlan:
     return DecisionSearchPlan(
         juris=(
@@ -296,3 +328,80 @@ def test_orgao_filter_without_stj_in_plan_adds_no_limitation(tmp_path: Path) -> 
 
     assert [item.fonte for item in result.resultados] == ["juris"]
     assert result.limitacoes == []
+
+
+def test_search_includes_tcu_source_mapping_colegiado_to_orgao(tmp_path: Path) -> None:
+    tcu = tmp_path / "tcu.parquet"
+    _write_tcu(tcu)
+    plan = DecisionSearchPlan(
+        juris=(),
+        stj=(),
+        tcu=(PublishedDecisionDataset(fonte="tcu", url=str(tcu)),),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    result = search_decisions("responsabilidade civil", plan)
+
+    assert [item.fonte for item in result.resultados] == ["tcu"]
+    hit = result.resultados[0]
+    assert hit.id_documento == "TCU-2026-1"
+    assert hit.orgao == "Plenário"
+    assert hit.relator == "Ministro Exemplo"
+    assert hit.tipo == "Acórdão"
+    assert hit.cnj is None
+    assert hit.natureza == "teor"
+
+
+def test_tcu_visaogeral_column_never_enters_searchable_text(tmp_path: Path) -> None:
+    tcu = tmp_path / "tcu.parquet"
+    _write_tcu(tcu)
+    plan = DecisionSearchPlan(
+        juris=(),
+        stj=(),
+        tcu=(PublishedDecisionDataset(fonte="tcu", url=str(tcu)),),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    result = search_decisions("Resumo gerado por IA", plan)
+
+    assert result.resultados == []
+
+
+def test_tcu_orgao_filter_matches_colegiado(tmp_path: Path) -> None:
+    tcu = tmp_path / "tcu.parquet"
+    _write_tcu(tcu)
+    plan = DecisionSearchPlan(
+        juris=(),
+        stj=(),
+        tcu=(PublishedDecisionDataset(fonte="tcu", url=str(tcu)),),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    matched = search_decisions("responsabilidade civil", plan, orgao="Plenário")
+    unmatched = search_decisions("responsabilidade civil", plan, orgao="Câmara")
+
+    assert [item.fonte for item in matched.resultados] == ["tcu"]
+    assert unmatched.resultados == []
+
+
+def test_tcu_classe_and_cnj_filters_never_match_because_source_has_no_equivalent(
+    tmp_path: Path,
+) -> None:
+    tcu = tmp_path / "tcu.parquet"
+    _write_tcu(tcu)
+    plan = DecisionSearchPlan(
+        juris=(),
+        stj=(),
+        tcu=(PublishedDecisionDataset(fonte="tcu", url=str(tcu)),),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    by_classe = search_decisions("responsabilidade civil", plan, classe="qualquer")
+    by_cnj = search_decisions(None, plan, cnj="00000010220268220001")
+
+    assert by_classe.resultados == []
+    assert by_cnj.resultados == []
