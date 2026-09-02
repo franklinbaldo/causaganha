@@ -108,3 +108,10 @@ def test_resolve_acordaos_url_rejects_ambiguous_year() -> None:
 def test_parse_manifest_rejects_missing_header() -> None:
     with pytest.raises(ValueError, match="missing the expected header"):
         parse_manifest('"28/08/2026"\n"Acórdãos"|"2026"|"1 MB"|"https://sites.tcu.gov.br/x.csv"\n')
+
+
+def test_parse_manifest_rejects_malformed_data_row() -> None:
+    malformed = '"28/08/2026"\n"BASE"|"ANO"|"TAMANHO"|"ARQUIVO"\n"Acórdãos"|"2026"|"1 MB"\n'
+
+    with pytest.raises(ValueError, match="row 3 has 3 fields; expected 4"):
+        parse_manifest(malformed)
