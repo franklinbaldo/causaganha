@@ -13,6 +13,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable, Mapping
 
+_FIELD_SIZE_LIMIT = 10 * 1024 * 1024
+"""Some official VOTO/ACORDAO fields exceed csv's 128 KiB default, observed live 2026-09-02."""
+csv.field_size_limit(_FIELD_SIZE_LIMIT)
+
 REQUIRED_COLUMNS = frozenset(
     {
         "KEY",
@@ -98,9 +102,13 @@ def _validate_columns(fieldnames: Iterable[str] | None) -> None:
 
 
 def load_csv(path: Path) -> list[dict[str, str]]:
-    """Load an official TCU Acórdãos CSV without guessing absent schema fields."""
+    """Load an official TCU Acórdãos CSV without guessing absent schema fields.
+
+    The official bulk export is pipe-delimited with double-quoted fields, not comma-delimited
+    — confirmed live across sampled years 1992-2026 on 2026-09-02 (see docs/data/tcu-acordaos.md).
+    """
     with path.open(encoding="utf-8-sig", newline="") as handle:
-        reader = csv.DictReader(handle)
+        reader = csv.DictReader(handle, delimiter="|", quotechar='"')
         _validate_columns(reader.fieldnames)
         return [dict(row) for row in reader]
 

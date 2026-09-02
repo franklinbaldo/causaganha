@@ -113,13 +113,80 @@ def test_load_csv_requires_documented_tcu_schema(tmp_path: Path) -> None:
 def test_load_csv_accepts_utf8_bom_and_documented_schema(tmp_path: Path) -> None:
     path = tmp_path / "sample.csv"
     with path.open("w", encoding="utf-8-sig", newline="") as handle:
-        writer = csv.DictWriter(handle, fieldnames=sorted(REQUIRED_COLUMNS))
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=sorted(REQUIRED_COLUMNS),
+            delimiter="|",
+            quotechar='"',
+            quoting=csv.QUOTE_ALL,
+        )
         writer.writeheader()
         writer.writerow(_row())
 
     [row] = load_csv(path)
 
     assert row["KEY"] == "AC-123"
+
+
+def test_load_csv_parses_the_official_pipe_delimited_export(tmp_path: Path) -> None:
+    """The official TCU bulk export is pipe-delimited, not comma-delimited.
+
+    Observed live on 2026-09-02 across 12 sampled years (1992-2026): every Acórdãos CSV on
+    https://sites.tcu.gov.br/dados-abertos/jurisprudencia/ uses ``|`` as the field delimiter
+    with double-quoted fields (extra undocumented columns and commas inside field text are
+    both real, e.g. NUMATA/ENTIDADE and comma-separated interessados lists).
+    """
+    columns = [*sorted(REQUIRED_COLUMNS), "NUMATA", "ENTIDADE"]
+    path = tmp_path / "acordao-completo-2026.csv"
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=columns,
+            delimiter="|",
+            quotechar='"',
+            quoting=csv.QUOTE_ALL,
+        )
+        writer.writeheader()
+        writer.writerow(
+            {
+                **_row(ACORDAO="Interessados: Fulano, Beltrano e Ciclano."),
+                "NUMATA": "33/2026",
+                "ENTIDADE": "INSS",
+            }
+        )
+
+    [row] = load_csv(path)
+
+    assert row["KEY"] == "AC-123"
+    assert row["ACORDAO"] == "Interessados: Fulano, Beltrano e Ciclano."
+    assert row["NUMATA"] == "33/2026"
+
+
+def test_load_csv_accepts_fields_larger_than_the_csv_module_default_limit(
+    tmp_path: Path,
+) -> None:
+    """Real official Acórdãos rows can carry a VOTO/ACORDAO field past 128 KiB.
+
+    Observed live on 2026-09-02: the 2026 bulk export raises ``_csv.Error: field larger
+    than field limit (131072)`` (Python's ``csv`` module default) unless the limit is
+    raised before parsing.
+    """
+    huge_voto = "x" * 200_000
+    path = tmp_path / "acordao-completo-huge.csv"
+    with path.open("w", encoding="utf-8", newline="") as handle:
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=sorted(REQUIRED_COLUMNS),
+            delimiter="|",
+            quotechar='"',
+            quoting=csv.QUOTE_ALL,
+        )
+        writer.writeheader()
+        writer.writerow(_row(VOTO=huge_voto))
+
+    [row] = load_csv(path)
+
+    assert row["VOTO"] == huge_voto
 
 
 def test_provenance_hashes_exact_input_bytes(tmp_path: Path) -> None:
