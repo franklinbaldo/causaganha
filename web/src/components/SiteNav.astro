@@ -110,13 +110,14 @@ const links = [
     .site-nav__links {
       width: 100%;
       justify-content: flex-start;
-      overflow-x: auto;
-      flex-wrap: nowrap;
+      overflow: visible;
+      flex-wrap: wrap;
+      gap: 0 0.2rem;
       padding-top: 0.4rem;
-      scrollbar-width: thin;
     }
 
     .site-nav__links a {
+      padding: 0.45rem 0.55rem;
       white-space: nowrap;
     }
   }
