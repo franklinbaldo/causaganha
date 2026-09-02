@@ -199,3 +199,77 @@ def test_tjro_juris_published_manifest_unreachable_fails(monkeypatch) -> None:
     failures, _ = canary_check.check_tjro_juris_published()
 
     assert any("could not fetch" in failure for failure in failures)
+
+
+def _datajud_manifest_text(rows: int = 1) -> str:
+    header = "cnj,tribunal,docs,consultado_em,status"
+    body = "\n".join(
+        f"0000010-2{i}.2024.8.22.0001,tjro,1,2026-07-14T09:59:48+00:00,ok" for i in range(rows)
+    )
+    return f"{header}\n{body}\n" if rows else f"{header}\n"
+
+
+def _published_state(manifest_text: str) -> canary_check.datajud_state.PublishedState:
+    return canary_check.datajud_state.PublishedState(
+        tribunal="tjro",
+        generation="deadbeef",
+        manifest_text=manifest_text,
+        published_at="2026-08-10T03:00:00Z",
+        files={},
+    )
+
+
+def test_datajud_published_bundle_with_entries_passes(monkeypatch) -> None:
+    monkeypatch.setattr(
+        canary_check.datajud_state,
+        "read_remote_state",
+        lambda tribunal: _published_state(_datajud_manifest_text(3)),
+    )
+
+    failures, warnings = canary_check.check_datajud_published()
+
+    assert failures == []
+    assert warnings == []
+
+
+def test_datajud_published_bundle_empty_manifest_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        canary_check.datajud_state,
+        "read_remote_state",
+        lambda tribunal: _published_state(_datajud_manifest_text(0)),
+    )
+
+    failures, _ = canary_check.check_datajud_published()
+
+    assert any("zero entries" in failure for failure in failures)
+
+
+def test_datajud_published_bundle_absent_fails(monkeypatch) -> None:
+    monkeypatch.setattr(canary_check.datajud_state, "read_remote_state", lambda tribunal: None)
+
+    failures, _ = canary_check.check_datajud_published()
+
+    assert any("no coherent DataJud state bundle published" in failure for failure in failures)
+
+
+def test_datajud_published_bundle_invalid_manifest_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        canary_check.datajud_state,
+        "read_remote_state",
+        lambda tribunal: _published_state("not,the,right,header\n"),
+    )
+
+    failures, _ = canary_check.check_datajud_published()
+
+    assert any("manifest is invalid" in failure for failure in failures)
+
+
+def test_datajud_published_bundle_unreachable_fails(monkeypatch) -> None:
+    def fake_read(tribunal: str) -> canary_check.datajud_state.PublishedState:
+        raise canary_check.datajud_state.RemoteStateError("boom")
+
+    monkeypatch.setattr(canary_check.datajud_state, "read_remote_state", fake_read)
+
+    failures, _ = canary_check.check_datajud_published()
+
+    assert any("could not verify published DataJud state bundle" in failure for failure in failures)
