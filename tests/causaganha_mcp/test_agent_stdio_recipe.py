@@ -43,10 +43,7 @@ async def test_published_stdio_recipe_works_from_outside_checkout(
 
     server = _published_server_config()
     command = server["command"]
-    args = [
-        str(_REPO_ROOT) if arg == _CHECKOUT_PLACEHOLDER else arg
-        for arg in server["args"]
-    ]
+    args = [str(_REPO_ROOT) if arg == _CHECKOUT_PLACEHOLDER else arg for arg in server["args"]]
 
     assert command == "uv"
     assert _CHECKOUT_PLACEHOLDER in server["args"]
