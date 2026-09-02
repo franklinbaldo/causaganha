@@ -2,6 +2,11 @@
 # dependencies = ["-", "accelerate", "datasets", "scikit-learn", "transformers"]
 # ///
 
+# ARCHIVED (RFC 0001 section 3.5): trains on the legacy v5 (22-class) BERTimbau
+# taxonomy (SPAN_CLASS_NAMES_V5), superseded by the v7 26-class anchor-span
+# ontology trained in notebooks/train_segmenter_colab.ipynb. Kept here as
+# documentation of a prior approach, not a supported training path.
+
 import marimo
 
 __generated_with = "0.23.8"
