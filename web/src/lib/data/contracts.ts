@@ -162,6 +162,8 @@ export const siteStatusSourceSchema = z.object({
   absent_confirmed: z.number(),
   /** Pares com caderno confirmado no DJEN (200 + URL) mas sem ZIP no IA. */
   pending_real: z.number(),
+  /** Idade (horas) do par pending_real mais antigo; null quando pending_real é zero. */
+  pending_real_max_age_hours: z.number().nullable(),
   /** Pares cuja última resposta foi inconclusiva (403/5xx/timeout/network). */
   errors_transient: z.number(),
   /** Pares nunca verificados (sem resposta DJEN nem upload). */

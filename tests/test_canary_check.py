@@ -130,9 +130,7 @@ def test_pending_real_max_age_above_threshold_fails(monkeypatch) -> None:
         datetime(2026, 8, 11, 12, 30, tzinfo=UTC), Brazil()
     )
 
-    assert any(
-        "pending_real_max_age_hours" in failure and "SLO" in failure for failure in failures
-    )
+    assert any("pending_real_max_age_hours" in failure and "SLO" in failure for failure in failures)
 
 
 def test_pending_real_max_age_missing_field_does_not_fail(monkeypatch) -> None:

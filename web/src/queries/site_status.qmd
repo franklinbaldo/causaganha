@@ -46,6 +46,12 @@ mesmo critério de `interpret_djen_raw()` em `src/djen_backup/manifest.py`:
 A "Lacuna" honesta do dashboard é `pending_real + errors_transient +
 never_checked` — nunca inclui `absent_confirmed`.
 
+`pending_real_max_age_hours` mede literalmente o SLO declarado em
+`docs/SERVICE_OBJECTIVES.md` (24h publicação→arquivo): a idade, em horas, do
+par `pending_real` mais antigo (`now() - MIN(updated_at)` entre os pares
+disponíveis e ainda não enviados ao IA). `null` quando `pending_real` é zero
+— nunca inferido como "sem atraso", apenas "nada pendente para medir".
+
 Além disso, `generated_at` permite ao build recusar artefatos obsoletos
 (> 7 dias) ou vindos do futuro (> 5 min de skew) — ver `loadSiteStatus()`.
 
@@ -97,6 +103,11 @@ SELECT
       'latest_upload_date': CAST(MAX(date) FILTER (WHERE uploaded) AS VARCHAR),
       'absent_confirmed': COUNT(*) FILTER (WHERE NOT uploaded AND raw_absent),
       'pending_real': COUNT(*) FILTER (WHERE NOT uploaded AND raw_available),
+      'pending_real_max_age_hours': ROUND(
+        epoch(now() AT TIME ZONE 'UTC' - MIN(updated_ts) FILTER (WHERE NOT uploaded AND raw_available))
+          / 3600.0,
+        1
+      ),
       'errors_transient': COUNT(*) FILTER (WHERE NOT uploaded AND raw <> '' AND NOT raw_available AND NOT raw_absent),
       'never_checked': COUNT(*) FILTER (WHERE NOT uploaded AND raw = ''),
       'last_attempt_at': strftime(MAX(updated_ts), '%Y-%m-%dT%H:%M:%SZ'),
