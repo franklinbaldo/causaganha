@@ -30,7 +30,8 @@ class DownloadEvidence:
 Opener = Callable[[str], BinaryIO]
 
 
-def _validate_official_url(url: str) -> None:
+def validate_official_url(url: str) -> None:
+    """Raise ``ValueError`` unless ``url`` is an https URL hosted on tcu.gov.br."""
     parsed = urlparse(url)
     host = (parsed.hostname or "").lower()
     if parsed.scheme != "https":
@@ -57,7 +58,7 @@ def download_official_csv(
     The destination is replaced only after the complete response has been read. Redirects
     are accepted only when the final URL is still under ``tcu.gov.br``.
     """
-    _validate_official_url(url)
+    validate_official_url(url)
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     digest = hashlib.sha256()
@@ -72,7 +73,7 @@ def download_official_csv(
     try:
         with os.fdopen(fd, "wb") as output, opener(url) as response:
             final_url = response.geturl() if hasattr(response, "geturl") else url
-            _validate_official_url(final_url)
+            validate_official_url(final_url)
             while chunk := response.read(_CHUNK_SIZE):
                 output.write(chunk)
                 digest.update(chunk)
