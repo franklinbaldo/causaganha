@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 import httpx
 from holidays import Brazil
 
+from causaganha_mcp.workflow_runs import WorkflowRunObservation
 from scripts import canary_check
 
 
@@ -273,3 +274,99 @@ def test_datajud_published_bundle_unreachable_fails(monkeypatch) -> None:
     failures, _ = canary_check.check_datajud_published()
 
     assert any("could not verify published DataJud state bundle" in failure for failure in failures)
+
+
+def _heartbeat(**overrides: object) -> WorkflowRunObservation:
+    defaults: dict[str, object] = {
+        "workflow": "canary.yml",
+        "observacao": "present",
+        "ultima_tentativa": "2026-08-25T12:30:00Z",
+        "ultimo_sucesso": "2026-08-25T12:34:00Z",
+        "runs_observados": 5,
+        "total_runs_reportado": 5,
+        "janela_completa": True,
+        "aviso": None,
+    }
+    defaults.update(overrides)
+    return WorkflowRunObservation(**defaults)
+
+
+def test_canary_heartbeat_recent_success_passes() -> None:
+    observation = _heartbeat(ultimo_sucesso="2026-08-25T12:34:00Z")
+
+    failures, warnings = canary_check.check_canary_heartbeat(
+        observation, datetime(2026, 8, 26, 12, 30, tzinfo=UTC)
+    )
+
+    assert failures == []
+    assert warnings == []
+
+
+def test_canary_heartbeat_stale_success_fails() -> None:
+    observation = _heartbeat(ultimo_sucesso="2026-08-10T12:34:00Z")
+
+    failures, _ = canary_check.check_canary_heartbeat(
+        observation, datetime(2026, 8, 26, 12, 30, tzinfo=UTC)
+    )
+
+    assert any(
+        "canary.yml" in failure and "last succeeded" in failure and "stopped running" in failure
+        for failure in failures
+    )
+
+
+def test_canary_heartbeat_attempts_without_success_fails() -> None:
+    observation = _heartbeat(ultimo_sucesso=None)
+
+    failures, _ = canary_check.check_canary_heartbeat(
+        observation, datetime(2026, 8, 26, 12, 30, tzinfo=UTC)
+    )
+
+    assert any("no recorded success" in failure for failure in failures)
+
+
+def test_canary_heartbeat_never_ran_fails() -> None:
+    observation = _heartbeat(
+        observacao="absent",
+        ultima_tentativa=None,
+        ultimo_sucesso=None,
+        runs_observados=0,
+        total_runs_reportado=0,
+    )
+
+    failures, _ = canary_check.check_canary_heartbeat(
+        observation, datetime(2026, 8, 26, 12, 30, tzinfo=UTC)
+    )
+
+    assert any("no recorded runs" in failure for failure in failures)
+
+
+def test_canary_heartbeat_unknown_window_fails() -> None:
+    observation = _heartbeat(
+        observacao="unknown",
+        ultima_tentativa=None,
+        ultimo_sucesso=None,
+        aviso="Nenhum run schedule/workflow_dispatch apareceu na janela completa.",
+    )
+
+    failures, _ = canary_check.check_canary_heartbeat(
+        observation, datetime(2026, 8, 26, 12, 30, tzinfo=UTC)
+    )
+
+    assert any("no eligible schedule" in failure for failure in failures)
+
+
+def test_canary_heartbeat_unavailable_fails() -> None:
+    observation = _heartbeat(
+        observacao="unavailable",
+        ultima_tentativa=None,
+        ultimo_sucesso=None,
+        janela_completa=False,
+        aviso="boom",
+    )
+
+    failures, _ = canary_check.check_canary_heartbeat(
+        observation, datetime(2026, 8, 26, 12, 30, tzinfo=UTC)
+    )
+
+    assert any("could not verify" in failure and "boom" in failure for failure in failures)
