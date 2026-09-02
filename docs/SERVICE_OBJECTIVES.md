@@ -24,6 +24,7 @@ contra o sistema real e implantado.
 | Artefato público do STJ (`stj_totals.json`) alcançável e estruturalmente não-vazio (`total`, `total_temas`, `ultima_decisao`) | — (sem SLO de frescor: STJ não tem manifesto por par) | mesmo canário, `check_stj_published()` |
 | Manifesto próprio do TJRO JURIS (`tjro-juris-manifest.csv`) alcançável, estruturalmente válido e com pelo menos uma entrada | — (prova operacionalidade do pipeline, não da reconciliação — ver nota abaixo) | mesmo canário, `check_tjro_juris_published()` |
 | Bundle de estado coerente do DataJud (`datajud-state-{tribunal}.zip`) alcançável, com hashes/generation válidos e manifesto com pelo menos uma entrada | — (sem SLO de frescor: cadência de enriquecimento é limitada por rate-limit, não um intervalo fixo como o do DJEN) | mesmo canário, `check_datajud_published()` |
+| O próprio `canary.yml` continua executando (último sucesso registrado pelo GitHub Actions) | ≤ `CANARY_HEARTBEAT_THRESHOLD_HOURS` (192h / 8 dias) | `.github/workflows/canary-heartbeat.yml`, semanalmente às segundas 09:00 UTC, `scripts/canary_heartbeat_check.py` |
 
 O limiar de 48h **não é um número novo**: é exatamente
 `FRESHNESS_THRESHOLD_MS` em `web/src/lib/data/siteStatus.ts`, o limiar que
@@ -67,9 +68,24 @@ de coleta/upload. Este canário prova apenas que o pipeline continua
 crawleando e publicando seu manifesto — não que a lacuna de reconciliação
 foi fechada.
 
+## Heartbeat do próprio canário
+
+`canary.yml` prova que o sistema implantado funciona, mas seu próprio canal
+de alerta é ele mesmo: se o cron parasse de disparar (trigger desabilitado,
+workflow removido, instabilidade de agendamento do lado do GitHub), nada
+avisaria ninguém. `canary-heartbeat.yml` é deliberadamente um workflow
+separado, em um agendamento diferente (segundas-feiras, em vez do cron
+diário do canário), que lê o histórico público de runs de `canary.yml` via
+API do GitHub Actions (`causaganha_mcp.workflow_runs.observe_workflow_runs`,
+sem token) e falha se o último sucesso registrado for mais antigo que
+`CANARY_HEARTBEAT_THRESHOLD_HOURS`. Continua verificando mesmo que
+`canary.yml` pare de rodar por completo, porque não vive no mesmo workflow.
+
 ## O que ainda não está automatizado
 
-- **Alerta sobre o próprio job do canário não rodar** (ex.: se o cron do
-  GitHub Actions parar de disparar): não há verificação de "o verificador
-  está vivo" — limitação conhecida de qualquer canário auto-hospedado no
-  mesmo CI que monitora.
+- **Interrupção total do agendamento do GitHub Actions no repositório**
+  (não apenas de `canary.yml`): se o próprio GitHub parasse de disparar
+  *qualquer* workflow agendado neste repositório, `canary-heartbeat.yml`
+  também pararia de rodar e a lacuna reapareceria. Isso exigiria
+  monitoramento externo ao GitHub Actions para ser fechado — fora do escopo
+  atual.
