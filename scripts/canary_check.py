@@ -47,6 +47,7 @@ import httpx
 import structlog
 from holidays import Brazil
 
+from causaganha_mcp.workflow_runs import WorkflowRunObservation
 from datajud import state as datajud_state
 from datajud.manifest import ManifestDataJud
 from datajud.manifest import ManifestFormatError as DataJudManifestFormatError
@@ -73,6 +74,13 @@ FRESHNESS_THRESHOLD_HOURS = 48
 # past this threshold is anomalous. Tune once real backlog episodes give a
 # baseline.
 PENDING_REAL_THRESHOLD = 50
+
+# canary.yml runs daily; this heartbeat is checked weekly by a *separate*
+# workflow (canary-heartbeat.yml) so a broken/disabled canary.yml doesn't
+# also silence its own watchdog. The threshold needs enough slack to absorb
+# one missed daily run without paging, while still catching a canary that
+# has been dark for the better part of a week — see docs/SERVICE_OBJECTIVES.md.
+CANARY_HEARTBEAT_THRESHOLD_HOURS = 192  # 8 days
 
 # TJRO is the most-documented DJEN tribunal in this codebase (CLAUDE.md IA
 # naming example, site_status.qmd worked example) — a stable, known-good
@@ -274,6 +282,55 @@ def check_datajud_published(tribunal: str = "tjro") -> tuple[list[str], list[str
 
     if not manifest.all_entries():
         failures.append("DataJud state bundle is reachable but manifest has zero entries")
+
+    return failures, warnings
+
+
+def check_canary_heartbeat(
+    observation: WorkflowRunObservation,
+    now: datetime,
+    threshold_hours: float = CANARY_HEARTBEAT_THRESHOLD_HOURS,
+) -> tuple[list[str], list[str]]:
+    """Return (failures, warnings) proving canary.yml itself is still running.
+
+    Deliberately called from a *different* workflow (canary-heartbeat.yml),
+    not from canary.yml's own `main()` below: a canary that stops firing
+    entirely (disabled trigger, deleted workflow, GitHub-side scheduling
+    outage) would also stop running any self-check embedded in it — see
+    docs/SERVICE_OBJECTIVES.md's "O que ainda não está automatizado".
+    """
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    if observation.observacao == "unavailable":
+        failures.append(f"could not verify canary.yml run history on GitHub: {observation.aviso}")
+        return failures, warnings
+
+    if observation.observacao == "absent":
+        failures.append("canary.yml has no recorded runs on GitHub — schedule may have never fired")
+        return failures, warnings
+
+    if observation.observacao == "unknown":
+        failures.append(
+            "canary.yml has no eligible schedule/workflow_dispatch runs in the observed "
+            f"window — {observation.aviso}"
+        )
+        return failures, warnings
+
+    if observation.ultimo_sucesso is None:
+        failures.append(
+            "canary.yml has attempts but no recorded success — the daily canary may be "
+            "failing on every run"
+        )
+        return failures, warnings
+
+    success_age = _age_hours(_parse_iso(observation.ultimo_sucesso), now)
+    assert success_age is not None
+    if success_age > threshold_hours:
+        failures.append(
+            f"canary.yml last succeeded {success_age:.1f}h ago (> {threshold_hours}h) — "
+            "the canary itself may have stopped running"
+        )
 
     return failures, warnings
 

@@ -1,0 +1,40 @@
+# ============================================================================
+# CANARY HEARTBEAT — watch the watchdog
+# ============================================================================
+#
+# canary.yml proves the deployed system works, but its own failure
+# notification channel is itself: if canary.yml stops firing entirely (a
+# disabled trigger, a deleted schedule, a GitHub-side scheduling hiccup),
+# nothing pages anyone. This workflow is deliberately separate, on a
+# different schedule, so it keeps checking even if canary.yml goes dark —
+# see docs/SERVICE_OBJECTIVES.md.
+# ============================================================================
+
+name: Canary Heartbeat
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'  # Mondays 09:00 UTC — independent of canary.yml's daily 12:30 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  canary-heartbeat:
+    name: Canary workflow heartbeat
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Run canary heartbeat check
+        run: uv run python scripts/canary_heartbeat_check.py
