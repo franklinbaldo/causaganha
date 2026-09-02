@@ -19,7 +19,13 @@ def consolidate_year(parquet_files: list[Path], output: Path) -> int:
     output.parent.mkdir(parents=True, exist_ok=True)
     paths = ", ".join(f"'{p}'" for p in parquet_files)
     con = duckdb.connect()
-    con.execute(f"CREATE VIEW src AS SELECT * FROM read_parquet([{paths}])")
+    # union_by_name: monthly parquets accumulate columns over time (see #1014
+    # — 9 fields added on top of the original schema). Without it, DuckDB
+    # keys column selection off the FIRST file in the list: narrow-first
+    # silently drops every column the narrow file lacks, wide-first raises
+    # a schema-mismatch error. union_by_name unions by column name across
+    # all files and fills missing values with NULL either way.
+    con.execute(f"CREATE VIEW src AS SELECT * FROM read_parquet([{paths}], union_by_name=true)")
     con.execute(
         f"""
         COPY (
