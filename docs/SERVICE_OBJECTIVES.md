@@ -23,6 +23,7 @@ contra o sistema real e implantado.
 | Atraso publicação→arquivo (`sources.djen.pending_real` em `site-status.json`) | ≤ `PENDING_REAL_THRESHOLD` (50) pares | mesmo canário |
 | Artefato público do STJ (`stj_totals.json`) alcançável e estruturalmente não-vazio (`total`, `total_temas`, `ultima_decisao`) | — (sem SLO de frescor: STJ não tem manifesto por par) | mesmo canário, `check_stj_published()` |
 | Manifesto próprio do TJRO JURIS (`tjro-juris-manifest.csv`) alcançável, estruturalmente válido e com pelo menos uma entrada | — (prova operacionalidade do pipeline, não da reconciliação — ver nota abaixo) | mesmo canário, `check_tjro_juris_published()` |
+| Bundle de estado coerente do DataJud (`datajud-state-{tribunal}.zip`) alcançável, com hashes/generation válidos e manifesto com pelo menos uma entrada | — (sem SLO de frescor: cadência de enriquecimento é limitada por rate-limit, não um intervalo fixo como o do DJEN) | mesmo canário, `check_datajud_published()` |
 
 O limiar de 48h **não é um número novo**: é exatamente
 `FRESHNESS_THRESHOLD_MS` em `web/src/lib/data/siteStatus.ts`, o limiar que
