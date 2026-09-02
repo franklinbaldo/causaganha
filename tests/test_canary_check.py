@@ -174,7 +174,10 @@ def test_tjro_juris_published_manifest_absent_fails(monkeypatch) -> None:
 
     failures, _ = canary_check.check_tjro_juris_published()
 
-    assert any("tjro-juris-manifest.csv" in failure or "no TJRO JURIS manifest" in failure for failure in failures)
+    assert any(
+        "tjro-juris-manifest.csv" in failure or "no TJRO JURIS manifest" in failure
+        for failure in failures
+    )
 
 
 def test_tjro_juris_published_manifest_invalid_fails(monkeypatch) -> None:

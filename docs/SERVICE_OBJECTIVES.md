@@ -22,6 +22,7 @@ contra o sistema real e implantado.
 | Cliente DJEN retorna veredito definitivo (disponível ou ausente, não erro) para um tribunal estável em dia útil recente | — | mesmo canário, 1 lookup ao vivo (TJRO) |
 | Atraso publicação→arquivo (`sources.djen.pending_real` em `site-status.json`) | ≤ `PENDING_REAL_THRESHOLD` (50) pares | mesmo canário |
 | Artefato público do STJ (`stj_totals.json`) alcançável e estruturalmente não-vazio (`total`, `total_temas`, `ultima_decisao`) | — (sem SLO de frescor: STJ não tem manifesto por par) | mesmo canário, `check_stj_published()` |
+| Manifesto próprio do TJRO JURIS (`tjro-juris-manifest.csv`) alcançável, estruturalmente válido e com pelo menos uma entrada | — (prova operacionalidade do pipeline, não da reconciliação — ver nota abaixo) | mesmo canário, `check_tjro_juris_published()` |
 
 O limiar de 48h **não é um número novo**: é exatamente
 `FRESHNESS_THRESHOLD_MS` em `web/src/lib/data/siteStatus.ts`, o limiar que
@@ -52,6 +53,18 @@ produção fica normalmente em zero, então qualquer acúmulo sustentado acima
 do limiar já é anômalo — mas uma medição fiel ao SLO de 24h exigiria
 consultar o manifesto por linhas `djen_raw` disponível há mais de 24h sem
 `ia_status=uploaded`, o que este alarme não faz.
+
+## TJRO JURIS: manifesto próprio vs. catálogo reconciliado
+
+`check_tjro_juris_published()` lê `tjro-juris-manifest.csv` — a mesma
+autoridade que `causaganha_status` consulta e que o workflow diário
+(`tjro-sync.yml`) usa para continuidade — não o artefato derivado
+`juris_totals.json`. Esse artefato hoje reporta zero porque o reconciliador
+ainda não publica os documentos JURIS no catálogo público (gap rastreado na
+issue #924, item 3.1), uma limitação distinta da saúde do próprio pipeline
+de coleta/upload. Este canário prova apenas que o pipeline continua
+crawleando e publicando seu manifesto — não que a lacuna de reconciliação
+foi fechada.
 
 ## O que ainda não está automatizado
 

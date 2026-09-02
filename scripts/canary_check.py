@@ -18,6 +18,11 @@ two independent checks against the real, deployed system:
 3. Reachability/structure of the public stj_totals.json artifact. STJ has no
    per-pair manifest like DJEN, so this proves only that the pipeline still
    produces a non-empty, well-formed artifact — not freshness (see #892).
+4. Reachability/structure of the TJRO JURIS crawl/upload manifest
+   (tjro-juris-manifest.csv). This proves only that the pipeline's own
+   authoritative manifest is populated, not that those documents have
+   reached the reconciled catalog (juris_totals.json is currently empty —
+   see #924 3.1, a separate reconciliation gap this canary does not cover).
 
 Exit 0 = all good (warnings allowed). Exit 1 = hard failure.
 
@@ -38,6 +43,9 @@ import structlog
 from holidays import Brazil
 
 from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, get_caderno_url
+from tjro_juris import archive as tjro_juris_archive
+from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
+from tjro_juris.manifest import ManifestJuris
 
 
 log = structlog.get_logger()
@@ -185,6 +193,44 @@ def check_stj_published() -> tuple[list[str], list[str]]:
     return failures, warnings
 
 
+def check_tjro_juris_published() -> tuple[list[str], list[str]]:
+    """Return (failures, warnings) from the public TJRO JURIS crawl/upload manifest.
+
+    Proves only that the pipeline's own authoritative manifest
+    (tjro-juris-manifest.csv) is reachable and structurally valid — the same
+    authority `causaganha_status` reads, not the derived `juris_totals.json`
+    catalog export, which is currently empty for an unrelated reason (#924
+    3.1: reconciled documents never reached the public catalog). Matching
+    #892's guidance, this does not claim the reconciliation gap is healthy.
+    """
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    try:
+        text = tjro_juris_archive.read_manifest_text()
+    except httpx.HTTPError as exc:
+        failures.append(f"could not fetch {tjro_juris_archive.MANIFEST_DOWNLOAD_URL}: {exc}")
+        return failures, warnings
+
+    if text is None:
+        failures.append(
+            f"{tjro_juris_archive.MANIFEST_DOWNLOAD_URL} returned 404 — "
+            "no TJRO JURIS manifest published"
+        )
+        return failures, warnings
+
+    try:
+        manifest = ManifestJuris.load_text(text, source=tjro_juris_archive.MANIFEST_DOWNLOAD_URL)
+    except TjroJurisManifestFormatError as exc:
+        failures.append(f"TJRO JURIS manifest published but invalid: {exc}")
+        return failures, warnings
+
+    if not manifest.all_entries():
+        failures.append("TJRO JURIS manifest is reachable but has zero entries")
+
+    return failures, warnings
+
+
 async def check_djen_live(target_date: date) -> tuple[list[str], list[str]]:
     """Return (failures, warnings) from one live DJEN lookup."""
     failures: list[str] = []
@@ -234,9 +280,10 @@ async def main() -> int:
     site_failures, site_warnings = check_site_status(now, br_holidays)
     djen_failures, djen_warnings = await check_djen_live(target_date)
     stj_failures, stj_warnings = check_stj_published()
+    tjro_juris_failures, tjro_juris_warnings = check_tjro_juris_published()
 
-    failures = site_failures + djen_failures + stj_failures
-    warnings = site_warnings + djen_warnings + stj_warnings
+    failures = site_failures + djen_failures + stj_failures + tjro_juris_failures
+    warnings = site_warnings + djen_warnings + stj_warnings + tjro_juris_warnings
 
     report = {
         "generated_at": now.isoformat(),
