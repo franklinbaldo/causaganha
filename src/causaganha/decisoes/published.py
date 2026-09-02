@@ -17,6 +17,13 @@ from tjro_juris.manifest import ManifestJuris
 
 STJ_PARQUET_URL = "https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet"
 
+TCU_PARQUET_URL = "https://archive.org/download/tcu-acordaos-2017-2026/tcu-acordaos.parquet"
+"""Target public location for the TCU 2017-2026 TEOR artifact.
+
+Materialization/publication is tracked separately (#1020); this constant fixes
+the identity the search surface (#1011) is wired against.
+"""
+
 
 @dataclass(frozen=True, slots=True)
 class PublishedDecisionDataset:

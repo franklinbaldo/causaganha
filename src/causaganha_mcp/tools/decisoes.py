@@ -13,6 +13,7 @@ from causaganha.decisoes.planner import DecisionSearchBudgetError, plan_decision
 from causaganha.decisoes.published import (
     PublishedDecisionDataset,
     STJ_PARQUET_URL,
+    TCU_PARQUET_URL,
     discover_published_juris_datasets,
 )
 from causaganha.decisoes.search import search_decisions
@@ -87,6 +88,18 @@ def _datasets_for_source(fonte: str) -> tuple[list[PublishedDecisionDataset], li
                 tipo="acordao",
             )
         )
+    if fonte in {"todas", "tcu"}:
+        datasets.append(
+            PublishedDecisionDataset(
+                fonte="tcu",
+                url=TCU_PARQUET_URL,
+                tipo="acordao",
+            )
+        )
+        limitations.append(
+            "TCU: cobertura restrita a acórdãos com identidade KEY provada, "
+            "publicados entre 2017 e 2026 — anos anteriores não são consultados."
+        )
     return datasets, limitations
 
 
@@ -129,7 +142,7 @@ def register(mcp: FastMCP) -> None:
                 "Opcional quando ``cnj`` é informado.",
             ),
         ] = None,
-        fonte: Literal["todas", "juris", "stj"] = "todas",
+        fonte: Literal["todas", "juris", "stj", "tcu"] = "todas",
         data_inicio: str | None = None,
         data_fim: str | None = None,
         limite: Annotated[int, Field(ge=1, le=50)] = 20,
@@ -195,13 +208,17 @@ def register(mcp: FastMCP) -> None:
         ``proximo_offset``: repita a chamada com ``offset=proximo_offset`` para
         obter a próxima página sem alterar os demais argumentos.
 
-        ``classe`` e ``relator`` filtram ambas as fontes. ``orgao`` filtra
-        somente JURIS — filtrar por órgão em STJ exigiria um campo que o
-        dataset publicado hoje não expõe de forma verificada, então esse
-        critério nunca é aplicado silenciosamente aos resultados STJ: quando
-        usado, ``limitacoes`` explica que a fonte foi ignorada para esse
-        filtro. Não há filtro de assunto: nem JURIS nem STJ têm um campo
-        equivalente legítimo.
+        ``classe`` e ``relator`` filtram JURIS e STJ. ``orgao`` filtra JURIS
+        e TCU (mapeado do ``colegiado`` oficial) — mas não STJ: filtrar por
+        órgão em STJ exigiria um campo que o dataset publicado hoje não
+        expõe de forma verificada, então esse critério nunca é aplicado
+        silenciosamente aos resultados STJ: quando usado, ``limitacoes``
+        explica que a fonte foi ignorada para esse filtro. TCU não tem
+        ``classe`` nem CNJ equivalente, então ``classe``/``cnj`` excluem
+        resultados TCU em vez de simular um filtro. Não há filtro de
+        assunto: nenhuma fonte tem um campo equivalente legítimo hoje.
+        TCU é uma fonte de controle externo federal, não um tribunal
+        judicial, e sua cobertura hoje é restrita a 2017–2026.
         """
         if not texto and not cnj:
             msg = "Informe texto (mínimo 2 caracteres) ou cnj."

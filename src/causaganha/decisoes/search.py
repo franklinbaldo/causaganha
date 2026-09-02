@@ -1,4 +1,4 @@
-"""Execute bounded TEOR searches across published JURIS and STJ datasets."""
+"""Execute bounded TEOR searches across published JURIS, STJ and TCU datasets."""
 
 from __future__ import annotations
 
@@ -113,6 +113,43 @@ def _stj_sql(urls: list[str]) -> str:
     """
 
 
+def _tcu_sql(urls: list[str]) -> str:
+    return f"""
+        SELECT
+            'tcu' AS fonte,
+            key::VARCHAR AS id_documento,
+            NULL::VARCHAR AS cnj,
+            TRY_CAST(data_sessao AS DATE) AS data,
+            'Acórdão' AS tipo,
+            colegiado AS orgao,
+            relator,
+            NULL::VARCHAR AS classe,
+            left(coalesce(sumario, acordao, decisao, relatorio, voto), 1200) AS trecho,
+            NULL::VARCHAR AS url
+        FROM read_parquet([{_url_list_sql(urls)}], union_by_name=true)
+        WHERE (? IS NULL OR lower(
+            concat_ws(
+                ' ',
+                coalesce(titulo, ''),
+                coalesce(assunto, ''),
+                coalesce(sumario, ''),
+                coalesce(acordao, ''),
+                coalesce(decisao, ''),
+                coalesce(relatorio, ''),
+                coalesce(voto, '')
+            )
+        ) LIKE lower(?))
+          AND (? IS NULL AND ? IS NULL)
+          AND (? IS NULL OR TRY_CAST(data_sessao AS DATE) >= CAST(? AS DATE))
+          AND (? IS NULL OR TRY_CAST(data_sessao AS DATE) <= CAST(? AS DATE))
+          AND (? IS NULL AND ? IS NULL)
+          AND (? IS NULL OR lower(coalesce(relator, '')) LIKE lower(?))
+          AND (? IS NULL OR lower(coalesce(colegiado, '')) LIKE lower(?))
+        ORDER BY data DESC NULLS LAST, id_documento
+        LIMIT ?
+    """
+
+
 def _params(
     texto: str | None,
     cnj: str | None,
@@ -182,8 +219,9 @@ def _search_source(
 ) -> tuple[list[DecisionHit], bool, str | None]:
     if not urls:
         return [], False, None
-    is_juris = fonte == "juris"
-    sql = _juris_sql(urls) if is_juris else _stj_sql(urls)
+    sql_by_fonte = {"juris": _juris_sql, "stj": _stj_sql, "tcu": _tcu_sql}
+    include_orgao = fonte in {"juris", "tcu"}
+    sql = sql_by_fonte[fonte](urls)
     params = _params(
         texto,
         cnj,
@@ -192,7 +230,7 @@ def _search_source(
         classe=classe,
         relator=relator,
         orgao=orgao,
-        include_orgao=is_juris,
+        include_orgao=include_orgao,
     )
     try:
         rows = con.execute(sql, params).fetchall()
@@ -222,14 +260,18 @@ def search_decisions(
     A CNJ-only lookup (``texto=None``) is how a caller with a known process
     number finds teor without guessing a keyword.
 
-    ``classe`` and ``relator`` filter both sources: JURIS and STJ each have a
-    real, comparable column for both. ``orgao`` only filters JURIS — STJ's
-    "órgão colegiado julgador" is not a verified column in the published
-    dataset, so honoring it there would risk exactly the kind of schema-drift
-    binder error already seen once on this project (see #872). Rather than
-    silently ignore the criterion for STJ, ``orgao`` skips STJ from the
-    search entirely and records an explicit limitation. There is no
-    ``assunto`` filter: neither source has a legitimate equivalent field.
+    ``classe`` and ``relator`` filter JURIS and STJ, which each have a real,
+    comparable column for both. ``orgao`` filters JURIS and TCU (TCU's
+    ``colegiado`` is a real, comparable órgão-julgador field) — but not STJ:
+    STJ's "órgão colegiado julgador" is not a verified column in the
+    published dataset, so honoring it there would risk exactly the kind of
+    schema-drift binder error already seen once on this project (see #872).
+    Rather than silently ignore the criterion for STJ, ``orgao`` skips STJ
+    from the search entirely and records an explicit limitation. TCU has no
+    ``classe`` or ``cnj`` equivalent (its process numbers are not CNJs), so a
+    ``classe`` or ``cnj`` filter excludes TCU rows rather than fake a match.
+    There is no ``assunto`` filter: no source has a legitimate equivalent
+    field exposed today.
 
     ``offset`` pages through the globally sorted, cross-source result set.
     The window (``offset + limite``) is bounded to keep the remote scan cost
@@ -276,7 +318,7 @@ def search_decisions(
             "desta busca ignoram esse critério."
         )
     try:
-        for fonte, datasets in (("juris", plan.juris), ("stj", plan.stj)):
+        for fonte, datasets in (("juris", plan.juris), ("stj", plan.stj), ("tcu", plan.tcu)):
             if fonte == "stj" and skip_stj_for_orgao:
                 continue
             source_hits, source_truncated, error = _search_source(
