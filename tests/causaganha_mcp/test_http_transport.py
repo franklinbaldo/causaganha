@@ -2,13 +2,16 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any
+import asyncio
+from typing import TYPE_CHECKING, Any, cast
 
 import pytest
+from fastmcp.exceptions import ToolError
+from fastmcp.server.middleware import MiddlewareContext
 
 import causaganha_mcp.__main__ as stdio_entry
 import causaganha_mcp.http_server as http_entry
-from causaganha_mcp.http_server import HttpSettings
+from causaganha_mcp.http_server import HttpSettings, OperationalLimitsMiddleware
 from causaganha_mcp.server import build_server
 
 
@@ -36,27 +39,37 @@ def test_http_settings_are_loopback_safe_by_default(
         "CAUSAGANHA_MCP_HOST",
         "CAUSAGANHA_MCP_PORT",
         "CAUSAGANHA_MCP_PATH",
+        "CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS",
+        "CAUSAGANHA_MCP_MAX_CONCURRENCY",
     ):
         monkeypatch.delenv(key, raising=False)
 
     settings = HttpSettings.from_env()
 
-    assert settings.host == "127.0.0.1"
-    assert settings.port == 8000
-    assert settings.path == "/mcp"
+    assert settings == HttpSettings(
+        host="127.0.0.1",
+        port=8000,
+        path="/mcp",
+        tool_timeout_seconds=45.0,
+        max_concurrency=4,
+    )
 
 
-def test_http_settings_support_explicit_deployment_bind(
+def test_http_settings_support_explicit_deployment_bind_and_limits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("CAUSAGANHA_MCP_HOST", "0.0.0.0")
     monkeypatch.setenv("CAUSAGANHA_MCP_PORT", "8080")
     monkeypatch.setenv("CAUSAGANHA_MCP_PATH", "/api/mcp")
+    monkeypatch.setenv("CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS", "30")
+    monkeypatch.setenv("CAUSAGANHA_MCP_MAX_CONCURRENCY", "2")
 
     assert HttpSettings.from_env() == HttpSettings(
         host="0.0.0.0",
         port=8080,
         path="/api/mcp",
+        tool_timeout_seconds=30.0,
+        max_concurrency=2,
     )
 
 
@@ -80,12 +93,38 @@ def test_http_settings_reject_path_without_leading_slash(
         HttpSettings.from_env()
 
 
-def test_http_entrypoint_uses_streamable_http_stateless(
+@pytest.mark.parametrize("value", ["zero", "0", "-1"])
+def test_http_settings_reject_invalid_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS", value)
+
+    with pytest.raises(ValueError, match="CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS"):
+        HttpSettings.from_env()
+
+
+@pytest.mark.parametrize("value", ["1.5", "0", "-1"])
+def test_http_settings_reject_invalid_concurrency(
+    monkeypatch: pytest.MonkeyPatch,
+    value: str,
+) -> None:
+    monkeypatch.setenv("CAUSAGANHA_MCP_MAX_CONCURRENCY", value)
+
+    with pytest.raises(ValueError, match="CAUSAGANHA_MCP_MAX_CONCURRENCY"):
+        HttpSettings.from_env()
+
+
+def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: list[dict[str, object]] = []
+    middleware: list[object] = []
 
     class FakeServer:
+        def add_middleware(self, item: object) -> None:
+            middleware.append(item)
+
         def run(self, **kwargs: object) -> None:
             calls.append(kwargs)
 
@@ -93,9 +132,15 @@ def test_http_entrypoint_uses_streamable_http_stateless(
     monkeypatch.setenv("CAUSAGANHA_MCP_HOST", "0.0.0.0")
     monkeypatch.setenv("CAUSAGANHA_MCP_PORT", "8080")
     monkeypatch.setenv("CAUSAGANHA_MCP_PATH", "/mcp")
+    monkeypatch.setenv("CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS", "30")
+    monkeypatch.setenv("CAUSAGANHA_MCP_MAX_CONCURRENCY", "2")
 
     http_entry.main()
 
+    assert len(middleware) == 1
+    limits = cast(OperationalLimitsMiddleware, middleware[0])
+    assert limits.timeout_seconds == 30.0
+    assert limits.max_concurrency == 2
     assert calls == [
         {
             "transport": "http",
@@ -105,6 +150,37 @@ def test_http_entrypoint_uses_streamable_http_stateless(
             "stateless_http": True,
         }
     ]
+
+
+async def test_operational_limits_classify_timeout_as_failure() -> None:
+    limits = OperationalLimitsMiddleware(timeout_seconds=0.01, max_concurrency=1)
+
+    async def slow_call(_context: MiddlewareContext) -> str:
+        await asyncio.sleep(0.05)
+        return "unexpected"
+
+    with pytest.raises(ToolError, match="Timeout não significa ausência de dado"):
+        await limits.on_call_tool(cast(MiddlewareContext, None), slow_call)
+
+
+async def test_operational_limits_reject_saturation_without_waiting() -> None:
+    limits = OperationalLimitsMiddleware(timeout_seconds=1, max_concurrency=1)
+    entered = asyncio.Event()
+    release = asyncio.Event()
+
+    async def held_call(_context: MiddlewareContext) -> str:
+        entered.set()
+        await release.wait()
+        return "ok"
+
+    first = asyncio.create_task(limits.on_call_tool(cast(MiddlewareContext, None), held_call))
+    await entered.wait()
+
+    with pytest.raises(ToolError, match="temporariamente saturado"):
+        await limits.on_call_tool(cast(MiddlewareContext, None), held_call)
+
+    release.set()
+    assert await first == "ok"
 
 
 def test_stdio_and_http_entrypoints_start_from_same_server_instance() -> None:
