@@ -4,6 +4,17 @@
 **Scope:** All pages, shared components, and CSS system  
 **Method:** Full source read + design reasoning; no live browser (no dev server available)
 
+> [!NOTE]
+> **Archived 2026-09-02, per issue #924 §3.3 ("purgar os restos mortais").**
+> Historical snapshot, not a live task list. A spot-check of its concrete
+> findings against the current codebase found every item already resolved
+> — `admin/*` pages and their missing CSS classes no longer exist,
+> `TribunalCompareCard`/`AlertBanner`/`StatCard`/`LawyerCard` all already
+> match this doc's own suggested fixes — except item 14
+> (`404.astro`'s duplicate `<h1>`), which was still live and is fixed in
+> the same change that archived this file (see `web/features/not-found.feature`).
+> Kept here as a record of that review, not as open work.
+
 ---
 
 ## Completed Fixes Log

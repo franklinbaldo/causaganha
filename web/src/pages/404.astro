@@ -12,7 +12,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
   <section class="container">
     <hgroup>
-      <h1 aria-hidden="true">404</h1>
+      <p class="error-code" aria-hidden="true">404</p>
       <p>
         O endereço não existe ou foi movido. Se você chegou por um link antigo, este conteúdo pode ainda não ter sido coletado — tente a busca ou volte ao início.
       </p>
@@ -23,3 +23,15 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
   </section>
 </Layout>
+
+<style>
+  /* Decorative digit, not a heading — PageHeader above already renders the
+     page's one heading ("Página não encontrada"). See not-found.feature. */
+  .error-code {
+    font-size: clamp(2.5rem, 10vw, 6rem);
+    font-weight: 800;
+    line-height: 1;
+    margin: 0;
+    color: var(--color-content);
+  }
+</style>
