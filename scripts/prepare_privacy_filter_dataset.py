@@ -129,8 +129,8 @@ LABEL_SPACE = LABEL_SPACE_V7
 # Legacy v5 — the 22-class ("O" + 21) privacy-filter taxonomy that predates
 # the v7 anchor-span ontology. Kept INTACT (not aliased to the 6-class v6)
 # so legacy importers (bootstrap_training_corpus.py, augment_segmenter_data.py,
-# notebooks/train_decision_segmenter.py) retain their original label space
-# instead of silently switching taxonomies. New code must use *_V7.
+# experiments/archive/train_decision_segmenter.py) retain their original label
+# space instead of silently switching taxonomies. New code must use *_V7.
 SPAN_CLASS_NAMES_V5: list[str] = [
     "O",  # 0 — background / unlabeled
     "sec_cabecalho",  # 1 — header block (tribunal, vara, parties list)

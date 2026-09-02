@@ -2,6 +2,11 @@
 # dependencies = ["datasets", "ibis-framework", "seqeval", "structlog", "transformers"]
 # ///
 
+# ARCHIVED (RFC 0001 section 3.5): legacy 3-label BIO (O/B-DISPOSITIVO/
+# I-DISPOSITIVO) segmenter, superseded by the v7 26-class anchor-span
+# ontology trained in notebooks/train_segmenter_colab.ipynb. Kept here as
+# documentation of a prior approach, not a supported training path.
+
 import marimo
 
 __generated_with = "0.23.8"

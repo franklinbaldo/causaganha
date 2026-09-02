@@ -6,11 +6,23 @@ line-length = 100
 
 # marimo notebooks (notebooks/*.py) are authored in marimo's own cell format
 # and embed Colab-only snippets. Their committed .ipynb is verified separately.
+# The two archived marimo notebooks under experiments/archive/ (legacy v5/BIO
+# segmenter taxonomy, superseded by notebooks/train_segmenter_colab.ipynb —
+# see RFC 0001 section 3.5 and tests/test_notebooks_legacy_taxonomy.py) are
+# frozen documentation, not maintained code, so the same carve-out applies.
 # vulture_whitelist.py is a vulture artifact (`vulture --make-whitelist`), not
 # source: it names symbols as bare expressions so vulture counts them as used,
 # and is parsed statically by vulture, never imported or executed. Linting it
 # as Python reports undefined names by construction.
-extend-exclude = ["notebooks", ".claude", "vulture_whitelist.py"]
+extend-exclude = [
+    "notebooks",
+    ".claude",
+    "vulture_whitelist.py",
+    "experiments/archive/train_privacy_filter.py",
+    "experiments/archive/train_privacy_filter.ipynb",
+    "experiments/archive/train_decision_segmenter.py",
+    "experiments/archive/train_decision_segmenter.ipynb",
+]
 
 [lint]
 extend-select = ["TRY", "BLE"]
