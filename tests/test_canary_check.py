@@ -138,3 +138,61 @@ def test_stj_published_artifact_unreachable_fails(monkeypatch) -> None:
     failures, _ = canary_check.check_stj_published()
 
     assert any("stj_totals.json" in failure for failure in failures)
+
+
+def _juris_manifest_text(rows: int = 1) -> str:
+    header = "tipo,mes_ano,ia_status,n_docs,updated_at"
+    body = "\n".join(
+        f"ACÓRDÃO,2026-0{i + 1},uploaded,1,2026-07-14T09:59:48+00:00" for i in range(rows)
+    )
+    return f"{header}\n{body}\n" if rows else f"{header}\n"
+
+
+def test_tjro_juris_published_manifest_with_entries_passes(monkeypatch) -> None:
+    monkeypatch.setattr(
+        canary_check.tjro_juris_archive, "read_manifest_text", lambda: _juris_manifest_text(3)
+    )
+
+    failures, warnings = canary_check.check_tjro_juris_published()
+
+    assert failures == []
+    assert warnings == []
+
+
+def test_tjro_juris_published_manifest_empty_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        canary_check.tjro_juris_archive, "read_manifest_text", lambda: _juris_manifest_text(0)
+    )
+
+    failures, _ = canary_check.check_tjro_juris_published()
+
+    assert any("zero entries" in failure for failure in failures)
+
+
+def test_tjro_juris_published_manifest_absent_fails(monkeypatch) -> None:
+    monkeypatch.setattr(canary_check.tjro_juris_archive, "read_manifest_text", lambda: None)
+
+    failures, _ = canary_check.check_tjro_juris_published()
+
+    assert any("tjro-juris-manifest.csv" in failure or "no TJRO JURIS manifest" in failure for failure in failures)
+
+
+def test_tjro_juris_published_manifest_invalid_fails(monkeypatch) -> None:
+    monkeypatch.setattr(
+        canary_check.tjro_juris_archive, "read_manifest_text", lambda: "not,the,right,header\n"
+    )
+
+    failures, _ = canary_check.check_tjro_juris_published()
+
+    assert any("invalid" in failure for failure in failures)
+
+
+def test_tjro_juris_published_manifest_unreachable_fails(monkeypatch) -> None:
+    def fake_read() -> str | None:
+        raise httpx.ConnectError("boom")
+
+    monkeypatch.setattr(canary_check.tjro_juris_archive, "read_manifest_text", fake_read)
+
+    failures, _ = canary_check.check_tjro_juris_published()
+
+    assert any("could not fetch" in failure for failure in failures)
