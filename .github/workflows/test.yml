@@ -5,7 +5,8 @@ on:
   push:
     branches: [main]
 
-# Default to read-only; jobs that need more declare it themselves.
+# Normal CI is intentionally read-only. Write-capable automation belongs in
+# a separate, explicitly trusted workflow rather than in validation jobs.
 permissions:
   contents: read
 
@@ -13,11 +14,6 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      # The "Auto-fix linting issues" step commits and pushes lint fixes back
-      # to bot PRs, which requires write access to repo contents. No other
-      # job needs more than read.
-      contents: write
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
       - uses: ./.github/actions/setup
@@ -40,21 +36,6 @@ jobs:
         # frontmatter fields + SQL executed against synthetic schemas derived
         # from the same view registry the render uses. No network needed.
         run: uv run python scripts/render_queries.py --check
-      - name: Auto-fix linting issues
-        if: failure() && github.event_name == 'pull_request' && endsWith(github.actor, '[bot]')
-        run: |
-          uvx ruff format . || true
-          uvx ruff check --fix . || true
-          uv run python scripts/check_notebooks_synced.py --fix || true
-          npx prettier --write . || true
-
-          if [ -n "$(git status --porcelain)" ]; then
-            git config --global user.name 'github-actions[bot]'
-            git config --global user.email 'github-actions[bot]@users.noreply.github.com'
-            git add .
-            git commit -m "style: auto-fix lint violations [bot]"
-            git push origin HEAD:${{ github.head_ref }}
-          fi
 
   tests:
     runs-on: ubuntu-latest
@@ -115,4 +96,3 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
-
