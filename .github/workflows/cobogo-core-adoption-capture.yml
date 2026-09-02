@@ -89,6 +89,17 @@ jobs:
               "http://127.0.0.1:${port}/causaganha/${page}" "captures/${page//\//-}-${suffix}-${state}.png"
           }
 
+          capture_invalid_process() {
+            state="$1"
+            port="$2"
+            viewport="$3"
+            suffix="$4"
+            npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="$viewport" --full-page \
+              --wait-for-selector='text=CNJ inválido' \
+              "http://127.0.0.1:${port}/causaganha/processo.html?cnj=123" \
+              "captures/processo-invalid-${suffix}-${state}.png"
+          }
+
           for state_port in before:4173 after:4174; do
             state="${state_port%%:*}"
             port="${state_port##*:}"
@@ -99,6 +110,8 @@ jobs:
             capture "$state" "$port" "stats.html" "1280,900" "desktop"
             capture "$state" "$port" "processo.html" "1280,900" "desktop"
             capture "$state" "$port" "processo.html" "390,844" "mobile"
+            capture_invalid_process "$state" "$port" "1280,900" "desktop"
+            capture_invalid_process "$state" "$port" "390,844" "mobile"
             capture "$state" "$port" "publicacoes.html" "1280,900" "desktop"
             capture "$state" "$port" "publicacoes.html" "390,844" "mobile"
             capture "$state" "$port" "minhas-consultas.html" "1280,900" "desktop"
@@ -113,6 +126,7 @@ jobs:
             sobre.html-desktop sobre.html-mobile \
             stats.html-desktop \
             processo.html-desktop processo.html-mobile \
+            processo-invalid-desktop processo-invalid-mobile \
             publicacoes.html-desktop publicacoes.html-mobile \
             minhas-consultas.html-desktop minhas-consultas.html-mobile; do
             before="captures/${surface}-before.png"
