@@ -48,7 +48,7 @@ Este slice **não satisfaz sozinho #984**. Antes de ampliar cobertura ou ligar T
 
 - baixar pelo menos um CSV anual real (até ~500 MB) usando `acquisition.download_official_csv` com a URL resolvida por `catalog.resolve_acordaos_url`;
 - executar o parser da #1002 contra esse arquivo completo e comparar o schema observado com o dicionário linha a linha;
-- medir tamanho/custo da expansão histórica (44 anos disponíveis, 1992–2026);
+- medir tamanho/custo da expansão histórica (35 anos no intervalo 1992–2026, se todos estiverem presentes no manifesto);
 - preservar uma amostra/manifesto de proveniência reproduzível sem commitar um bulk grande no repositório.
 
 Até essa prova ao vivo existir, nenhum dado TCU deve ser anunciado como cobertura do produto.
