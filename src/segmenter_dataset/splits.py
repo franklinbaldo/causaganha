@@ -422,6 +422,8 @@ def validate_cross_pool_leakage(
     *,
     existing_document_ids: frozenset[str] = frozenset(),
     existing_content_hashes: frozenset[str] = frozenset(),
+    existing_texts: dict[str, str] | None = None,
+    near_duplicate_threshold: float = 0.9,
 ) -> list[str]:
     """Reject candidates reusing a document_id/content_hash from another pool.
 
@@ -430,7 +432,12 @@ def validate_cross_pool_leakage(
     reject list, per #884) instead needs to check a separately-assembled
     candidate pool against splits persisted earlier — train/validation, or a
     retired test split — without re-loading their full ``DocumentRecord``s;
-    only their previously-recorded ``document_id``s and content hashes.
+    only their previously-recorded ``document_id``s, content hashes and (for
+    the near-duplicate check, RFC 0012 §10/§16.1) text.
+
+    ``existing_texts`` is optional because callers auditing only
+    document_id/content_hash reuse (e.g. against a pool whose full text was
+    never persisted) still get that coverage without it.
     """
     problems: list[str] = []
     for doc in candidate_documents:
@@ -442,4 +449,22 @@ def validate_cross_pool_leakage(
                 f"content_hash {digest} (document_id {doc.document_id}) already used "
                 "in an existing split"
             )
+
+    if existing_texts:
+        candidate_texts = {doc.document_id: doc.text for doc in candidate_documents}
+        candidate_ids = frozenset(candidate_texts)
+        merged_texts = {**existing_texts, **candidate_texts}
+        for id_a, id_b, ratio in find_near_duplicates(
+            merged_texts, threshold=near_duplicate_threshold
+        ):
+            # Only a candidate-vs-existing pair is cross-pool leakage; a pair
+            # entirely within one side is that side's own concern.
+            if (id_a in candidate_ids) == (id_b in candidate_ids):
+                continue
+            candidate_id, existing_id = (id_a, id_b) if id_a in candidate_ids else (id_b, id_a)
+            problems.append(
+                f"near-duplicate: candidate {candidate_id} matches existing {existing_id} "
+                f"at ratio {ratio:.3f} (>= {near_duplicate_threshold})"
+            )
+
     return problems

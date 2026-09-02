@@ -332,7 +332,9 @@ def test_validate_cross_pool_leakage_detects_near_duplicate() -> None:
     """RFC 0012 §10/§16.1: a near-duplicate cluster must not span pools either —
     not just exact document_id/content_hash reuse (#884).
     """
-    existing_text = "Diante do exposto, julgo procedente o pedido inicial formulado pela parte autora"
+    existing_text = (
+        "Diante do exposto, julgo procedente o pedido inicial formulado pela parte autora"
+    )
     # One reworded word: near-dup ratio is high but content_hash differs.
     candidate_text = (
         "Diante do exposto, julgo procedente o pedido inicial formulado pela parte requerente"
@@ -348,8 +350,7 @@ def test_validate_cross_pool_leakage_detects_near_duplicate() -> None:
     )
 
     assert any(
-        "near-duplicate" in p and candidate.document_id in p and "existing-4" in p
-        for p in problems
+        "near-duplicate" in p and candidate.document_id in p and "existing-4" in p for p in problems
     )
 
 
