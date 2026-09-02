@@ -23,6 +23,11 @@ two independent checks against the real, deployed system:
    authoritative manifest is populated, not that those documents have
    reached the reconciled catalog (juris_totals.json is currently empty —
    see #924 3.1, a separate reconciliation gap this canary does not cover).
+5. Reachability/structure of the published DataJud coherent state bundle
+   (datajud-state-{tribunal}.zip) — the same bundle ephemeral runners
+   restore before continuing the pipeline (#888/#889). No freshness SLO:
+   enrichment cadence is rate-limit-bound, not a fixed interval like DJEN's
+   daily sync, so this proves reachability/structure only (see #892).
 
 Exit 0 = all good (warnings allowed). Exit 1 = hard failure.
 
@@ -42,6 +47,9 @@ import httpx
 import structlog
 from holidays import Brazil
 
+from datajud import state as datajud_state
+from datajud.manifest import ManifestDataJud
+from datajud.manifest import ManifestFormatError as DataJudManifestFormatError
 from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, get_caderno_url
 from tjro_juris import archive as tjro_juris_archive
 from tjro_juris.manifest import ManifestFormatError as TjroJurisManifestFormatError
@@ -231,6 +239,45 @@ def check_tjro_juris_published() -> tuple[list[str], list[str]]:
     return failures, warnings
 
 
+def check_datajud_published(tribunal: str = "tjro") -> tuple[list[str], list[str]]:
+    """Return (failures, warnings) from the published DataJud coherent state bundle.
+
+    Proves reachability and structural validity of `datajud-state-{tribunal}.zip`
+    — the same bundle ephemeral runners restore before continuing the pipeline
+    (#888/#889) — matching #892's guidance to prove only what the pipeline
+    actually publishes. `read_remote_state` already fails closed
+    (`RemoteStateError`) on transport errors, malformed bundles and checksum
+    mismatches, so a single except clause here covers all of those. No
+    freshness SLO: enrichment cadence is rate-limit-bound, not a fixed
+    interval like DJEN's daily sync (see #892).
+    """
+    failures: list[str] = []
+    warnings: list[str] = []
+
+    try:
+        published = datajud_state.read_remote_state(tribunal)
+    except datajud_state.RemoteStateError as exc:
+        failures.append(f"could not verify published DataJud state bundle: {exc}")
+        return failures, warnings
+
+    if published is None:
+        failures.append(f"no coherent DataJud state bundle published for tribunal {tribunal!r}")
+        return failures, warnings
+
+    try:
+        manifest = ManifestDataJud.load_text(
+            published.manifest_text, source=datajud_state.bundle_name(tribunal)
+        )
+    except DataJudManifestFormatError as exc:
+        failures.append(f"DataJud state bundle published but manifest is invalid: {exc}")
+        return failures, warnings
+
+    if not manifest.all_entries():
+        failures.append("DataJud state bundle is reachable but manifest has zero entries")
+
+    return failures, warnings
+
+
 async def check_djen_live(target_date: date) -> tuple[list[str], list[str]]:
     """Return (failures, warnings) from one live DJEN lookup."""
     failures: list[str] = []
@@ -281,9 +328,10 @@ async def main() -> int:
     djen_failures, djen_warnings = await check_djen_live(target_date)
     stj_failures, stj_warnings = check_stj_published()
     tjro_juris_failures, tjro_juris_warnings = check_tjro_juris_published()
+    datajud_failures, datajud_warnings = check_datajud_published()
 
-    failures = site_failures + djen_failures + stj_failures + tjro_juris_failures
-    warnings = site_warnings + djen_warnings + stj_warnings + tjro_juris_warnings
+    failures = site_failures + djen_failures + stj_failures + tjro_juris_failures + datajud_failures
+    warnings = site_warnings + djen_warnings + stj_warnings + tjro_juris_warnings + datajud_warnings
 
     report = {
         "generated_at": now.isoformat(),

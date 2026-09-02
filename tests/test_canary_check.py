@@ -256,7 +256,7 @@ def test_datajud_published_bundle_invalid_manifest_fails(monkeypatch) -> None:
     monkeypatch.setattr(
         canary_check.datajud_state,
         "read_remote_state",
-        lambda tribunal: _published_state("not,the,right,header\n"),
+        lambda tribunal: _published_state("not,the,right,header\nx,y,z,w\n"),
     )
 
     failures, _ = canary_check.check_datajud_published()
