@@ -36,12 +36,18 @@ const fontes = [
     naoProva: 'Não descreve sozinho a trajetória completa do processo fora do STJ.',
     papel: 'Teor',
   },
+  {
+    nome: 'TCU Acórdãos',
+    prova: 'Acórdãos do Tribunal de Contas da União com identidade oficial provada, publicados entre 2017 e 2026.',
+    naoProva: 'É um órgão de controle externo federal, não um tribunal judicial; anos anteriores a 2017 não são consultados.',
+    papel: 'Teor',
+  },
 ];
 ---
 
 <Layout
   title="Como funciona — CausaGanha"
-  description="Entenda como o CausaGanha combina arquivo, estado e teor entre DJEN, DataJud, TJRO JURIS e STJ, com proveniência e dados públicos reproduzíveis."
+  description="Entenda como o CausaGanha combina arquivo, estado e teor entre DJEN, DataJud, TJRO JURIS, STJ e TCU, com proveniência e dados públicos reproduzíveis."
   showNetworkBanner={false}
 >
   <PageHeader title="Como funciona" backHref={BASE} backLabel="Início" tile="sobre" />
@@ -88,7 +94,7 @@ const fontes = [
 
   <section class="container" aria-labelledby="sources-h">
     <div class="section-heading">
-      <span class="kicker">§02 — Quatro fontes, quatro papéis</span>
+      <span class="kicker">§02 — Cinco fontes, cinco papéis</span>
       <h2 id="sources-h">Cada fonte prova uma coisa — e <em>não prova outra.</em></h2>
     </div>
     <div class="source-table" role="list">
