@@ -13,8 +13,8 @@ from causaganha.decisoes.planner import DecisionSearchBudgetError, plan_decision
 from causaganha.decisoes.published import (
     PublishedDecisionDataset,
     STJ_PARQUET_URL,
-    TCU_PARQUET_URL,
     discover_published_juris_datasets,
+    discover_published_tcu_dataset,
 )
 from causaganha.decisoes.search import search_decisions
 from tjro_juris import archive as juris_archive
@@ -89,17 +89,19 @@ def _datasets_for_source(fonte: str) -> tuple[list[PublishedDecisionDataset], li
             )
         )
     if fonte in {"todas", "tcu"}:
-        datasets.append(
-            PublishedDecisionDataset(
-                fonte="tcu",
-                url=TCU_PARQUET_URL,
-                tipo="acordao",
+        tcu_dataset = discover_published_tcu_dataset()
+        if tcu_dataset is None:
+            limitations.append(
+                "TCU: fonte ainda não publicada — nenhum artefato com prova de "
+                "leitura verificada está disponível; fonte tcu não é consultada "
+                "até essa prova existir."
             )
-        )
-        limitations.append(
-            "TCU: cobertura restrita a acórdãos com identidade KEY provada, "
-            "publicados entre 2017 e 2026 — anos anteriores não são consultados."
-        )
+        else:
+            datasets.append(tcu_dataset)
+            limitations.append(
+                "TCU: cobertura restrita a acórdãos com identidade KEY provada, "
+                "publicados entre 2017 e 2026 — anos anteriores não são consultados."
+            )
     return datasets, limitations
 
 
@@ -218,12 +220,21 @@ def register(mcp: FastMCP) -> None:
         resultados TCU em vez de simular um filtro. Não há filtro de
         assunto: nenhuma fonte tem um campo equivalente legítimo hoje.
         TCU é uma fonte de controle externo federal, não um tribunal
-        judicial, e sua cobertura hoje é restrita a 2017–2026.
+        judicial. Hoje não há artefato TCU publicado com prova de leitura
+        verificada, então ``fonte="tcu"`` falha explicitamente em vez de
+        devolver zero resultados; quando essa prova existir, a cobertura
+        inicial é restrita a acórdãos com identidade KEY provada.
         """
         if not texto and not cnj:
             msg = "Informe texto (mínimo 2 caracteres) ou cnj."
             raise ToolError(msg)
         datasets, coverage_limitations = _datasets_for_source(fonte)
+        if fonte == "tcu" and not datasets:
+            msg = (
+                "Fonte tcu ainda não publicada: nenhum artefato TCU com prova "
+                "de leitura verificada está disponível no momento."
+            )
+            raise ToolError(msg)
         try:
             plan = plan_decision_search(
                 datasets,

@@ -69,6 +69,17 @@ def discover_published_juris_datasets(manifest_text: str) -> list[PublishedDecis
     return sorted(datasets, key=lambda item: (item.periodo or "", item.tipo or "", item.url))
 
 
+def discover_published_tcu_dataset() -> PublishedDecisionDataset | None:
+    """Return the published TCU dataset, or ``None`` while publication is unproven.
+
+    ``TCU_PARQUET_URL`` names the *target* location for the TCU 2017-2026
+    artifact; by itself it is not evidence the artifact exists (#1025). Until
+    a verified upload/read-back proof lands (#1022), this returns ``None`` so
+    callers cannot mistake the presumed URL for a published dataset.
+    """
+    return None
+
+
 def discover_published_decision_datasets(manifest_text: str) -> list[PublishedDecisionDataset]:
     """Return the public datasets that currently support the TEOR product role."""
     return [
