@@ -1,0 +1,13 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - --file
+      - deployment/mcp/Dockerfile
+      - --build-arg
+      - GIT_SHA=${_GIT_SHA}
+      - --tag
+      - ${_IMAGE}
+      - .
+images:
+  - ${_IMAGE}
