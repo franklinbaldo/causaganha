@@ -1,1 +1,0 @@
-"""Database scripts for CausaGanha."""
