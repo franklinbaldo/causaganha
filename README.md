@@ -65,7 +65,17 @@ Artefatos centrais:
 
 ### 3. Agentes / MCP
 
-`causaganha-mcp` expõe uma superfície read-only para assistentes. Hoje são **sete tools**:
+`causaganha-mcp` expõe uma superfície read-only para assistentes. Hoje são **dez tools**:
+
+<!-- mcp-tools:start -->
+Tools de produto (respondem ARQUIVO/ESTADO/TEOR sem exigir conhecimento de schemas ou pipelines):
+
+- `processo_consultar` — ARQUIVO: publicações preservadas, decisões/documentos e metadados do snapshot para um CNJ;
+- `publicacoes_buscar` — ARQUIVO: pesquisa publicações preservadas por processo, OAB, parte, advogado, texto, tribunal ou período;
+- `processo_estado` — ESTADO: movimentos, graus e último marco de um CNJ no DataJud oficial;
+- `decisoes_buscar` — TEOR: busca temática por decisão, acórdão, ementa ou tese.
+
+Tools operacionais/diagnóstico (saúde e freshness dos coletores, nunca pré-requisito para uma consulta de produto):
 
 - `causaganha_status`
 - `djen_backup_status`
@@ -73,9 +83,9 @@ Artefatos centrais:
 - `stj_acordaos_status`
 - `datajud_status`
 - `datajud_facetas`
-- `processo_consultar`
+<!-- mcp-tools:end -->
 
-As cinco tools de status leem estado local dos pipelines. `datajud_facetas` consulta a API pública do DataJud; `processo_consultar` lê o índice e os Parquets canônicos publicados no Internet Archive. Nenhuma tool dispara ingestão, upload ou backfill.
+As seis tools operacionais leem estado local dos pipelines ou, no caso de `datajud_facetas`, agregados da API pública do DataJud. Nenhuma tool dispara ingestão, upload ou backfill.
 
 Hosts que suportam MCP local por stdio podem iniciar o servidor com:
 
@@ -90,7 +100,11 @@ Hosts que suportam MCP local por stdio podem iniciar o servidor com:
 }
 ```
 
-Servir o MCP remotamente para hosts que exigem HTTP não está configurado neste repositório.
+Estado do transporte HTTP, em três partes:
+
+- **stdio local**: suportado hoje via `causaganha-mcp` (acima);
+- **artefato HTTP/deploy**: já existe no repositório em `deployment/mcp/` (`causaganha-mcp-http`, Dockerfile e `cloudbuild.yaml`), com limites de timeout e concorrência documentados ali;
+- **URL pública estável**: ainda bloqueada — o rollout e a divulgação de uma URL dependem da prova de smoke descrita em #950.
 
 ## Fundação: o arquivo DJEN
 
