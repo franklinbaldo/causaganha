@@ -1,63 +1,73 @@
 {
   "category_version": "segmenter_v7",
   "seed": 771,
-  "source": "Internet Archive djen-tjro-2025 OCR cadernos (public DJEN publications)",
-  "source_commit": "22e9e10ce4f5cfc9bd2ab86b13e468ebf017613d",
+  "source": "DJEN (multiple tribunals): TJRO (Internet Archive), TJRJ, TRF4, TJAM, TJSC, TJBA",
+  "source_commit": "f44f64c4afb548cb06c069a854f0f30f952ab606",
   "counts": {
-    "train": 14,
-    "val": 3,
-    "test": 3
+    "train": 44,
+    "val": 8,
+    "test": 6
   },
   "per_class": {
-    "acordao_decisorio_fim": 2,
-    "acordao_decisorio_inicio": 3,
-    "cabecalho_fim": 10,
-    "cabecalho_inicio": 17,
+    "acordao_decisorio_fim": 33,
+    "acordao_decisorio_inicio": 34,
+    "cabecalho_fim": 41,
+    "cabecalho_inicio": 48,
     "capitulo_merito_fim": 2,
     "capitulo_merito_inicio": 11,
     "custas_fim": 2,
-    "custas_inicio": 4,
-    "dispositivo_abertura": 13,
-    "ementa_fim": 7,
-    "ementa_inicio": 8,
+    "custas_inicio": 6,
+    "dispositivo_abertura": 20,
+    "ementa_fim": 37,
+    "ementa_inicio": 38,
     "encerramento_fim": 9,
-    "encerramento_inicio": 10,
-    "fundamentacao_legal": 6,
+    "encerramento_inicio": 43,
+    "fundamentacao_legal": 11,
     "honorarios_fim": 4,
-    "honorarios_inicio": 6,
+    "honorarios_inicio": 9,
     "preliminar_fim": 1,
     "preliminar_inicio": 1,
-    "ref_processual": 18,
-    "relatorio_fim": 11,
-    "relatorio_inicio": 12,
-    "resultado": 20,
-    "valor_condenacao": 6,
-    "voto_fim": 3,
-    "voto_inicio": 3
+    "ref_processual": 50,
+    "relatorio_fim": 12,
+    "relatorio_inicio": 13,
+    "resultado": 59,
+    "valor_condenacao": 8,
+    "voto_fim": 4,
+    "voto_inicio": 4
   },
-  "tribunals": {
-    "TJRO": 20
-  },
+  "tribunals": [
+    "TJAM",
+    "TJBA",
+    "TJRJ",
+    "TJRO",
+    "TJSC",
+    "TRF4"
+  ],
   "doc_types_total": {
-    "acordao": 8,
-    "sentenca": 12
+    "acordao": 38,
+    "sentenca": 12,
+    "decisão": 8
   },
   "doc_types_per_split": {
     "train": {
-      "acordao": 6,
-      "sentenca": 8
+      "acordao": 30,
+      "sentenca": 8,
+      "decisão": 6
     },
     "val": {
-      "acordao": 1,
-      "sentenca": 2
+      "acordao": 5,
+      "sentenca": 2,
+      "decisão": 1
     },
     "test": {
-      "acordao": 1,
-      "sentenca": 2
+      "acordao": 3,
+      "sentenca": 2,
+      "decisão": 1
     }
   },
   "labeler": "prompt_subagents:haiku (one labeling subagent per batch, acordaos first)",
   "test_verified_by": "prompt_ensemble:strict+disambig+blind+adversarial",
   "verifier_model": "sonnet",
-  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa is intentionally NOT labeled (regex pre-pass at inference). Single-tribunal (TJRO) seed of 20 docs; scale to more tribunals/volume next."
+  "notes": "Seed gold built the subagent way: strict sampling (acordao requires ACORDAO+VOTO+ACORDAM, sentenca requires SENTENCA+dispositivo-formula+operative-verb; despachos excluded), Haiku labeling subagents returning {category,match,nth}, offsets resolved by opf_annotate from-spans, overlaps removed deterministically, then a decorrelated 4-role Sonnet ensemble over val+test. ref_normativa is intentionally NOT labeled (regex pre-pass at inference). Expanded from single-tribunal (TJRO) to 6 tribunals (TJRO, TJRJ, TRF4, TJAM, TJSC, TJBA); 58 docs total. G1-G5 gates not yet met (target: 150 docs).",
+  "total_docs": 58
 }
