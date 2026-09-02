@@ -18,8 +18,12 @@ from tcu_acordaos.coverage import (
 )
 
 _ENTRIES = [
-    ManifestEntry(base="Acórdãos", ano="1992", tamanho="15.07 MB", url="https://tcu.gov.br/1992.csv"),
-    ManifestEntry(base="Acórdãos", ano="2026", tamanho="275.27 MB", url="https://tcu.gov.br/2026.csv"),
+    ManifestEntry(
+        base="Acórdãos", ano="1992", tamanho="15.07 MB", url="https://tcu.gov.br/1992.csv"
+    ),
+    ManifestEntry(
+        base="Acórdãos", ano="2026", tamanho="275.27 MB", url="https://tcu.gov.br/2026.csv"
+    ),
     ManifestEntry(base="Acórdãos", ano="", tamanho="54.85 MB", url="https://tcu.gov.br/resumo.csv"),
     ManifestEntry(base="Súmulas", ano="", tamanho="800.20 KB", url="https://tcu.gov.br/sumula.csv"),
 ]
