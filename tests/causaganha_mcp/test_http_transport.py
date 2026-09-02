@@ -11,7 +11,11 @@ from fastmcp.server.middleware import MiddlewareContext
 
 import causaganha_mcp.__main__ as stdio_entry
 import causaganha_mcp.http_server as http_entry
-from causaganha_mcp.http_server import HttpSettings, OperationalLimitsMiddleware
+from causaganha_mcp.http_server import (
+    HttpSettings,
+    OperationalLimitsMiddleware,
+    PathArgumentGuardMiddleware,
+)
 from causaganha_mcp.server import build_server
 
 
@@ -137,8 +141,10 @@ def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
 
     http_entry.main()
 
-    assert len(middleware) == 1
-    limits = cast(OperationalLimitsMiddleware, middleware[0])
+    assert len(middleware) == 2
+    guard, limits = middleware
+    assert isinstance(guard, PathArgumentGuardMiddleware)
+    assert isinstance(limits, OperationalLimitsMiddleware)
     assert limits.timeout_seconds == 30.0
     assert limits.max_concurrency == 2
     assert calls == [
