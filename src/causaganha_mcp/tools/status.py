@@ -185,6 +185,7 @@ def _djen_status() -> PipelineStatus:
             fonte="manifest_publicado",
             canonica=True,
             publicacao_observacao="absent",
+            publicacao_aviso="Nenhum manifest DJEN foi publicado no Internet Archive.",
             aviso="Nenhum manifest DJEN foi publicado no Internet Archive.",
         )
 
@@ -249,6 +250,7 @@ def _tjro_juris_status() -> PipelineStatus:
             fonte="manifest_publicado",
             canonica=True,
             publicacao_observacao="absent",
+            publicacao_aviso="Nenhum manifest TJRO JURIS foi publicado no Internet Archive.",
             aviso="Nenhum manifest TJRO JURIS foi publicado no Internet Archive.",
         )
     try:
@@ -326,6 +328,7 @@ def _stj_acordaos_status() -> PipelineStatus:
             fonte="manifest_publicado",
             canonica=True,
             publicacao_observacao="absent",
+            publicacao_aviso="Nenhum manifest STJ foi publicado no Internet Archive.",
             aviso="Nenhum manifest STJ foi publicado no Internet Archive.",
         )
     manifest = ManifestSTJ(Path("stj-manifest-publicado.csv"))
@@ -406,6 +409,7 @@ def _datajud_status() -> PipelineStatus:
             fonte="bundle_publicado",
             canonica=True,
             publicacao_observacao="absent",
+            publicacao_aviso="Nenhuma geração coerente DataJud foi publicada para este tribunal.",
             aviso="Nenhuma geração coerente DataJud foi publicada para este tribunal.",
         )
 
