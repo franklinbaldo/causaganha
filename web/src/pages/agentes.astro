@@ -5,7 +5,12 @@ const localConfig = `{
   "mcpServers": {
     "causaganha": {
       "command": "uv",
-      "args": ["run", "causaganha-mcp"]
+      "args": [
+        "run",
+        "--directory",
+        "/caminho/para/causaganha",
+        "causaganha-mcp"
+      ]
     }
   }
 }`;
@@ -64,8 +69,9 @@ const localConfig = `{
         <p class="section-kicker">Conexão local</p>
         <h2 id="connect-title">Um servidor MCP, sem credencial no protocolo</h2>
         <p>
-          No checkout do repositório, com as dependências instaladas via <code>uv</code>, configure um cliente MCP
-          compatível para iniciar o entrypoint stdio canônico. O cliente precisa aceitar servidores MCP por comando.
+          Com o repositório clonado e as dependências instaladas via <code>uv</code>, configure um cliente MCP
+          compatível para iniciar o entrypoint stdio canônico. Substitua <code>/caminho/para/causaganha</code> pelo
+          caminho absoluto do checkout; assim o cliente não depende do diretório de trabalho em que foi iniciado.
         </p>
         <p class="note">
           O caminho HTTP público será publicado aqui somente depois de #950 produzir uma URL estável e um smoke real
