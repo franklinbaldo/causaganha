@@ -112,7 +112,9 @@ def test_build_identity_report_accepts_first_candidate_stable_in_every_full_year
     assert report["decision"]["accepted_candidate"] == proc
 
 
-def test_build_identity_report_prefers_earlier_candidate_even_if_a_later_one_is_also_stable() -> None:
+def test_build_identity_report_prefers_earlier_candidate_even_if_a_later_one_is_also_stable() -> (
+    None
+):
     full_year_evidence = {
         "1992": _full_year_evidence("u1992", "a"),
         "2016": _full_year_evidence("u2016", "b"),
