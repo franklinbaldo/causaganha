@@ -27,10 +27,7 @@ PROCESSUAL_2026_RESOURCES = (
     ResourceSpec(
         kind=ResourceKind.PROCESSOS,
         year=2026,
-        url=(
-            "https://cdn.tse.jus.br/estatistica/sead/odsele/processual/"
-            "processo_eleitoral_2026.zip"
-        ),
+        url="https://cdn.tse.jus.br/estatistica/sead/odsele/processual/processo_eleitoral_2026.zip",
     ),
     ResourceSpec(
         kind=ResourceKind.ASSUNTOS,
