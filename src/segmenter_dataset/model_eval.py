@@ -39,6 +39,9 @@ from segmenter_dataset.iaa import (
     f1_from_counts,
     macro_f1,
     pooled_counts,
+    precision_from_counts,
+    recall_from_counts,
+    support,
 )
 from segmenter_dataset.ontology import CRITICAL_CATEGORIES, CRITICAL_CATEGORY_FLOOR
 from segmenter_dataset.schemas import ModelAcceptanceEvidence
@@ -126,6 +129,51 @@ def bootstrap_diff_ci_low(
     diffs.sort()
     low_index = int(0.025 * len(diffs))
     return diffs[low_index]
+
+
+@dataclass(frozen=True)
+class CategoryMetrics:
+    """Full gold-vs-model breakdown for one category (#1052's span-metrics harness).
+
+    Every category with any gold or predicted span appears when produced by
+    :func:`per_category_metrics` — unlike ``iaa.macro_f1``'s reliability-gated
+    aggregate (RFC 0012 §8's ``min_support`` floor), a rare category's zero
+    recall must stay visible here rather than being silently dropped.
+    """
+
+    category: str
+    support: int
+    tp: int
+    fp: int
+    fn: int
+    precision: float
+    recall: float
+    f1: float
+
+
+def per_category_metrics(predictions: list[DocumentModelPrediction]) -> dict[str, CategoryMetrics]:
+    """Support/TP/FP/FN/precision/recall/F1 per category, pooled gold vs model.
+
+    Reuses ``iaa.pooled_counts``' exact-match counting (gold as ``labels_a``,
+    model prediction as ``labels_b``, per ``DocumentModelPrediction.model_pair``),
+    so ``fp`` means "predicted but not gold" and ``fn`` means "gold but not
+    predicted" — the standard precision/recall direction.
+    """
+    pairs = [item.model_pair for item in predictions]
+    counts = pooled_counts(pairs)
+    return {
+        category: CategoryMetrics(
+            category=category,
+            support=support(c),
+            tp=c[0],
+            fp=c[1],
+            fn=c[2],
+            precision=precision_from_counts(*c),
+            recall=recall_from_counts(*c),
+            f1=f1_from_counts(*c),
+        )
+        for category, c in sorted(counts.items())
+    }
 
 
 def critical_category_f1(predictions: list[DocumentModelPrediction]) -> dict[str, float]:
