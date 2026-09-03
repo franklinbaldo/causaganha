@@ -37,7 +37,6 @@
   let invalidMessage = $state(null);
   let queryError = $state(null);
   let processo = $state(null);
-  let notFoundLegado = $state(false);
   let notFoundDatasetGeradoEm = $state(null);
 
   let documentosStatus = $state('idle'); // 'idle' | 'loading' | 'ready' | 'error'
@@ -104,7 +103,6 @@
         digits,
         offset,
         DOCUMENTOS_PAGE_SIZE,
-        processo?.legado ?? false,
       );
 
       if (generation !== searchGeneration) return; // a newer search superseded this one
@@ -194,7 +192,6 @@
     status = 'querying';
     queryError = null;
     processo = null;
-    notFoundLegado = false;
     notFoundDatasetGeradoEm = null;
     documentos = [];
     documentosStatus = 'idle';
@@ -218,7 +215,6 @@
 
       if (!resultado.encontrado) {
         status = 'not_found';
-        notFoundLegado = resultado.legado;
         notFoundDatasetGeradoEm = resultado.datasetGeradoEm ?? null;
         return;
       }
@@ -317,9 +313,8 @@
       <h3>Processo não localizado neste snapshot</h3>
       <p>
         Nenhum registro para <code>{lastQueriedCnj ? formatCnj(lastQueriedCnj) : ''}</code> em
-        {notFoundLegado ? 'processos_unificados.parquet' : 'indice_processual.parquet'}. Isso
-        significa que o CNJ não apareceu em nenhuma das fontes reconciliadas (DJEN, JURIS, STJ,
-        DataJud) até a última geração do dataset — não que o processo não existe.
+        indice_processual.parquet. Isso significa que o CNJ não apareceu em nenhuma das fontes
+        reconciliadas (DJEN, JURIS, STJ, DataJud) até a última geração do dataset — não que o processo não existe.
       </p>
       <p class="meta-text">Snapshot consultado: dataset gerado em {datasetGeneratedAtLabel}.</p>
       {#if datasetStale}

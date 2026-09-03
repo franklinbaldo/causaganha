@@ -22,22 +22,6 @@ export const IA_DASHBOARD_BASE = 'https://archive.org/download/causaganha-dashbo
 export const INDICE_PROCESSUAL_URL = `${IA_DASHBOARD_BASE}/indice_processual.parquet`;
 export const REPORT_URL = `${IA_DASHBOARD_BASE}/indice_processual.report.json`;
 
-// Rollout fallback (RFC 0014 M2 review): indice_processual.parquet is a brand
-// new artifact — deploy-web.yml can build/deploy before update-catalog.yml
-// has ever published it (that step only runs when has_new_uploads==true; a
-// plain push to main touching web/**/render_queries.py deploys immediately,
-// with no ordering guarantee against the catalog pipeline). Without a
-// fallback, /processo would regress from "has real reconciled data" (its
-// state today, reading these two files) to "indisponível" for however long
-// that takes. These files are frozen (the reconciler stopped writing to
-// them, but nothing deletes them from IA), so they remain a valid — if
-// increasingly stale — source until the index is confirmed published.
-// Mirrors scripts/render_queries.py's own _comunicacoes_urls_from_catalog
-// fallback. Remove once indice_processual.parquet has been confirmed
-// published at least once.
-export const PROCESSOS_UNIFICADOS_URL_LEGADO = `${IA_DASHBOARD_BASE}/processos_unificados.parquet`;
-export const PROCESSO_DOCUMENTOS_URL_LEGADO = `${IA_DASHBOARD_BASE}/processo_documentos.parquet`;
-
 export const DOCUMENTOS_PAGE_SIZE = 20;
 
 export type Fonte = 'djen' | 'juris' | 'stj' | 'datajud';
@@ -250,36 +234,6 @@ export function buildDocumentosSql(jurisUrls: string[], stjUrls: string[]): { sq
   return { sql: `${union} ORDER BY data DESC NULLS LAST, id_documento LIMIT ? OFFSET ?`, nParams: parts.length };
 }
 
-// ── Consultas legadas (fallback de rollout, ver PROCESSOS_UNIFICADOS_URL_LEGADO) ──
-
-export function buildProcessoUnificadoSqlLegado(): string {
-  return `
-    SELECT
-      nr_processo, nr_processo_mascara, n_fontes, fontes,
-      djen_primeira_pub, djen_ultima_pub, djen_n_publicacoes, djen_tribunais,
-      juris_n_documentos, juris_tipos, juris_data_julgamento,
-      juris_orgao, juris_relator, juris_classe, juris_url,
-      stj_id, stj_classe, stj_relator, stj_tema, stj_tese, stj_ementa,
-      stj_data_decisao, stj_data_publicacao,
-      classe_oficial, assuntos, orgao_julgador, grau,
-      data_ajuizamento, ultima_atualizacao, tem_datajud,
-      updated_at
-    FROM read_parquet('${PROCESSOS_UNIFICADOS_URL_LEGADO}')
-    WHERE nr_processo = ?
-    LIMIT 1
-  `;
-}
-
-export function buildProcessoDocumentosSqlLegado(): string {
-  return `
-    SELECT fonte, id_documento, tipo, data, url, resumo
-    FROM read_parquet('${PROCESSO_DOCUMENTOS_URL_LEGADO}')
-    WHERE nr_processo = ?
-    ORDER BY data DESC NULLS LAST, id_documento
-    LIMIT ? OFFSET ?
-  `;
-}
-
 export interface PageResult<T> {
   items: T[];
   hasMore: boolean;
@@ -325,17 +279,6 @@ function toNullableString(value: unknown): string | null {
   if (value === null || value === undefined) return null;
   const s = String(value);
   return s.length > 0 ? s : null;
-}
-
-/** TIMESTAMP arbitrário (Date, string ISO, epoch numérico) → string ISO completa, ou null. */
-function toIsoTimestamp(value: unknown): string | null {
-  if (value === null || value === undefined) return null;
-  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value.toISOString();
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'bigint') {
-    const parsed = new Date(typeof value === 'bigint' ? Number(value) : value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed.toISOString();
-  }
-  return null;
 }
 
 /** DATE/TIMESTAMP arbitrário (Date, string ISO, epoch numérico) → 'YYYY-MM-DD', ou null. */
@@ -492,77 +435,6 @@ export function mapDatajudRow(raw: Record<string, unknown> | null): DatajudCapaV
     grau: toNullableString(raw.grau),
     dataAjuizamento: toIsoDate(raw.data_ajuizamento),
     ultimaAtualizacao: toIsoDate(raw.ultima_atualizacao),
-  };
-}
-
-export interface ProcessoLegadoRow {
-  nrProcesso: string;
-  nrProcessoMascara: string;
-  fontes: Fonte[];
-  djen: DjenResumoView;
-  juris: JurisDecisaoView;
-  stj: StjAcordaoView;
-  datajud: DatajudCapaView;
-  updatedAtRaw: string | null;
-}
-
-/**
- * Converte uma linha crua de buildProcessoUnificadoSqlLegado (o schema largo
- * pré-índice) para as mesmas interfaces de visualização por fonte usadas
- * pelo caminho novo — os nomes de campo já coincidem exatamente (herdados
- * do mesmo componente antes da migração), então é uma reestruturação, não
- * uma tradução de schema.
- */
-export function mapProcessoRowLegado(raw: Record<string, unknown>): ProcessoLegadoRow {
-  const fontes = toStringArray(raw.fontes) as Fonte[];
-  const has = (f: Fonte) => fontes.includes(f);
-  const nrProcesso = String(raw.nr_processo ?? '');
-
-  return {
-    nrProcesso,
-    nrProcessoMascara: toNullableString(raw.nr_processo_mascara) ?? formatCnj(nrProcesso),
-    fontes,
-    djen: {
-      present: has('djen'),
-      primeiraPub: toIsoDate(raw.djen_primeira_pub),
-      ultimaPub: toIsoDate(raw.djen_ultima_pub),
-      nPublicacoes: toNumber(raw.djen_n_publicacoes),
-      tribunais: toStringArray(raw.djen_tribunais),
-    },
-    juris: {
-      present: has('juris'),
-      nDocumentos: toNumber(raw.juris_n_documentos),
-      tipos: toStringArray(raw.juris_tipos),
-      dataJulgamento: toIsoDate(raw.juris_data_julgamento),
-      orgao: toNullableString(raw.juris_orgao),
-      relator: toNullableString(raw.juris_relator),
-      classe: toNullableString(raw.juris_classe),
-      url: toNullableString(raw.juris_url),
-    },
-    stj: {
-      present: has('stj'),
-      id: toNullableString(raw.stj_id),
-      classe: toNullableString(raw.stj_classe),
-      relator: toNullableString(raw.stj_relator),
-      tema: toNullableString(raw.stj_tema),
-      tese: toNullableString(raw.stj_tese),
-      ementa: toNullableString(raw.stj_ementa),
-      dataDecisao: toIsoDate(raw.stj_data_decisao),
-      dataPublicacao: toIsoDate(raw.stj_data_publicacao),
-    },
-    datajud: {
-      // tem_datajud é a fonte da verdade (RFC 0010) — 'datajud' em fontes
-      // acompanha o mesmo booleano, checar os dois é redundante mas
-      // inofensivo caso um dia divirjam.
-      present: has('datajud') && Boolean(raw.tem_datajud),
-      classeOficial: toNullableString(raw.classe_oficial),
-      assuntos: toNullableString(raw.assuntos),
-      orgaoJulgador: toNullableString(raw.orgao_julgador),
-      grau: toNullableString(raw.grau),
-      dataAjuizamento: toIsoDate(raw.data_ajuizamento),
-      ultimaAtualizacao: toIsoDate(raw.ultima_atualizacao),
-    },
-    updatedAtRaw: toIsoTimestamp(raw.updated_at),
   };
 }
 
@@ -726,14 +598,7 @@ export interface ProcessoResultado {
   cobertura: FonteCobertura[];
   datasetGeradoEm: string | null;
   avisos: string[];
-  /** True quando este resultado veio do fallback pré-migração (ver PROCESSOS_UNIFICADOS_URL_LEGADO). */
-  legado: boolean;
 }
-
-const INDICE_INDISPONIVEL_AVISO =
-  'Não foi possível abrir indice_processual.parquet no Internet Archive. Mostrando dados de ' +
-  'processos_unificados.parquet (versão anterior à migração para o índice fino) — podem estar ' +
-  'desatualizados.';
 
 /**
  * Busca o dossiê unificado de um CNJ (20 dígitos) via indice_processual.parquet
@@ -742,10 +607,11 @@ const INDICE_INDISPONIVEL_AVISO =
  * relatório de cobertura falhando vira lacuna vazia + aviso, nunca lança.
  *
  * indice_processual.parquet em si sendo inacessível (não apenas uma fonte
- * específica) não propaga como erro aqui — ao contrário do serviço Python,
- * que não tem alternativa e por isso deixa a exceção subir — porque há um
- * fallback real disponível no navegador: processos_unificados.parquet
- * (RFC 0014 M2 review). Ver buscarProcessoLegado.
+ * específica) propaga como erro — como o serviço Python, que não tem
+ * alternativa: não há mais fallback para um snapshot congelado (RFC 0014 M2
+ * rollout fallback, retirado após a publicação confirmada do índice, #1063).
+ * O chamador (ProcessoLookup.svelte) trata a rejeição como "fonte
+ * indisponível".
  */
 export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string): Promise<ProcessoResultado> {
   const avisos: string[] = [];
@@ -755,12 +621,7 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
   if (!coberturaResult) avisos.push(RELATORIO_INDISPONIVEL_AVISO);
 
   const nrProcessoMascara = formatCnj(digits);
-  let indiceRows: Record<string, unknown>[];
-  try {
-    indiceRows = await queryRows(conn, buildIndiceSql(), [digits]);
-  } catch {
-    return buscarProcessoLegado(conn, digits, nrProcessoMascara, avisos);
-  }
+  const indiceRows = await queryRows(conn, buildIndiceSql(), [digits]);
 
   if (indiceRows.length === 0) {
     return {
@@ -777,7 +638,6 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
       cobertura,
       datasetGeradoEm,
       avisos,
-      legado: false,
     };
   }
 
@@ -813,61 +673,6 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
     cobertura,
     datasetGeradoEm,
     avisos,
-    legado: false,
-  };
-}
-
-/**
- * Fallback de rollout: indice_processual.parquet está inacessível — tenta o
- * schema largo pré-migração (ainda no IA, congelado). Se ele também falhar,
- * não há fonte de dados nenhuma disponível — deixa a exceção subir para o
- * chamador tratar como "fonte indisponível" (mesmo comportamento de antes
- * desta fallback existir).
- */
-async function buscarProcessoLegado(
-  conn: DuckDBConnectionLike,
-  digits: string,
-  nrProcessoMascara: string,
-  avisosBase: string[],
-): Promise<ProcessoResultado> {
-  const avisos = [...avisosBase, INDICE_INDISPONIVEL_AVISO];
-  const rows = await queryRows(conn, buildProcessoUnificadoSqlLegado(), [digits]);
-
-  if (rows.length === 0) {
-    return {
-      encontrado: false,
-      nrProcesso: digits,
-      nrProcessoMascara,
-      fontes: [],
-      djen: AUSENTE_DJEN,
-      juris: AUSENTE_JURIS,
-      stj: AUSENTE_STJ,
-      datajud: AUSENTE_DATAJUD,
-      jurisUrls: [],
-      stjUrls: [],
-      cobertura: [],
-      datasetGeradoEm: null,
-      avisos,
-      legado: true,
-    };
-  }
-
-  const legado = mapProcessoRowLegado(rows[0]);
-  return {
-    encontrado: true,
-    nrProcesso: legado.nrProcesso,
-    nrProcessoMascara: legado.nrProcessoMascara,
-    fontes: legado.fontes,
-    djen: legado.djen,
-    juris: legado.juris,
-    stj: legado.stj,
-    datajud: legado.datajud,
-    jurisUrls: [],
-    stjUrls: [],
-    cobertura: [],
-    datasetGeradoEm: legado.updatedAtRaw,
-    avisos,
-    legado: true,
   };
 }
 
@@ -875,10 +680,7 @@ async function buscarProcessoLegado(
  * Busca uma página de documentos JURIS/STJ para um CNJ já resolvido por
  * buscarProcesso() — reusa `jurisUrls`/`stjUrls` descobertas ali, sem
  * reconsultar o índice. Retorna vazio sem consultar nada quando nenhuma das
- * duas fontes tem registro (também o caso quando `legado=true`, já que o
- * fallback não descobre URLs de origem — carregarDocumentos precisa do
- * parâmetro `legado` nesse caso para consultar processo_documentos.parquet
- * em vez do UNION dinâmico por fonte).
+ * duas fontes tem registro.
  */
 export async function carregarDocumentos(
   conn: DuckDBConnectionLike,
@@ -887,16 +689,7 @@ export async function carregarDocumentos(
   digits: string,
   offset: number,
   pageSize: number = DOCUMENTOS_PAGE_SIZE,
-  legado = false,
 ): Promise<PageResult<ProcessoDocumentoRow>> {
-  if (legado) {
-    const rawRows = await queryRows(conn, buildProcessoDocumentosSqlLegado(), [
-      digits,
-      pageSize + 1,
-      offset,
-    ]);
-    return paginate(rawRows.map(mapDocumentoRow), pageSize);
-  }
   if (jurisUrls.length === 0 && stjUrls.length === 0) {
     return { items: [], hasMore: false };
   }

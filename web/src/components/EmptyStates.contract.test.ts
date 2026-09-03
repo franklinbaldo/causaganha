@@ -63,7 +63,6 @@ describe('empty/error-state contract across public product surfaces (#907)', () 
     window.history.replaceState({}, '', '/causaganha/processo?ref=empty-state-contract');
     vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({
       encontrado: false,
-      legado: false,
       datasetGeradoEm: '2026-08-20T10:00:00Z',
     } as never);
     const component = render(ProcessoLookup);

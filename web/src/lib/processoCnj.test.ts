@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ALL_FONTES,
@@ -601,71 +603,37 @@ function fakeConnWithFailure(
   };
 }
 
-describe('buscarProcesso — rollout fallback (indice_processual.parquet unreachable)', () => {
+describe('buscarProcesso — indice_processual.parquet unreachable', () => {
   const INDICE_SUBSTRING = "FROM read_parquet('https://archive.org/download/causaganha-dashboard/indice_processual.parquet')";
-  const LEGADO_UNIFICADO_SUBSTRING =
-    "FROM read_parquet('https://archive.org/download/causaganha-dashboard/processos_unificados.parquet')";
 
-  it('falls back to processos_unificados.parquet and marks the result legado', async () => {
+  // RFC 0014 M2 review's rollout fallback (processos_unificados.parquet /
+  // processo_documentos.parquet) is retired now that indice_processual.parquet
+  // has been confirmed published (#1042, run #776). A failure reading the
+  // canonical index must surface as an explicit "fonte indisponível" state —
+  // ProcessoLookup.svelte already renders this from a rejected promise — never
+  // as a silent, possibly-stale success from a frozen second source (#1063).
+  it('propagates the failure instead of falling back to a frozen legacy snapshot', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
     try {
-      const conn = fakeConnWithFailure(INDICE_SUBSTRING, [
-        [
-          LEGADO_UNIFICADO_SUBSTRING,
-          [
-            {
-              nr_processo: CNJ_ALL,
-              nr_processo_mascara: '0000001-02.2024.8.22.0001',
-              n_fontes: 2,
-              fontes: ['djen', 'juris'],
-              djen_primeira_pub: '2024-03-01',
-              djen_ultima_pub: '2024-03-05',
-              djen_n_publicacoes: 2,
-              djen_tribunais: ['TJRO'],
-              juris_n_documentos: 1,
-              juris_tipos: ['ACÓRDÃO'],
-              juris_data_julgamento: '2024-02-28',
-              juris_orgao: '2a Camara',
-              juris_relator: 'Des. A',
-              juris_classe: 'Apelação',
-              juris_url: 'https://juris/1',
-              tem_datajud: false,
-              updated_at: '2026-01-01T00:00:00Z',
-            },
-          ],
-        ],
-      ]);
-      const result = await buscarProcesso(conn as any, CNJ_ALL);
-
-      expect(result.legado).toBe(true);
-      expect(result.encontrado).toBe(true);
-      expect(result.nrProcesso).toBe(CNJ_ALL);
-      expect(result.fontes).toEqual(['djen', 'juris']);
-      expect(result.djen).toMatchObject({ present: true, nPublicacoes: 2 });
-      expect(result.juris).toMatchObject({ present: true, orgao: '2a Camara' });
-      expect(result.jurisUrls).toEqual([]);
-      expect(result.stjUrls).toEqual([]);
-      expect(result.cobertura).toEqual([]);
-      expect(result.datasetGeradoEm).toBe('2026-01-01T00:00:00.000Z');
-      expect(result.avisos.some((a) => a.includes('indice_processual.parquet'))).toBe(true);
-      expect(result.avisos.some((a) => a.includes('processos_unificados.parquet'))).toBe(true);
+      const conn = fakeConnWithFailure(INDICE_SUBSTRING, []);
+      await expect(buscarProcesso(conn as any, CNJ_ALL)).rejects.toThrow();
     } finally {
       vi.unstubAllGlobals();
     }
   });
+});
 
-  it('falls back and reports not found when the legacy parquet has no row either', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
-    try {
-      const conn = fakeConnWithFailure(INDICE_SUBSTRING, []);
-      const result = await buscarProcesso(conn as any, CNJ_ALL);
+describe('architecture guard — indice_processual.parquet is the sole cross-source index (#1063)', () => {
+  const LEGACY_URL_PATTERN = /processos_unificados\.parquet|processo_documentos\.parquet/;
 
-      expect(result.legado).toBe(true);
-      expect(result.encontrado).toBe(false);
-      expect(result.fontes).toEqual([]);
-    } finally {
-      vi.unstubAllGlobals();
-    }
+  it('processoCnj.ts never references the retired cross-process parquet URLs', () => {
+    const source = readFileSync(join(process.cwd(), 'src/lib/processoCnj.ts'), 'utf-8');
+    expect(source).not.toMatch(LEGACY_URL_PATTERN);
+  });
+
+  it('ProcessoLookup.svelte never references the retired cross-process parquet URLs', () => {
+    const source = readFileSync(join(process.cwd(), 'src/components/ProcessoLookup.svelte'), 'utf-8');
+    expect(source).not.toMatch(LEGACY_URL_PATTERN);
   });
 });
 
@@ -691,22 +659,6 @@ describe('carregarDocumentos', () => {
       { fonte: 'juris', idDocumento: '1', tipo: 'ACÓRDÃO', data: '2024-01-15', url: 'https://juris/1', resumo: 'r1' },
     ]);
     expect(result.hasMore).toBe(false);
-    expect(conn.calls[0].params).toEqual([CNJ_ALL, 21, 0]);
-  });
-
-  it('queries processo_documentos.parquet directly when legado=true, ignoring jurisUrls/stjUrls', async () => {
-    const conn = fakeConn([
-      [
-        "FROM read_parquet('https://archive.org/download/causaganha-dashboard/processo_documentos.parquet')",
-        [
-          { fonte: 'juris', id_documento: '1', tipo: 'ACÓRDÃO', data: '2024-01-15', url: 'https://juris/1', resumo: 'r1' },
-        ],
-      ],
-    ]);
-    const result = await carregarDocumentos(conn as any, [], [], CNJ_ALL, 0, 20, true);
-    expect(result.items).toEqual([
-      { fonte: 'juris', idDocumento: '1', tipo: 'ACÓRDÃO', data: '2024-01-15', url: 'https://juris/1', resumo: 'r1' },
-    ]);
     expect(conn.calls[0].params).toEqual([CNJ_ALL, 21, 0]);
   });
 });
