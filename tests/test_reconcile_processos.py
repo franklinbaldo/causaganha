@@ -283,14 +283,16 @@ class TestFullReconcileWithoutLocalParquets:
         assert report["combinations"] == {"datajud+djen+juris": 1, "datajud+djen": 1}
         assert report["sources"]["stj"]["raw_rows"] == 1  # the record was read, just filtered
         assert report["validation"]["errors"] == []
-        # Loaded fine but zero CNJ-shaped rows out of 1 raw row must be
-        # reported as a join-key mismatch, not a generic "empty source"
-        # warning — see TestValidateCoverage for the exact wording contract.
+        # Loaded fine but zero CNJ-shaped rows out of 1 raw row is STJ's
+        # documented, structural limitation (#1045), not a generic "empty
+        # source" or "join-key mismatch" warning — see TestValidateCoverage
+        # for the exact wording contract.
         assert len(report["validation"]["warnings"]) == 1
         stj_warning = report["validation"]["warnings"][0]
         assert "'stj'" in stj_warning
         assert "1 raw record" in stj_warning
-        assert "20-digit CNJ" in stj_warning
+        assert "numeroProcesso" in stj_warning
+        assert "#1045" in stj_warning
 
     def test_remote_downloads_are_cached_across_runs(self, isolated_dirs: Path) -> None:
         tmp_path = isolated_dirs
@@ -677,7 +679,9 @@ class TestValidateCoverage:
         structural_limitation for STJ's own, more specific wording.
         """
         sources = {
-            "juris": rp.SourceLoad("juris", rp.STATUS_LOADED_REMOTE, "https://...juris.parquet", rows=0)
+            "juris": rp.SourceLoad(
+                "juris", rp.STATUS_LOADED_REMOTE, "https://...juris.parquet", rows=0
+            )
         }
         errors, warnings = rp.validate_coverage(sources, ("juris",), raw_rows={"juris": 84})
         assert errors == []

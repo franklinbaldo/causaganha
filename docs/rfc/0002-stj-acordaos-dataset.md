@@ -215,6 +215,30 @@ a Segunda Seção e para a Corte Especial. Este RFC cobre apenas a Primeira
 Seção para validar o padrão; as demais seções poderão ser adicionadas
 seguindo o mesmo template sem alteração de arquitetura.
 
+### 5.6 `numeroProcesso` nunca é o CNJ de origem — limitação estrutural
+
+`numeroProcesso` (§3.2) é o número do processo **no próprio STJ**, não o
+número CNJ de 20 dígitos do processo na origem (TJ/TRF). Inspeção ao vivo
+de `stj-acordaos-primeira-secao/stj-acordaos.parquet` (issue #1045,
+2026-09-03, 84 linhas) confirmou que nenhuma linha tem `numeroProcesso` ou
+`numeroRegistro` de 20 dígitos, e nenhum outro campo do dicionário oficial
+carrega um CNJ.
+
+Consequência para RFC 0014 (`indice_processual.parquet`): o cruzamento por
+`numero_processo` (`scripts/reconcile_processos.py::_INDICE_STJ_SQL`, que
+filtra por comprimento de 20 dígitos após normalização) **nunca** incluirá
+STJ, em nenhum volume de dado real — não é um defeito pontual a corrigir,
+é uma propriedade permanente do dataset. `validate_coverage()` documenta
+essa limitação explicitamente (mensagem dedicada para `stj`, distinta do
+"join-key mismatch" genérico usado para outras fontes) em vez de reportá-la
+como um problema em aberto.
+
+Isto **não** significa que STJ não tenha valor de produto — apenas que
+esse valor não pode ser expresso via `numero_processo`-indexed join hoje.
+Alternativas (fonte complementar com mapeamento CNJ real, ou redesenhar o
+STJ no dossiê como indexado por tema repetitivo em vez de por processo)
+permanecem em aberto e não são pré-decididas por esta seção — ver #1045.
+
 ## 6. Riscos e mitigações
 
 | Risco | Mitigação |
