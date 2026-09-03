@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from segmenter_dataset.model_eval import DocumentModelPrediction
     from segmenter_dataset.schemas import Label
 
 
@@ -145,3 +146,87 @@ def region_match_rate(comparisons: list[RegionComparison]) -> float | None:
         return None
     matched = sum(1 for comparison in gold_comparisons if comparison.matched)
     return matched / len(gold_comparisons)
+
+
+@dataclass(frozen=True)
+class RegionTypeMetrics:
+    """Pooled gold-vs-predicted region outcome for one region type across a dataset (#1052).
+
+    Unlike a single-document ``RegionComparison``, this aggregates over every
+    document so a region type's overall reliability is visible: ``support``
+    counts documents where gold has the region, ``matched``/``missed``/
+    ``hallucinated`` partition those against predictions (mirroring
+    ``RegionComparison.matched``'s missed-vs-hallucinated distinction), and
+    ``mean_iou``/``mean_start_error``/``mean_end_error`` average boundary
+    quality over the matched documents only — undefined (``None``) rather
+    than a misleading ``0.0`` when nothing matched.
+    """
+
+    base: str
+    support: int
+    matched: int
+    missed: int
+    hallucinated: int
+    match_rate: float | None
+    mean_iou: float | None
+    mean_start_error: float | None
+    mean_end_error: float | None
+
+
+def aggregate_region_metrics(
+    predictions: list[DocumentModelPrediction],
+) -> dict[str, RegionTypeMetrics]:
+    """Pool per-document ``compare_regions`` outcomes into one report per region base.
+
+    Every base seen in any document's gold or predicted regions is reported,
+    in sorted order — a rare region type that gold never has stays visible
+    as a pure-hallucination entry rather than being dropped.
+    """
+    totals: dict[str, dict[str, float]] = {}
+
+    for item in predictions:
+        for comparison in compare_regions(item.gold, item.model_predicted):
+            bucket = totals.setdefault(
+                comparison.base,
+                {
+                    "support": 0,
+                    "matched": 0,
+                    "missed": 0,
+                    "hallucinated": 0,
+                    "iou_sum": 0.0,
+                    "start_error_sum": 0.0,
+                    "end_error_sum": 0.0,
+                },
+            )
+            if comparison.gold is not None:
+                bucket["support"] += 1
+            if comparison.matched:
+                bucket["matched"] += 1
+                bucket["iou_sum"] += comparison.iou
+                assert comparison.start_error is not None
+                assert comparison.end_error is not None
+                bucket["start_error_sum"] += comparison.start_error
+                bucket["end_error_sum"] += comparison.end_error
+            elif comparison.gold is not None:
+                bucket["missed"] += 1
+            else:
+                bucket["hallucinated"] += 1
+
+    return {
+        base: RegionTypeMetrics(
+            base=base,
+            support=int(bucket["support"]),
+            matched=int(bucket["matched"]),
+            missed=int(bucket["missed"]),
+            hallucinated=int(bucket["hallucinated"]),
+            match_rate=(bucket["matched"] / bucket["support"]) if bucket["support"] else None,
+            mean_iou=(bucket["iou_sum"] / bucket["matched"]) if bucket["matched"] else None,
+            mean_start_error=(bucket["start_error_sum"] / bucket["matched"])
+            if bucket["matched"]
+            else None,
+            mean_end_error=(bucket["end_error_sum"] / bucket["matched"])
+            if bucket["matched"]
+            else None,
+        )
+        for base, bucket in sorted(totals.items())
+    }
