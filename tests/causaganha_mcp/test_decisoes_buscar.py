@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastmcp.exceptions import ToolError
 
-from causaganha.decisoes.published import TCU_PARQUET_URL, PublishedDecisionDataset
+from causaganha.decisoes.published import PublishedDecisionDataset
 from causaganha.decisoes.search import DecisionHit, DecisionSearchResult
 from causaganha_mcp.server import build_server
 from causaganha_mcp.tools import decisoes
@@ -250,12 +250,28 @@ async def test_coverage_limitation_survives_successful_other_source(
     assert result.limitacoes == ["JURIS indisponível"]
 
 
-def test_datasets_for_source_tcu_adds_dataset_and_coverage_limitation() -> None:
+def test_datasets_for_source_tcu_is_excluded_while_publication_is_unproven() -> None:
+    """No verified read-back proof exists yet (#1022): the presumed
+    ``TCU_PARQUET_URL`` target must never be treated as a published dataset."""
     datasets, limitations = decisoes._datasets_for_source("tcu")
 
-    assert [d.fonte for d in datasets] == ["tcu"]
-    assert datasets[0].url == TCU_PARQUET_URL
-    assert any("2017" in item and "2026" in item for item in limitations)
+    assert datasets == []
+    assert any("não publicad" in item.lower() for item in limitations)
+
+
+def test_datasets_for_source_todas_excludes_unproven_tcu() -> None:
+    datasets, limitations = decisoes._datasets_for_source("todas")
+
+    assert "tcu" not in [d.fonte for d in datasets]
+    assert any("não publicad" in item.lower() for item in limitations)
+
+
+async def test_tcu_source_fails_explicitly_while_publication_is_unproven(mcp) -> None:
+    """fonte='tcu' must fail loudly instead of silently returning zero results,
+    so callers can distinguish "not published" from a genuine empty search."""
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    with pytest.raises(ToolError, match="publicad"):
+        fn("licitação", fonte="tcu")
 
 
 async def test_tcu_source_is_accepted_and_results_map_to_teor(
