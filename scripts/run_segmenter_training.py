@@ -164,7 +164,13 @@ def _metric_payload(metrics: dict) -> dict:
 
 
 def _macro_f1_from_metrics(metrics: dict, categories: list[str]) -> float:
-    """Mean of per-class span F1 over trainable categories (RFC 0012 §5 point 5's metric)."""
+    """Mean of per-class span F1 over trainable categories (RFC 0012 §5 point 5's metric).
+
+    Every category in ``categories`` counts in the denominator, even one OPF's
+    report omits entirely (e.g. zero predictions, or zero recall with no F1
+    field emitted) -- excluding it instead would silently inflate macro-F1 by
+    averaging only over the categories the model happened to report on (#1048).
+    """
     payload = _metric_payload(metrics)
     f1s = []
     for category in categories:
@@ -172,8 +178,7 @@ def _macro_f1_from_metrics(metrics: dict, categories: list[str]) -> float:
         if f1 is None:
             category_metrics = payload.get(category, {})
             f1 = category_metrics.get("f1-score") if category_metrics else None
-        if f1 is not None:
-            f1s.append(f1)
+        f1s.append(f1 if f1 is not None else 0.0)
     return sum(f1s) / len(f1s) if f1s else 0.0
 
 
