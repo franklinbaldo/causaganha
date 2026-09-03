@@ -16,6 +16,19 @@ _ALLOWED_HOST = "cdn.tse.jus.br"
 _CHUNK_SIZE = 1024 * 1024
 
 
+class InvalidOfficialUrlError(ValueError):
+    """Raised when a URL escapes the admitted TSE Processual boundary."""
+
+    _MESSAGES = {
+        "scheme": "TSE Processual URL must use https",
+        "host": "TSE Processual URL must be hosted on cdn.tse.jus.br",
+        "path": "TSE Processual URL must remain under the official processual path",
+    }
+
+    def __init__(self, reason: str) -> None:
+        super().__init__(self._MESSAGES[reason])
+
+
 @dataclass(frozen=True, slots=True)
 class DownloadEvidence:
     """Byte-level provenance observed while acquiring one official resource."""
@@ -34,11 +47,11 @@ def validate_official_url(url: str) -> None:
     """Reject non-HTTPS and non-TSE CDN URLs."""
     parsed = urlparse(url)
     if parsed.scheme != "https":
-        raise ValueError("TSE Processual URL must use https")
+        raise InvalidOfficialUrlError("scheme")
     if (parsed.hostname or "").lower() != _ALLOWED_HOST:
-        raise ValueError("TSE Processual URL must be hosted on cdn.tse.jus.br")
+        raise InvalidOfficialUrlError("host")
     if not parsed.path.startswith("/estatistica/sead/odsele/processual/"):
-        raise ValueError("TSE Processual URL must remain under the official processual path")
+        raise InvalidOfficialUrlError("path")
 
 
 def _utc_now() -> str:
