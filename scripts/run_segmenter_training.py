@@ -40,11 +40,24 @@ adjudicated val/test yet): the flags below were carried over from
 `opf train --help` would have caught but no local test could, since no
 local environment here has `opf` installed. Fixed; see
 `test_run_opf_train_epoch_uses_shuffle_seed_not_seed`.
+
+`experiment_manifest.json` also records provenance #1048 asks for that this
+script can gather on its own, without depending on a new required CLI flag
+another caller (the GitHub Actions -> Kaggle runner in the blog repo) would
+also have to be updated to pass: `opf --version`'s output, the actual
+hardware a `--device cuda` run executed on, a sha256 over the exact
+`train.jsonl`/`val.jsonl`/`label_space.json` bytes consumed (tying the
+manifest to what was actually trained on, not just to a `--release-id`
+string that could point at a rebuilt export), and a copy of the selected
+checkpoint's own `finetune_summary.json` when OPF produced one. None of
+these are preconditions for training to proceed; each degrades to `None`
+independently rather than failing the run.
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -71,6 +84,59 @@ def _detect_device() -> str:
     except ImportError:
         pass
     return "cpu"
+
+
+def _detect_opf_version() -> str | None:
+    """Best-effort `opf --version`, never fatal -- provenance, not a precondition (#1048)."""
+    cmd = [sys.executable, "-m", "opf", "--version"]
+    try:
+        result = subprocess.run(cmd, check=False, capture_output=True, text=True)  # noqa: S603
+    except OSError:
+        return None
+    if result.returncode != 0:
+        return None
+    version = result.stdout.strip() or result.stderr.strip()
+    return version or None
+
+
+def _detect_hardware(device: str) -> str:
+    """The actual GPU model for a cuda run, falling back to the device string (#1048)."""
+    if device != "cuda":
+        return device
+    try:
+        import torch
+
+        return torch.cuda.get_device_name(0)
+    except (ImportError, RuntimeError):
+        return device
+
+
+def _hash_dataset_export(data_dir: Path) -> str:
+    """sha256 over train/val/label_space bytes, in `REQUIRED_TRAIN_ARTIFACTS` order.
+
+    Ties an experiment manifest to the exact bytes consumed for training,
+    rather than to a `--release-id` string that could point at a rebuilt
+    export with different content (#1048's "dataset release hash").
+    """
+    digest = hashlib.sha256()
+    for name in REQUIRED_TRAIN_ARTIFACTS:
+        digest.update((data_dir / name).read_bytes())
+    return digest.hexdigest()
+
+
+def _preserve_finetune_summary(checkpoint_dir: Path, output_dir: Path) -> str | None:
+    """Copy the selected checkpoint's `finetune_summary.json` next to the experiment manifest.
+
+    Returns ``None`` without erroring when OPF didn't produce one -- callers
+    must not fail an otherwise-successful run over missing-but-optional
+    provenance (#1048).
+    """
+    source = checkpoint_dir / "finetune_summary.json"
+    if not source.exists():
+        return None
+    destination = output_dir / "finetune_summary.json"
+    destination.write_text(source.read_text(encoding="utf-8"), encoding="utf-8")
+    return str(destination)
 
 
 def _load_label_space(path: Path) -> dict:
@@ -304,6 +370,8 @@ def main(argv: list[str] | None = None) -> int:
         return 1
 
     device = args.device or _detect_device()
+    opf_version = _detect_opf_version()
+    hardware = _detect_hardware(device)
     selection, checkpoint_dir = train_and_select_checkpoint(
         data_dir,
         output_dir,
@@ -312,6 +380,8 @@ def main(argv: list[str] | None = None) -> int:
         seed=args.seed,
         device=device,
     )
+    dataset_export_hash = _hash_dataset_export(data_dir)
+    finetune_summary_path = _preserve_finetune_summary(checkpoint_dir, output_dir)
 
     timestamp = datetime.now(UTC)
     experiment_id = args.experiment_id or f"{args.release_id}-train-{timestamp:%Y%m%dT%H%M%SZ}"
@@ -328,6 +398,10 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint_dir=str(checkpoint_dir),
         checkpoint_selection=selection,
         created_at=timestamp.isoformat(),
+        dataset_export_hash=dataset_export_hash,
+        opf_version=opf_version,
+        hardware=hardware,
+        finetune_summary_path=finetune_summary_path,
     )
     manifest_path = output_dir / "experiment_manifest.json"
     manifest_path.write_text(manifest.model_dump_json(indent=2) + "\n", encoding="utf-8")

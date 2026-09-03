@@ -1,18 +1,25 @@
 from __future__ import annotations
 
+import hashlib
 import json
+from pathlib import Path
 
 import pytest
 
 from scripts.run_segmenter_training import (
     _EpochResult,
+    _detect_hardware,
+    _detect_opf_version,
+    _hash_dataset_export,
     _load_label_space,
     _macro_f1_from_metrics,
+    _preserve_finetune_summary,
     _run_opf_train_epoch,
     _select_best_epoch,
     _validation_loss_from_metrics,
     main,
 )
+from segmenter_dataset.schemas import ExperimentManifest
 
 
 def test_run_opf_train_epoch_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
@@ -221,3 +228,199 @@ def test_main_reports_all_missing_artifacts_not_just_the_first(tmp_path, capsys)
     assert "val.jsonl" in captured.err
     assert "label_space.json" in captured.err
     assert "train.jsonl" not in captured.err
+
+
+# --- #1048: preserve OPF version, dataset export hash, hardware and
+# finetune_summary.json in the experiment artifact -------------------------
+
+
+def test_detect_opf_version_reads_stdout(monkeypatch):
+    class _FakeResult:
+        returncode = 0
+        stdout = "opf 1.4.0\n"
+        stderr = ""
+
+    def fake_run(cmd, *, check, capture_output, text):
+        del check, capture_output, text
+        assert cmd[-1] == "--version"
+        return _FakeResult()
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    assert _detect_opf_version() == "opf 1.4.0"
+
+
+def test_detect_opf_version_none_when_opf_not_installed(monkeypatch):
+    def fake_run(cmd, *, check, capture_output, text):
+        del cmd, check, capture_output, text
+        raise FileNotFoundError
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    assert _detect_opf_version() is None
+
+
+def test_detect_opf_version_none_on_nonzero_returncode(monkeypatch):
+    class _FakeResult:
+        returncode = 1
+        stdout = ""
+        stderr = "unrecognized arguments: --version"
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.subprocess.run", lambda *a, **k: _FakeResult()
+    )
+
+    assert _detect_opf_version() is None
+
+
+def test_detect_hardware_returns_device_for_cpu():
+    assert _detect_hardware("cpu") == "cpu"
+
+
+def test_detect_hardware_returns_gpu_name_for_cuda(monkeypatch):
+    class _FakeCuda:
+        @staticmethod
+        def get_device_name(index):
+            assert index == 0
+            return "Tesla T4"
+
+    class _FakeTorch:
+        cuda = _FakeCuda()
+
+    monkeypatch.setitem(__import__("sys").modules, "torch", _FakeTorch())
+
+    assert _detect_hardware("cuda") == "Tesla T4"
+
+
+def test_detect_hardware_falls_back_to_device_when_torch_unavailable(monkeypatch):
+    """No torch installed in this test environment (confirmed in scripts/run_segmenter_training.py's
+    own `_detect_device`, which already relies on this exact ImportError path) -- exercises the
+    real fallback rather than a simulated one.
+    """
+    monkeypatch.delitem(__import__("sys").modules, "torch", raising=False)
+
+    assert _detect_hardware("cuda") == "cuda"
+
+
+def test_hash_dataset_export_is_deterministic_over_train_val_label_space(tmp_path):
+    (tmp_path / "train.jsonl").write_text("a\n", encoding="utf-8")
+    (tmp_path / "val.jsonl").write_text("b\n", encoding="utf-8")
+    (tmp_path / "label_space.json").write_text('{"span_class_names": ["O"]}', encoding="utf-8")
+
+    expected = hashlib.sha256()
+    expected.update(b"a\n")
+    expected.update(b"b\n")
+    expected.update(b'{"span_class_names": ["O"]}')
+
+    assert _hash_dataset_export(tmp_path) == expected.hexdigest()
+
+
+def test_hash_dataset_export_changes_when_content_changes(tmp_path):
+    (tmp_path / "train.jsonl").write_text("a\n", encoding="utf-8")
+    (tmp_path / "val.jsonl").write_text("b\n", encoding="utf-8")
+    (tmp_path / "label_space.json").write_text('{"span_class_names": ["O"]}', encoding="utf-8")
+    before = _hash_dataset_export(tmp_path)
+
+    (tmp_path / "train.jsonl").write_text("a-changed\n", encoding="utf-8")
+
+    assert _hash_dataset_export(tmp_path) != before
+
+
+def test_preserve_finetune_summary_copies_when_present(tmp_path):
+    checkpoint_dir = tmp_path / "epoch-1"
+    checkpoint_dir.mkdir()
+    (checkpoint_dir / "finetune_summary.json").write_text('{"epochs": 1}', encoding="utf-8")
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    result = _preserve_finetune_summary(checkpoint_dir, output_dir)
+
+    assert result == str(output_dir / "finetune_summary.json")
+    assert (output_dir / "finetune_summary.json").read_text(encoding="utf-8") == '{"epochs": 1}'
+
+
+def test_preserve_finetune_summary_none_when_absent(tmp_path):
+    checkpoint_dir = tmp_path / "epoch-1"
+    checkpoint_dir.mkdir()
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    result = _preserve_finetune_summary(checkpoint_dir, output_dir)
+
+    assert result is None
+    assert not (output_dir / "finetune_summary.json").exists()
+
+
+def _write_train_artifacts(data_dir):
+    data_dir.mkdir(parents=True, exist_ok=True)
+    (data_dir / "train.jsonl").write_text(
+        json.dumps({"text": "t", "label": [], "info": {"document_id": "d1"}}) + "\n",
+        encoding="utf-8",
+    )
+    (data_dir / "val.jsonl").write_text(
+        json.dumps({"text": "v", "label": [], "info": {"document_id": "d2"}}) + "\n",
+        encoding="utf-8",
+    )
+    (data_dir / "label_space.json").write_text(
+        json.dumps({"span_class_names": ["O", "resultado"]}), encoding="utf-8"
+    )
+
+
+def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkeypatch, capsys):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+    output_dir = tmp_path / "out"
+
+    def fake_run(cmd, *, check=False, capture_output=False, text=False):
+        del check
+        if cmd[-1] == "--version":
+            assert capture_output
+            assert text
+
+            class _VersionResult:
+                returncode = 0
+                stdout = "opf 9.9.9\n"
+                stderr = ""
+
+            return _VersionResult()
+
+        if "train" in cmd:
+            epoch_dir = Path(cmd[cmd.index("--output-dir") + 1])
+            epoch_dir.mkdir(parents=True, exist_ok=True)
+            (epoch_dir / "finetune_summary.json").write_text(
+                '{"epochs": 1, "final_loss": 0.1}', encoding="utf-8"
+            )
+
+            class _TrainResult:
+                returncode = 0
+
+            return _TrainResult()
+
+        if "eval" in cmd:
+            metrics_out = Path(cmd[cmd.index("--metrics-out") + 1])
+            metrics_out.write_text(
+                json.dumps({"by_class.resultado.span.f1": 0.5, "loss": 0.2}), encoding="utf-8"
+            )
+
+            class _EvalResult:
+                returncode = 0
+
+            return _EvalResult()
+
+        msg = f"unexpected command: {cmd}"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir), "--epochs": "1"}))
+
+    assert exit_code == 0
+    manifest_path = output_dir / "experiment_manifest.json"
+    manifest = ExperimentManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
+
+    assert manifest.opf_version == "opf 9.9.9"
+    assert manifest.hardware == "cpu"
+    assert manifest.dataset_export_hash == _hash_dataset_export(data_dir)
+    assert manifest.finetune_summary_path == str(output_dir / "finetune_summary.json")
+    preserved = (output_dir / "finetune_summary.json").read_text(encoding="utf-8")
+    assert json.loads(preserved) == {"epochs": 1, "final_loss": 0.1}
