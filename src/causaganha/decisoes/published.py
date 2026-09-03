@@ -80,6 +80,21 @@ def discover_published_tcu_dataset() -> PublishedDecisionDataset | None:
     return None
 
 
+def unpublished_fontes() -> frozenset[str]:
+    """Fontes recognized by ``decisoes_buscar`` with no published dataset yet.
+
+    This is the single authority for "recognized but not queryable" (#1036):
+    MCP and site both derive it from the same discovery functions instead of
+    each hand-maintaining a list of what is actually published. Only fontes
+    whose status is knowable without a live fetch are represented — JURIS
+    depends on the live manifest and is intentionally not summarized here.
+    """
+    fontes: set[str] = set()
+    if discover_published_tcu_dataset() is None:
+        fontes.add("tcu")
+    return frozenset(fontes)
+
+
 def discover_published_decision_datasets(manifest_text: str) -> list[PublishedDecisionDataset]:
     """Return the public datasets that currently support the TEOR product role."""
     return [
