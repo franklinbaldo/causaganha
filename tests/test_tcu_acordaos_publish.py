@@ -16,6 +16,7 @@ from urllib.parse import unquote
 
 import duckdb
 import httpx
+import pandas as pd
 import pytest
 import respx
 
@@ -24,13 +25,12 @@ from tcu_acordaos.publish import ITEM_ID, REMOTE_NAME, publish_parquet, verify_p
 
 
 def _write_parquet(path: Path, *, rows: list[dict], visao_geral: bool = False) -> None:
+    columns = ["key", "ano", "acordao"] + (["visao_geral"] if visao_geral else [])
+    frame = pd.DataFrame.from_records(rows, columns=columns)
     con = duckdb.connect()
     try:
-        con.register("rows", rows)
-        columns = "key, ano, acordao" + (", visao_geral" if visao_geral else "")
-        con.execute(
-            f"COPY (SELECT {columns} FROM rows) TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)"
-        )
+        con.register("rows", frame)
+        con.execute(f"COPY rows TO '{path}' (FORMAT PARQUET, COMPRESSION ZSTD)")
     finally:
         con.close()
 
