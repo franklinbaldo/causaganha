@@ -5,6 +5,7 @@ from __future__ import annotations
 from html.parser import HTMLParser
 from pathlib import Path
 
+from causaganha.decisoes.published import unpublished_fontes
 from causaganha_mcp.server import build_server
 
 
@@ -64,11 +65,12 @@ def _public_jobs() -> dict[str, str]:
 
 
 class _DecisoesFonteParser(HTMLParser):
-    """Collects data-mcp-fonte values listed inside the decisoes_buscar job card."""
+    """Collects data-mcp-fonte/data-mcp-status pairs inside the decisoes_buscar job card."""
 
     def __init__(self) -> None:
         super().__init__()
         self.fontes: set[str] = set()
+        self.status_by_fonte: dict[str, str] = {}
         self._inside_decisoes_job = False
         self._depth = 0
 
@@ -83,6 +85,9 @@ class _DecisoesFonteParser(HTMLParser):
             fonte = attributes.get("data-mcp-fonte")
             if fonte:
                 self.fontes.add(fonte)
+                status = attributes.get("data-mcp-status")
+                if status:
+                    self.status_by_fonte[fonte] = status
 
     def handle_endtag(self, tag: str) -> None:
         if not self._inside_decisoes_job:
@@ -96,6 +101,12 @@ def _agents_page_decisoes_fontes() -> set[str]:
     parser = _DecisoesFonteParser()
     parser.feed(_AGENTS_PAGE.read_text(encoding="utf-8"))
     return parser.fontes
+
+
+def _agents_page_decisoes_status_by_fonte() -> dict[str, str]:
+    parser = _DecisoesFonteParser()
+    parser.feed(_AGENTS_PAGE.read_text(encoding="utf-8"))
+    return parser.status_by_fonte
 
 
 async def _decisoes_buscar_fonte_enum() -> set[str]:
@@ -119,3 +130,24 @@ async def test_agents_page_only_names_registered_mcp_tools() -> None:
 async def test_agents_page_lists_exactly_the_decisoes_buscar_fontes() -> None:
     """A fonte added/removed from decisoes_buscar must not silently drift from the site (#1011)."""
     assert _agents_page_decisoes_fontes() == await _decisoes_buscar_fonte_enum()
+
+
+async def test_agents_page_marks_every_fonte_as_published_or_unpublished() -> None:
+    """Recognized-but-unpublished fontes (#1036) must be explicit, never implied."""
+    status_by_fonte = _agents_page_decisoes_status_by_fonte()
+    assert set(status_by_fonte) == await _decisoes_buscar_fonte_enum()
+    assert set(status_by_fonte.values()) <= {"published", "unpublished"}
+
+
+def test_agents_page_unpublished_fontes_match_the_publication_authority() -> None:
+    """The site must not claim TCU is queryable before #1022 promotes it (#1036).
+
+    Uses the same authority the MCP tool consults, so promoting a fonte in
+    ``causaganha.decisoes.published`` is the only edit needed — no second
+    manually-maintained list on the site.
+    """
+    status_by_fonte = _agents_page_decisoes_status_by_fonte()
+    site_unpublished = {
+        fonte for fonte, status in status_by_fonte.items() if status == "unpublished"
+    }
+    assert site_unpublished == unpublished_fontes()
