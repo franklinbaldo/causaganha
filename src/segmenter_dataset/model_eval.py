@@ -186,6 +186,90 @@ def critical_category_f1(predictions: list[DocumentModelPrediction]) -> dict[str
     }
 
 
+@dataclass(frozen=True)
+class SpanErrorBreakdown:
+    """Error taxonomy for non-exact-match spans (#1052's anchor-metrics diagnostic).
+
+    Every gold or predicted span that is not an exact ``(start, end,
+    category)`` match falls into exactly one bucket:
+
+    - ``category_errors``: predicted and gold spans overlap but disagree on
+      category — the model found the right location, wrong label.
+    - ``boundary_errors``: predicted and gold spans overlap and agree on
+      category, but offsets differ — right label, imprecise boundaries.
+    - ``pure_misses``: a gold span with no overlapping prediction at all.
+    - ``pure_extras``: a predicted span with no overlapping gold at all.
+    """
+
+    category_errors: int
+    boundary_errors: int
+    pure_misses: int
+    pure_extras: int
+
+
+def _spans_overlap(a: Label, b: Label) -> bool:
+    return a.start < b.end and b.start < a.end
+
+
+def _overlap_length(a: Label, b: Label) -> int:
+    return min(a.end, b.end) - max(a.start, b.start)
+
+
+def _classify_document_errors(
+    gold: tuple[Label, ...], predicted: tuple[Label, ...]
+) -> tuple[int, int, int, int]:
+    """Classify one document's non-exact-match spans (see ``SpanErrorBreakdown``)."""
+    exact_matches = set(gold) & set(predicted)
+    gold_remaining = [label for label in gold if label not in exact_matches]
+    predicted_remaining = [label for label in predicted if label not in exact_matches]
+
+    category_errors = boundary_errors = 0
+    matched_predicted_indices: set[int] = set()
+
+    for gold_label in sorted(gold_remaining, key=lambda label: (label.start, label.end)):
+        candidates = [
+            (index, predicted_label)
+            for index, predicted_label in enumerate(predicted_remaining)
+            if index not in matched_predicted_indices
+            and _spans_overlap(gold_label, predicted_label)
+        ]
+        if not candidates:
+            continue
+        best_index, best_predicted = max(
+            candidates,
+            key=lambda item: (_overlap_length(gold_label, item[1]), -item[1].start),
+        )
+        matched_predicted_indices.add(best_index)
+        if best_predicted.category == gold_label.category:
+            boundary_errors += 1
+        else:
+            category_errors += 1
+
+    matched_gold_count = category_errors + boundary_errors
+    pure_misses = len(gold_remaining) - matched_gold_count
+    pure_extras = len(predicted_remaining) - len(matched_predicted_indices)
+    return category_errors, boundary_errors, pure_misses, pure_extras
+
+
+def classify_span_errors(predictions: list[DocumentModelPrediction]) -> SpanErrorBreakdown:
+    """Pool ``SpanErrorBreakdown`` counts (gold vs model) across every document."""
+    category_errors = boundary_errors = pure_misses = pure_extras = 0
+    for item in predictions:
+        doc_category, doc_boundary, doc_misses, doc_extras = _classify_document_errors(
+            item.gold, item.model_predicted
+        )
+        category_errors += doc_category
+        boundary_errors += doc_boundary
+        pure_misses += doc_misses
+        pure_extras += doc_extras
+    return SpanErrorBreakdown(
+        category_errors=category_errors,
+        boundary_errors=boundary_errors,
+        pure_misses=pure_misses,
+        pure_extras=pure_extras,
+    )
+
+
 def evaluate_model_acceptance(
     predictions: list[DocumentModelPrediction],
     *,
