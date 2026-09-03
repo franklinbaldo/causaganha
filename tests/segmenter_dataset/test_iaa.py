@@ -12,6 +12,8 @@ from segmenter_dataset.iaa import (
     macro_f1,
     per_category_f1,
     pooled_counts,
+    precision_from_counts,
+    recall_from_counts,
     support,
 )
 from segmenter_dataset.schemas import Label
@@ -53,6 +55,38 @@ def test_per_category_f1_disagreement() -> None:
     pairs = [_pair("d1", [(0, 5, "cat")], [(10, 15, "cat")])]
     f1s = per_category_f1(pairs)
     assert f1s["cat"] == 0.0
+
+
+def test_precision_from_counts_perfect_precision() -> None:
+    assert precision_from_counts(tp=5, fp=0, fn=3) == 1.0
+
+
+def test_precision_from_counts_no_true_positives() -> None:
+    assert precision_from_counts(tp=0, fp=3, fn=0) == 0.0
+
+
+def test_precision_from_counts_zero_denominator_is_zero_not_nan() -> None:
+    assert precision_from_counts(tp=0, fp=0, fn=5) == 0.0
+
+
+def test_precision_from_counts_partial() -> None:
+    assert precision_from_counts(tp=2, fp=1, fn=3) == pytest.approx(2 / 3)
+
+
+def test_recall_from_counts_perfect_recall() -> None:
+    assert recall_from_counts(tp=5, fp=3, fn=0) == 1.0
+
+
+def test_recall_from_counts_no_true_positives() -> None:
+    assert recall_from_counts(tp=0, fp=0, fn=3) == 0.0
+
+
+def test_recall_from_counts_zero_denominator_is_zero_not_nan() -> None:
+    assert recall_from_counts(tp=0, fp=5, fn=0) == 0.0
+
+
+def test_recall_from_counts_partial() -> None:
+    assert recall_from_counts(tp=2, fp=1, fn=3) == pytest.approx(0.4)
 
 
 def test_macro_f1_excludes_low_support_categories() -> None:
