@@ -60,6 +60,11 @@ const localConfig = `{
           <span class="job-code">TEOR</span>
           <h3>Há decisão ou acórdão — e o que diz?</h3>
           <p>Pesquisa teor decisório nas fontes suportadas, preservando a origem e as limitações específicas de cada fonte.</p>
+          <ul class="job-sources" aria-label="Fontes de teor suportadas por decisoes_buscar">
+            <li data-mcp-fonte="juris">JURIS (TJRO)</li>
+            <li data-mcp-fonte="stj">STJ</li>
+            <li data-mcp-fonte="tcu">TCU — controle externo federal</li>
+          </ul>
         </article>
       </div>
     </section>
@@ -116,6 +121,8 @@ const localConfig = `{
   .job { padding: 1.35rem; border: 1px solid var(--border); background: var(--surface, transparent); }
   .job h3 { margin: .7rem 0 .55rem; font-size: 1.15rem; }
   .job p, .connect p, .reading span { color: var(--fg-muted); line-height: 1.6; }
+  .job-sources { display: flex; flex-wrap: wrap; gap: .4rem; margin: .7rem 0 0; padding: 0; list-style: none; }
+  .job-sources li { padding: .3rem .55rem; border: 1px solid var(--border); font-family: var(--font-mono); font-size: .74rem; color: var(--fg-muted); }
   .connect { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(2rem, 6vw, 5rem); align-items: start; }
   .config-card { min-width: 0; border: 1px solid var(--border); }
   .config-card__head { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem .9rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: .75rem; color: var(--fg-muted); }
