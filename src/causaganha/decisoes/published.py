@@ -8,7 +8,9 @@ Parquet and is represented explicitly as such.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from pathlib import Path
 from urllib.parse import quote
 
 from tjro_juris import archive as juris_archive
@@ -23,6 +25,11 @@ TCU_PARQUET_URL = "https://archive.org/download/tcu-acordaos-2017-2026/tcu-acord
 Materialization/publication is tracked separately (#1020); this constant fixes
 the identity the search surface (#1011) is wired against.
 """
+
+TCU_PUBLISH_EVIDENCE_PATH = (
+    Path(__file__).resolve().parents[3] / "docs" / "data" / "tcu-acordaos-publish-proof.json"
+)
+"""Where scripts/tcu_acordaos_publish_teor.py (#1022) writes its read-back proof."""
 
 
 @dataclass(frozen=True, slots=True)
@@ -69,15 +76,32 @@ def discover_published_juris_datasets(manifest_text: str) -> list[PublishedDecis
     return sorted(datasets, key=lambda item: (item.periodo or "", item.tipo or "", item.url))
 
 
-def discover_published_tcu_dataset() -> PublishedDecisionDataset | None:
+def discover_published_tcu_dataset(
+    evidence_path: Path = TCU_PUBLISH_EVIDENCE_PATH,
+) -> PublishedDecisionDataset | None:
     """Return the published TCU dataset, or ``None`` while publication is unproven.
 
     ``TCU_PARQUET_URL`` names the *target* location for the TCU 2017-2026
-    artifact; by itself it is not evidence the artifact exists (#1025). Until
-    a verified upload/read-back proof lands (#1022), this returns ``None`` so
-    callers cannot mistake the presumed URL for a published dataset.
+    artifact; by itself it is not evidence the artifact exists (#1025). This
+    reads the read-back evidence ``scripts/tcu_acordaos_publish_teor.py``
+    writes after independently re-downloading and re-verifying the artifact
+    (#1022) — a missing file, invalid JSON, ``published: false``, or evidence
+    for a different URL are all treated the same as "not published yet" so
+    callers can never mistake a presumed target for a proven one.
     """
-    return None
+    try:
+        payload = json.loads(evidence_path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+    if not isinstance(payload, dict) or payload.get("published") is not True:
+        return None
+
+    read_back = payload.get("read_back")
+    if not isinstance(read_back, dict) or read_back.get("url") != TCU_PARQUET_URL:
+        return None
+
+    return PublishedDecisionDataset(fonte="tcu", url=TCU_PARQUET_URL, tipo="acordao")
 
 
 def unpublished_fontes() -> frozenset[str]:
