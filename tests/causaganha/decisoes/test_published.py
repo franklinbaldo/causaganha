@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import json
+
 from causaganha.decisoes.published import (
+    PublishedDecisionDataset,
     STJ_PARQUET_URL,
+    TCU_PARQUET_URL,
     discover_published_decision_datasets,
     discover_published_juris_datasets,
+    discover_published_tcu_dataset,
     unpublished_fontes,
 )
 
@@ -43,3 +48,65 @@ def test_unpublished_fontes_names_tcu_until_publication_is_proven() -> None:
     """TCU is recognized by decisoes_buscar's schema but has no published
     dataset yet (#1022); the authority must say so without a live fetch (#1036)."""
     assert unpublished_fontes() == frozenset({"tcu"})
+
+
+def _write_evidence(path, **overrides: object) -> None:
+    payload: dict[str, object] = {
+        "item_id": "tcu-acordaos-2017-2026",
+        "remote_name": "tcu-acordaos.parquet",
+        "local_parquet": "/tmp/tcu-acordaos.parquet",
+        "upload_succeeded": True,
+        "read_back": {
+            "url": TCU_PARQUET_URL,
+            "size_bytes": 123,
+            "sha256": "deadbeef",
+            "record_count": 10,
+            "checksum_matches_local": True,
+            "schema_ok": True,
+            "count_matches_local": True,
+        },
+        "published": True,
+    }
+    payload.update(overrides)
+    path.write_text(json.dumps(payload), encoding="utf-8")
+
+
+def test_discover_published_tcu_dataset_reads_proven_evidence(tmp_path) -> None:
+    """Once scripts/tcu_acordaos_publish_teor.py records published=true for the
+    real TCU_PARQUET_URL (#1022), discovery must expose it as a real dataset."""
+    evidence_path = tmp_path / "tcu-acordaos-publish-proof.json"
+    _write_evidence(evidence_path)
+
+    dataset = discover_published_tcu_dataset(evidence_path)
+
+    assert dataset == PublishedDecisionDataset(fonte="tcu", url=TCU_PARQUET_URL, tipo="acordao")
+
+
+def test_discover_published_tcu_dataset_missing_evidence_file_returns_none(tmp_path) -> None:
+    assert discover_published_tcu_dataset(tmp_path / "missing.json") is None
+
+
+def test_discover_published_tcu_dataset_unpublished_evidence_returns_none(tmp_path) -> None:
+    """A failed upload or a failed read-back proof must never be treated as published."""
+    evidence_path = tmp_path / "tcu-acordaos-publish-proof.json"
+    _write_evidence(evidence_path, published=False)
+
+    assert discover_published_tcu_dataset(evidence_path) is None
+
+
+def test_discover_published_tcu_dataset_url_mismatch_returns_none(tmp_path) -> None:
+    """Evidence proving a different/stale URL must not be mistaken for TCU_PARQUET_URL."""
+    evidence_path = tmp_path / "tcu-acordaos-publish-proof.json"
+    _write_evidence(
+        evidence_path,
+        read_back={"url": "https://archive.org/download/tcu-acordaos-stale/old.parquet"},
+    )
+
+    assert discover_published_tcu_dataset(evidence_path) is None
+
+
+def test_discover_published_tcu_dataset_malformed_json_returns_none(tmp_path) -> None:
+    evidence_path = tmp_path / "tcu-acordaos-publish-proof.json"
+    evidence_path.write_text("not json", encoding="utf-8")
+
+    assert discover_published_tcu_dataset(evidence_path) is None
