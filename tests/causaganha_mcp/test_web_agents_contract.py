@@ -10,6 +10,7 @@ from causaganha_mcp.server import build_server
 
 
 _AGENTS_PAGE = Path(__file__).parents[2] / "web" / "src" / "pages" / "agentes.astro"
+_HOME_PAGE = Path(__file__).parents[2] / "web" / "src" / "pages" / "index.astro"
 
 _EXPECTED_PUBLIC_JOBS = {
     "processo_consultar": "ARQUIVO",
@@ -151,3 +152,9 @@ def test_agents_page_unpublished_fontes_match_the_publication_authority() -> Non
         fonte for fonte, status in status_by_fonte.items() if status == "unpublished"
     }
     assert site_unpublished == unpublished_fontes()
+
+
+def test_home_agents_interface_links_to_the_public_agents_page() -> None:
+    """The home must keep the MCP path inside the public product, not bounce users to GitHub (#898)."""
+    home = _HOME_PAGE.read_text(encoding="utf-8")
+    assert '<a href={BASE + \'agentes\'}>Usar com um agente →</a>' in home
