@@ -107,6 +107,8 @@ jobs:
             capture "$state" "$port" "index.html" "390,844" "mobile"
             capture "$state" "$port" "sobre.html" "1280,900" "desktop"
             capture "$state" "$port" "sobre.html" "390,844" "mobile"
+            capture "$state" "$port" "agentes.html" "1280,900" "desktop"
+            capture "$state" "$port" "agentes.html" "390,844" "mobile"
             capture "$state" "$port" "stats.html" "1280,900" "desktop"
             capture "$state" "$port" "processo.html" "1280,900" "desktop"
             capture "$state" "$port" "processo.html" "390,844" "mobile"
@@ -124,6 +126,7 @@ jobs:
           for surface in \
             index.html-desktop index.html-mobile \
             sobre.html-desktop sobre.html-mobile \
+            agentes.html-desktop agentes.html-mobile \
             stats.html-desktop \
             processo.html-desktop processo.html-mobile \
             processo-invalid-desktop processo-invalid-mobile \
