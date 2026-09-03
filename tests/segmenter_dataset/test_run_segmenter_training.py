@@ -10,6 +10,7 @@ from scripts.run_segmenter_training import (
     _macro_f1_from_metrics,
     _run_opf_train_epoch,
     _select_best_epoch,
+    _validation_loss_from_metrics,
     main,
 )
 
@@ -73,6 +74,31 @@ def test_macro_f1_from_metrics_averages_by_class_keys():
     macro = _macro_f1_from_metrics(metrics, ["resultado", "dispositivo_abertura"])
 
     assert macro == pytest.approx(0.7)
+
+
+def test_macro_f1_from_metrics_reads_current_opf_envelope():
+    metrics = {
+        "args": {"eval_mode": "typed"},
+        "metrics": {
+            "by_class.resultado.span.f1": 0.8,
+            "by_class.dispositivo_abertura.span.f1": 0.6,
+            "loss": 0.9119997755866411,
+        },
+        "summary": {"examples": 3},
+    }
+
+    macro = _macro_f1_from_metrics(metrics, ["resultado", "dispositivo_abertura"])
+
+    assert macro == pytest.approx(0.7)
+    assert _validation_loss_from_metrics(metrics) == pytest.approx(0.9119997755866411)
+
+
+def test_validation_loss_from_metrics_keeps_historical_flat_format():
+    assert _validation_loss_from_metrics({"loss": 0.42}) == pytest.approx(0.42)
+
+
+def test_validation_loss_from_metrics_none_when_missing():
+    assert _validation_loss_from_metrics({"metrics": {}}) is None
 
 
 def test_macro_f1_from_metrics_falls_back_to_nested_f1_score():
