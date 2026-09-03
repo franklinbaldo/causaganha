@@ -202,9 +202,7 @@ def test_aggregate_region_metrics_perfect_match_across_documents() -> None:
 
 def test_aggregate_region_metrics_missed_region_not_counted_as_hallucinated() -> None:
     predictions = [
-        _region_prediction(
-            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        ),
+        _region_prediction("d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
     ]
 
     report = aggregate_region_metrics(predictions)
@@ -222,9 +220,7 @@ def test_aggregate_region_metrics_missed_region_not_counted_as_hallucinated() ->
 
 def test_aggregate_region_metrics_hallucinated_region_excluded_from_support() -> None:
     predictions = [
-        _region_prediction(
-            "d1", [], [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")]
-        ),
+        _region_prediction("d1", [], [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")]),
     ]
 
     report = aggregate_region_metrics(predictions)
@@ -269,9 +265,7 @@ def test_aggregate_region_metrics_averages_over_matched_documents_only() -> None
             [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
             [(5, 15, "relatorio_inicio"), (40, 50, "relatorio_fim")],
         ),
-        _region_prediction(
-            "d3", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        ),
+        _region_prediction("d3", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
     ]
 
     metrics = aggregate_region_metrics(predictions)["relatorio"]
