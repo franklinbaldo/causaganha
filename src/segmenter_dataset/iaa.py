@@ -85,6 +85,18 @@ def f1_from_counts(tp: int, fp: int, fn: int) -> float:
     return (2 * tp / denominator) if denominator > 0 else 0.0
 
 
+def precision_from_counts(tp: int, fp: int, fn: int) -> float:
+    """Precision from pooled counts; 0.0 when nothing was predicted (tp+fp == 0)."""
+    denominator = tp + fp
+    return (tp / denominator) if denominator > 0 else 0.0
+
+
+def recall_from_counts(tp: int, fp: int, fn: int) -> float:
+    """Recall from pooled counts; 0.0 when there is nothing to find (tp+fn == 0)."""
+    denominator = tp + fn
+    return (tp / denominator) if denominator > 0 else 0.0
+
+
 def support(counts: tuple[int, int, int]) -> int:
     """RFC 0012 §8: support = size of the union of both annotators' spans."""
     tp, fp, fn = counts

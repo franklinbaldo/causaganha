@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
 from segmenter_dataset.model_eval import (
+    CategoryMetrics,
     DocumentModelPrediction,
     bootstrap_diff_ci_low,
     critical_category_f1,
     evaluate_model_acceptance,
+    per_category_metrics,
     trivial_baseline_predictions,
 )
 from segmenter_dataset.ontology import CRITICAL_CATEGORIES
@@ -80,6 +84,59 @@ def test_critical_category_f1_covers_every_fixed_category_even_with_zero_support
     assert set(per_category) == set(CRITICAL_CATEGORIES)
     assert per_category["resultado"] == 1.0
     assert per_category["dispositivo_abertura"] == 0.0
+
+
+def test_per_category_metrics_reports_every_category_from_gold_or_prediction() -> None:
+    predictions = [
+        _prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")]),
+        _prediction("d2", [(0, 5, "dispositivo_abertura")], []),
+        _prediction("d3", [], [(20, 25, "extra")]),
+    ]
+
+    metrics = per_category_metrics(predictions)
+
+    assert set(metrics) == {"resultado", "dispositivo_abertura", "extra"}
+    assert metrics["resultado"] == CategoryMetrics(
+        category="resultado", support=1, tp=1, fp=0, fn=0, precision=1.0, recall=1.0, f1=1.0
+    )
+    assert metrics["dispositivo_abertura"] == CategoryMetrics(
+        category="dispositivo_abertura",
+        support=1,
+        tp=0,
+        fp=0,
+        fn=1,
+        precision=0.0,
+        recall=0.0,
+        f1=0.0,
+    )
+    assert metrics["extra"] == CategoryMetrics(
+        category="extra", support=1, tp=0, fp=1, fn=0, precision=0.0, recall=0.0, f1=0.0
+    )
+
+
+def test_per_category_metrics_omits_categories_with_no_gold_or_prediction() -> None:
+    predictions = [_prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")])]
+
+    metrics = per_category_metrics(predictions)
+
+    assert "dispositivo_abertura" not in metrics
+
+
+def test_per_category_metrics_pools_counts_across_documents() -> None:
+    predictions = [
+        _prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")]),
+        _prediction("d2", [(0, 5, "resultado")], []),
+        _prediction("d3", [], [(10, 15, "resultado")]),
+    ]
+
+    metrics = per_category_metrics(predictions)
+
+    assert metrics["resultado"].tp == 1
+    assert metrics["resultado"].fn == 1
+    assert metrics["resultado"].fp == 1
+    assert metrics["resultado"].support == 3
+    assert metrics["resultado"].precision == pytest.approx(0.5)
+    assert metrics["resultado"].recall == pytest.approx(0.5)
 
 
 def test_evaluate_model_acceptance_passes_when_model_beats_baseline_and_clears_floor() -> None:
