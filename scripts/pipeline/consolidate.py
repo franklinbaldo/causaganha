@@ -901,7 +901,7 @@ def _load_and_transform(
         src_tribunal=staging.filename.split("/")[-1].split("__")[0],
         src_item_id=ibis.literal(item_id),
     )
-    con.create_table("raw_records", raw_expr, overwrite=True)
+    _create_or_replace_table(con, "raw_records", obj=raw_expr)
     raw = con.table("raw_records")
 
     counts: dict[str, int] = {}
@@ -914,8 +914,8 @@ def _load_and_transform(
             logger.info("table_populated", table=table_name, rows=row_count)
 
     # Clean up staging tables
-    con.drop_table("raw_records", force=True)
-    con.drop_table("_staging", force=True)
+    _drop_table_if_exists(con, "raw_records")
+    _drop_table_if_exists(con, "_staging")
     return counts
 
 
@@ -926,10 +926,39 @@ TABLE_SCHEMAS = get_current_schema().tables
 TABLES = list(TABLE_SCHEMAS.keys())
 
 
+def _drop_table_if_exists(con: ibis.BaseBackend, name: str) -> None:
+    """Drop ``name`` if present.
+
+    ``con.drop_table(name, force=...)`` builds ``sqlglot.expressions.Drop(
+    kind="TABLE", ...)``, which on the pinned ibis/duckdb/sqlglot stack
+    renders as a bare ``DROP TABLE`` with no table name regardless of
+    ``force`` — DuckDB then rejects it as a syntax error (issue #1061). Issue
+    the raw SQL directly instead.
+    """
+    con.raw_sql(f'DROP TABLE IF EXISTS "{name}"')
+
+
+def _create_or_replace_table(
+    con: ibis.BaseBackend,
+    name: str,
+    *,
+    schema: ibis.Schema | None = None,
+    obj: ibis.Table | None = None,
+) -> None:
+    """Create ``name``, dropping any pre-existing table first.
+
+    ``create_table(..., overwrite=True)`` routes its drop-before-create step
+    through the same broken ``sqlglot.expressions.Drop(kind="TABLE")`` path
+    as ``_drop_table_if_exists`` above — see that docstring.
+    """
+    _drop_table_if_exists(con, name)
+    con.create_table(name, obj, schema=schema)
+
+
 def init_tables(con: ibis.BaseBackend) -> None:
     """Initialize tables with correct schema using Ibis."""
     for table, schema in TABLE_SCHEMAS.items():
-        con.create_table(table, schema=schema, overwrite=True)
+        _create_or_replace_table(con, table, schema=schema)
 
 
 _CONSOLIDATION_META_OVERRIDES = {
