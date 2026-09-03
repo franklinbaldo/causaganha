@@ -113,7 +113,10 @@ describe('PublicationSearch — export current page as CSV', () => {
 
     expect(downloadName).toMatch(/pagina-1/);
     expect(downloadName).toMatch(/2-itens/);
-    expect(downloadName).not.toMatch(/45/);
+    // Must not leak the cross-page total (45) as an itens count. Anchored to
+    // "-itens-" rather than a bare /45/, which can coincidentally match the
+    // millisecond segment of the timestamp slug also embedded in the name.
+    expect(downloadName).not.toMatch(/45-itens-/);
     expect(downloadName).toMatch(/\.csv$/);
 
     expect(capturedParts).not.toBeNull();
