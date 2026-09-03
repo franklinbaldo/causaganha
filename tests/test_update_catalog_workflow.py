@@ -30,6 +30,7 @@ REPO_ROOT = Path(__file__).resolve().parent.parent
 WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "update-catalog.yml"
 
 _RECONCILE_STEP_NAME = "Reconcile processos (DJEN x JURIS x STJ x DataJud)"
+_GENERATE_CATALOG_STEP_NAME = "Generate reconstructible catalog"
 
 
 def _reconcile_expected_sources() -> set[str]:
@@ -42,3 +43,27 @@ def _reconcile_expected_sources() -> set[str]:
 
 def test_reconcile_expects_every_source_now_publishing_data() -> None:
     assert _reconcile_expected_sources() == {"djen", "juris", "stj", "datajud"}
+
+
+def _generate_catalog_run_script() -> str:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["catalog"]["steps"]
+    (step,) = (s for s in steps if s.get("name") == _GENERATE_CATALOG_STEP_NAME)
+    return step["run"]
+
+
+def test_generate_catalog_step_invokes_ia_through_uv_run() -> None:
+    """``ia`` is only on PATH inside the project's uv-managed venv.
+
+    ``./.github/actions/setup`` runs ``uv sync``, which installs the
+    ``internetarchive`` package's ``ia`` console script into ``.venv/bin`` —
+    it never adds that directory to ``$GITHUB_PATH``. Every run since this
+    step started calling a bare ``ia upload`` (introduced by #968) has
+    actually failed with ``ia: command not found`` (exit 127) — see runs
+    #772-#774 of ``update-catalog.yml`` on main. The sibling step
+    "Reconcile processos" and ``bootstrap-corpus.yml`` both correctly
+    prefix the same binary with ``uv run``.
+    """
+    run_script = _generate_catalog_run_script()
+
+    assert "uv run ia upload causaganha-catalog" in run_script
