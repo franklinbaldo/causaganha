@@ -113,6 +113,45 @@ def test_macro_f1_from_metrics_zero_when_no_category_found():
     assert _macro_f1_from_metrics({}, ["resultado"]) == 0.0
 
 
+def test_macro_f1_from_metrics_counts_missing_category_as_zero_not_excluded():
+    """A trainable category absent from OPF's per-class report (e.g. zero
+    predictions, or zero recall on a class OPF omits F1 for) must still count
+    in the macro-F1 denominator as F1=0. Dropping it instead silently
+    inflates macro-F1 by averaging only over the categories the model
+    happened to report on (#1048).
+    """
+    metrics = {"by_class.resultado.span.f1": 0.8}
+
+    macro = _macro_f1_from_metrics(metrics, ["resultado", "dispositivo_abertura"])
+
+    assert macro == pytest.approx(0.4)
+
+
+def test_macro_f1_from_metrics_counts_explicit_zero_recall_category():
+    metrics = {"by_class.resultado.span.f1": 0.8, "by_class.dispositivo_abertura.span.f1": 0.0}
+
+    macro = _macro_f1_from_metrics(metrics, ["resultado", "dispositivo_abertura"])
+
+    assert macro == pytest.approx(0.4)
+
+
+def test_macro_f1_from_metrics_denominator_is_stable_across_categories():
+    """The denominator is always ``len(categories)``, never the count of
+    categories OPF happened to report -- otherwise macro-F1 across two runs
+    of the same categories is not comparable (#1048).
+    """
+    full_report = {
+        "by_class.resultado.span.f1": 0.8,
+        "by_class.dispositivo_abertura.span.f1": 0.6,
+    }
+    partial_report = {"by_class.resultado.span.f1": 0.8}
+
+    categories = ["resultado", "dispositivo_abertura"]
+
+    assert _macro_f1_from_metrics(full_report, categories) == pytest.approx(0.7)
+    assert _macro_f1_from_metrics(partial_report, categories) == pytest.approx(0.4)
+
+
 def test_select_best_epoch_picks_highest_macro_f1():
     results = [
         _EpochResult(epoch=1, macro_f1=0.5, val_loss=0.9, checkpoint_dir="epoch-1"),
