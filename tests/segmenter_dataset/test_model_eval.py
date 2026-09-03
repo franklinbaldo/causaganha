@@ -5,7 +5,9 @@ import pytest
 from segmenter_dataset.model_eval import (
     CategoryMetrics,
     DocumentModelPrediction,
+    SpanErrorBreakdown,
     bootstrap_diff_ci_low,
+    classify_span_errors,
     critical_category_f1,
     evaluate_model_acceptance,
     per_category_metrics,
@@ -160,3 +162,87 @@ def test_evaluate_model_acceptance_fails_critical_floor_when_model_misses_spans(
 
     assert report.critical_categories_passed is False
     assert report.eligible_for_deploy is False
+
+
+def test_classify_span_errors_exact_match_has_no_errors() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 10, "resultado")])]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=0, boundary_errors=0, pure_misses=0, pure_extras=0
+    )
+
+
+def test_classify_span_errors_overlap_same_category_is_boundary_error() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 8, "resultado")])]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=0, boundary_errors=1, pure_misses=0, pure_extras=0
+    )
+
+
+def test_classify_span_errors_same_offsets_different_category_is_category_error() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 10, "dispositivo_abertura")])]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=1, boundary_errors=0, pure_misses=0, pure_extras=0
+    )
+
+
+def test_classify_span_errors_overlap_different_category_is_category_error_not_boundary() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(2, 12, "dispositivo_abertura")])]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=1, boundary_errors=0, pure_misses=0, pure_extras=0
+    )
+
+
+def test_classify_span_errors_no_overlap_is_pure_miss_and_pure_extra() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(50, 60, "resultado")])]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=0, boundary_errors=0, pure_misses=1, pure_extras=1
+    )
+
+
+def test_classify_span_errors_pools_counts_across_documents() -> None:
+    predictions = [
+        _prediction("d1", [(0, 10, "resultado")], [(0, 10, "resultado")]),
+        _prediction("d2", [(0, 10, "resultado")], [(0, 8, "resultado")]),
+        _prediction("d3", [(0, 10, "resultado")], [(0, 10, "dispositivo_abertura")]),
+        _prediction("d4", [(0, 10, "resultado")], [(50, 60, "resultado")]),
+    ]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=1, boundary_errors=1, pure_misses=1, pure_extras=1
+    )
+
+
+def test_classify_span_errors_matches_the_best_overlapping_candidate() -> None:
+    # Gold [0, 10) overlaps two unmatched predictions; the closer one, [0, 9),
+    # has more overlap than [5, 20) and must be picked, leaving [5, 20) as a
+    # pure extra rather than double-counting a boundary error.
+    predictions = [
+        _prediction(
+            "d1",
+            [(0, 10, "resultado")],
+            [(0, 9, "resultado"), (5, 20, "resultado")],
+        )
+    ]
+
+    breakdown = classify_span_errors(predictions)
+
+    assert breakdown == SpanErrorBreakdown(
+        category_errors=0, boundary_errors=1, pure_misses=0, pure_extras=1
+    )
