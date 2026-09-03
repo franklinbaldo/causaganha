@@ -88,7 +88,7 @@ jobs:
             echo "No public catalog artifacts were generated."
             exit 1
           fi
-          ia upload causaganha-catalog "${files[@]}" --no-derive
+          uv run ia upload causaganha-catalog "${files[@]}" --no-derive
           echo "Catalog updated."
 
       - name: Reconcile processos (DJEN x JURIS x STJ x DataJud)
