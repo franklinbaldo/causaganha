@@ -125,9 +125,16 @@ def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
     calls: list[dict[str, object]] = []
     middleware: list[object] = []
 
+    class FakeTool:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
     class FakeServer:
         def add_middleware(self, item: object) -> None:
             middleware.append(item)
+
+        async def list_tools(self) -> list[FakeTool]:
+            return [FakeTool(name) for name in http_entry._READ_ONLY_TOOL_NAMES]
 
         def run(self, **kwargs: object) -> None:
             calls.append(kwargs)

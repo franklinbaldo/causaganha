@@ -95,9 +95,16 @@ async def test_guard_leaves_tools_without_path_arguments_untouched() -> None:
 def test_main_registers_path_argument_guard(monkeypatch: pytest.MonkeyPatch) -> None:
     middleware: list[object] = []
 
+    class FakeTool:
+        def __init__(self, name: str) -> None:
+            self.name = name
+
     class FakeServer:
         def add_middleware(self, item: object) -> None:
             middleware.append(item)
+
+        async def list_tools(self) -> list[FakeTool]:
+            return [FakeTool(name) for name in http_entry._READ_ONLY_TOOL_NAMES]
 
         def run(self, **_kwargs: object) -> None:
             return None
