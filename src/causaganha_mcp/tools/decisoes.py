@@ -153,7 +153,11 @@ def register(mcp: FastMCP) -> None:
             Field(
                 default=None,
                 description="CNJ do processo para localizar teor sem exigir "
-                "texto/período — dispensa data_inicio/data_fim em JURIS.",
+                "texto/período — dispensa data_inicio/data_fim em JURIS. STJ "
+                "não expõe o CNJ de origem (numeroProcesso é o número interno "
+                "do STJ, não o CNJ), então este filtro nunca casa com STJ — "
+                "resultados STJ ficam de fora e a resposta traz uma limitação "
+                "explícita em vez de um zero silencioso.",
             ),
         ] = None,
         offset: Annotated[
@@ -200,7 +204,10 @@ def register(mcp: FastMCP) -> None:
         apenas STJ, o período é opcional. Quando o CNJ do processo já é conhecido
         (por exemplo, a partir de ``processo_consultar``), informe ``cnj`` no lugar
         de ``texto`` — a busca por CNJ é um lookup pontual e dispensa
-        ``data_inicio``/``data_fim`` mesmo em JURIS.
+        ``data_inicio``/``data_fim`` mesmo em JURIS. STJ nunca é encontrado por
+        ``cnj``: o dataset publicado não expõe o CNJ de origem do acórdão, só o
+        número interno do processo no STJ; use ``texto`` para localizar teor
+        STJ por tema.
 
         Não use para saber o andamento atual de um processo: isso é
         ``processo_estado``. Para um CNJ específico, ``processo_consultar`` é o

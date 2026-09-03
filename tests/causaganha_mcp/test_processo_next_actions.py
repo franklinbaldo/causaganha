@@ -36,7 +36,11 @@ def test_not_found_snapshot_still_offers_independent_next_checks() -> None:
     assert all(action.argumentos for action in actions)
 
 
-def test_stj_document_offers_explicit_teor_route_by_cnj() -> None:
+def test_stj_document_never_offers_teor_route_by_cnj() -> None:
+    """STJ's ``numeroProcesso`` is the tribunal's own internal case number,
+    never the source CNJ (#1045) — recommending
+    ``decisoes_buscar(cnj=..., fonte="stj")`` would be an impossible action:
+    the dataset has no key that joins that CNJ to an STJ acórdão (#1064)."""
     stj = StjAcordao(
         id="s1",
         classe="REsp",
@@ -49,10 +53,7 @@ def test_stj_document_offers_explicit_teor_route_by_cnj() -> None:
     )
     actions = _next_actions(_result(encontrado=True, stj=stj))
 
-    teor_actions = [action for action in actions if action.tool == "decisoes_buscar"]
-    assert len(teor_actions) == 1
-    assert teor_actions[0].argumentos == {"cnj": CNJ, "fonte": "stj"}
-    assert "teor" in teor_actions[0].acao.lower()
+    assert not any(action.tool == "decisoes_buscar" for action in actions)
 
 
 def test_juris_document_offers_explicit_teor_route_by_cnj() -> None:
