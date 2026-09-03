@@ -167,3 +167,40 @@ macro-F1, wrote `experiment_manifest.json`, and correctly refused to open
 `test.jsonl` — printing `SMOKETEST_DONE_OK`. `macro_f1=0.0` in that run is
 expected (one epoch, 20 tiny synthetic documents, not meaningful metrics) —
 what mattered was proving the mechanism, not the number.
+
+## 2026-09-03: GitHub Actions -> Kaggle T4 on the real v7 seed
+
+The blog repository now also acts as a control plane for this workflow: its
+GitHub Actions credentials dispatch a private Kaggle kernel, the kernel clones
+a pinned CausaGanha ref, copies only `train.jsonl`, `val.jsonl`, and
+`label_space.json` into an isolated workspace, and runs this repository's
+canonical `scripts/run_segmenter_training.py`. The locked `test.jsonl` is not
+copied to the remote training workspace and is not evaluated during checkpoint
+selection.
+
+The first real run exposed a compatibility bug that local mocks had missed:
+current `opf eval --metrics-out` writes an envelope containing `args`, `config`,
+`metrics`, and `summary`, whereas the runner still read metric keys from the
+JSON document root. That made a real validation loss appear as `null`. PR #1033
+normalizes both the current enveloped format and the historical flat format.
+
+A three-epoch validation run against the #1033 head (`91ef19ab3ab2`) then
+completed successfully on a Kaggle Tesla T4 with PyTorch `2.10.0+cu128`.
+Validation loss decreased monotonically (`0.9155 -> 0.7611 -> 0.6719`), while
+validation macro-F1 remained `0.0` and recall remained `0.0`: the tiny seed is
+still collapsing to the background `O` class at these settings. This is useful
+evidence, not a production-quality result.
+
+Do not interpret that three-epoch result as evidence that OPF cannot adapt to
+this domain. The upstream custom-label fine-tuning demo uses a much more
+aggressive recipe: 40 epochs, batch size 1, learning rate `2e-4`, weight decay
+`0.0`, and max grad norm `1.0`. By contrast, invoking `opf train` without those
+optimization flags uses OPF defaults of learning rate `1e-5` and weight decay
+`0.01`. The next experiment should therefore test an explicit optimization
+recipe rather than merely repeat the underpowered three-epoch smoke.
+
+Finally, keep remote outputs compact. A selected OPF checkpoint is about 2.3 GB.
+The Actions-to-Kaggle runner now deletes losing epoch checkpoints and archives
+only the selected checkpoint plus compact metrics/manifest evidence; otherwise
+Kaggle spends most of the wall clock synchronizing multi-GB duplicate weights
+instead of doing useful training.
