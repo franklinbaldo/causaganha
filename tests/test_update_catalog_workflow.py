@@ -67,3 +67,26 @@ def test_generate_catalog_step_invokes_ia_through_uv_run() -> None:
     run_script = _generate_catalog_run_script()
 
     assert "uv run ia upload causaganha-catalog" in run_script
+
+
+def _job_timeout_minutes() -> int:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    return workflow["jobs"]["catalog"]["timeout-minutes"]
+
+
+# Evidence from run #775 (the push that landed #1040's "uv run ia upload"
+# fix): https://github.com/franklinbaldo/causaganha/actions/runs/33724279016
+# "Generate reconstructible catalog" alone ran 06:40:30-06:52:09 (~11m40s);
+# "Reconcile processos" then started at 06:52:09 but was killed mid-run
+# (conclusion "cancelled") when the job hit its 15-minute timeout at
+# 06:55:15. #1040 fixed the "ia: command not found" failure that had
+# prevented Reconcile from ever starting, but that only exposed the next
+# blocker: the two I/O-heavy steps already exceed the job's time budget on
+# their own, so Reconcile has still never completed. 45 minutes leaves ~30
+# minutes of headroom beyond the observed catalog-step duration for
+# Reconcile plus the remaining steps to finish.
+_MIN_JOB_TIMEOUT_MINUTES = 45
+
+
+def test_job_timeout_leaves_room_for_reconcile_to_finish() -> None:
+    assert _job_timeout_minutes() >= _MIN_JOB_TIMEOUT_MINUTES
