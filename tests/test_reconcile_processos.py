@@ -283,14 +283,16 @@ class TestFullReconcileWithoutLocalParquets:
         assert report["combinations"] == {"datajud+djen+juris": 1, "datajud+djen": 1}
         assert report["sources"]["stj"]["raw_rows"] == 1  # the record was read, just filtered
         assert report["validation"]["errors"] == []
-        # Loaded fine but zero CNJ-shaped rows out of 1 raw row must be
-        # reported as a join-key mismatch, not a generic "empty source"
-        # warning — see TestValidateCoverage for the exact wording contract.
+        # Loaded fine but zero CNJ-shaped rows out of 1 raw row is STJ's
+        # documented, structural limitation (#1045), not a generic "empty
+        # source" or "join-key mismatch" warning — see TestValidateCoverage
+        # for the exact wording contract.
         assert len(report["validation"]["warnings"]) == 1
         stj_warning = report["validation"]["warnings"][0]
         assert "'stj'" in stj_warning
         assert "1 raw record" in stj_warning
-        assert "20-digit CNJ" in stj_warning
+        assert "numeroProcesso" in stj_warning
+        assert "#1045" in stj_warning
 
     def test_remote_downloads_are_cached_across_runs(self, isolated_dirs: Path) -> None:
         tmp_path = isolated_dirs
@@ -667,12 +669,40 @@ class TestValidateCoverage:
     def test_zero_with_nonzero_raw_rows_flags_join_key_mismatch(self) -> None:
         """Loaded real records, but none survived the CNJ-format filter.
 
-        Distinct wording from the genuinely-empty case above — this is the
-        situation #1042's run #776 evidence found for STJ: the source loads
-        fine and has real rows, but its process-number field is never
-        20-digit CNJ-shaped (RFC 0002 §3.2), so every row is silently
-        dropped by _INDICE_STJ_SQL. Reporting this identically to "no data"
-        would hide a permanent join-key defect behind routine noise.
+        Distinct wording from the genuinely-empty case above — a source
+        loads fine and has real rows, but its process-number field is never
+        20-digit CNJ-shaped after normalization, so every row is silently
+        dropped by the corresponding _INDICE_*_SQL. Reporting this
+        identically to "no data" would hide a join-key defect behind
+        routine noise. This generic wording is for sources *other* than
+        'stj' — see test_stj_zero_with_nonzero_raw_rows_is_documented_
+        structural_limitation for STJ's own, more specific wording.
+        """
+        sources = {
+            "juris": rp.SourceLoad(
+                "juris", rp.STATUS_LOADED_REMOTE, "https://...juris.parquet", rows=0
+            )
+        }
+        errors, warnings = rp.validate_coverage(sources, ("juris",), raw_rows={"juris": 84})
+        assert errors == []
+        assert len(warnings) == 1
+        assert "'juris'" in warnings[0]
+        assert "84 raw record" in warnings[0]
+        assert "20-digit CNJ" in warnings[0]
+        assert "likely a join-key mismatch" in warnings[0]
+
+    def test_stj_zero_with_nonzero_raw_rows_is_documented_structural_limitation(self) -> None:
+        """STJ's zero-CNJ-match case is a confirmed, permanent limitation — not a bug hunt.
+
+        Issue #1042's run #776 evidence first surfaced this as an
+        ambiguous "join-key mismatch" — reported generically, indistinguishable
+        from an accidental defect that might get fixed. Issue #1045 then
+        confirmed, by live inspection of the STJ dataset and RFC 0002 §3.2,
+        that `numeroProcesso` is STJ's own internal case number, never the
+        origin CNJ number — this source structurally can never contribute
+        rows to the CNJ-indexed reconciliation, on any volume of real data.
+        The warning must say so explicitly instead of reading as an open
+        investigation, so it stops looking actionable on every future run.
         """
         sources = {
             "stj": rp.SourceLoad("stj", rp.STATUS_LOADED_REMOTE, "https://...stj.parquet", rows=0)
@@ -682,7 +712,12 @@ class TestValidateCoverage:
         assert len(warnings) == 1
         assert "'stj'" in warnings[0]
         assert "84 raw record" in warnings[0]
-        assert "20-digit CNJ" in warnings[0]
+        assert "numeroProcesso" in warnings[0]
+        assert "never" in warnings[0] and "CNJ" in warnings[0]
+        assert "structural" in warnings[0]
+        assert "#1045" in warnings[0]
+        # Not the generic wording — this is a documented fact, not a "likely" hypothesis.
+        assert "likely a join-key mismatch" not in warnings[0]
 
     def test_unavailable_but_not_expected_is_warning(self) -> None:
         sources = {"juris": rp.SourceLoad("juris", rp.STATUS_UNAVAILABLE, "gone", rows=0)}

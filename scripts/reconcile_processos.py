@@ -549,6 +549,33 @@ ORDER BY numero_processo, fonte
 # ── Source coverage report & validation ───────────────────────────────────────
 
 
+# Sources confirmed (issue #1045, live inspection + RFC 0002 §3.2) to have
+# no CNJ-shaped process-number field at all: any volume of real data from
+# them will always produce zero rows after the 20-digit CNJ filter in the
+# corresponding _INDICE_*_SQL. This is a permanent fact about the source's
+# schema, not a hypothesis — see _stj_structural_limitation_note below.
+_STRUCTURALLY_CNJ_LESS_SOURCES = frozenset({"stj"})
+
+
+def _stj_structural_limitation_note(raw_rows: int, status: str, detail: str) -> str:
+    """STJ-specific wording for validate_coverage's join-key-mismatch case.
+
+    Distinct from the generic wording other sources get: this is not a
+    "likely" defect to keep re-investigating on every run. #1045 confirmed
+    by live inspection that STJ's `numeroProcesso` (RFC 0002 §3.2) is the
+    tribunal's own internal case number, never the origin CNJ number, so
+    this source structurally can never contribute rows to the CNJ-indexed
+    reconciliation.
+    """
+    return (
+        f"source 'stj' loaded ({status}) with {raw_rows:,} raw record(s); "
+        "numeroProcesso is STJ's own internal case number, never the origin "
+        "CNJ number (RFC 0002 §3.2) — a documented, structural limitation "
+        "(see #1045), not a defect to investigate: this source will always "
+        f"contribute zero rows to the CNJ-indexed reconciliation ({detail})"
+    )
+
+
 def validate_coverage(
     sources: dict[str, SourceLoad],
     expected: tuple[str, ...],
@@ -558,11 +585,14 @@ def validate_coverage(
 
     `raw_rows` is each source's row count *before* the CNJ-format filter in
     _INDICE_*_SQL (see _raw_row_counts) — it turns a source with real data
-    but zero rows surviving that filter (a structural join-key defect, e.g.
-    STJ's numeroProcesso is never CNJ-shaped — issue #1042 evidence) into a
-    distinct signal from a source whose underlying file is simply empty.
+    but zero rows surviving that filter (a structural join-key defect) into
+    a distinct signal from a source whose underlying file is simply empty.
     Both remain warnings, never errors: the filter itself isn't wrong to
-    apply, and a permanently-zero source is not "unavailable".
+    apply, and a permanently-zero source is not "unavailable". For sources
+    in _STRUCTURALLY_CNJ_LESS_SOURCES (currently just 'stj'), the join-key
+    mismatch is a confirmed permanent fact rather than an open hypothesis,
+    so it gets dedicated wording instead of the generic "likely a
+    join-key mismatch" phrasing (see #1045).
 
     Returns (errors, warnings):
       - error   — an *expected* source ended with zero rows because it was
@@ -580,7 +610,11 @@ def validate_coverage(
             (errors if name in expected else warnings).append(msg)
         elif load.rows == 0:
             source_raw_rows = raw_rows.get(name, 0)
-            if source_raw_rows > 0:
+            if source_raw_rows > 0 and name in _STRUCTURALLY_CNJ_LESS_SOURCES:
+                warnings.append(
+                    _stj_structural_limitation_note(source_raw_rows, load.status, load.detail)
+                )
+            elif source_raw_rows > 0:
                 warnings.append(
                     f"source '{name}' loaded ({load.status}) with {source_raw_rows:,} raw "
                     "record(s) but none had a 20-digit CNJ-shaped process number after "
