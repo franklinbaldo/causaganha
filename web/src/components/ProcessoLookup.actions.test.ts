@@ -109,7 +109,7 @@ describe('ProcessoLookup — next actions', () => {
   });
 
   it('offers the DJEN route when the reconciled snapshot has no process record', async () => {
-    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({ encontrado: false, legado: false } as never);
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({ encontrado: false } as never);
     const component = render(ProcessoLookup);
 
     await submit(component);
@@ -139,7 +139,6 @@ describe('ProcessoLookup — next actions', () => {
     const staleTimestamp = new Date(Date.now() - 60 * 60 * 60 * 1000).toISOString(); // 60h ago
     vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({
       encontrado: false,
-      legado: false,
       datasetGeradoEm: staleTimestamp,
     } as never);
     const component = render(ProcessoLookup);
@@ -154,7 +153,6 @@ describe('ProcessoLookup — next actions', () => {
     const freshTimestamp = new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString(); // 1h ago
     vi.mocked(processoCnj.buscarProcesso).mockResolvedValue({
       encontrado: false,
-      legado: false,
       datasetGeradoEm: freshTimestamp,
     } as never);
     const component = render(ProcessoLookup);
