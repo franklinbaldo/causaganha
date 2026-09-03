@@ -192,9 +192,13 @@ def test_neither_texto_nor_cnj_is_rejected_before_query() -> None:
         search_decisions(None, empty)
 
 
-def test_cnj_lookup_matches_exact_process_across_sources_without_texto(
+def test_cnj_lookup_matches_juris_and_skips_stj_with_explicit_limitation(
     tmp_path: Path,
 ) -> None:
+    """STJ's ``numeroProcesso`` is the tribunal's own internal case number,
+    never the source CNJ (#1045) — a cnj lookup can never legitimately match
+    an STJ row, so STJ is skipped rather than silently returning a false
+    negative that looks like proof the process has no STJ acórdão (#1064)."""
     juris = tmp_path / "juris.parquet"
     stj = tmp_path / "stj.parquet"
     _write_juris(juris)
@@ -208,8 +212,26 @@ def test_cnj_lookup_matches_exact_process_across_sources_without_texto(
 
     result = search_decisions(None, plan, cnj="00000010220248220001")
 
-    assert {item.fonte for item in result.resultados} == {"juris", "stj"}
-    assert all(item.cnj == "00000010220248220001" for item in result.resultados)
+    assert [item.fonte for item in result.resultados] == ["juris"]
+    assert any(
+        "stj" in limitation.lower() and "cnj" in limitation.lower()
+        for limitation in result.limitacoes
+    )
+
+
+def test_cnj_lookup_without_stj_in_plan_adds_no_limitation(tmp_path: Path) -> None:
+    juris = tmp_path / "juris.parquet"
+    _write_juris(juris)
+    plan = DecisionSearchPlan(
+        juris=(PublishedDecisionDataset(fonte="juris", url=str(juris), periodo="2026-02"),),
+        stj=(),
+        data_inicio=None,
+        data_fim=None,
+    )
+
+    result = search_decisions(None, plan, cnj="00000010220248220001")
+
+    assert [item.fonte for item in result.resultados] == ["juris"]
     assert result.limitacoes == []
 
 
