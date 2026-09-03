@@ -8,6 +8,7 @@ from scripts.run_segmenter_training import (
     _EpochResult,
     _load_label_space,
     _macro_f1_from_metrics,
+    _prune_epoch_checkpoints,
     _run_opf_train_epoch,
     _select_best_epoch,
     _validation_loss_from_metrics,
@@ -42,12 +43,20 @@ def test_run_opf_train_epoch_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
         batch_size=2,
         seed=42,
         device="cpu",
+        learning_rate=2e-4,
+        weight_decay=0.0,
+        grad_accum_steps=3,
+        max_grad_norm=0.5,
     )
 
     cmd = captured_cmd["cmd"]
     assert "--seed" not in cmd
     assert "--shuffle-seed" in cmd
     assert cmd[cmd.index("--shuffle-seed") + 1] == "42"
+    assert cmd[cmd.index("--learning-rate") + 1] == "0.0002"
+    assert cmd[cmd.index("--weight-decay") + 1] == "0.0"
+    assert cmd[cmd.index("--grad-accum-steps") + 1] == "3"
+    assert cmd[cmd.index("--max-grad-norm") + 1] == "0.5"
 
 
 def test_load_label_space_requires_o_first(tmp_path):
@@ -74,6 +83,19 @@ def test_macro_f1_from_metrics_averages_by_class_keys():
     macro = _macro_f1_from_metrics(metrics, ["resultado", "dispositivo_abertura"])
 
     assert macro == pytest.approx(0.7)
+
+
+def test_macro_f1_from_metrics_derives_f1_when_opf_omits_zero_f1_key():
+    metrics = {
+        "metrics": {
+            "by_class.resultado.span.precision": 0.5,
+            "by_class.resultado.span.recall": 0.25,
+        }
+    }
+
+    macro = _macro_f1_from_metrics(metrics, ["resultado"])
+
+    assert macro == pytest.approx(1 / 3)
 
 
 def test_macro_f1_from_metrics_reads_current_opf_envelope():
@@ -145,6 +167,28 @@ def test_select_best_epoch_falls_back_to_lowest_val_loss_on_full_tie():
     best = _select_best_epoch(results)
 
     assert best.checkpoint_dir == "b"
+
+
+def test_prune_epoch_checkpoints_keeps_only_requested_epochs(tmp_path):
+    results = []
+    for epoch in (1, 2, 3):
+        checkpoint = tmp_path / f"epoch-{epoch}"
+        checkpoint.mkdir()
+        (checkpoint / "model.safetensors").write_text("weights", encoding="utf-8")
+        results.append(
+            _EpochResult(
+                epoch=epoch,
+                macro_f1=epoch / 10,
+                val_loss=1 / epoch,
+                checkpoint_dir=checkpoint,
+            )
+        )
+
+    _prune_epoch_checkpoints(results, {1, 3})
+
+    assert (tmp_path / "epoch-1").is_dir()
+    assert not (tmp_path / "epoch-2").exists()
+    assert (tmp_path / "epoch-3").is_dir()
 
 
 def _main_args(tmp_path, **overrides: str):

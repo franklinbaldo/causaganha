@@ -21,7 +21,9 @@ train` subprocess calls, rather than one `--epochs N` call -- a mechanical
 lesson RFC 0012 §13.2 carries over from PR #832: the opf trainer leaks RAM
 in a long-lived process. Checkpoint selection is macro-F1 on validation
 only (RFC 0012 §5 point 5): highest wins; ties broken by lowest epoch, then
-by lowest validation loss.
+by lowest validation loss. To make long free-GPU runs practical, only the
+best-so-far and latest checkpoints are retained while training; once the
+loop finishes, only the selected checkpoint remains.
 
 Usage:
     uv run python scripts/run_segmenter_training.py \
@@ -46,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -60,6 +63,10 @@ from segmenter_dataset.schemas import CheckpointSelection, ExperimentManifest
 logger = structlog.get_logger()
 
 REQUIRED_TRAIN_ARTIFACTS = ("train.jsonl", "val.jsonl", "label_space.json")
+DEFAULT_LEARNING_RATE = 1e-5
+DEFAULT_WEIGHT_DECAY = 0.01
+DEFAULT_GRAD_ACCUM_STEPS = 1
+DEFAULT_MAX_GRAD_NORM = 1.0
 
 
 def _detect_device() -> str:
@@ -92,6 +99,10 @@ def _run_opf_train_epoch(
     batch_size: int,
     seed: int,
     device: str,
+    learning_rate: float = DEFAULT_LEARNING_RATE,
+    weight_decay: float = DEFAULT_WEIGHT_DECAY,
+    grad_accum_steps: int = DEFAULT_GRAD_ACCUM_STEPS,
+    max_grad_norm: float = DEFAULT_MAX_GRAD_NORM,
 ) -> int:
     cmd = [
         sys.executable,
@@ -111,6 +122,14 @@ def _run_opf_train_epoch(
         "1",
         "--batch-size",
         str(batch_size),
+        "--grad-accum-steps",
+        str(grad_accum_steps),
+        "--learning-rate",
+        str(learning_rate),
+        "--weight-decay",
+        str(weight_decay),
+        "--max-grad-norm",
+        str(max_grad_norm),
         "--shuffle-seed",
         str(seed),
     ]
@@ -163,17 +182,33 @@ def _metric_payload(metrics: dict) -> dict:
     return nested if isinstance(nested, dict) else metrics
 
 
+def _f1_from_metric_prefix(payload: dict, prefix: str) -> float | None:
+    """Read F1 or derive it from precision/recall when OPF omits a zero-valued F1 key."""
+    direct = payload.get(f"{prefix}.f1")
+    if isinstance(direct, (int, float)):
+        return float(direct)
+
+    precision = payload.get(f"{prefix}.precision")
+    recall = payload.get(f"{prefix}.recall")
+    if not isinstance(precision, (int, float)) or not isinstance(recall, (int, float)):
+        return None
+    denominator = float(precision) + float(recall)
+    if denominator <= 0.0:
+        return 0.0
+    return 2.0 * float(precision) * float(recall) / denominator
+
+
 def _macro_f1_from_metrics(metrics: dict, categories: list[str]) -> float:
     """Mean of per-class span F1 over trainable categories (RFC 0012 §5 point 5's metric)."""
     payload = _metric_payload(metrics)
     f1s = []
     for category in categories:
-        f1 = payload.get(f"by_class.{category}.span.f1")
+        f1 = _f1_from_metric_prefix(payload, f"by_class.{category}.span")
         if f1 is None:
             category_metrics = payload.get(category, {})
             f1 = category_metrics.get("f1-score") if category_metrics else None
         if f1 is not None:
-            f1s.append(f1)
+            f1s.append(float(f1))
     return sum(f1s) / len(f1s) if f1s else 0.0
 
 
@@ -203,6 +238,17 @@ def _select_best_epoch(results: list[_EpochResult]) -> _EpochResult:
     return min(results, key=sort_key)
 
 
+def _prune_epoch_checkpoints(results: list[_EpochResult], keep_epochs: set[int]) -> None:
+    """Delete checkpoint directories that are neither needed for resume nor selection."""
+    for result in results:
+        if result.epoch in keep_epochs:
+            continue
+        checkpoint_dir = Path(result.checkpoint_dir)
+        if checkpoint_dir.is_dir():
+            logger.info("prune_epoch_checkpoint", epoch=result.epoch, path=str(checkpoint_dir))
+            shutil.rmtree(checkpoint_dir)
+
+
 def train_and_select_checkpoint(
     data_dir: Path,
     output_dir: Path,
@@ -211,10 +257,16 @@ def train_and_select_checkpoint(
     batch_size: int,
     seed: int,
     device: str,
+    learning_rate: float = DEFAULT_LEARNING_RATE,
+    weight_decay: float = DEFAULT_WEIGHT_DECAY,
+    grad_accum_steps: int = DEFAULT_GRAD_ACCUM_STEPS,
+    max_grad_norm: float = DEFAULT_MAX_GRAD_NORM,
 ) -> tuple[CheckpointSelection, Path]:
     """Train epoch-by-epoch, evaluating ONLY on val.jsonl; return the winning checkpoint.
 
-    Never opens `data_dir / "test.jsonl"`, even if present.
+    Never opens `data_dir / "test.jsonl"`, even if present. While the loop is
+    running, retain only the best-so-far checkpoint plus the latest checkpoint
+    required for the next resume. After the final epoch, retain only the winner.
     """
     train_jsonl = data_dir / "train.jsonl"
     val_jsonl = data_dir / "val.jsonl"
@@ -236,6 +288,10 @@ def train_and_select_checkpoint(
             batch_size=batch_size,
             seed=seed,
             device=device,
+            learning_rate=learning_rate,
+            weight_decay=weight_decay,
+            grad_accum_steps=grad_accum_steps,
+            max_grad_norm=max_grad_norm,
         )
         if returncode != 0:
             msg = f"opf train failed at epoch {epoch} (returncode {returncode})"
@@ -254,19 +310,22 @@ def train_and_select_checkpoint(
             _EpochResult(epoch=epoch, macro_f1=macro, val_loss=val_loss, checkpoint_dir=epoch_dir)
         )
         resume_from = epoch_dir
+        best_so_far = _select_best_epoch(results)
+        _prune_epoch_checkpoints(results, {best_so_far.epoch, epoch})
 
     if not results:
         msg = "no epochs completed"
         raise RuntimeError(msg)
 
     best = _select_best_epoch(results)
+    _prune_epoch_checkpoints(results, {best.epoch})
     selection = CheckpointSelection(
         selected_epoch=best.epoch,
         val_macro_f1=best.macro_f1,
         val_loss=best.val_loss,
         per_epoch_val_macro_f1={result.epoch: result.macro_f1 for result in results},
     )
-    return selection, best.checkpoint_dir
+    return selection, Path(best.checkpoint_dir)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -282,6 +341,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
+    parser.add_argument("--weight-decay", type=float, default=DEFAULT_WEIGHT_DECAY)
+    parser.add_argument("--grad-accum-steps", type=int, default=DEFAULT_GRAD_ACCUM_STEPS)
+    parser.add_argument("--max-grad-norm", type=float, default=DEFAULT_MAX_GRAD_NORM)
     parser.add_argument("--device", default=None, help="cuda|cpu; default: auto-detect")
     parser.add_argument("--experiment-id", default=None)
     args = parser.parse_args(argv)
@@ -306,6 +369,10 @@ def main(argv: list[str] | None = None) -> int:
         batch_size=args.batch_size,
         seed=args.seed,
         device=device,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay,
+        grad_accum_steps=args.grad_accum_steps,
+        max_grad_norm=args.max_grad_norm,
     )
 
     timestamp = datetime.now(UTC)
@@ -324,8 +391,18 @@ def main(argv: list[str] | None = None) -> int:
         checkpoint_selection=selection,
         created_at=timestamp.isoformat(),
     )
+    manifest_payload = manifest.model_dump(mode="json")
+    manifest_payload["optimization"] = {
+        "learning_rate": args.learning_rate,
+        "weight_decay": args.weight_decay,
+        "grad_accum_steps": args.grad_accum_steps,
+        "max_grad_norm": args.max_grad_norm,
+        "checkpoint_retention": "best_plus_latest_during_training_selected_only_after",
+    }
     manifest_path = output_dir / "experiment_manifest.json"
-    manifest_path.write_text(manifest.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    manifest_path.write_text(
+        json.dumps(manifest_payload, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"
+    )
 
     print(f"Selected epoch {selection.selected_epoch} (val macro-F1={selection.val_macro_f1:.3f})")
     print(f"Checkpoint: {checkpoint_dir}")
