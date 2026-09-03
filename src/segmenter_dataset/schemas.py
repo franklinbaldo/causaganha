@@ -360,6 +360,12 @@ class ExperimentManifest(BaseModel):
     checkpoint_dir: str
     checkpoint_selection: CheckpointSelection
     created_at: str
+    # #1048: ties a manifest to the exact bytes/environment a run used, not
+    # just to a release/device *name* that could point at different content.
+    dataset_export_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
+    opf_version: str | None = None
+    hardware: str | None = None
+    finetune_summary_path: str | None = None
 
 
 class ModelAcceptanceEvidence(BaseModel):
