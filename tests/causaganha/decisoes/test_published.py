@@ -6,6 +6,7 @@ from causaganha.decisoes.published import (
     STJ_PARQUET_URL,
     discover_published_decision_datasets,
     discover_published_juris_datasets,
+    unpublished_fontes,
 )
 
 
@@ -36,3 +37,9 @@ def test_combined_discovery_keeps_stj_as_distinct_source() -> None:
     assert [item.fonte for item in datasets] == ["juris", "juris", "stj"]
     assert datasets[-1].url == STJ_PARQUET_URL
     assert datasets[-1].periodo is None
+
+
+def test_unpublished_fontes_names_tcu_until_publication_is_proven() -> None:
+    """TCU is recognized by decisoes_buscar's schema but has no published
+    dataset yet (#1022); the authority must say so without a live fetch (#1036)."""
+    assert unpublished_fontes() == frozenset({"tcu"})
