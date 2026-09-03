@@ -163,8 +163,10 @@ async def test_arquivo_estado_teor_compose_without_hidden_cross_calls(
 
     estado_action = next(a for a in arquivo.next_actions if a.tool == "processo_estado")
     assert estado_action.argumentos == {"cnj": CNJ}
-    teor_action = next(a for a in arquivo.next_actions if a.tool == "decisoes_buscar")
-    assert teor_action.argumentos == {"cnj": CNJ, "fonte": "stj"}
+    # STJ's numeroProcesso is never the source CNJ (#1045) — processo_consultar
+    # must not recommend an impossible decisoes_buscar(cnj=..., fonte="stj")
+    # lookup when STJ is the only teor-bearing source present (#1064).
+    assert not any(a.tool == "decisoes_buscar" for a in arquivo.next_actions)
 
     # -- ESTADO -----------------------------------------------------------
     # The ARQUIVO phase above only needed to prove ESTADO/TEOR were never
@@ -203,8 +205,11 @@ async def test_arquivo_estado_teor_compose_without_hidden_cross_calls(
     monkeypatch.setattr(decisoes_module, "_datasets_for_source", lambda _fonte: ([dataset], []))
     monkeypatch.setattr(decisoes_module, "search_decisions", lambda *a, **k: _teor_result())
 
+    # STJ has no CNJ-joinable key (#1045/#1064); a legitimate STJ teor lookup
+    # goes by texto/tema, never by the CNJ this composition is otherwise
+    # threading through ARQUIVO/ESTADO.
     teor_fn = await _tool_fn(mcp, "decisoes_buscar")
-    teor = teor_fn(cnj=CNJ, fonte="stj")
+    teor = teor_fn(texto="dano moral", fonte="stj")
 
     arquivo_spy.assert_not_called()
     estado_spy.assert_not_called()

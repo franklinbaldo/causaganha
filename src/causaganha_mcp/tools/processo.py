@@ -211,18 +211,11 @@ def _next_actions(r: ProcessoConsultaResult) -> list[ProximaAcaoResult]:
             argumentos={"processo": r.nr_processo},
         ),
     ]
-    if r.stj is not None:
-        actions.append(
-            ProximaAcaoResult(
-                quando=(
-                    "Se o resumo do STJ já retornado não basta e você precisa do teor "
-                    "completo do acórdão."
-                ),
-                acao="Buscar o teor completo do acórdão STJ deste processo.",
-                tool="decisoes_buscar",
-                argumentos={"cnj": r.nr_processo, "fonte": "stj"},
-            )
-        )
+    # STJ's numeroProcesso is the tribunal's own internal case number, never
+    # the source CNJ (#1045) — there is no key that joins this CNJ to an STJ
+    # acórdão, so recommending decisoes_buscar(cnj=..., fonte="stj") here
+    # would be an impossible action (#1064). STJ teor stays reachable by
+    # texto/tema through decisoes_buscar directly.
     if r.juris is not None:
         actions.append(
             ProximaAcaoResult(

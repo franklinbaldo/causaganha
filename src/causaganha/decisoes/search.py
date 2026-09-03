@@ -273,6 +273,14 @@ def search_decisions(
     There is no ``assunto`` filter: no source has a legitimate equivalent
     field exposed today.
 
+    ``cnj`` also skips STJ, for a stronger reason than ``orgao``: STJ's
+    published ``numeroProcesso`` is the tribunal's own internal case number,
+    never the CNJ of the process at its origin court (#1045), so a cnj
+    filter could never legitimately match an STJ row. Comparing anyway would
+    silently produce a false negative that reads as proof the process has no
+    STJ acórdão. STJ stays searchable by ``texto``/tema; only the by-CNJ
+    lookup is unsupported (#1064).
+
     ``offset`` pages through the globally sorted, cross-source result set.
     The window (``offset + limite``) is bounded to keep the remote scan cost
     predictable, same spirit as the JURIS date-range budget in ``planner``.
@@ -305,6 +313,7 @@ def search_decisions(
     orgao_query = orgao.strip() or None if orgao else None
     relator_query = relator.strip() or None if relator else None
     skip_stj_for_orgao = bool(orgao_query) and bool(plan.stj)
+    skip_stj_for_cnj = bool(cnj_query) and bool(plan.stj)
 
     con = duckdb.connect()
     _load_httpfs(con)
@@ -317,9 +326,15 @@ def search_decisions(
             "expõe órgão colegiado julgador de forma verificada; resultados STJ "
             "desta busca ignoram esse critério."
         )
+    if skip_stj_for_cnj:
+        limitations.append(
+            "STJ: numeroProcesso é o número interno do processo no STJ, não o "
+            "CNJ de origem (#1045); busca por cnj não é aplicada a esta fonte "
+            "— resultados STJ desta busca não cobrem cnj."
+        )
     try:
         for fonte, datasets in (("juris", plan.juris), ("stj", plan.stj), ("tcu", plan.tcu)):
-            if fonte == "stj" and skip_stj_for_orgao:
+            if fonte == "stj" and (skip_stj_for_orgao or skip_stj_for_cnj):
                 continue
             source_hits, source_truncated, error = _search_source(
                 con,
