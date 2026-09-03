@@ -1,6 +1,6 @@
 import { fireEvent, render, waitFor } from '@testing-library/svelte';
 import { QueryClient } from '@tanstack/svelte-query';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import PublicationSearchRaw from './PublicationSearch.svelte';
 import * as djen from '../lib/djen';
 
@@ -73,6 +73,19 @@ describe('PublicationSearch — copy search link', () => {
 });
 
 describe('PublicationSearch — export current page as CSV', () => {
+  // The exported filename embeds new Date().toISOString() (see
+  // exportCurrentPageCsv in PublicationSearch.svelte). Freeze the clock so
+  // the filename slug is deterministic instead of depending on whichever
+  // millisecond the test happens to run at.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.945Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   it('exports only the current page, with the scope explicit in the filename', async () => {
     let capturedParts: string[] | null = null;
     let downloadName: string | null = null;
