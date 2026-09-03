@@ -17,6 +17,10 @@ _EXPECTED_PUBLIC_JOBS = {
     "decisoes_buscar": "TEOR",
 }
 
+# "todas" is the aggregate default, not a distinct source — the page lists
+# only the individual fontes `decisoes_buscar` actually searches.
+_AGGREGATE_FONTE = "todas"
+
 
 class _PublicJobParser(HTMLParser):
     def __init__(self) -> None:
@@ -59,6 +63,48 @@ def _public_jobs() -> dict[str, str]:
     return parser.jobs
 
 
+class _DecisoesFonteParser(HTMLParser):
+    """Collects data-mcp-fonte values listed inside the decisoes_buscar job card."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.fontes: set[str] = set()
+        self._inside_decisoes_job = False
+        self._depth = 0
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        attributes = dict(attrs)
+        if tag == "article" and attributes.get("data-mcp-tool") == "decisoes_buscar":
+            self._inside_decisoes_job = True
+            self._depth = 1
+            return
+        if self._inside_decisoes_job:
+            self._depth += 1
+            fonte = attributes.get("data-mcp-fonte")
+            if fonte:
+                self.fontes.add(fonte)
+
+    def handle_endtag(self, tag: str) -> None:
+        if not self._inside_decisoes_job:
+            return
+        self._depth -= 1
+        if self._depth == 0:
+            self._inside_decisoes_job = False
+
+
+def _agents_page_decisoes_fontes() -> set[str]:
+    parser = _DecisoesFonteParser()
+    parser.feed(_AGENTS_PAGE.read_text(encoding="utf-8"))
+    return parser.fontes
+
+
+async def _decisoes_buscar_fonte_enum() -> set[str]:
+    tools = await build_server().list_tools()
+    (decisoes_buscar,) = (tool for tool in tools if tool.name == "decisoes_buscar")
+    enum_values = set(decisoes_buscar.parameters["properties"]["fonte"]["enum"])
+    return enum_values - {_AGGREGATE_FONTE}
+
+
 def test_agents_page_freezes_the_public_job_set() -> None:
     """Keep the public ARQUIVO/ESTADO/TEOR surface intentionally small."""
     assert _public_jobs() == _EXPECTED_PUBLIC_JOBS
@@ -68,3 +114,8 @@ async def test_agents_page_only_names_registered_mcp_tools() -> None:
     """A rename/removal in build_server() must not silently stale the website."""
     catalog = {tool.name for tool in await build_server().list_tools()}
     assert set(_public_jobs()) <= catalog
+
+
+async def test_agents_page_lists_exactly_the_decisoes_buscar_fontes() -> None:
+    """A fonte added/removed from decisoes_buscar must not silently drift from the site (#1011)."""
+    assert _agents_page_decisoes_fontes() == await _decisoes_buscar_fonte_enum()

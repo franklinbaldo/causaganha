@@ -1,6 +1,6 @@
 # TCU — Acórdãos em dados abertos
 
-Estado: **contrato, aquisição, resolução de URL e download/ingestão real de um CSV anual completo provados. #984 permanece aberta apenas pela decisão de expor TCU ao MCP/site e pela identidade de anos pré-2017 (ver abaixo).**
+Estado: **#984 (prova de ingestão) e #1012 (identidade 1992–2016) estão concluídas.** Contrato, aquisição, resolução de URL e download/ingestão real de um CSV anual completo estão provados; 1992–2016 foi declarado inelegível para identidade canônica (ver abaixo). O que falta é **publicação**: 2017+ é elegível por identidade, mas a cobertura pública (MCP/site) continua limitada aos anos efetivamente materializados e comprovados no Internet Archive — hoje ainda pendente em #1022 (filha de #1011).
 
 O TCU publica sua jurisprudência em dados abertos e documenta a base **Acórdãos** com conjuntos CSV separados por ano. O dicionário oficial declara `KEY` como identificador único do registro e distingue campos de texto primário (`ACORDAO`, `DECISAO`, `RELATORIO`, `VOTO`) da `VISAOGERAL`, que é uma visão simplificada gerada com IA.
 
@@ -57,12 +57,20 @@ Ambos têm teste de regressão em `tests/test_tcu_acordaos_ingest.py` usando fix
 
 O dicionário oficial declara `KEY` como identificador único, e o contrato de `ingest.canonical_key` depende exclusivamente dele — sem sintetizar identidade a partir de campos de exibição. A prova ao vivo confirmou que **isso só é verdade a partir do arquivo de 2017**:
 
-- **sem `KEY`** (cabeçalho verificado ao vivo em): 1992, 1995, 1998, 2000, 2001, 2005, 2009, 2010, 2011, 2012, 2013, 2014, 2015, 2016 — nenhum dos 14 anos amostrados nesse intervalo tem `KEY`;
-- **com `KEY`** (cabeçalho verificado ao vivo em): 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026 — todos os 10 anos desse intervalo, checados individualmente, têm `KEY`.
+- **sem `KEY`**: os 25 anos completos 1992–2016 — cabeçalho de cada um verificado ao vivo individualmente, nenhum tem `KEY`;
+- **com `KEY`**: os 10 anos 2017–2026 — todos verificados individualmente, todos têm `KEY`.
 
-Os anos não amostrados diretamente (ex. 1993, 1994, 1996) ficam entre vizinhos confirmados do mesmo lado da fronteira; não foram verificados um a um e não devem ser tratados como confirmados até que sejam.
+A transição acontece exatamente entre o arquivo de 2016 e o de 2017.
 
-A transição acontece exatamente entre o arquivo de 2016 e o de 2017. Isso significa que o contrato mínimo de #1002 **só cobre 10 dos 35 anos publicados**. Expandir para 1992–2016 exigiria uma decisão de identidade separada (ex.: `PROC` + `NUMACORDAO` + `ANOACORDAO` como chave composta, com risco de colisão a verificar) — isso **não é parte deste slice** e não deve ser assumido como resolvido.
+#### Decisão (#1028, fechando #1012): 1992–2016 é inelegível para identidade canônica
+
+A #1028 testou candidatas de chave composta (`NUMACORDAO`, `PROC`, e combinações com `ANOACORDAO`/`COLEGIADO`) sobre arquivos completos de 1992, 2004 e 2016 (início/meio/fim do período). Nenhuma é estável no período inteiro:
+
+- `NUMACORDAO` sozinho colide entre colegiados/tipos em todo ano testado (576/2650/7628 colisões em 1992/2004/2016);
+- `PROC` sozinho repete entre acórdãos em todo ano testado (114/495/1116 colisões);
+- `NUMACORDAO+ANOACORDAO+COLEGIADO` é única em 2016 (0 colisões em 24.456 linhas), mas colide em 1992 (576) e 2004 (13) — a convenção de numeração não foi estável ao longo dos 25 anos.
+
+Evidência completa da investigação (cabeçalho de todos os 25 anos + relatório de colisão por candidata): `docs/data/tcu-acordaos-identity-1992-2016.json`. Nenhuma canonicalização foi adicionada; `KEY` continua sendo a única identidade aceita, e isso não muda nada em nenhuma superfície MCP/site. Elegibilidade de identidade (2017+) e publicação efetiva são conceitos distintos — ver a seção seguinte.
 
 ### Custo/tamanho da expansão histórica
 
@@ -73,8 +81,14 @@ A partir do manifesto oficial completo (`coverage.total_acordaos_size_bytes`, to
 
 Nenhum desses volumes foi baixado por completo nesta prova — apenas o ano de 2026 (288 MB) foi de fato adquirido e parseado ponta a ponta; o restante é medido a partir dos tamanhos que o próprio manifesto declara.
 
-## O que ainda falta para #984
+## Elegibilidade de identidade vs. publicação efetiva
 
-- decidir e documentar uma estratégia de identidade para 1992–2016 antes de considerá-los elegíveis (ou aceitar explicitamente cobrir só 2017–2026);
-- expor TCU no MCP/site permanece **fora de escopo** até essa decisão e até haver revisão de produto sobre limitar a cobertura a 2017+;
+Estes são conceitos distintos e não devem ser confundidos:
+
+- **elegibilidade de identidade**: 2017–2026 é elegível (`KEY` presente e único); 1992–2016 é inelegível (#1028, acima) — decidido, não muda mais sem nova evidência;
+- **publicação efetiva**: nenhum ano ainda tem uma URL pública comprovada no Internet Archive com read-back verificado. #1011 (fronteira de produto) depende de #1022 (filha de #1011) para publicar o Parquet 2026 com prova de leitura antes de expor `fonte="tcu"` no MCP/site. O rollout inicial, quando publicado, é **2026 apenas** — 2017–2026 não deve ser anunciado como disponível antes de cada ano ser materializado e comprovado individualmente.
+
+## O que ainda falta
+
+- publicar o artefato 2026 com prova de leitura (#1022) antes de expor TCU no MCP/site (#1011/#1021);
 - nenhum resumo gerado por IA (`VISAOGERAL`) foi indexado como teor primário — mantido assim.
