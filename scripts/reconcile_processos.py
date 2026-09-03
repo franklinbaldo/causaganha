@@ -552,15 +552,25 @@ ORDER BY numero_processo, fonte
 def validate_coverage(
     sources: dict[str, SourceLoad],
     expected: tuple[str, ...],
+    raw_rows: dict[str, int],
 ) -> tuple[list[str], list[str]]:
-    """Distinguish "couldn't load the source" from "source genuinely empty".
+    """Distinguish "couldn't load", "genuinely empty" and "join-key mismatch".
+
+    `raw_rows` is each source's row count *before* the CNJ-format filter in
+    _INDICE_*_SQL (see _raw_row_counts) — it turns a source with real data
+    but zero rows surviving that filter (a structural join-key defect, e.g.
+    STJ's numeroProcesso is never CNJ-shaped — issue #1042 evidence) into a
+    distinct signal from a source whose underlying file is simply empty.
+    Both remain warnings, never errors: the filter itself isn't wrong to
+    apply, and a permanently-zero source is not "unavailable".
 
     Returns (errors, warnings):
       - error   — an *expected* source ended with zero rows because it was
                   never loaded (status=unavailable): the reconciliation ran
                   blind on that source and the output silently degrades.
-      - warning — a source loaded fine but contributed zero rows (legitimate
-                  empty/zero-overlap), or a non-expected source unavailable.
+      - warning — a source loaded fine but contributed zero rows, whether
+                  from genuinely empty data or a join-key mismatch, or a
+                  non-expected source unavailable.
     """
     errors: list[str] = []
     warnings: list[str] = []
@@ -569,10 +579,18 @@ def validate_coverage(
             msg = f"source '{name}' has zero rows because it was NOT loaded — {load.detail}"
             (errors if name in expected else warnings).append(msg)
         elif load.rows == 0:
-            warnings.append(
-                f"source '{name}' loaded ({load.status}) but contributed zero processos"
-                f" — {load.detail}"
-            )
+            source_raw_rows = raw_rows.get(name, 0)
+            if source_raw_rows > 0:
+                warnings.append(
+                    f"source '{name}' loaded ({load.status}) with {source_raw_rows:,} raw "
+                    "record(s) but none had a 20-digit CNJ-shaped process number after "
+                    f"normalization — likely a join-key mismatch, not empty data ({load.detail})"
+                )
+            else:
+                warnings.append(
+                    f"source '{name}' loaded ({load.status}) but contributed zero processos"
+                    f" — {load.detail}"
+                )
     return errors, warnings
 
 
@@ -589,7 +607,14 @@ def _emit_validation(errors: list[str], warnings: list[str]) -> None:
 def _print_report(report: dict[str, Any]) -> None:
     print("\n── Source coverage ──────────────────────────────────────────")
     for name, src in report["sources"].items():
-        print(f"  {name:<8} {src['rows']:>12,} processos  {src['status']:<14} {src['detail']}")
+        raw = src.get("raw_rows", 0)
+        # Only worth printing when it diverges from rows — that divergence
+        # is exactly the "loaded real data, none of it CNJ-shaped" signal.
+        raw_suffix = f"  (raw={raw:,})" if raw and raw != src["rows"] else ""
+        print(
+            f"  {name:<8} {src['rows']:>12,} processos  {src['status']:<14} "
+            f"{src['detail']}{raw_suffix}"
+        )
     print("  Intersections (fontes → processos):")
     for combo, n in sorted(report["combinations"].items()):
         print(f"    {combo:<32} {n:>12,}")
@@ -601,15 +626,21 @@ def _build_report(
     combinations: dict[str, int],
     total: int,
     multi: int,
+    raw_rows: dict[str, int],
 ) -> dict[str, Any]:
     expected = _expected_sources()
-    errors, warnings = validate_coverage(sources, expected)
+    errors, warnings = validate_coverage(sources, expected, raw_rows)
     return {
         "generated_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "total": total,
         "multi_fonte": multi,
         "sources": {
-            name: {"rows": load.rows, "status": load.status, "detail": load.detail}
+            name: {
+                "rows": load.rows,
+                "raw_rows": raw_rows.get(name, 0),
+                "status": load.status,
+                "detail": load.detail,
+            }
             for name, load in sources.items()
         },
         "combinations": combinations,
@@ -618,6 +649,30 @@ def _build_report(
             "errors": errors,
             "warnings": warnings,
         },
+    }
+
+
+_SOURCE_RAW_TABLES = {
+    "djen": "comunicacoes",
+    "juris": "tjro_juris",
+    "stj": "acordaos",
+    "datajud": "datajud_capa",
+}
+
+
+def _raw_row_counts(con: duckdb.DuckDBPyConnection) -> dict[str, int]:
+    """Row counts of each source's raw view/table, before the CNJ-format filter.
+
+    Every table in _SOURCE_RAW_TABLES is registered unconditionally by the
+    matching _register_* function (real data or a typed-empty fallback), so
+    this is always safe to call right after all four have run. Lets
+    validate_coverage() tell "genuinely empty source" apart from "loaded
+    real records, but every one of them was dropped by the 20-digit CNJ
+    filter in _INDICE_*_SQL" — the latter is a join-key defect, not absence.
+    """
+    return {
+        name: con.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]  # noqa: S608
+        for name, table in _SOURCE_RAW_TABLES.items()
     }
 
 
@@ -912,6 +967,7 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
     juris_load = _register_juris(con)
     stj_load = _register_stj(con)
     datajud_load = _register_datajud(con)
+    raw_rows = _raw_row_counts(con)
 
     # Cross-source index — flat, one row per (numero_processo, fonte,
     # registro_id), never collapsed. See _INDICE_SQL's own comment for the
@@ -960,7 +1016,7 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
 
     # Source coverage report — printed, and persisted next to the output
     sources = {s.name: s for s in (djen_load, juris_load, stj_load, datajud_load)}
-    report = _build_report(sources, combinations, total, multi)
+    report = _build_report(sources, combinations, total, multi, raw_rows)
     report_path = _PARQUET_INDICE.parent / _REPORT_NAME
     report_path.write_text(
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8"

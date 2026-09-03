@@ -27,6 +27,15 @@ if TYPE_CHECKING:
 CNJ_ALL = "00000010220248220001"
 CNJ_DJEN_DJ = "00000020320248220002"
 
+# STJ's own `numeroProcesso` field (RFC 0002 §3.2: "Número do processo no
+# STJ") is the tribunal's internal case number, never the 20-digit CNJ of
+# the originating case — confirmed against a live sample from
+# stj-acordaos-primeira-secao (issue #1042 evidence, run #776): 84 real rows,
+# none with a 20-digit numeroProcesso. "2225936" matches that real shape;
+# using a synthetic CNJ here (as earlier fixtures did) would hide that
+# _INDICE_STJ_SQL's 20-digit filter can never match real STJ data.
+STJ_NUMERO_PROCESSO_REALISTA = "2225936"
+
 
 def _copy_sql_to_parquet(path: Path, sql: str) -> Path:
     con = duckdb.connect()
@@ -174,8 +183,10 @@ def _mock_datajud_remote(router: respx.MockRouter, fixtures: Path) -> None:
     )
 
 
-def _mock_stj_remote(router: respx.MockRouter, fixtures: Path) -> None:
-    stj = _stj_parquet(fixtures / "stj-acordaos.parquet")
+def _mock_stj_remote(
+    router: respx.MockRouter, fixtures: Path, numero_processo: str = CNJ_ALL
+) -> None:
+    stj = _stj_parquet(fixtures / "stj-acordaos.parquet", numero_processo=numero_processo)
     router.get(rp._STJ_IA_URL).respond(200, content=stj.read_bytes())
 
 
@@ -191,14 +202,18 @@ class TestFullReconcileWithoutLocalParquets:
         monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
 
         with respx.mock() as router:
-            _mock_stj_remote(router, fixtures)
+            _mock_stj_remote(router, fixtures, numero_processo=STJ_NUMERO_PROCESSO_REALISTA)
             _mock_juris_remote(router, fixtures)
             _mock_datajud_remote(router, fixtures)
             stats = rp.reconcile(upload=False)
 
         assert stats["djen"] == 2  # CNJ_ALL (two pubs collapse) + CNJ_DJEN_DJ
         assert stats["juris"] == 1
-        assert stats["stj"] == 1
+        # STJ's numeroProcesso is never CNJ-shaped (see
+        # STJ_NUMERO_PROCESSO_REALISTA above) — _INDICE_STJ_SQL's 20-digit
+        # filter drops every STJ row, by construction, regardless of how
+        # much real data the source has.
+        assert stats["stj"] == 0
         assert stats["datajud"] == 2
         assert stats["total"] == 2
         assert stats["multi_fonte"] == 2
@@ -240,16 +255,17 @@ class TestFullReconcileWithoutLocalParquets:
             ("https://archive.org/download/tjro-juris-2024/2024-02-SENTENCA.parquet",),
         ]
         assert fontes_por_processo == [
-            (CNJ_ALL, ["datajud", "djen", "juris", "stj"]),
+            (CNJ_ALL, ["datajud", "djen", "juris"]),  # stj: never CNJ-shaped, see above
             (CNJ_DJEN_DJ, ["datajud", "djen"]),
         ]
         # CNJ_ALL: 2 DJEN publications, 2 JURIS documents (id_documento 1+2),
-        # 1 STJ acórdão, 1 DataJud capa row (synthetic key, no natural id).
+        # 1 DataJud capa row (synthetic key, no natural id). STJ contributes
+        # no rows to the index at all — its one fixture record was dropped by
+        # the CNJ-length filter, not deduplicated/collapsed into these.
         assert registros_por_processo_fonte == [
             (CNJ_ALL, "datajud", 1),
             (CNJ_ALL, "djen", 2),
             (CNJ_ALL, "juris", 2),
-            (CNJ_ALL, "stj", 1),
             (CNJ_DJEN_DJ, "datajud", 1),
             (CNJ_DJEN_DJ, "djen", 1),
         ]
@@ -261,12 +277,20 @@ class TestFullReconcileWithoutLocalParquets:
         assert statuses == {
             "djen": "loaded_remote",
             "juris": "loaded_remote",
-            "stj": "loaded_remote",
+            "stj": "loaded_remote",  # loaded fine — the fixture record just never matches
             "datajud": "loaded_remote",
         }
-        assert report["combinations"] == {"datajud+djen+juris+stj": 1, "datajud+djen": 1}
+        assert report["combinations"] == {"datajud+djen+juris": 1, "datajud+djen": 1}
+        assert report["sources"]["stj"]["raw_rows"] == 1  # the record was read, just filtered
         assert report["validation"]["errors"] == []
-        assert report["validation"]["warnings"] == []
+        # Loaded fine but zero CNJ-shaped rows out of 1 raw row must be
+        # reported as a join-key mismatch, not a generic "empty source"
+        # warning — see TestValidateCoverage for the exact wording contract.
+        assert len(report["validation"]["warnings"]) == 1
+        stj_warning = report["validation"]["warnings"][0]
+        assert "'stj'" in stj_warning
+        assert "1 raw record" in stj_warning
+        assert "20-digit CNJ" in stj_warning
 
     def test_remote_downloads_are_cached_across_runs(self, isolated_dirs: Path) -> None:
         tmp_path = isolated_dirs
@@ -627,24 +651,47 @@ class TestLocalSourceUrlProvenanceWarning:
 class TestValidateCoverage:
     def test_zero_plus_unavailable_expected_is_error(self) -> None:
         sources = {"juris": rp.SourceLoad("juris", rp.STATUS_UNAVAILABLE, "no IA items", rows=0)}
-        errors, warnings = rp.validate_coverage(sources, ("juris",))
+        errors, warnings = rp.validate_coverage(sources, ("juris",), raw_rows={})
         assert len(errors) == 1
         assert warnings == []
 
-    def test_zero_plus_loaded_is_warning(self) -> None:
+    def test_zero_plus_loaded_with_no_raw_rows_is_generic_empty_warning(self) -> None:
+        """Genuinely empty source (0 raw rows too) — the plain 'empty' wording."""
         sources = {"stj": rp.SourceLoad("stj", rp.STATUS_LOADED_LOCAL, "local", rows=0)}
-        errors, warnings = rp.validate_coverage(sources, ("stj",))
+        errors, warnings = rp.validate_coverage(sources, ("stj",), raw_rows={})
         assert errors == []
         assert len(warnings) == 1
+        assert "contributed zero processos" in warnings[0]
+        assert "raw record" not in warnings[0]
+
+    def test_zero_with_nonzero_raw_rows_flags_join_key_mismatch(self) -> None:
+        """Loaded real records, but none survived the CNJ-format filter.
+
+        Distinct wording from the genuinely-empty case above — this is the
+        situation #1042's run #776 evidence found for STJ: the source loads
+        fine and has real rows, but its process-number field is never
+        20-digit CNJ-shaped (RFC 0002 §3.2), so every row is silently
+        dropped by _INDICE_STJ_SQL. Reporting this identically to "no data"
+        would hide a permanent join-key defect behind routine noise.
+        """
+        sources = {
+            "stj": rp.SourceLoad("stj", rp.STATUS_LOADED_REMOTE, "https://...stj.parquet", rows=0)
+        }
+        errors, warnings = rp.validate_coverage(sources, ("stj",), raw_rows={"stj": 84})
+        assert errors == []
+        assert len(warnings) == 1
+        assert "'stj'" in warnings[0]
+        assert "84 raw record" in warnings[0]
+        assert "20-digit CNJ" in warnings[0]
 
     def test_unavailable_but_not_expected_is_warning(self) -> None:
         sources = {"juris": rp.SourceLoad("juris", rp.STATUS_UNAVAILABLE, "gone", rows=0)}
-        errors, warnings = rp.validate_coverage(sources, ("djen",))
+        errors, warnings = rp.validate_coverage(sources, ("djen",), raw_rows={})
         assert errors == []
         assert len(warnings) == 1
 
     def test_loaded_with_rows_is_clean(self) -> None:
         sources = {"djen": rp.SourceLoad("djen", rp.STATUS_LOADED_REMOTE, "ok", rows=10)}
-        errors, warnings = rp.validate_coverage(sources, ("djen",))
+        errors, warnings = rp.validate_coverage(sources, ("djen",), raw_rows={"djen": 10})
         assert errors == []
         assert warnings == []

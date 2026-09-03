@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -16,7 +17,7 @@ from causaganha_mcp.server import mcp
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable
+    from collections.abc import Awaitable, Callable, Iterable
 
     from starlette.requests import Request
 
@@ -39,6 +40,38 @@ _PATH_ARGUMENT_TOOLS: dict[str, str] = {
     "djen_backup_status": "arquivo_manifesto",
     "stj_acordaos_status": "caminho_manifesto",
 }
+
+# Tools the remote HTTP transport is reviewed and allowed to expose (#950
+# Segurança: "não expor CLIs mutáveis, ingestão, upload ou backfill"). Every
+# entry in causaganha_mcp.server.build_server()'s catalog must be added here
+# deliberately, after confirming it is read-only — main() below refuses to
+# start if the live catalog ever contains anything outside this set.
+_READ_ONLY_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "causaganha_status",
+        "datajud_facetas",
+        "datajud_status",
+        "decisoes_buscar",
+        "djen_backup_status",
+        "processo_consultar",
+        "processo_estado",
+        "publicacoes_buscar",
+        "stj_acordaos_status",
+        "tjro_juris_status",
+    }
+)
+
+
+def _assert_only_read_only_tools_exposed(tool_names: Iterable[str]) -> None:
+    """Fail closed if the live catalog exposes a tool outside the reviewed allowlist."""
+    unreviewed = sorted(set(tool_names) - _READ_ONLY_TOOL_NAMES)
+    if unreviewed:
+        msg = (
+            "Recusando iniciar o transporte HTTP: tool(s) fora do allowlist "
+            f"read-only revisado: {unreviewed}. Revise a segurança e adicione "
+            "deliberadamente a _READ_ONLY_TOOL_NAMES antes de expor remotamente."
+        )
+        raise RuntimeError(msg)
 
 
 @dataclass(frozen=True, slots=True)
@@ -199,6 +232,8 @@ async def _health(request: Request) -> JSONResponse:
 def main() -> None:
     """Serve the canonical CausaGanha MCP catalog over Streamable HTTP."""
     settings = HttpSettings.from_env()
+    tools = asyncio.run(mcp.list_tools())
+    _assert_only_read_only_tools_exposed(tool.name for tool in tools)
     mcp.add_middleware(PathArgumentGuardMiddleware())
     mcp.add_middleware(
         OperationalLimitsMiddleware(
