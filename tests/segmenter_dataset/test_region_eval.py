@@ -4,8 +4,11 @@ reconstructed structural region the product actually consumes?
 
 from __future__ import annotations
 
+from segmenter_dataset.model_eval import DocumentModelPrediction
 from segmenter_dataset.region_eval import (
     RegionComparison,
+    RegionTypeMetrics,
+    aggregate_region_metrics,
     compare_regions,
     region_match_rate,
     regions_from_labels,
@@ -147,3 +150,137 @@ def test_region_match_rate_empty_gold_is_none_not_zero() -> None:
     rate = region_match_rate(compare_regions(gold_labels=(), predicted_labels=predicted))
 
     assert rate is None
+
+
+def _region_prediction(
+    doc_id: str,
+    gold: list[tuple[int, int, str]],
+    predicted: list[tuple[int, int, str]],
+) -> DocumentModelPrediction:
+    return DocumentModelPrediction(
+        document_id=doc_id,
+        gold=_labels(gold),
+        model_predicted=_labels(predicted),
+        baseline_predicted=(),
+    )
+
+
+def _labels(spans: list[tuple[int, int, str]]) -> tuple[Label, ...]:
+    return tuple(_label(s, e, c) for s, e, c in spans)
+
+
+def test_aggregate_region_metrics_perfect_match_across_documents() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+        _region_prediction(
+            "d2",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+    ]
+
+    report = aggregate_region_metrics(predictions)
+
+    assert report == {
+        "relatorio": RegionTypeMetrics(
+            base="relatorio",
+            support=2,
+            matched=2,
+            missed=0,
+            hallucinated=0,
+            match_rate=1.0,
+            mean_iou=1.0,
+            mean_start_error=0.0,
+            mean_end_error=0.0,
+        )
+    }
+
+
+def test_aggregate_region_metrics_missed_region_not_counted_as_hallucinated() -> None:
+    predictions = [
+        _region_prediction(
+            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        ),
+    ]
+
+    report = aggregate_region_metrics(predictions)
+
+    metrics = report["relatorio"]
+    assert metrics.support == 1
+    assert metrics.matched == 0
+    assert metrics.missed == 1
+    assert metrics.hallucinated == 0
+    assert metrics.match_rate == 0.0
+    assert metrics.mean_iou is None
+    assert metrics.mean_start_error is None
+    assert metrics.mean_end_error is None
+
+
+def test_aggregate_region_metrics_hallucinated_region_excluded_from_support() -> None:
+    predictions = [
+        _region_prediction(
+            "d1", [], [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")]
+        ),
+    ]
+
+    report = aggregate_region_metrics(predictions)
+
+    metrics = report["relatorio"]
+    assert metrics.support == 0
+    assert metrics.matched == 0
+    assert metrics.missed == 0
+    assert metrics.hallucinated == 1
+    assert metrics.match_rate is None
+    assert metrics.mean_iou is None
+
+
+def test_aggregate_region_metrics_reports_every_base_sorted() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(60, 70, "voto_inicio"), (90, 100, "voto_fim")],
+            [(60, 70, "voto_inicio"), (90, 100, "voto_fim")],
+        ),
+        _region_prediction(
+            "d2",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+    ]
+
+    report = aggregate_region_metrics(predictions)
+
+    assert list(report.keys()) == ["relatorio", "voto"]
+
+
+def test_aggregate_region_metrics_averages_over_matched_documents_only() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+        _region_prediction(
+            "d2",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(5, 15, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+        _region_prediction(
+            "d3", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        ),
+    ]
+
+    metrics = aggregate_region_metrics(predictions)["relatorio"]
+
+    assert metrics.support == 3
+    assert metrics.matched == 2
+    assert metrics.missed == 1
+    assert metrics.hallucinated == 0
+    assert metrics.match_rate == 2 / 3
+    assert metrics.mean_start_error == (0 + 5) / 2
+    assert metrics.mean_end_error == 0.0
+    assert metrics.mean_iou == (1.0 + 45 / 50) / 2
