@@ -1,5 +1,6 @@
 ---
 import Layout from '../layouts/Layout.astro';
+import McpConfigCard from '../components/McpConfigCard.svelte';
 
 const localConfig = `{
   "mcpServers": {
@@ -86,13 +87,7 @@ const localConfig = `{
           com cliente novo. Até lá, não há endpoint remoto oficial para copiar.
         </p>
       </div>
-      <div class="config-card">
-        <div class="config-card__head">
-          <span>Configuração genérica</span>
-          <span>stdio</span>
-        </div>
-        <pre><code>{localConfig}</code></pre>
-      </div>
+      <McpConfigCard config={localConfig} label="stdio" client:load />
     </section>
 
     <section class="reading" aria-labelledby="reading-title">
@@ -129,10 +124,6 @@ const localConfig = `{
   .job-sources li[data-mcp-status="unpublished"] { border-style: dashed; }
   .job-sources .status-tag { display: block; margin-top: .2rem; font-size: .68rem; font-weight: 700; letter-spacing: .02em; text-transform: none; color: var(--fg-muted); }
   .connect { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(2rem, 6vw, 5rem); align-items: start; }
-  .config-card { min-width: 0; border: 1px solid var(--border); }
-  .config-card__head { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem .9rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: .75rem; color: var(--fg-muted); }
-  pre { margin: 0; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.55; }
-  code { font-family: var(--font-mono); }
   .note { padding-left: 1rem; border-left: 3px solid var(--verde, var(--color-accent)); }
   .reading-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 2rem; }
   .reading-grid p { display: grid; gap: .35rem; margin: 0; }
