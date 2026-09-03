@@ -151,17 +151,38 @@ def _run_opf_eval(
         return None
 
 
+def _metric_payload(metrics: dict) -> dict:
+    """Return the metric map from either historical flat or current OPF output.
+
+    Current ``opf eval --metrics-out`` writes an envelope with ``args``,
+    ``config``, ``metrics`` and ``summary``. Older experiments/tests used the
+    metric keys at the document root, so accept both without weakening the
+    caller's contract.
+    """
+    nested = metrics.get("metrics")
+    return nested if isinstance(nested, dict) else metrics
+
+
 def _macro_f1_from_metrics(metrics: dict, categories: list[str]) -> float:
     """Mean of per-class span F1 over trainable categories (RFC 0012 §5 point 5's metric)."""
+    payload = _metric_payload(metrics)
     f1s = []
     for category in categories:
-        f1 = metrics.get(f"by_class.{category}.span.f1")
+        f1 = payload.get(f"by_class.{category}.span.f1")
         if f1 is None:
-            category_metrics = metrics.get(category, {})
+            category_metrics = payload.get(category, {})
             f1 = category_metrics.get("f1-score") if category_metrics else None
         if f1 is not None:
             f1s.append(f1)
     return sum(f1s) / len(f1s) if f1s else 0.0
+
+
+def _validation_loss_from_metrics(metrics: dict) -> float | None:
+    """Extract validation loss from historical flat or current OPF output."""
+    loss = _metric_payload(metrics).get("loss")
+    if isinstance(loss, (int, float)):
+        return float(loss)
+    return None
 
 
 @dataclass(frozen=True)
@@ -227,7 +248,7 @@ def train_and_select_checkpoint(
             raise RuntimeError(msg)
 
         macro = _macro_f1_from_metrics(metrics, categories)
-        val_loss = metrics.get("loss")
+        val_loss = _validation_loss_from_metrics(metrics)
         logger.info("epoch_val_macro_f1", epoch=epoch, macro_f1=macro, val_loss=val_loss)
         results.append(
             _EpochResult(epoch=epoch, macro_f1=macro, val_loss=val_loss, checkpoint_dir=epoch_dir)
