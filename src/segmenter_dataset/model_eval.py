@@ -253,18 +253,46 @@ def _overlap_length(a: Label, b: Label) -> int:
     return min(a.end, b.end) - max(a.start, b.start)
 
 
-def _classify_document_errors(
-    gold: tuple[Label, ...], predicted: tuple[Label, ...]
-) -> tuple[int, int, int, int]:
-    """Classify one document's non-exact-match spans (see ``SpanErrorBreakdown``)."""
+@dataclass(frozen=True)
+class SpanErrorExample:
+    """One concrete gold/predicted span pair illustrating one ``SpanErrorBreakdown`` bucket.
+
+    ``gold``/``predicted`` follow the same per-type shape ``classify_span_errors``
+    counts: both set for ``category_error``/``boundary_error`` (the overlapping
+    pair), only ``gold`` set for ``pure_miss``, only ``predicted`` set for
+    ``pure_extra``. Feeds ``render_error_report``'s "why did the metric move"
+    narrative (#1052's human-readable error report).
+    """
+
+    document_id: str
+    error_type: str
+    gold: Label | None
+    predicted: Label | None
+
+
+def _match_document_spans(
+    document_id: str, gold: tuple[Label, ...], predicted: tuple[Label, ...]
+) -> list[SpanErrorExample]:
+    """Classify one document's non-exact-match spans into concrete ``SpanErrorExample``s.
+
+    Same overlap-matching logic ``classify_span_errors`` pools into counts,
+    but keeps the actual ``Label``s so callers can show *which* spans caused
+    each error instead of only how many.
+    """
     exact_matches = set(gold) & set(predicted)
     gold_remaining = [label for label in gold if label not in exact_matches]
     predicted_remaining = [label for label in predicted if label not in exact_matches]
 
-    category_errors = boundary_errors = 0
+    examples: list[SpanErrorExample] = []
+    matched_gold_indices: set[int] = set()
     matched_predicted_indices: set[int] = set()
 
-    for gold_label in sorted(gold_remaining, key=lambda label: (label.start, label.end)):
+    sorted_gold_indices = sorted(
+        range(len(gold_remaining)),
+        key=lambda index: (gold_remaining[index].start, gold_remaining[index].end),
+    )
+    for gold_index in sorted_gold_indices:
+        gold_label = gold_remaining[gold_index]
         candidates = [
             (index, predicted_label)
             for index, predicted_label in enumerate(predicted_remaining)
@@ -278,34 +306,109 @@ def _classify_document_errors(
             key=lambda item: (_overlap_length(gold_label, item[1]), -item[1].start),
         )
         matched_predicted_indices.add(best_index)
-        if best_predicted.category == gold_label.category:
-            boundary_errors += 1
-        else:
-            category_errors += 1
+        matched_gold_indices.add(gold_index)
+        error_type = (
+            "boundary_error" if best_predicted.category == gold_label.category else "category_error"
+        )
+        examples.append(SpanErrorExample(document_id, error_type, gold_label, best_predicted))
 
-    matched_gold_count = category_errors + boundary_errors
-    pure_misses = len(gold_remaining) - matched_gold_count
-    pure_extras = len(predicted_remaining) - len(matched_predicted_indices)
-    return category_errors, boundary_errors, pure_misses, pure_extras
+    for gold_index, gold_label in enumerate(gold_remaining):
+        if gold_index not in matched_gold_indices:
+            examples.append(SpanErrorExample(document_id, "pure_miss", gold_label, None))
+    for predicted_index, predicted_label in enumerate(predicted_remaining):
+        if predicted_index not in matched_predicted_indices:
+            examples.append(SpanErrorExample(document_id, "pure_extra", None, predicted_label))
+
+    return examples
 
 
 def classify_span_errors(predictions: list[DocumentModelPrediction]) -> SpanErrorBreakdown:
     """Pool ``SpanErrorBreakdown`` counts (gold vs model) across every document."""
     category_errors = boundary_errors = pure_misses = pure_extras = 0
     for item in predictions:
-        doc_category, doc_boundary, doc_misses, doc_extras = _classify_document_errors(
-            item.gold, item.model_predicted
-        )
-        category_errors += doc_category
-        boundary_errors += doc_boundary
-        pure_misses += doc_misses
-        pure_extras += doc_extras
+        for example in _match_document_spans(item.document_id, item.gold, item.model_predicted):
+            if example.error_type == "category_error":
+                category_errors += 1
+            elif example.error_type == "boundary_error":
+                boundary_errors += 1
+            elif example.error_type == "pure_miss":
+                pure_misses += 1
+            else:
+                pure_extras += 1
     return SpanErrorBreakdown(
         category_errors=category_errors,
         boundary_errors=boundary_errors,
         pure_misses=pure_misses,
         pure_extras=pure_extras,
     )
+
+
+def collect_span_error_examples(
+    predictions: list[DocumentModelPrediction], *, limit_per_type: int = 5
+) -> list[SpanErrorExample]:
+    """Concrete gold/predicted span examples for each error type, capped per type.
+
+    Walks ``predictions`` in order and stops collecting a given
+    ``error_type`` once ``limit_per_type`` examples exist for it, so a
+    report over a large test set stays readable instead of listing every
+    single miss.
+    """
+    counts: dict[str, int] = {}
+    collected: list[SpanErrorExample] = []
+    for item in predictions:
+        for example in _match_document_spans(item.document_id, item.gold, item.model_predicted):
+            if counts.get(example.error_type, 0) >= limit_per_type:
+                continue
+            counts[example.error_type] = counts.get(example.error_type, 0) + 1
+            collected.append(example)
+    return collected
+
+
+def _format_label(label: Label | None) -> str:
+    if label is None:
+        return "-"
+    return f"{label.category}[{label.start}:{label.end}]"
+
+
+def render_error_report(
+    predictions: list[DocumentModelPrediction],
+    *,
+    max_examples_per_type: int = 3,
+) -> str:
+    """Human-readable span error report: per-category metrics plus concrete examples (#1052).
+
+    Complements the machine-readable metrics (``CategoryMetrics``,
+    ``MicroMetrics``, ``ModelAcceptanceEvidence``) rather than replacing
+    them — the goal is to explain *why* a number moved, not to recompute it
+    differently.
+    """
+    lines = [f"# Span error report ({len(predictions)} documents)", "", "## Per-category metrics"]
+    for category, metrics in per_category_metrics(predictions).items():
+        lines.append(
+            f"- {category}: support={metrics.support} precision={metrics.precision:.3f} "
+            f"recall={metrics.recall:.3f} f1={metrics.f1:.3f}"
+        )
+
+    breakdown = classify_span_errors(predictions)
+    lines.extend(
+        [
+            "",
+            "## Error breakdown",
+            f"- category_errors: {breakdown.category_errors}",
+            f"- boundary_errors: {breakdown.boundary_errors}",
+            f"- pure_misses: {breakdown.pure_misses}",
+            f"- pure_extras: {breakdown.pure_extras}",
+            "",
+            "## Concrete examples",
+        ]
+    )
+    for example in collect_span_error_examples(predictions, limit_per_type=max_examples_per_type):
+        lines.append(
+            f"- [{example.error_type}] doc={example.document_id} "
+            f"gold={_format_label(example.gold)} predicted={_format_label(example.predicted)}"
+        )
+
+    return "\n".join(lines)
 
 
 def evaluate_model_acceptance(
