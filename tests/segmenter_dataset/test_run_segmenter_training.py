@@ -686,7 +686,9 @@ def test_main_records_default_optimization_recipe_in_manifest(tmp_path, monkeypa
     _write_train_artifacts(data_dir)
     output_dir = tmp_path / "out"
 
-    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main())
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main()
+    )
 
     exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir)}))
 
@@ -705,7 +707,9 @@ def test_main_records_overridden_optimization_recipe_in_manifest(tmp_path, monke
     _write_train_artifacts(data_dir)
     output_dir = tmp_path / "out"
 
-    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main())
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main()
+    )
 
     exit_code = main(
         _main_args(
