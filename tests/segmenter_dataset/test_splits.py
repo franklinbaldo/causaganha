@@ -13,6 +13,7 @@ from segmenter_dataset.splits import (
     build_groups,
     check_disjoint,
     evaluation_eligible_document_ids,
+    nested_learning_curve_subsets,
     train_eligible_document_ids,
     validate_cross_pool_leakage,
     validate_split_leakage,
@@ -363,3 +364,61 @@ def test_validate_cross_pool_leakage_ignores_dissimilar_existing_text() -> None:
     )
 
     assert problems == []
+
+
+# ---------------------------------------------------------------------------
+# nested_learning_curve_subsets (#1050: "deterministic release/export can
+# construct multiple nested train subsets for learning-curve experiments")
+# ---------------------------------------------------------------------------
+
+
+def test_nested_learning_curve_subsets_are_prefixes_of_each_other() -> None:
+    train_ids = frozenset(f"doc-{i}" for i in range(10))
+
+    subsets = nested_learning_curve_subsets(train_ids, sizes=(2, 5, 8), seed=1)
+
+    assert len(subsets[2]) == 2
+    assert len(subsets[5]) == 5
+    assert len(subsets[8]) == 8
+    assert set(subsets[2]) <= set(subsets[5]) <= set(subsets[8])
+    assert subsets[5][:2] == subsets[2]
+    assert subsets[8][:5] == subsets[5]
+
+
+def test_nested_learning_curve_subsets_deterministic_for_same_seed() -> None:
+    train_ids = frozenset(f"doc-{i}" for i in range(20))
+
+    first = nested_learning_curve_subsets(train_ids, sizes=(5, 10), seed=42)
+    second = nested_learning_curve_subsets(train_ids, sizes=(5, 10), seed=42)
+
+    assert first == second
+
+
+def test_nested_learning_curve_subsets_caps_at_pool_size() -> None:
+    train_ids = frozenset({"a", "b", "c"})
+
+    subsets = nested_learning_curve_subsets(train_ids, sizes=(2, 25, 300), seed=7)
+
+    assert len(subsets[2]) == 2
+    assert set(subsets[25]) == train_ids
+    assert set(subsets[300]) == train_ids
+    assert subsets[25] == subsets[300]
+
+
+def test_nested_learning_curve_subsets_rejects_non_positive_size() -> None:
+    with pytest.raises(ValueError, match="positive"):
+        nested_learning_curve_subsets(frozenset({"a"}), sizes=(0,), seed=1)
+
+
+def test_nested_learning_curve_subsets_empty_pool_returns_empty_subsets() -> None:
+    subsets = nested_learning_curve_subsets(frozenset(), sizes=(25, 50), seed=1)
+
+    assert subsets == {25: (), 50: ()}
+
+
+def test_nested_learning_curve_subsets_default_sizes_match_1050_checkpoints() -> None:
+    train_ids = frozenset(f"doc-{i}" for i in range(400))
+
+    subsets = nested_learning_curve_subsets(train_ids, seed=3)
+
+    assert set(subsets) == {25, 50, 100, 150, 300}
