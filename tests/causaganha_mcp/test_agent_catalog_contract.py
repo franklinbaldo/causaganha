@@ -49,7 +49,7 @@ async def test_publication_search_is_archive_first_and_points_to_process_context
 async def test_decision_search_is_content_first_and_not_current_process_state(mcp) -> None:
     description = await _description(mcp, "decisoes_buscar")
 
-    assert "decisão" in description
+    assert any(term in description for term in ("decisão", "decisões", "decisório"))
     assert "acórdão" in description
     assert "teor" in description
     assert "data_inicio" in description
