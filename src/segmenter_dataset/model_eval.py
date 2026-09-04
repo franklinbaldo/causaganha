@@ -214,6 +214,29 @@ def micro_metrics(predictions: list[DocumentModelPrediction]) -> MicroMetrics:
     )
 
 
+def macro_f1_over_target_categories(
+    reported_f1: dict[str, float], target_categories: set[str]
+) -> float | None:
+    """Macro-F1 averaged over every category in ``target_categories``, not just the reported keys.
+
+    Guards against a specific inflation bug (#1048): an external per-class
+    report (e.g. OPF's own ``finetune_summary.json``) can omit a category
+    entirely when it has zero recall instead of stating an explicit ``0.0``.
+    Averaging only over ``reported_f1``'s keys then silently shrinks the
+    denominator and inflates the mean. This fixes the denominator to
+    ``target_categories`` and treats a missing category as ``F1=0.0``; a key
+    in ``reported_f1`` outside ``target_categories`` is ignored.
+
+    Returns ``None`` when ``target_categories`` is empty — there is no
+    target label space to average over.
+    """
+    if not target_categories:
+        return None
+    return sum(reported_f1.get(category, 0.0) for category in target_categories) / len(
+        target_categories
+    )
+
+
 def critical_category_f1(predictions: list[DocumentModelPrediction]) -> dict[str, float]:
     """Point-estimate pooled F1 (model vs. gold) for each RFC-fixed critical category."""
     pairs = [item.model_pair for item in predictions]
