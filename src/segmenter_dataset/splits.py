@@ -371,6 +371,44 @@ def assignment_from_manifest(manifest: SplitManifest) -> SplitAssignment:
     )
 
 
+# #1050's suggested learning-curve checkpoints ("roughly 25/50/100/150/300
+# train documents when available") — a default, not a hard requirement.
+DEFAULT_LEARNING_CURVE_SIZES = (25, 50, 100, 150, 300)
+
+
+def nested_learning_curve_subsets(
+    train_ids: frozenset[str],
+    *,
+    sizes: tuple[int, ...] = DEFAULT_LEARNING_CURVE_SIZES,
+    seed: int,
+) -> dict[int, tuple[str, ...]]:
+    """Deterministically build nested train subsets for learning-curve checkpoints (#1050).
+
+    Orders ``train_ids`` by a stable hash of ``(seed, document_id)`` — the
+    same reproducibility discipline ``assign_splits`` uses for group
+    ordering — then takes a prefix of that order for each requested size.
+    Prefixes of the same order are nested by construction: the subset for a
+    smaller size is always a subset of the subset for any larger size, so a
+    learning curve never swaps documents out from under a smaller
+    checkpoint when a larger one is added.
+
+    A size larger than ``len(train_ids)`` is capped at the full pool rather
+    than raising — #1050 says "build enough supply... with directed
+    additional sampling where class support remains the bottleneck", not
+    that every checkpoint must exist yet.
+    """
+    for size in sizes:
+        if size <= 0:
+            msg = f"learning-curve size must be positive, got {size}"
+            raise ValueError(msg)
+
+    def sort_key(document_id: str) -> str:
+        return hashlib.sha256(f"{seed}:{document_id}".encode()).hexdigest()
+
+    ordered = sorted(train_ids, key=sort_key)
+    return {size: tuple(ordered[: min(size, len(ordered))]) for size in sizes}
+
+
 # ---------------------------------------------------------------------------
 # Leakage rejection (RFC 0012 §10's explicit reject list)
 # ---------------------------------------------------------------------------
