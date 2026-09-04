@@ -55,6 +55,7 @@ from segmenter_dataset.model_eval import (
     breakdown_by_group,
     evaluate_model_acceptance,
 )
+from segmenter_dataset.region_eval import region_breakdown_by_group, render_region_report
 from segmenter_dataset.schemas import ExperimentManifest, Label, ModelCard
 
 
@@ -129,6 +130,36 @@ def _print_group_breakdown(
                 f"  {group}: documents={metrics.document_count} "
                 f"macro_f1={metrics.macro_f1:.3f} micro_f1={metrics.micro.f1:.3f}"
             )
+
+
+def _write_region_report(predictions: list[DocumentModelPrediction], output_dir: Path) -> Path:
+    """Write #1052's region-level report (match rate, IoU, structural anomalies) alongside the model card.
+
+    Diagnostic only -- unlike ``evaluate_model_acceptance``'s span-level
+    evidence, nothing here feeds ``eligible_for_deploy``, per #1052's
+    "without pretending to prove semantic correctness."
+    """
+    report_path = output_dir / "region_report.txt"
+    report_path.write_text(render_region_report(predictions), encoding="utf-8")
+    return report_path
+
+
+def _print_region_group_breakdown(
+    title: str, predictions: list[DocumentModelPrediction], group_of_document: dict[str, str]
+) -> None:
+    breakdown = region_breakdown_by_group(predictions, group_of_document)
+    if not breakdown:
+        return
+    print(f"region breakdown by {title}:")
+    for group, metrics in breakdown.items():
+        if metrics.regions is None:
+            print(f"  {group}: documents={metrics.document_count} (too few for region metrics)")
+        else:
+            for base, region_metrics in metrics.regions.items():
+                print(
+                    f"  {group}/{base}: documents={metrics.document_count} "
+                    f"match_rate={region_metrics.match_rate}"
+                )
 
 
 def _run_opf_inference(
@@ -284,8 +315,10 @@ def main(argv: list[str] | None = None) -> int:
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     model_card_path.write_text(model_card.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    region_report_path = _write_region_report(predictions, output_dir)
 
     print(f"Model card: {model_card_path}")
+    print(f"Region report: {region_report_path}")
     print(f"macro-F1 (model): {evidence.macro_f1_model}")
     print(f"macro-F1 (baseline): {evidence.macro_f1_baseline}")
     print(
@@ -298,6 +331,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"critical categories passed: {evidence.critical_categories_passed}")
     _print_group_breakdown("tribunal", predictions, tribunal_by_document)
     _print_group_breakdown("document type", predictions, document_type_by_document)
+    _print_region_group_breakdown("tribunal", predictions, tribunal_by_document)
+    _print_region_group_breakdown("document type", predictions, document_type_by_document)
     print(f"ELIGIBLE FOR DEPLOY: {evidence.eligible_for_deploy}")
     return 0 if evidence.eligible_for_deploy else 2
 
