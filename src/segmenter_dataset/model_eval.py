@@ -387,6 +387,46 @@ def collect_span_error_examples(
     return collected
 
 
+@dataclass(frozen=True)
+class RelaxedSpanMetrics:
+    """Overlap-tolerant, same-category span diagnostic for one category (#1052).
+
+    Complements the primary exact-match ``CategoryMetrics`` rather than
+    replacing it: two spans count as a relaxed match when they share the
+    same category and their character ranges overlap at all, regardless of
+    exact boundary agreement. ``classify_span_errors`` already distinguishes
+    a boundary error from a pure miss/extra by count; this reports the same
+    overlap-tolerant matching as a full precision/recall/F1 plus the mean
+    boundary distance of matched pairs, so "found it in roughly the right
+    place" is visible as its own number instead of only as an error-type
+    tally.
+    """
+
+    category: str
+    support: int
+    tp: int
+    fp: int
+    fn: int
+    precision: float
+    recall: float
+    f1: float
+    mean_start_distance: float | None
+    mean_end_distance: float | None
+
+
+def relaxed_span_metrics(
+    predictions: list[DocumentModelPrediction],
+) -> dict[str, RelaxedSpanMetrics]:
+    """Pooled same-category overlap match precision/recall/F1 and boundary distance per category.
+
+    TODO(#1052): RED placeholder — tests in test_model_eval.py define the
+    contract; this needs the actual greedy same-category overlap matching
+    (mirroring ``_match_document_spans``, restricted to one category at a
+    time) before it can turn GREEN.
+    """
+    raise NotImplementedError
+
+
 def _format_label(label: Label | None) -> str:
     if label is None:
         return "-"
