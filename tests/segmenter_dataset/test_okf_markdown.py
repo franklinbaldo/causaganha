@@ -199,9 +199,7 @@ def test_parse_annotated_body_accepts_category_within_ontology() -> None:
     labels = [Label(start=19, end=35, category="resultado")]
     body = render_annotated_body(text, labels)
 
-    recovered_text, recovered_labels = parse_annotated_body(
-        body, ontology_categories={"resultado"}
-    )
+    recovered_text, recovered_labels = parse_annotated_body(body, ontology_categories={"resultado"})
 
     assert recovered_text == text
     assert recovered_labels == labels
@@ -251,6 +249,4 @@ def test_parse_okf_markdown_forwards_ontology_validation_to_the_body() -> None:
     markdown = render_okf_markdown(frontmatter, text, labels)
 
     with pytest.raises(OkfMarkdownError, match="not_a_real_category"):
-        parse_okf_markdown(
-            markdown, path=Path("doc-999.md"), ontology_categories={"resultado"}
-        )
+        parse_okf_markdown(markdown, path=Path("doc-999.md"), ontology_categories={"resultado"})
