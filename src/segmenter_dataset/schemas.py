@@ -372,6 +372,11 @@ class ExperimentManifest(BaseModel):
     # just to a release/device *name* that could point at different content.
     dataset_export_hash: str = Field(pattern=r"^[0-9a-f]{64}$")
     opf_version: str | None = None
+    # #1048: the exact upstream openai/privacy-filter commit the installed
+    # `opf` distribution was built from (PEP 610 `direct_url.json` vcs_info),
+    # not just its `--version` string -- pins the canonical training method
+    # itself, independent of what a Kaggle GPU runner happens to install.
+    opf_commit: str | None = Field(default=None, pattern=r"^[0-9a-f]{40}$")
     hardware: str | None = None
     finetune_summary_path: str | None = None
     # #1048: every optimization knob passed to `opf train`, recorded explicitly

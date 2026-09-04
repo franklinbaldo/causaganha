@@ -68,6 +68,7 @@ import json
 import subprocess
 import sys
 from datetime import UTC, datetime
+from importlib import metadata
 from pathlib import Path
 
 import structlog
@@ -111,6 +112,34 @@ def _detect_opf_version() -> str | None:
         return None
     version = result.stdout.strip() or result.stderr.strip()
     return version or None
+
+
+def _detect_opf_commit() -> str | None:
+    """Best-effort exact upstream `opf` commit, never fatal (#1048).
+
+    Reads the installed `opf` distribution's PEP 610 `direct_url.json` --
+    the same record `pip`/`uv` write for a VCS install -- rather than this
+    checkout's own `uv.lock`, since the runner that actually executes
+    `opf train` (e.g. a Kaggle GPU kernel) may install `opf` independently
+    of this repo's lockfile. Returns `None` whenever the commit can't be
+    established with confidence: `opf` not installed, not installed from
+    git, or `direct_url.json` missing/malformed.
+    """
+    try:
+        raw = metadata.distribution("opf").read_text("direct_url.json")
+    except metadata.PackageNotFoundError:
+        return None
+    if raw is None:
+        return None
+    try:
+        direct_url = json.loads(raw)
+    except json.JSONDecodeError:
+        return None
+    vcs_info = direct_url.get("vcs_info", {})
+    if vcs_info.get("vcs") != "git":
+        return None
+    commit_id = vcs_info.get("commit_id")
+    return commit_id if isinstance(commit_id, str) else None
 
 
 def _detect_hardware(device: str) -> str:
@@ -388,6 +417,7 @@ def main(argv: list[str] | None = None) -> int:
 
     device = args.device or _detect_device()
     opf_version = _detect_opf_version()
+    opf_commit = _detect_opf_commit()
     hardware = _detect_hardware(device)
     selection, checkpoint_dir = train_and_select_checkpoint(
         data_dir,
@@ -421,6 +451,7 @@ def main(argv: list[str] | None = None) -> int:
         created_at=timestamp.isoformat(),
         dataset_export_hash=dataset_export_hash,
         opf_version=opf_version,
+        opf_commit=opf_commit,
         hardware=hardware,
         finetune_summary_path=finetune_summary_path,
         learning_rate=args.learning_rate,
