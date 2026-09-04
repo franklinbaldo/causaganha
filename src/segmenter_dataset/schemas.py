@@ -295,6 +295,15 @@ class ReleaseManifest(BaseModel):
     between builds (RFC 0012 §8's lineage fix). ``split_manifest_hash`` and
     ``ci_provider``/``ci_run_id`` additionally pin the exact split and CI
     run a release came from, for reproducibility.
+
+    ``category_counts`` is the class-support report #1050/#1051 require:
+    keys are ``"{train,val,test}:{category}"`` (mirroring
+    ``AnnotationQuality.per_category_iaa``'s ``"val:{category}"``/
+    ``"test:{category}"`` convention), one entry per declared ontology
+    category per split — including categories with zero occurrences, so a
+    category unrepresented in a split (most importantly the locked test
+    split, which no support gate covers) is an explicit ``0`` rather than
+    a silently missing key.
     """
 
     model_config = ConfigDict(frozen=True)
@@ -310,6 +319,7 @@ class ReleaseManifest(BaseModel):
     split_hashes: dict[str, str]
     document_resolutions: dict[str, dict[str, str]]
     counts: dict[str, int] = Field(default_factory=dict)
+    category_counts: dict[str, int] = Field(default_factory=dict)
     tribunals: dict[str, int] = Field(default_factory=dict)
     document_types: dict[str, int] = Field(default_factory=dict)
     annotation_quality: AnnotationQuality

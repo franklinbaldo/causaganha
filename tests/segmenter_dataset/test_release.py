@@ -31,6 +31,10 @@ PAIR_LABELS = [
     Label(start=0, end=5, category="cabecalho_inicio"),
     Label(start=10, end=15, category="cabecalho_fim"),
 ]
+# Single-anchor category, non-overlapping with PAIR_LABELS' 10:15 span, used
+# to add a third category to train/val only (never test) — see
+# test_build_dataset_release_reports_per_category_support_across_splits.
+RESULTADO_LABEL = Label(start=16, end=20, category="resultado")
 
 
 def _text_for(role: str, index: int) -> str:
@@ -49,6 +53,15 @@ SINGLE_TRIBUNAL_KNOWN_LIMITATIONS = [
 ]
 
 
+def _labels_and_covered(extra_label: Label | None) -> tuple[list[Label], tuple[str, ...]]:
+    labels = list(PAIR_LABELS)
+    covered = ["cabecalho_inicio", "cabecalho_fim"]
+    if extra_label is not None:
+        labels.append(extra_label)
+        covered.append(extra_label.category)
+    return labels, tuple(covered)
+
+
 def _seed_release(
     store: SegmenterDatasetStore,
     *,
@@ -56,11 +69,13 @@ def _seed_release(
     n_val: int,
     n_test: int,
     tribunals: tuple[str, ...] = ("TJRO",),
+    extra_train_val_label: Label | None = None,
 ) -> SplitAssignment:
     train_ids: set[str] = set()
     val_ids: set[str] = set()
     test_ids: set[str] = set()
 
+    train_labels, train_covered = _labels_and_covered(extra_train_val_label)
     for i in range(n_train):
         doc = make_document(
             text=_text_for("train", i),
@@ -68,13 +83,17 @@ def _seed_release(
             tribunal=tribunals[i % len(tribunals)],
         )
         store.write_document(doc)
-        annotation = make_annotation(
-            doc, labels=PAIR_LABELS, covered_categories=("cabecalho_inicio", "cabecalho_fim")
-        )
+        annotation = make_annotation(doc, labels=train_labels, covered_categories=train_covered)
         store.write_annotation(annotation)
         train_ids.add(doc.document_id)
 
     for role, n, ids in (("val", n_val, val_ids), ("test", n_test, test_ids)):
+        # extra_train_val_label applies to val (per its name) but not test —
+        # deliberately, so a category can clear the train/val support floors
+        # while remaining entirely unrepresented in the locked test split.
+        role_labels, role_covered = _labels_and_covered(
+            extra_train_val_label if role == "val" else None
+        )
         for i in range(n):
             doc = make_document(text=_text_for(role, i), source_uri=f"{role}-{i}")
             store.write_document(doc)
@@ -82,19 +101,19 @@ def _seed_release(
                 doc,
                 annotator_id="a",
                 model_family="fam-a",
-                labels=PAIR_LABELS,
-                covered_categories=("cabecalho_inicio", "cabecalho_fim"),
+                labels=role_labels,
+                covered_categories=role_covered,
             )
             ann_b = make_annotation(
                 doc,
                 annotator_id="b",
                 model_family="fam-b",
-                labels=PAIR_LABELS,
-                covered_categories=("cabecalho_inicio", "cabecalho_fim"),
+                labels=role_labels,
+                covered_categories=role_covered,
             )
             store.write_annotation(ann_a)
             store.write_annotation(ann_b)
-            review = make_review(doc, [ann_a, ann_b], final_labels=PAIR_LABELS)
+            review = make_review(doc, [ann_a, ann_b], final_labels=role_labels)
             store.write_review(review)
             ids.add(doc.document_id)
 
@@ -291,3 +310,43 @@ def test_build_dataset_release_advisory_gate_waived_by_known_limitation(tmp_path
     )
     waived_gates = {kl.gate for kl in manifest.known_limitations}
     assert waived_gates == {"multiple_tribunals", "multiple_source_systems"}
+
+
+def test_build_dataset_release_reports_per_category_support_across_splits(tmp_path: Path) -> None:
+    """category_counts surfaces per-split, per-category support (#1050/#1051).
+
+    A category can clear both the train and val support floors (RFC 0012
+    §5.4) while remaining completely unrepresented in the locked test split
+    -- no gate checks test support today, so that blind spot would otherwise
+    stay invisible until model evaluation runs. The report must make it
+    visible as an explicit zero.
+    """
+    store = SegmenterDatasetStore(tmp_path)
+    ontology = ONTOLOGY | {"resultado"}
+    assignment = _seed_release(
+        store, n_train=10, n_val=5, n_test=5, extra_train_val_label=RESULTADO_LABEL
+    )
+
+    manifest = build_dataset_release(
+        store,
+        release_id="segmenter-silver-v8.1",
+        ontology_version="segmenter-ontology-v8.0.0",
+        guideline_version="g1",
+        source_commit="a" * 40,
+        dependency_lock_hash="b" * 64,
+        ci_provider=CI_PROVIDER,
+        ci_run_id=CI_RUN_ID,
+        ontology_categories=ontology,
+        split_manifest=_manifest_for(assignment),
+        known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
+        iaa_seed=1,
+    )
+
+    assert manifest.category_counts["train:cabecalho_inicio"] == 10
+    assert manifest.category_counts["val:cabecalho_inicio"] == 5
+    assert manifest.category_counts["test:cabecalho_inicio"] == 5
+    assert manifest.category_counts["train:resultado"] == 10
+    assert manifest.category_counts["val:resultado"] == 5
+    # never annotated in the locked test split -- must be reported as an
+    # explicit zero, not silently absent from the report.
+    assert manifest.category_counts["test:resultado"] == 0

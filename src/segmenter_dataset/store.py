@@ -677,8 +677,8 @@ class SegmenterDatasetStore:
 
 
 _MANIFEST_FIELDS = (
-    "record_kind",  # manifest | split_hash | document_resolution | count | tribunal
-    # | document_type | per_category_iaa | unreliable_category | known_limitation
+    "record_kind",  # manifest | split_hash | document_resolution | count | category_count
+    # | tribunal | document_type | per_category_iaa | unreliable_category | known_limitation
     "role",
     "ordinal",
     "key",
@@ -798,6 +798,7 @@ def write_release_manifest_tables(release_dir: Path, manifest: ReleaseManifest) 
         *_manifest_split_hash_rows(manifest),
         *_manifest_document_resolution_rows(manifest),
         *_manifest_count_rows(manifest),
+        *_manifest_kv_rows("category_count", manifest.category_counts),
         *_manifest_kv_rows("tribunal", manifest.tribunals),
         *_manifest_kv_rows("document_type", manifest.document_types),
         *_manifest_kv_rows("per_category_iaa", quality.per_category_iaa),
@@ -823,6 +824,9 @@ def read_release_manifest_tables(release_dir: Path) -> ReleaseManifest:
             document_resolutions.setdefault(row["role"], {})[row["key"]] = row["value"]
 
     counts = {row["role"]: int(row["value"]) for row in rows if row["record_kind"] == "count"}
+    category_counts = {
+        row["key"]: int(row["value"]) for row in rows if row["record_kind"] == "category_count"
+    }
     tribunals = {row["key"]: int(row["value"]) for row in rows if row["record_kind"] == "tribunal"}
     document_types = {
         row["key"]: int(row["value"]) for row in rows if row["record_kind"] == "document_type"
@@ -853,6 +857,7 @@ def read_release_manifest_tables(release_dir: Path) -> ReleaseManifest:
         split_hashes=split_hashes,
         document_resolutions=document_resolutions,
         counts=counts,
+        category_counts=category_counts,
         tribunals=tribunals,
         document_types=document_types,
         annotation_quality=AnnotationQuality(
