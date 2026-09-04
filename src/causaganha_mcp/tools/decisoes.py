@@ -1,8 +1,8 @@
-"""Product-facing TEOR search across published JURIS and STJ decision datasets."""
+"""Product-facing TEOR search across published JURIS, STJ and TCU decision datasets."""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Annotated, Literal
 
 import httpx
@@ -26,6 +26,8 @@ if TYPE_CHECKING:
 
 
 _SEARCH_TIMEOUT = 45.0
+_MAX_PERIOD_LISTING_DAYS = 31
+_MATCH_ALL_TEXT = "%%"
 
 
 class DecisaoResult(BaseModel):
@@ -45,7 +47,7 @@ class DecisaoResult(BaseModel):
 
 
 class DecisoesBuscarResult(BaseModel):
-    """Resultado de uma busca temática bounded em fontes de teor."""
+    """Resultado de uma busca bounded em fontes de teor."""
 
     resumo: str
     resultados: list[DecisaoResult] = Field(default_factory=list)
@@ -120,6 +122,48 @@ def _next_actions(results: list[DecisaoResult]) -> list[dict[str, str]]:
     return []
 
 
+def _query_text_for_period_listing(
+    texto: str | None,
+    cnj: str | None,
+    data_inicio: str | None,
+    data_fim: str | None,
+) -> str | None:
+    """Return the search text, or a bounded match-all query for period listing.
+
+    ``search_decisions`` deliberately requires text or CNJ because its normal
+    job is content search. At the MCP product boundary there is one additional
+    legitimate job: enumerate a small date window so an agent can inspect the
+    day's decisions without inventing a keyword. The SQL search already uses
+    LIKE patterns, so ``%%`` is the explicit match-all representation; this
+    helper keeps that implementation detail out of the public tool contract and
+    refuses unbounded scans before dataset discovery.
+    """
+    if texto or cnj:
+        return texto
+    if not data_inicio or not data_fim:
+        msg = (
+            "Informe texto (mínimo 2 caracteres), cnj, ou data_inicio e data_fim "
+            "para listar decisões por período."
+        )
+        raise ToolError(msg)
+    try:
+        start = date.fromisoformat(data_inicio)
+        end = date.fromisoformat(data_fim)
+    except ValueError as exc:
+        msg = "data_inicio e data_fim devem estar em formato ISO AAAA-MM-DD."
+        raise ToolError(msg) from exc
+    if start > end:
+        msg = "data_inicio não pode ser posterior a data_fim."
+        raise ToolError(msg)
+    if (end - start).days + 1 > _MAX_PERIOD_LISTING_DAYS:
+        msg = (
+            f"Listagem sem texto aceita no máximo {_MAX_PERIOD_LISTING_DAYS} dias; "
+            "divida o período."
+        )
+        raise ToolError(msg)
+    return _MATCH_ALL_TEXT
+
+
 def register(mcp: FastMCP) -> None:
     """Registra ``decisoes_buscar`` em *mcp*."""
 
@@ -127,7 +171,7 @@ def register(mcp: FastMCP) -> None:
         name="decisoes_buscar",
         timeout=_SEARCH_TIMEOUT,
         annotations={
-            "title": "Busca teor em decisões e acórdãos publicados",
+            "title": "Busca ou lista teor em decisões e acórdãos publicados",
             "readOnlyHint": True,
             "destructiveHint": False,
             "idempotentHint": True,
@@ -141,7 +185,8 @@ def register(mcp: FastMCP) -> None:
                 default=None,
                 min_length=2,
                 description="Texto livre a localizar no teor/ementa/tese. "
-                "Opcional quando ``cnj`` é informado.",
+                "Opcional quando ``cnj`` é informado ou quando data_inicio e "
+                "data_fim delimitam uma listagem cronológica.",
             ),
         ] = None,
         fonte: Literal["todas", "juris", "stj", "tcu"] = "todas",
@@ -195,19 +240,24 @@ def register(mcp: FastMCP) -> None:
             ),
         ] = None,
     ) -> DecisoesBuscarResult:
-        """Busca TEOR decisório preservado sem exigir schemas JURIS/STJ do agente.
+        """Busca ou lista TEOR decisório preservado sem exigir schemas do agente.
 
-        Use quando a pergunta depende do que uma decisão, acórdão, ementa ou tese
-        efetivamente diz. Para busca temática que inclua TJRO JURIS, informe
-        ``data_inicio`` e ``data_fim`` em AAAA-MM-DD; o intervalo é limitado a
-        seis meses para impedir scans remotos históricos sem bound. Para pesquisar
-        apenas STJ, o período é opcional. Quando o CNJ do processo já é conhecido
-        (por exemplo, a partir de ``processo_consultar``), informe ``cnj`` no lugar
-        de ``texto`` — a busca por CNJ é um lookup pontual e dispensa
-        ``data_inicio``/``data_fim`` mesmo em JURIS. STJ nunca é encontrado por
-        ``cnj``: o dataset publicado não expõe o CNJ de origem do acórdão, só o
-        número interno do processo no STJ; use ``texto`` para localizar teor
-        STJ por tema.
+        Há três modos suportados: (1) busca temática por ``texto``; (2) lookup
+        pontual por ``cnj``; e (3) listagem cronológica sem palavra-chave quando
+        ``data_inicio`` e ``data_fim`` são ambos informados. A listagem sem texto
+        é limitada a 31 dias para permitir jobs como “decisões de hoje” sem abrir
+        scans remotos históricos. Use paginação para percorrer o corpus do período.
+
+        Para busca temática que inclua TJRO JURIS, informe ``data_inicio`` e
+        ``data_fim`` em AAAA-MM-DD; o intervalo é limitado a seis meses para
+        impedir scans remotos históricos sem bound. Para pesquisar apenas STJ,
+        o período é opcional quando há ``texto``. Quando o CNJ do processo já é
+        conhecido (por exemplo, a partir de ``processo_consultar``), informe
+        ``cnj`` no lugar de ``texto`` — a busca por CNJ é um lookup pontual e
+        dispensa ``data_inicio``/``data_fim`` mesmo em JURIS. STJ nunca é
+        encontrado por ``cnj``: o dataset publicado não expõe o CNJ de origem do
+        acórdão, só o número interno do processo no STJ; use ``texto`` para
+        localizar teor STJ por tema.
 
         Não use para saber o andamento atual de um processo: isso é
         ``processo_estado``. Para um CNJ específico, ``processo_consultar`` é o
@@ -232,9 +282,7 @@ def register(mcp: FastMCP) -> None:
         devolver zero resultados; quando essa prova existir, a cobertura
         inicial é restrita a acórdãos com identidade KEY provada.
         """
-        if not texto and not cnj:
-            msg = "Informe texto (mínimo 2 caracteres) ou cnj."
-            raise ToolError(msg)
+        query_text = _query_text_for_period_listing(texto, cnj, data_inicio, data_fim)
         datasets, coverage_limitations = _datasets_for_source(fonte)
         if fonte == "tcu" and not datasets:
             msg = (
@@ -251,7 +299,7 @@ def register(mcp: FastMCP) -> None:
                 consulta_por_cnj=bool(cnj),
             )
             found = search_decisions(
-                texto,
+                query_text,
                 plan,
                 limite=limite,
                 cnj=cnj,
