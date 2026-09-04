@@ -34,6 +34,42 @@
   color: var(--papel-00);
 }
 
+/* O estado ativo precisa continuar legível sobre a faixa clara da navegação.
+ * O peso e o fundo preservam a hierarquia local; a cor deixa de depender da
+ * cor de link herdada pelo Pico. */
+nav a.active {
+  color: var(--color-base-content);
+}
+
+/* O tom do badge permanece visível no fundo e na borda, mas texto pequeno
+ * usa a cor principal do conteúdo para não sacrificar contraste. */
+.badge[data-tone] {
+  color: var(--color-content);
+  border: 1px solid color-mix(in srgb, currentColor 22%, var(--color-border));
+}
+
+/* O atalho é informação auxiliar, não desabilitada. Reduzir a opacidade do
+ * grupo inteiro também reduz o contraste do texto do <kbd>. */
+.search-shortcut-hint {
+  opacity: 1;
+  color: var(--color-content-secondary);
+}
+
+.search-shortcut-hint kbd {
+  color: var(--color-content);
+  background: var(--color-surface-overlay);
+}
+
+/* Cartões explicativos usam fundo de papel. O verde de hover é o mesmo tom
+ * local, apenas mais escuro, e mantém a ação claramente reconhecível como link. */
+.interface-grid a,
+.empty-state a {
+  color: var(--pico-primary-hover);
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+}
+
 /* Regiões de código que realmente precisam de rolagem horizontal recebem
  * tabindex em runtime; este estilo torna o foco tão perceptível quanto nos
  * demais controles sem mudar o bloco quando ele não está focado. */
