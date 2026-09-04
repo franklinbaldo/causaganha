@@ -242,6 +242,10 @@ def main(argv: list[str] | None = None) -> int:
     print(f"Model card: {model_card_path}")
     print(f"macro-F1 (model): {evidence.macro_f1_model}")
     print(f"macro-F1 (baseline): {evidence.macro_f1_baseline}")
+    print(
+        f"micro (model): precision={evidence.micro_precision_model} "
+        f"recall={evidence.micro_recall_model} f1={evidence.micro_f1_model}"
+    )
     print(f"baseline diff CI95 low: {evidence.baseline_diff_ci95_low}")
     print(f"beats baseline: {evidence.beats_baseline}")
     print(f"critical categories: {evidence.critical_category_f1}")
