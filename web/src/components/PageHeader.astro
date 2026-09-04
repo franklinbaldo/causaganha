@@ -22,9 +22,9 @@ const hasIconSlot = Astro.slots.has('icon');
 ---
 
 <header class="site-header page-header">
-  <nav class="container" aria-label="Contexto da página">
-    <ul>
-      <li>
+  <div class="container page-header__inner">
+    <div class="page-header__identity">
+      <div class="page-header__icon">
         {hasIconSlot ? (
           <div class="icon-slot"><slot name="icon" /></div>
         ) : tile ? (
@@ -38,17 +38,15 @@ const hasIconSlot = Astro.slots.has('icon');
             </svg>
           </a>
         )}
-      </li>
-      <li class="title-li">
-        <div class="title-group">
-          <h1 class="page-title"><slot name="title">{title}</slot></h1>
-          {subtitle && <p class="page-subtitle">{subtitle}</p>}
-          <slot name="subtitle" />
-        </div>
-      </li>
-    </ul>
-    <ul>
-      <li><ThemeToggle /></li>
-    </ul>
-  </nav>
+      </div>
+      <div class="title-group">
+        <h1 class="page-title"><slot name="title">{title}</slot></h1>
+        {subtitle && <p class="page-subtitle">{subtitle}</p>}
+        <slot name="subtitle" />
+      </div>
+    </div>
+    <div class="page-header__actions">
+      <ThemeToggle />
+    </div>
+  </div>
 </header>
