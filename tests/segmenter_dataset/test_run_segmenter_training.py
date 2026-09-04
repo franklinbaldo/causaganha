@@ -7,22 +7,21 @@ from pathlib import Path
 import pytest
 
 from scripts.run_segmenter_training import (
-    _EpochResult,
     _detect_hardware,
     _detect_opf_version,
     _hash_dataset_export,
     _load_label_space,
     _macro_f1_from_metrics,
     _preserve_finetune_summary,
-    _run_opf_train_epoch,
-    _select_best_epoch,
+    _run_opf_train,
     _validation_loss_from_metrics,
     main,
+    train_and_select_checkpoint,
 )
 from segmenter_dataset.schemas import ExperimentManifest
 
 
-def test_run_opf_train_epoch_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
+def test_run_opf_train_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
     """`opf train`'s real CLI has no `--seed` flag (only `--shuffle-seed`) --
     confirmed against a real `opf train --help` on a GPU Kaggle kernel, which
     failed with "unrecognized arguments: --seed 42" before this fix. Locks in
@@ -40,12 +39,12 @@ def test_run_opf_train_epoch_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
 
     monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
 
-    _run_opf_train_epoch(
+    _run_opf_train(
         tmp_path / "train.jsonl",
         tmp_path / "val.jsonl",
         tmp_path / "label_space.json",
-        tmp_path / "epoch-1",
-        resume_from=None,
+        tmp_path / "checkpoint",
+        epochs=3,
         batch_size=2,
         seed=42,
         device="cpu",
@@ -55,6 +54,39 @@ def test_run_opf_train_epoch_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
     assert "--seed" not in cmd
     assert "--shuffle-seed" in cmd
     assert cmd[cmd.index("--shuffle-seed") + 1] == "42"
+
+
+def test_run_opf_train_passes_full_epoch_count_in_one_call(tmp_path, monkeypatch):
+    """#1048: one continuous `opf train --epochs N` call, not N one-epoch calls --
+    re-invoking `opf train --epochs 1` per epoch resets OPF's optimizer/RNG
+    state between calls, diverging from the canonical upstream semantics.
+    """
+    captured_cmd = {}
+
+    class _FakeResult:
+        returncode = 0
+
+    def fake_run(cmd, *, check=False):
+        del check
+        captured_cmd["cmd"] = cmd
+        return _FakeResult()
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    _run_opf_train(
+        tmp_path / "train.jsonl",
+        tmp_path / "val.jsonl",
+        tmp_path / "label_space.json",
+        tmp_path / "checkpoint",
+        epochs=5,
+        batch_size=2,
+        seed=42,
+        device="cpu",
+    )
+
+    cmd = captured_cmd["cmd"]
+    assert cmd[cmd.index("--epochs") + 1] == "5"
+    assert "--checkpoint" not in cmd
 
 
 def test_load_label_space_requires_o_first(tmp_path):
@@ -159,38 +191,96 @@ def test_macro_f1_from_metrics_denominator_is_stable_across_categories():
     assert _macro_f1_from_metrics(partial_report, categories) == pytest.approx(0.4)
 
 
-def test_select_best_epoch_picks_highest_macro_f1():
-    results = [
-        _EpochResult(epoch=1, macro_f1=0.5, val_loss=0.9, checkpoint_dir="epoch-1"),
-        _EpochResult(epoch=2, macro_f1=0.8, val_loss=0.7, checkpoint_dir="epoch-2"),
-        _EpochResult(epoch=3, macro_f1=0.6, val_loss=0.5, checkpoint_dir="epoch-3"),
-    ]
+def _fake_subprocess_run(*, train_metrics: dict | None = None, eval_metrics: dict | None = None):
+    """Build a `subprocess.run` stand-in recording call count/cmds for `opf train`/`opf eval`."""
+    calls: list[list[str]] = []
 
-    best = _select_best_epoch(results)
+    class _Result:
+        def __init__(self, returncode: int) -> None:
+            self.returncode = returncode
 
-    assert best.epoch == 2
+    def fake_run(cmd, *, check=False):
+        del check
+        calls.append(cmd)
+        if "train" in cmd:
+            output_dir = Path(cmd[cmd.index("--output-dir") + 1])
+            output_dir.mkdir(parents=True, exist_ok=True)
+            if train_metrics is not None:
+                return _Result(1)
+            return _Result(0)
+        if "eval" in cmd:
+            metrics_out = Path(cmd[cmd.index("--metrics-out") + 1])
+            if eval_metrics is None:
+                return _Result(1)
+            metrics_out.parent.mkdir(parents=True, exist_ok=True)
+            metrics_out.write_text(json.dumps(eval_metrics), encoding="utf-8")
+            return _Result(0)
+        msg = f"unexpected command: {cmd}"
+        raise AssertionError(msg)
+
+    return fake_run, calls
 
 
-def test_select_best_epoch_ties_broken_by_lowest_epoch():
-    results = [
-        _EpochResult(epoch=1, macro_f1=0.8, val_loss=0.9, checkpoint_dir="epoch-1"),
-        _EpochResult(epoch=2, macro_f1=0.8, val_loss=0.1, checkpoint_dir="epoch-2"),
-    ]
+def test_train_and_select_checkpoint_invokes_opf_train_exactly_once(tmp_path, monkeypatch):
+    """#1048: multi-epoch training is one `opf train --epochs N` call, never N calls."""
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
 
-    best = _select_best_epoch(results)
+    fake_run, calls = _fake_subprocess_run(eval_metrics={"by_class.resultado.span.f1": 0.7})
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
 
-    assert best.epoch == 1
+    train_and_select_checkpoint(
+        data_dir, tmp_path / "out", epochs=5, batch_size=1, seed=0, device="cpu"
+    )
+
+    train_calls = [cmd for cmd in calls if "train" in cmd]
+    assert len(train_calls) == 1
+    assert train_calls[0][train_calls[0].index("--epochs") + 1] == "5"
 
 
-def test_select_best_epoch_falls_back_to_lowest_val_loss_on_full_tie():
-    results = [
-        _EpochResult(epoch=1, macro_f1=0.8, val_loss=0.9, checkpoint_dir="a"),
-        _EpochResult(epoch=1, macro_f1=0.8, val_loss=0.2, checkpoint_dir="b"),
-    ]
+def test_train_and_select_checkpoint_returns_selection_from_final_eval(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
 
-    best = _select_best_epoch(results)
+    fake_run, _calls = _fake_subprocess_run(
+        eval_metrics={"by_class.resultado.span.f1": 0.6, "loss": 0.3}
+    )
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
 
-    assert best.checkpoint_dir == "b"
+    selection, checkpoint_dir = train_and_select_checkpoint(
+        data_dir, tmp_path / "out", epochs=3, batch_size=1, seed=0, device="cpu"
+    )
+
+    assert selection.selected_epoch == 3
+    assert selection.val_macro_f1 == pytest.approx(0.6)
+    assert selection.val_loss == pytest.approx(0.3)
+    assert checkpoint_dir == tmp_path / "out" / "checkpoint"
+
+
+def test_train_and_select_checkpoint_raises_when_opf_train_fails(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+
+    fake_run, _calls = _fake_subprocess_run(train_metrics={}, eval_metrics={})
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="opf train failed"):
+        train_and_select_checkpoint(
+            data_dir, tmp_path / "out", epochs=1, batch_size=1, seed=0, device="cpu"
+        )
+
+
+def test_train_and_select_checkpoint_raises_when_opf_eval_fails(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+
+    fake_run, _calls = _fake_subprocess_run(eval_metrics=None)
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    with pytest.raises(RuntimeError, match="opf eval"):
+        train_and_select_checkpoint(
+            data_dir, tmp_path / "out", epochs=1, batch_size=1, seed=0, device="cpu"
+        )
 
 
 def _main_args(tmp_path, **overrides: str):
@@ -370,6 +460,7 @@ def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkey
     data_dir = tmp_path / "data"
     _write_train_artifacts(data_dir)
     output_dir = tmp_path / "out"
+    train_calls: list[list[str]] = []
 
     def fake_run(cmd, *, check=False, capture_output=False, text=False):
         del check
@@ -385,10 +476,11 @@ def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkey
             return _VersionResult()
 
         if "train" in cmd:
-            epoch_dir = Path(cmd[cmd.index("--output-dir") + 1])
-            epoch_dir.mkdir(parents=True, exist_ok=True)
-            (epoch_dir / "finetune_summary.json").write_text(
-                '{"epochs": 1, "final_loss": 0.1}', encoding="utf-8"
+            train_calls.append(cmd)
+            checkpoint_dir = Path(cmd[cmd.index("--output-dir") + 1])
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+            (checkpoint_dir / "finetune_summary.json").write_text(
+                '{"epochs": 3, "final_loss": 0.1}', encoding="utf-8"
             )
 
             class _TrainResult:
@@ -412,9 +504,12 @@ def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkey
 
     monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
 
-    exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir), "--epochs": "1"}))
+    exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir), "--epochs": "3"}))
 
     assert exit_code == 0
+    # #1048: one continuous `opf train --epochs N` call, never N one-epoch calls.
+    assert len(train_calls) == 1
+    assert train_calls[0][train_calls[0].index("--epochs") + 1] == "3"
     manifest_path = output_dir / "experiment_manifest.json"
     manifest = ExperimentManifest.model_validate_json(manifest_path.read_text(encoding="utf-8"))
 
