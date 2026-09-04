@@ -354,6 +354,50 @@ def collect_structural_anomalies(
     return anomalies
 
 
+def _format_optional(value: float | None, digits: int = 3) -> str:
+    return "n/a" if value is None else f"{value:.{digits}f}"
+
+
+def render_region_report(
+    predictions: list[DocumentModelPrediction],
+    *,
+    max_anomalies: int = 5,
+) -> str:
+    """Human-readable region-level report: per-region-type metrics plus structural anomalies (#1052).
+
+    Mirrors ``model_eval.render_error_report``'s role for span-level
+    metrics -- complements the machine-readable ``RegionTypeMetrics``/
+    ``StructuralAnomaly`` dataclasses rather than recomputing them
+    differently, and is the "human-readable error report" half of #1052's
+    "save machine-readable metrics plus a human-readable error report"
+    statistical-reporting checklist item at the region level.
+    """
+    lines = [
+        f"# Region error report ({len(predictions)} documents)",
+        "",
+        "## Per-region-type metrics",
+    ]
+    for base, metrics in aggregate_region_metrics(predictions).items():
+        lines.append(
+            f"- {base}: support={metrics.support} matched={metrics.matched} "
+            f"missed={metrics.missed} hallucinated={metrics.hallucinated} "
+            f"match_rate={_format_optional(metrics.match_rate)} "
+            f"mean_iou={_format_optional(metrics.mean_iou)} "
+            f"mean_start_error={_format_optional(metrics.mean_start_error, digits=1)} "
+            f"mean_end_error={_format_optional(metrics.mean_end_error, digits=1)}"
+        )
+
+    anomalies = collect_structural_anomalies(predictions)
+    lines.extend(["", f"## Structural anomalies ({len(anomalies)} total)"])
+    for anomaly in anomalies[:max_anomalies]:
+        lines.append(
+            f"- doc={anomaly.document_id} base={anomaly.base} "
+            f"inicio={anomaly.inicio} fim={anomaly.fim} (fim before inicio)"
+        )
+
+    return "\n".join(lines)
+
+
 def bootstrap_region_metric_ci_low(
     predictions: list[DocumentModelPrediction],
     base: str,

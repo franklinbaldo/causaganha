@@ -2,7 +2,14 @@ from __future__ import annotations
 
 import json
 
-from scripts.run_segmenter_test_eval import _load_document_groups, _load_test_jsonl, main
+from segmenter_dataset.model_eval import DocumentModelPrediction
+from segmenter_dataset.schemas import Label
+from scripts.run_segmenter_test_eval import (
+    _load_document_groups,
+    _load_test_jsonl,
+    _write_region_report,
+    main,
+)
 
 
 def _write_jsonl(path, records):
@@ -155,6 +162,38 @@ def test_main_refuses_to_overwrite_existing_model_card_without_force(tmp_path, c
     assert exit_code == 1
     captured = capsys.readouterr()
     assert "Refusing to overwrite" in captured.err
+
+
+# #1052's region-level harness (segmenter_dataset.region_eval) is fully
+# built and tested but was never wired into the script that produces the
+# final model release evidence -- the locked-test evaluation only ever
+# reported span-level metrics. This is the missing wiring.
+
+
+def test_write_region_report_creates_file_with_region_metrics(tmp_path):
+    predictions = [
+        DocumentModelPrediction(
+            document_id="d1",
+            gold=(
+                Label(start=0, end=10, category="relatorio_inicio"),
+                Label(start=40, end=50, category="relatorio_fim"),
+            ),
+            model_predicted=(
+                Label(start=0, end=10, category="relatorio_inicio"),
+                Label(start=40, end=50, category="relatorio_fim"),
+            ),
+            baseline_predicted=(),
+        )
+    ]
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    report_path = _write_region_report(predictions, output_dir)
+
+    assert report_path == output_dir / "region_report.txt"
+    content = report_path.read_text(encoding="utf-8")
+    assert "relatorio" in content
+    assert "match_rate=1.000" in content
 
 
 def test_main_errors_when_experiment_manifest_missing(tmp_path, capsys):

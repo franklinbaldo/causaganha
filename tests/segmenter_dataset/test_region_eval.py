@@ -18,6 +18,7 @@ from segmenter_dataset.region_eval import (
     region_breakdown_by_group,
     region_match_rate,
     regions_from_labels,
+    render_region_report,
 )
 from segmenter_dataset.schemas import Label
 
@@ -526,3 +527,68 @@ def test_collect_structural_anomalies_pools_across_documents_and_ignores_gold() 
     assert anomalies == [
         StructuralAnomaly(document_id="d2", base="voto", inicio=(50, 60), fim=(10, 20))
     ]
+
+
+# #1052's "document-level structural diagnostics ... without pretending to
+# prove semantic correctness" plus "save machine-readable metrics plus a
+# human-readable error report with concrete examples" checklist items:
+# region_eval already computes all of this, but nothing renders it into the
+# same kind of human-readable report model_eval.render_error_report produces
+# for span-level metrics.
+
+
+def test_render_region_report_includes_per_region_type_metrics() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+    ]
+
+    report = render_region_report(predictions)
+
+    assert "relatorio" in report
+    assert "match_rate=1.000" in report
+    assert "mean_iou=1.000" in report
+
+
+def test_render_region_report_reports_missed_region_without_iou() -> None:
+    predictions = [
+        _region_prediction("d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
+    ]
+
+    report = render_region_report(predictions)
+
+    assert "missed=1" in report
+    assert "mean_iou=n/a" in report
+
+
+def test_render_region_report_includes_structural_anomalies() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [],
+            [(80, 90, "relatorio_inicio"), (10, 20, "relatorio_fim")],
+        ),
+    ]
+
+    report = render_region_report(predictions)
+
+    assert "Structural anomalies (1 total)" in report
+    assert "doc=d1" in report
+    assert "base=relatorio" in report
+
+
+def test_render_region_report_no_anomalies_reports_zero_count() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+    ]
+
+    report = render_region_report(predictions)
+
+    assert "Structural anomalies (0 total)" in report
