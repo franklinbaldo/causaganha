@@ -4,9 +4,10 @@ reconstructed structural region the product actually consumes?
 
 from __future__ import annotations
 
-from segmenter_dataset.model_eval import DocumentModelPrediction
+from segmenter_dataset.model_eval import MIN_GROUP_SUPPORT_DOCUMENTS, DocumentModelPrediction
 from segmenter_dataset.region_eval import (
     RegionComparison,
+    RegionGroupMetrics,
     RegionTypeMetrics,
     StructuralAnomaly,
     aggregate_region_metrics,
@@ -14,6 +15,7 @@ from segmenter_dataset.region_eval import (
     collect_structural_anomalies,
     compare_regions,
     detect_inverted_regions,
+    region_breakdown_by_group,
     region_match_rate,
     regions_from_labels,
 )
@@ -282,6 +284,87 @@ def test_aggregate_region_metrics_averages_over_matched_documents_only() -> None
     assert metrics.mean_start_error == (0 + 5) / 2
     assert metrics.mean_end_error == 0.0
     assert metrics.mean_iou == (1.0 + 45 / 50) / 2
+
+
+def test_region_breakdown_by_group_reports_per_group_region_metrics() -> None:
+    predictions = [
+        _region_prediction(
+            f"tjro{i}",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        )
+        for i in range(5)
+    ] + [
+        _region_prediction(
+            "tjsp0", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        )
+    ]
+    group_of_document = {
+        item.document_id: ("tjro" if item.document_id.startswith("tjro") else "tjsp")
+        for item in predictions
+    }
+
+    breakdown = region_breakdown_by_group(predictions, group_of_document, min_documents=1)
+
+    assert breakdown["tjro"].document_count == 5
+    assert breakdown["tjro"].regions == aggregate_region_metrics(predictions[:5])
+    assert breakdown["tjsp"].document_count == 1
+    assert breakdown["tjsp"].regions == aggregate_region_metrics(predictions[5:])
+
+
+def test_region_breakdown_by_group_below_min_documents_reports_count_only() -> None:
+    predictions = [
+        _region_prediction(
+            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        )
+    ]
+    group_of_document = {"d1": "tst"}
+
+    breakdown = region_breakdown_by_group(predictions, group_of_document, min_documents=5)
+
+    assert breakdown["tst"] == RegionGroupMetrics(group="tst", document_count=1, regions=None)
+
+
+def test_region_breakdown_by_group_skips_documents_missing_from_mapping() -> None:
+    predictions = [
+        _region_prediction(
+            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        ),
+        _region_prediction(
+            "d2", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        ),
+    ]
+    group_of_document = {"d1": "tjro"}  # d2 has no known group, e.g. missing source metadata
+
+    breakdown = region_breakdown_by_group(predictions, group_of_document, min_documents=1)
+
+    assert set(breakdown) == {"tjro"}
+    assert breakdown["tjro"].document_count == 1
+
+
+def test_region_breakdown_by_group_default_min_documents_gates_on_document_count() -> None:
+    predictions = [
+        _region_prediction(
+            f"d{i}", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        )
+        for i in range(MIN_GROUP_SUPPORT_DOCUMENTS - 1)
+    ]
+    group_of_document = {item.document_id: "only" for item in predictions}
+
+    breakdown = region_breakdown_by_group(predictions, group_of_document)
+
+    assert breakdown["only"].document_count == MIN_GROUP_SUPPORT_DOCUMENTS - 1
+    assert breakdown["only"].regions is None
+
+
+def test_region_breakdown_by_group_empty_mapping_is_empty_result() -> None:
+    predictions = [
+        _region_prediction(
+            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
+        )
+    ]
+
+    assert region_breakdown_by_group(predictions, {}) == {}
 
 
 def test_bootstrap_region_metric_ci_low_empty_predictions_is_none() -> None:
