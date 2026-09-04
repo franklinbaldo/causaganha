@@ -12,6 +12,7 @@ from scripts.run_segmenter_training import (
     DEFAULT_LEARNING_RATE,
     DEFAULT_MAX_GRAD_NORM,
     DEFAULT_WEIGHT_DECAY,
+    _classify_run_kind,
     _detect_hardware,
     _detect_opf_commit,
     _detect_opf_version,
@@ -888,3 +889,93 @@ def test_main_records_overridden_optimization_recipe_in_manifest(tmp_path, monke
     assert manifest.weight_decay == pytest.approx(0.05)
     assert manifest.grad_accum_steps == 4
     assert manifest.max_grad_norm == pytest.approx(2.0)
+
+
+# #1052/#1057: a run counts as the canonical upstream baseline only when
+# every optimization knob matches the exact recipe this module pins; any
+# single override makes it a local ablation. Comparisons downstream
+# (#1052's harness, #1057's active-learning signal) must never mix the two
+# without this label ("do not mix scores from canonical baseline and local
+# training ablations without labeling them distinctly").
+
+
+def _canonical_recipe_kwargs() -> dict:
+    return {
+        "batch_size": 1,
+        "learning_rate": DEFAULT_LEARNING_RATE,
+        "weight_decay": DEFAULT_WEIGHT_DECAY,
+        "grad_accum_steps": DEFAULT_GRAD_ACCUM_STEPS,
+        "max_grad_norm": DEFAULT_MAX_GRAD_NORM,
+    }
+
+
+def test_classify_run_kind_exact_canonical_recipe_is_canonical_baseline():
+    assert _classify_run_kind(**_canonical_recipe_kwargs()) == "canonical_baseline"
+
+
+def test_classify_run_kind_overridden_batch_size_is_local_ablation():
+    kwargs = _canonical_recipe_kwargs() | {"batch_size": 2}
+    assert _classify_run_kind(**kwargs) == "local_ablation"
+
+
+def test_classify_run_kind_overridden_learning_rate_is_local_ablation():
+    kwargs = _canonical_recipe_kwargs() | {"learning_rate": 1e-5}
+    assert _classify_run_kind(**kwargs) == "local_ablation"
+
+
+def test_classify_run_kind_overridden_weight_decay_is_local_ablation():
+    kwargs = _canonical_recipe_kwargs() | {"weight_decay": 0.01}
+    assert _classify_run_kind(**kwargs) == "local_ablation"
+
+
+def test_classify_run_kind_overridden_grad_accum_steps_is_local_ablation():
+    kwargs = _canonical_recipe_kwargs() | {"grad_accum_steps": 4}
+    assert _classify_run_kind(**kwargs) == "local_ablation"
+
+
+def test_classify_run_kind_overridden_max_grad_norm_is_local_ablation():
+    kwargs = _canonical_recipe_kwargs() | {"max_grad_norm": 2.0}
+    assert _classify_run_kind(**kwargs) == "local_ablation"
+
+
+def test_experiment_manifest_rejects_invalid_run_kind():
+    with pytest.raises(ValidationError):
+        ExperimentManifest(**_minimal_experiment_manifest_kwargs(), run_kind="not-a-real-kind")
+
+
+def test_main_records_canonical_baseline_run_kind_when_recipe_is_default(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main()
+    )
+
+    exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir)}))
+
+    assert exit_code == 0
+    manifest = ExperimentManifest.model_validate_json(
+        (output_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest.run_kind == "canonical_baseline"
+
+
+def test_main_records_local_ablation_run_kind_when_recipe_is_overridden(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main()
+    )
+
+    exit_code = main(
+        _main_args(tmp_path, **{"--data-dir": str(data_dir), "--learning-rate": "1e-5"})
+    )
+
+    assert exit_code == 0
+    manifest = ExperimentManifest.model_validate_json(
+        (output_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest.run_kind == "local_ablation"
