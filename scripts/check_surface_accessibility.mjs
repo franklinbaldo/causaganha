@@ -1,4 +1,5 @@
 import fs from 'node:fs';
+import path from 'node:path';
 import { chromium } from 'playwright';
 import axe from 'axe-core';
 
@@ -93,8 +94,7 @@ for (const viewport of viewports) {
         const style = getComputedStyle(element);
         const visibleFocus = element.matches(':focus-visible') && (
           (style.outlineStyle !== 'none' && style.outlineWidth !== '0px') ||
-          style.boxShadow !== 'none' ||
-          (style.borderStyle !== 'none' && style.borderWidth !== '0px')
+          style.boxShadow !== 'none'
         );
         return { id, visibleFocus };
       });
@@ -125,8 +125,9 @@ for (const viewport of viewports) {
 }
 
 await browser.close();
-fs.mkdirSync(new URL('.', `file://${process.cwd()}/${output}`).pathname, { recursive: true });
-fs.writeFileSync(output, JSON.stringify({ revision, base_url: baseUrl, results }, null, 2));
+const resolvedOutput = path.resolve(output);
+fs.mkdirSync(path.dirname(resolvedOutput), { recursive: true });
+fs.writeFileSync(resolvedOutput, JSON.stringify({ revision, base_url: baseUrl, results }, null, 2));
 console.log(JSON.stringify({ revision, results }, null, 2));
 
 if (failed) process.exit(1);
