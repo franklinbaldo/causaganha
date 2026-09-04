@@ -518,4 +518,4 @@ def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkey
     assert manifest.dataset_export_hash == _hash_dataset_export(data_dir)
     assert manifest.finetune_summary_path == str(output_dir / "finetune_summary.json")
     preserved = (output_dir / "finetune_summary.json").read_text(encoding="utf-8")
-    assert json.loads(preserved) == {"epochs": 1, "final_loss": 0.1}
+    assert json.loads(preserved) == {"epochs": 3, "final_loss": 0.1}

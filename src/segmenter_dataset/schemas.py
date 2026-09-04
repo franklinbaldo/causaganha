@@ -318,18 +318,26 @@ class ReleaseManifest(BaseModel):
 
 
 class CheckpointSelection(BaseModel):
-    """Outcome of RFC 0012 §5 point 5's checkpoint-selection rule.
+    """Outcome of one canonical `opf train --epochs N` run (#1048).
 
     ``rule`` is fixed prose rather than a free-form field, so a manifest
     cannot quietly redefine the selection rule after the fact — it exists
-    to be compared against, not edited per run.
+    to be compared against, not edited per run. Selection itself happens
+    inside OPF, not in this wrapper: OPF tracks validation loss across
+    epochs in one continuous process and restores its best-by-loss state
+    before writing the checkpoint. ``selected_epoch`` records the run's
+    total epoch count, and ``val_macro_f1``/``val_loss`` are this wrapper's
+    own external evaluation of that resulting checkpoint.
     """
 
     model_config = ConfigDict(frozen=True)
 
     rule: str = (
-        "primary: highest validation macro-F1 over trainable categories; "
-        "tie-break 1: lowest epoch; tie-break 2: lowest validation loss"
+        "OPF selects internally, by lowest validation loss across epochs "
+        "within one continuous `opf train --epochs N` run (upstream "
+        "openai/privacy-filter canonical custom-label training path); this "
+        "wrapper performs no epoch-level selection of its own and reports "
+        "the resulting checkpoint's validation macro-F1 as external context"
     )
     selected_epoch: int
     val_macro_f1: float
