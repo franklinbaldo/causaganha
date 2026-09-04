@@ -1,0 +1,143 @@
+name: Deploy MCP HTTP
+
+on:
+  workflow_dispatch:
+    inputs:
+      project_id:
+        description: Google Cloud project ID
+        required: true
+        type: string
+      region:
+        description: Cloud Run / Artifact Registry region
+        required: true
+        default: southamerica-east1
+        type: string
+      workload_identity_provider:
+        description: Workload Identity Provider resource name
+        required: true
+        type: string
+      service_account:
+        description: Google Cloud service-account email used by OIDC
+        required: true
+        type: string
+      artifact_repository:
+        description: Existing Artifact Registry repository
+        required: true
+        default: causaganha
+        type: string
+      service_name:
+        description: Cloud Run service name
+        required: true
+        default: causaganha-mcp
+        type: string
+      smoke_cnj:
+        description: Known real CNJ used only for the read-only smoke call
+        required: true
+        type: string
+      smoke_text:
+        description: Read-only archive-search text used by the smoke call
+        required: true
+        default: sentença
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy-and-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out exact revision
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud with OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.workload_identity_provider }}
+          service_account: ${{ inputs.service_account }}
+
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Build image from the reviewed deployment artifact
+        env:
+          PROJECT_ID: ${{ inputs.project_id }}
+          REGION: ${{ inputs.region }}
+          ARTIFACT_REPOSITORY: ${{ inputs.artifact_repository }}
+        run: |
+          set -euo pipefail
+          short_sha="${GITHUB_SHA:0:12}"
+          image="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPOSITORY}/mcp:${short_sha}"
+          echo "IMAGE=$image" >> "$GITHUB_ENV"
+          gcloud builds submit \
+            --project "$PROJECT_ID" \
+            --config deployment/mcp/cloudbuild.yaml \
+            --substitutions "_IMAGE=$image,_GIT_SHA=$GITHUB_SHA" \
+            .
+
+      - name: Deploy public read-only MCP service
+        env:
+          PROJECT_ID: ${{ inputs.project_id }}
+          REGION: ${{ inputs.region }}
+          SERVICE_NAME: ${{ inputs.service_name }}
+        run: |
+          set -euo pipefail
+          gcloud run deploy "$SERVICE_NAME" \
+            --image "$IMAGE" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --allow-unauthenticated \
+            --memory 1Gi \
+            --cpu 1 \
+            --concurrency 4 \
+            --timeout 60 \
+            --port 8080 \
+            --quiet
+          service_url="$(gcloud run services describe "$SERVICE_NAME" \
+            --project "$PROJECT_ID" \
+            --region "$REGION" \
+            --format='value(status.url)')"
+          test -n "$service_url"
+          echo "SERVICE_URL=$service_url" >> "$GITHUB_ENV"
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v6
+        with:
+          enable-cache: true
+
+      - name: Install locked project environment
+        run: uv sync --frozen
+
+      - name: Prove remote MCP from a fresh HTTP client
+        env:
+          SMOKE_CNJ: ${{ inputs.smoke_cnj }}
+          SMOKE_TEXT: ${{ inputs.smoke_text }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/smoke_mcp_remote.py \
+            --service-url "$SERVICE_URL" \
+            --cnj "$SMOKE_CNJ" \
+            --search-text "$SMOKE_TEXT" \
+            --expected-commit "$GITHUB_SHA" \
+            | tee mcp-rollout-proof.json
+
+      - name: Publish rollout evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: mcp-rollout-proof-${{ github.sha }}
+          path: mcp-rollout-proof.json
+          if-no-files-found: error
+          retention-days: 90
+
+      - name: Summarize proven endpoint
+        run: |
+          {
+            echo '## CausaGanha MCP rollout proof'
+            echo
+            echo "- Service: $SERVICE_URL"
+            echo "- MCP: $SERVICE_URL/mcp"
+            echo "- Commit: $GITHUB_SHA"
+            echo '- Evidence: `mcp-rollout-proof.json` artifact'
+          } >> "$GITHUB_STEP_SUMMARY"
