@@ -26,7 +26,7 @@ from segmenter_dataset.schemas import Label
 
 def test_render_annotated_body_wraps_single_anchor_inline() -> None:
     text = "Diante do exposto, JULGO PROCEDENTE o pedido."
-    labels = [Label(start=20, end=37, category="resultado")]
+    labels = [Label(start=19, end=35, category="resultado")]
 
     body = render_annotated_body(text, labels)
 
@@ -37,7 +37,7 @@ def test_render_annotated_body_nests_matched_pair_as_wrapper_plus_inicio_fim() -
     text = "RELATÓRIO tudo bem. É o relatório. Resto."
     labels = [
         Label(start=0, end=9, category="relatorio_inicio"),
-        Label(start=20, end=35, category="relatorio_fim"),
+        Label(start=20, end=34, category="relatorio_fim"),
     ]
 
     body = render_annotated_body(text, labels)
@@ -50,7 +50,7 @@ def test_render_annotated_body_nests_matched_pair_as_wrapper_plus_inicio_fim() -
 
 def test_parse_annotated_body_is_inverse_of_render_for_single_anchor() -> None:
     text = "Diante do exposto, JULGO PROCEDENTE o pedido."
-    labels = [Label(start=20, end=37, category="resultado")]
+    labels = [Label(start=19, end=35, category="resultado")]
 
     body = render_annotated_body(text, labels)
     recovered_text, recovered_labels = parse_annotated_body(body)
@@ -79,7 +79,7 @@ def test_round_trip_preserves_single_anchor_nested_inside_a_region() -> None:
     labels = [
         Label(start=0, end=9, category="cabecalho_inicio"),
         Label(start=10, end=48, category="ref_processual"),
-        Label(start=57, end=78, category="cabecalho_fim"),
+        Label(start=55, end=77, category="cabecalho_fim"),
     ]
 
     body = render_annotated_body(text, labels)
@@ -110,7 +110,7 @@ def test_parse_annotated_body_rejects_malformed_markup() -> None:
 
 def test_render_okf_markdown_puts_provenance_in_frontmatter_and_tags_in_body() -> None:
     text = "Diante do exposto, JULGO PROCEDENTE o pedido."
-    labels = [Label(start=20, end=37, category="resultado")]
+    labels = [Label(start=19, end=35, category="resultado")]
     frontmatter = {
         "type": "segmenter_annotation",
         "document_id": "doc-123",
@@ -157,7 +157,7 @@ def test_okf_markdown_uses_the_real_okf_parser_contract(tmp_path: Path) -> None:
     from okf_parser.parser import parse_document_text
 
     text = "Diante do exposto, JULGO PROCEDENTE o pedido."
-    labels = [Label(start=20, end=37, category="resultado")]
+    labels = [Label(start=19, end=35, category="resultado")]
     frontmatter = {"type": "segmenter_annotation", "document_id": "doc-789"}
 
     markdown = render_okf_markdown(frontmatter, text, labels)
