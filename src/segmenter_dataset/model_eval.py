@@ -414,17 +414,92 @@ class RelaxedSpanMetrics:
     mean_end_distance: float | None
 
 
+def _match_same_category_document(
+    gold: list[Label], predicted: list[Label]
+) -> tuple[int, int, int, list[tuple[int, int]]]:
+    """Greedy best-overlap match within one already-filtered category, for one document.
+
+    Mirrors ``_match_document_spans``' greedy best-overlap tie-break, but
+    since both lists are pre-filtered to a single category there is no
+    category-error branch: every overlap is a relaxed match. Returns pooled
+    ``(tp, fp, fn)`` plus one ``(start_distance, end_distance)`` pair per
+    matched span, for the caller to aggregate into a mean.
+    """
+    matched_predicted_indices: set[int] = set()
+    matched_gold_indices: set[int] = set()
+    distances: list[tuple[int, int]] = []
+
+    sorted_gold_indices = sorted(
+        range(len(gold)), key=lambda index: (gold[index].start, gold[index].end)
+    )
+    for gold_index in sorted_gold_indices:
+        gold_label = gold[gold_index]
+        candidates = [
+            (index, predicted_label)
+            for index, predicted_label in enumerate(predicted)
+            if index not in matched_predicted_indices
+            and _spans_overlap(gold_label, predicted_label)
+        ]
+        if not candidates:
+            continue
+        best_index, best_predicted = max(
+            candidates,
+            key=lambda item: (_overlap_length(gold_label, item[1]), -item[1].start),
+        )
+        matched_predicted_indices.add(best_index)
+        matched_gold_indices.add(gold_index)
+        distances.append(
+            (
+                abs(gold_label.start - best_predicted.start),
+                abs(gold_label.end - best_predicted.end),
+            )
+        )
+
+    tp = len(matched_gold_indices)
+    fn = len(gold) - tp
+    fp = len(predicted) - len(matched_predicted_indices)
+    return tp, fp, fn, distances
+
+
 def relaxed_span_metrics(
     predictions: list[DocumentModelPrediction],
 ) -> dict[str, RelaxedSpanMetrics]:
     """Pooled same-category overlap match precision/recall/F1 and boundary distance per category.
 
-    TODO(#1052): RED placeholder — tests in test_model_eval.py define the
-    contract; this needs the actual greedy same-category overlap matching
-    (mirroring ``_match_document_spans``, restricted to one category at a
-    time) before it can turn GREEN.
+    Every category appearing in either gold or model predictions is
+    reported, mirroring ``per_category_metrics``' full-coverage behavior
+    rather than ``iaa.macro_f1``'s reliability-gated aggregate.
     """
-    raise NotImplementedError
+    categories = {
+        label.category for item in predictions for label in (*item.gold, *item.model_predicted)
+    }
+    result: dict[str, RelaxedSpanMetrics] = {}
+    for category in sorted(categories):
+        tp = fp = fn = 0
+        distances: list[tuple[int, int]] = []
+        for item in predictions:
+            gold = [label for label in item.gold if label.category == category]
+            predicted = [label for label in item.model_predicted if label.category == category]
+            doc_tp, doc_fp, doc_fn, doc_distances = _match_same_category_document(gold, predicted)
+            tp += doc_tp
+            fp += doc_fp
+            fn += doc_fn
+            distances.extend(doc_distances)
+        mean_start_distance = sum(d[0] for d in distances) / len(distances) if distances else None
+        mean_end_distance = sum(d[1] for d in distances) / len(distances) if distances else None
+        result[category] = RelaxedSpanMetrics(
+            category=category,
+            support=tp + fp + fn,
+            tp=tp,
+            fp=fp,
+            fn=fn,
+            precision=precision_from_counts(tp, fp, fn),
+            recall=recall_from_counts(tp, fp, fn),
+            f1=f1_from_counts(tp, fp, fn),
+            mean_start_distance=mean_start_distance,
+            mean_end_distance=mean_end_distance,
+        )
+    return result
 
 
 def _format_label(label: Label | None) -> str:
