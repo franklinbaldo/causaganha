@@ -22,6 +22,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from segmenter_dataset.release import MIN_TRAIN_SUPPORT_PER_CATEGORY, MIN_VAL_SUPPORT_PER_CATEGORY
+
 
 if TYPE_CHECKING:
     from segmenter_dataset.schemas import ReleaseManifest
@@ -48,6 +50,43 @@ def _counts_table(counts: dict[str, int], header: str) -> list[str]:
 def _split_counts_table(counts: dict[str, int]) -> list[str]:
     lines = ["| Split | Documents |", "| --- | --- |"]
     lines.extend(f"| {role} | {counts.get(role, 0)} |" for role in ("train", "validation", "test"))
+    lines.append("")
+    return lines
+
+
+def _category_support_section(manifest: ReleaseManifest) -> list[str]:
+    """#1050/#1051's class-support report: per-category train/val/test counts.
+
+    ``manifest.category_counts`` keys are ``"{train,val,test}:{category}"``
+    (see ``schemas.ReleaseManifest``); this reassembles them into one row per
+    category so a reader can see at a glance which categories are thin —
+    most importantly in ``test``, which no dataset-release gate checks (only
+    ``train``/``val`` have a support floor). A count below the relevant
+    floor is flagged with ``*`` rather than silently looking the same as a
+    comfortably-supported category.
+    """
+    if not manifest.category_counts:
+        return ["## Category support", "", "_No category counts recorded._", ""]
+
+    categories = sorted({key.split(":", 1)[1] for key in manifest.category_counts})
+    lines = [
+        "## Category support",
+        "",
+        "`*` marks a count below the release's minimum support floor "
+        f"(train: {MIN_TRAIN_SUPPORT_PER_CATEGORY}, val: {MIN_VAL_SUPPORT_PER_CATEGORY}).",
+        "",
+        "| Category | Train | Val | Test |",
+        "| --- | --- | --- | --- |",
+    ]
+    for category in categories:
+        train_count = manifest.category_counts.get(f"train:{category}", 0)
+        val_count = manifest.category_counts.get(f"val:{category}", 0)
+        test_count = manifest.category_counts.get(f"test:{category}", 0)
+        train_cell = (
+            f"{train_count}*" if train_count < MIN_TRAIN_SUPPORT_PER_CATEGORY else str(train_count)
+        )
+        val_cell = f"{val_count}*" if val_count < MIN_VAL_SUPPORT_PER_CATEGORY else str(val_count)
+        lines.append(f"| {_escape_cell(category)} | {train_cell} | {val_cell} | {test_count} |")
     lines.append("")
     return lines
 
@@ -120,6 +159,7 @@ def render_dataset_card(manifest: ReleaseManifest) -> str:
     lines.append("## Split sizes")
     lines.append("")
     lines.extend(_split_counts_table(manifest.counts))
+    lines.extend(_category_support_section(manifest))
     lines.extend(_iaa_section(manifest))
     lines.extend(_known_limitations_section(manifest))
     lines.append("## Intended use")

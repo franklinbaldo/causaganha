@@ -192,6 +192,21 @@ def _category_counts(resolved: list[ResolvedSplitDocument]) -> dict[str, int]:
     return counts
 
 
+def _full_category_counts(
+    resolved: list[ResolvedSplitDocument], ontology_categories: set[str]
+) -> dict[str, int]:
+    """``_category_counts`` zero-filled over the full declared ontology.
+
+    Mirrors ``_support_gates``' discipline of iterating
+    ``ontology_categories`` rather than only observed label keys, so a
+    category with zero occurrences in this split is reported as ``0``
+    instead of missing entirely from the report (#1050/#1051's class-support
+    report requirement).
+    """
+    counts = _category_counts(resolved)
+    return {category: counts.get(category, 0) for category in sorted(ontology_categories)}
+
+
 def _mechanical_gate(
     train: list[ResolvedSplitDocument],
     val: list[ResolvedSplitDocument],
@@ -458,6 +473,12 @@ def build_dataset_release(
         "test": {r.document.document_id: r.resolution_id for r in test},
     }
     counts = {"train": len(train), "validation": len(val), "test": len(test)}
+    category_counts: dict[str, int] = {}
+    for role, resolved_role in (("train", train), ("val", val), ("test", test)):
+        for category, category_count in _full_category_counts(
+            resolved_role, ontology_categories
+        ).items():
+            category_counts[f"{role}:{category}"] = category_count
     tribunals: dict[str, int] = {}
     document_types: dict[str, int] = {}
     for resolved in (*train, *val, *test):
@@ -531,6 +552,7 @@ def build_dataset_release(
         split_hashes=split_hashes,
         document_resolutions=document_resolutions,
         counts=counts,
+        category_counts=category_counts,
         tribunals=tribunals,
         document_types=document_types,
         annotation_quality=annotation_quality,
