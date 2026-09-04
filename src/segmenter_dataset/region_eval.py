@@ -13,16 +13,20 @@ characters is a very different failure from missing the region entirely.
 
 from __future__ import annotations
 
+import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from segmenter_dataset.model_eval import DocumentModelPrediction
     from segmenter_dataset.schemas import Label
 
 
 _PAIR_ROLES = ("inicio", "fim")
+DEFAULT_BOOTSTRAP_RESAMPLES = 1000
 
 
 def _pair_base_and_role(category: str) -> tuple[str, str] | None:
@@ -230,3 +234,44 @@ def aggregate_region_metrics(
         )
         for base, bucket in sorted(totals.items())
     }
+
+
+def bootstrap_region_metric_ci_low(
+    predictions: list[DocumentModelPrediction],
+    base: str,
+    metric: Callable[[RegionTypeMetrics], float | None],
+    *,
+    resamples: int = DEFAULT_BOOTSTRAP_RESAMPLES,
+    seed: int,
+) -> float | None:
+    """Lower bound of a 95% document-level bootstrap CI for one region type's metric.
+
+    Resamples **documents** with replacement (mirrors ``iaa.bootstrap_ci_low``
+    and ``model_eval.bootstrap_diff_ci_low``'s document-level resampling
+    discipline, RFC 0012 §8) and recomputes ``aggregate_region_metrics`` on
+    each resample, then applies ``metric`` (e.g. ``lambda m: m.match_rate``
+    or ``lambda m: m.mean_iou``) to that resample's ``RegionTypeMetrics`` for
+    ``base``. A resample where ``base`` doesn't appear, or where ``metric``
+    is undefined (``None`` -- e.g. no matched documents for ``mean_iou``),
+    contributes nothing to the distribution rather than counting as zero.
+    Returns ``None`` if no resample yielded a defined value.
+    """
+    rng = random.Random(seed)  # noqa: S311 - deterministic statistical resampling, not cryptography
+    n = len(predictions)
+    if n == 0:
+        return None
+    values: list[float] = []
+    for _ in range(resamples):
+        sample = [predictions[rng.randrange(n)] for _ in range(n)]
+        report = aggregate_region_metrics(sample)
+        type_metrics = report.get(base)
+        if type_metrics is None:
+            continue
+        value = metric(type_metrics)
+        if value is not None:
+            values.append(value)
+    if not values:
+        return None
+    values.sort()
+    low_index = int(0.025 * len(values))
+    return values[low_index]
