@@ -79,6 +79,15 @@ logger = structlog.get_logger()
 
 REQUIRED_TRAIN_ARTIFACTS = ("train.jsonl", "val.jsonl", "label_space.json")
 
+# #1048: the first serious baseline starts from the upstream openai/privacy-filter
+# custom-label fine-tuning demo's recipe, not from OPF's own conservative built-in
+# defaults (lr=1e-5, wd=0.01 -- see docs/kaggle-colab-gpu-workflow.md). Leaving
+# these flags unpassed silently falls back to that conservative recipe.
+DEFAULT_LEARNING_RATE = 2e-4
+DEFAULT_WEIGHT_DECAY = 0.0
+DEFAULT_GRAD_ACCUM_STEPS = 1
+DEFAULT_MAX_GRAD_NORM = 1.0
+
 
 def _detect_device() -> str:
     try:
@@ -163,12 +172,18 @@ def _run_opf_train(
     batch_size: int,
     seed: int,
     device: str,
+    learning_rate: float = DEFAULT_LEARNING_RATE,
+    weight_decay: float = DEFAULT_WEIGHT_DECAY,
+    grad_accum_steps: int = DEFAULT_GRAD_ACCUM_STEPS,
+    max_grad_norm: float = DEFAULT_MAX_GRAD_NORM,
 ) -> int:
     """One continuous `opf train --epochs N` invocation -- the canonical path (#1048).
 
     No `--checkpoint`/resume flag: unlike the pre-#1048 per-epoch loop, this
     is a single process for the whole run, so there is nothing to hand off
-    between calls.
+    between calls. Every optimization knob is passed explicitly rather than
+    left to `opf train`'s own defaults, so the invocation is reproducible
+    from its recorded command alone.
     """
     cmd = [
         sys.executable,
@@ -188,6 +203,14 @@ def _run_opf_train(
         str(epochs),
         "--batch-size",
         str(batch_size),
+        "--grad-accum-steps",
+        str(grad_accum_steps),
+        "--learning-rate",
+        str(learning_rate),
+        "--weight-decay",
+        str(weight_decay),
+        "--max-grad-norm",
+        str(max_grad_norm),
         "--shuffle-seed",
         str(seed),
     ]
@@ -273,6 +296,10 @@ def train_and_select_checkpoint(
     batch_size: int,
     seed: int,
     device: str,
+    learning_rate: float = DEFAULT_LEARNING_RATE,
+    weight_decay: float = DEFAULT_WEIGHT_DECAY,
+    grad_accum_steps: int = DEFAULT_GRAD_ACCUM_STEPS,
+    max_grad_norm: float = DEFAULT_MAX_GRAD_NORM,
 ) -> tuple[CheckpointSelection, Path]:
     """Run the canonical `opf train --epochs N` once; evaluate the result on val.jsonl (#1048).
 
@@ -299,6 +326,10 @@ def train_and_select_checkpoint(
         batch_size=batch_size,
         seed=seed,
         device=device,
+        learning_rate=learning_rate,
+        weight_decay=weight_decay,
+        grad_accum_steps=grad_accum_steps,
+        max_grad_norm=max_grad_norm,
     )
     if returncode != 0:
         msg = f"opf train failed (returncode {returncode})"
@@ -335,6 +366,10 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--epochs", type=int, default=3)
     parser.add_argument("--batch-size", type=int, default=1)
     parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--learning-rate", type=float, default=DEFAULT_LEARNING_RATE)
+    parser.add_argument("--weight-decay", type=float, default=DEFAULT_WEIGHT_DECAY)
+    parser.add_argument("--grad-accum-steps", type=int, default=DEFAULT_GRAD_ACCUM_STEPS)
+    parser.add_argument("--max-grad-norm", type=float, default=DEFAULT_MAX_GRAD_NORM)
     parser.add_argument("--device", default=None, help="cuda|cpu; default: auto-detect")
     parser.add_argument("--experiment-id", default=None)
     args = parser.parse_args(argv)
@@ -361,6 +396,10 @@ def main(argv: list[str] | None = None) -> int:
         batch_size=args.batch_size,
         seed=args.seed,
         device=device,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay,
+        grad_accum_steps=args.grad_accum_steps,
+        max_grad_norm=args.max_grad_norm,
     )
     dataset_export_hash = _hash_dataset_export(data_dir)
     finetune_summary_path = _preserve_finetune_summary(checkpoint_dir, output_dir)
@@ -384,6 +423,10 @@ def main(argv: list[str] | None = None) -> int:
         opf_version=opf_version,
         hardware=hardware,
         finetune_summary_path=finetune_summary_path,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay,
+        grad_accum_steps=args.grad_accum_steps,
+        max_grad_norm=args.max_grad_norm,
     )
     manifest_path = output_dir / "experiment_manifest.json"
     manifest_path.write_text(manifest.model_dump_json(indent=2) + "\n", encoding="utf-8")

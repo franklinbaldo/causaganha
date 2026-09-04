@@ -374,6 +374,13 @@ class ExperimentManifest(BaseModel):
     opf_version: str | None = None
     hardware: str | None = None
     finetune_summary_path: str | None = None
+    # #1048: every optimization knob passed to `opf train`, recorded explicitly
+    # so a run is reproducible from its manifest alone rather than from
+    # whatever this script's or OPF's own default constants happen to be.
+    learning_rate: float
+    weight_decay: float
+    grad_accum_steps: int
+    max_grad_norm: float
 
 
 class ModelAcceptanceEvidence(BaseModel):
