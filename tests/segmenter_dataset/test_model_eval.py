@@ -3,13 +3,16 @@ from __future__ import annotations
 import pytest
 
 from segmenter_dataset.model_eval import (
+    MIN_GROUP_SUPPORT_DOCUMENTS,
     CategoryMetrics,
     DocumentModelPrediction,
+    GroupMetrics,
     MicroMetrics,
     RelaxedSpanMetrics,
     SpanErrorBreakdown,
     SpanErrorExample,
     bootstrap_diff_ci_low,
+    breakdown_by_group,
     classify_span_errors,
     collect_span_error_examples,
     critical_category_f1,
@@ -221,6 +224,74 @@ def test_micro_metrics_no_gold_or_predicted_spans_is_zero() -> None:
     metrics = micro_metrics(predictions)
 
     assert metrics == MicroMetrics(tp=0, fp=0, fn=0, precision=0.0, recall=0.0, f1=0.0)
+
+
+# #1052's "breakdown by tribunal/source and document type when support
+# permits" checklist item: group_of_document maps document_id to whichever
+# dimension the caller is slicing by, so the same function serves a
+# tribunal breakdown and a document-type breakdown without a joint key.
+
+
+def test_breakdown_by_group_reports_macro_and_micro_per_group() -> None:
+    predictions = [
+        _prediction(f"tjro{i}", [(0, 5, "resultado")], [(0, 5, "resultado")]) for i in range(5)
+    ] + [_prediction(f"stj{i}", [(0, 5, "resultado")], []) for i in range(5)]
+    group_of_document = {
+        item.document_id: ("tjro" if item.document_id.startswith("tjro") else "stj")
+        for item in predictions
+    }
+
+    breakdown = breakdown_by_group(predictions, group_of_document, min_documents=1, min_support=1)
+
+    assert breakdown["tjro"].document_count == 5
+    assert breakdown["tjro"].macro_f1 == 1.0
+    assert breakdown["tjro"].micro == micro_metrics(predictions[:5])
+    assert breakdown["stj"].document_count == 5
+    assert breakdown["stj"].macro_f1 == 0.0
+
+
+def test_breakdown_by_group_below_min_documents_reports_count_only() -> None:
+    predictions = [_prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")])]
+    group_of_document = {"d1": "tst"}
+
+    breakdown = breakdown_by_group(predictions, group_of_document, min_documents=5)
+
+    assert breakdown["tst"] == GroupMetrics(
+        group="tst", document_count=1, macro_f1=None, micro=None
+    )
+
+
+def test_breakdown_by_group_skips_documents_missing_from_mapping() -> None:
+    predictions = [
+        _prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")]),
+        _prediction("d2", [(0, 5, "resultado")], [(0, 5, "resultado")]),
+    ]
+    group_of_document = {"d1": "tjro"}  # d2 has no known group, e.g. missing source metadata
+
+    breakdown = breakdown_by_group(predictions, group_of_document, min_documents=1)
+
+    assert set(breakdown) == {"tjro"}
+    assert breakdown["tjro"].document_count == 1
+
+
+def test_breakdown_by_group_default_min_documents_gates_on_document_count() -> None:
+    predictions = [
+        _prediction(f"d{i}", [(0, 5, "resultado")], [(0, 5, "resultado")])
+        for i in range(MIN_GROUP_SUPPORT_DOCUMENTS - 1)
+    ]
+    group_of_document = {item.document_id: "only" for item in predictions}
+
+    breakdown = breakdown_by_group(predictions, group_of_document, min_support=1)
+
+    assert breakdown["only"].document_count == MIN_GROUP_SUPPORT_DOCUMENTS - 1
+    assert breakdown["only"].macro_f1 is None
+    assert breakdown["only"].micro is None
+
+
+def test_breakdown_by_group_empty_mapping_is_empty_result() -> None:
+    predictions = [_prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")])]
+
+    assert breakdown_by_group(predictions, {}) == {}
 
 
 def test_evaluate_model_acceptance_reports_micro_metrics_as_secondary_context() -> None:

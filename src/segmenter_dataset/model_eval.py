@@ -53,6 +53,13 @@ if TYPE_CHECKING:
 
 DEFAULT_BOOTSTRAP_RESAMPLES = 1000
 
+# #1052's "breakdown by tribunal/source and document type when support
+# permits" checklist item: a group (one tribunal, one document type, ...)
+# needs at least this many documents before its own macro-F1 is reported,
+# mirroring iaa.MIN_REPORT_SUPPORT's reliability-floor reasoning at the
+# document-count level rather than the span-count level.
+MIN_GROUP_SUPPORT_DOCUMENTS = 5
+
 
 @dataclass(frozen=True)
 class DocumentModelPrediction:
@@ -235,6 +242,62 @@ def macro_f1_over_target_categories(
     return sum(reported_f1.get(category, 0.0) for category in target_categories) / len(
         target_categories
     )
+
+
+@dataclass(frozen=True)
+class GroupMetrics:
+    """One group's (e.g. one tribunal, or one document type) gold-vs-model outcome (#1052).
+
+    A group with fewer than ``min_documents`` reports only its
+    ``document_count`` — ``macro_f1``/``micro`` stay ``None`` rather than a
+    misleadingly precise number computed from too few documents ("when
+    support permits", #1052's statistical-reporting checklist).
+    """
+
+    group: str
+    document_count: int
+    macro_f1: float | None
+    micro: MicroMetrics | None
+
+
+def breakdown_by_group(
+    predictions: list[DocumentModelPrediction],
+    group_of_document: dict[str, str],
+    *,
+    min_documents: int = MIN_GROUP_SUPPORT_DOCUMENTS,
+    min_support: int = MIN_REPORT_SUPPORT,
+) -> dict[str, GroupMetrics]:
+    """Group ``predictions`` by ``group_of_document`` and report per-group macro-/micro-F1.
+
+    ``group_of_document`` maps ``document_id`` to whichever dimension the
+    caller is slicing by (tribunal, document type, ...) — a document
+    missing from it is skipped, so a caller passes one mapping per
+    dimension rather than a joint key. This is what lets one function serve
+    both halves of #1052's "breakdown by tribunal/source and document type"
+    checklist item.
+    """
+    by_group: dict[str, list[DocumentModelPrediction]] = {}
+    for item in predictions:
+        key = group_of_document.get(item.document_id)
+        if key is None:
+            continue
+        by_group.setdefault(key, []).append(item)
+
+    result: dict[str, GroupMetrics] = {}
+    for key, items in sorted(by_group.items()):
+        if len(items) < min_documents:
+            result[key] = GroupMetrics(
+                group=key, document_count=len(items), macro_f1=None, micro=None
+            )
+            continue
+        pairs = [item.model_pair for item in items]
+        result[key] = GroupMetrics(
+            group=key,
+            document_count=len(items),
+            macro_f1=macro_f1(pairs, min_support=min_support),
+            micro=micro_metrics(items),
+        )
+    return result
 
 
 def critical_category_f1(predictions: list[DocumentModelPrediction]) -> dict[str, float]:

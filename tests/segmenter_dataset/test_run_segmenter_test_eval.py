@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from scripts.run_segmenter_test_eval import _load_test_jsonl, main
+from scripts.run_segmenter_test_eval import _load_document_groups, _load_test_jsonl, main
 
 
 def _write_jsonl(path, records):
@@ -49,6 +49,61 @@ def test_load_test_jsonl_skips_blank_lines(tmp_path):
     document_ids, _gold, _text = _load_test_jsonl(path)
 
     assert document_ids == ["d1"]
+
+
+# #1052's "breakdown by tribunal/source and document type" checklist item:
+# test.jsonl's info block already carries this metadata (opf_export.py's
+# to_opf_record), so the eval script's own loader must expose it rather than
+# discarding it like _load_test_jsonl does.
+
+
+def test_load_document_groups_reads_tribunal_and_document_type(tmp_path):
+    path = tmp_path / "test.jsonl"
+    _write_jsonl(
+        path,
+        [
+            {
+                "text": "hello",
+                "label": [],
+                "info": {"document_id": "d1", "tribunal": "tjro", "document_type": "acordao"},
+            },
+            {
+                "text": "world",
+                "label": [],
+                "info": {"document_id": "d2", "tribunal": "stj", "document_type": "acordao"},
+            },
+        ],
+    )
+
+    tribunal_by_document, document_type_by_document = _load_document_groups(path)
+
+    assert tribunal_by_document == {"d1": "tjro", "d2": "stj"}
+    assert document_type_by_document == {"d1": "acordao", "d2": "acordao"}
+
+
+def test_load_document_groups_skips_documents_missing_the_metadata(tmp_path):
+    path = tmp_path / "test.jsonl"
+    _write_jsonl(
+        path,
+        [{"text": "a", "label": [], "info": {"document_id": "d1"}}],
+    )
+
+    tribunal_by_document, document_type_by_document = _load_document_groups(path)
+
+    assert tribunal_by_document == {}
+    assert document_type_by_document == {}
+
+
+def test_load_document_groups_skips_blank_lines(tmp_path):
+    path = tmp_path / "test.jsonl"
+    path.write_text(
+        '{"text": "a", "label": [], "info": {"document_id": "d1", "tribunal": "tjro"}}\n\n',
+        encoding="utf-8",
+    )
+
+    tribunal_by_document, _document_type_by_document = _load_document_groups(path)
+
+    assert tribunal_by_document == {"d1": "tjro"}
 
 
 def test_main_refuses_without_confirmation_flag(tmp_path, capsys):
