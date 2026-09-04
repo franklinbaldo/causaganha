@@ -208,7 +208,10 @@ def _iso(value: Any) -> str | None:  # noqa: ANN401 — DuckDB row values are un
 
 def _fetch_text(url_or_path: str) -> str:
     if url_or_path.startswith(("http://", "https://")):
-        resp = httpx.get(url_or_path, timeout=10.0)
+        # archive.org/download/... 302-redirects to a datanode host; without
+        # follow_redirects, httpx returns the redirect response itself
+        # (empty/non-JSON body), which silently looks like a fetch failure.
+        resp = httpx.get(url_or_path, timeout=10.0, follow_redirects=True)
         resp.raise_for_status()
         return resp.text
     return Path(url_or_path).read_text(encoding="utf-8")
