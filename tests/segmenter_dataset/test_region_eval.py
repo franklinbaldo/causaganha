@@ -448,12 +448,12 @@ def test_collect_structural_anomalies_pools_across_documents_and_ignores_gold() 
         _region_prediction(
             "d2",
             gold=[],
-            predicted=[(50, 60, "voto_fim"), (10, 20, "voto_inicio")],
+            predicted=[(10, 20, "voto_fim"), (50, 60, "voto_inicio")],
         ),
     ]
 
     anomalies = collect_structural_anomalies(predictions)
 
     assert anomalies == [
-        StructuralAnomaly(document_id="d2", base="voto", inicio=(10, 20), fim=(50, 60))
+        StructuralAnomaly(document_id="d2", base="voto", inicio=(50, 60), fim=(10, 20))
     ]
