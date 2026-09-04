@@ -54,6 +54,7 @@ from segmenter_dataset.model_eval import (
     DocumentModelPrediction,
     breakdown_by_group,
     evaluate_model_acceptance,
+    render_error_report,
 )
 from segmenter_dataset.region_eval import region_breakdown_by_group, render_region_report
 from segmenter_dataset.schemas import ExperimentManifest, Label, ModelCard
@@ -130,6 +131,17 @@ def _print_group_breakdown(
                 f"  {group}: documents={metrics.document_count} "
                 f"macro_f1={metrics.macro_f1:.3f} micro_f1={metrics.micro.f1:.3f}"
             )
+
+
+def _write_span_error_report(predictions: list[DocumentModelPrediction], output_dir: Path) -> Path:
+    """Write #1052's span-level error report (per-category metrics, concrete examples) alongside the model card.
+
+    Diagnostic only -- unlike ``evaluate_model_acceptance``'s span-level
+    evidence, nothing here feeds ``eligible_for_deploy``.
+    """
+    report_path = output_dir / "span_error_report.txt"
+    report_path.write_text(render_error_report(predictions), encoding="utf-8")
+    return report_path
 
 
 def _write_region_report(predictions: list[DocumentModelPrediction], output_dir: Path) -> Path:
@@ -315,9 +327,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     output_dir.mkdir(parents=True, exist_ok=True)
     model_card_path.write_text(model_card.model_dump_json(indent=2) + "\n", encoding="utf-8")
+    span_error_report_path = _write_span_error_report(predictions, output_dir)
     region_report_path = _write_region_report(predictions, output_dir)
 
     print(f"Model card: {model_card_path}")
+    print(f"Span error report: {span_error_report_path}")
     print(f"Region report: {region_report_path}")
     print(f"macro-F1 (model): {evidence.macro_f1_model}")
     print(f"macro-F1 (baseline): {evidence.macro_f1_baseline}")
