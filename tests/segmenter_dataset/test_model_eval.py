@@ -6,6 +6,7 @@ from segmenter_dataset.model_eval import (
     CategoryMetrics,
     DocumentModelPrediction,
     MicroMetrics,
+    RelaxedSpanMetrics,
     SpanErrorBreakdown,
     SpanErrorExample,
     bootstrap_diff_ci_low,
@@ -16,6 +17,7 @@ from segmenter_dataset.model_eval import (
     macro_f1_over_target_categories,
     micro_metrics,
     per_category_metrics,
+    relaxed_span_metrics,
     render_error_report,
     trivial_baseline_predictions,
 )
@@ -428,3 +430,135 @@ def test_render_error_report_respects_max_examples_per_type() -> None:
     report = render_error_report(predictions, max_examples_per_type=2)
 
     assert report.count("pure_miss") == 3  # heading count "pure_misses: 10" + 2 example lines
+
+
+# #1052's "relaxed overlap/boundary-distance diagnostics" checklist item: a
+# same-category overlap (not requiring exact boundary agreement) counts as a
+# relaxed match, kept clearly separate from ``per_category_metrics``' exact
+# primary metric.
+
+
+def test_relaxed_span_metrics_exact_match_is_a_relaxed_match_with_zero_distance() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 10, "resultado")])]
+
+    metrics = relaxed_span_metrics(predictions)
+
+    assert metrics == {
+        "resultado": RelaxedSpanMetrics(
+            category="resultado",
+            support=1,
+            tp=1,
+            fp=0,
+            fn=0,
+            precision=1.0,
+            recall=1.0,
+            f1=1.0,
+            mean_start_distance=0.0,
+            mean_end_distance=0.0,
+        )
+    }
+
+
+def test_relaxed_span_metrics_overlap_with_shifted_boundary_still_counts_as_tp() -> None:
+    # Exact-match evaluation would score this FN+FP; the relaxed diagnostic
+    # must count it as one match with a measured boundary distance instead.
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(2, 12, "resultado")])]
+
+    metrics = relaxed_span_metrics(predictions)
+
+    result = metrics["resultado"]
+    assert result.tp == 1
+    assert result.fp == 0
+    assert result.fn == 0
+    assert result.mean_start_distance == 2.0
+    assert result.mean_end_distance == 2.0
+
+
+def test_relaxed_span_metrics_no_overlap_is_separate_fp_and_fn() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(50, 60, "resultado")])]
+
+    metrics = relaxed_span_metrics(predictions)
+
+    result = metrics["resultado"]
+    assert result.tp == 0
+    assert result.fp == 1
+    assert result.fn == 1
+    assert result.mean_start_distance is None
+    assert result.mean_end_distance is None
+
+
+def test_relaxed_span_metrics_different_category_does_not_match_even_if_overlapping() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(2, 12, "dispositivo_abertura")])]
+
+    metrics = relaxed_span_metrics(predictions)
+
+    assert metrics["resultado"] == RelaxedSpanMetrics(
+        category="resultado",
+        support=1,
+        tp=0,
+        fp=0,
+        fn=1,
+        precision=0.0,
+        recall=0.0,
+        f1=0.0,
+        mean_start_distance=None,
+        mean_end_distance=None,
+    )
+    assert metrics["dispositivo_abertura"] == RelaxedSpanMetrics(
+        category="dispositivo_abertura",
+        support=1,
+        tp=0,
+        fp=1,
+        fn=0,
+        precision=0.0,
+        recall=0.0,
+        f1=0.0,
+        mean_start_distance=None,
+        mean_end_distance=None,
+    )
+
+
+def test_relaxed_span_metrics_pools_across_documents() -> None:
+    predictions = [
+        _prediction("d1", [(0, 10, "resultado")], [(0, 10, "resultado")]),
+        _prediction("d2", [(0, 10, "resultado")], [(4, 10, "resultado")]),
+        _prediction("d3", [(0, 10, "resultado")], []),
+        _prediction("d4", [], [(50, 60, "resultado")]),
+    ]
+
+    result = relaxed_span_metrics(predictions)["resultado"]
+
+    assert result.tp == 2
+    assert result.fp == 1
+    assert result.fn == 1
+    assert result.mean_start_distance == (0 + 4) / 2
+    assert result.mean_end_distance == 0.0
+
+
+def test_relaxed_span_metrics_matches_the_best_overlapping_candidate() -> None:
+    # Mirrors classify_span_errors' greedy-best-overlap tie-break: gold
+    # [0, 10) must pick the closer [0, 9) candidate over [5, 20), leaving
+    # [5, 20) as an unmatched FP rather than double-counting a match.
+    predictions = [
+        _prediction(
+            "d1",
+            [(0, 10, "resultado")],
+            [(0, 9, "resultado"), (5, 20, "resultado")],
+        )
+    ]
+
+    result = relaxed_span_metrics(predictions)["resultado"]
+
+    assert result.tp == 1
+    assert result.fp == 1
+    assert result.fn == 0
+    assert result.mean_start_distance == 0.0
+    assert result.mean_end_distance == 1.0
+
+
+def test_relaxed_span_metrics_reports_every_category_from_either_side() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 10, "dispositivo_abertura")])]
+
+    metrics = relaxed_span_metrics(predictions)
+
+    assert set(metrics) == {"resultado", "dispositivo_abertura"}
