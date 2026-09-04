@@ -375,6 +375,9 @@ class ModelAcceptanceEvidence(BaseModel):
 
     macro_f1_model: float | None
     macro_f1_baseline: float | None
+    micro_f1_model: float
+    micro_precision_model: float
+    micro_recall_model: float
     baseline_diff_ci95_low: float | None
     beats_baseline: bool
     critical_category_f1: dict[str, float]

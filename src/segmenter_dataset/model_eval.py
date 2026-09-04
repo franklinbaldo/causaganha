@@ -176,6 +176,44 @@ def per_category_metrics(predictions: list[DocumentModelPrediction]) -> dict[str
     }
 
 
+@dataclass(frozen=True)
+class MicroMetrics:
+    """Global pooled precision/recall/F1 across every category (#1052's micro-metrics context).
+
+    Unlike macro-F1 (mean of per-category F1, equal weight per category
+    regardless of frequency), micro pools TP/FP/FN across *all* categories
+    before computing one precision/recall/F1 — so a frequent,
+    badly-performing category dominates the number instead of being
+    averaged away by a well-scoring rare one. Reported as secondary
+    context only: RFC 0012's beats-baseline/critical-floor gates stay
+    macro-based (``evaluate_model_acceptance``).
+    """
+
+    tp: int
+    fp: int
+    fn: int
+    precision: float
+    recall: float
+    f1: float
+
+
+def micro_metrics(predictions: list[DocumentModelPrediction]) -> MicroMetrics:
+    """Pool TP/FP/FN across every category (gold vs model) into one precision/recall/F1."""
+    pairs = [item.model_pair for item in predictions]
+    counts = pooled_counts(pairs)
+    tp = sum(c[0] for c in counts.values())
+    fp = sum(c[1] for c in counts.values())
+    fn = sum(c[2] for c in counts.values())
+    return MicroMetrics(
+        tp=tp,
+        fp=fp,
+        fn=fn,
+        precision=precision_from_counts(tp, fp, fn),
+        recall=recall_from_counts(tp, fp, fn),
+        f1=f1_from_counts(tp, fp, fn),
+    )
+
+
 def critical_category_f1(predictions: list[DocumentModelPrediction]) -> dict[str, float]:
     """Point-estimate pooled F1 (model vs. gold) for each RFC-fixed critical category."""
     pairs = [item.model_pair for item in predictions]
@@ -295,10 +333,14 @@ def evaluate_model_acceptance(
 
     per_critical = critical_category_f1(predictions)
     critical_passed = all(f1 >= CRITICAL_CATEGORY_FLOOR for f1 in per_critical.values())
+    micro = micro_metrics(predictions)
 
     return ModelAcceptanceEvidence(
         macro_f1_model=macro_model,
         macro_f1_baseline=macro_baseline,
+        micro_f1_model=micro.f1,
+        micro_precision_model=micro.precision,
+        micro_recall_model=micro.recall,
         baseline_diff_ci95_low=diff_ci_low,
         beats_baseline=beats_baseline,
         critical_category_f1=per_critical,

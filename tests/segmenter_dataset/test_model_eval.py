@@ -5,11 +5,13 @@ import pytest
 from segmenter_dataset.model_eval import (
     CategoryMetrics,
     DocumentModelPrediction,
+    MicroMetrics,
     SpanErrorBreakdown,
     bootstrap_diff_ci_low,
     classify_span_errors,
     critical_category_f1,
     evaluate_model_acceptance,
+    micro_metrics,
     per_category_metrics,
     trivial_baseline_predictions,
 )
@@ -139,6 +141,58 @@ def test_per_category_metrics_pools_counts_across_documents() -> None:
     assert metrics["resultado"].support == 3
     assert metrics["resultado"].precision == pytest.approx(0.5)
     assert metrics["resultado"].recall == pytest.approx(0.5)
+
+
+def test_micro_metrics_pools_counts_across_categories_instead_of_averaging_per_category() -> None:
+    # Category "a" is perfect (f1=1.0) but has one document; category "b" is
+    # all misses (f1=0.0) across three documents. Macro-F1 weighs both
+    # categories equally (mean(1.0, 0.0) = 0.5); micro pools raw counts, so
+    # the more frequent, worse-performing category dominates the result.
+    predictions = [
+        _prediction("d1", [(0, 5, "a")], [(0, 5, "a")]),
+        _prediction("d2", [(0, 5, "b")], []),
+        _prediction("d3", [(0, 5, "b")], []),
+        _prediction("d4", [(0, 5, "b")], []),
+    ]
+
+    metrics = micro_metrics(predictions)
+
+    assert metrics == MicroMetrics(
+        tp=1, fp=0, fn=3, precision=1.0, recall=0.25, f1=pytest.approx(0.4)
+    )
+
+
+def test_micro_metrics_perfect_predictions_is_one() -> None:
+    predictions = _perfect_predictions(3)
+
+    metrics = micro_metrics(predictions)
+
+    assert metrics.precision == 1.0
+    assert metrics.recall == 1.0
+    assert metrics.f1 == 1.0
+
+
+def test_micro_metrics_no_gold_or_predicted_spans_is_zero() -> None:
+    predictions = [_prediction("d1", [], [])]
+
+    metrics = micro_metrics(predictions)
+
+    assert metrics == MicroMetrics(tp=0, fp=0, fn=0, precision=0.0, recall=0.0, f1=0.0)
+
+
+def test_evaluate_model_acceptance_reports_micro_metrics_as_secondary_context() -> None:
+    predictions = [
+        _prediction("d1", [(0, 5, "a")], [(0, 5, "a")]),
+        _prediction("d2", [(0, 5, "b")], []),
+        _prediction("d3", [(0, 5, "b")], []),
+        _prediction("d4", [(0, 5, "b")], []),
+    ]
+
+    report = evaluate_model_acceptance(predictions, seed=1, resamples=10, min_support=1)
+
+    assert report.micro_f1_model == pytest.approx(0.4)
+    assert report.micro_precision_model == 1.0
+    assert report.micro_recall_model == 0.25
 
 
 def test_evaluate_model_acceptance_passes_when_model_beats_baseline_and_clears_floor() -> None:
