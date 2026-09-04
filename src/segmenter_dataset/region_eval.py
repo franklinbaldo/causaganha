@@ -236,6 +236,72 @@ def aggregate_region_metrics(
     }
 
 
+@dataclass(frozen=True)
+class StructuralAnomaly:
+    """One predicted region reconstruction that is impossible on its own terms (#1052).
+
+    Every metric above compares a predicted region against gold and scores
+    how close it is. This instead flags a prediction that makes no sense
+    regardless of gold: ``regions_from_labels`` reconstructs a matched pair
+    unconditionally as ``(inicio.start, fim.end)``, which is a
+    negative-length, backwards interval when the model places the ``fim``
+    anchor before the ``inicio`` anchor. Real documents never have this —
+    gold anchors are placed by construction (RFC 0012 §11) — so only
+    predictions need checking.
+    """
+
+    document_id: str
+    base: str
+    inicio: tuple[int, int]
+    fim: tuple[int, int]
+
+
+def detect_inverted_regions(document_id: str, labels: tuple[Label, ...]) -> list[StructuralAnomaly]:
+    """Flag matched ``inicio``/``fim`` pairs whose reconstructed region is backwards.
+
+    Mirrors ``regions_from_labels``' own pairing so the two never disagree
+    about which anchors belong to the same region; unmatched anchors and
+    single-anchor categories have no region to invert and are skipped.
+    """
+    by_base: dict[str, dict[str, Label]] = {}
+    for label in labels:
+        parsed = _pair_base_and_role(label.category)
+        if parsed is None:
+            continue
+        base, role = parsed
+        by_base.setdefault(base, {})[role] = label
+
+    anomalies: list[StructuralAnomaly] = []
+    for base, roles in sorted(by_base.items()):
+        if "inicio" not in roles or "fim" not in roles:
+            continue
+        inicio, fim = roles["inicio"], roles["fim"]
+        if fim.end < inicio.start:
+            anomalies.append(
+                StructuralAnomaly(
+                    document_id=document_id,
+                    base=base,
+                    inicio=(inicio.start, inicio.end),
+                    fim=(fim.start, fim.end),
+                )
+            )
+    return anomalies
+
+
+def collect_structural_anomalies(
+    predictions: list[DocumentModelPrediction],
+) -> list[StructuralAnomaly]:
+    """Pool ``detect_inverted_regions`` over every document's *predicted* labels.
+
+    Gold is never checked — this diagnoses model failure modes, not dataset
+    quality (RFC 0012's annotation gates already cover that).
+    """
+    anomalies: list[StructuralAnomaly] = []
+    for item in predictions:
+        anomalies.extend(detect_inverted_regions(item.document_id, item.model_predicted))
+    return anomalies
+
+
 def bootstrap_region_metric_ci_low(
     predictions: list[DocumentModelPrediction],
     base: str,

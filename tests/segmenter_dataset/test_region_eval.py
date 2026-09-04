@@ -8,9 +8,12 @@ from segmenter_dataset.model_eval import DocumentModelPrediction
 from segmenter_dataset.region_eval import (
     RegionComparison,
     RegionTypeMetrics,
+    StructuralAnomaly,
     aggregate_region_metrics,
     bootstrap_region_metric_ci_low,
+    collect_structural_anomalies,
     compare_regions,
+    detect_inverted_regions,
     region_match_rate,
     regions_from_labels,
 )
@@ -382,3 +385,75 @@ def test_bootstrap_region_metric_ci_low_none_metric_values_are_excluded() -> Non
     )
 
     assert ci_low is None
+
+
+def test_detect_inverted_regions_flags_fim_anchor_before_inicio_anchor() -> None:
+    labels = (
+        _label(10, 20, "relatorio_fim"),
+        _label(50, 60, "relatorio_inicio"),
+    )
+
+    anomalies = detect_inverted_regions("d1", labels)
+
+    assert anomalies == [
+        StructuralAnomaly(
+            document_id="d1",
+            base="relatorio",
+            inicio=(50, 60),
+            fim=(10, 20),
+        )
+    ]
+
+
+def test_detect_inverted_regions_normal_order_is_clean() -> None:
+    labels = (
+        _label(10, 20, "relatorio_inicio"),
+        _label(50, 60, "relatorio_fim"),
+    )
+
+    assert detect_inverted_regions("d1", labels) == []
+
+
+def test_detect_inverted_regions_ignores_unmatched_anchors() -> None:
+    assert detect_inverted_regions("d1", (_label(10, 20, "relatorio_inicio"),)) == []
+    assert detect_inverted_regions("d1", (_label(10, 20, "relatorio_fim"),)) == []
+
+
+def test_detect_inverted_regions_ignores_single_anchor_categories() -> None:
+    labels = (_label(0, 5, "ref_processual"),)
+
+    assert detect_inverted_regions("d1", labels) == []
+
+
+def test_detect_inverted_regions_reports_every_base_independently_sorted() -> None:
+    labels = (
+        _label(0, 10, "relatorio_inicio"),
+        _label(40, 50, "relatorio_fim"),
+        _label(80, 90, "voto_fim"),
+        _label(120, 130, "voto_inicio"),
+    )
+
+    anomalies = detect_inverted_regions("d1", labels)
+
+    assert [anomaly.base for anomaly in anomalies] == ["voto"]
+
+
+def test_collect_structural_anomalies_pools_across_documents_and_ignores_gold() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            gold=[(50, 60, "relatorio_fim"), (10, 20, "relatorio_inicio")],
+            predicted=[(10, 20, "relatorio_inicio"), (50, 60, "relatorio_fim")],
+        ),
+        _region_prediction(
+            "d2",
+            gold=[],
+            predicted=[(10, 20, "voto_fim"), (50, 60, "voto_inicio")],
+        ),
+    ]
+
+    anomalies = collect_structural_anomalies(predictions)
+
+    assert anomalies == [
+        StructuralAnomaly(document_id="d2", base="voto", inicio=(50, 60), fim=(10, 20))
+    ]
