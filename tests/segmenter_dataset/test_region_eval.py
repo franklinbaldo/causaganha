@@ -9,6 +9,7 @@ from segmenter_dataset.region_eval import (
     RegionComparison,
     RegionTypeMetrics,
     aggregate_region_metrics,
+    bootstrap_region_metric_ci_low,
     compare_regions,
     region_match_rate,
     regions_from_labels,
@@ -278,3 +279,106 @@ def test_aggregate_region_metrics_averages_over_matched_documents_only() -> None
     assert metrics.mean_start_error == (0 + 5) / 2
     assert metrics.mean_end_error == 0.0
     assert metrics.mean_iou == (1.0 + 45 / 50) / 2
+
+
+def test_bootstrap_region_metric_ci_low_empty_predictions_is_none() -> None:
+    ci_low = bootstrap_region_metric_ci_low(
+        [], "relatorio", lambda metrics: metrics.match_rate, seed=0
+    )
+
+    assert ci_low is None
+
+
+def test_bootstrap_region_metric_ci_low_unknown_base_is_none() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+    ]
+
+    ci_low = bootstrap_region_metric_ci_low(
+        predictions, "voto", lambda metrics: metrics.match_rate, seed=0
+    )
+
+    assert ci_low is None
+
+
+def test_bootstrap_region_metric_ci_low_perfect_match_is_one() -> None:
+    predictions = [
+        _region_prediction(
+            f"d{i}",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        )
+        for i in range(5)
+    ]
+
+    ci_low = bootstrap_region_metric_ci_low(
+        predictions, "relatorio", lambda metrics: metrics.match_rate, seed=0, resamples=50
+    )
+
+    assert ci_low == 1.0
+
+
+def test_bootstrap_region_metric_ci_low_is_deterministic_for_same_seed() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+        _region_prediction("d2", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
+        _region_prediction(
+            "d3",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(5, 15, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+    ]
+
+    first = bootstrap_region_metric_ci_low(
+        predictions, "relatorio", lambda metrics: metrics.match_rate, seed=42, resamples=200
+    )
+    second = bootstrap_region_metric_ci_low(
+        predictions, "relatorio", lambda metrics: metrics.match_rate, seed=42, resamples=200
+    )
+
+    assert first == second
+
+
+def test_bootstrap_region_metric_ci_low_reflects_variance_below_point_estimate() -> None:
+    predictions = [
+        _region_prediction(
+            "d1",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+        _region_prediction(
+            "d2",
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+            [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
+        ),
+        _region_prediction("d3", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
+    ]
+    point_estimate = aggregate_region_metrics(predictions)["relatorio"].match_rate
+
+    ci_low = bootstrap_region_metric_ci_low(
+        predictions, "relatorio", lambda metrics: metrics.match_rate, seed=7, resamples=500
+    )
+
+    assert ci_low is not None
+    assert point_estimate is not None
+    assert ci_low < point_estimate
+
+
+def test_bootstrap_region_metric_ci_low_none_metric_values_are_excluded() -> None:
+    predictions = [
+        _region_prediction("d1", [], [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")]),
+    ]
+
+    ci_low = bootstrap_region_metric_ci_low(
+        predictions, "relatorio", lambda metrics: metrics.match_rate, seed=0, resamples=20
+    )
+
+    assert ci_low is None
