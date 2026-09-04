@@ -55,12 +55,18 @@ for (const viewport of viewports) {
       const selector = [
         'a[href]',
         'button:not([disabled])',
+        'summary',
         'input:not([disabled]):not([type="hidden"])',
         'select:not([disabled])',
         'textarea:not([disabled])',
         '[tabindex]:not([tabindex="-1"])',
       ].join(',');
       const visible = (element) => {
+        if (element.closest('details:not([open])') && element.tagName !== 'SUMMARY') return false;
+        if (element.closest('dialog:not([open])')) return false;
+        if (typeof element.checkVisibility === 'function') {
+          return element.checkVisibility({ checkOpacity: true, checkVisibilityCSS: true });
+        }
         const style = getComputedStyle(element);
         const rect = element.getBoundingClientRect();
         return style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0;
