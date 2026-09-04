@@ -25,7 +25,9 @@ jobs:
         uses: actions/checkout@v4
         with:
           repository: franklinbaldo/okf-parser
-          ref: v0.43.0
+          # 0.45.4 is the first release line with RFC 0018 projection export;
+          # use the latest published patch from that line for the contract gate.
+          ref: v0.45.6
           path: .okf-parser
 
       - name: Install uv
@@ -37,6 +39,18 @@ jobs:
         run: >-
           uv run --project .okf-parser --frozen okf-parser check knowledge
           --relational-schema okf.schema.sql
+
+      - name: Export ProcessoConsultar projection
+        run: |
+          uv run --project .okf-parser --frozen okf-parser schema knowledge \
+            --format pydantic --relational-schema okf.schema.sql \
+            > /tmp/domain_models.py
+          uv run --project .okf-parser --frozen okf-parser schema knowledge \
+            --format zod --relational-schema okf.schema.sql \
+            > /tmp/domain-schemas.ts
+          python -m py_compile /tmp/domain_models.py
+          grep -q "class ProcessoConsultarProjection" /tmp/domain_models.py
+          grep -q "export const ProcessoConsultarSchema" /tmp/domain-schemas.ts
 
       - name: Compile typed Ibis relations
         run: |
