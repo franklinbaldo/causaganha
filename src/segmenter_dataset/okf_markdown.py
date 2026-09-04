@@ -38,6 +38,7 @@ from xml.etree import ElementTree as ET
 import yaml
 from okf_parser.parser import parse_document_text
 
+from segmenter_dataset.mechanical import validate_record
 from segmenter_dataset.store import _labels_to_text_element, _text_element_to_labels
 
 
@@ -68,14 +69,45 @@ def render_annotated_body(text: str, labels: list[Label]) -> str:
     return "".join(chunks)
 
 
-def parse_annotated_body(body: str) -> tuple[str, list[Label]]:
-    """Inverse of :func:`render_annotated_body`: recover exact text and offset labels."""
+def parse_annotated_body(
+    body: str,
+    *,
+    ontology_categories: set[str] | None = None,
+    allowed_unmatched: dict[str, str] | None = None,
+    declared_unmatched: bool = False,
+    allow_multiple_single_anchor: frozenset[str] = frozenset(),
+) -> tuple[str, list[Label]]:
+    """Inverse of :func:`render_annotated_body`: recover exact text and offset labels.
+
+    Well-formed XML alone is not enough (#1049's "nesting and allowed tag
+    vocabulary are validated independently of Markdown rendering"): a body
+    can parse cleanly and still use a category outside the trainable
+    ontology, leave an ``_inicio``/``_fim`` pair unbalanced, or repeat a
+    single-anchor category. Passing ``ontology_categories`` runs
+    ``segmenter_dataset.mechanical.validate_record`` against the recovered
+    ``(text, labels)`` and raises :class:`OkfMarkdownError` on any mechanical
+    problem; omitting it (the default) skips validation for callers without a
+    label space at hand, matching this function's prior bare-parsing behavior.
+    """
     try:
         root = ET.fromstring(f"<{_BODY_ROOT_TAG}>{body}</{_BODY_ROOT_TAG}>")  # noqa: S314
     except ET.ParseError as exc:
         message = f"annotated body is not well-formed inline-tagged markup: {exc}"
         raise OkfMarkdownError(message) from exc
-    return _text_element_to_labels(root)
+    text, labels = _text_element_to_labels(root)
+    if ontology_categories is not None:
+        problems = validate_record(
+            text,
+            labels,
+            ontology_categories,
+            allowed_unmatched=allowed_unmatched,
+            declared_unmatched=declared_unmatched,
+            allow_multiple_single_anchor=allow_multiple_single_anchor,
+        )
+        if problems:
+            message = "annotated body failed mechanical validation: " + "; ".join(problems)
+            raise OkfMarkdownError(message)
+    return text, labels
 
 
 def render_okf_markdown(frontmatter: dict[str, object], text: str, labels: list[Label]) -> str:
@@ -91,9 +123,25 @@ def render_okf_markdown(frontmatter: dict[str, object], text: str, labels: list[
 
 
 def parse_okf_markdown(
-    markdown_text: str, *, path: Path = _IN_MEMORY_PATH
+    markdown_text: str,
+    *,
+    path: Path = _IN_MEMORY_PATH,
+    ontology_categories: set[str] | None = None,
+    allowed_unmatched: dict[str, str] | None = None,
+    declared_unmatched: bool = False,
+    allow_multiple_single_anchor: frozenset[str] = frozenset(),
 ) -> tuple[dict[str, object], str, list[Label]]:
-    """Inverse of :func:`render_okf_markdown`, via the real ``okf-parser`` frontmatter split."""
+    """Inverse of :func:`render_okf_markdown`, via the real ``okf-parser`` frontmatter split.
+
+    ``ontology_categories`` and the remaining keyword-only arguments forward
+    unchanged to :func:`parse_annotated_body` — see its docstring.
+    """
     parsed = parse_document_text(path, markdown_text)
-    text, labels = parse_annotated_body(parsed.body)
+    text, labels = parse_annotated_body(
+        parsed.body,
+        ontology_categories=ontology_categories,
+        allowed_unmatched=allowed_unmatched,
+        declared_unmatched=declared_unmatched,
+        allow_multiple_single_anchor=allow_multiple_single_anchor,
+    )
     return dict(parsed.frontmatter), text, labels
