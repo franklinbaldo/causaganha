@@ -168,10 +168,37 @@ dialog.nav-drawer a:focus-visible {
   .btn-back, .btn-menu { min-width: 44px; min-height: 44px; }
 }
 
-/* Page header variant */
+/* Page header variant — context, not a second primary navigation. */
 .page-header {
   border-bottom: 1px solid var(--color-base-300);
   margin-bottom: var(--space-6);
+}
+
+.page-header__inner {
+  min-height: 4rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding-block: var(--space-2);
+}
+
+.page-header__identity {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.page-header__icon,
+.page-header__actions {
+  flex: 0 0 auto;
+}
+
+.page-header__actions {
+  display: flex;
+  align-items: center;
 }
 
 .icon-slot {
@@ -185,11 +212,8 @@ dialog.nav-drawer a:focus-visible {
 }
 .tile-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); }
 
-.title-li {
-  flex: 1;
-  min-width: 0;
-}
 .title-group {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -206,14 +230,25 @@ dialog.nav-drawer a:focus-visible {
 .page-subtitle {
   max-width: 100%;
   white-space: normal;
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
   font-size: var(--font-size-xs);
   color: var(--color-content-tertiary);
   line-height: 1.25;
   margin: 0;
 }
 
-/* Pico sets nav li padding — reset it in our header */
+@media (max-width: 640px) {
+  .page-header__inner {
+    align-items: flex-start;
+    gap: var(--space-2);
+  }
+
+  .page-title {
+    font-size: clamp(1.55rem, 8vw, var(--font-size-2xl));
+  }
+}
+
+/* Pico sets nav li padding — reset it in navigation headers. */
 .site-header nav li { padding: 0; }
 
 /* ═══════════════════════════════════════════
