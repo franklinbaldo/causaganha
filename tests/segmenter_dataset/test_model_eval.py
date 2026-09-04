@@ -13,6 +13,7 @@ from segmenter_dataset.model_eval import (
     collect_span_error_examples,
     critical_category_f1,
     evaluate_model_acceptance,
+    macro_f1_over_target_categories,
     micro_metrics,
     per_category_metrics,
     render_error_report,
@@ -91,6 +92,43 @@ def test_critical_category_f1_covers_every_fixed_category_even_with_zero_support
     assert set(per_category) == set(CRITICAL_CATEGORIES)
     assert per_category["resultado"] == 1.0
     assert per_category["dispositivo_abertura"] == 0.0
+
+
+def test_macro_f1_over_target_categories_averages_over_full_target_space() -> None:
+    reported = {"a": 1.0, "b": 0.5}
+
+    result = macro_f1_over_target_categories(reported, {"a", "b"})
+
+    assert result == pytest.approx(0.75)
+
+
+def test_macro_f1_over_target_categories_missing_category_counts_as_zero() -> None:
+    # OPF's own per-class report can drop a category entirely instead of
+    # reporting an explicit 0.0 when it has zero recall (#1048). The
+    # denominator must stay the full target space, not shrink to len(reported).
+    reported = {"a": 1.0}
+
+    result = macro_f1_over_target_categories(reported, {"a", "b"})
+
+    assert result == pytest.approx(0.5)
+
+
+def test_macro_f1_over_target_categories_all_omitted_averages_to_zero_not_none() -> None:
+    result = macro_f1_over_target_categories({}, {"a", "b", "c"})
+
+    assert result == 0.0
+
+
+def test_macro_f1_over_target_categories_ignores_keys_outside_target_space() -> None:
+    reported = {"a": 1.0, "unrelated_extra_category": 0.0}
+
+    result = macro_f1_over_target_categories(reported, {"a"})
+
+    assert result == pytest.approx(1.0)
+
+
+def test_macro_f1_over_target_categories_empty_target_space_is_none() -> None:
+    assert macro_f1_over_target_categories({"a": 1.0}, set()) is None
 
 
 def test_per_category_metrics_reports_every_category_from_gold_or_prediction() -> None:
