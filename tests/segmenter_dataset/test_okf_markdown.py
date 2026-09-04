@@ -167,3 +167,86 @@ def test_okf_markdown_uses_the_real_okf_parser_contract(tmp_path: Path) -> None:
     recovered_text, recovered_labels = parse_annotated_body(parsed.body)
     assert recovered_text == text
     assert recovered_labels == labels
+
+
+# -- #1049 required invariant: "Nesting and allowed tag vocabulary are
+# validated independently of Markdown rendering." Well-formed XML is not
+# enough — a body can be well-formed and still use a category outside the
+# trainable ontology, or leave a pair unbalanced with no declared reason.
+# Validation is opt-in via `ontology_categories` (None skips it, preserving
+# every test above) so a caller without a label space handy still gets bare
+# parsing.
+
+
+def test_parse_annotated_body_without_ontology_skips_vocabulary_validation() -> None:
+    """Default behavior (no ontology passed) is unchanged: any well-formed tag parses."""
+    body = '<not_a_real_category ord="0">JULGO PROCEDENTE</not_a_real_category> o pedido.'
+
+    _, labels = parse_annotated_body(body)
+
+    assert labels == [Label(start=0, end=16, category="not_a_real_category")]
+
+
+def test_parse_annotated_body_rejects_category_outside_ontology() -> None:
+    body = '<not_a_real_category ord="0">JULGO PROCEDENTE</not_a_real_category> o pedido.'
+
+    with pytest.raises(OkfMarkdownError, match="not_a_real_category"):
+        parse_annotated_body(body, ontology_categories={"resultado"})
+
+
+def test_parse_annotated_body_accepts_category_within_ontology() -> None:
+    text = "Diante do exposto, JULGO PROCEDENTE o pedido."
+    labels = [Label(start=19, end=35, category="resultado")]
+    body = render_annotated_body(text, labels)
+
+    recovered_text, recovered_labels = parse_annotated_body(body, ontology_categories={"resultado"})
+
+    assert recovered_text == text
+    assert recovered_labels == labels
+
+
+def test_parse_annotated_body_rejects_orphaned_fim_without_matching_inicio() -> None:
+    body = '<relatorio><fim ord="0">texto</fim></relatorio>'
+
+    with pytest.raises(OkfMarkdownError, match="orphaned or excess _fim"):
+        parse_annotated_body(body, ontology_categories={"relatorio_inicio", "relatorio_fim"})
+
+
+def test_parse_annotated_body_rejects_duplicate_single_anchor_category_by_default() -> None:
+    text = "JULGO PROCEDENTE em parte. JULGO IMPROCEDENTE o resto."
+    labels = [
+        Label(start=0, end=15, category="resultado"),
+        Label(start=28, end=45, category="resultado"),
+    ]
+    body = render_annotated_body(text, labels)
+
+    with pytest.raises(OkfMarkdownError, match="resultado"):
+        parse_annotated_body(body, ontology_categories={"resultado"})
+
+
+def test_parse_annotated_body_allows_duplicate_single_anchor_when_permitted() -> None:
+    text = "Lei 8.112/1990. Lei 9.784/1999."
+    labels = [
+        Label(start=0, end=15, category="fundamentacao_legal"),
+        Label(start=16, end=31, category="fundamentacao_legal"),
+    ]
+    body = render_annotated_body(text, labels)
+
+    recovered_text, recovered_labels = parse_annotated_body(
+        body,
+        ontology_categories={"fundamentacao_legal"},
+        allow_multiple_single_anchor=frozenset({"fundamentacao_legal"}),
+    )
+
+    assert recovered_text == text
+    assert recovered_labels == labels
+
+
+def test_parse_okf_markdown_forwards_ontology_validation_to_the_body() -> None:
+    text = "Diante do exposto, JULGO PROCEDENTE o pedido."
+    labels = [Label(start=19, end=35, category="not_a_real_category")]
+    frontmatter = {"type": "segmenter_annotation", "document_id": "doc-999"}
+    markdown = render_okf_markdown(frontmatter, text, labels)
+
+    with pytest.raises(OkfMarkdownError, match="not_a_real_category"):
+        parse_okf_markdown(markdown, path=Path("doc-999.md"), ontology_categories={"resultado"})

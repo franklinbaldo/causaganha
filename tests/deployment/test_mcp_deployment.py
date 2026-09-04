@@ -18,6 +18,7 @@ def test_mcp_container_runs_canonical_http_entrypoint_with_conservative_limits()
     assert "CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS=45" in dockerfile
     assert "CAUSAGANHA_MCP_MAX_CONCURRENCY=4" in dockerfile
     assert "CAUSAGANHA_MCP_COMMIT=${GIT_SHA}" in dockerfile
+    assert "CAUSAGANHA_WEB_BASE_URL=https://franklinbaldo.github.io/causaganha/" in dockerfile
 
 
 def test_mcp_deployment_does_not_bake_source_credentials() -> None:
