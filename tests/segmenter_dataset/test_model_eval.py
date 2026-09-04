@@ -256,7 +256,9 @@ def test_breakdown_by_group_below_min_documents_reports_count_only() -> None:
 
     breakdown = breakdown_by_group(predictions, group_of_document, min_documents=5)
 
-    assert breakdown["tst"] == GroupMetrics(group="tst", document_count=1, macro_f1=None, micro=None)
+    assert breakdown["tst"] == GroupMetrics(
+        group="tst", document_count=1, macro_f1=None, micro=None
+    )
 
 
 def test_breakdown_by_group_skips_documents_missing_from_mapping() -> None:

@@ -50,7 +50,11 @@ from pathlib import Path
 
 import structlog
 
-from segmenter_dataset.model_eval import DocumentModelPrediction, evaluate_model_acceptance
+from segmenter_dataset.model_eval import (
+    DocumentModelPrediction,
+    breakdown_by_group,
+    evaluate_model_acceptance,
+)
 from segmenter_dataset.schemas import ExperimentManifest, Label, ModelCard
 
 
@@ -85,6 +89,46 @@ def _load_test_jsonl(path: Path) -> tuple[list[str], dict[str, tuple[Label, ...]
         gold_by_document[document_id] = labels
         text_by_document[document_id] = record["text"]
     return document_ids, gold_by_document, text_by_document
+
+
+def _load_document_groups(path: Path) -> tuple[dict[str, str], dict[str, str]]:
+    """Tribunal/document_type per document_id, from the same test.jsonl ``info`` block.
+
+    ``opf_export.py``'s ``to_opf_record`` already writes this metadata into
+    every record; a document whose ``info`` omits a key is skipped for that
+    dimension rather than defaulted to a placeholder, so ``breakdown_by_group``
+    reports it as "no known group" instead of manufacturing a fake one.
+    """
+    tribunal_by_document: dict[str, str] = {}
+    document_type_by_document: dict[str, str] = {}
+    for line in path.read_text(encoding="utf-8").splitlines():
+        if not line.strip():
+            continue
+        record = json.loads(line)
+        info = record["info"]
+        document_id = info["document_id"]
+        if "tribunal" in info:
+            tribunal_by_document[document_id] = info["tribunal"]
+        if "document_type" in info:
+            document_type_by_document[document_id] = info["document_type"]
+    return tribunal_by_document, document_type_by_document
+
+
+def _print_group_breakdown(
+    title: str, predictions: list[DocumentModelPrediction], group_of_document: dict[str, str]
+) -> None:
+    breakdown = breakdown_by_group(predictions, group_of_document)
+    if not breakdown:
+        return
+    print(f"breakdown by {title}:")
+    for group, metrics in breakdown.items():
+        if metrics.macro_f1 is None:
+            print(f"  {group}: documents={metrics.document_count} (too few for a group macro-F1)")
+        else:
+            print(
+                f"  {group}: documents={metrics.document_count} "
+                f"macro_f1={metrics.macro_f1:.3f} micro_f1={metrics.micro.f1:.3f}"
+            )
 
 
 def _run_opf_inference(
@@ -215,6 +259,8 @@ def main(argv: list[str] | None = None) -> int:
     evidence = evaluate_model_acceptance(predictions, seed=args.seed, resamples=args.resamples)
     result_hash = hashlib.sha256(evidence.model_dump_json().encode("utf-8")).hexdigest()
 
+    tribunal_by_document, document_type_by_document = _load_document_groups(test_jsonl)
+
     model_card = ModelCard(
         release_id=args.model_release_id,
         dataset_release_id=args.dataset_release_id,
@@ -250,6 +296,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"beats baseline: {evidence.beats_baseline}")
     print(f"critical categories: {evidence.critical_category_f1}")
     print(f"critical categories passed: {evidence.critical_categories_passed}")
+    _print_group_breakdown("tribunal", predictions, tribunal_by_document)
+    _print_group_breakdown("document type", predictions, document_type_by_document)
     print(f"ELIGIBLE FOR DEPLOY: {evidence.eligible_for_deploy}")
     return 0 if evidence.eligible_for_deploy else 2
 
