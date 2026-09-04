@@ -7,6 +7,10 @@ from pathlib import Path
 import pytest
 
 from scripts.run_segmenter_training import (
+    DEFAULT_GRAD_ACCUM_STEPS,
+    DEFAULT_LEARNING_RATE,
+    DEFAULT_MAX_GRAD_NORM,
+    DEFAULT_WEIGHT_DECAY,
     _detect_hardware,
     _detect_opf_version,
     _hash_dataset_export,
@@ -87,6 +91,89 @@ def test_run_opf_train_passes_full_epoch_count_in_one_call(tmp_path, monkeypatch
     cmd = captured_cmd["cmd"]
     assert cmd[cmd.index("--epochs") + 1] == "5"
     assert "--checkpoint" not in cmd
+
+
+def test_default_optimization_recipe_matches_upstream_custom_label_demo():
+    """#1048: the first serious baseline must start from the upstream
+    custom-label harness defaults, not OPF's conservative built-in defaults
+    (`lr=1e-5`, `wd=0.01` -- see docs/kaggle-colab-gpu-workflow.md). Without
+    passing these flags explicitly, `opf train` silently uses the
+    conservative recipe and diverges from the canonical baseline.
+    """
+    assert DEFAULT_LEARNING_RATE == pytest.approx(2e-4)
+    assert DEFAULT_WEIGHT_DECAY == pytest.approx(0.0)
+    assert DEFAULT_GRAD_ACCUM_STEPS == 1
+    assert DEFAULT_MAX_GRAD_NORM == pytest.approx(1.0)
+
+
+def test_run_opf_train_passes_optimization_recipe_flags(tmp_path, monkeypatch):
+    """`opf train` must receive every optimization knob explicitly, so a run
+    is reproducible from its recorded command rather than depending on
+    whatever OPF's own internal defaults happen to be (#1048).
+    """
+    captured_cmd = {}
+
+    class _FakeResult:
+        returncode = 0
+
+    def fake_run(cmd, *, check=False):
+        del check
+        captured_cmd["cmd"] = cmd
+        return _FakeResult()
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    _run_opf_train(
+        tmp_path / "train.jsonl",
+        tmp_path / "val.jsonl",
+        tmp_path / "label_space.json",
+        tmp_path / "checkpoint",
+        epochs=5,
+        batch_size=2,
+        seed=42,
+        device="cpu",
+        learning_rate=2e-4,
+        weight_decay=0.0,
+        grad_accum_steps=3,
+        max_grad_norm=0.5,
+    )
+
+    cmd = captured_cmd["cmd"]
+    assert cmd[cmd.index("--learning-rate") + 1] == "0.0002"
+    assert cmd[cmd.index("--weight-decay") + 1] == "0.0"
+    assert cmd[cmd.index("--grad-accum-steps") + 1] == "3"
+    assert cmd[cmd.index("--max-grad-norm") + 1] == "0.5"
+
+
+def test_run_opf_train_defaults_to_canonical_recipe_when_unspecified(tmp_path, monkeypatch):
+    captured_cmd = {}
+
+    class _FakeResult:
+        returncode = 0
+
+    def fake_run(cmd, *, check=False):
+        del check
+        captured_cmd["cmd"] = cmd
+        return _FakeResult()
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    _run_opf_train(
+        tmp_path / "train.jsonl",
+        tmp_path / "val.jsonl",
+        tmp_path / "label_space.json",
+        tmp_path / "checkpoint",
+        epochs=5,
+        batch_size=2,
+        seed=42,
+        device="cpu",
+    )
+
+    cmd = captured_cmd["cmd"]
+    assert cmd[cmd.index("--learning-rate") + 1] == "0.0002"
+    assert cmd[cmd.index("--weight-decay") + 1] == "0.0"
+    assert cmd[cmd.index("--grad-accum-steps") + 1] == "1"
+    assert cmd[cmd.index("--max-grad-norm") + 1] == "1.0"
 
 
 def test_load_label_space_requires_o_first(tmp_path):
@@ -236,6 +323,33 @@ def test_train_and_select_checkpoint_invokes_opf_train_exactly_once(tmp_path, mo
     train_calls = [cmd for cmd in calls if "train" in cmd]
     assert len(train_calls) == 1
     assert train_calls[0][train_calls[0].index("--epochs") + 1] == "5"
+
+
+def test_train_and_select_checkpoint_forwards_optimization_recipe(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+
+    fake_run, calls = _fake_subprocess_run(eval_metrics={"by_class.resultado.span.f1": 0.7})
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    train_and_select_checkpoint(
+        data_dir,
+        tmp_path / "out",
+        epochs=5,
+        batch_size=1,
+        seed=0,
+        device="cpu",
+        learning_rate=1e-4,
+        weight_decay=0.05,
+        grad_accum_steps=2,
+        max_grad_norm=2.0,
+    )
+
+    train_cmd = next(cmd for cmd in calls if "train" in cmd)
+    assert train_cmd[train_cmd.index("--learning-rate") + 1] == "0.0001"
+    assert train_cmd[train_cmd.index("--weight-decay") + 1] == "0.05"
+    assert train_cmd[train_cmd.index("--grad-accum-steps") + 1] == "2"
+    assert train_cmd[train_cmd.index("--max-grad-norm") + 1] == "2.0"
 
 
 def test_train_and_select_checkpoint_returns_selection_from_final_eval(tmp_path, monkeypatch):
@@ -519,3 +633,98 @@ def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkey
     assert manifest.finetune_summary_path == str(output_dir / "finetune_summary.json")
     preserved = (output_dir / "finetune_summary.json").read_text(encoding="utf-8")
     assert json.loads(preserved) == {"epochs": 3, "final_loss": 0.1}
+
+
+def _fake_subprocess_run_for_main():
+    """Same shape as `_fake_subprocess_run`, but also handles the `--version` probe main() runs."""
+
+    def fake_run(cmd, *, check=False, capture_output=False, text=False):
+        del check
+        if cmd[-1] == "--version":
+            assert capture_output
+            assert text
+
+            class _VersionResult:
+                returncode = 0
+                stdout = "opf 9.9.9\n"
+                stderr = ""
+
+            return _VersionResult()
+
+        if "train" in cmd:
+            checkpoint_dir = Path(cmd[cmd.index("--output-dir") + 1])
+            checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
+            class _TrainResult:
+                returncode = 0
+
+            return _TrainResult()
+
+        if "eval" in cmd:
+            metrics_out = Path(cmd[cmd.index("--metrics-out") + 1])
+            metrics_out.write_text(
+                json.dumps({"by_class.resultado.span.f1": 0.5, "loss": 0.2}), encoding="utf-8"
+            )
+
+            class _EvalResult:
+                returncode = 0
+
+            return _EvalResult()
+
+        msg = f"unexpected command: {cmd}"
+        raise AssertionError(msg)
+
+    return fake_run
+
+
+def test_main_records_default_optimization_recipe_in_manifest(tmp_path, monkeypatch):
+    """#1048: the recipe must be recorded even when the caller relies on the
+    CLI defaults, so a manifest is reproducible on its own without assuming
+    the reader knows this script's current default constants.
+    """
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main())
+
+    exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir)}))
+
+    assert exit_code == 0
+    manifest = ExperimentManifest.model_validate_json(
+        (output_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest.learning_rate == pytest.approx(2e-4)
+    assert manifest.weight_decay == pytest.approx(0.0)
+    assert manifest.grad_accum_steps == 1
+    assert manifest.max_grad_norm == pytest.approx(1.0)
+
+
+def test_main_records_overridden_optimization_recipe_in_manifest(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main())
+
+    exit_code = main(
+        _main_args(
+            tmp_path,
+            **{
+                "--data-dir": str(data_dir),
+                "--learning-rate": "1e-4",
+                "--weight-decay": "0.05",
+                "--grad-accum-steps": "4",
+                "--max-grad-norm": "2.0",
+            },
+        )
+    )
+
+    assert exit_code == 0
+    manifest = ExperimentManifest.model_validate_json(
+        (output_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest.learning_rate == pytest.approx(1e-4)
+    assert manifest.weight_decay == pytest.approx(0.05)
+    assert manifest.grad_accum_steps == 4
+    assert manifest.max_grad_norm == pytest.approx(2.0)
