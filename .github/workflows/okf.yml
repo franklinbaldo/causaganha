@@ -52,6 +52,11 @@ jobs:
           grep -q "class ProcessoConsultarProjection" /tmp/domain_models.py
           grep -q "export const ProcessoConsultarSchema" /tmp/domain-schemas.ts
 
+      - name: Check generated domain models are up to date
+        run: |
+          uv run --project .okf-parser --frozen python scripts/generate_okf_domain_models.py
+          git diff --exit-code -- src/causaganha_mcp/_generated/domain_models.py
+
       - name: Compile typed Ibis relations
         run: |
           uv run --project .okf-parser --frozen python - <<'PY'
