@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import duckdb
 import pytest
+import respx
 
 from causaganha.processos import service
 from causaganha.processos.models import CnjInvalidoError
@@ -249,6 +250,46 @@ def test_missing_report_has_no_staleness_aviso_beyond_its_own(
     )
 
     assert result.avisos == [service._RELATORIO_INDISPONIVEL_AVISO]
+
+
+def test_report_fetch_follows_archive_org_redirect(fixtures: dict[str, Path]) -> None:
+    """`archive.org/download/...` 302-redirects to a datanode host (#1042 live smoke).
+
+    A real end-to-end check against the published `indice_processual.report.json`
+    found this: `_fetch_text` calls `httpx.get` without `follow_redirects=True`,
+    so on the real (redirecting) URL the coverage report silently fails to
+    parse -- `dataset_gerado_em`/`cobertura_dataset` come back empty and the
+    "relatório indisponível" warning fires even though the report is reachable
+    and well-formed. The Web side (`web/src/lib/processoCnj.ts`) uses `fetch()`,
+    which follows redirects by default, so MCP and Web diverged on freshness
+    for the exact same published artifact.
+    """
+    report_url = "https://archive.org/download/causaganha-dashboard/indice_processual.report.json"
+    redirect_target = "https://ia801504.us.archive.org/33/items/causaganha-dashboard/indice_processual.report.json"
+    payload = {
+        "generated_at": GERADO_EM.isoformat(),
+        "sources": {
+            "djen": {"status": "loaded_remote", "rows": 2},
+            "juris": {"status": "loaded_remote", "rows": 1},
+            "stj": {"status": "loaded_remote", "rows": 1},
+            "datajud": {"status": "loaded_remote", "rows": 1},
+        },
+    }
+
+    with respx.mock(assert_all_called=True) as router:
+        router.get(report_url).respond(302, headers={"Location": redirect_target})
+        router.get(redirect_target).respond(200, json=payload)
+
+        result = service.buscar_processo(
+            CNJ_ALL,
+            indice_url=str(fixtures["indice"]),
+            report_url=report_url,
+            agora=GERADO_EM + timedelta(hours=1),
+        )
+
+    assert result.dataset_gerado_em == GERADO_EM.isoformat()
+    assert result.cobertura_dataset != []
+    assert result.avisos == []
 
 
 def test_invalid_cnj_raises_before_touching_any_parquet() -> None:
