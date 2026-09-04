@@ -59,4 +59,5 @@ def test_page_header_does_not_duplicate_primary_site_navigation() -> None:
     assert "primaryLinks" not in page_header
     assert "ferramentasLinks" not in page_header
     assert "data-nav-drawer-trigger" not in page_header
-    assert 'aria-label="Contexto da página"' in page_header
+    assert '<nav class="container"' not in page_header
+    assert 'class="container page-header__inner"' in page_header
