@@ -5,21 +5,25 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 <footer class="site-footer" aria-labelledby="footer-brand">
   <p id="footer-brand" class="footer-brand">CausaGanha</p>
   <nav aria-label="Links do rodapé" class="footer-nav">
-    <a href={BASE + 'processo'}>Consultar processo</a>
-    <a href={BASE + 'publicacoes'}>Pesquisar publicações</a>
-    <a href={BASE + 'stats'}>Explorar cobertura</a>
-    <a href={BASE + 'sobre'}>Projeto & dados</a>
-    <a
-      href="https://github.com/franklinbaldo/causaganha"
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label="GitHub (abre em nova aba)"
-    >
-      GitHub
-      <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
-      </svg>
-    </a>
+    <ul>
+      <li><a href={BASE + 'processo'}>Consultar processo</a></li>
+      <li><a href={BASE + 'publicacoes'}>Pesquisar publicações</a></li>
+      <li><a href={BASE + 'stats'}>Explorar cobertura</a></li>
+      <li><a href={BASE + 'sobre'}>Projeto & dados</a></li>
+      <li>
+        <a
+          href="https://github.com/franklinbaldo/causaganha"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="GitHub (abre em nova aba)"
+        >
+          GitHub
+          <svg aria-hidden="true" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M7 17 17 7"/><path d="M7 7h10v10"/>
+          </svg>
+        </a>
+      </li>
+    </ul>
   </nav>
   <p class="footer-tagline">&copy; {new Date().getFullYear()} CausaGanha &middot; Fontes oficiais, arquivo público e proveniência explícita</p>
 </footer>
