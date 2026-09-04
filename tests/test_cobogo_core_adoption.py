@@ -40,3 +40,24 @@ def test_shared_accessibility_contracts_are_not_duplicated_locally() -> None:
 
     assert "\n:focus-visible {" not in base_css
     assert "@media (prefers-reduced-motion: reduce)" not in base_css
+
+
+def test_page_header_does_not_duplicate_primary_site_navigation() -> None:
+    site_nav = (WEB / "src" / "components" / "SiteNav.astro").read_text(encoding="utf-8")
+    page_header = (WEB / "src" / "components" / "PageHeader.astro").read_text(encoding="utf-8")
+
+    for label in (
+        "Consultar processo",
+        "Pesquisar publicações",
+        "Minhas consultas",
+        "Explorar cobertura",
+        "Usar com agente",
+        "Projeto & dados",
+    ):
+        assert label in site_nav
+
+    assert "primaryLinks" not in page_header
+    assert "ferramentasLinks" not in page_header
+    assert "data-nav-drawer-trigger" not in page_header
+    assert '<nav class="container"' not in page_header
+    assert 'class="container page-header__inner"' in page_header
