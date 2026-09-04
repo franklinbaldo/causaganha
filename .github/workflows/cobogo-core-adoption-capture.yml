@@ -90,6 +90,7 @@ jobs:
           node check.mjs
 
       - name: Capture desktop and mobile product surfaces
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -159,6 +160,7 @@ jobs:
           cat captures/comparison.txt
 
       - name: Upload visual and accessibility evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: product-surfaces-before-after-${{ github.event.pull_request.head.sha || github.sha }}
