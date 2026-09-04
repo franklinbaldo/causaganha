@@ -2,19 +2,19 @@
 /* Widget li */
 .widget-li { white-space: nowrap; flex-shrink: 0; }
 
-/* Nav dropdown — Pico handles details[role="list"] positioning natively */
-nav details[role="list"] > ul[role="listbox"] {
+/* Nav dropdown — native details/summary keeps expand/collapse semantics. */
+nav details[data-nav-tools] > ul {
   right: 0;
   left: auto;
   min-width: 160px;
 }
 
-nav details[role="list"] > ul[role="listbox"] a {
+nav details[data-nav-tools] > ul a {
   border-radius: var(--radius-btn);
   font-size: var(--font-size-sm);
 }
 
-nav details[role="list"] > summary.active { background: var(--color-base-200); font-weight: 600; }
+nav details[data-nav-tools] > summary.active { background: var(--color-base-200); font-weight: 600; }
 
 .dropdown-divider {
   height: 1px;
@@ -198,8 +198,7 @@ dialog.nav-drawer a:focus-visible {
 
 .page-subtitle {
   font-size: var(--font-size-xs);
-  color: var(--color-base-content);
-  opacity: 0.5;
+  color: var(--color-content-tertiary);
   line-height: 1.25;
   margin: 0;
 }

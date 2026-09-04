@@ -81,13 +81,13 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
         </li>
       ))}
       <li class="desktop-only">
-        <details role="list">
-          <summary aria-haspopup="listbox" class={ferramentasActive ? 'active' : ''}>Dados e ferramentas</summary>
-          <ul role="listbox">
+        <details data-nav-tools>
+          <summary class={ferramentasActive ? 'active' : ''}>Dados e ferramentas</summary>
+          <ul>
             {ferramentasLinks.map(link => (
               <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
             ))}
-            <li role="separator" class="dropdown-divider" aria-hidden="true"></li>
+            <li class="dropdown-divider" aria-hidden="true"></li>
             {recursosLinks.map(link => (
               <li><a href={link.href} class={isActive(link.href) ? 'active' : ''}>{link.label}</a></li>
             ))}
@@ -180,15 +180,15 @@ const ferramentasActive = [...ferramentasLinks, ...recursosLinks].some(l => isAc
 
   function setupNavHandlers() {
     document.addEventListener('click', (e) => {
-      const inside = (e.target as Element | null)?.closest('details[role="list"]');
-      document.querySelectorAll<HTMLDetailsElement>('details[role="list"][open]').forEach(d => {
+      const inside = (e.target as Element | null)?.closest('details[data-nav-tools]');
+      document.querySelectorAll<HTMLDetailsElement>('details[data-nav-tools][open]').forEach(d => {
         if (d !== inside) d.open = false;
       });
     });
 
     document.addEventListener('keydown', (e) => {
       if (e.key !== 'Escape') return;
-      const open = document.querySelector<HTMLDetailsElement>('details[role="list"][open]');
+      const open = document.querySelector<HTMLDetailsElement>('details[data-nav-tools][open]');
       if (!open) return;
       open.open = false;
       open.querySelector<HTMLElement>('summary')?.focus();

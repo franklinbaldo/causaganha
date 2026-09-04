@@ -1,0 +1,79 @@
+/* Correções locais de acessibilidade verificadas em Chromium.
+ * Mantêm a paleta verde/dourada e a gramática modernista do CausaGanha,
+ * mas reservam os tons mais escuros para texto pequeno em fundo claro. */
+
+:root {
+  --pico-muted-color: #66665c;
+  --pico-form-element-placeholder-color: #66665c;
+  --color-warning: #8a6818;
+  --color-accent: #8a6818;
+  --accent-gold: #8a6818;
+}
+
+:root[data-theme="dark"] {
+  --pico-muted-color: #a8a89e;
+  --pico-form-element-placeholder-color: #a8a89e;
+  --color-warning: #d4a843;
+  --color-accent: #d4a843;
+  --accent-gold: #d4a843;
+}
+
+.meta-text {
+  opacity: 1;
+}
+
+.sec-num {
+  color: var(--vermelho-deep);
+}
+
+.stat__live-badge {
+  opacity: 1;
+}
+
+.card--azul .stat__label {
+  color: var(--papel-00);
+}
+
+/* O estado ativo precisa continuar legível sobre a faixa clara da navegação.
+ * O peso e o fundo preservam a hierarquia local; a cor deixa de depender da
+ * cor de link herdada pelo Pico. */
+nav a.active {
+  color: var(--color-base-content);
+}
+
+/* O tom do badge permanece visível no fundo e na borda, mas texto pequeno
+ * usa a cor principal do conteúdo para não sacrificar contraste. */
+.badge[data-tone] {
+  color: var(--color-content);
+  border: 1px solid color-mix(in srgb, currentColor 22%, var(--color-border));
+}
+
+/* O atalho é informação auxiliar, não desabilitada. Reduzir a opacidade do
+ * grupo inteiro também reduz o contraste do texto do <kbd>. */
+.search-shortcut-hint {
+  opacity: 1;
+  color: var(--color-content-secondary);
+}
+
+.search-shortcut-hint kbd {
+  color: var(--color-content);
+  background: var(--color-surface-overlay);
+}
+
+/* Cartões explicativos usam fundo de papel. O verde de hover é o mesmo tom
+ * local, apenas mais escuro, e mantém a ação claramente reconhecível como link. */
+.interface-grid a,
+.empty-state a {
+  color: var(--pico-primary-hover);
+  text-decoration: underline;
+  text-decoration-thickness: 0.08em;
+  text-underline-offset: 0.14em;
+}
+
+/* Regiões de código que realmente precisam de rolagem horizontal recebem
+ * tabindex em runtime; este estilo torna o foco tão perceptível quanto nos
+ * demais controles sem mudar o bloco quando ele não está focado. */
+pre[tabindex="0"]:focus-visible {
+  outline: 3px solid var(--cobogo-focus);
+  outline-offset: 3px;
+}

@@ -92,5 +92,23 @@ const ogImageUrl = ogImage || new URL(`${BASE}og-image.png`, Astro.site).toStrin
     </main>
     <CommandPalette />
     <Footer />
+    <script>
+      function exposeScrollableCodeToKeyboard() {
+        document.querySelectorAll<HTMLElement>('pre').forEach(pre => {
+          const needsHorizontalScroll = pre.scrollWidth > pre.clientWidth + 1;
+          if (needsHorizontalScroll) {
+            if (!pre.hasAttribute('tabindex')) pre.tabIndex = 0;
+            if (!pre.hasAttribute('aria-label')) pre.setAttribute('aria-label', 'Trecho de código rolável');
+          } else if (pre.getAttribute('aria-label') === 'Trecho de código rolável') {
+            pre.removeAttribute('tabindex');
+            pre.removeAttribute('aria-label');
+          }
+        });
+      }
+
+      exposeScrollableCodeToKeyboard();
+      document.addEventListener('astro:page-load', exposeScrollableCodeToKeyboard);
+      window.addEventListener('resize', exposeScrollableCodeToKeyboard, { passive: true });
+    </script>
   </body>
 </html>

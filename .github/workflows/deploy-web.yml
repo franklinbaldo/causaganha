@@ -98,7 +98,78 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
     needs: build
+    outputs:
+      page_url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5
+
+  verify-public:
+    name: Verify the page readers actually receive
+    runs-on: ubuntu-latest
+    needs: deploy
+    timeout-minutes: 15
+    steps:
+      - name: Checkout published revision
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Node
+        uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+
+      - name: Install Chromium
+        run: npx --yes playwright@1.55.0 install --with-deps chromium
+
+      - name: Audit semantic accessibility on the public URL
+        shell: bash
+        env:
+          SURFACE_BASE_URL: ${{ needs.deploy.outputs.page_url }}
+          SURFACE_REVISION: ${{ github.sha }}
+          SURFACE_ACCESSIBILITY_OUTPUT: ${{ github.workspace }}/published-evidence/accessibility.json
+        run: |
+          mkdir -p published-evidence /tmp/cobogo-a11y
+          cp scripts/check_surface_accessibility.mjs /tmp/cobogo-a11y/check.mjs
+          cd /tmp/cobogo-a11y
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0 axe-core@4.10.3
+          node check.mjs
+
+      - name: Capture the published routes in desktop and mobile widths
+        shell: bash
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p published-evidence
+          base="${PAGE_URL%/}/"
+          for page in index.html processo.html publicacoes.html sobre.html agentes.html minhas-consultas.html; do
+            stem="${page%.html}"
+            npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
+              "${base}${page}" "published-evidence/${stem}-desktop.png"
+            npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="390,844" --full-page \
+              "${base}${page}" "published-evidence/${stem}-mobile.png"
+          done
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          data = {
+              "phase": "published",
+              "revision": os.environ["GITHUB_SHA"],
+              "published_revision": os.environ["GITHUB_SHA"],
+              "public_url": os.environ["PAGE_URL"],
+              "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+              "viewports": [{"width": 1280, "height": 900}, {"width": 390, "height": 844}],
+              "routes": ["index.html", "processo.html", "publicacoes.html", "sobre.html", "agentes.html", "minhas-consultas.html"],
+          }
+          with open("published-evidence/published.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          PY
+
+      - name: Upload proof from the published page
+        uses: actions/upload-artifact@v4
+        with:
+          name: published-surface-${{ github.sha }}
+          path: published-evidence/
+          if-no-files-found: error

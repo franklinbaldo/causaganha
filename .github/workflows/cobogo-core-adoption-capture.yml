@@ -5,6 +5,7 @@ on:
     paths:
       - 'web/src/**'
       - 'tests/test_cobogo_core_adoption.py'
+      - 'scripts/check_surface_accessibility.mjs'
       - '.github/workflows/cobogo-core-adoption-capture.yml'
   push:
     branches:
@@ -12,6 +13,7 @@ on:
     paths:
       - 'web/src/**'
       - 'tests/test_cobogo_core_adoption.py'
+      - 'scripts/check_surface_accessibility.mjs'
       - '.github/workflows/cobogo-core-adoption-capture.yml'
 
 permissions:
@@ -73,7 +75,22 @@ jobs:
           python3 -m http.server 4174 --directory /tmp/after >/tmp/after.log 2>&1 &
           sleep 2
 
+      - name: Audit semantic accessibility on desktop and mobile
+        shell: bash
+        env:
+          SURFACE_BASE_URL: http://127.0.0.1:4174/causaganha/
+          SURFACE_REVISION: ${{ github.event.pull_request.head.sha || github.sha }}
+          SURFACE_ACCESSIBILITY_OUTPUT: ${{ github.workspace }}/captures/accessibility.json
+        run: |
+          mkdir -p captures /tmp/cobogo-a11y
+          cp head/scripts/check_surface_accessibility.mjs /tmp/cobogo-a11y/check.mjs
+          cd /tmp/cobogo-a11y
+          npm init -y >/dev/null
+          npm install --no-audit --no-fund playwright@1.55.0 axe-core@4.10.3
+          node check.mjs
+
       - name: Capture desktop and mobile product surfaces
+        if: always()
         shell: bash
         run: |
           set -euo pipefail
@@ -142,9 +159,10 @@ jobs:
           done
           cat captures/comparison.txt
 
-      - name: Upload visual evidence
+      - name: Upload visual and accessibility evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: product-surfaces-before-after
+          name: product-surfaces-before-after-${{ github.event.pull_request.head.sha || github.sha }}
           path: captures/
           if-no-files-found: error
