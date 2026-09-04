@@ -185,8 +185,15 @@ dialog.nav-drawer a:focus-visible {
 }
 .tile-icon { width: 40px; height: 40px; border-radius: var(--radius-sm); }
 
-.title-li { flex: 1; }
-.title-group { display: flex; flex-direction: column; }
+.title-li {
+  flex: 1;
+  min-width: 0;
+}
+.title-group {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
 
 .page-title {
   font-size: var(--font-size-2xl);
@@ -197,6 +204,9 @@ dialog.nav-drawer a:focus-visible {
 }
 
 .page-subtitle {
+  max-width: 100%;
+  white-space: normal;
+  overflow-wrap: anywhere;
   font-size: var(--font-size-xs);
   color: var(--color-content-tertiary);
   line-height: 1.25;
@@ -218,87 +228,30 @@ dialog.nav-drawer a:focus-visible {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: var(--space-4);
   text-align: center;
+  gap: var(--space-3);
 }
 
-.footer-brand {
-  font-family: var(--font-serif);
-  font-size: var(--font-size-lg);
-  font-weight: 400;
+.site-footer > * {
   margin: 0;
 }
 
-.footer-nav {
-  display: flex;
-  flex-wrap: wrap;
+.site-footer nav ul {
   justify-content: center;
-  gap: var(--space-4);
+  flex-wrap: wrap;
+  gap: var(--space-2) var(--space-4);
 }
 
-.footer-nav a {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.25rem;
-  text-decoration: none;
-  color: var(--color-content-secondary);
+.site-footer nav a {
   font-size: var(--font-size-sm);
   text-transform: uppercase;
-  letter-spacing: 0.05em;
-  font-weight: 500;
+  letter-spacing: .04em;
+  color: var(--color-content-secondary);
+  text-decoration: none;
 }
 
-.footer-nav a:hover,
-.footer-nav a:focus-visible {
-  color: var(--color-primary);
+.site-footer nav a:hover,
+.site-footer nav a:focus-visible {
+  color: var(--color-content);
   text-decoration: underline;
 }
-
-.footer-nav svg { flex-shrink: 0; opacity: 0.7; }
-
-.footer-tagline {
-  font-size: var(--font-size-xs);
-  color: var(--color-content-tertiary);
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  margin: 0;
-}
-
-
-/* ═══════════════════════════════════════════
-   Theme Toggle
-   ═══════════════════════════════════════════ */
-
-.theme-toggle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2rem;
-  height: 2rem;
-  padding: 0.25rem;
-  border-radius: var(--radius-btn);
-  cursor: pointer;
-  border: 1px solid transparent;
-  background: transparent;
-  color: inherit;
-}
-
-.theme-toggle-btn:hover { background: var(--color-base-200); }
-.theme-toggle-btn:focus-visible {
-  background: var(--color-base-200);
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-/* Icon visibility driven by [data-theme] — no FOUC since the inline
-   head script sets data-theme before first paint. */
-.theme-toggle-btn .icon-sun  { display: none; }
-.theme-toggle-btn .icon-moon { display: inline; }
-
-:root[data-theme='dark'] .theme-toggle-btn .icon-sun  { display: inline; }
-:root[data-theme='dark'] .theme-toggle-btn .icon-moon { display: none; }
-
-@media (pointer: coarse) {
-  .theme-toggle-btn { width: 2.75rem; height: 2.75rem; }
-}
-
