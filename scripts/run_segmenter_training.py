@@ -16,12 +16,18 @@ Expects `--data-dir` to already contain `train.jsonl`, `val.jsonl`, and
 `segmenter_dataset.opf_export.export_release_for_training`. This script
 does not derive those from a release itself; it consumes a frozen export.
 
-Loops epoch-by-epoch with an explicit checkpoint hand-off between `opf
-train` subprocess calls, rather than one `--epochs N` call -- a mechanical
-lesson RFC 0012 §13.2 carries over from PR #832: the opf trainer leaks RAM
-in a long-lived process. Checkpoint selection is macro-F1 on validation
-only (RFC 0012 §5 point 5): highest wins; ties broken by lowest epoch, then
-by lowest validation loss.
+Invokes `opf train` exactly once, with `--epochs N`, per #1048: OpenAI's
+own `openai/privacy-filter/FINETUNING.md` documents one continuous training
+process -- AdamW and the epoch shuffle RNG created once and carried across
+every epoch, validation evaluated and the best-by-loss state tracked each
+epoch, that best state restored before the final checkpoint is written -- as
+the canonical custom-label recipe. Re-invoking `opf train --epochs 1`
+per epoch (the pre-#1048 design) resets that optimizer/RNG state between
+epochs and diverges from the canonical semantics; it is not a co-equal
+alternative. This wrapper's job is provenance, artifact transport and
+model-agnostic evaluation on top of that canonical run -- not its own
+epoch-level orchestration or checkpoint selection, both of which OPF already
+does internally by validation loss.
 
 Usage:
     uv run python scripts/run_segmenter_training.py \
@@ -61,7 +67,6 @@ import hashlib
 import json
 import subprocess
 import sys
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -148,17 +153,23 @@ def _load_label_space(path: Path) -> dict:
     return label_space
 
 
-def _run_opf_train_epoch(
+def _run_opf_train(
     train_jsonl: Path,
     val_jsonl: Path,
     label_space_json: Path,
-    epoch_dir: Path,
+    output_dir: Path,
     *,
-    resume_from: Path | None,
+    epochs: int,
     batch_size: int,
     seed: int,
     device: str,
 ) -> int:
+    """One continuous `opf train --epochs N` invocation -- the canonical path (#1048).
+
+    No `--checkpoint`/resume flag: unlike the pre-#1048 per-epoch loop, this
+    is a single process for the whole run, so there is nothing to hand off
+    between calls.
+    """
     cmd = [
         sys.executable,
         "-m",
@@ -170,21 +181,19 @@ def _run_opf_train_epoch(
         "--label-space-json",
         str(label_space_json),
         "--output-dir",
-        str(epoch_dir),
+        str(output_dir),
         "--device",
         device,
         "--epochs",
-        "1",
+        str(epochs),
         "--batch-size",
         str(batch_size),
         "--shuffle-seed",
         str(seed),
     ]
-    if resume_from is not None:
-        cmd += ["--checkpoint", str(resume_from)]
-    logger.info("opf_train_epoch_start", cmd=" ".join(cmd))
+    logger.info("opf_train_start", cmd=" ".join(cmd), epochs=epochs)
     result = subprocess.run(cmd, check=False)
-    logger.info("opf_train_epoch_done", returncode=result.returncode)
+    logger.info("opf_train_done", returncode=result.returncode)
     return result.returncode
 
 
@@ -256,24 +265,6 @@ def _validation_loss_from_metrics(metrics: dict) -> float | None:
     return None
 
 
-@dataclass(frozen=True)
-class _EpochResult:
-    epoch: int
-    macro_f1: float
-    val_loss: float | None
-    checkpoint_dir: Path
-
-
-def _select_best_epoch(results: list[_EpochResult]) -> _EpochResult:
-    """RFC 0012 §5 point 5: highest val macro-F1; tie -> lowest epoch; tie -> lowest val loss."""
-
-    def sort_key(result: _EpochResult) -> tuple[float, int, float]:
-        loss = result.val_loss if result.val_loss is not None else float("inf")
-        return (-result.macro_f1, result.epoch, loss)
-
-    return min(results, key=sort_key)
-
-
 def train_and_select_checkpoint(
     data_dir: Path,
     output_dir: Path,
@@ -283,9 +274,14 @@ def train_and_select_checkpoint(
     seed: int,
     device: str,
 ) -> tuple[CheckpointSelection, Path]:
-    """Train epoch-by-epoch, evaluating ONLY on val.jsonl; return the winning checkpoint.
+    """Run the canonical `opf train --epochs N` once; evaluate the result on val.jsonl (#1048).
 
-    Never opens `data_dir / "test.jsonl"`, even if present.
+    No epoch-level orchestration or checkpoint comparison here: OPF already
+    tracks the best-by-validation-loss state across epochs internally and
+    restores it before writing the checkpoint (see module docstring). This
+    function's only job is to report that checkpoint's validation macro-F1
+    as external context. Never opens `data_dir / "test.jsonl"`, even if
+    present.
     """
     train_jsonl = data_dir / "train.jsonl"
     val_jsonl = data_dir / "val.jsonl"
@@ -293,51 +289,37 @@ def train_and_select_checkpoint(
     label_space = _load_label_space(label_space_json)
     categories = [c for c in label_space["span_class_names"] if c != "O"]
 
-    results: list[_EpochResult] = []
-    resume_from: Path | None = None
-
-    for epoch in range(1, epochs + 1):
-        epoch_dir = output_dir / f"epoch-{epoch}"
-        returncode = _run_opf_train_epoch(
-            train_jsonl,
-            val_jsonl,
-            label_space_json,
-            epoch_dir,
-            resume_from=resume_from,
-            batch_size=batch_size,
-            seed=seed,
-            device=device,
-        )
-        if returncode != 0:
-            msg = f"opf train failed at epoch {epoch} (returncode {returncode})"
-            raise RuntimeError(msg)
-
-        metrics_path = output_dir / f"val_metrics_epoch_{epoch}.json"
-        metrics = _run_opf_eval(val_jsonl, epoch_dir, metrics_path, device)
-        if metrics is None:
-            msg = f"opf eval on val.jsonl failed at epoch {epoch}"
-            raise RuntimeError(msg)
-
-        macro = _macro_f1_from_metrics(metrics, categories)
-        val_loss = _validation_loss_from_metrics(metrics)
-        logger.info("epoch_val_macro_f1", epoch=epoch, macro_f1=macro, val_loss=val_loss)
-        results.append(
-            _EpochResult(epoch=epoch, macro_f1=macro, val_loss=val_loss, checkpoint_dir=epoch_dir)
-        )
-        resume_from = epoch_dir
-
-    if not results:
-        msg = "no epochs completed"
+    checkpoint_dir = output_dir / "checkpoint"
+    returncode = _run_opf_train(
+        train_jsonl,
+        val_jsonl,
+        label_space_json,
+        checkpoint_dir,
+        epochs=epochs,
+        batch_size=batch_size,
+        seed=seed,
+        device=device,
+    )
+    if returncode != 0:
+        msg = f"opf train failed (returncode {returncode})"
         raise RuntimeError(msg)
 
-    best = _select_best_epoch(results)
+    metrics_path = output_dir / "val_metrics.json"
+    metrics = _run_opf_eval(val_jsonl, checkpoint_dir, metrics_path, device)
+    if metrics is None:
+        msg = "opf eval on val.jsonl failed"
+        raise RuntimeError(msg)
+
+    macro = _macro_f1_from_metrics(metrics, categories)
+    val_loss = _validation_loss_from_metrics(metrics)
+    logger.info("train_val_macro_f1", epochs=epochs, macro_f1=macro, val_loss=val_loss)
+
     selection = CheckpointSelection(
-        selected_epoch=best.epoch,
-        val_macro_f1=best.macro_f1,
-        val_loss=best.val_loss,
-        per_epoch_val_macro_f1={result.epoch: result.macro_f1 for result in results},
+        selected_epoch=epochs,
+        val_macro_f1=macro,
+        val_loss=val_loss,
     )
-    return selection, best.checkpoint_dir
+    return selection, checkpoint_dir
 
 
 def main(argv: list[str] | None = None) -> int:
