@@ -7,12 +7,15 @@ from segmenter_dataset.model_eval import (
     DocumentModelPrediction,
     MicroMetrics,
     SpanErrorBreakdown,
+    SpanErrorExample,
     bootstrap_diff_ci_low,
     classify_span_errors,
+    collect_span_error_examples,
     critical_category_f1,
     evaluate_model_acceptance,
     micro_metrics,
     per_category_metrics,
+    render_error_report,
     trivial_baseline_predictions,
 )
 from segmenter_dataset.ontology import CRITICAL_CATEGORIES
@@ -300,3 +303,90 @@ def test_classify_span_errors_matches_the_best_overlapping_candidate() -> None:
     assert breakdown == SpanErrorBreakdown(
         category_errors=0, boundary_errors=1, pure_misses=0, pure_extras=1
     )
+
+
+def test_collect_span_error_examples_excludes_exact_matches() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 10, "resultado")])]
+
+    assert collect_span_error_examples(predictions) == []
+
+
+def test_collect_span_error_examples_covers_every_error_type() -> None:
+    predictions = [
+        _prediction("d1", [(0, 10, "resultado")], [(0, 8, "resultado")]),  # boundary
+        _prediction("d2", [(0, 10, "resultado")], [(0, 10, "dispositivo_abertura")]),  # category
+        _prediction("d3", [(0, 10, "resultado")], []),  # pure miss
+        _prediction("d4", [], [(50, 60, "resultado")]),  # pure extra
+    ]
+
+    examples = collect_span_error_examples(predictions)
+
+    assert set(example.error_type for example in examples) == {
+        "boundary_error",
+        "category_error",
+        "pure_miss",
+        "pure_extra",
+    }
+    boundary = next(e for e in examples if e.error_type == "boundary_error")
+    assert boundary == SpanErrorExample(
+        document_id="d1",
+        error_type="boundary_error",
+        gold=Label(start=0, end=10, category="resultado"),
+        predicted=Label(start=0, end=8, category="resultado"),
+    )
+    miss = next(e for e in examples if e.error_type == "pure_miss")
+    assert miss.document_id == "d3"
+    assert miss.gold == Label(start=0, end=10, category="resultado")
+    assert miss.predicted is None
+    extra = next(e for e in examples if e.error_type == "pure_extra")
+    assert extra.document_id == "d4"
+    assert extra.gold is None
+    assert extra.predicted == Label(start=50, end=60, category="resultado")
+
+
+def test_collect_span_error_examples_caps_examples_per_type() -> None:
+    predictions = [_prediction(f"d{i}", [(0, 10, "resultado")], []) for i in range(10)]
+
+    examples = collect_span_error_examples(predictions, limit_per_type=3)
+
+    assert len(examples) == 3
+    assert all(example.error_type == "pure_miss" for example in examples)
+
+
+def test_render_error_report_includes_per_category_metrics() -> None:
+    predictions = [_prediction("d1", [(0, 5, "resultado")], [(0, 5, "resultado")])]
+
+    report = render_error_report(predictions)
+
+    assert "resultado" in report
+    assert "precision=1.000" in report
+    assert "recall=1.000" in report
+
+
+def test_render_error_report_includes_error_breakdown_counts() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 8, "resultado")])]
+
+    report = render_error_report(predictions)
+
+    assert "boundary_errors: 1" in report
+    assert "category_errors: 0" in report
+    assert "pure_misses: 0" in report
+    assert "pure_extras: 0" in report
+
+
+def test_render_error_report_includes_concrete_examples() -> None:
+    predictions = [_prediction("d1", [(0, 10, "resultado")], [(0, 8, "resultado")])]
+
+    report = render_error_report(predictions)
+
+    assert "doc=d1" in report
+    assert "resultado[0:10]" in report
+    assert "resultado[0:8]" in report
+
+
+def test_render_error_report_respects_max_examples_per_type() -> None:
+    predictions = [_prediction(f"d{i}", [(0, 10, "resultado")], []) for i in range(10)]
+
+    report = render_error_report(predictions, max_examples_per_type=2)
+
+    assert report.count("pure_miss") == 3  # heading count "pure_misses: 10" + 2 example lines
