@@ -88,6 +88,11 @@ DEFAULT_LEARNING_RATE = 2e-4
 DEFAULT_WEIGHT_DECAY = 0.0
 DEFAULT_GRAD_ACCUM_STEPS = 1
 DEFAULT_MAX_GRAD_NORM = 1.0
+# The upstream demo's own batch size, part of the same canonical recipe as
+# the constants above (#1052/#1057) -- unlike them it has no CLI-overridable
+# script default distinct from "canonical", since --batch-size already
+# defaults to 1 below.
+_CANONICAL_BATCH_SIZE = 1
 
 
 def _detect_device() -> str:
@@ -152,6 +157,31 @@ def _detect_hardware(device: str) -> str:
         return torch.cuda.get_device_name(0)
     except (ImportError, RuntimeError):
         return device
+
+
+def _classify_run_kind(
+    *,
+    batch_size: int,
+    learning_rate: float,
+    weight_decay: float,
+    grad_accum_steps: int,
+    max_grad_norm: float,
+) -> str:
+    """Classify as canonical_baseline only if every optimization knob matches the pinned recipe (#1052/#1057).
+
+    A single overridden knob already makes the run a local ablation --
+    downstream comparisons (#1052's evaluation harness, #1057's
+    active-learning selection) must never average or rank a canonical
+    baseline against an ablation without this label distinguishing them.
+    """
+    is_canonical = (
+        batch_size == _CANONICAL_BATCH_SIZE
+        and learning_rate == DEFAULT_LEARNING_RATE
+        and weight_decay == DEFAULT_WEIGHT_DECAY
+        and grad_accum_steps == DEFAULT_GRAD_ACCUM_STEPS
+        and max_grad_norm == DEFAULT_MAX_GRAD_NORM
+    )
+    return "canonical_baseline" if is_canonical else "local_ablation"
 
 
 def _hash_dataset_export(data_dir: Path) -> str:
@@ -433,6 +463,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     dataset_export_hash = _hash_dataset_export(data_dir)
     finetune_summary_path = _preserve_finetune_summary(checkpoint_dir, output_dir)
+    run_kind = _classify_run_kind(
+        batch_size=args.batch_size,
+        learning_rate=args.learning_rate,
+        weight_decay=args.weight_decay,
+        grad_accum_steps=args.grad_accum_steps,
+        max_grad_norm=args.max_grad_norm,
+    )
 
     timestamp = datetime.now(UTC)
     experiment_id = args.experiment_id or f"{args.release_id}-train-{timestamp:%Y%m%dT%H%M%SZ}"
@@ -458,6 +495,7 @@ def main(argv: list[str] | None = None) -> int:
         weight_decay=args.weight_decay,
         grad_accum_steps=args.grad_accum_steps,
         max_grad_norm=args.max_grad_norm,
+        run_kind=run_kind,
     )
     manifest_path = output_dir / "experiment_manifest.json"
     manifest_path.write_text(manifest.model_dump_json(indent=2) + "\n", encoding="utf-8")
