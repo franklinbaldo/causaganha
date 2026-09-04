@@ -734,6 +734,7 @@ def _minimal_experiment_manifest_kwargs() -> dict:
         "weight_decay": 0.0,
         "grad_accum_steps": 1,
         "max_grad_norm": 1.0,
+        "run_kind": "canonical_baseline",
     }
 
 
@@ -939,8 +940,9 @@ def test_classify_run_kind_overridden_max_grad_norm_is_local_ablation():
 
 
 def test_experiment_manifest_rejects_invalid_run_kind():
+    kwargs = _minimal_experiment_manifest_kwargs() | {"run_kind": "not-a-real-kind"}
     with pytest.raises(ValidationError):
-        ExperimentManifest(**_minimal_experiment_manifest_kwargs(), run_kind="not-a-real-kind")
+        ExperimentManifest(**kwargs)
 
 
 def test_main_records_canonical_baseline_run_kind_when_recipe_is_default(tmp_path, monkeypatch):

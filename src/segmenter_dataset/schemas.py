@@ -25,6 +25,8 @@ should quietly absorb the other's job.
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
@@ -386,6 +388,11 @@ class ExperimentManifest(BaseModel):
     weight_decay: float
     grad_accum_steps: int
     max_grad_norm: float
+    # #1052/#1057: whether this run's optimization recipe matches the exact
+    # upstream openai/privacy-filter canonical baseline, or deviates as a
+    # local ablation -- required so a later comparison/aggregation across
+    # runs can never mix the two without noticing.
+    run_kind: Literal["canonical_baseline", "local_ablation"]
 
 
 class ModelAcceptanceEvidence(BaseModel):
