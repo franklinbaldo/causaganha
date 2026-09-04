@@ -45,7 +45,7 @@
     "globals": "^16.5.0",
     "jsdom": "^26.0.0",
     "openapi-typescript": "^7.13.0",
-    "orval": "^8.21.0",
+    "orval": "^8.28.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.46.4",
     "vite": "^8.1.4",
