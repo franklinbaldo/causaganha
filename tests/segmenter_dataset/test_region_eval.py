@@ -294,11 +294,7 @@ def test_region_breakdown_by_group_reports_per_group_region_metrics() -> None:
             [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")],
         )
         for i in range(5)
-    ] + [
-        _region_prediction(
-            "tjsp0", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        )
-    ]
+    ] + [_region_prediction("tjsp0", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], [])]
     group_of_document = {
         item.document_id: ("tjro" if item.document_id.startswith("tjro") else "tjsp")
         for item in predictions
@@ -314,9 +310,7 @@ def test_region_breakdown_by_group_reports_per_group_region_metrics() -> None:
 
 def test_region_breakdown_by_group_below_min_documents_reports_count_only() -> None:
     predictions = [
-        _region_prediction(
-            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        )
+        _region_prediction("d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], [])
     ]
     group_of_document = {"d1": "tst"}
 
@@ -327,12 +321,8 @@ def test_region_breakdown_by_group_below_min_documents_reports_count_only() -> N
 
 def test_region_breakdown_by_group_skips_documents_missing_from_mapping() -> None:
     predictions = [
-        _region_prediction(
-            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        ),
-        _region_prediction(
-            "d2", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        ),
+        _region_prediction("d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
+        _region_prediction("d2", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []),
     ]
     group_of_document = {"d1": "tjro"}  # d2 has no known group, e.g. missing source metadata
 
@@ -344,9 +334,7 @@ def test_region_breakdown_by_group_skips_documents_missing_from_mapping() -> Non
 
 def test_region_breakdown_by_group_default_min_documents_gates_on_document_count() -> None:
     predictions = [
-        _region_prediction(
-            f"d{i}", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        )
+        _region_prediction(f"d{i}", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], [])
         for i in range(MIN_GROUP_SUPPORT_DOCUMENTS - 1)
     ]
     group_of_document = {item.document_id: "only" for item in predictions}
@@ -359,9 +347,7 @@ def test_region_breakdown_by_group_default_min_documents_gates_on_document_count
 
 def test_region_breakdown_by_group_empty_mapping_is_empty_result() -> None:
     predictions = [
-        _region_prediction(
-            "d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], []
-        )
+        _region_prediction("d1", [(0, 10, "relatorio_inicio"), (40, 50, "relatorio_fim")], [])
     ]
 
     assert region_breakdown_by_group(predictions, {}) == {}
