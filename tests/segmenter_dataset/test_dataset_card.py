@@ -141,3 +141,42 @@ def test_card_reports_no_tribunals_when_scope_is_empty() -> None:
 
     assert "_No tribunal recorded._" in card
     assert "_No document type recorded._" in card
+
+
+def test_card_reports_no_category_counts_when_none_recorded() -> None:
+    card = render_dataset_card(_manifest())
+
+    assert "_No category counts recorded._" in card
+
+
+def test_card_includes_category_support_table() -> None:
+    manifest = _manifest(
+        category_counts={
+            "train:resultado": 12,
+            "val:resultado": 6,
+            "test:resultado": 6,
+        }
+    )
+
+    card = render_dataset_card(manifest)
+
+    assert "## Category support" in card
+    assert "| resultado | 12 | 6 | 6 |" in card
+
+
+def test_card_flags_category_counts_below_the_support_floor() -> None:
+    """#1050/#1051: a category clearing train/val floors but with zero test
+    support must be visible as an explicit 0, and an under-floor train/val
+    count must be flagged rather than looking identical to a healthy one.
+    """
+    manifest = _manifest(
+        category_counts={
+            "train:resultado": 2,  # below MIN_TRAIN_SUPPORT_PER_CATEGORY (10)
+            "val:resultado": 5,  # exactly at MIN_VAL_SUPPORT_PER_CATEGORY (5), not flagged
+            "test:resultado": 0,  # never observed in the locked test split
+        }
+    )
+
+    card = render_dataset_card(manifest)
+
+    assert "| resultado | 2* | 5 | 0 |" in card
