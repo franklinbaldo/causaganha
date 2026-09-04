@@ -17,6 +17,8 @@ import random
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from segmenter_dataset.model_eval import MIN_GROUP_SUPPORT_DOCUMENTS
+
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -234,6 +236,56 @@ def aggregate_region_metrics(
         )
         for base, bucket in sorted(totals.items())
     }
+
+
+@dataclass(frozen=True)
+class RegionGroupMetrics:
+    """One group's (e.g. one tribunal, or one document type) region-level outcome (#1052).
+
+    Mirrors ``model_eval.GroupMetrics``'s support gate at the region level: a
+    group with fewer than ``min_documents`` reports only its
+    ``document_count`` -- ``regions`` stays ``None`` rather than a
+    misleadingly precise per-region-type breakdown computed from too few
+    documents ("breakdown by tribunal/source and document type when support
+    permits", #1052's statistical-reporting checklist).
+    """
+
+    group: str
+    document_count: int
+    regions: dict[str, RegionTypeMetrics] | None
+
+
+def region_breakdown_by_group(
+    predictions: list[DocumentModelPrediction],
+    group_of_document: dict[str, str],
+    *,
+    min_documents: int = MIN_GROUP_SUPPORT_DOCUMENTS,
+) -> dict[str, RegionGroupMetrics]:
+    """Group ``predictions`` by ``group_of_document`` and report per-group region metrics.
+
+    Mirrors ``model_eval.breakdown_by_group``'s grouping and support-gating
+    so the span-level and region-level harnesses honor the same "one mapping
+    per dimension" contract and the same document-count floor -- a document
+    missing from ``group_of_document`` is skipped, so a caller passes one
+    mapping per dimension (tribunal, document type, ...) rather than a joint
+    key.
+    """
+    by_group: dict[str, list[DocumentModelPrediction]] = {}
+    for item in predictions:
+        key = group_of_document.get(item.document_id)
+        if key is None:
+            continue
+        by_group.setdefault(key, []).append(item)
+
+    result: dict[str, RegionGroupMetrics] = {}
+    for key, items in sorted(by_group.items()):
+        if len(items) < min_documents:
+            result[key] = RegionGroupMetrics(group=key, document_count=len(items), regions=None)
+            continue
+        result[key] = RegionGroupMetrics(
+            group=key, document_count=len(items), regions=aggregate_region_metrics(items)
+        )
+    return result
 
 
 @dataclass(frozen=True)
