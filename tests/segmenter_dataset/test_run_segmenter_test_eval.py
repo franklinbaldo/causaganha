@@ -8,6 +8,7 @@ from scripts.run_segmenter_test_eval import (
     _load_document_groups,
     _load_test_jsonl,
     _write_region_report,
+    _write_span_error_report,
     main,
 )
 
@@ -194,6 +195,33 @@ def test_write_region_report_creates_file_with_region_metrics(tmp_path):
     content = report_path.read_text(encoding="utf-8")
     assert "relatorio" in content
     assert "match_rate=1.000" in content
+
+
+# #1052's span-level harness (segmenter_dataset.model_eval.render_error_report)
+# is fully built and tested but, like the region-level report before it, was
+# never wired into the script that produces the final model release
+# evidence -- the locked-test evaluation writes a machine-readable model
+# card but no human-readable span error report. This is the missing wiring.
+
+
+def test_write_span_error_report_creates_file_with_span_metrics(tmp_path):
+    predictions = [
+        DocumentModelPrediction(
+            document_id="d1",
+            gold=(Label(start=0, end=10, category="resultado"),),
+            model_predicted=(Label(start=0, end=10, category="resultado"),),
+            baseline_predicted=(),
+        )
+    ]
+    output_dir = tmp_path / "out"
+    output_dir.mkdir()
+
+    report_path = _write_span_error_report(predictions, output_dir)
+
+    assert report_path == output_dir / "span_error_report.txt"
+    content = report_path.read_text(encoding="utf-8")
+    assert "resultado" in content
+    assert "f1=1.000" in content
 
 
 def test_main_errors_when_experiment_manifest_missing(tmp_path, capsys):
