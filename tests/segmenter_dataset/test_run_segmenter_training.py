@@ -5,6 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from scripts.run_segmenter_training import (
     DEFAULT_GRAD_ACCUM_STEPS,
@@ -12,6 +13,7 @@ from scripts.run_segmenter_training import (
     DEFAULT_MAX_GRAD_NORM,
     DEFAULT_WEIGHT_DECAY,
     _detect_hardware,
+    _detect_opf_commit,
     _detect_opf_version,
     _hash_dataset_export,
     _load_label_space,
@@ -22,7 +24,7 @@ from scripts.run_segmenter_training import (
     main,
     train_and_select_checkpoint,
 )
-from segmenter_dataset.schemas import ExperimentManifest
+from segmenter_dataset.schemas import CheckpointSelection, ExperimentManifest
 
 
 def test_run_opf_train_uses_shuffle_seed_not_seed(tmp_path, monkeypatch):
@@ -477,6 +479,82 @@ def test_detect_opf_version_none_on_nonzero_returncode(monkeypatch):
     assert _detect_opf_version() is None
 
 
+def test_detect_opf_commit_reads_git_vcs_info(monkeypatch):
+    """#1048: "pin and record the exact upstream openai/privacy-filter commit
+    used as the canonical reference" -- read from the installed `opf`
+    distribution's PEP 610 `direct_url.json`, the same record `pip`/`uv`
+    write for a VCS install, rather than parsing this repo's own uv.lock
+    (the runner that actually executes `opf train`, e.g. a Kaggle GPU
+    kernel, may install `opf` independently of this checkout).
+    """
+
+    class _FakeDistribution:
+        @staticmethod
+        def read_text(filename):
+            assert filename == "direct_url.json"
+            return json.dumps(
+                {
+                    "url": "https://github.com/openai/privacy-filter.git",
+                    "vcs_info": {
+                        "vcs": "git",
+                        "commit_id": "f7f00ca7fb869683eb732c010299d901457f19c3",
+                    },
+                }
+            )
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.metadata.distribution",
+        lambda name: _FakeDistribution(),
+    )
+
+    assert _detect_opf_commit() == "f7f00ca7fb869683eb732c010299d901457f19c3"
+
+
+def test_detect_opf_commit_none_when_opf_not_installed(monkeypatch):
+    from importlib import metadata
+
+    def raise_not_found(name):
+        raise metadata.PackageNotFoundError(name)
+
+    monkeypatch.setattr("scripts.run_segmenter_training.metadata.distribution", raise_not_found)
+
+    assert _detect_opf_commit() is None
+
+
+def test_detect_opf_commit_none_when_not_installed_from_git(monkeypatch):
+    """A PyPI (non-VCS) install has no `vcs_info` -- never fabricate a commit."""
+
+    class _FakeDistribution:
+        @staticmethod
+        def read_text(filename):
+            del filename
+            return json.dumps({"url": "https://pypi.org/simple/opf/"})
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.metadata.distribution",
+        lambda name: _FakeDistribution(),
+    )
+
+    assert _detect_opf_commit() is None
+
+
+def test_detect_opf_commit_none_when_direct_url_missing(monkeypatch):
+    """`Distribution.read_text` returns None when the metadata file is absent."""
+
+    class _FakeDistribution:
+        @staticmethod
+        def read_text(filename):
+            del filename
+            return None
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.metadata.distribution",
+        lambda name: _FakeDistribution(),
+    )
+
+    assert _detect_opf_commit() is None
+
+
 def test_detect_hardware_returns_device_for_cpu():
     assert _detect_hardware("cpu") == "cpu"
 
@@ -633,6 +711,84 @@ def test_main_writes_provenance_fields_into_experiment_manifest(tmp_path, monkey
     assert manifest.finetune_summary_path == str(output_dir / "finetune_summary.json")
     preserved = (output_dir / "finetune_summary.json").read_text(encoding="utf-8")
     assert json.loads(preserved) == {"epochs": 3, "final_loss": 0.1}
+
+
+def _minimal_experiment_manifest_kwargs() -> dict:
+    """Every ExperimentManifest field with no default, filled with valid placeholders."""
+    return {
+        "experiment_id": "test-experiment",
+        "release_id": "segmenter-real-v8.1",
+        "ontology_version": "segmenter-ontology-v8.0.0",
+        "guideline_version": "g1",
+        "seed": 0,
+        "dependency_lock_hash": "a" * 64,
+        "epochs": 1,
+        "batch_size": 1,
+        "device": "cpu",
+        "checkpoint_dir": "checkpoints/",
+        "checkpoint_selection": CheckpointSelection(selected_epoch=1, val_macro_f1=0.5),
+        "created_at": "2026-01-01T00:00:00+00:00",
+        "dataset_export_hash": "b" * 64,
+        "learning_rate": 2e-4,
+        "weight_decay": 0.0,
+        "grad_accum_steps": 1,
+        "max_grad_norm": 1.0,
+    }
+
+
+def test_experiment_manifest_records_opf_commit():
+    commit = "f7f00ca7fb869683eb732c010299d901457f19c3"
+    manifest = ExperimentManifest(**_minimal_experiment_manifest_kwargs(), opf_commit=commit)
+
+    assert manifest.opf_commit == commit
+
+
+def test_experiment_manifest_opf_commit_defaults_to_none():
+    manifest = ExperimentManifest(**_minimal_experiment_manifest_kwargs())
+
+    assert manifest.opf_commit is None
+
+
+def test_experiment_manifest_rejects_malformed_opf_commit():
+    with pytest.raises(ValidationError):
+        ExperimentManifest(**_minimal_experiment_manifest_kwargs(), opf_commit="not-a-git-sha")
+
+
+def test_main_writes_opf_commit_into_experiment_manifest(tmp_path, monkeypatch):
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+    output_dir = tmp_path / "out"
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.subprocess.run", _fake_subprocess_run_for_main()
+    )
+
+    class _FakeDistribution:
+        @staticmethod
+        def read_text(filename):
+            del filename
+            return json.dumps(
+                {
+                    "url": "https://github.com/openai/privacy-filter.git",
+                    "vcs_info": {
+                        "vcs": "git",
+                        "commit_id": "f7f00ca7fb869683eb732c010299d901457f19c3",
+                    },
+                }
+            )
+
+    monkeypatch.setattr(
+        "scripts.run_segmenter_training.metadata.distribution",
+        lambda name: _FakeDistribution(),
+    )
+
+    exit_code = main(_main_args(tmp_path, **{"--data-dir": str(data_dir)}))
+
+    assert exit_code == 0
+    manifest = ExperimentManifest.model_validate_json(
+        (output_dir / "experiment_manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest.opf_commit == "f7f00ca7fb869683eb732c010299d901457f19c3"
 
 
 def _fake_subprocess_run_for_main():
