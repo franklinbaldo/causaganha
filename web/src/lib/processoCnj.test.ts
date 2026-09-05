@@ -15,6 +15,7 @@ import {
   carregarDocumentos,
   classifyCnjInput,
   describeHeroSearchMode,
+  evidenceMatrixRows,
   fetchCobertura,
   fontesPresenca,
   fonteUrls,
@@ -419,6 +420,49 @@ describe('fontesPresenca', () => {
     const c = fontesPresenca([]);
     expect(c.presentes).toEqual([]);
     expect(c.ausentes).toEqual(ALL_FONTES);
+  });
+});
+
+describe('evidenceMatrixRows', () => {
+  it('classifies a source present in fontes, with no aviso/cobertura issue, as presente', () => {
+    const rows = evidenceMatrixRows(['djen'], [], []);
+    const djen = rows.find((r) => r.fonte === 'djen');
+    expect(djen).toEqual({ fonte: 'djen', papel: 'arquivo', status: 'presente' });
+  });
+
+  it('classifies a source absent from fontes, with no aviso/cobertura issue, as ausente', () => {
+    const rows = evidenceMatrixRows(['djen'], [], []);
+    const juris = rows.find((r) => r.fonte === 'juris');
+    expect(juris).toEqual({ fonte: 'juris', papel: 'teor', status: 'ausente' });
+  });
+
+  it('classifies a source flagged in avisos as indisponivel even though it is (by construction) also absent from fontes', () => {
+    const rows = evidenceMatrixRows([], ["Fonte 'stj' indisponível para este processo: 404"], []);
+    const stj = rows.find((r) => r.fonte === 'stj');
+    expect(stj).toEqual({ fonte: 'stj', papel: 'teor', status: 'indisponivel' });
+  });
+
+  it('classifies a source whose dataset-wide cobertura status is unavailable as indisponivel, taking precedence over ausente', () => {
+    const rows = evidenceMatrixRows([], [], [{ fonte: 'datajud', status: 'unavailable', registros: 0 }]);
+    const datajud = rows.find((r) => r.fonte === 'datajud');
+    expect(datajud).toEqual({ fonte: 'datajud', papel: 'estado', status: 'indisponivel' });
+  });
+
+  it('does not let an unrelated healthy cobertura entry mark a source indisponivel', () => {
+    const rows = evidenceMatrixRows(['djen'], [], [{ fonte: 'djen', status: 'loaded_remote', registros: 5 }]);
+    const djen = rows.find((r) => r.fonte === 'djen');
+    expect(djen?.status).toBe('presente');
+  });
+
+  it('returns exactly one row per ALL_FONTES, in ALL_FONTES order', () => {
+    const rows = evidenceMatrixRows([], [], []);
+    expect(rows.map((r) => r.fonte)).toEqual(ALL_FONTES);
+  });
+
+  it('maps each fonte to its product papel (Arquivo/Estado/Teor)', () => {
+    const rows = evidenceMatrixRows(ALL_FONTES.slice(), [], []);
+    const papelByFonte = Object.fromEntries(rows.map((r) => [r.fonte, r.papel]));
+    expect(papelByFonte).toEqual({ djen: 'arquivo', datajud: 'estado', juris: 'teor', stj: 'teor' });
   });
 });
 
