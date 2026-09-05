@@ -122,11 +122,18 @@ function urlListSql(urls: string[]): string {
   return urls.map((u) => `'${u}'`).join(', ');
 }
 
-/** Descobre, para um CNJ, quais fontes têm registro e em qual parquet cada uma vive. */
-export function buildIndiceSql(): string {
+/**
+ * Descobre, para um CNJ, quais fontes têm registro e em qual parquet cada uma vive.
+ *
+ * `url` aceita um override explícito — mirando `causaganha.processos.service._indice_sql(url)`
+ * — para que o harness de paridade de plano de consulta (#1107) possa exercitar este
+ * builder contra a mesma fixture local que os demais já usam, em vez de ficar
+ * permanentemente amarrado à URL de produção.
+ */
+export function buildIndiceSql(url: string = INDICE_PROCESSUAL_URL): string {
   return `
     SELECT fonte, arquivo_ia_url
-    FROM read_parquet('${INDICE_PROCESSUAL_URL}')
+    FROM read_parquet('${url}')
     WHERE numero_processo = ?
   `;
 }
