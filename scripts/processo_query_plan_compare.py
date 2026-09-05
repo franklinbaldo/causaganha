@@ -57,9 +57,7 @@ def _rows(con: duckdb.DuckDBPyConnection, sql: str, params: list[Any]) -> list[d
     return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
 
-def _python_mapped(
-    con: duckdb.DuckDBPyConnection, case: dict[str, Any]
-) -> dict[str, Any] | None:
+def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict[str, Any] | None:
     """Run the Python runtime's real source mapper and expose the Web-view shape.
 
     This intentionally calls `_build_*` rather than reimplementing row mapping
