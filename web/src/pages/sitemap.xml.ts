@@ -13,17 +13,21 @@ export const GET: APIRoute = async ({ site }) => {
   // que o build gera, nem mais (links quebrados) nem menos.
   const advogadosTribunals = topAdvogadosTribunals(await loadContract('tribunal_coverage'));
 
-  // Static pages
+  // Product hierarchy: primary jobs first, then continuity, advanced tools and docs.
+  // Legacy analytical routes remain indexable, but no longer compete with the two
+  // main public entry points: process lookup and publication search (#1138).
   const staticPages = [
     { url: '/', changefreq: 'daily', priority: '1.0' },
+    { url: '/processo', changefreq: 'daily', priority: '0.9' },
     { url: '/publicacoes', changefreq: 'daily', priority: '0.9' },
-    { url: '/advogados', changefreq: 'daily', priority: '0.8' },
-    { url: '/comparador', changefreq: 'daily', priority: '0.8' },
-    { url: '/stats', changefreq: 'daily', priority: '0.8' },
-    { url: '/explorador', changefreq: 'weekly', priority: '0.7' },
-    { url: '/agentes', changefreq: 'weekly', priority: '0.8' },
-    { url: '/changelog', changefreq: 'weekly', priority: '0.6' },
-    { url: '/sobre', changefreq: 'weekly', priority: '0.8' },
+    { url: '/minhas-consultas', changefreq: 'weekly', priority: '0.7' },
+    { url: '/stats', changefreq: 'daily', priority: '0.6' },
+    { url: '/explorador', changefreq: 'weekly', priority: '0.6' },
+    { url: '/agentes', changefreq: 'weekly', priority: '0.6' },
+    { url: '/advogados', changefreq: 'daily', priority: '0.5' },
+    { url: '/comparador', changefreq: 'daily', priority: '0.5' },
+    { url: '/sobre', changefreq: 'weekly', priority: '0.5' },
+    { url: '/changelog', changefreq: 'weekly', priority: '0.4' },
   ];
 
   staticPages.forEach(page => {
@@ -56,7 +60,7 @@ export const GET: APIRoute = async ({ site }) => {
     <loc>${BASE_URL}/advogados/${slug}</loc>
     <lastmod>${now}</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.5</priority>
   </url>
     `);
   });
