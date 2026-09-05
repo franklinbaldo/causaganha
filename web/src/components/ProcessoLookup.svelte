@@ -6,6 +6,7 @@
     ALL_FONTES,
     FONTE_LABELS,
     DOCUMENTOS_PAGE_SIZE,
+    INDICE_PROCESSUAL_URL,
     buildCnjSearchParams,
     buscarProcesso,
     carregarDocumentos,
@@ -17,6 +18,7 @@
     normalizeCnj,
     readCnjParam,
   } from '../lib/processoCnj';
+  import { buildDocumentoReferenceText, buildProcessoReferenceText } from '../lib/processoReference';
   import {
     SAVED_CONSULTATIONS_STORAGE_KEY,
     parseSavedConsultations,
@@ -46,8 +48,12 @@
   let documentosHasMore = $state(false);
   let lastQueriedCnj = $state(null);
   let linkCopied = $state(false);
+  let referenceCopied = $state(false);
+  let documentoReferenceCopiedId = $state(null);
   let savedLocally = $state(false);
   let feedbackTimeout = null;
+  let referenceFeedbackTimeout = null;
+  let documentoReferenceTimeout = null;
 
   let conn = null;
   let cancelled = false;
@@ -132,10 +138,15 @@
     savedLocally = items.some((item) => item.id === `processo:${digits}`);
   }
 
-  async function copyPermalink() {
-    if (!lastQueriedCnj || typeof window === 'undefined') return;
+  function currentCausaganhaUrl() {
+    if (!lastQueriedCnj || typeof window === 'undefined') return null;
     const qs = buildCnjSearchParams(window.location.search, lastQueriedCnj);
-    const url = `${window.location.origin}${window.location.pathname}${qs}`;
+    return `${window.location.origin}${window.location.pathname}${qs}`;
+  }
+
+  async function copyPermalink() {
+    const url = currentCausaganhaUrl();
+    if (!url) return;
     try {
       await navigator.clipboard.writeText(url);
       linkCopied = true;
@@ -146,6 +157,58 @@
       }, 1800);
     } catch {
       linkCopied = false;
+    }
+  }
+
+  // Issue #1135: a short, stable, plain-text reference — not just a link —
+  // for reuse in petitions/technical notes, distinguishing the preserved
+  // origin artifact from the CausaGanha page URL (secondary context).
+  async function copyReference() {
+    if (!processo || !fontesResumo) return;
+    const causaganhaUrl = currentCausaganhaUrl();
+    if (!causaganhaUrl) return;
+    const text = buildProcessoReferenceText({
+      nrProcessoMascara: processo.nrProcessoMascara,
+      fontesPresentes: fontesResumo.presentes.map((f) => FONTE_LABELS[f]),
+      datasetGeradoEm: processo.datasetGeradoEm,
+      origemUrl: INDICE_PROCESSUAL_URL,
+      causaganhaUrl,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      referenceCopied = true;
+      if (referenceFeedbackTimeout) clearTimeout(referenceFeedbackTimeout);
+      referenceFeedbackTimeout = setTimeout(() => {
+        referenceCopied = false;
+        referenceFeedbackTimeout = null;
+      }, 1800);
+    } catch {
+      referenceCopied = false;
+    }
+  }
+
+  async function copyDocumentoReference(doc) {
+    if (!doc.url || !lastQueriedCnj) return;
+    const causaganhaUrl = currentCausaganhaUrl();
+    if (!causaganhaUrl) return;
+    const text = buildDocumentoReferenceText({
+      fonteLabel: FONTE_LABELS[doc.fonte] ?? doc.fonte,
+      nrProcessoMascara: formatCnj(lastQueriedCnj),
+      tipo: doc.tipo,
+      data: doc.data,
+      url: doc.url,
+      causaganhaUrl,
+    });
+    try {
+      await navigator.clipboard.writeText(text);
+      documentoReferenceCopiedId = doc.idDocumento;
+      if (documentoReferenceTimeout) clearTimeout(documentoReferenceTimeout);
+      documentoReferenceTimeout = setTimeout(() => {
+        documentoReferenceCopiedId = null;
+        documentoReferenceTimeout = null;
+      }, 1800);
+    } catch {
+      documentoReferenceCopiedId = null;
     }
   }
 
@@ -258,6 +321,8 @@
     return () => {
       cancelled = true;
       if (feedbackTimeout) clearTimeout(feedbackTimeout);
+      if (referenceFeedbackTimeout) clearTimeout(referenceFeedbackTimeout);
+      if (documentoReferenceTimeout) clearTimeout(documentoReferenceTimeout);
     };
   });
 </script>
@@ -370,6 +435,9 @@
           <button type="button" class="outline secondary" onclick={copyPermalink}>
             {linkCopied ? 'Link copiado' : 'Copiar link'}
           </button>
+          <button type="button" class="outline secondary" onclick={copyReference}>
+            {referenceCopied ? 'Referência copiada' : 'Copiar referência'}
+          </button>
           <button type="button" class="outline secondary" onclick={saveCurrentProcess}>
             {savedLocally ? 'Salvo em Minhas consultas' : 'Salvar em Minhas consultas'}
           </button>
@@ -477,7 +545,12 @@
                 <strong>{doc.tipo ?? 'Documento'}</strong>
                 <span class="meta-text">{doc.data ?? 'data desconhecida'}</span>
                 {#if doc.resumo}<p>{doc.resumo}</p>{/if}
-                {#if doc.url}<a href={doc.url} target="_blank" rel="noopener noreferrer">Abrir no portal</a>{/if}
+                {#if doc.url}
+                  <a href={doc.url} target="_blank" rel="noopener noreferrer">Abrir no portal</a>
+                  <button type="button" class="outline secondary" onclick={() => copyDocumentoReference(doc)}>
+                    {documentoReferenceCopiedId === doc.idDocumento ? 'Referência copiada' : 'Copiar referência'}
+                  </button>
+                {/if}
               </li>
             {/each}
           </ol>
