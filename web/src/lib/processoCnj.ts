@@ -321,6 +321,26 @@ export function toIsoDate(value: unknown): string | null {
   return null;
 }
 
+/**
+ * DuckDB VARCHAR-cast TIMESTAMP/DATE arbitrário → string ISO 8601 preservando
+ * hora quando presente, ou null.
+ *
+ * Ao contrário de `toIsoDate`, não trunca o componente de hora e não
+ * reinterpreta a string via `Date` (o que corromperia o instante para
+ * timestamps ingênuos em fusos não-UTC) — apenas normaliza o separador
+ * espaço→'T' que o cast `::VARCHAR` do DuckDB produz para TIMESTAMP, para
+ * igualar `datetime.isoformat()` do lado Python (service.py:_iso). Uma
+ * string já 'YYYY-MM-DD' (coluna DATE) permanece inalterada, igual ao
+ * `date.isoformat()` do Python para a mesma coluna.
+ */
+export function toIsoTimestamp(value: unknown): string | null {
+  if (value === null || value === undefined) return null;
+  const s = String(value);
+  if (s.length === 0) return null;
+  const match = /^(\d{4}-\d{2}-\d{2}) (\d{2}:\d{2}:\d{2}.*)$/.exec(s);
+  return match ? `${match[1]}T${match[2]}` : s;
+}
+
 // ── Modelos de visualização por fonte ──────────────────────────────────────
 
 export interface DjenResumoView {
@@ -461,7 +481,7 @@ export function mapDatajudRow(raw: Record<string, unknown> | null): DatajudCapaV
     orgaoJulgador: toNullableString(raw.orgao_julgador),
     grau: toNullableString(raw.grau),
     dataAjuizamento: toIsoDate(raw.data_ajuizamento),
-    ultimaAtualizacao: toIsoDate(raw.ultima_atualizacao),
+    ultimaAtualizacao: toIsoTimestamp(raw.ultima_atualizacao),
   };
 }
 
