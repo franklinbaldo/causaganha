@@ -13,9 +13,7 @@ def test_cobogo_is_a_real_panda_preset_dependency() -> None:
     dev = package["devDependencies"]
 
     assert dev["@pandacss/dev"].startswith("^")
-    assert dev["cobogo"] == (
-        "github:franklinbaldo/cobogo#8ad1fe1c40bb6af12d8b8fcbe1b20d070b5bb44c"
-    )
+    assert dev["cobogo"] == ("github:franklinbaldo/cobogo#8ad1fe1c40bb6af12d8b8fcbe1b20d070b5bb44c")
     assert "@picocss/pico" not in package.get("dependencies", {})
 
 
