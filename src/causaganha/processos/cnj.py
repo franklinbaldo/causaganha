@@ -40,3 +40,21 @@ def formatar_cnj(value: str) -> str:
         f"{digits[0:7]}-{digits[7:9]}.{digits[9:13]}."
         f"{digits[13:14]}.{digits[14:16]}.{digits[16:20]}"
     )
+
+
+def validar_digito_verificador(value: str | None) -> bool:
+    """Valida o dígito verificador de um CNJ (Resolução CNJ 65/2008, art. 4º).
+
+    O DV é o resto da divisão por 97 de sequencial+ano+segmento+tribunal+
+    órgão (18 dígitos) seguido de "00", subtraído de 98. Um valor que não
+    normaliza para 20 dígitos (ver `normalizar_cnj`) nunca é válido — este
+    check é sobre o dígito verificador, não sobre a forma.
+    """
+    digits = so_digitos(value)
+    if len(digits) != CNJ_LEN:
+        return False
+    corpo = digits[0:7] + digits[9:20]
+    dv_informado = digits[7:9]
+    resto = int(corpo + "00") % 97
+    dv_calculado = 98 - resto
+    return dv_informado == f"{dv_calculado:02d}"

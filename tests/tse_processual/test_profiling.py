@@ -56,6 +56,7 @@ def test_relational_profile_measures_exact_cardinality_and_child_joins(tmp_path:
         "distinct_values": 2,
         "duplicate_rows": 0,
         "cnj_shaped_rows": 0,
+        "cnj_valid_rows": 0,
         "unique_when_present": True,
     }
     assert sq["resources"]["assuntos"]["duplicate_rows"] == 1
@@ -65,6 +66,11 @@ def test_relational_profile_measures_exact_cardinality_and_child_joins(tmp_path:
 
     nr = profiles["NR_PROCESSO"]
     assert nr["resources"]["processos"]["cnj_shaped_rows"] == 2
+    # Both fixture NR_PROCESSO values ("0000000-00...", "1111111-11...") are
+    # CNJ-shaped but have an incorrect check digit — neither promotes to
+    # cnj_valid_rows (see test_relational_profile_counts_valid_check_digits
+    # below for a fixture with a genuinely correct check digit).
+    assert nr["resources"]["processos"]["cnj_valid_rows"] == 0
     assert nr["relational_shape_supported"] is True
 
 
@@ -83,3 +89,53 @@ def test_relational_profile_reports_orphans_without_promoting_identity(tmp_path:
 def test_relational_profile_requires_named_processual_resources(tmp_path: Path) -> None:
     with pytest.raises(ValueError, match="missing required resources"):
         relational_profile({"processos": tmp_path / "processos.zip"})
+
+
+# Sequencial 0000001, DV 56 (correto), ano 2024, segmento 8, tribunal 22,
+# órgão 0001 — mesmos campos usados em tests/causaganha/processos/test_cnj.py,
+# recalculado pela fórmula da Resolução CNJ 65/2008 art. 4º.
+_CNJ_DV_VALIDO = "0000001-56.2024.8.22.0001"
+
+
+def _resources_with_valid_check_digit(tmp_path: Path) -> dict[str, Path]:
+    return {
+        "processos": _zip_csv(
+            tmp_path / "processos.zip",
+            "processos.csv",
+            "SQ_PROCESSO;NR_PROCESSO;CLASSE\n"
+            "1;0000000-00.0000.0.00.0000;A\n"
+            f"2;{_CNJ_DV_VALIDO};B\n",
+        ),
+        "assuntos": _zip_csv(
+            tmp_path / "assuntos.zip",
+            "assuntos.csv",
+            "SQ_PROCESSO;NR_PROCESSO;ASSUNTO\n"
+            "1;0000000-00.0000.0.00.0000;X\n"
+            f"2;{_CNJ_DV_VALIDO};Z\n",
+        ),
+        "decisoes": _zip_csv(
+            tmp_path / "decisoes.zip",
+            "decisoes.csv",
+            "SQ_PROCESSO;NR_PROCESSO;DECISAO\n"
+            "1;0000000-00.0000.0.00.0000;A\n"
+            f"2;{_CNJ_DV_VALIDO};B\n",
+        ),
+    }
+
+
+def test_relational_profile_counts_valid_check_digits_separately_from_shaped(
+    tmp_path: Path,
+) -> None:
+    """cnj_shaped_rows only checks 20-digit presentation; cnj_valid_rows also
+    validates the check digit (Resolução CNJ 65/2008 art. 4º) — a CNJ-shaped
+    value can be shaped without being a genuinely valid CNJ.
+    """
+    report = relational_profile(_resources_with_valid_check_digit(tmp_path))
+    profiles = {profile["candidate"]: profile for profile in report["candidate_profiles"]}
+
+    nr = profiles["NR_PROCESSO"]
+    assert nr["resources"]["processos"]["cnj_shaped_rows"] == 2
+    assert nr["resources"]["processos"]["cnj_valid_rows"] == 1
+    # identity_proven stays False even when every value validates: the check
+    # digit alone never proves semantic identity with another dataset.
+    assert nr["identity_proven"] is False

@@ -18,6 +18,7 @@ from tempfile import TemporaryDirectory
 from typing import TYPE_CHECKING
 from zipfile import ZipFile
 
+from causaganha.processos.cnj import validar_digito_verificador
 from tse_processual.inspection import CsvInspection, common_process_keys, inspect_zip
 
 if TYPE_CHECKING:
@@ -61,6 +62,7 @@ class KeyStats:
     distinct_values: int
     duplicate_rows: int
     cnj_shaped_rows: int
+    cnj_valid_rows: int
 
     @property
     def unique_when_present(self) -> bool:
@@ -113,6 +115,7 @@ def _load_distinct_keys(
     null_rows = 0
     non_null_rows = 0
     cnj_shaped_rows = 0
+    cnj_valid_rows = 0
 
     with ZipFile(path) as archive, archive.open(inspection.member) as raw:
         with io.TextIOWrapper(raw, encoding=inspection.encoding, newline="") as text:
@@ -128,6 +131,8 @@ def _load_distinct_keys(
                     non_null_rows += 1
                     if _cnj_shaped(value):
                         cnj_shaped_rows += 1
+                        if validar_digito_verificador(value):
+                            cnj_valid_rows += 1
                     cursor.execute(_INSERT_SQL[table], (value,))
             finally:
                 cursor.close()
@@ -140,6 +145,7 @@ def _load_distinct_keys(
         distinct_values=distinct_values,
         duplicate_rows=non_null_rows - distinct_values,
         cnj_shaped_rows=cnj_shaped_rows,
+        cnj_valid_rows=cnj_valid_rows,
     )
 
 
@@ -203,8 +209,10 @@ def profile_candidate_key(
         "relational_shape_supported": relational_shape_supported,
         "identity_proven": False,
         "cnj_note": (
-            "cnj_shaped_rows only checks a 20-digit CNJ presentation; it does not "
-            "validate the check digit or prove product identity."
+            "cnj_shaped_rows only checks a 20-digit CNJ presentation. "
+            "cnj_valid_rows additionally validates the check digit (Resolução "
+            "CNJ 65/2008 art. 4º), but a valid check digit alone still does "
+            "not prove product identity with another dataset."
         ),
     }
 
