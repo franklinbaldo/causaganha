@@ -231,6 +231,16 @@
 .hero__search-input:focus { outline: none; border-color: var(--vermelho); box-shadow: 3px 3px 0 var(--vermelho); }
 .hero__search .btn { padding: 14px 22px; font-size: var(--t-small); }
 
+.hero__search-hint {
+  grid-column: 1 / -1;
+  margin: 0;
+  font-family: var(--font-mono);
+  font-size: var(--t-small);
+  font-weight: 700;
+}
+.hero__search-hint[data-mode="processo"] { color: var(--vermelho); }
+.hero__search-hint[data-mode="publicacoes"] { color: var(--ocre-deep); }
+
 .hero__chips {
   display: flex;
   flex-wrap: wrap;

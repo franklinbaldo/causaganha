@@ -14,6 +14,7 @@ import {
   buscarProcesso,
   carregarDocumentos,
   classifyCnjInput,
+  describeHeroSearchMode,
   fetchCobertura,
   fontesPresenca,
   fonteUrls,
@@ -118,6 +119,45 @@ describe('buildHeroSearchRedirect', () => {
 
   it('returns null for empty input', () => {
     expect(buildHeroSearchRedirect('', '/processo')).toBeNull();
+  });
+});
+
+describe('describeHeroSearchMode', () => {
+  it('returns no hint (mode null) for empty/whitespace-only input', () => {
+    expect(describeHeroSearchMode('')).toEqual({ mode: null, label: '' });
+    expect(describeHeroSearchMode('   ')).toEqual({ mode: null, label: '' });
+  });
+
+  it('classifies a valid masked or unmasked CNJ as "processo"', () => {
+    expect(describeHeroSearchMode('00000010220248220001')).toEqual({
+      mode: 'processo',
+      label: 'Abrir dossiê do processo',
+    });
+    expect(describeHeroSearchMode('0000001-02.2024.8.22.0001')).toEqual({
+      mode: 'processo',
+      label: 'Abrir dossiê do processo',
+    });
+  });
+
+  it('classifies OAB-shaped input as "publicacoes"', () => {
+    expect(describeHeroSearchMode('OAB/SP 245.812')).toEqual({
+      mode: 'publicacoes',
+      label: 'Pesquisar publicações',
+    });
+  });
+
+  it('classifies free text as "publicacoes"', () => {
+    expect(describeHeroSearchMode('Banco Itaú')).toEqual({
+      mode: 'publicacoes',
+      label: 'Pesquisar publicações',
+    });
+  });
+
+  it('classifies malformed CNJ-like text (wrong digit count) as "publicacoes"', () => {
+    expect(describeHeroSearchMode('0000001-02.2024.8.22')).toEqual({
+      mode: 'publicacoes',
+      label: 'Pesquisar publicações',
+    });
   });
 });
 
