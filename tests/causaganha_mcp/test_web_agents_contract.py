@@ -155,7 +155,7 @@ def test_agents_page_unpublished_fontes_match_the_publication_authority() -> Non
 
 
 def test_home_agents_interface_links_to_the_public_agents_page() -> None:
-    """Keep the MCP path inside the public product instead of bouncing to GitHub."""
+    """Keep the MCP path inside the public product without freezing homepage copy."""
     home = _HOME_PAGE.read_text(encoding="utf-8")
     assert "href={BASE + 'agentes'}" in home
-    assert "Usar com um agente" in home
+    assert "github.com" not in home.lower()
