@@ -217,7 +217,7 @@ class StjAcordaoConcept(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    classe: str
+    classe: str | None
     data_decisao: str | None
     data_publicacao: str | None
     description: str = Field(default=None)

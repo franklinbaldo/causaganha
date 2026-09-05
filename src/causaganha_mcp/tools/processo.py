@@ -22,6 +22,7 @@ from pydantic import BaseModel, Field
 
 from causaganha.processos import service
 from causaganha.processos.models import CnjInvalidoError
+from causaganha_mcp.processo_contract import serialize_shared_core
 
 
 if TYPE_CHECKING:
@@ -131,8 +132,7 @@ class ProcessoConsultarResult(BaseModel):
     cnj_formatado: str = Field(description="CNJ na máscara de exibição NNNNNNN-DD.AAAA.J.TR.OOOO.")
     fontes_presentes: list[str] = Field(
         default_factory=list,
-        description="Fontes que têm registro para este CNJ (subconjunto de "
-        "djen/juris/stj/datajud).",
+        description="Fontes que têm registro para este CNJ (subconjunto de djen/juris/stj/datajud).",
     )
     cobertura_dataset: list[FonteCoberturaResult] = Field(
         default_factory=list,
@@ -232,71 +232,10 @@ def _next_actions(r: ProcessoConsultaResult) -> list[ProximaAcaoResult]:
 
 
 def _to_result(r: ProcessoConsultaResult) -> ProcessoConsultarResult:
+    shared = serialize_shared_core(r)
     return ProcessoConsultarResult(
-        encontrado=r.encontrado,
-        cnj=r.nr_processo,
-        cnj_formatado=r.nr_processo_mascara,
-        fontes_presentes=r.fontes_presentes,
-        cobertura_dataset=[
-            FonteCoberturaResult(fonte=c.fonte, status=c.status, registros=c.registros)
-            for c in r.cobertura_dataset
-        ],
-        djen=DjenResumoResult(
-            primeira_publicacao=r.djen.primeira_publicacao,
-            ultima_publicacao=r.djen.ultima_publicacao,
-            n_publicacoes=r.djen.n_publicacoes,
-            tribunais=r.djen.tribunais,
-        )
-        if r.djen
-        else None,
-        juris=JurisDecisaoResult(
-            n_documentos=r.juris.n_documentos,
-            tipos=r.juris.tipos,
-            data_julgamento=r.juris.data_julgamento,
-            orgao=r.juris.orgao,
-            relator=r.juris.relator,
-            classe=r.juris.classe,
-            url=r.juris.url,
-        )
-        if r.juris
-        else None,
-        stj=StjAcordaoResult(
-            id=r.stj.id,
-            classe=r.stj.classe,
-            relator=r.stj.relator,
-            tema=r.stj.tema,
-            tese=r.stj.tese,
-            ementa=r.stj.ementa,
-            data_decisao=r.stj.data_decisao,
-            data_publicacao=r.stj.data_publicacao,
-        )
-        if r.stj
-        else None,
-        datajud=DatajudCapaResult(
-            classe_oficial=r.datajud.classe_oficial,
-            assuntos=r.datajud.assuntos,
-            orgao_julgador=r.datajud.orgao_julgador,
-            grau=r.datajud.grau,
-            data_ajuizamento=r.datajud.data_ajuizamento,
-            ultima_atualizacao=r.datajud.ultima_atualizacao,
-        )
-        if r.datajud
-        else None,
-        documentos=[
-            DocumentoResult(
-                fonte=d.fonte,
-                id_documento=d.id_documento,
-                tipo=d.tipo,
-                data=d.data,
-                url=d.url,
-                resumo=d.resumo,
-            )
-            for d in r.documentos
-        ],
-        documentos_truncados=r.documentos_truncados,
-        dataset_gerado_em=r.dataset_gerado_em,
+        **shared,
         consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
-        avisos=r.avisos,
         next_actions=_next_actions(r),
         web_url=_web_url(r.nr_processo_mascara),
         web_path=_web_path(r.nr_processo_mascara),
