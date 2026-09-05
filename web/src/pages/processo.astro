@@ -19,28 +19,28 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       { label: 'Consultar Processo' },
     ]} />
 
-    <section>
-      <p>
-        Esta página consulta, diretamente no seu navegador via <strong>DuckDB-WASM</strong>, o índice
-        de reconciliação <code>indice_processual.parquet</code> (item
-        <a href="https://archive.org/details/causaganha-dashboard" target="_blank" rel="noopener noreferrer">causaganha-dashboard</a>)
-        e os parquets de origem por fonte a que ele aponta. Nenhum dado é enviado a servidores
-        externos.
-      </p>
-      <p class="meta-text" data-tone="muted">
-        Cada CNJ é reconciliado a partir de até quatro fontes independentes — DJEN, JURIS (TJRO),
-        STJ e DataJud — sem fundir dados conflitantes: cada bloco abaixo indica explicitamente de
-        qual fonte ele vem, e a ausência de uma fonte é mostrada como tal, não omitida.
-      </p>
-    </section>
-
     <ProcessoLookup client:only="svelte" />
 
-    <footer>
-      <small data-tone="muted">
-        Dados reconciliados via scripts/reconcile_processos.py. O DuckDB-WASM executa no
-        navegador — seus dados não saem do seu dispositivo.
-      </small>
-    </footer>
+    <section aria-labelledby="como-funciona-processo">
+      <h2 id="como-funciona-processo">Como esta consulta funciona</h2>
+      <p>
+        O dossiê reconcilia até quatro fontes independentes — DJEN, JURIS (TJRO), STJ e DataJud —
+        sem fundir dados conflitantes. Cada resultado mantém sua fonte, e ausência em uma fonte é
+        exibida como ausência, não escondida.
+      </p>
+      <details>
+        <summary>Detalhes técnicos e proveniência</summary>
+        <p>
+          A consulta roda diretamente no navegador via <strong>DuckDB-WASM</strong> sobre o índice
+          <code>indice_processual.parquet</code> e os parquets de origem publicados no
+          <a href="https://archive.org/details/causaganha-dashboard" target="_blank" rel="noopener noreferrer">Internet Archive</a>.
+          Nenhum número de processo consultado é enviado a um servidor do CausaGanha.
+        </p>
+        <p class="meta-text" data-tone="muted">
+          A reconciliação é produzida por <code>scripts/reconcile_processos.py</code>. O navegador
+          apenas lê os artefatos públicos e monta o dossiê localmente.
+        </p>
+      </details>
+    </section>
   </div>
 </Layout>
