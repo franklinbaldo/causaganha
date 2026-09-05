@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-05-exciting-mccarthy-sf5rj3-goal-close-1052-eval-harness-already-built"
+run_id: "2026-09-05-exciting-mccarthy-sf5rj3"
+goal: "Verify issue #1052 (segmenter: evaluate both anchor spans and reconstructed regions with one common harness) against current main with live, checklist-by-checklist evidence, and close it if genuinely complete."
+rationale: "#1052 describes a large evaluation-harness feature (span metrics, region metrics, statistical reporting, model contract) that reads, on its own, like another segmenter-chain item gated on real training data or a GPU run. Reading src/segmenter_dataset/model_eval.py and region_eval.py showed every single checklist bullet already implemented: exact-span P/R/F1, per-category and micro metrics, macro-F1 over a fixed target-category denominator (closing the #1048 inflation bug), relaxed overlap diagnostics, category-vs-boundary error classification, region IoU/boundary-error/match-rate, missed-vs-hallucinated distinction, structural-anomaly detection for inverted anchor pairs, document-level bootstrap CIs for both span and region metrics, per-tribunal/document-type breakdowns gated on a minimum document count, and model/run identity (opf_commit, checkpoint_selection, ModelCard.test_result_hash) sufficient to distinguish a canonical baseline from a local ablation. All of it is wired end-to-end into scripts/run_segmenter_test_eval.py and backed by 84 passing unit tests (tests/segmenter_dataset/test_model_eval.py + test_region_eval.py) covering exactly the acceptance criteria's named edge cases (zero-recall/zero-prediction categories, region reconstruction edge cases). git log shows six already-merged PRs built this incrementally (#1090, #1092, #1099, #1101, #1104, #1126) -- none referenced #1052 by number in its commit title, which is why the issue was never auto-closed. Closing it with recorded evidence removes a false blocker from #1047's segmenter roadmap and gives the next round (or #1053's eventual baseline run) an accurate picture of what is and is not still open."
+success_signal: "A comment is posted on issue #1052 mapping every checklist bullet and acceptance-criterion sentence to specific code/test evidence on current main, the issue is closed with state_reason=completed, and the full pytest suite plus ruff check/format remain green with zero source-code changes required to justify the closure."
+status: "achieved"
+---
+
+# Goal: verificar e fechar a issue #1052 (harness de avaliação do segmentador)
+
+O harness que a #1052 pede já existe inteiro em `main`, testado e conectado ao script de avaliação do teste travado -- só nunca foi fechado porque nenhum PR o referenciou pelo número. Fechamento com evidência de diff, sem mudança de código.
