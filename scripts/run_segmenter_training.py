@@ -212,6 +212,30 @@ def _preserve_finetune_summary(checkpoint_dir: Path, output_dir: Path) -> str | 
     return str(destination)
 
 
+def _selected_epoch_from_finetune_summary(checkpoint_dir: Path, epochs: int) -> int:
+    """Prefer OPF's own best-by-loss epoch over the run's total epoch count (#1048).
+
+    OPF restores its best validation-loss state across epochs before writing
+    the checkpoint and names that epoch `best_epoch` in its own
+    `finetune_summary.json`. Falls back to `epochs` -- the previous, incorrect
+    assumption that the selected checkpoint is always the last epoch -- when
+    the summary is absent, unreadable, or `best_epoch` isn't a valid
+    1-indexed epoch number. Never raises: missing/malformed provenance must
+    degrade to the conservative fallback, not fail an otherwise-successful run.
+    """
+    summary_path = checkpoint_dir / "finetune_summary.json"
+    if not summary_path.exists():
+        return epochs
+    try:
+        summary = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, ValueError):
+        return epochs
+    best_epoch = summary.get("best_epoch") if isinstance(summary, dict) else None
+    if isinstance(best_epoch, bool) or not isinstance(best_epoch, int) or best_epoch < 1:
+        return epochs
+    return best_epoch
+
+
 def _load_label_space(path: Path) -> dict:
     label_space = json.loads(path.read_text(encoding="utf-8"))
     names = label_space.get("span_class_names", [])
@@ -366,8 +390,8 @@ def train_and_select_checkpoint(
     tracks the best-by-validation-loss state across epochs internally and
     restores it before writing the checkpoint (see module docstring). This
     function's only job is to report that checkpoint's validation macro-F1
-    as external context. Never opens `data_dir / "test.jsonl"`, even if
-    present.
+    and which epoch OPF actually selected (#1048), both as external context.
+    Never opens `data_dir / "test.jsonl"`, even if present.
     """
     train_jsonl = data_dir / "train.jsonl"
     val_jsonl = data_dir / "val.jsonl"
@@ -402,10 +426,17 @@ def train_and_select_checkpoint(
 
     macro = _macro_f1_from_metrics(metrics, categories)
     val_loss = _validation_loss_from_metrics(metrics)
-    logger.info("train_val_macro_f1", epochs=epochs, macro_f1=macro, val_loss=val_loss)
+    selected_epoch = _selected_epoch_from_finetune_summary(checkpoint_dir, epochs)
+    logger.info(
+        "train_val_macro_f1",
+        epochs=epochs,
+        selected_epoch=selected_epoch,
+        macro_f1=macro,
+        val_loss=val_loss,
+    )
 
     selection = CheckpointSelection(
-        selected_epoch=epochs,
+        selected_epoch=selected_epoch,
         val_macro_f1=macro,
         val_loss=val_loss,
     )

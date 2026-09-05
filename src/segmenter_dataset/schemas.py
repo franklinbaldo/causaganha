@@ -337,9 +337,11 @@ class CheckpointSelection(BaseModel):
     to be compared against, not edited per run. Selection itself happens
     inside OPF, not in this wrapper: OPF tracks validation loss across
     epochs in one continuous process and restores its best-by-loss state
-    before writing the checkpoint. ``selected_epoch`` records the run's
-    total epoch count, and ``val_macro_f1``/``val_loss`` are this wrapper's
-    own external evaluation of that resulting checkpoint.
+    before writing the checkpoint. ``selected_epoch`` records the epoch OPF
+    itself reports restoring (``best_epoch`` in its ``finetune_summary.json``,
+    #1048), falling back to the run's total epoch count only when that
+    provenance is absent or malformed. ``val_macro_f1``/``val_loss`` are this
+    wrapper's own external evaluation of that resulting checkpoint.
     """
 
     model_config = ConfigDict(frozen=True)

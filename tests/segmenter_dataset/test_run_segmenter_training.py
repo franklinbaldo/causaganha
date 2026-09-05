@@ -281,8 +281,19 @@ def test_macro_f1_from_metrics_denominator_is_stable_across_categories():
     assert _macro_f1_from_metrics(partial_report, categories) == pytest.approx(0.4)
 
 
-def _fake_subprocess_run(*, train_metrics: dict | None = None, eval_metrics: dict | None = None):
-    """Build a `subprocess.run` stand-in recording call count/cmds for `opf train`/`opf eval`."""
+def _fake_subprocess_run(
+    *,
+    train_metrics: dict | None = None,
+    eval_metrics: dict | None = None,
+    finetune_summary: dict | str | None = None,
+):
+    """Build a `subprocess.run` stand-in recording call count/cmds for `opf train`/`opf eval`.
+
+    ``finetune_summary``, when given, is written as `finetune_summary.json`
+    into the checkpoint dir on a successful `opf train` call -- the same
+    file the real OPF trainer produces, carrying `best_epoch` (#1048). Pass
+    a dict to have it JSON-encoded, or a raw string to test malformed JSON.
+    """
     calls: list[list[str]] = []
 
     class _Result:
@@ -297,6 +308,13 @@ def _fake_subprocess_run(*, train_metrics: dict | None = None, eval_metrics: dic
             output_dir.mkdir(parents=True, exist_ok=True)
             if train_metrics is not None:
                 return _Result(1)
+            if finetune_summary is not None:
+                text = (
+                    finetune_summary
+                    if isinstance(finetune_summary, str)
+                    else json.dumps(finetune_summary)
+                )
+                (output_dir / "finetune_summary.json").write_text(text, encoding="utf-8")
             return _Result(0)
         if "eval" in cmd:
             metrics_out = Path(cmd[cmd.index("--metrics-out") + 1])
@@ -372,6 +390,63 @@ def test_train_and_select_checkpoint_returns_selection_from_final_eval(tmp_path,
     assert selection.val_macro_f1 == pytest.approx(0.6)
     assert selection.val_loss == pytest.approx(0.3)
     assert checkpoint_dir == tmp_path / "out" / "checkpoint"
+
+
+def test_train_and_select_checkpoint_reports_opf_best_epoch(tmp_path, monkeypatch):
+    """#1048: OPF restores its best-by-loss state (possibly an earlier epoch)
+    before writing the checkpoint and names that epoch as `best_epoch` in
+    `finetune_summary.json`. `selected_epoch` must report *that* epoch, not
+    the run's total epoch count -- claiming the last epoch was selected when
+    OPF actually restored epoch 2 of 5 misrepresents the checkpoint's own
+    provenance.
+    """
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+
+    fake_run, _calls = _fake_subprocess_run(
+        eval_metrics={"by_class.resultado.span.f1": 0.6, "loss": 0.3},
+        finetune_summary={"best_epoch": 2, "best_metric_name": "loss", "best_metric": 0.2},
+    )
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    selection, _checkpoint_dir = train_and_select_checkpoint(
+        data_dir, tmp_path / "out", epochs=5, batch_size=1, seed=0, device="cpu"
+    )
+
+    assert selection.selected_epoch == 2
+
+
+@pytest.mark.parametrize(
+    "finetune_summary",
+    [
+        pytest.param(None, id="summary-absent"),
+        pytest.param({"best_metric_name": "loss"}, id="best_epoch-missing"),
+        pytest.param({"best_epoch": "2"}, id="best_epoch-not-an-int"),
+        pytest.param({"best_epoch": 0}, id="best_epoch-not-positive"),
+        pytest.param("not json", id="summary-malformed-json"),
+    ],
+)
+def test_train_and_select_checkpoint_falls_back_to_epochs_when_best_epoch_unusable(
+    tmp_path, monkeypatch, finetune_summary
+):
+    """Conservative fallback (#1048): only a genuinely valid `best_epoch` may
+    override `epochs` -- an absent, malformed, or malshaped summary must
+    never be treated as if it said "the last epoch was best".
+    """
+    data_dir = tmp_path / "data"
+    _write_train_artifacts(data_dir)
+
+    fake_run, _calls = _fake_subprocess_run(
+        eval_metrics={"by_class.resultado.span.f1": 0.6, "loss": 0.3},
+        finetune_summary=finetune_summary,
+    )
+    monkeypatch.setattr("scripts.run_segmenter_training.subprocess.run", fake_run)
+
+    selection, _checkpoint_dir = train_and_select_checkpoint(
+        data_dir, tmp_path / "out", epochs=5, batch_size=1, seed=0, device="cpu"
+    )
+
+    assert selection.selected_epoch == 5
 
 
 def test_train_and_select_checkpoint_raises_when_opf_train_fails(tmp_path, monkeypatch):
