@@ -33,7 +33,7 @@ class DjenResumoConcept(BaseModel):
 
     description: str = Field(default=None)
     id: str
-    n_publicacoes: str
+    n_publicacoes: int
     primeira_publicacao: str
     title: str = Field(default=None)
     tribunais: list[str]
@@ -76,7 +76,7 @@ class FonteConcept(BaseModel):
     description: str = Field(default=None)
     natureza: str
     nome: str
-    oficial: str
+    oficial: bool
     orgao: str
     title: str = Field(default=None)
     type: Literal["Fonte"]
@@ -100,7 +100,7 @@ class FonteCoberturaConcept(BaseModel):
             },
         },
     )
-    registros: str
+    registros: int
     status: str
     title: str = Field(default=None)
     type: Literal["FonteCobertura"]
@@ -115,7 +115,7 @@ class JurisDecisaoConcept(BaseModel):
     data_julgamento: str
     description: str = Field(default=None)
     id: str
-    n_documentos: str
+    n_documentos: int
     orgao: str
     relator: str
     tipos: list[str]
@@ -183,8 +183,8 @@ class ProcessoConcept(BaseModel):
             },
         },
     )
-    documentos_truncados: str
-    encontrado: str
+    documentos_truncados: bool
+    encontrado: bool
     fontes_presentes: list[str]
     juris_id: str = Field(
         json_schema_extra={
@@ -258,8 +258,8 @@ class ProcessoConsultarProjection(BaseModel):
             },
         },
     )
-    documentos_truncados: str
-    encontrado: str
+    documentos_truncados: bool
+    encontrado: bool
     fontes_presentes: list[str]
     juris_id: str = Field(
         json_schema_extra={

@@ -66,7 +66,18 @@ jobs:
 
           bundle = load_bundle(Path("knowledge"))
           with bundle.compile_types(".okf/specs/{slug}.md") as typed:
-              assert typed.tables == ("Fonte", "Pipeline")
+              required = {
+                  "DatajudCapa",
+                  "DjenResumo",
+                  "DocumentoProcesso",
+                  "Fonte",
+                  "FonteCobertura",
+                  "JurisDecisao",
+                  "Pipeline",
+                  "Processo",
+                  "StjAcordao",
+              }
+              assert required <= set(typed.tables)
               assert typed["Fonte"].count().execute() == 4
               assert typed["Pipeline"].count().execute() == 4
           PY
