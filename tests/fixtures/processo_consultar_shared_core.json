@@ -1,0 +1,64 @@
+{
+  "domain_input": {
+    "encontrado": true,
+    "nr_processo": "00000010220248220001",
+    "nr_processo_mascara": "0000001-02.2024.8.22.0001",
+    "fontes_presentes": ["djen", "stj"],
+    "cobertura_dataset": [
+      {"fonte": "djen", "status": "loaded_remote", "registros": 10},
+      {"fonte": "datajud", "status": "unavailable", "registros": 0}
+    ],
+    "djen": {
+      "primeira_publicacao": "2024-03-01",
+      "ultima_publicacao": "2024-03-05",
+      "n_publicacoes": 2,
+      "tribunais": ["TJRO"]
+    },
+    "juris": null,
+    "stj": {
+      "id": null,
+      "classe": null,
+      "relator": null,
+      "tema": null,
+      "tese": null,
+      "ementa": null,
+      "data_decisao": null,
+      "data_publicacao": null
+    },
+    "datajud": null,
+    "documentos": [],
+    "documentos_truncados": false,
+    "dataset_gerado_em": null,
+    "avisos": ["Fonte 'datajud' indisponível para este processo"]
+  },
+  "expected_shared": {
+    "encontrado": true,
+    "cnj": "00000010220248220001",
+    "cnj_formatado": "0000001-02.2024.8.22.0001",
+    "fontes_presentes": ["djen", "stj"],
+    "cobertura_dataset": [
+      {"fonte": "djen", "status": "loaded_remote", "registros": 10},
+      {"fonte": "datajud", "status": "unavailable", "registros": 0}
+    ],
+    "djen": {
+      "primeira_publicacao": "2024-03-01",
+      "ultima_publicacao": "2024-03-05",
+      "n_publicacoes": 2,
+      "tribunais": ["TJRO"]
+    },
+    "juris": null,
+    "stj": {
+      "id": null,
+      "classe": null,
+      "relator": null,
+      "tema": null,
+      "tese": null,
+      "ementa": null,
+      "data_decisao": null,
+      "data_publicacao": null
+    },
+    "datajud": null,
+    "dataset_gerado_em": null,
+    "avisos": ["Fonte 'datajud' indisponível para este processo"]
+  }
+}
