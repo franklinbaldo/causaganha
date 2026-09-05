@@ -14,16 +14,16 @@ class DatajudCapaConcept(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    assuntos: str
-    classe_oficial: str
-    data_ajuizamento: str
+    assuntos: str | None
+    classe_oficial: str | None
+    data_ajuizamento: str | None
     description: str = Field(default=None)
-    grau: str
+    grau: str | None
     id: str
-    orgao_julgador: str
+    orgao_julgador: str | None
     title: str = Field(default=None)
     type: Literal["DatajudCapa"]
-    ultima_atualizacao: str
+    ultima_atualizacao: str | None
 
 
 class DjenResumoConcept(BaseModel):
@@ -33,12 +33,12 @@ class DjenResumoConcept(BaseModel):
 
     description: str = Field(default=None)
     id: str
-    n_publicacoes: int
-    primeira_publicacao: str
+    n_publicacoes: int | None
+    primeira_publicacao: str | None
     title: str = Field(default=None)
     tribunais: list[str]
     type: Literal["DjenResumo"]
-    ultima_publicacao: str
+    ultima_publicacao: str | None
 
 
 class DocumentoProcessoConcept(BaseModel):
@@ -46,7 +46,7 @@ class DocumentoProcessoConcept(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    data: str
+    data: str | None
     description: str = Field(default=None)
     fonte: str
     id_documento: str
@@ -60,11 +60,11 @@ class DocumentoProcessoConcept(BaseModel):
             },
         },
     )
-    resumo: str
-    tipo: str
+    resumo: str | None
+    tipo: str | None
     title: str = Field(default=None)
     type: Literal["DocumentoProcesso"]
-    url: str
+    url: str | None
 
 
 class FonteConcept(BaseModel):
@@ -111,17 +111,17 @@ class JurisDecisaoConcept(BaseModel):
 
     model_config = ConfigDict(extra="allow")
 
-    classe: str
-    data_julgamento: str
+    classe: str | None
+    data_julgamento: str | None
     description: str = Field(default=None)
     id: str
-    n_documentos: int
-    orgao: str
+    n_documentos: int | None
+    orgao: str | None
     relator: str
     tipos: list[str]
     title: str = Field(default=None)
     type: Literal["JurisDecisao"]
-    url: str
+    url: str | None
 
 
 class PipelineConcept(BaseModel):
@@ -218,14 +218,14 @@ class StjAcordaoConcept(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     classe: str
-    data_decisao: str
-    data_publicacao: str
+    data_decisao: str | None
+    data_publicacao: str | None
     description: str = Field(default=None)
-    ementa: str
+    ementa: str | None
     id: str
-    relator: str
-    tema: str
-    tese: str
+    relator: str | None
+    tema: str | None
+    tese: str | None
     title: str = Field(default=None)
     type: Literal["StjAcordao"]
 
