@@ -80,7 +80,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
       <h2 class={css({ mt: '4', mb: '6', fontSize: 'xl', lineHeight: 'heading' })}>Quer explorar o acervo?</h2>
       <div class={css({ display: 'flex', gap: '4', flexWrap: 'wrap', fontWeight: 'bold' })}>
         <a href={`${BASE}stats`}>Ver cobertura →</a>
-        <a href={`${BASE}agentes`}>Usar com agente →</a>
+        <a href={BASE + 'agentes'}>Usar com agente →</a>
       </div>
     </aside>
   </section>
