@@ -9,6 +9,8 @@
     shareLabel = "Compartilhar",
     copiedLabel = "Copiado!",
     onShare,
+    activeReferenceCopied = null,
+    onCopyReference,
     showClose = false,
     onClose,
     showReader = false,
@@ -28,6 +30,8 @@
     shareLabel?: string;
     copiedLabel?: string;
     onShare: (event: MouseEvent, context: PublicationActionContext) => void;
+    activeReferenceCopied?: PublicationActionContext | null;
+    onCopyReference?: (event: MouseEvent, context: PublicationActionContext) => void;
     showClose?: boolean;
     onClose?: () => void;
     showReader?: boolean;
@@ -85,6 +89,17 @@
       {@render openExternalIcon()}
       Inteiro teor
     </a>
+  {/if}
+
+  {#if link && onCopyReference}
+    <button
+      type="button"
+      class="outline secondary"
+      onclick={(event: MouseEvent) => onCopyReference(event, shareContext)}
+      title="Copiar referência verificável em texto puro"
+    >
+      {activeReferenceCopied === shareContext ? 'Referência copiada' : 'Copiar referência'}
+    </button>
   {/if}
 
   <div class="nav-actions" aria-label="Ações de navegação">

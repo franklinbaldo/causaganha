@@ -99,4 +99,21 @@ describe('buildDocumentoReferenceText', () => {
     // No document type on record — must not invent one, only use a neutral noun.
     expect(text).toContain('documento');
   });
+
+  it('omits the process line — never a placeholder — when the record carries no process number (#1135 /publicacoes slice)', () => {
+    const text = buildDocumentoReferenceText({
+      fonteLabel: 'DJEN (TJRO)',
+      nrProcessoMascara: null,
+      tipo: 'Intimação',
+      data: '2024-01-01',
+      url: 'https://archive.org/download/djen-tjro-2024/djen-2024-01-01-TJRO.zip',
+      causaganhaUrl: CAUSAGANHA_URL,
+    });
+
+    expect(text).toContain('Intimação');
+    expect(text).toContain('DJEN (TJRO)');
+    expect(text).not.toMatch(/desconhecid[ao]|unknown|n\/a|do processo/i);
+    expect(text).toContain('https://archive.org/download/djen-tjro-2024/djen-2024-01-01-TJRO.zip');
+    expect(text).toContain(CAUSAGANHA_URL);
+  });
 });

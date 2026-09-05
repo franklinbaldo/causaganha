@@ -20,6 +20,8 @@
     activeCopied = null,
     onExpand,
     onShare,
+    activeReferenceCopied = null,
+    onCopyReference,
   }: {
     pub: DjenPublication;
     seq: number;
@@ -37,6 +39,8 @@
     activeCopied?: PublicationActionContext | null;
     onExpand?: () => void;
     onShare: (event: MouseEvent, context: PublicationActionContext) => void;
+    activeReferenceCopied?: PublicationActionContext | null;
+    onCopyReference?: (event: MouseEvent, context: PublicationActionContext) => void;
   } = $props();
 
   const preview = $derived(pub.textoRender?.kind === "html" ? htmlTeaser : teaser);
@@ -141,6 +145,8 @@
       shareContext="compact"
       shareLabel="Link"
       {onShare}
+      {activeReferenceCopied}
+      {onCopyReference}
       ariaLabel="Ações do resultado compacto"
     />
   </footer>

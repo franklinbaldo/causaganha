@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { DjenPublication } from "../lib/djen";
+  import { buildDocumentoReferenceText } from "../lib/processoReference";
   import {
     buildEntityTerms,
     buildIdentityRows,
@@ -54,10 +55,13 @@
   let isReaderMode = $state(false);
   let activeCopied = $state<PublicationActionContext | null>(null);
   let shareTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  let activeReferenceCopied = $state<PublicationActionContext | null>(null);
+  let referenceTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   $effect(() => {
     return () => {
       if (shareTimeoutId) clearTimeout(shareTimeoutId);
+      if (referenceTimeoutId) clearTimeout(referenceTimeoutId);
     };
   });
 
@@ -132,19 +136,47 @@
     return fallbackHash;
   }
 
+  function currentPublicationUrl(): string {
+    const pathAndSearch = `${window.location.pathname}${window.location.search}`;
+    return `${window.location.origin}${pathAndSearch}#${publicationShareHash()}`;
+  }
+
   async function handleShare(e: MouseEvent, context: PublicationActionContext) {
     e.preventDefault();
     e.stopPropagation();
-    const hash = publicationShareHash();
-    const pathAndSearch = `${window.location.pathname}${window.location.search}`;
-    const url = `${window.location.origin}${pathAndSearch}#${hash}`;
-    const ok = await copyToClipboard(url);
+    const ok = await copyToClipboard(currentPublicationUrl());
     if (!ok) return;
     if (shareTimeoutId) clearTimeout(shareTimeoutId);
     activeCopied = context;
     shareTimeoutId = setTimeout(() => {
       activeCopied = null;
       shareTimeoutId = null;
+    }, 2000);
+  }
+
+  // Issue #1135 (/publicacoes slice): reuses the same plain-text reference
+  // contract already proven on /processo (processoReference.ts), gated on
+  // pub.link exactly like the existing "Inteiro teor" action — no reference
+  // is offered without a public origin URL to point at.
+  async function handleCopyReference(e: MouseEvent, context: PublicationActionContext) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!pub.link) return;
+    const text = buildDocumentoReferenceText({
+      fonteLabel: pub.siglaTribunal ? `DJEN (${pub.siglaTribunal})` : "DJEN",
+      nrProcessoMascara: processNumber,
+      tipo: pub.tipoComunicacao ?? null,
+      data: dateStr,
+      url: pub.link,
+      causaganhaUrl: currentPublicationUrl(),
+    });
+    const ok = await copyToClipboard(text);
+    if (!ok) return;
+    if (referenceTimeoutId) clearTimeout(referenceTimeoutId);
+    activeReferenceCopied = context;
+    referenceTimeoutId = setTimeout(() => {
+      activeReferenceCopied = null;
+      referenceTimeoutId = null;
     }, 2000);
   }
 </script>
@@ -186,6 +218,8 @@
     {activeCopied}
     {onExpand}
     onShare={handleShare}
+    {activeReferenceCopied}
+    onCopyReference={handleCopyReference}
   />
 {:else if isReaderMode}
   <PublicationReader
@@ -205,6 +239,8 @@
     {activeCopied}
     onBack={() => (isReaderMode = false)}
     onShare={handleShare}
+    {activeReferenceCopied}
+    onCopyReference={handleCopyReference}
   />
 {:else}
   <article class="publication-card publication-card--expanded" id={`pub-${seq}`}>
@@ -233,6 +269,8 @@
         {activeCopied}
         shareContext="main"
         onShare={handleShare}
+        {activeReferenceCopied}
+        onCopyReference={handleCopyReference}
         showClose={!!onCollapse}
         onClose={onCollapse}
         showReader

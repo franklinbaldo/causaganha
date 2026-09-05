@@ -24,6 +24,8 @@
     activeCopied = null,
     onBack,
     onShare,
+    activeReferenceCopied = null,
+    onCopyReference,
   }: {
     pub: DjenPublication;
     seq: number;
@@ -41,6 +43,8 @@
     activeCopied?: PublicationActionContext | null;
     onBack: () => void;
     onShare: (event: MouseEvent, context: PublicationActionContext) => void;
+    activeReferenceCopied?: PublicationActionContext | null;
+    onCopyReference?: (event: MouseEvent, context: PublicationActionContext) => void;
   } = $props();
 </script>
 
@@ -97,6 +101,8 @@
       {activeCopied}
       shareContext="reader"
       {onShare}
+      {activeReferenceCopied}
+      {onCopyReference}
       showBack
       {onBack}
       ariaLabel="Ações de navegação e leitura"
