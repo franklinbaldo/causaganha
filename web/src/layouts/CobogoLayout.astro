@@ -1,0 +1,95 @@
+---
+import '../styles/cobogo.css';
+import { css } from '../../styled-system/css';
+import { navLink } from '../../styled-system/recipes';
+
+interface Props {
+  title: string;
+  description?: string;
+  ogImage?: string;
+}
+
+const {
+  title,
+  description = 'CausaGanha — consulta judicial pública com fontes, cobertura e proveniência explícitas.',
+  ogImage,
+} = Astro.props;
+
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const canonicalURL = new URL(Astro.url.pathname, Astro.site);
+const ogImageUrl = ogImage || new URL(`${BASE}og-image.png`, Astro.site).toString();
+const path = Astro.url.pathname.replace(/\/$/, '');
+const active = (route: string) => path.endsWith(route);
+---
+
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <meta name="generator" content={Astro.generator} />
+    <meta name="theme-color" content="#f4f0e6" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="CausaGanha" />
+    <meta property="og:locale" content="pt_BR" />
+    <meta property="og:url" content={canonicalURL} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:image" content={ogImageUrl} />
+    <meta property="twitter:card" content="summary_large_image" />
+    <meta property="twitter:title" content={title} />
+    <meta property="twitter:description" content={description} />
+    <meta property="twitter:image" content={ogImageUrl} />
+    <link rel="canonical" href={canonicalURL} />
+    <link rel="icon" type="image/svg+xml" href={`${BASE}favicon.svg`} />
+    <link rel="apple-touch-icon" sizes="180x180" href={`${BASE}apple-touch-icon.png`} />
+    <title>{title}</title>
+  </head>
+  <body>
+    <a
+      href="#main-content"
+      class={css({
+        position: 'fixed',
+        top: '3',
+        left: '3',
+        zIndex: '10',
+        px: '4',
+        py: '3',
+        background: 'text',
+        color: 'canvas',
+        fontWeight: 'bold',
+        transform: 'translateY(-160%)',
+        _focus: { transform: 'translateY(0)' },
+      })}
+    >Ir para o conteúdo</a>
+
+    <header class={css({ borderBottom: '1px solid', borderColor: 'border' })}>
+      <div class={css({ maxW: 'content', mx: 'auto', px: { base: '4', md: '8' }, minH: '5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6', flexWrap: 'wrap' })}>
+        <a href={BASE} class={css({ fontFamily: 'display', fontWeight: 'black', fontSize: 'xl', letterSpacing: '-0.04em', textDecoration: 'none' })}>
+          CausaGanha
+        </a>
+        <nav aria-label="Navegação principal" class={css({ display: 'flex', alignItems: 'center', gap: { base: '4', md: '6' }, flexWrap: 'wrap' })}>
+          <a class={navLink({ active: active('/processo') })} href={`${BASE}processo`}>Processo</a>
+          <a class={navLink({ active: active('/publicacoes') })} href={`${BASE}publicacoes`}>Publicações</a>
+          <a class={navLink()} href={`${BASE}minhas-consultas`}>Minhas consultas</a>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content">
+      <slot />
+    </main>
+
+    <footer class={css({ mt: '20', borderTop: '1px solid', borderColor: 'border' })}>
+      <div class={css({ maxW: 'content', mx: 'auto', px: { base: '4', md: '8' }, py: '8', display: 'flex', justifyContent: 'space-between', gap: '6', flexWrap: 'wrap', fontSize: 'sm', color: 'textMuted' })}>
+        <p class={css({ m: '0' })}>CausaGanha · consulta judicial pública e verificável.</p>
+        <nav aria-label="Links secundários" class={css({ display: 'flex', gap: '5', flexWrap: 'wrap' })}>
+          <a href={`${BASE}stats`}>Cobertura</a>
+          <a href={`${BASE}agentes`}>Agentes</a>
+          <a href={`${BASE}sobre`}>Sobre</a>
+        </nav>
+      </div>
+    </footer>
+  </body>
+</html>

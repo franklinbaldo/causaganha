@@ -13,9 +13,10 @@
     "test:watch": "vitest",
     "codegen:djen": "openapi-typescript ../openapi/djen.yml -o src/lib/djen-types.gen.ts",
     "codegen:djen-zod": "orval --config orval.config.ts",
-    "prebuild": "npm run codegen:djen && npm run codegen:djen-zod",
+    "codegen:styles": "panda codegen",
+    "prebuild": "npm run codegen:djen && npm run codegen:djen-zod && npm run codegen:styles",
     "pretest": "npm run codegen:djen && npm run codegen:djen-zod",
-    "pretypecheck": "npm run codegen:djen && npm run codegen:djen-zod",
+    "pretypecheck": "npm run codegen:djen && npm run codegen:djen-zod && npm run codegen:styles",
     "test:rendered-contracts": "vitest run src/lib/data/renderedContracts.integration.test.ts"
   },
   "dependencies": {
@@ -37,10 +38,12 @@
   "devDependencies": {
     "@amiceli/vitest-cucumber": "^6.3.0",
     "@eslint/js": "^9.39.1",
+    "@pandacss/dev": "^1.12.0",
     "@sveltejs/vite-plugin-svelte": "^7.2.0",
     "@tanstack/svelte-query-devtools": "^6.1.14",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/svelte": "^5.3.1",
+    "cobogo": "github:franklinbaldo/cobogo#8ad1fe1c40bb6af12d8b8fcbe1b20d070b5bb44c",
     "eslint": "^9.39.1",
     "globals": "^16.5.0",
     "jsdom": "^26.0.0",

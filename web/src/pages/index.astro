@@ -1,6 +1,8 @@
 ---
-import Layout from '../layouts/Layout.astro';
+import CobogoLayout from '../layouts/CobogoLayout.astro';
 import { loadSiteStatus, evaluateSourceFreshness, freshnessDisplayLabel } from '../lib/data/siteStatus';
+import { css } from '../../styled-system/css';
+import { badge, button, card, input } from '../../styled-system/recipes';
 
 const siteStatus = await loadSiteStatus();
 const djen = siteStatus.sources.djen;
@@ -8,274 +10,78 @@ const freshnessLabel = freshnessDisplayLabel(evaluateSourceFreshness(djen, Date.
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
-<Layout
-  title="CausaGanha — consulta judicial pública e verificável"
-  description="Consulte processos e publicações judiciais com origem e cobertura explícitas."
-  fullWidth={true}
-  showNetworkBanner={false}
+<CobogoLayout
+  title="CausaGanha — consulte processos e publicações judiciais"
+  description="Consulte um processo por CNJ ou pesquise publicações judiciais preservadas, sempre com fonte e cobertura explícitas."
 >
-  <main class="home" aria-labelledby="home-title">
-    <section class="home__core">
-      <p class="home__eyebrow">Consulta pública · fontes oficiais</p>
-      <h1 id="home-title">Procure. Confira a fonte.</h1>
-      <p class="home__lede">
-        Digite um número CNJ para abrir o processo, ou pesquise uma OAB, parte ou termo nas publicações preservadas.
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '4', md: '8' }, pt: { base: '12', md: '20' }, pb: { base: '12', md: '16' } })}>
+    <div class={css({ maxW: '60rem' })}>
+      <span class={badge({ tone: 'accent' })}>Consulta judicial pública</span>
+      <h1 class={css({ textStyle: 'display', mt: '6', mb: '0', maxW: '11ch' })}>
+        Consulte. Confira a fonte.
+      </h1>
+      <p class={css({ mt: '6', mb: '0', maxW: '42rem', fontSize: { base: 'lg', md: 'xl' }, lineHeight: 'body', color: 'textMuted' })}>
+        O CausaGanha reúne sinais de fontes judiciais diferentes sem fingir que elas dizem a mesma coisa. Comece pelo processo ou pelo arquivo de publicações.
       </p>
+    </div>
+  </section>
 
-      <form class="home__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
-        <label for="home-query" class="sr-only">Consultar processo ou pesquisar publicações</label>
-        <div class="home__search-row">
-          <input
-            id="home-query"
-            data-global-search
-            name="texto"
-            type="search"
-            placeholder="CNJ, OAB, parte ou texto"
-            autocomplete="off"
-            aria-describedby="hero-search-hint"
-          />
-          <button type="submit">Buscar</button>
-        </div>
-        <p class="home__hint" id="hero-search-hint" aria-live="polite" hidden></p>
+  <section aria-label="Consultas principais" class={css({ maxW: 'content', mx: 'auto', px: { base: '4', md: '8' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '1fr 1fr' }, gap: '4' })}>
+    <article class={card({ tone: 'dark' })}>
+      <p class={css({ textStyle: 'eyebrow', m: '0', color: 'accent' })}>01 · Processo</p>
+      <h2 class={css({ textStyle: 'title', mt: '4', mb: '0', maxW: '14ch' })}>Tenho um número CNJ</h2>
+      <p class={css({ mt: '4', mb: '8', maxW: '36rem', color: 'surfaceMuted', lineHeight: 'body' })}>
+        Abra o dossiê reconciliado e veja, fonte por fonte, o que já está disponível sobre o processo.
+      </p>
+      <a class={button({ visual: 'light' })} href={`${BASE}processo`}>Consultar processo</a>
+    </article>
+
+    <article class={card({ tone: 'plain', lift: 'raised' })}>
+      <p class={css({ textStyle: 'eyebrow', m: '0', color: 'textMuted' })}>02 · Arquivo</p>
+      <h2 class={css({ textStyle: 'title', mt: '4', mb: '0', maxW: '16ch' })}>Quero pesquisar publicações</h2>
+      <p class={css({ mt: '4', mb: '6', maxW: '36rem', color: 'textMuted', lineHeight: 'body' })}>
+        Pesquise OAB, parte ou texto nas publicações judiciais preservadas pelo CausaGanha.
+      </p>
+      <form action={`${BASE}publicacoes`} method="get" role="search" class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', sm: '1fr auto' }, gap: '2' })}>
+        <label for="publicacao-query" class="sr-only">Pesquisar publicações</label>
+        <input id="publicacao-query" class={input()} name="texto" type="search" placeholder="OAB, parte ou texto" autocomplete="off" />
+        <button class={button()} type="submit">Pesquisar</button>
       </form>
+    </article>
+  </section>
 
-      <nav class="home__shortcuts" aria-label="Ações principais">
-        <a href={BASE + 'processo'}>Consultar processo</a>
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'publicacoes'}>Pesquisar publicações</a>
-      </nav>
-    </section>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '4', md: '8' }, mt: { base: '8', md: '12' } })} aria-label="Estado do acervo">
+    <div class={css({ borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'border', py: '6', display: 'grid', gridTemplateColumns: { base: '1fr', md: 'repeat(3, 1fr)' }, gap: '6' })}>
+      <div>
+        <p class={css({ textStyle: 'eyebrow', m: '0', color: 'textMuted' })}>Arquivo</p>
+        <p class={css({ mt: '2', mb: '0', fontWeight: 'bold' })}>DJEN preservado</p>
+      </div>
+      <div>
+        <p class={css({ textStyle: 'eyebrow', m: '0', color: 'textMuted' })}>Atualização</p>
+        <p class={css({ mt: '2', mb: '0', fontWeight: 'bold' })}>{freshnessLabel}</p>
+      </div>
+      <div>
+        <p class={css({ textStyle: 'eyebrow', m: '0', color: 'textMuted' })}>Cobertura disponível</p>
+        <p class={css({ mt: '2', mb: '0', fontWeight: 'bold' })}>{djen.tribunals_with_data} tribunais com dados</p>
+      </div>
+    </div>
+  </section>
 
-    <section class="home__evidence" aria-label="Como o CausaGanha organiza as fontes">
-      <p><strong>Arquivo</strong> DJEN preservado</p>
-      <p><strong>Estado</strong> DataJud</p>
-      <p><strong>Teor</strong> JURIS e STJ</p>
-    </section>
-
-    <footer class="home__status">
-      <p>
-        DJEN: <strong>{freshnessLabel}</strong>
-        <span aria-hidden="true">·</span>
-        {djen.tribunals_with_data} tribunais com dados
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'stats'}>cobertura</a>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '4', md: '8' }, mt: '12', display: 'grid', gridTemplateColumns: { base: '1fr', md: '1.15fr 0.85fr' }, gap: '4' })}>
+    <article class={card({ tone: 'muted' })}>
+      <p class={css({ textStyle: 'eyebrow', m: '0' })}>O que você está vendo</p>
+      <h2 class={css({ textStyle: 'title', mt: '4', mb: '4' })}>Fonte não é detalhe.</h2>
+      <p class={css({ m: '0', maxW: '52rem', lineHeight: 'body' })}>
+        DJEN, DataJud, JURIS e STJ têm papéis diferentes. O CausaGanha mostra a origem e a cobertura para que ausência de dado não pareça certeza.
       </p>
-      <p class="home__secondary">
-        <a href={BASE + 'minhas-consultas'}>Minhas consultas</a>
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'agentes'}>Agentes</a>
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'sobre'}>Sobre</a>
-      </p>
-    </footer>
-  </main>
-</Layout>
-
-<script>
-  import { buildHeroSearchRedirect } from '../lib/processoCnj';
-  import { attachHeroSearchHint } from '../lib/heroSearchHint';
-
-  const form = document.querySelector<HTMLFormElement>('.home__search');
-  const input = form?.querySelector<HTMLInputElement>('input[name="texto"]');
-  const hint = form?.querySelector<HTMLElement>('#hero-search-hint');
-
-  if (input && hint) attachHeroSearchHint(input, hint);
-
-  form?.addEventListener('submit', (event) => {
-    const raw = input?.value ?? '';
-    const processoHref = form.dataset.processoHref ?? 'processo';
-    const redirect = buildHeroSearchRedirect(raw, processoHref);
-    if (!redirect) return;
-    event.preventDefault();
-    window.location.href = redirect;
-  });
-</script>
-
-<style>
-  .home {
-    width: min(100% - 2rem, 72rem);
-    min-height: calc(100svh - 8rem);
-    margin: 0 auto;
-    display: grid;
-    grid-template-rows: 1fr auto auto;
-  }
-
-  .home__core {
-    width: min(100%, 48rem);
-    align-self: center;
-    padding-block: clamp(4rem, 12vw, 9rem) clamp(3rem, 8vw, 6rem);
-  }
-
-  .home__eyebrow {
-    margin: 0 0 1.2rem;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .home h1 {
-    max-width: 11ch;
-    margin: 0;
-    font-family: var(--font-display, var(--font-sans));
-    font-size: clamp(3rem, 9vw, 6.6rem);
-    line-height: 0.94;
-    letter-spacing: -0.055em;
-  }
-
-  .home__lede {
-    max-width: 39rem;
-    margin: 1.75rem 0 0;
-    color: var(--fg-muted);
-    font-size: clamp(1rem, 2vw, 1.2rem);
-    line-height: 1.6;
-  }
-
-  .home__search {
-    max-width: 44rem;
-    margin-top: clamp(2rem, 5vw, 3.5rem);
-  }
-
-  .home__search-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    border-bottom: 2px solid var(--fg);
-  }
-
-  .home__search input {
-    min-width: 0;
-    padding: 1rem 0.1rem;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    font-size: clamp(1.05rem, 2vw, 1.3rem);
-    outline: none;
-  }
-
-  .home__search input::placeholder {
-    color: var(--fg-muted);
-  }
-
-  .home__search-row:focus-within {
-    border-bottom-color: var(--verde, var(--color-accent));
-  }
-
-  .home__search button {
-    padding: 0.9rem 0 0.9rem 1.25rem;
-    border: 0;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    font-weight: 800;
-    cursor: pointer;
-  }
-
-  .home__search button:hover,
-  .home__search button:focus-visible,
-  .home__shortcuts a:hover,
-  .home__shortcuts a:focus-visible,
-  .home__status a:hover,
-  .home__status a:focus-visible {
-    color: var(--verde, var(--color-accent));
-  }
-
-  .home__hint {
-    margin: 0.65rem 0 0;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-  }
-
-  .home__shortcuts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 1.1rem;
-    color: var(--fg-muted);
-    font-size: 0.95rem;
-  }
-
-  .home__shortcuts a,
-  .home__status a {
-    color: inherit;
-  }
-
-  .home__evidence {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.25rem;
-    padding-block: 1.25rem;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    color: var(--fg-muted);
-    font-size: 0.9rem;
-  }
-
-  .home__evidence p,
-  .home__status p {
-    margin: 0;
-  }
-
-  .home__evidence strong {
-    display: block;
-    margin-bottom: 0.2rem;
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .home__status {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding-block: 1.15rem 2rem;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-  }
-
-  .home__secondary {
-    text-align: right;
-  }
-
-  @media (max-width: 42rem) {
-    .home {
-      min-height: auto;
-    }
-
-    .home__core {
-      padding-block: 5rem 4rem;
-    }
-
-    .home h1 {
-      max-width: 9ch;
-    }
-
-    .home__search-row {
-      grid-template-columns: 1fr;
-    }
-
-    .home__search button {
-      width: max-content;
-      padding: 0.4rem 0 0.9rem;
-    }
-
-    .home__evidence {
-      grid-template-columns: 1fr;
-      gap: 0.85rem;
-    }
-
-    .home__status {
-      flex-direction: column;
-    }
-
-    .home__secondary {
-      text-align: left;
-    }
-  }
-</style>
+    </article>
+    <aside class={card({ tone: 'attention' })}>
+      <p class={css({ textStyle: 'eyebrow', m: '0' })}>Avançado</p>
+      <h2 class={css({ mt: '4', mb: '6', fontSize: 'xl', lineHeight: 'heading' })}>Quer explorar o acervo?</h2>
+      <div class={css({ display: 'flex', gap: '4', flexWrap: 'wrap', fontWeight: 'bold' })}>
+        <a href={`${BASE}stats`}>Ver cobertura →</a>
+        <a href={`${BASE}agentes`}>Usar com agente →</a>
+      </div>
+    </aside>
+  </section>
+</CobogoLayout>
