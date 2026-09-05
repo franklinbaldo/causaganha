@@ -22,7 +22,8 @@ const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhe
 const generatedAtIso = utcDateTimeAttr(siteStatus.generated_at);
 
 const totalTribunals = djen.tribunals_total;
-const freshnessLabel = freshnessDisplayLabel(evaluateSourceFreshness(djen, Date.now()));
+const djenFreshness = evaluateSourceFreshness(djen, Date.now());
+const freshnessLabel = freshnessDisplayLabel(djenFreshness);
 const lastAttempt = formatUtcDateTime(djen.last_attempt_at);
 const lastSuccess = formatUtcDateTime(djen.last_success_at);
 const avgCoverage30 = statsCoverage?.avg_coverage ?? 0;
@@ -60,7 +61,7 @@ const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).
         <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '2' })}>Últimos 30 dias</p>
         <h2 class={css({ textStyle: 'title', m: '0' })}>Resumo do arquivo</h2>
       </div>
-      <span class={badge({ tone: djen.stale ? 'attention' : 'accent' })}>{freshnessLabel}</span>
+      <span class={badge({ tone: djenFreshness.freshness === 'atualizado' ? 'accent' : 'attention' })}>{freshnessLabel}</span>
     </div>
 
     <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: 'repeat(3, 1fr)' }, gap: '4' })}>
