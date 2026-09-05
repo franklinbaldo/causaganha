@@ -24,7 +24,18 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildDatajudSql, buildDjenSql, buildDocumentosSql, buildIndiceSql, buildJurisSql, buildStjSql } from './processoCnj';
+import {
+  buildDatajudSql,
+  buildDjenSql,
+  buildDocumentosSql,
+  buildIndiceSql,
+  buildJurisSql,
+  buildStjSql,
+  mapDatajudRow,
+  mapDjenRow,
+  mapJurisRow,
+  mapStjRow,
+} from './processoCnj';
 
 interface FixtureManifest {
   cnj_all: string;
@@ -51,6 +62,14 @@ interface CompareResult {
   label: string;
   python_rows: Record<string, unknown>[];
   web_rows: Record<string, unknown>[];
+  /**
+   * The Python service's mapped domain view (mirroring
+   * `mapDjenRow`/`mapJurisRow`/`mapStjRow`/`mapDatajudRow`'s shape) for
+   * `plan`s `djen`/`juris`/`stj`/`datajud` — undefined for `indice`/`documentos`,
+   * which have no single-row domain object. Populated by
+   * `scripts/processo_query_plan_compare.py` (#1107 mapping-layer slice).
+   */
+  python_mapped?: Record<string, unknown> | null;
 }
 
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'causaganha-query-plan-parity-'));
@@ -214,5 +233,75 @@ describe('processo query-plan parity (#1107)', () => {
     const cnjUnknownResult = results.find((r) => r.label === 'indice:CNJ_UNKNOWN');
     expect(cnjUnknownResult?.web_rows).toEqual([]);
     expect(cnjUnknownResult?.python_rows).toEqual([]);
+  });
+
+  it('per-source mapped domain views agree between Python service and Web SQL, present and absent', () => {
+    // One level above raw-row parity: #1107's acceptance list also requires
+    // "datas/nulos/listas chegam iguais após normalização pelo contrato
+    // público" and "fonte indisponível continua distinta de CNJ ausente" —
+    // i.e. the *mapped* view (mapDjenRow/mapJurisRow/mapStjRow/mapDatajudRow
+    // on the Web side, the equivalent row-to-domain-object mapping on the
+    // Python side), not just the SQL row set underneath it. CNJ_UNKNOWN is
+    // absent from every source fixture (unlike CNJ_DJEN_ONLY, which is
+    // genuinely present in DJEN), so it doubles as the "this source has no
+    // record for this CNJ" case for all four sources.
+    const { cnj_all: cnjAll, cnj_unknown: cnjUnknown, urls } = manifest;
+
+    const djenSql = buildDjenSql(urls.djen);
+    const jurisSql = buildJurisSql(urls.juris);
+    const stjSql = buildStjSql(urls.stj);
+    const datajudSql = buildDatajudSql(urls.datajud);
+
+    const cases: QueryPlanCase[] = [
+      { label: 'mapped:djen:PRESENT', plan: 'djen', urls: urls.djen, python_params: [cnjAll], web_sql: djenSql, web_params: [cnjAll] },
+      { label: 'mapped:djen:ABSENT', plan: 'djen', urls: urls.djen, python_params: [cnjUnknown], web_sql: djenSql, web_params: [cnjUnknown] },
+      { label: 'mapped:juris:PRESENT', plan: 'juris', urls: urls.juris, python_params: [cnjAll], web_sql: jurisSql, web_params: [cnjAll] },
+      { label: 'mapped:juris:ABSENT', plan: 'juris', urls: urls.juris, python_params: [cnjUnknown], web_sql: jurisSql, web_params: [cnjUnknown] },
+      { label: 'mapped:stj:PRESENT', plan: 'stj', urls: urls.stj, python_params: [cnjAll], web_sql: stjSql, web_params: [cnjAll] },
+      { label: 'mapped:stj:ABSENT', plan: 'stj', urls: urls.stj, python_params: [cnjUnknown], web_sql: stjSql, web_params: [cnjUnknown] },
+      {
+        label: 'mapped:datajud:PRESENT',
+        plan: 'datajud',
+        urls: urls.datajud,
+        python_params: [cnjAll],
+        web_sql: datajudSql,
+        web_params: [cnjAll],
+      },
+      {
+        label: 'mapped:datajud:ABSENT',
+        plan: 'datajud',
+        urls: urls.datajud,
+        python_params: [cnjUnknown],
+        web_sql: datajudSql,
+        web_params: [cnjUnknown],
+      },
+    ];
+
+    const results = runCases(cases);
+    const byLabel = new Map(results.map((r) => [r.label, r]));
+
+    const mappers = {
+      djen: mapDjenRow,
+      juris: mapJurisRow,
+      stj: mapStjRow,
+      datajud: mapDatajudRow,
+    } as const;
+
+    for (const fonte of ['djen', 'juris', 'stj', 'datajud'] as const) {
+      const presentResult = byLabel.get(`mapped:${fonte}:PRESENT`);
+      const absentResult = byLabel.get(`mapped:${fonte}:ABSENT`);
+      const webPresent = mappers[fonte](presentResult?.web_rows[0] ?? null);
+      const webAbsent = mappers[fonte](absentResult?.web_rows[0] ?? null);
+
+      expect(webPresent.present, `${fonte}: expected PRESENT case to resolve present=true`).toBe(true);
+      expect(webAbsent.present, `${fonte}: expected ABSENT case to resolve present=false`).toBe(false);
+
+      expect(presentResult?.python_mapped, `${fonte}: mapped view diverges from Python (present case)`).toEqual(
+        webPresent,
+      );
+      expect(absentResult?.python_mapped, `${fonte}: mapped view diverges from Python (absent case)`).toEqual(
+        webAbsent,
+      );
+    }
   });
 });
