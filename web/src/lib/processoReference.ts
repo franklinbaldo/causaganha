@@ -32,7 +32,7 @@ export function buildProcessoReferenceText(input: ProcessoReferenceInput): strin
 
 export interface DocumentoReferenceInput {
   fonteLabel: string;
-  nrProcessoMascara: string;
+  nrProcessoMascara: string | null;
   tipo: string | null;
   data: string | null;
   url: string;
@@ -40,8 +40,9 @@ export interface DocumentoReferenceInput {
 }
 
 export function buildDocumentoReferenceText(input: DocumentoReferenceInput): string {
+  const titulo = `CausaGanha — ${input.tipo ?? 'documento'} (${input.fonteLabel})`;
   const lines = [
-    `CausaGanha — ${input.tipo ?? 'documento'} (${input.fonteLabel}) do processo ${input.nrProcessoMascara}`,
+    input.nrProcessoMascara ? `${titulo} do processo ${input.nrProcessoMascara}` : titulo,
   ];
   if (input.data) {
     lines.push(`Data: ${input.data}`);
