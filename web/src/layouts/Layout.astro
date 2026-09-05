@@ -1,32 +1,35 @@
 ---
 import '../index.css';
 import { ClientRouter } from 'astro:transitions';
-import Footer from '../components/Footer.astro';
+import { css } from '../../styled-system/css';
+import { navLink } from '../../styled-system/recipes';
 import NetworkStatusBanner from '../components/NetworkStatusBanner.astro';
-import CommandPalette from '../components/CommandPalette.astro';
-import SiteNav from '../components/SiteNav.astro';
 
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
   fullWidth?: boolean;
-  /** Mount the global NetworkStatusBanner. Set false on pages that hydrate
-   *  entirely from build-time JSON, so transient IA polling failures do not
-   *  flash a red banner over the hero. Defaults to true. */
   showNetworkBanner?: boolean;
 }
 
 const {
   title,
-  description = 'CausaGanha — consulte o rastro verificável de processos judiciais brasileiros, com publicações preservadas, fontes oficiais e proveniência explícita.',
+  description = 'CausaGanha — consulte processos e publicações judiciais com fontes, cobertura e proveniência explícitas.',
   ogImage,
   fullWidth = false,
   showNetworkBanner = true,
 } = Astro.props;
+
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const canonicalURL = new URL(Astro.url.pathname, Astro.site);
 const ogImageUrl = ogImage || new URL(`${BASE}og-image.png`, Astro.site).toString();
+const pathname = Astro.url.pathname;
+const primary = [
+  { href: BASE + 'processo', label: 'Processo', match: '/processo' },
+  { href: BASE + 'publicacoes', label: 'Publicações', match: '/publicacoes' },
+  { href: BASE + 'minhas-consultas', label: 'Salvos', match: '/minhas-consultas' },
+];
 ---
 
 <!doctype html>
@@ -36,10 +39,7 @@ const ogImageUrl = ogImage || new URL(`${BASE}og-image.png`, Astro.site).toStrin
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
-    <meta name="theme-color" content="#1a6b3c" media="(prefers-color-scheme: light)" />
-    <meta name="theme-color" content="#0f1a14" media="(prefers-color-scheme: dark)" />
-
-    <!-- Open Graph / Facebook -->
+    <meta name="theme-color" content="#17221f" />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CausaGanha" />
     <meta property="og:locale" content="pt_BR" />
@@ -47,68 +47,59 @@ const ogImageUrl = ogImage || new URL(`${BASE}og-image.png`, Astro.site).toStrin
     <meta property="og:title" content={title} />
     <meta property="og:description" content={description} />
     <meta property="og:image" content={ogImageUrl} />
-
-    <!-- Twitter -->
     <meta property="twitter:card" content={ogImage ? 'summary_large_image' : 'summary'} />
-    <meta property="twitter:url" content={canonicalURL} />
     <meta property="twitter:title" content={title} />
     <meta property="twitter:description" content={description} />
     <meta property="twitter:image" content={ogImageUrl} />
-
     <link rel="canonical" href={canonicalURL} />
     <link rel="icon" type="image/svg+xml" href={`${BASE}favicon.svg`} />
     <link rel="apple-touch-icon" sizes="180x180" href={`${BASE}apple-touch-icon.png`} />
     <title>{title}</title>
     <ClientRouter />
-    <script is:inline>
-      // Apply saved theme before paint. When no preference saved, fall back to
-      // the user's system setting so dark-mode users don't get a flash of light.
-      // We resolve to an explicit "dark"/"light" rather than "auto" because
-      // our custom --color-base-* tokens live in [data-theme="dark"], not in
-      // a @media block, so they would not activate under data-theme="auto".
-      (function () {
-        let saved = null;
-
-        try {
-          saved = localStorage.getItem('causaganha-theme');
-        } catch {
-          saved = null;
-        }
-
-        const prefersDark = window.matchMedia?.('(prefers-color-scheme: dark)').matches ?? false;
-        const isDark = saved ? saved === 'dark' : prefersDark;
-        document.documentElement.setAttribute('data-theme', isDark ? 'dark' : 'light');
-      })();
-    </script>
   </head>
   <body>
-    <a href="#main-content" class="skip-link">
-      Ir para o conteúdo principal
-    </a>
+    <a href="#main-content" class="skip-link">Ir para o conteúdo principal</a>
     {showNetworkBanner && <NetworkStatusBanner />}
-    <SiteNav />
-    <main id="main-content" class:list={[{ container: !fullWidth }]}>
+
+    <header class={css({ borderBottom: '1px solid', borderColor: 'border', background: 'canvas' })}>
+      <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, minH: '20', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6' })}>
+        <a href={BASE} class={css({ display: 'inline-flex', alignItems: 'center', gap: '3', color: 'text', textDecoration: 'none', fontWeight: 'black', fontSize: 'xl', letterSpacing: '-0.04em' })}>
+          <span class={css({ display: 'grid', placeItems: 'center', w: '10', h: '10', background: 'accent', border: '1px solid', borderColor: 'text', fontFamily: 'mono', fontSize: 'sm' })} aria-hidden="true">CG</span>
+          <span>CausaGanha</span>
+        </a>
+        <nav class={css({ display: 'flex', alignItems: 'center', gap: { base: '3', md: '6' }, flexWrap: 'wrap', justifyContent: 'end' })} aria-label="Principal">
+          {primary.map((link) => (
+            <a class={navLink({ active: pathname.includes(link.match) })} href={link.href} aria-current={pathname.includes(link.match) ? 'page' : undefined}>{link.label}</a>
+          ))}
+          <details class={css({ position: 'relative' })}>
+            <summary class={css({ cursor: 'pointer', listStyle: 'none', fontSize: 'xs', fontWeight: 'bold', letterSpacing: '0.06em', textTransform: 'uppercase' })}>Mais</summary>
+            <div class={css({ position: 'absolute', right: '0', top: 'calc(100% + 0.75rem)', zIndex: '30', minW: '14rem', p: '3', background: 'surface', border: '1px solid', borderColor: 'text', display: 'grid', gap: '1', boxShadow: 'lift' })}>
+              <a class={navLink()} href={BASE + 'stats'}>Cobertura</a>
+              <a class={navLink()} href={BASE + 'agentes'}>Agentes</a>
+              <a class={navLink()} href={BASE + 'sobre'}>Projeto & dados</a>
+              <a class={navLink()} href="https://github.com/franklinbaldo/causaganha">GitHub ↗</a>
+            </div>
+          </details>
+        </nav>
+      </div>
+    </header>
+
+    <main id="main-content" class={fullWidth ? undefined : css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '16' } })}>
       <slot />
     </main>
-    <CommandPalette />
-    <Footer />
-    <script>
-      function exposeScrollableCodeToKeyboard() {
-        document.querySelectorAll<HTMLElement>('pre').forEach(pre => {
-          const needsHorizontalScroll = pre.scrollWidth > pre.clientWidth + 1;
-          if (needsHorizontalScroll) {
-            if (!pre.hasAttribute('tabindex')) pre.tabIndex = 0;
-            if (!pre.hasAttribute('aria-label')) pre.setAttribute('aria-label', 'Trecho de código rolável');
-          } else if (pre.getAttribute('aria-label') === 'Trecho de código rolável') {
-            pre.removeAttribute('tabindex');
-            pre.removeAttribute('aria-label');
-          }
-        });
-      }
 
-      exposeScrollableCodeToKeyboard();
-      document.addEventListener('astro:page-load', exposeScrollableCodeToKeyboard);
-      window.addEventListener('resize', exposeScrollableCodeToKeyboard, { passive: true });
-    </script>
+    <footer class={css({ mt: '20', borderTop: '1px solid', borderColor: 'border', background: 'surfaceMuted' })}>
+      <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: '10', display: 'grid', gridTemplateColumns: { base: '1fr', md: '1fr auto' }, gap: '8', alignItems: 'end' })}>
+        <div>
+          <p class={css({ textStyle: 'eyebrow', mb: '3' })}>CausaGanha</p>
+          <p class={css({ m: '0', maxW: '42rem', color: 'textMuted', lineHeight: 'body' })}>Consulta judicial pública com fontes oficiais, arquivo preservado e proveniência explícita.</p>
+        </div>
+        <nav class={css({ display: 'flex', flexWrap: 'wrap', gap: '5' })} aria-label="Rodapé">
+          <a class={navLink()} href={BASE + 'processo'}>Processo</a>
+          <a class={navLink()} href={BASE + 'publicacoes'}>Publicações</a>
+          <a class={navLink()} href={BASE + 'sobre'}>Sobre</a>
+        </nav>
+      </div>
+    </footer>
   </body>
 </html>

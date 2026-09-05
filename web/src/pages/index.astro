@@ -1,6 +1,8 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import { loadSiteStatus, evaluateSourceFreshness, freshnessDisplayLabel } from '../lib/data/siteStatus';
+import { css } from '../../styled-system/css';
+import { button, badge, card } from '../../styled-system/recipes';
 
 const siteStatus = await loadSiteStatus();
 const djen = siteStatus.sources.djen;
@@ -10,272 +12,71 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 <Layout
   title="CausaGanha — consulta judicial pública e verificável"
-  description="Consulte processos e publicações judiciais com origem e cobertura explícitas."
+  description="Consulte processos e publicações judiciais com origem, cobertura e proveniência explícitas."
   fullWidth={true}
   showNetworkBanner={false}
 >
-  <main class="home" aria-labelledby="home-title">
-    <section class="home__core">
-      <p class="home__eyebrow">Consulta pública · fontes oficiais</p>
-      <h1 id="home-title">Procure. Confira a fonte.</h1>
-      <p class="home__lede">
-        Digite um número CNJ para abrir o processo, ou pesquise uma OAB, parte ou termo nas publicações preservadas.
-      </p>
-
-      <form class="home__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
-        <label for="home-query" class="sr-only">Consultar processo ou pesquisar publicações</label>
-        <div class="home__search-row">
-          <input
-            id="home-query"
-            data-global-search
-            name="texto"
-            type="search"
-            placeholder="CNJ, OAB, parte ou texto"
-            autocomplete="off"
-            aria-describedby="hero-search-hint"
-          />
-          <button type="submit">Buscar</button>
+  <section class={css({ background: 'text', color: 'canvas', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '16', md: '28' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '1.25fr 0.75fr' }, gap: '12', alignItems: 'end' })}>
+      <div>
+        <p class={css({ textStyle: 'eyebrow', color: 'accent', mb: '6' })}>Consulta judicial pública</p>
+        <h1 class={css({ textStyle: 'display', color: 'canvas', m: '0', maxW: '8.5ch' })}>Procure. Confira a fonte.</h1>
+        <p class={css({ mt: '8', mb: '0', maxW: '44rem', color: 'surfaceMuted', fontSize: 'lg', lineHeight: 'body' })}>
+          Um número CNJ abre o dossiê do processo. Nome, OAB ou termo livre pesquisa publicações do DJEN.
+        </p>
+        <div class={css({ display: 'flex', flexWrap: 'wrap', gap: '3', mt: '8' })}>
+          <a class={button({ visual: 'solid' })} href={BASE + 'processo'}>Consultar processo</a>
+          <a class={button({ visual: 'light' })} href={BASE + 'publicacoes'}>Pesquisar publicações</a>
         </div>
-        <p class="home__hint" id="hero-search-hint" aria-live="polite" hidden></p>
-      </form>
+      </div>
 
-      <nav class="home__shortcuts" aria-label="Ações principais">
-        <a href={BASE + 'processo'}>Consultar processo</a>
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'publicacoes'}>Pesquisar publicações</a>
-      </nav>
-    </section>
+      <div class={css({ display: 'grid', gap: '3' })}>
+        <article class={card({ tone: 'dark' })}>
+          <span class={badge({ tone: 'accent' })}>DJEN</span>
+          <p class={css({ mt: '5', mb: '1', fontSize: '2xl', fontWeight: 'black', lineHeight: 'heading' })}>{freshnessLabel}</p>
+          <p class={css({ m: '0', color: 'surfaceMuted', fontSize: 'sm' })}>{djen.tribunals_with_data} tribunais com dados publicados</p>
+        </article>
+        <div class={css({ display: 'grid', gridTemplateColumns: '1fr 1fr', minH: '9rem', border: '1px solid', borderColor: 'canvas' })} aria-hidden="true">
+          <div class={css({ background: 'accent', borderRight: '1px solid', borderColor: 'text' })}></div>
+          <div class={css({ background: 'attention' })}></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <section class="home__evidence" aria-label="Como o CausaGanha organiza as fontes">
-      <p><strong>Arquivo</strong> DJEN preservado</p>
-      <p><strong>Estado</strong> DataJud</p>
-      <p><strong>Teor</strong> JURIS e STJ</p>
-    </section>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '14', md: '20' } })}>
+    <div class={css({ display: 'flex', alignItems: 'end', justifyContent: 'space-between', gap: '8', flexWrap: 'wrap', mb: '8' })}>
+      <div>
+        <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Duas entradas principais</p>
+        <h2 class={css({ textStyle: 'title', m: '0', maxW: '18ch' })}>Comece pelo que você quer descobrir.</h2>
+      </div>
+      <a class={button({ visual: 'outline', size: 'sm' })} href={BASE + 'minhas-consultas'}>Ver salvos</a>
+    </div>
 
-    <footer class="home__status">
-      <p>
-        DJEN: <strong>{freshnessLabel}</strong>
-        <span aria-hidden="true">·</span>
-        {djen.tribunals_with_data} tribunais com dados
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'stats'}>cobertura</a>
-      </p>
-      <p class="home__secondary">
-        <a href={BASE + 'minhas-consultas'}>Minhas consultas</a>
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'agentes'}>Agentes</a>
-        <span aria-hidden="true">·</span>
-        <a href={BASE + 'sobre'}>Sobre</a>
-      </p>
-    </footer>
-  </main>
+    <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: '1fr 1fr' }, gap: '4' })}>
+      <a href={BASE + 'processo'} class={css({ display: 'grid', minH: '18rem', p: { base: '6', md: '8' }, background: 'surface', color: 'text', border: '1px solid', borderColor: 'text', textDecoration: 'none', alignContent: 'space-between', _hover: { boxShadow: 'lift', transform: 'translateY(-2px)' } })}>
+        <span class={badge({ tone: 'accent' })}>Processo</span>
+        <div>
+          <h3 class={css({ m: '0', fontSize: '2xl', lineHeight: 'heading', maxW: '13ch' })}>Veja o rastro do CNJ entre as fontes.</h3>
+          <p class={css({ mt: '4', mb: '0', color: 'textMuted', lineHeight: 'body' })}>DJEN, DataJud, JURIS e STJ permanecem distinguíveis no resultado.</p>
+        </div>
+      </a>
+
+      <a href={BASE + 'publicacoes'} class={css({ display: 'grid', minH: '18rem', p: { base: '6', md: '8' }, background: 'surfaceMuted', color: 'text', border: '1px solid', borderColor: 'text', textDecoration: 'none', alignContent: 'space-between', _hover: { boxShadow: 'lift', transform: 'translateY(-2px)' } })}>
+        <span class={badge({ tone: 'info' })}>Publicações</span>
+        <div>
+          <h3 class={css({ m: '0', fontSize: '2xl', lineHeight: 'heading', maxW: '13ch' })}>Pesquise diretamente no DJEN.</h3>
+          <p class={css({ mt: '4', mb: '0', color: 'textMuted', lineHeight: 'body' })}>Use CNJ, OAB, nome de parte ou texto livre e preserve o contexto da busca.</p>
+        </div>
+      </a>
+    </div>
+  </section>
+
+  <section class={css({ background: 'accent', borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '10', md: '14' }, display: 'grid', gridTemplateColumns: { base: '1fr', md: 'repeat(3, 1fr)' }, gap: '6' })}>
+      <div><span class={css({ textStyle: 'eyebrow' })}>Arquivo</span><p class={css({ m: '0', mt: '2', fontWeight: 'bold' })}>DJEN preservado</p></div>
+      <div><span class={css({ textStyle: 'eyebrow' })}>Estado</span><p class={css({ m: '0', mt: '2', fontWeight: 'bold' })}>DataJud</p></div>
+      <div><span class={css({ textStyle: 'eyebrow' })}>Teor</span><p class={css({ m: '0', mt: '2', fontWeight: 'bold' })}>JURIS e STJ</p></div>
+    </div>
+  </section>
 </Layout>
-
-<script>
-  import { buildHeroSearchRedirect } from '../lib/processoCnj';
-  import { attachHeroSearchHint } from '../lib/heroSearchHint';
-
-  const form = document.querySelector<HTMLFormElement>('.home__search');
-  const input = form?.querySelector<HTMLInputElement>('input[name="texto"]');
-  const hint = form?.querySelector<HTMLElement>('#hero-search-hint');
-
-  if (input && hint) attachHeroSearchHint(input, hint);
-
-  form?.addEventListener('submit', (event) => {
-    const raw = input?.value ?? '';
-    const processoHref = form.dataset.processoHref ?? 'processo';
-    const redirect = buildHeroSearchRedirect(raw, processoHref);
-    if (!redirect) return;
-    event.preventDefault();
-    window.location.href = redirect;
-  });
-</script>
-
-<style>
-  .home {
-    width: min(100% - 2rem, 72rem);
-    min-height: calc(100svh - 8rem);
-    margin: 0 auto;
-    display: grid;
-    grid-template-rows: 1fr auto auto;
-  }
-
-  .home__core {
-    width: min(100%, 48rem);
-    align-self: center;
-    padding-block: clamp(4rem, 12vw, 9rem) clamp(3rem, 8vw, 6rem);
-  }
-
-  .home__eyebrow {
-    margin: 0 0 1.2rem;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    letter-spacing: 0.05em;
-    text-transform: uppercase;
-  }
-
-  .home h1 {
-    max-width: 11ch;
-    margin: 0;
-    font-family: var(--font-display, var(--font-sans));
-    font-size: clamp(3rem, 9vw, 6.6rem);
-    line-height: 0.94;
-    letter-spacing: -0.055em;
-  }
-
-  .home__lede {
-    max-width: 39rem;
-    margin: 1.75rem 0 0;
-    color: var(--fg-muted);
-    font-size: clamp(1rem, 2vw, 1.2rem);
-    line-height: 1.6;
-  }
-
-  .home__search {
-    max-width: 44rem;
-    margin-top: clamp(2rem, 5vw, 3.5rem);
-  }
-
-  .home__search-row {
-    display: grid;
-    grid-template-columns: 1fr auto;
-    border-bottom: 2px solid var(--fg);
-  }
-
-  .home__search input {
-    min-width: 0;
-    padding: 1rem 0.1rem;
-    border: 0;
-    border-radius: 0;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    font-size: clamp(1.05rem, 2vw, 1.3rem);
-    outline: none;
-  }
-
-  .home__search input::placeholder {
-    color: var(--fg-muted);
-  }
-
-  .home__search-row:focus-within {
-    border-bottom-color: var(--verde, var(--color-accent));
-  }
-
-  .home__search button {
-    padding: 0.9rem 0 0.9rem 1.25rem;
-    border: 0;
-    background: transparent;
-    color: var(--fg);
-    font: inherit;
-    font-weight: 800;
-    cursor: pointer;
-  }
-
-  .home__search button:hover,
-  .home__search button:focus-visible,
-  .home__shortcuts a:hover,
-  .home__shortcuts a:focus-visible,
-  .home__status a:hover,
-  .home__status a:focus-visible {
-    color: var(--verde, var(--color-accent));
-  }
-
-  .home__hint {
-    margin: 0.65rem 0 0;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-  }
-
-  .home__shortcuts {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.55rem;
-    margin-top: 1.1rem;
-    color: var(--fg-muted);
-    font-size: 0.95rem;
-  }
-
-  .home__shortcuts a,
-  .home__status a {
-    color: inherit;
-  }
-
-  .home__evidence {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 1.25rem;
-    padding-block: 1.25rem;
-    border-top: 1px solid var(--border);
-    border-bottom: 1px solid var(--border);
-    color: var(--fg-muted);
-    font-size: 0.9rem;
-  }
-
-  .home__evidence p,
-  .home__status p {
-    margin: 0;
-  }
-
-  .home__evidence strong {
-    display: block;
-    margin-bottom: 0.2rem;
-    color: var(--fg);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .home__status {
-    display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    padding-block: 1.15rem 2rem;
-    color: var(--fg-muted);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-  }
-
-  .home__secondary {
-    text-align: right;
-  }
-
-  @media (max-width: 42rem) {
-    .home {
-      min-height: auto;
-    }
-
-    .home__core {
-      padding-block: 5rem 4rem;
-    }
-
-    .home h1 {
-      max-width: 9ch;
-    }
-
-    .home__search-row {
-      grid-template-columns: 1fr;
-    }
-
-    .home__search button {
-      width: max-content;
-      padding: 0.4rem 0 0.9rem;
-    }
-
-    .home__evidence {
-      grid-template-columns: 1fr;
-      gap: 0.85rem;
-    }
-
-    .home__status {
-      flex-direction: column;
-    }
-
-    .home__secondary {
-      text-align: left;
-    }
-  }
-</style>

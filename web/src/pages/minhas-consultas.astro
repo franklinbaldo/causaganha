@@ -1,51 +1,30 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
-import Breadcrumbs from '../components/Breadcrumbs.astro';
 import SavedConsultations from '../components/SavedConsultations.svelte';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+import { css } from '../../styled-system/css';
+import { alert, badge } from '../../styled-system/recipes';
 ---
 
 <Layout
   title="Minhas consultas — CausaGanha"
-  description="Guarde processos que você consulta com frequência, somente neste navegador e sem criar conta."
+  description="Guarde processos e buscas neste navegador, sem conta e sem enviar a lista ao CausaGanha."
+  fullWidth={true}
 >
-  <PageHeader
-    backHref={BASE}
-    backLabel="Início"
-    tile="consultas"
-    title="Minhas consultas"
-    subtitle="Uma pequena bancada local para os processos aos quais você quer voltar"
-  />
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' } })}>
+    <span class={badge({ tone: 'accent' })}>Local ao navegador</span>
+    <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, m: '0', mt: '5', maxW: '10ch' })}>Volte ao que importa.</h1>
+    <p class={css({ mt: '6', mb: '0', maxW: '44rem', color: 'textMuted', fontSize: 'lg', lineHeight: 'body' })}>
+      Processos e buscas salvos ficam só neste navegador. É uma bancada local, não uma conta nem um monitoramento remoto.
+    </p>
+  </section>
 
-  <div class="container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Minhas consultas' },
-    ]} />
-
-    <SavedConsultations client:load />
-
-    <aside class="local-note" aria-labelledby="local-note-title">
-      <strong id="local-note-title">Privacidade por desenho</strong>
-      <p>
-        Esta lista usa apenas o armazenamento local do navegador. O CausaGanha não recebe os CNJs
-        que você salva aqui. Em outro dispositivo ou navegador, a lista será diferente.
-      </p>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, pb: { base: '12', md: '18' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '1.3fr 0.7fr' }, gap: '8', alignItems: 'start' })}>
+    <div class={css({ background: 'surface', border: '1px solid', borderColor: 'text', p: { base: '5', md: '8' } })}>
+      <SavedConsultations client:load />
+    </div>
+    <aside class={alert({ tone: 'success' })}>
+      <strong>Privacidade por desenho.</strong>
+      <span>A lista usa armazenamento local. Em outro navegador ou dispositivo, ela será diferente.</span>
     </aside>
-  </div>
+  </section>
 </Layout>
-
-<style>
-  .local-note {
-    margin: var(--s-8, 2rem) 0;
-    padding: var(--s-4, 1rem);
-    border-left: 4px solid var(--verde, var(--color-accent));
-    background: var(--papel-20, var(--color-surface));
-  }
-
-  .local-note p {
-    margin-bottom: 0;
-  }
-</style>

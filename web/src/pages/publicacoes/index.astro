@@ -2,10 +2,9 @@
 import Layout from '../../layouts/Layout.astro';
 import PublicationSearch from '../../components/PublicationSearch.svelte';
 import { loadSiteStatus, formatUtcDateTime } from '../../lib/data/siteStatus';
+import { css } from '../../../styled-system/css';
+import { alert, badge } from '../../../styled-system/recipes';
 
-// Métricas globais do artefato canônico site-status.json (contrato
-// site_status, renderizado do sync-manifest.parquet) — mesma fonte da
-// homepage e das demais páginas. Artefato ausente/obsoleto = build falha.
 const siteStatus = await loadSiteStatus();
 const djen = siteStatus.sources.djen;
 const totalZips = djen.zips_archived;
@@ -16,64 +15,44 @@ const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhe
 function fmt(n: number): string {
   return n.toLocaleString('pt-BR');
 }
-
 ---
 
 <Layout
   title="Publicações — CausaGanha"
-  description="Busca direta nas publicações do DJEN arquivadas no Internet Archive. Cole um processo CNJ, OAB, nome de parte ou texto livre."
+  description="Pesquise diretamente nas publicações do DJEN por processo CNJ, OAB, nome de parte ou texto livre."
   fullWidth={true}
   showNetworkBanner={false}
 >
-
-  <!-- ═══════════ PAGE HEAD ═══════════ -->
-  <section class="page-head" aria-label="Publicações">
-    <div class="wrap wrap--wide">
-      <span class="kicker">§ Publicações · arquivo de busca</span>
-      <h1>Procurar uma <em>intimação,</em><br/>uma sentença, um edital.</h1>
-      <p class="lede">
-        Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte, ou texto livre.
-      </p>
+  <section class={css({ background: 'text', color: 'canvas', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '1.2fr 0.8fr' }, gap: '10', alignItems: 'end' })}>
+      <div>
+        <span class={badge({ tone: 'accent' })}>Publicações · DJEN</span>
+        <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, color: 'canvas', m: '0', mt: '5', maxW: '10ch' })}>Encontre a publicação.</h1>
+        <p class={css({ mt: '6', mb: '0', maxW: '46rem', color: 'surfaceMuted', fontSize: 'lg', lineHeight: 'body' })}>
+          Pesquise por CNJ, OAB, parte ou texto livre. O resultado continua ligado ao tribunal, data e origem consultada.
+        </p>
+      </div>
+      <div class={css({ display: 'grid', gridTemplateColumns: '1fr 1fr', minH: '10rem', border: '1px solid', borderColor: 'canvas' })} aria-hidden="true">
+        <div class={css({ background: 'accent', borderRight: '1px solid', borderColor: 'text' })}></div>
+        <div class={css({ background: 'info' })}></div>
+      </div>
     </div>
   </section>
 
-  <!-- ═══════════ SEARCH ═══════════ -->
-  <section class="publication-search-section">
-    <div class="wrap wrap--wide">
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '10', md: '16' } })}>
+    <div class={css({ background: 'surface', border: '1px solid', borderColor: 'text', p: { base: '5', md: '8' } })}>
       <PublicationSearch client:load />
     </div>
   </section>
 
-  <section aria-label="Como interpretar lacunas de cobertura">
-    <div class="wrap wrap--wide">
-      <article class="attention-card" data-tone="info">
-        <header>
-          <strong>○ Cobertura e lacunas por tribunal</strong>
-          <span class="badge" data-tone="info">Status textual, contagens e calendário</span>
-        </header>
-        <p>
-          Busca direta nas publicações do DJEN arquivadas no Internet Archive.
-          {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados (pares tribunal × dia)' : 'ZIPs arquivados'} de {tribunalsWithData} tribunais{sinceYear ? ` desde ${sinceYear}` : ''}.
-        </p>
-        <p>Impacto: dias sem dados podem omitir publicações em buscas por processo, OAB ou parte.</p>
-        <p>Possível causa: ausência oficial do diário, backfill pendente ou falha temporária de coleta.</p>
-        <p><strong>Próxima ação:</strong> abra a página de um tribunal para ver cards de atenção, calendário e dias ausentes.</p>
-        <p class="page-head__meta">Métricas do manifesto canônico · geradas em {generatedAtLabel}</p>
-      </article>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, pb: { base: '12', md: '18' } })} aria-label="Cobertura do arquivo">
+    <div class={alert({ tone: 'info' })}>
+      <strong>Cobertura não é uma promessa de completude.</strong>
+      <span>
+        {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados' : 'ZIPs arquivados'} · {tribunalsWithData} tribunais{sinceYear ? ` · desde ${sinceYear}` : ''}.
+        Dias sem dados podem representar ausência oficial do diário, backfill pendente ou falha de coleta.
+      </span>
+      <small class={css({ fontFamily: 'mono', color: 'textMuted' })}>Métricas geradas em {generatedAtLabel}</small>
     </div>
   </section>
-
 </Layout>
-
-<style>
-  .publication-search-section {
-    padding: var(--space-lg, 2.5rem) 0 var(--space-2xl, 6rem);
-  }
-
-  .page-head__meta {
-    margin-top: var(--space-2, 0.5rem);
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
-    color: var(--fg-muted);
-  }
-</style>

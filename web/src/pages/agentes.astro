@@ -1,135 +1,75 @@
 ---
 import Layout from '../layouts/Layout.astro';
 import McpConfigCard from '../components/McpConfigCard.svelte';
+import { css } from '../../styled-system/css';
+import { alert, badge, card } from '../../styled-system/recipes';
 
 const localConfig = `{
   "mcpServers": {
     "causaganha": {
       "command": "uv",
-      "args": [
-        "run",
-        "--directory",
-        "/caminho/para/causaganha",
-        "causaganha-mcp"
-      ]
+      "args": ["run", "--directory", "/caminho/para/causaganha", "causaganha-mcp"]
     }
   }
 }`;
+
+const jobs = [
+  ['Arquivo', 'processo_consultar', 'O que sabemos sobre este processo?', 'Reúne evidências preservadas e deixa explícito onde há ou não cobertura.'],
+  ['Arquivo', 'publicacoes_buscar', 'Quais publicações foram preservadas?', 'Busca comunicações por processo, parte, advogado, OAB, texto, tribunal ou período.'],
+  ['Estado', 'processo_estado', 'Qual é o estado processual disponível?', 'Consulta estado oficial disponível sem confundi-lo com um snapshot histórico.'],
+  ['Teor', 'decisoes_buscar', 'Há decisão ou acórdão — e o que diz?', 'Pesquisa teor decisório nas fontes suportadas, preservando origem e limitações.'],
+];
 ---
 
 <Layout
   title="CausaGanha para agentes — MCP"
-  description="Conecte um agente ao CausaGanha para consultar arquivo preservado, estado processual e teor de decisões com proveniência e limitações explícitas."
+  description="Conecte um agente ao CausaGanha para consultar arquivo, estado processual e teor com proveniência e limitações explícitas."
+  fullWidth={true}
   showNetworkBanner={false}
 >
-  <article class="agents-page">
-    <header class="hero">
-      <p class="eyebrow">MCP · somente leitura</p>
-      <h1>Use o CausaGanha com um agente</h1>
-      <p class="lede">
-        Faça perguntas sobre processos e publicações sem ensinar ao agente como o acervo é armazenado.
-        O MCP expõe respostas estruturadas, fontes, freshness e limitações — não uma promessa de cobertura universal.
+  <section class={css({ background: 'text', color: 'canvas', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '14', md: '20' } })}>
+      <span class={badge({ tone: 'accent' })}>MCP · somente leitura</span>
+      <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, color: 'canvas', m: '0', mt: '5', maxW: '10ch' })}>Pergunte ao acervo.</h1>
+      <p class={css({ mt: '6', mb: '0', maxW: '52rem', color: 'surfaceMuted', fontSize: 'lg', lineHeight: 'body' })}>
+        O agente recebe ferramentas orientadas a tarefas. A resposta continua dizendo qual fonte sustentou cada dado, quão recente ela é e onde há lacunas.
       </p>
-      <div class="hero-actions">
-        <a class="primary" href="#conectar">Conectar localmente</a>
-        <span class="remote-status" aria-label="Endpoint remoto ainda indisponível">
-          Remoto: aguardando rollout validado
-        </span>
-      </div>
-    </header>
+    </div>
+  </section>
 
-    <section aria-labelledby="jobs-title">
-      <p class="section-kicker">Pergunte por objetivo</p>
-      <h2 id="jobs-title">Arquivo, estado e teor são coisas diferentes</h2>
-      <div class="job-grid">
-        <article class="job" data-mcp-tool="processo_consultar">
-          <span class="job-code">ARQUIVO</span>
-          <h3>O que sabemos sobre este processo?</h3>
-          <p>Reúne o que foi preservado nas fontes disponíveis e deixa explícito onde há — ou não há — cobertura.</p>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '14', md: '18' } })}>
+    <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Quatro jobs</p>
+    <h2 class={css({ textStyle: 'title', m: '0', mb: '8', maxW: '16ch' })}>Arquivo, estado e teor continuam separados.</h2>
+    <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: '1fr 1fr' }, gap: '4' })}>
+      {jobs.map(([role, tool, title, description]) => (
+        <article class={card()} data-mcp-tool={tool}>
+          <span class={badge({ tone: role === 'Arquivo' ? 'accent' : role === 'Estado' ? 'info' : 'neutral' })}>{role}</span>
+          <h3 class={css({ mt: '5', mb: '3', fontSize: 'xl' })}>{title}</h3>
+          <p class={css({ m: '0', color: 'textMuted', lineHeight: 'body' })}>{description}</p>
+          {tool === 'decisoes_buscar' && (
+            <ul class={css({ listStyle: 'none', p: '0', mt: '5', mb: '0', display: 'flex', flexWrap: 'wrap', gap: '2' })} aria-label="Fontes reconhecidas por decisoes_buscar">
+              <li data-mcp-fonte="juris" data-mcp-status="published"><span class={badge({ tone: 'neutral' })}>JURIS</span></li>
+              <li data-mcp-fonte="stj" data-mcp-status="published"><span class={badge({ tone: 'neutral' })}>STJ</span></li>
+              <li data-mcp-fonte="tcu" data-mcp-status="unpublished"><span class={badge({ tone: 'attention' })}>TCU · ainda não publicada</span></li>
+            </ul>
+          )}
         </article>
-        <article class="job" data-mcp-tool="publicacoes_buscar">
-          <span class="job-code">ARQUIVO</span>
-          <h3>Quais publicações foram preservadas?</h3>
-          <p>Busca comunicações arquivadas por processo, parte, advogado, OAB, texto, tribunal ou período.</p>
-        </article>
-        <article class="job" data-mcp-tool="processo_estado">
-          <span class="job-code">ESTADO</span>
-          <h3>Qual é o estado atual?</h3>
-          <p>Consulta o estado processual oficial disponível. Um snapshot preservado e o estado atual não são equivalentes.</p>
-        </article>
-        <article class="job" data-mcp-tool="decisoes_buscar">
-          <span class="job-code">TEOR</span>
-          <h3>Há decisão ou acórdão — e o que diz?</h3>
-          <p>Pesquisa teor decisório nas fontes suportadas, preservando a origem e as limitações específicas de cada fonte.</p>
-          <ul class="job-sources" aria-label="Fontes reconhecidas por decisoes_buscar">
-            <li data-mcp-fonte="juris" data-mcp-status="published">JURIS (TJRO)</li>
-            <li data-mcp-fonte="stj" data-mcp-status="published">STJ</li>
-            <li data-mcp-fonte="tcu" data-mcp-status="unpublished">
-              TCU — controle externo federal
-              <span class="status-tag">reconhecida, ainda não publicada</span>
-            </li>
-          </ul>
-        </article>
-      </div>
-    </section>
+      ))}
+    </div>
+  </section>
 
-    <section id="conectar" class="connect" aria-labelledby="connect-title">
+  <section id="conectar" class={css({ background: 'surfaceMuted', borderTop: '1px solid', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '14', md: '18' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '0.85fr 1.15fr' }, gap: '10', alignItems: 'start' })}>
       <div>
-        <p class="section-kicker">Conexão local</p>
-        <h2 id="connect-title">Um servidor MCP, sem credencial no protocolo</h2>
-        <p>
-          Com o repositório clonado e as dependências instaladas via <code>uv</code>, configure um cliente MCP
-          compatível para iniciar o entrypoint stdio canônico. Substitua <code>/caminho/para/causaganha</code> pelo
-          caminho absoluto do checkout; assim o cliente não depende do diretório de trabalho em que foi iniciado.
-        </p>
-        <p class="note">
-          O caminho HTTP público será publicado aqui somente depois de #950 produzir uma URL estável e um smoke real
-          com cliente novo. Até lá, não há endpoint remoto oficial para copiar.
-        </p>
+        <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Conexão local</p>
+        <h2 class={css({ textStyle: 'title', m: '0', maxW: '12ch' })}>Um servidor MCP. Sem endpoint inventado.</h2>
+        <p class={css({ mt: '5', mb: '5', color: 'textMuted', lineHeight: 'body' })}>Com o repositório clonado e `uv` disponível, a configuração abaixo inicia o entrypoint stdio canônico.</p>
+        <div class={alert({ tone: 'info' })}>
+          <strong>Remoto ainda não é oficial.</strong>
+          <span>O caminho HTTP entra aqui somente depois de existir URL estável e smoke real com cliente novo.</span>
+        </div>
       </div>
       <McpConfigCard config={localConfig} label="stdio" client:load />
-    </section>
-
-    <section class="reading" aria-labelledby="reading-title">
-      <p class="section-kicker">Como interpretar respostas</p>
-      <h2 id="reading-title">“Não encontrei” não significa sempre a mesma coisa</h2>
-      <div class="reading-grid">
-        <p><strong>Ausência</strong><span>A consulta foi feita na cobertura disponível e não houve resultado.</span></p>
-        <p><strong>Indisponibilidade</strong><span>A fonte ou consulta falhou; isso não deve virar falso “não encontrado”.</span></p>
-        <p><strong>Cobertura incompleta</strong><span>O acervo consultado não autoriza concluir que o universo inteiro foi pesquisado.</span></p>
-        <p><strong>Freshness</strong><span>Datas de geração/consulta ajudam a distinguir snapshot histórico de estado atual.</span></p>
-      </div>
-    </section>
-  </article>
+    </div>
+  </section>
 </Layout>
-
-<style>
-  .agents-page { max-width: 72rem; margin: 0 auto; padding: clamp(2rem, 5vw, 5rem) 0 5rem; }
-  .hero { padding-bottom: clamp(2.5rem, 6vw, 5rem); border-bottom: 1px solid var(--border); }
-  .eyebrow, .section-kicker, .job-code { font-family: var(--font-mono); font-size: .76rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--verde, var(--color-accent)); }
-  h1 { max-width: 15ch; margin: .5rem 0 1rem; font-size: clamp(2.5rem, 7vw, 5.6rem); line-height: .96; letter-spacing: -.055em; }
-  .lede { max-width: 52rem; font-size: clamp(1.05rem, 2vw, 1.35rem); line-height: 1.6; color: var(--fg-muted); }
-  .hero-actions { display: flex; flex-wrap: wrap; gap: .9rem; align-items: center; margin-top: 1.7rem; }
-  .primary { display: inline-flex; padding: .8rem 1rem; background: var(--verde, var(--color-accent)); color: white; font-weight: 800; text-decoration: none; }
-  .primary:focus-visible { outline: 3px solid currentColor; outline-offset: 3px; }
-  .remote-status { padding: .75rem .9rem; border: 1px solid var(--border); color: var(--fg-muted); font-family: var(--font-mono); font-size: .78rem; }
-  section { padding: clamp(2.5rem, 6vw, 4.5rem) 0; border-bottom: 1px solid var(--border); }
-  h2 { max-width: 24ch; margin: .35rem 0 1.5rem; font-size: clamp(1.6rem, 4vw, 2.8rem); line-height: 1.05; letter-spacing: -.03em; }
-  .job-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
-  .job { padding: 1.35rem; border: 1px solid var(--border); background: var(--surface, transparent); }
-  .job h3 { margin: .7rem 0 .55rem; font-size: 1.15rem; }
-  .job p, .connect p, .reading span { color: var(--fg-muted); line-height: 1.6; }
-  .job-sources { display: flex; flex-wrap: wrap; gap: .4rem; margin: .7rem 0 0; padding: 0; list-style: none; }
-  .job-sources li { padding: .3rem .55rem; border: 1px solid var(--border); font-family: var(--font-mono); font-size: .74rem; color: var(--fg-muted); }
-  .job-sources li[data-mcp-status="unpublished"] { border-style: dashed; }
-  .job-sources .status-tag { display: block; margin-top: .2rem; font-size: .68rem; font-weight: 700; letter-spacing: .02em; text-transform: none; color: var(--fg-muted); }
-  .connect { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(2rem, 6vw, 5rem); align-items: start; }
-  .note { padding-left: 1rem; border-left: 3px solid var(--verde, var(--color-accent)); }
-  .reading-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem 2rem; }
-  .reading-grid p { display: grid; gap: .35rem; margin: 0; }
-  .reading-grid strong { font-size: .95rem; }
-  @media (max-width: 44rem) {
-    .job-grid, .connect, .reading-grid { grid-template-columns: 1fr; }
-    .agents-page { padding-top: 2rem; }
-  }
-</style>

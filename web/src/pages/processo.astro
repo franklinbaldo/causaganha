@@ -1,46 +1,48 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
-import Breadcrumbs from '../components/Breadcrumbs.astro';
 import ProcessoLookup from '../components/ProcessoLookup.svelte';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+import { css } from '../../styled-system/css';
+import { alert, badge } from '../../styled-system/recipes';
 ---
 
 <Layout
-  title="Consultar Processo — CausaGanha"
-  description="Dossiê unificado de um processo (CNJ) reconciliado entre DJEN, JURIS (TJRO), STJ e DataJud."
+  title="Consultar processo — CausaGanha"
+  description="Consulte um processo por número CNJ e veja o que DJEN, DataJud, TJRO JURIS e STJ sustentam, com proveniência explícita."
+  fullWidth={true}
 >
-  <PageHeader backHref={BASE} backLabel="Início" tile="consultas" title="Consultar Processo" subtitle="Cole um número CNJ para ver o que o acervo reconciliado já sabe sobre ele" />
-
-  <div class="container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Consultar Processo' },
-    ]} />
-
-    <ProcessoLookup client:only="svelte" />
-
-    <section aria-labelledby="como-funciona-processo">
-      <h2 id="como-funciona-processo">Como esta consulta funciona</h2>
-      <p>
-        O dossiê reconcilia até quatro fontes independentes — DJEN, JURIS (TJRO), STJ e DataJud —
-        sem fundir dados conflitantes. Cada resultado mantém sua fonte, e ausência em uma fonte é
-        exibida como ausência, não escondida.
-      </p>
-      <details>
-        <summary>Detalhes técnicos e proveniência</summary>
-        <p>
-          A consulta roda diretamente no navegador via <strong>DuckDB-WASM</strong> sobre o índice
-          <code>indice_processual.parquet</code> e os parquets de origem publicados no
-          <a href="https://archive.org/details/causaganha-dashboard" target="_blank" rel="noopener noreferrer">Internet Archive</a>.
-          Nenhum número de processo consultado é enviado a um servidor do CausaGanha.
+  <section class={css({ background: 'surfaceMuted', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '1fr 0.65fr' }, gap: '10', alignItems: 'end' })}>
+      <div>
+        <span class={badge({ tone: 'accent' })}>Processo</span>
+        <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, m: '0', mt: '5', maxW: '10ch' })}>Um CNJ. Várias fontes.</h1>
+        <p class={css({ mt: '6', mb: '0', maxW: '44rem', fontSize: 'lg', lineHeight: 'body', color: 'textMuted' })}>
+          Cole o número do processo para abrir um dossiê que mantém arquivo, estado e teor separados — inclusive quando uma fonte não tem registro.
         </p>
-        <p class="meta-text" data-tone="muted">
-          A reconciliação é produzida por <code>scripts/reconcile_processos.py</code>. O navegador
-          apenas lê os artefatos públicos e monta o dossiê localmente.
-        </p>
-      </details>
-    </section>
-  </div>
+      </div>
+      <div class={alert({ tone: 'info' })}>
+        <strong>A consulta roda no navegador.</strong>
+        <span>O número pesquisado não é enviado a um servidor do CausaGanha.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: 'minmax(0, 1.45fr) minmax(18rem, 0.55fr)' }, gap: '10', alignItems: 'start' })}>
+    <div class={css({ minW: '0', background: 'surface', border: '1px solid', borderColor: 'text', p: { base: '5', md: '8' } })}>
+      <ProcessoLookup client:only="svelte" />
+    </div>
+
+    <aside class={css({ display: 'grid', gap: '6', position: { lg: 'sticky' }, top: { lg: '4' } })} aria-label="Como interpretar o resultado">
+      <div>
+        <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Como ler</p>
+        <h2 class={css({ textStyle: 'title', fontSize: 'xl', m: '0' })}>Ausência não é inexistência.</h2>
+        <p class={css({ mt: '4', mb: '0', color: 'textMuted', lineHeight: 'body' })}>Cada fonte tem cobertura e tempo próprios. O CausaGanha mostra essas diferenças em vez de escondê-las.</p>
+      </div>
+
+      <dl class={css({ m: '0', display: 'grid', gap: '0', borderTop: '1px solid', borderColor: 'border' })}>
+        <div class={css({ py: '4', borderBottom: '1px solid', borderColor: 'border' })}><dt class={css({ textStyle: 'eyebrow' })}>DJEN</dt><dd class={css({ m: '0', mt: '2', color: 'textMuted' })}>Publicações preservadas.</dd></div>
+        <div class={css({ py: '4', borderBottom: '1px solid', borderColor: 'border' })}><dt class={css({ textStyle: 'eyebrow' })}>DataJud</dt><dd class={css({ m: '0', mt: '2', color: 'textMuted' })}>Capa e movimentos.</dd></div>
+        <div class={css({ py: '4', borderBottom: '1px solid', borderColor: 'border' })}><dt class={css({ textStyle: 'eyebrow' })}>JURIS / STJ</dt><dd class={css({ m: '0', mt: '2', color: 'textMuted' })}>Teor quando disponível.</dd></div>
+      </dl>
+    </aside>
+  </section>
 </Layout>
