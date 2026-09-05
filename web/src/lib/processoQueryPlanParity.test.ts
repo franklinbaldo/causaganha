@@ -31,6 +31,7 @@ import {
   buildIndiceSql,
   buildJurisSql,
   buildStjSql,
+  formatFonteIndisponivelAviso,
   mapDatajudRow,
   mapDjenRow,
   mapJurisRow,
@@ -42,7 +43,9 @@ interface FixtureManifest {
   cnj_djen_only: string;
   cnj_unknown: string;
   cnj_tiebreak: string;
+  cnj_source_unavailable: string;
   indice_url: string;
+  missing_djen_url: string;
   urls: { djen: string[]; juris: string[]; stj: string[]; datajud: string[] };
 }
 
@@ -70,6 +73,17 @@ interface CompareResult {
    * `scripts/processo_query_plan_compare.py` (#1107 mapping-layer slice).
    */
   python_mapped?: Record<string, unknown> | null;
+  /**
+   * Whether raw-SQL execution of `python_sql`/`web_sql` raised a real
+   * DuckDB error (a genuinely broken parquet) instead of returning rows —
+   * distinct from a merely-absent CNJ, which returns zero rows without
+   * raising. Populated by `scripts/processo_query_plan_compare.py`'s
+   * `_safe_rows` (#1107 "fonte indisponível" ≠ "CNJ ausente" slice).
+   */
+  python_raised?: boolean;
+  web_raised?: boolean;
+  /** The `avisos` the real `_build_*` mapper collected while resolving `python_mapped`. */
+  python_mapped_avisos?: string[];
 }
 
 const fixtureRoot = mkdtempSync(join(tmpdir(), 'causaganha-query-plan-parity-'));
@@ -303,5 +317,78 @@ describe('processo query-plan parity (#1107)', () => {
         webAbsent,
       );
     }
+  });
+
+  it('fonte registrada mas parquet indisponível é distinta de CNJ ausente, nas duas superfícies (#1107)', () => {
+    // #1107's own acceptance criteria list "fonte indisponível continua
+    // distinta de CNJ ausente nas duas superfícies" — already true within
+    // each runtime's own separate unit tests (test_service.py's
+    // test_one_source_parquet_unreachable_is_partial_not_fatal vs
+    // test_not_found_still_carries_cobertura; processoCnj.test.ts's
+    // "isolates a single source failure" vs "returns encontrado=false"),
+    // but never cross-checked against the same fixture the way this file's
+    // other tests already do for PRESENT/ABSENT. This closes that gap.
+    const { cnj_source_unavailable: cnjUnavailable, cnj_unknown: cnjAbsent, missing_djen_url: missingDjenUrl, urls } =
+      manifest;
+
+    const brokenSql = buildDjenSql([missingDjenUrl]);
+    const healthySql = buildDjenSql(urls.djen);
+
+    const cases: QueryPlanCase[] = [
+      {
+        label: 'djen:UNAVAILABLE',
+        plan: 'djen',
+        urls: [missingDjenUrl],
+        python_params: [cnjUnavailable],
+        web_sql: brokenSql,
+        web_params: [cnjUnavailable],
+      },
+      {
+        label: 'djen:ABSENT',
+        plan: 'djen',
+        urls: urls.djen,
+        python_params: [cnjAbsent],
+        web_sql: healthySql,
+        web_params: [cnjAbsent],
+      },
+    ];
+
+    const results = runCases(cases);
+    const unavailable = results.find((r) => r.label === 'djen:UNAVAILABLE')!;
+    const absent = results.find((r) => r.label === 'djen:ABSENT')!;
+
+    // Raw-SQL execution against a genuinely broken parquet raises identically
+    // on both engines (native DuckDB standing in for DuckDB-WASM — see this
+    // file's header comment on why that substitution is faithful here).
+    expect(unavailable.python_raised, 'python raw SQL should fail against a missing parquet').toBe(true);
+    expect(unavailable.web_raised, 'web raw SQL should fail against a missing parquet').toBe(true);
+
+    // A CNJ merely absent from a healthy parquet never raises on either
+    // side — a zero-row result, not an error. Different failure mode
+    // entirely from the broken-parquet case above.
+    expect(absent.python_raised, 'python raw SQL should not fail for an absent CNJ').toBe(false);
+    expect(absent.web_raised, 'web raw SQL should not fail for an absent CNJ').toBe(false);
+
+    // The real production mapper (_build_djen — not the isolated raw SQL
+    // above) never lets that failure propagate: it degrades to
+    // present=false plus exactly one fonte-specific aviso. This is the
+    // "indisponível" signal that must survive to the public dossiê.
+    expect(unavailable.python_mapped).toMatchObject({ present: false });
+    expect(unavailable.python_mapped_avisos).toHaveLength(1);
+    const [avisoIndisponivel] = unavailable.python_mapped_avisos!;
+    expect(avisoIndisponivel).toMatch(/^Fonte 'djen' indisponível para este processo: /);
+
+    // The absent case maps to the exact same present=false shape, but with
+    // NO fonte-specific aviso at all — the distinguishing signal #1107
+    // requires to be preserved, not conflated, across runtimes.
+    expect(absent.python_mapped).toMatchObject({ present: false });
+    expect(absent.python_mapped_avisos).toEqual([]);
+
+    // The wording itself must not have drifted between runtimes either:
+    // round-trip the exception detail Python actually captured through the
+    // Web side's own aviso formatter and confirm it reproduces the exact
+    // same string Python produced.
+    const detalhe = avisoIndisponivel.replace(/^Fonte 'djen' indisponível para este processo: /, '');
+    expect(formatFonteIndisponivelAviso('djen', detalhe)).toBe(avisoIndisponivel);
   });
 });

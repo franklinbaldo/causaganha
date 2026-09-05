@@ -651,6 +651,18 @@ async function queryRows(
 }
 
 /**
+ * Mesmo template de `causaganha.processos.service._fonte_indisponivel_aviso`
+ * — extraído como função nomeada (em vez de string inline em `queryRowSafe`)
+ * para que o texto do aviso seja comparável, teste a teste, com o que o
+ * Python realmente produz (#1107: "fonte indisponível" precisa da mesma
+ * redação observável nas duas superfícies, não só do mesmo booleano
+ * `present`).
+ */
+export function formatFonteIndisponivelAviso(fonte: Fonte, detalhe: string): string {
+  return `Fonte '${fonte}' indisponível para este processo: ${detalhe}`;
+}
+
+/**
  * Como queryRows, mas isolada por fonte: uma falha (404, CORS, parquet
  * corrompido, erro transitório) vira aviso identificando `fonte` e resolve
  * para null em vez de propagar — a mesma fronteira que
@@ -671,7 +683,7 @@ async function queryRowSafe(
     return rows[0] ?? null;
   } catch (err) {
     const detalhe = err instanceof Error ? err.message : String(err);
-    avisos.push(`Fonte '${fonte}' indisponível para este processo: ${detalhe}`);
+    avisos.push(formatFonteIndisponivelAviso(fonte, detalhe));
     return null;
   }
 }
