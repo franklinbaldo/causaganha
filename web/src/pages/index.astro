@@ -88,9 +88,11 @@ const sources = [
             placeholder="0001234-56.2024.8.26.0100  ·  OAB/SP 245.812  ·  texto livre"
             autocomplete="off"
             aria-label="Consultar processo ou buscar publicações"
+            aria-describedby="hero-search-hint"
           />
           <button class="btn btn--accent" type="submit">Buscar →</button>
         </fieldset>
+        <p class="hero__search-hint" id="hero-search-hint" aria-live="polite" hidden></p>
       </form>
       <div class="hero__chips" aria-label="Exemplos de busca">
         <button class="search-hint" data-q="0001234-56.2024.8.26.0100" type="button">
@@ -247,9 +249,13 @@ const sources = [
 
 <script>
   import { buildHeroSearchRedirect } from '../lib/processoCnj';
+  import { attachHeroSearchHint } from '../lib/heroSearchHint';
 
   const heroForm = document.querySelector<HTMLFormElement>('.hero__search');
   const heroInput = heroForm?.querySelector<HTMLInputElement>('input[name="texto"]');
+  const heroHint = heroForm?.querySelector<HTMLElement>('#hero-search-hint');
+
+  if (heroInput && heroHint) attachHeroSearchHint(heroInput, heroHint);
 
   heroForm?.addEventListener('submit', (event) => {
     const raw = heroInput?.value ?? '';
@@ -265,6 +271,7 @@ const sources = [
       if (!heroInput) return;
       heroInput.value = button.dataset.q ?? '';
       heroInput.focus();
+      heroInput.dispatchEvent(new Event('input'));
     });
   });
 </script>

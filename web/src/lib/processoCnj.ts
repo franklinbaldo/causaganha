@@ -85,6 +85,25 @@ export function buildHeroSearchRedirect(raw: string, processoHref: string): stri
   return `${processoHref}?cnj=${encodeURIComponent(formatCnj(digits))}`;
 }
 
+export type HeroSearchMode = 'processo' | 'publicacoes';
+
+export interface HeroSearchHint {
+  mode: HeroSearchMode | null;
+  label: string;
+}
+
+/**
+ * Mensagem exibida sob a busca da home enquanto o usuário digita (#1127) —
+ * mesma autoridade de parsing de buildHeroSearchRedirect (classifyCnjInput),
+ * para não criar uma terceira semântica de CNJ vs texto livre.
+ */
+export function describeHeroSearchMode(raw: string): HeroSearchHint {
+  const status = classifyCnjInput(raw);
+  if (status === 'empty') return { mode: null, label: '' };
+  if (status === 'valid') return { mode: 'processo', label: 'Abrir dossiê do processo' };
+  return { mode: 'publicacoes', label: 'Pesquisar publicações' };
+}
+
 // ── URL compartilhável (?cnj=...) ──────────────────────────────────────────
 
 const CNJ_PARAM = 'cnj';
