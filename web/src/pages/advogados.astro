@@ -1,70 +1,25 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
-import Breadcrumbs from '../components/Breadcrumbs.astro';
-import LawyerCard from '../components/LawyerCard.astro';
-import StatCard from '../components/StatCard.astro';
-import EmptyState from '../components/EmptyState.svelte';
-import { loadContract } from '../lib/data';
-import { loadSiteStatus, formatUtcDateTime } from '../lib/data/siteStatus';
-import { topAdvogadosTribunals } from '../lib/advogadosCoverage';
-
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-
-// Cobertura por tribunal vem do contrato canônico tribunal_coverage (mesmo
-// manifesto do site-status.json). O snapshot legado cache/backfill.json foi
-// aposentado desta página: seus campos data_rate_pct e days_with_data/
-// days_total vinham de caminhos distintos e divergiam ("0 de 0 dias" ao lado
-// de 76% de cobertura). Agora os três números saem da mesma linha do contrato
-// — ver lib/advogadosCoverage.ts.
-const siteStatus = await loadSiteStatus();
-const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
-const coverage = await loadContract('tribunal_coverage');
-const tribunalStats = topAdvogadosTribunals(coverage);
-const avgCoverage = tribunalStats.length
-  ? tribunalStats.reduce((sum, item) => sum + item.dataRatePct, 0) / tribunalStats.length
-  : 0;
-
-// NOTA (decisão do mantenedor): o "Leaderboard de Qualidade (OpenSkill)" foi
-// REMOVIDO da superfície pública. Ranking nominal de advogados não sustenta
-// julgamento reputacional com a metodologia atual: não há ajuste de case-mix
-// (advogados que aceitam casos difíceis são penalizados), não há ground truth
-// de mérito, N mínimo de 20 casos é estatisticamente insuficiente e o rótulo
-// "qualidade" promete mais do que o rating mede. O contrato
-// lawyer_leaderboard.qmd e o código de rating permanecem no backend para uso
-// analítico interno; nenhum ranking nominal deve voltar a ser renderizado
-// publicamente sem case-mix adjustment, ground truth e intervalos de
-// confiança adequados.
+const target = `${BASE}stats`;
+const canonicalURL = new URL(target, Astro.site);
 ---
 
-<Layout title="Advogados — CausaGanha" description="Cobertura por tribunal para exploração de dados de advogados/OAB no acervo público." showNetworkBanner={false}>
-  <PageHeader title="Advogados / OAB" subtitle="Cobertura por tribunal para consultas de advogados" backHref={BASE} backLabel="Início" tile="advogados" />
-
-  <div class="container">
-    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Advogados' }]} />
-
-    {tribunalStats.length > 0 ? (
-      <>
-        <section class="auto-grid">
-          <StatCard title="Tribunais exibidos" value={tribunalStats.length} subtitle="Com melhor cobertura de arquivo" />
-          <StatCard title={`Cobertura média (${tribunalStats.length} exibidos)`} value={`${avgCoverage.toFixed(1)}%`} subtitle="Média simples dos tribunais listados abaixo — não é a cobertura geral do acervo" tone="info" />
-          <StatCard title="Fonte" value="Manifesto canônico" subtitle={`Contrato tribunal_coverage · gerado em ${generatedAtLabel}`} />
-        </section>
-
-        <h2 class="section-heading">Cobertura dos Tribunais</h2>
-        <section class="auto-grid">
-          {tribunalStats.map((stats) => <LawyerCard stats={stats} />)}
-        </section>
-      </>
-    ) : (
-      <EmptyState
-        title="Dados de cobertura indisponíveis"
-        message="O contrato tribunal_coverage ainda não foi renderizado neste build — rode `uv run python scripts/render_queries.py` para gerar web/public/data/tribunal_coverage.json a partir do manifesto canônico."
-      />
-    )}
-  </div>
-</Layout>
-
-<style>
-  .section-heading { margin-top: var(--space-xl, 3rem); }
-</style>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content={`0;url=${target}`} />
+    <meta name="robots" content="noindex,follow" />
+    <link rel="canonical" href={canonicalURL} />
+    <title>Cobertura por tribunal — CausaGanha</title>
+  </head>
+  <body>
+    <main>
+      <p>Esta visão foi consolidada em <a href={target}>Estatísticas e cobertura</a>.</p>
+    </main>
+    <script define:vars={{ target }}>
+      window.location.replace(target);
+    </script>
+  </body>
+</html>
