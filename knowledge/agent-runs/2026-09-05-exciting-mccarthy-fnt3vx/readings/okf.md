@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-05-exciting-mccarthy-fnt3vx-reading-okf"
+run_id: "2026-09-05-exciting-mccarthy-fnt3vx"
+subject: "okf_knowledge"
+reference: "knowledge/okf.schema.sql, knowledge/index.md, `uv run okf-parser check knowledge --relational-schema okf.schema.sql`, `uv run python scripts/check_agent_run_completeness.py knowledge/agent-runs`, run.md of the seven prior 2026-09-05 rounds (eager-wozniak-5akx2o, exciting-mccarthy-ejibsp/9xpeua/qvwrkl/1fxd8b/e9r0mj/ich5gz)"
+finding: "okf-parser check reports the bundle otherwise conformant (159 concepts, 161 markdown docs) with the only 3 diagnostics being the expected dangling AgentReading->AgentRun foreign keys from this round's own readings/ files written before run.md exists — exactly the gap the scaffold instructs to create next. check_agent_run_completeness.py confirms every prior round's full Agent* tree (7 rounds: eager-wozniak-5akx2o green/PR-not-yet-open, exciting-mccarthy-ejibsp/9xpeua/qvwrkl/1fxd8b/e9r0mj merged, exciting-mccarthy-ich5gz green) is complete — the CI-enforced completeness contract is holding with zero drift across the day. One real gap found: exciting-mccarthy-ich5gz's own next_move ('Push this branch and open a PR for #1107's availability-parity slice') was never carried out — its branch was never pushed (this session's fresh branch started at origin/main's tip with no trace of it), so that round's work was lost when its ephemeral container was reclaimed. This turned out to be moot: a different concurrent process independently closed #1107 via PR #1159 before this round started, so no work needs to be redone, but it is a real process risk for the loop worth naming as a decision-lite note: a round that reaches result_state='green' without pushing is not actually durable, and 'push before ending' should be treated as part of 'done', not optional follow-up."
+---
+
+# Leitura de conhecimento OKF
+
+Bundle estruturalmente conforme (as 3 únicas divergências são as FKs pendentes deste próprio relatório, esperadas antes de criar `run.md`). Completude de todas as 7 rodadas anteriores do dia confirmada. Achado de processo: a rodada `ich5gz` terminou "green" mas nunca fez push do branch, perdendo o trabalho quando o container efêmero foi reciclado — por sorte o mesmo objetivo (#1107) já havia sido fechado por um processo concorrente (PR #1159), então nada foi perdido de fato, mas o padrão é um risco real para rodadas futuras.

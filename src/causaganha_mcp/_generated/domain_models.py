@@ -17,6 +17,7 @@ class AgentCheckConcept(BaseModel):
     command: str
     description: str = Field(default=None)
     evidence_id: str = Field(
+        default=None,
         json_schema_extra={
             "x-okf-references": {
                 "type": "AgentEvidence",
