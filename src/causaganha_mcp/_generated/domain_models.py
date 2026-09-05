@@ -117,7 +117,7 @@ class JurisDecisaoConcept(BaseModel):
     id: str
     n_documentos: int | None
     orgao: str | None
-    relator: str
+    relator: str | None
     tipos: list[str]
     title: str = Field(default=None)
     type: Literal["JurisDecisao"]

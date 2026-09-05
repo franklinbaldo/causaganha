@@ -69,7 +69,7 @@ export const JurisDecisaoSchema = z.object({
   "id": z.string(),
   "n_documentos": z.union([z.number().int(), z.bigint()]).nullable(),
   "orgao": z.string().nullable(),
-  "relator": z.string(),
+  "relator": z.string().nullable(),
   "tipos": z.array(z.string()),
   "title": z.string().optional(),
   "type": z.literal("JurisDecisao"),
