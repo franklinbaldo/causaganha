@@ -46,15 +46,19 @@ def test_page_header_does_not_duplicate_primary_site_navigation() -> None:
     site_nav = (WEB / "src" / "components" / "SiteNav.astro").read_text(encoding="utf-8")
     page_header = (WEB / "src" / "components" / "PageHeader.astro").read_text(encoding="utf-8")
 
-    for label in (
-        "Consultar processo",
-        "Pesquisar publicações",
-        "Minhas consultas",
-        "Explorar cobertura",
-        "Usar com agente",
-        "Projeto & dados",
+    for destination in (
+        "processo",
+        "publicacoes",
+        "minhas-consultas",
+        "stats",
+        "agentes",
+        "sobre",
     ):
-        assert label in site_nav
+        assert f"BASE + '{destination}'" in site_nav
+
+    assert "const primary" in site_nav
+    assert "const secondary" in site_nav
+    assert '<details class="site-nav__more"' in site_nav
 
     assert "primaryLinks" not in page_header
     assert "ferramentasLinks" not in page_header

@@ -1,83 +1,37 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import {
-  loadSiteStatus,
-  evaluateSourceFreshness,
-  freshnessDisplayLabel,
-  formatUtcDateTime,
-} from '../lib/data/siteStatus';
+import { loadSiteStatus, evaluateSourceFreshness, freshnessDisplayLabel } from '../lib/data/siteStatus';
 
-// Métricas globais vêm exclusivamente do artefato canônico site-status.json
-// (contrato site_status, renderizado do sync-manifest.parquet). Sem números
-// hardcoded, sem snapshots paralelos; artefato ausente/obsoleto = build falha.
 const siteStatus = await loadSiteStatus();
 const djen = siteStatus.sources.djen;
-const totalZips = djen.zips_archived;
-const tribunalsWithData = djen.tribunals_with_data;
-const tribunalsTotal = djen.tribunals_total;
-const gaps = djen.pending_real + djen.errors_transient + djen.never_checked;
-const djenFreshness = evaluateSourceFreshness(djen, Date.now());
-const freshnessLabel = freshnessDisplayLabel(djenFreshness);
-const sinceYear = (djen.earliest_upload_date ?? '').slice(0, 4) || null;
-const lastAttempt = formatUtcDateTime(djen.last_attempt_at);
-const lastSuccess = formatUtcDateTime(djen.last_success_at);
-const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
+const freshnessLabel = freshnessDisplayLabel(evaluateSourceFreshness(djen, Date.now()));
+const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 
 function fmt(n: number): string {
   return n.toLocaleString('pt-BR');
 }
 
-function fmtDate(iso: string | null): string {
-  if (!iso) return '--';
-  const [y, m, d] = iso.split('-');
-  return `${d}/${m}/${y}`;
-}
-
-const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-
-const sources = [
-  {
-    sigla: 'DJEN',
-    papel: 'Arquivo',
-    title: 'O que foi publicado.',
-    body: 'Comunicações judiciais preservadas no Internet Archive, com busca, cobertura e ZIP original.',
-  },
-  {
-    sigla: 'DataJud',
-    papel: 'Estado',
-    title: 'Onde o processo está.',
-    body: 'Capa, classe, assuntos, órgão, grau, datas e movimentos processuais registrados pelo CNJ.',
-  },
-  {
-    sigla: 'TJRO JURIS',
-    papel: 'Teor',
-    title: 'O que a decisão diz.',
-    body: 'Decisões e documentos de jurisprudência do TJRO quando presentes no corpus publicado.',
-  },
-  {
-    sigla: 'STJ',
-    papel: 'Teor',
-    title: 'O que chegou ao tribunal superior.',
-    body: 'Acórdãos e metadados do STJ vinculados ao processo quando a fonte correspondente tem registro.',
-  },
+const roles = [
+  { label: 'Arquivo', source: 'DJEN', text: 'O que foi publicado e preservado.' },
+  { label: 'Estado', source: 'DataJud', text: 'Onde o processo está e quais movimentos constam.' },
+  { label: 'Teor', source: 'JURIS · STJ', text: 'O que decisões e acórdãos efetivamente dizem.' },
 ];
 ---
 
 <Layout
-  title="CausaGanha — o rastro verificável do processo judicial"
-  description="Consulte processos, pesquise publicações e acompanhe a proveniência entre DJEN, TJRO JURIS, STJ e DataJud sobre um arquivo público reproduzível."
+  title="CausaGanha — consulte o rastro verificável de um processo"
+  description="Consulte processos e publicações judiciais com origem, cobertura e proveniência explícitas."
   fullWidth={true}
   showNetworkBanner={false}
 >
   <header class="hero" aria-labelledby="hero-title">
-    <div class="hero__inner">
-      <span class="kicker">§ Consulta pública · fontes oficiais · proveniência explícita</span>
-      <h1 class="mega" id="hero-title">Um processo deixa<br/>rastros <em>diferentes.</em></h1>
+    <div class="hero__inner home-hero">
+      <span class="kicker">Consulta pública · fontes oficiais</span>
+      <h1 class="mega" id="hero-title">Encontre o processo.<br/><em>Veja a evidência.</em></h1>
       <p class="hero__lede">
-        Consulte um número CNJ para ver o que diferentes fontes oficiais registram sobre o mesmo processo.
-        Pesquise também publicações do DJEN por OAB, parte ou texto livre. O CausaGanha preserva o arquivo,
-        reconcilia as fontes e mantém visível de onde veio cada fato.
+        Consulte um CNJ ou pesquise publicações. O CausaGanha mostra de onde veio cada informação e deixa claras as lacunas de cobertura.
       </p>
+
       <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
         <fieldset role="group">
           <input
@@ -85,166 +39,75 @@ const sources = [
             data-global-search
             name="texto"
             type="search"
-            placeholder="0001234-56.2024.8.26.0100  ·  OAB/SP 245.812  ·  texto livre"
+            placeholder="Número CNJ, OAB, parte ou texto"
             autocomplete="off"
-            aria-label="Consultar processo ou buscar publicações"
+            aria-label="Consultar processo ou pesquisar publicações"
             aria-describedby="hero-search-hint"
           />
           <button class="btn btn--accent" type="submit">Buscar →</button>
         </fieldset>
         <p class="hero__search-hint" id="hero-search-hint" aria-live="polite" hidden></p>
       </form>
-      <div class="hero__chips" aria-label="Exemplos de busca">
-        <button class="search-hint" data-q="0001234-56.2024.8.26.0100" type="button">
-          <span class="hero__chip-k">CNJ</span> <b>0001234-56.2024.8.26.0100</b>
-        </button>
-        <button class="search-hint" data-q="OAB/SP 245.812" type="button">
-          <span class="hero__chip-k">OAB</span> <b>OAB/SP 245.812</b>
-        </button>
-        <button class="search-hint" data-q="Banco Itaú" type="button">
-          <span class="hero__chip-k">parte</span> <b>Banco Itaú</b>
-        </button>
-        <button class="search-hint" data-q="previdenciário" type="button">
-          <span class="hero__chip-k">tema</span> <b>previdenciário</b>
-        </button>
+
+      <div class="home-actions" aria-label="Ações principais">
+        <a class="home-action home-action--primary" href={BASE + 'processo'}>
+          <span class="kicker">Por número CNJ</span>
+          <strong>Consultar processo</strong>
+          <span>Abra um dossiê reunindo as fontes disponíveis.</span>
+        </a>
+        <a class="home-action" href={BASE + 'publicacoes'}>
+          <span class="kicker">Por OAB, parte ou texto</span>
+          <strong>Pesquisar publicações</strong>
+          <span>Procure comunicações preservadas do DJEN.</span>
+        </a>
       </div>
-      <dl class="hero__meta">
-        <div><dt class="k">ZIPs DJEN preservados</dt><dd class="v">{fmt(totalZips)}</dd></div>
-        <div><dt class="k">Tribunais no arquivo</dt><dd class="v">{tribunalsWithData} de {tribunalsTotal}</dd></div>
-        <div><dt class="k">Espelho público</dt><dd class="v">archive.org</dd></div>
-        <div><dt class="k">Última data DJEN</dt><dd class="v">{fmtDate(djen.latest_upload_date)}</dd></div>
-      </dl>
+
+      <div class="home-proof" aria-label="Estado do arquivo DJEN">
+        <span><b>{fmt(djen.zips_archived)}</b> ZIPs preservados</span>
+        <span><b>{djen.tribunals_with_data}</b> tribunais com dados</span>
+        <span><b>{freshnessLabel}</b> atualização DJEN</span>
+        <a href={BASE + 'stats'}>Ver cobertura →</a>
+      </div>
     </div>
   </header>
 
-  <section aria-labelledby="sources-h" class="source-section">
-    <div class="wrap wrap--wide">
-      <div class="sec-head">
-        <span class="sec-num">§01 — Um CNJ, evidências diferentes</span>
-        <h2 id="sources-h">Arquivo, estado e teor <em>não são a mesma coisa.</em></h2>
-        <p class="lede">
-          O CausaGanha não cola tudo numa resposta sem origem. Cada fonte prova uma coisa diferente — e pode ter cobertura diferente para o mesmo processo.
-        </p>
+  <main class="home-main">
+    <section class="home-section" aria-labelledby="roles-title">
+      <div class="wrap wrap--wide home-section__inner">
+        <div class="home-section__intro">
+          <span class="kicker">Como ler o resultado</span>
+          <h2 id="roles-title">Fontes diferentes respondem perguntas diferentes.</h2>
+          <p>O site mantém arquivo, estado processual e teor separados para você saber o que cada registro realmente sustenta.</p>
+        </div>
+        <div class="role-list">
+          {roles.map((role) => (
+            <article class="role-item">
+              <span class="role-item__label">{role.label}</span>
+              <div>
+                <strong>{role.source}</strong>
+                <p>{role.text}</p>
+              </div>
+            </article>
+          ))}
+        </div>
       </div>
-      <div class="source-grid">
-        {sources.map((source) => (
-          <article class="card source-card">
-            <div class="source-card__head">
-              <span class="kicker">{source.sigla}</span>
-              <span class="source-card__role">{source.papel}</span>
-            </div>
-            <h3>{source.title}</h3>
-            <p>{source.body}</p>
-          </article>
-        ))}
-      </div>
-      <p class="source-note">
-        Uma fonte ausente para um CNJ não significa automaticamente que o fato não existe. O dossiê distingue fontes presentes, cobertura do dataset e avisos de indisponibilidade sempre que o contrato permite.
-      </p>
-    </div>
-  </section>
+    </section>
 
-  <section aria-labelledby="archive-h">
-    <div class="wrap wrap--wide">
-      <div class="sec-head">
-        <span class="sec-num">§02 — A fundação é pública</span>
-        <h2 id="archive-h">O arquivo DJEN é <em>prova e infraestrutura.</em></h2>
-        <p class="lede">
-          O CausaGanha preserva o original e publica o estado da própria coleta. Estes números vêm do manifesto canônico em archive.org, renderizado neste build em {generatedAtLabel}.
-        </p>
+    <section class="home-section home-section--quiet" aria-labelledby="more-title">
+      <div class="wrap wrap--wide home-more">
+        <div>
+          <span class="kicker">Mais</span>
+          <h2 id="more-title">Use os dados sem perder a origem.</h2>
+        </div>
+        <nav class="home-more__links" aria-label="Outras formas de usar o CausaGanha">
+          <a href={BASE + 'minhas-consultas'}>Minhas consultas <span>→</span></a>
+          <a href={BASE + 'agentes'}>Usar com um agente <span>→</span></a>
+          <a href={BASE + 'explorador'}>Explorar os dados <span>→</span></a>
+          <a href={BASE + 'sobre'}>Projeto e metodologia <span>→</span></a>
+        </nav>
       </div>
-      <div class="grid-4">
-        <article class="card">
-          <div class="kicker">Rastreado</div>
-          <div class="stat__n stat__n--azul">{fmt(djen.pairs_total)}</div>
-          <div class="stat__label">Pares tribunal × dia no manifesto</div>
-          <div class="stat__sub">{djen.earliest_tracked_date ? `desde ${fmtDate(djen.earliest_tracked_date)}` : 'intervalo indisponível'}</div>
-        </article>
-        <article class="card card--azul">
-          <div class="kicker">Preservado</div>
-          <div class="stat__n" style="color: var(--ocre);">{fmt(totalZips)}</div>
-          <div class="stat__label">ZIPs originais no Internet Archive</div>
-          <div class="stat__sub" style="color: rgba(255,255,255,0.6);">{sinceYear ? `desde ${sinceYear} · ` : ''}{tribunalsWithData} tribunais com dados</div>
-        </article>
-        <article class="card">
-          <div class="kicker">Lacunas honestas</div>
-          <div class="stat__n stat__n--ocre">{fmt(gaps)}</div>
-          <div class="stat__label">Pares sem ZIP, com caderno possível</div>
-          <div class="stat__sub">exclui {fmt(djen.absent_confirmed)} ausências confirmadas</div>
-        </article>
-        <article class="card card--sunken">
-          <div class="kicker">Fonte DJEN</div>
-          <div class="stat__n stat__n--accent" aria-label={`Estado da fonte DJEN: ${freshnessLabel}`}>
-            <span class="stat__live-badge">{freshnessLabel}</span>
-          </div>
-          <div class="stat__label">Freshness da sincronização</div>
-          <div class="stat__sub">tentativa {lastAttempt ?? 'desconhecida'} · sucesso {lastSuccess ?? 'desconhecido'}</div>
-        </article>
-      </div>
-      <div class="archive-actions">
-        <a class="btn" href={BASE + 'stats'}>Explorar cobertura →</a>
-        <a class="btn" href={BASE + 'sobre'}>Entender a metodologia →</a>
-      </div>
-    </div>
-  </section>
-
-  <section aria-labelledby="interfaces-h" class="interfaces-section">
-    <div class="wrap wrap--wide">
-      <div class="sec-head">
-        <span class="sec-num">§03 — O mesmo sistema, três interfaces</span>
-        <h2 id="interfaces-h">Navegue, reproduza ou <em>consulte por agente.</em></h2>
-      </div>
-      <div class="grid-3">
-        <article class="card interface-card">
-          <div class="kicker">01 · Site</div>
-          <h3>Consulte sem montar infraestrutura.</h3>
-          <p>Abra um dossiê por CNJ, pesquise publicações e explore cobertura diretamente no navegador.</p>
-          <a href={BASE + 'processo'}>Consultar processo →</a>
-        </article>
-        <article class="card interface-card">
-          <div class="kicker">02 · Dados</div>
-          <h3>Leve o acervo para o seu DuckDB.</h3>
-          <p>ZIPs, Parquets, manifesto e catálogo SQL ficam públicos e reproduzíveis no Internet Archive.</p>
-          <a href={BASE + 'sobre'}>Ver acesso aos dados →</a>
-        </article>
-        <article class="card interface-card">
-          <div class="kicker">03 · Agentes</div>
-          <h3>Use a mesma proveniência via MCP.</h3>
-          <p>O servidor read-only expõe status, facetas DataJud e o dossiê processual para assistentes compatíveis.</p>
-          <a href={BASE + 'agentes'}>Usar com um agente →</a>
-        </article>
-      </div>
-    </div>
-  </section>
-
-  <section aria-labelledby="why-h">
-    <div class="wrap wrap--wide">
-      <div class="sec-head">
-        <span class="sec-num">§04 — Por que isso importa</span>
-        <h2 id="why-h">Preservar não basta. É preciso <em>saber o que cada registro prova.</em></h2>
-      </div>
-      <div class="grid-3">
-        <article class="card">
-          <div class="kicker">Memória</div>
-          <h3>O efêmero tem peso jurídico.</h3>
-          <p>Publicações desaparecem de superfícies, URLs mudam e integrações quebram. O original preservado mantém uma referência pública durável.</p>
-        </article>
-        <article class="card">
-          <div class="kicker">Proveniência</div>
-          <h3>Movimento não é inteiro teor.</h3>
-          <p>DataJud pode dizer que houve uma sentença; somente a fonte textual adequada pode sustentar o que a sentença decidiu e por quê.</p>
-        </article>
-        <article class="card">
-          <div class="kicker">Auditoria</div>
-          <h3>Lacuna também é informação.</h3>
-          <p>O sistema distingue ausência confirmada, erro transitório, fonte indisponível e dado ainda não observado em vez de esconder tudo atrás de “não encontrado”.</p>
-        </article>
-      </div>
-      <blockquote class="pull" style="margin-top: var(--s-8);">
-        O valor do CausaGanha não é produzir uma resposta única. É permitir que você veja <em>qual evidência sustenta cada parte dela.</em>
-      </blockquote>
-    </div>
-  </section>
+    </section>
+  </main>
 </Layout>
 
 <script>
@@ -265,90 +128,186 @@ const sources = [
     event.preventDefault();
     window.location.href = redirect;
   });
-
-  document.querySelectorAll<HTMLButtonElement>('.search-hint').forEach((button) => {
-    button.addEventListener('click', () => {
-      if (!heroInput) return;
-      heroInput.value = button.dataset.q ?? '';
-      heroInput.focus();
-      heroInput.dispatchEvent(new Event('input'));
-    });
-  });
 </script>
 
 <style>
-  .source-section,
-  .interfaces-section {
-    background: var(--papel-20);
-    border-block: 1.5px solid var(--concreto-90);
+  .home-hero {
+    padding-block: clamp(4rem, 9vw, 7.5rem) clamp(3rem, 6vw, 5rem);
   }
 
-  .source-grid {
+  .home-hero .mega {
+    max-width: 12ch;
+    margin-block: var(--s-3) var(--s-4);
+  }
+
+  .home-hero .hero__lede {
+    max-width: 48rem;
+    font-size: clamp(1.05rem, 2vw, 1.35rem);
+  }
+
+  .hero__search {
+    max-width: 52rem;
+    margin-top: var(--s-7);
+  }
+
+  .home-actions {
     display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: var(--s-3);
+    max-width: 52rem;
+    margin-top: var(--s-5);
   }
 
-  .source-card {
-    min-height: 16rem;
+  .home-action {
     display: flex;
     flex-direction: column;
-  }
-
-  .source-card__head {
-    display: flex;
-    justify-content: space-between;
     gap: var(--s-2);
-    align-items: center;
-  }
-
-  .source-card__role {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
+    padding: var(--s-5);
     border: 1px solid var(--border);
-    padding: 0.2rem 0.45rem;
+    background: var(--papel-00);
+    color: var(--fg);
+    text-decoration: none;
+    transition: transform 120ms ease, border-color 120ms ease;
   }
 
-  .source-card h3,
-  .interface-card h3 {
-    margin-top: auto;
+  .home-action:hover,
+  .home-action:focus-visible {
+    transform: translateY(-2px);
+    border-color: var(--verde, var(--color-accent));
   }
 
-  .source-note {
-    margin-top: var(--s-5);
-    max-width: 72ch;
-    font-family: var(--font-mono);
-    font-size: var(--t-small);
+  .home-action--primary {
+    border-width: 2px;
+  }
+
+  .home-action strong {
+    font-size: var(--t-h3, 1.35rem);
+  }
+
+  .home-action > span:last-child {
     color: var(--fg-muted);
   }
 
-  .archive-actions {
+  .home-proof {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--s-3);
-    margin-top: var(--s-5);
+    gap: var(--s-2) var(--s-5);
+    align-items: center;
+    max-width: 60rem;
+    margin-top: var(--s-6);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
   }
 
-  .interface-card a {
-    display: inline-block;
-    margin-top: auto;
+  .home-proof b {
+    color: var(--fg);
+  }
+
+  .home-proof a {
+    margin-left: auto;
+  }
+
+  .home-main {
+    border-top: 1px solid var(--border);
+  }
+
+  .home-section {
+    padding-block: clamp(3rem, 7vw, 6rem);
+  }
+
+  .home-section--quiet {
+    background: var(--papel-20);
+    border-top: 1px solid var(--border);
+  }
+
+  .home-section__inner {
+    display: grid;
+    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+    gap: clamp(2rem, 7vw, 7rem);
+    align-items: start;
+  }
+
+  .home-section__intro h2,
+  .home-more h2 {
+    max-width: 14ch;
+    margin-block: var(--s-3);
+  }
+
+  .home-section__intro p {
+    max-width: 36rem;
+    color: var(--fg-muted);
+  }
+
+  .role-list {
+    border-top: 1px solid var(--border);
+  }
+
+  .role-item {
+    display: grid;
+    grid-template-columns: 6rem 1fr;
+    gap: var(--s-4);
+    padding-block: var(--s-5);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .role-item__label {
     font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--fg-muted);
+  }
+
+  .role-item p {
+    margin: var(--s-1) 0 0;
+    color: var(--fg-muted);
+  }
+
+  .home-more {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: clamp(2rem, 7vw, 7rem);
+    align-items: start;
+  }
+
+  .home-more__links {
+    display: grid;
+    border-top: 1px solid var(--border);
+  }
+
+  .home-more__links a {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--s-4);
+    padding-block: var(--s-4);
+    border-bottom: 1px solid var(--border);
+    color: var(--fg);
+    text-decoration: none;
     font-weight: 700;
   }
 
-  @media (max-width: 64rem) {
-    .source-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-    }
+  .home-more__links a:hover,
+  .home-more__links a:focus-visible {
+    color: var(--verde, var(--color-accent));
   }
 
-  @media (max-width: 40rem) {
-    .source-grid {
+  @media (max-width: 48rem) {
+    .home-actions,
+    .home-section__inner,
+    .home-more {
       grid-template-columns: 1fr;
     }
 
-    .source-card {
-      min-height: auto;
+    .home-proof a {
+      width: 100%;
+      margin-left: 0;
+    }
+
+    .role-item {
+      grid-template-columns: 5rem 1fr;
     }
   }
 </style>
