@@ -226,6 +226,111 @@ def test_processo_consultar_projection_requires_nr_processo() -> None:
         ProcessoConsultarProjection.model_validate(fixture)
 
 
+def test_processo_consultar_projection_allows_unknown_fields_within_a_present_source() -> None:
+    """A source can be present yet only partially known — that must not fail validation.
+
+    `causaganha.processos.models` types every non-identifier field of
+    `DjenResumo`/`JurisDecisao`/`StjAcordao`/`DatajudCapa`/`DocumentoProcesso`
+    as `X | None`: `service.buscar_processo` fills what it can read from the
+    source's own record and leaves the rest `None` — a JURIS decision can be
+    found with no `data_julgamento` recorded yet, an STJ acórdão can lack a
+    `tema`, DJEN can know `n_publicacoes` without exact dates. Before this
+    fix every one of those fields was generated as a required, non-nullable
+    scalar (`str`/`int`, no `| None`) because okf-parser derives nullability
+    from whether any example value in `knowledge/contracts/*.md` was ever
+    `null` — one fully-populated fixture per type made every field look
+    always-present. `_to_result` mapping this real, partially-`None` data
+    into the generated projection would fail loudly on a real record for the
+    exact scenario `ProcessoConsultarResult` (the hand-written MCP model) has
+    always accepted.
+    """
+    fixture = {
+        "type": "Processo",
+        "nr_processo": "01316736220028220001",
+        "nr_processo_mascara": "0131673-62.2002.8.22.0001",
+        "encontrado": "true",
+        "fontes_presentes": ["djen", "juris", "stj", "datajud"],
+        "djen_id": "djen-1",
+        "juris_id": "juris-1",
+        "stj_id": "stj-1",
+        "datajud_id": "datajud-1",
+        "documentos_truncados": "false",
+        "dataset_gerado_em": "2026-09-03T15:54:21+00:00",
+        "avisos": [],
+        "djen": {
+            "type": "DjenResumo",
+            "id": "djen-1",
+            "primeira_publicacao": None,
+            "ultima_publicacao": None,
+            "n_publicacoes": None,
+            "tribunais": ["TJRO"],
+        },
+        "juris": {
+            "type": "JurisDecisao",
+            "id": "juris-1",
+            "n_documentos": None,
+            "tipos": ["acordao"],
+            "data_julgamento": None,
+            "orgao": None,
+            "relator": "Des. Fulano",
+            "classe": None,
+            "url": None,
+        },
+        "stj": {
+            "type": "StjAcordao",
+            "id": "stj-1",
+            "classe": "REsp",
+            "relator": None,
+            "tema": None,
+            "tese": None,
+            "ementa": None,
+            "data_decisao": None,
+            "data_publicacao": None,
+        },
+        "datajud": {
+            "type": "DatajudCapa",
+            "id": "datajud-1",
+            "classe_oficial": None,
+            "assuntos": None,
+            "orgao_julgador": None,
+            "grau": None,
+            "data_ajuizamento": None,
+            "ultima_atualizacao": None,
+        },
+        "cobertura_dataset": [
+            _fonte_cobertura("djen", "loaded_remote", "5539302"),
+            _fonte_cobertura("juris", "loaded_remote", "1221386"),
+            _fonte_cobertura("stj", "loaded_remote", "1"),
+            _fonte_cobertura("datajud", "loaded_remote", "1"),
+        ],
+        "documentos": [
+            {
+                "type": "DocumentoProcesso",
+                "fonte": "juris",
+                "id_documento": "juris-1",
+                "processo_nr": "01316736220028220001",
+                "tipo": None,
+                "data": None,
+                "url": None,
+                "resumo": None,
+            }
+        ],
+    }
+
+    projection = ProcessoConsultarProjection.model_validate(fixture)
+
+    assert projection.djen is not None
+    assert projection.djen.primeira_publicacao is None
+    assert projection.juris is not None
+    assert projection.juris.orgao is None
+    assert projection.juris.relator == "Des. Fulano"
+    assert projection.stj is not None
+    assert projection.stj.tema is None
+    assert projection.datajud is not None
+    assert projection.datajud.classe_oficial is None
+    assert projection.documentos[0].tipo is None
+
+
 def test_generated_module_leaves_identifier_field_a_plain_string() -> None:
     """Regression guard for the upstream `infer_types=True` bug this generator avoids.
 

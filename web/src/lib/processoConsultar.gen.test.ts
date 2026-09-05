@@ -148,6 +148,92 @@ describe('ProcessoConsultarSchema (generated from knowledge/)', () => {
     expect(parsed.documentos).toEqual([]);
   });
 
+  it('allows unknown fields within a present source', () => {
+    // Mirrors test_processo_consultar_projection_allows_unknown_fields_within_a_present_source
+    // in tests/causaganha_mcp/test_okf_domain_models.py (#1105): a source can be present yet
+    // only partially known — processoCnj.ts's real DuckDB rows have the same optionality.
+    const fixture = {
+      type: 'Processo',
+      nr_processo: '01316736220028220001',
+      nr_processo_mascara: '0131673-62.2002.8.22.0001',
+      encontrado: true,
+      fontes_presentes: ['djen', 'juris', 'stj', 'datajud'],
+      djen_id: 'djen-1',
+      juris_id: 'juris-1',
+      stj_id: 'stj-1',
+      datajud_id: 'datajud-1',
+      documentos_truncados: false,
+      dataset_gerado_em: '2026-09-03T15:54:21+00:00',
+      avisos: [],
+      djen: {
+        type: 'DjenResumo',
+        id: 'djen-1',
+        primeira_publicacao: null,
+        ultima_publicacao: null,
+        n_publicacoes: null,
+        tribunais: ['TJRO'],
+      },
+      juris: {
+        type: 'JurisDecisao',
+        id: 'juris-1',
+        n_documentos: null,
+        tipos: ['acordao'],
+        data_julgamento: null,
+        orgao: null,
+        relator: 'Des. Fulano',
+        classe: null,
+        url: null,
+      },
+      stj: {
+        type: 'StjAcordao',
+        id: 'stj-1',
+        classe: 'REsp',
+        relator: null,
+        tema: null,
+        tese: null,
+        ementa: null,
+        data_decisao: null,
+        data_publicacao: null,
+      },
+      datajud: {
+        type: 'DatajudCapa',
+        id: 'datajud-1',
+        classe_oficial: null,
+        assuntos: null,
+        orgao_julgador: null,
+        grau: null,
+        data_ajuizamento: null,
+        ultima_atualizacao: null,
+      },
+      cobertura_dataset: [
+        fonteCobertura('djen', 'loaded_remote', 5539302),
+        fonteCobertura('juris', 'loaded_remote', 1221386),
+        fonteCobertura('stj', 'loaded_remote', 1),
+        fonteCobertura('datajud', 'loaded_remote', 1),
+      ],
+      documentos: [
+        {
+          type: 'DocumentoProcesso',
+          fonte: 'juris',
+          id_documento: 'juris-1',
+          processo_nr: '01316736220028220001',
+          tipo: null,
+          data: null,
+          url: null,
+          resumo: null,
+        },
+      ],
+    };
+
+    const parsed = ProcessoConsultarSchema.parse(fixture);
+    expect(parsed.djen?.primeira_publicacao).toBeNull();
+    expect(parsed.juris?.orgao).toBeNull();
+    expect(parsed.juris?.relator).toBe('Des. Fulano');
+    expect(parsed.stj?.tema).toBeNull();
+    expect(parsed.datajud?.classe_oficial).toBeNull();
+    expect(parsed.documentos[0]?.tipo).toBeNull();
+  });
+
   it('requires nr_processo — an incomplete payload fails loudly', () => {
     const fixture = {
       type: 'Processo',

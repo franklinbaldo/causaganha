@@ -2,14 +2,18 @@
 type: StjAcordao
 id: stj-example
 classe: "REsp"
-relator: "Relator de exemplo"
-tema: "Tema de exemplo"
-tese: "Tese de exemplo"
-ementa: "Ementa de exemplo"
-data_decisao: "2026-08-20"
-data_publicacao: "2026-08-28"
+relator: null
+tema: null
+tese: null
+ementa: null
+data_decisao: null
+data_publicacao: null
 ---
 
 # Acórdão STJ
 
 Resumo contratual de acórdão do STJ associado ao processo.
+Exceto `id`/`classe`, os campos são `null` de propósito: um acórdão pode ser
+localizado sem que todo metadado já esteja disponível
+(`causaganha.processos.models.StjAcordao`) — o exemplo declara essa
+nulabilidade real em vez de fingir que todo campo está sempre presente.

@@ -4,40 +4,40 @@
 import { z } from 'zod';
 
 export const DatajudCapaSchema = z.object({
-  "assuntos": z.string(),
-  "classe_oficial": z.string(),
-  "data_ajuizamento": z.string(),
+  "assuntos": z.string().nullable(),
+  "classe_oficial": z.string().nullable(),
+  "data_ajuizamento": z.string().nullable(),
   "description": z.string().optional(),
-  "grau": z.string(),
+  "grau": z.string().nullable(),
   "id": z.string(),
-  "orgao_julgador": z.string(),
+  "orgao_julgador": z.string().nullable(),
   "title": z.string().optional(),
   "type": z.literal("DatajudCapa"),
-  "ultima_atualizacao": z.string()
+  "ultima_atualizacao": z.string().nullable()
 });
 
 export const DjenResumoSchema = z.object({
   "description": z.string().optional(),
   "id": z.string(),
-  "n_publicacoes": z.union([z.number().int(), z.bigint()]),
-  "primeira_publicacao": z.string(),
+  "n_publicacoes": z.union([z.number().int(), z.bigint()]).nullable(),
+  "primeira_publicacao": z.string().nullable(),
   "title": z.string().optional(),
   "tribunais": z.array(z.string()),
   "type": z.literal("DjenResumo"),
-  "ultima_publicacao": z.string()
+  "ultima_publicacao": z.string().nullable()
 });
 
 export const DocumentoProcessoSchema = z.object({
-  "data": z.string(),
+  "data": z.string().nullable(),
   "description": z.string().optional(),
   "fonte": z.string(),
   "id_documento": z.string(),
   "processo_nr": z.string().describe("references Processo(nr_processo)"),
-  "resumo": z.string(),
-  "tipo": z.string(),
+  "resumo": z.string().nullable(),
+  "tipo": z.string().nullable(),
   "title": z.string().optional(),
   "type": z.literal("DocumentoProcesso"),
-  "url": z.string()
+  "url": z.string().nullable()
 });
 
 export const FonteSchema = z.object({
@@ -63,17 +63,17 @@ export const FonteCoberturaSchema = z.object({
 });
 
 export const JurisDecisaoSchema = z.object({
-  "classe": z.string(),
-  "data_julgamento": z.string(),
+  "classe": z.string().nullable(),
+  "data_julgamento": z.string().nullable(),
   "description": z.string().optional(),
   "id": z.string(),
-  "n_documentos": z.union([z.number().int(), z.bigint()]),
-  "orgao": z.string(),
+  "n_documentos": z.union([z.number().int(), z.bigint()]).nullable(),
+  "orgao": z.string().nullable(),
   "relator": z.string(),
   "tipos": z.array(z.string()),
   "title": z.string().optional(),
   "type": z.literal("JurisDecisao"),
-  "url": z.string()
+  "url": z.string().nullable()
 });
 
 export const PipelineSchema = z.object({
@@ -113,14 +113,14 @@ export const ProcessoSchema = z.object({
 
 export const StjAcordaoSchema = z.object({
   "classe": z.string(),
-  "data_decisao": z.string(),
-  "data_publicacao": z.string(),
+  "data_decisao": z.string().nullable(),
+  "data_publicacao": z.string().nullable(),
   "description": z.string().optional(),
-  "ementa": z.string(),
+  "ementa": z.string().nullable(),
   "id": z.string(),
-  "relator": z.string(),
-  "tema": z.string(),
-  "tese": z.string(),
+  "relator": z.string().nullable(),
+  "tema": z.string().nullable(),
+  "tese": z.string().nullable(),
   "title": z.string().optional(),
   "type": z.literal("StjAcordao")
 });
