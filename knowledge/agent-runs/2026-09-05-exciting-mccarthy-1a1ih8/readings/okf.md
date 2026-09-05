@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-05-exciting-mccarthy-1a1ih8-reading-okf"
+run_id: "2026-09-05-exciting-mccarthy-1a1ih8"
+subject: "okf_knowledge"
+reference: "knowledge/okf.schema.sql (full, Agent* tables with CHECK/NOT NULL constraints); knowledge/agent-runs/index.md; knowledge/agent-runs/2026-09-05-* (7 prior rounds today: eager-wozniak-5akx2o, exciting-mccarthy-{1fxd8b,9xpeua,e9r0mj,ejibsp,ich5gz,qvwrkl}), each run.md's result_state/next_move"
+finding: "okf.schema.sql's Agent* tables enforce exact enums this round's frontmatter must satisfy: AgentRun.entry_state IN ('new','red','green','review','blocked'), target_state IN ('red','green','review','merged','unblocked'); AgentReading.subject IN ('claude_md','open_issues','open_prs','okf_knowledge','code','tests','ci','other'); AgentGoal.status IN ('proposed','active','achieved','carried'); AgentEvidence.kind IN ('test_red','test_green','ci','diff','review','runtime','issue','pr','okf','other'); AgentCheck.result IN ('passed','failed','observed'). `uv run okf-parser check knowledge --relational-schema okf.schema.sql` ran clean at session start (156 concepts, 158 markdown docs, 2 reserved, 0 diagnostics) — confirms the bundle is structurally conformant before this round adds its own tree. Of the 7 prior rounds today, all closed 'merged' or 'green', none 'blocked' — there is no stalled report to resume. The most recent round's (ich5gz) next_move pointed at #1107 follow-ups (now closed) or the web/UX backlog (#1131-#1134/#1136/#1138/#1139) as fallback — the live issue-triage state (this round's issues reading) has since superseded that with an explicit, freshly re-validated priority order naming #1139 first. No product OKF contract (knowledge/contracts/*.md — processo.md, fonte-cobertura.md, etc.) is touched by a pure page-hierarchy reorder in /publicacoes: this round's diff carries no new Fonte/Pipeline/Processo-shaped fact, only a presentation-order change plus its own test evidence, so no product schema/contract migration is warranted this round."
+---
+
+# Leitura de conhecimento OKF
+
+Confirma os enums exatos exigidos pelas tabelas `Agent*` (usados no frontmatter deste relatório) e que o `okf-parser check` está limpo no início da sessão. Nenhuma rodada anterior ficou `blocked`; a prioridade de trabalho vem da leitura de issues (não de um relatório anterior travado). Como o trabalho escolhido é puramente de ordem de apresentação em `/publicacoes`, nenhum contrato de produto OKF (`knowledge/contracts/*.md`) precisa mudar nesta rodada.
