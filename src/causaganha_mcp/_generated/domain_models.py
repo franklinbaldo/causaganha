@@ -161,7 +161,7 @@ class ProcessoConcept(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     avisos: list[str]
-    datajud_id: str = Field(
+    datajud_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "DatajudCapa",
@@ -171,9 +171,9 @@ class ProcessoConcept(BaseModel):
             },
         },
     )
-    dataset_gerado_em: str
+    dataset_gerado_em: str | None
     description: str = Field(default=None)
-    djen_id: str = Field(
+    djen_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "DjenResumo",
@@ -186,7 +186,7 @@ class ProcessoConcept(BaseModel):
     documentos_truncados: bool
     encontrado: bool
     fontes_presentes: list[str]
-    juris_id: str = Field(
+    juris_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "JurisDecisao",
@@ -198,7 +198,7 @@ class ProcessoConcept(BaseModel):
     )
     nr_processo: str
     nr_processo_mascara: str
-    stj_id: str = Field(
+    stj_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "StjAcordao",
@@ -236,7 +236,7 @@ class ProcessoConsultarProjection(BaseModel):
     model_config = ConfigDict(extra="allow")
 
     avisos: list[str]
-    datajud_id: str = Field(
+    datajud_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "DatajudCapa",
@@ -246,9 +246,9 @@ class ProcessoConsultarProjection(BaseModel):
             },
         },
     )
-    dataset_gerado_em: str
+    dataset_gerado_em: str | None
     description: str = Field(default=None)
-    djen_id: str = Field(
+    djen_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "DjenResumo",
@@ -261,7 +261,7 @@ class ProcessoConsultarProjection(BaseModel):
     documentos_truncados: bool
     encontrado: bool
     fontes_presentes: list[str]
-    juris_id: str = Field(
+    juris_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "JurisDecisao",
@@ -273,7 +273,7 @@ class ProcessoConsultarProjection(BaseModel):
     )
     nr_processo: str
     nr_processo_mascara: str
-    stj_id: str = Field(
+    stj_id: str | None = Field(
         json_schema_extra={
             "x-okf-references": {
                 "type": "StjAcordao",
