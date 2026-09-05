@@ -2,14 +2,19 @@
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const pathname = Astro.url.pathname;
 
-const links = [
-  { href: BASE + 'processo', label: 'Consultar processo', match: '/processo' },
-  { href: BASE + 'publicacoes', label: 'Pesquisar publicações', match: '/publicacoes' },
+const primary = [
+  { href: BASE + 'processo', label: 'Processo', match: '/processo' },
+  { href: BASE + 'publicacoes', label: 'Publicações', match: '/publicacoes' },
+];
+
+const secondary = [
   { href: BASE + 'minhas-consultas', label: 'Minhas consultas', match: '/minhas-consultas' },
-  { href: BASE + 'stats', label: 'Explorar cobertura', match: '/stats' },
-  { href: BASE + 'agentes', label: 'Usar com agente', match: '/agentes' },
+  { href: BASE + 'stats', label: 'Cobertura', match: '/stats' },
+  { href: BASE + 'agentes', label: 'Agentes', match: '/agentes' },
   { href: BASE + 'sobre', label: 'Projeto & dados', match: '/sobre' },
 ];
+
+const secondaryActive = secondary.some((link) => pathname.includes(link.match));
 ---
 
 <header class="site-nav-shell">
@@ -19,15 +24,28 @@ const links = [
       <span>CausaGanha</span>
     </a>
 
-    <div class="site-nav__links">
-      {links.map((link) => (
-        <a
-          href={link.href}
-          aria-current={pathname.includes(link.match) ? 'page' : undefined}
-        >
-          {link.label}
-        </a>
-      ))}
+    <div class="site-nav__actions">
+      <div class="site-nav__primary">
+        {primary.map((link) => (
+          <a href={link.href} aria-current={pathname.includes(link.match) ? 'page' : undefined}>
+            {link.label}
+          </a>
+        ))}
+      </div>
+
+      <details class="site-nav__more" open={false}>
+        <summary aria-label="Abrir mais opções de navegação">
+          Mais
+          {secondaryActive && <span class="site-nav__dot" aria-label="Página atual está neste grupo"></span>}
+        </summary>
+        <div class="site-nav__menu">
+          {secondary.map((link) => (
+            <a href={link.href} aria-current={pathname.includes(link.match) ? 'page' : undefined}>
+              {link.label}
+            </a>
+          ))}
+        </div>
+      </details>
     </div>
   </nav>
 </header>
@@ -37,18 +55,24 @@ const links = [
     position: relative;
     z-index: 20;
     border-bottom: 1px solid var(--border);
-    background: color-mix(in srgb, var(--color-canvas, var(--papel-00)) 94%, transparent);
+    background: color-mix(in srgb, var(--color-canvas, var(--papel-00)) 96%, transparent);
     backdrop-filter: blur(10px);
   }
 
   .site-nav {
     width: min(100% - 2rem, 88rem);
-    margin: 0 auto;
     min-height: 3.75rem;
+    margin: 0 auto;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: var(--s-4, 1rem);
+  }
+
+  .site-nav__brand,
+  .site-nav__primary a,
+  .site-nav__menu a {
+    text-decoration: none;
   }
 
   .site-nav__brand {
@@ -59,7 +83,6 @@ const links = [
     font-family: var(--font-display, var(--font-sans));
     font-weight: 800;
     letter-spacing: -0.02em;
-    text-decoration: none;
     white-space: nowrap;
   }
 
@@ -74,51 +97,99 @@ const links = [
     font-weight: 800;
   }
 
-  .site-nav__links {
+  .site-nav__actions,
+  .site-nav__primary {
     display: flex;
     align-items: center;
-    justify-content: flex-end;
-    gap: 0.25rem;
-    flex-wrap: wrap;
   }
 
-  .site-nav__links a {
+  .site-nav__actions {
+    gap: 0.35rem;
+  }
+
+  .site-nav__primary a,
+  .site-nav__more summary,
+  .site-nav__menu a {
     padding: 0.55rem 0.7rem;
     color: var(--fg-muted);
     font-family: var(--font-mono);
     font-size: var(--t-micro, 0.78rem);
     font-weight: 650;
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
   }
 
-  .site-nav__links a:hover,
-  .site-nav__links a:focus-visible,
-  .site-nav__links a[aria-current='page'] {
+  .site-nav__primary a:hover,
+  .site-nav__primary a:focus-visible,
+  .site-nav__primary a[aria-current='page'],
+  .site-nav__menu a:hover,
+  .site-nav__menu a:focus-visible,
+  .site-nav__menu a[aria-current='page'] {
     color: var(--fg);
-    border-bottom-color: var(--verde, var(--color-accent));
   }
 
-  @media (max-width: 48rem) {
+  .site-nav__primary a[aria-current='page'] {
+    border-bottom: 2px solid var(--verde, var(--color-accent));
+  }
+
+  .site-nav__more {
+    position: relative;
+  }
+
+  .site-nav__more summary {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .site-nav__more summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .site-nav__more[open] summary,
+  .site-nav__more summary:hover,
+  .site-nav__more summary:focus-visible {
+    color: var(--fg);
+  }
+
+  .site-nav__dot {
+    width: 0.4rem;
+    height: 0.4rem;
+    border-radius: 999px;
+    background: var(--verde, var(--color-accent));
+  }
+
+  .site-nav__menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 0.5rem);
+    min-width: 12rem;
+    padding: 0.35rem;
+    border: 1px solid var(--border);
+    background: var(--papel-00);
+    box-shadow: 0 0.75rem 2rem rgb(0 0 0 / 0.08);
+  }
+
+  .site-nav__menu a {
+    display: block;
+  }
+
+  .site-nav__menu a[aria-current='page'] {
+    background: var(--papel-20);
+  }
+
+  @media (max-width: 34rem) {
     .site-nav {
-      align-items: flex-start;
-      flex-direction: column;
-      gap: 0;
-      padding: 0.7rem 0;
+      min-height: 3.4rem;
     }
 
-    .site-nav__links {
-      width: 100%;
-      justify-content: flex-start;
-      overflow: visible;
-      flex-wrap: wrap;
-      gap: 0 0.2rem;
-      padding-top: 0.4rem;
+    .site-nav__brand > span:last-child {
+      display: none;
     }
 
-    .site-nav__links a {
-      padding: 0.45rem 0.55rem;
-      white-space: nowrap;
+    .site-nav__primary a,
+    .site-nav__more summary {
+      padding-inline: 0.5rem;
     }
   }
 </style>
