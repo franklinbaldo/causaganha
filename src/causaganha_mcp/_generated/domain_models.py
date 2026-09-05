@@ -9,6 +9,199 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class AgentCheckConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    command: str
+    description: str = Field(default=None)
+    evidence_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentEvidence",
+                "columns": ["evidence_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    goal_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentGoal",
+                "columns": ["goal_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    id: str
+    result: str
+    run_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentRun",
+                "columns": ["run_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    summary: str
+    title: str = Field(default=None)
+    type: Literal["AgentCheck"]
+
+
+class AgentDecisionConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    choice: str
+    description: str = Field(default=None)
+    goal_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentGoal",
+                "columns": ["goal_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    id: str
+    question: str
+    rationale: str
+    run_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentRun",
+                "columns": ["run_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    title: str = Field(default=None)
+    type: Literal["AgentDecision"]
+
+
+class AgentEvidenceConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    description: str = Field(default=None)
+    goal_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentGoal",
+                "columns": ["goal_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    id: str
+    kind: str
+    reference: str
+    run_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentRun",
+                "columns": ["run_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    summary: str
+    title: str = Field(default=None)
+    type: Literal["AgentEvidence"]
+
+
+class AgentGoalConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    description: str = Field(default=None)
+    goal: str
+    id: str
+    rationale: str
+    run_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentRun",
+                "columns": ["run_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    status: str
+    success_signal: str
+    title: str = Field(default=None)
+    type: Literal["AgentGoal"]
+
+
+class AgentReadingConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    description: str = Field(default=None)
+    finding: str
+    id: str
+    reference: str
+    run_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentRun",
+                "columns": ["run_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    subject: str
+    title: str = Field(default=None)
+    type: Literal["AgentReading"]
+
+
+class AgentRunConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    branch_at_start: str
+    check_ids: list[str]
+    claude_md_reading_id: str
+    commit_at_start: str
+    completed_at: str
+    considered_work: list[str]
+    decision_ids: list[str]
+    description: str = Field(default=None)
+    entry_state: str
+    evidence_ids: list[str]
+    expected_behavior: str
+    goal_ids: list[str]
+    id: str
+    issues_reading_id: str
+    next_move: str
+    okf_reading_id: str
+    primary_goal_id: str
+    prs_reading_id: str
+    result_state: str
+    result_summary: str
+    selected_work: str
+    started_at: str
+    target_state: str
+    title: str = Field(default=None)
+    type: Literal["AgentRun"]
+
+
 class DatajudCapaConcept(BaseModel):
     """Generated Pydantic model for one OKF contract object."""
 

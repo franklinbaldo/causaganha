@@ -1,6 +1,11 @@
 {
   "permissions": {
-    "allow": ["Bash(git cherry-pick:*)"],
+    "allow": [
+      "Bash(git cherry-pick:*)",
+      "Bash(mkdir -p /home/user/causaganha/knowledge/agent-runs/2026-09-05-eager-wozniak-5akx2o)",
+      "Bash(cp /home/user/causaganha/.claude/agent-run-scaffold.md /home/user/causaganha/knowledge/agent-runs/2026-09-05-eager-wozniak-5akx2o/run.md)",
+      "Bash(uv run *)"
+    ],
     "deny": []
   }
 }
