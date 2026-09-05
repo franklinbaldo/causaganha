@@ -6,107 +6,68 @@ const siteStatus = await loadSiteStatus();
 const djen = siteStatus.sources.djen;
 const freshnessLabel = freshnessDisplayLabel(evaluateSourceFreshness(djen, Date.now()));
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-
-function fmt(n: number): string {
-  return n.toLocaleString('pt-BR');
-}
-
-const roles = [
-  { label: 'Arquivo', source: 'DJEN', text: 'O que foi publicado e preservado.' },
-  { label: 'Estado', source: 'DataJud', text: 'Onde o processo está e quais movimentos constam.' },
-  { label: 'Teor', source: 'JURIS · STJ', text: 'O que decisões e acórdãos efetivamente dizem.' },
-];
 ---
 
 <Layout
-  title="CausaGanha — consulte o rastro verificável de um processo"
-  description="Consulte processos e publicações judiciais com origem, cobertura e proveniência explícitas."
+  title="CausaGanha — consulta judicial pública e verificável"
+  description="Consulte processos e publicações judiciais com origem e cobertura explícitas."
   fullWidth={true}
   showNetworkBanner={false}
 >
-  <header class="hero" aria-labelledby="hero-title">
-    <div class="hero__inner home-hero">
-      <span class="kicker">Consulta pública · fontes oficiais</span>
-      <h1 class="mega" id="hero-title">Encontre o processo.<br/><em>Veja a evidência.</em></h1>
-      <p class="hero__lede">
-        Consulte um CNJ ou pesquise publicações. O CausaGanha mostra de onde veio cada informação e deixa claras as lacunas de cobertura.
+  <main class="home" aria-labelledby="home-title">
+    <section class="home__core">
+      <p class="home__eyebrow">Consulta pública · fontes oficiais</p>
+      <h1 id="home-title">Procure. Confira a fonte.</h1>
+      <p class="home__lede">
+        Digite um número CNJ para abrir o processo, ou pesquise uma OAB, parte ou termo nas publicações preservadas.
       </p>
 
-      <form class="hero__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
-        <fieldset role="group">
+      <form class="home__search" action={BASE + 'publicacoes'} method="get" role="search" data-processo-href={BASE + 'processo'}>
+        <label for="home-query" class="sr-only">Consultar processo ou pesquisar publicações</label>
+        <div class="home__search-row">
           <input
-            class="input hero__search-input"
+            id="home-query"
             data-global-search
             name="texto"
             type="search"
-            placeholder="Número CNJ, OAB, parte ou texto"
+            placeholder="CNJ, OAB, parte ou texto"
             autocomplete="off"
-            aria-label="Consultar processo ou pesquisar publicações"
             aria-describedby="hero-search-hint"
           />
-          <button class="btn btn--accent" type="submit">Buscar →</button>
-        </fieldset>
-        <p class="hero__search-hint" id="hero-search-hint" aria-live="polite" hidden></p>
+          <button type="submit">Buscar</button>
+        </div>
+        <p class="home__hint" id="hero-search-hint" aria-live="polite" hidden></p>
       </form>
 
-      <div class="home-actions" aria-label="Ações principais">
-        <a class="home-action home-action--primary" href={BASE + 'processo'}>
-          <span class="kicker">Por número CNJ</span>
-          <strong>Consultar processo</strong>
-          <span>Abra um dossiê reunindo as fontes disponíveis.</span>
-        </a>
-        <a class="home-action" href={BASE + 'publicacoes'}>
-          <span class="kicker">Por OAB, parte ou texto</span>
-          <strong>Pesquisar publicações</strong>
-          <span>Procure comunicações preservadas do DJEN.</span>
-        </a>
-      </div>
-
-      <div class="home-proof" aria-label="Estado do arquivo DJEN">
-        <span><b>{fmt(djen.zips_archived)}</b> ZIPs preservados</span>
-        <span><b>{djen.tribunals_with_data}</b> tribunais com dados</span>
-        <span><b>{freshnessLabel}</b> atualização DJEN</span>
-        <a href={BASE + 'stats'}>Ver cobertura →</a>
-      </div>
-    </div>
-  </header>
-
-  <main class="home-main">
-    <section class="home-section" aria-labelledby="roles-title">
-      <div class="wrap wrap--wide home-section__inner">
-        <div class="home-section__intro">
-          <span class="kicker">Como ler o resultado</span>
-          <h2 id="roles-title">Fontes diferentes respondem perguntas diferentes.</h2>
-          <p>O site mantém arquivo, estado processual e teor separados para você saber o que cada registro realmente sustenta.</p>
-        </div>
-        <div class="role-list">
-          {roles.map((role) => (
-            <article class="role-item">
-              <span class="role-item__label">{role.label}</span>
-              <div>
-                <strong>{role.source}</strong>
-                <p>{role.text}</p>
-              </div>
-            </article>
-          ))}
-        </div>
-      </div>
+      <nav class="home__shortcuts" aria-label="Ações principais">
+        <a href={BASE + 'processo'}>Consultar processo</a>
+        <span aria-hidden="true">·</span>
+        <a href={BASE + 'publicacoes'}>Pesquisar publicações</a>
+      </nav>
     </section>
 
-    <section class="home-section home-section--quiet" aria-labelledby="more-title">
-      <div class="wrap wrap--wide home-more">
-        <div>
-          <span class="kicker">Mais</span>
-          <h2 id="more-title">Use os dados sem perder a origem.</h2>
-        </div>
-        <nav class="home-more__links" aria-label="Outras formas de usar o CausaGanha">
-          <a href={BASE + 'minhas-consultas'}>Minhas consultas <span>→</span></a>
-          <a href={BASE + 'agentes'}>Usar com um agente <span>→</span></a>
-          <a href={BASE + 'explorador'}>Explorar os dados <span>→</span></a>
-          <a href={BASE + 'sobre'}>Projeto e metodologia <span>→</span></a>
-        </nav>
-      </div>
+    <section class="home__evidence" aria-label="Como o CausaGanha organiza as fontes">
+      <p><strong>Arquivo</strong> DJEN preservado</p>
+      <p><strong>Estado</strong> DataJud</p>
+      <p><strong>Teor</strong> JURIS e STJ</p>
     </section>
+
+    <footer class="home__status">
+      <p>
+        DJEN: <strong>{freshnessLabel}</strong>
+        <span aria-hidden="true">·</span>
+        {djen.tribunals_with_data} tribunais com dados
+        <span aria-hidden="true">·</span>
+        <a href={BASE + 'stats'}>cobertura</a>
+      </p>
+      <p class="home__secondary">
+        <a href={BASE + 'minhas-consultas'}>Minhas consultas</a>
+        <span aria-hidden="true">·</span>
+        <a href={BASE + 'agentes'}>Agentes</a>
+        <span aria-hidden="true">·</span>
+        <a href={BASE + 'sobre'}>Sobre</a>
+      </p>
+    </footer>
   </main>
 </Layout>
 
@@ -114,15 +75,15 @@ const roles = [
   import { buildHeroSearchRedirect } from '../lib/processoCnj';
   import { attachHeroSearchHint } from '../lib/heroSearchHint';
 
-  const heroForm = document.querySelector<HTMLFormElement>('.hero__search');
-  const heroInput = heroForm?.querySelector<HTMLInputElement>('input[name="texto"]');
-  const heroHint = heroForm?.querySelector<HTMLElement>('#hero-search-hint');
+  const form = document.querySelector<HTMLFormElement>('.home__search');
+  const input = form?.querySelector<HTMLInputElement>('input[name="texto"]');
+  const hint = form?.querySelector<HTMLElement>('#hero-search-hint');
 
-  if (heroInput && heroHint) attachHeroSearchHint(heroInput, heroHint);
+  if (input && hint) attachHeroSearchHint(input, hint);
 
-  heroForm?.addEventListener('submit', (event) => {
-    const raw = heroInput?.value ?? '';
-    const processoHref = heroForm.dataset.processoHref ?? 'processo';
+  form?.addEventListener('submit', (event) => {
+    const raw = input?.value ?? '';
+    const processoHref = form.dataset.processoHref ?? 'processo';
     const redirect = buildHeroSearchRedirect(raw, processoHref);
     if (!redirect) return;
     event.preventDefault();
@@ -131,183 +92,190 @@ const roles = [
 </script>
 
 <style>
-  .home-hero {
-    padding-block: clamp(4rem, 9vw, 7.5rem) clamp(3rem, 6vw, 5rem);
-  }
-
-  .home-hero .mega {
-    max-width: 12ch;
-    margin-block: var(--s-3) var(--s-4);
-  }
-
-  .home-hero .hero__lede {
-    max-width: 48rem;
-    font-size: clamp(1.05rem, 2vw, 1.35rem);
-  }
-
-  .hero__search {
-    max-width: 52rem;
-    margin-top: var(--s-7);
-  }
-
-  .home-actions {
+  .home {
+    width: min(100% - 2rem, 72rem);
+    min-height: calc(100svh - 8rem);
+    margin: 0 auto;
     display: grid;
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: var(--s-3);
-    max-width: 52rem;
-    margin-top: var(--s-5);
+    grid-template-rows: 1fr auto auto;
   }
 
-  .home-action {
-    display: flex;
-    flex-direction: column;
-    gap: var(--s-2);
-    padding: var(--s-5);
-    border: 1px solid var(--border);
-    background: var(--papel-00);
-    color: var(--fg);
-    text-decoration: none;
-    transition: transform 120ms ease, border-color 120ms ease;
+  .home__core {
+    width: min(100%, 48rem);
+    align-self: center;
+    padding-block: clamp(4rem, 12vw, 9rem) clamp(3rem, 8vw, 6rem);
   }
 
-  .home-action:hover,
-  .home-action:focus-visible {
-    transform: translateY(-2px);
-    border-color: var(--verde, var(--color-accent));
-  }
-
-  .home-action--primary {
-    border-width: 2px;
-  }
-
-  .home-action strong {
-    font-size: var(--t-h3, 1.35rem);
-  }
-
-  .home-action > span:last-child {
-    color: var(--fg-muted);
-  }
-
-  .home-proof {
-    display: flex;
-    flex-wrap: wrap;
-    gap: var(--s-2) var(--s-5);
-    align-items: center;
-    max-width: 60rem;
-    margin-top: var(--s-6);
-    padding-top: var(--s-4);
-    border-top: 1px solid var(--border);
+  .home__eyebrow {
+    margin: 0 0 1.2rem;
     color: var(--fg-muted);
     font-family: var(--font-mono);
     font-size: var(--t-micro);
-  }
-
-  .home-proof b {
-    color: var(--fg);
-  }
-
-  .home-proof a {
-    margin-left: auto;
-  }
-
-  .home-main {
-    border-top: 1px solid var(--border);
-  }
-
-  .home-section {
-    padding-block: clamp(3rem, 7vw, 6rem);
-  }
-
-  .home-section--quiet {
-    background: var(--papel-20);
-    border-top: 1px solid var(--border);
-  }
-
-  .home-section__inner {
-    display: grid;
-    grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-    gap: clamp(2rem, 7vw, 7rem);
-    align-items: start;
-  }
-
-  .home-section__intro h2,
-  .home-more h2 {
-    max-width: 14ch;
-    margin-block: var(--s-3);
-  }
-
-  .home-section__intro p {
-    max-width: 36rem;
-    color: var(--fg-muted);
-  }
-
-  .role-list {
-    border-top: 1px solid var(--border);
-  }
-
-  .role-item {
-    display: grid;
-    grid-template-columns: 6rem 1fr;
-    gap: var(--s-4);
-    padding-block: var(--s-5);
-    border-bottom: 1px solid var(--border);
-  }
-
-  .role-item__label {
-    font-family: var(--font-mono);
-    font-size: var(--t-micro);
+    letter-spacing: 0.05em;
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+  }
+
+  .home h1 {
+    max-width: 11ch;
+    margin: 0;
+    font-family: var(--font-display, var(--font-sans));
+    font-size: clamp(3rem, 9vw, 6.6rem);
+    line-height: 0.94;
+    letter-spacing: -0.055em;
+  }
+
+  .home__lede {
+    max-width: 39rem;
+    margin: 1.75rem 0 0;
     color: var(--fg-muted);
+    font-size: clamp(1rem, 2vw, 1.2rem);
+    line-height: 1.6;
   }
 
-  .role-item p {
-    margin: var(--s-1) 0 0;
-    color: var(--fg-muted);
+  .home__search {
+    max-width: 44rem;
+    margin-top: clamp(2rem, 5vw, 3.5rem);
   }
 
-  .home-more {
+  .home__search-row {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: clamp(2rem, 7vw, 7rem);
-    align-items: start;
+    grid-template-columns: 1fr auto;
+    border-bottom: 2px solid var(--fg);
   }
 
-  .home-more__links {
-    display: grid;
-    border-top: 1px solid var(--border);
-  }
-
-  .home-more__links a {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--s-4);
-    padding-block: var(--s-4);
-    border-bottom: 1px solid var(--border);
+  .home__search input {
+    min-width: 0;
+    padding: 1rem 0.1rem;
+    border: 0;
+    border-radius: 0;
+    background: transparent;
     color: var(--fg);
-    text-decoration: none;
-    font-weight: 700;
+    font: inherit;
+    font-size: clamp(1.05rem, 2vw, 1.3rem);
+    outline: none;
   }
 
-  .home-more__links a:hover,
-  .home-more__links a:focus-visible {
+  .home__search input::placeholder {
+    color: var(--fg-muted);
+  }
+
+  .home__search-row:focus-within {
+    border-bottom-color: var(--verde, var(--color-accent));
+  }
+
+  .home__search button {
+    padding: 0.9rem 0 0.9rem 1.25rem;
+    border: 0;
+    background: transparent;
+    color: var(--fg);
+    font: inherit;
+    font-weight: 800;
+    cursor: pointer;
+  }
+
+  .home__search button:hover,
+  .home__search button:focus-visible,
+  .home__shortcuts a:hover,
+  .home__shortcuts a:focus-visible,
+  .home__status a:hover,
+  .home__status a:focus-visible {
     color: var(--verde, var(--color-accent));
   }
 
-  @media (max-width: 48rem) {
-    .home-actions,
-    .home-section__inner,
-    .home-more {
+  .home__hint {
+    margin: 0.65rem 0 0;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+  }
+
+  .home__shortcuts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.55rem;
+    margin-top: 1.1rem;
+    color: var(--fg-muted);
+    font-size: 0.95rem;
+  }
+
+  .home__shortcuts a,
+  .home__status a {
+    color: inherit;
+  }
+
+  .home__evidence {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 1.25rem;
+    padding-block: 1.25rem;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+    color: var(--fg-muted);
+    font-size: 0.9rem;
+  }
+
+  .home__evidence p,
+  .home__status p {
+    margin: 0;
+  }
+
+  .home__evidence strong {
+    display: block;
+    margin-bottom: 0.2rem;
+    color: var(--fg);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  .home__status {
+    display: flex;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-block: 1.15rem 2rem;
+    color: var(--fg-muted);
+    font-family: var(--font-mono);
+    font-size: var(--t-micro);
+  }
+
+  .home__secondary {
+    text-align: right;
+  }
+
+  @media (max-width: 42rem) {
+    .home {
+      min-height: auto;
+    }
+
+    .home__core {
+      padding-block: 5rem 4rem;
+    }
+
+    .home h1 {
+      max-width: 9ch;
+    }
+
+    .home__search-row {
       grid-template-columns: 1fr;
     }
 
-    .home-proof a {
-      width: 100%;
-      margin-left: 0;
+    .home__search button {
+      width: max-content;
+      padding: 0.4rem 0 0.9rem;
     }
 
-    .role-item {
-      grid-template-columns: 5rem 1fr;
+    .home__evidence {
+      grid-template-columns: 1fr;
+      gap: 0.85rem;
+    }
+
+    .home__status {
+      flex-direction: column;
+    }
+
+    .home__secondary {
+      text-align: left;
     }
   }
 </style>
