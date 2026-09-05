@@ -57,6 +57,11 @@ jobs:
           uv run --project .okf-parser --frozen python scripts/generate_okf_domain_models.py
           git diff --exit-code -- src/causaganha_mcp/_generated/domain_models.py
 
+      - name: Check generated Zod schemas are up to date
+        run: |
+          uv run --project .okf-parser --frozen python scripts/generate_okf_zod_schemas.py
+          git diff --exit-code -- web/src/lib/processoConsultar.gen.ts
+
       - name: Compile typed Ibis relations
         run: |
           uv run --project .okf-parser --frozen python - <<'PY'
