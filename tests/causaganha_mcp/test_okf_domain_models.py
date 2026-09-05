@@ -272,7 +272,7 @@ def test_processo_consultar_projection_allows_unknown_fields_within_a_present_so
             "tipos": ["acordao"],
             "data_julgamento": None,
             "orgao": None,
-            "relator": "Des. Fulano",
+            "relator": None,
             "classe": None,
             "url": None,
         },
@@ -323,7 +323,7 @@ def test_processo_consultar_projection_allows_unknown_fields_within_a_present_so
     assert projection.djen.primeira_publicacao is None
     assert projection.juris is not None
     assert projection.juris.orgao is None
-    assert projection.juris.relator == "Des. Fulano"
+    assert projection.juris.relator is None
     assert projection.stj is not None
     assert projection.stj.tema is None
     assert projection.datajud is not None

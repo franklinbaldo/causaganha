@@ -180,7 +180,7 @@ describe('ProcessoConsultarSchema (generated from knowledge/)', () => {
         tipos: ['acordao'],
         data_julgamento: null,
         orgao: null,
-        relator: 'Des. Fulano',
+        relator: null,
         classe: null,
         url: null,
       },
@@ -228,7 +228,7 @@ describe('ProcessoConsultarSchema (generated from knowledge/)', () => {
     const parsed = ProcessoConsultarSchema.parse(fixture);
     expect(parsed.djen?.primeira_publicacao).toBeNull();
     expect(parsed.juris?.orgao).toBeNull();
-    expect(parsed.juris?.relator).toBe('Des. Fulano');
+    expect(parsed.juris?.relator).toBeNull();
     expect(parsed.stj?.tema).toBeNull();
     expect(parsed.datajud?.classe_oficial).toBeNull();
     expect(parsed.documentos[0]?.tipo).toBeNull();
