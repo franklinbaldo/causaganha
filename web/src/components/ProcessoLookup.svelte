@@ -11,6 +11,7 @@
     buscarProcesso,
     carregarDocumentos,
     classifyCnjInput,
+    evidenceMatrixRows,
     fontesPresenca,
     formatCnj,
     isDatasetStale,
@@ -18,6 +19,7 @@
     normalizeCnj,
     readCnjParam,
   } from '../lib/processoCnj';
+  import ProcessoEvidenceMatrix from './ProcessoEvidenceMatrix.svelte';
   import { buildDocumentoReferenceText, buildProcessoReferenceText } from '../lib/processoReference';
   import {
     SAVED_CONSULTATIONS_STORAGE_KEY,
@@ -64,6 +66,9 @@
   let searchGeneration = 0;
 
   const fontesResumo = $derived(processo ? fontesPresenca(processo.fontes) : null);
+  const evidenceRows = $derived(
+    processo ? evidenceMatrixRows(processo.fontes, processo.avisos, processo.cobertura) : [],
+  );
   const documentosVazio = $derived(
     status === 'found' && documentosStatus === 'ready' && isDocumentosVazio(documentos, 0) && documentosOffset === 0,
   );
@@ -464,6 +469,8 @@
           Estes valores descrevem o acervo publicado do CausaGanha. Eles não são uma consulta live do andamento atual do processo.
         </p>
       </section>
+
+      <ProcessoEvidenceMatrix rows={evidenceRows} />
 
       {#if processo.avisos.length > 0}
         <aside role="status" class="alert" data-level="warning">

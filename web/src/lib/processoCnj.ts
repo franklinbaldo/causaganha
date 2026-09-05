@@ -504,6 +504,52 @@ export function fontesPresenca(fontes: Fonte[]): FontesPresenca {
   return { presentes, ausentes };
 }
 
+/** Papel de produto de cada fonte (docs/PRODUCT.md): Arquivo, Estado ou Teor. */
+export type Papel = 'arquivo' | 'estado' | 'teor';
+
+export const FONTE_PAPEL: Record<Fonte, Papel> = {
+  djen: 'arquivo',
+  datajud: 'estado',
+  juris: 'teor',
+  stj: 'teor',
+};
+
+export type EvidenceStatus = 'presente' | 'ausente' | 'indisponivel';
+
+export interface EvidenceMatrixRow {
+  fonte: Fonte;
+  papel: Papel;
+  status: EvidenceStatus;
+}
+
+/**
+ * Uma linha por fonte para a faixa-resumo de evidências de #1130. Não faz
+ * nenhuma consulta nova: só relê `fontes` (presença por CNJ), `avisos`
+ * (falha de consulta a uma fonte específica, texto livre já produzido por
+ * `queryRowSafe`) e `cobertura` (status do dataset por fonte, já produzido
+ * por `fetchCobertura`). Indisponibilidade tem precedência sobre ausência —
+ * uma fonte que falhou a consulta está, por construção, também ausente de
+ * `fontes` (ver queryRowSafe), e as duas situações precisam continuar
+ * visualmente distintas (#1130).
+ */
+export function evidenceMatrixRows(
+  fontes: Fonte[],
+  avisos: string[],
+  cobertura: FonteCobertura[],
+): EvidenceMatrixRow[] {
+  return ALL_FONTES.map((fonte) => {
+    const avisoIndisponivel = avisos.some((aviso) => aviso.startsWith(`Fonte '${fonte}' indisponível`));
+    const coberturaIndisponivel = cobertura.some((c) => c.fonte === fonte && c.status === 'unavailable');
+    const status: EvidenceStatus =
+      avisoIndisponivel || coberturaIndisponivel
+        ? 'indisponivel'
+        : fontes.includes(fonte)
+          ? 'presente'
+          : 'ausente';
+    return { fonte, papel: FONTE_PAPEL[fonte], status };
+  });
+}
+
 /** Processo localizado, mas sem documentos JURIS/STJ — distinto de CNJ não encontrado. */
 export function isDocumentosVazio(items: unknown[], offset: number): boolean {
   return offset === 0 && items.length === 0;
