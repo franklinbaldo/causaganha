@@ -504,6 +504,13 @@ describe('buscarProcesso', () => {
       expect(result.nrProcessoMascara).toBe('0000001-02.2024.8.22.0001');
       expect(result.datasetGeradoEm).toBe('X');
       expect(result.avisos).toEqual([]);
+      // #1105: buscarProcesso() must also expose the shared OKF core (#1120's
+      // serializeSharedCore), validated against ProcessoConsultarSchema, not
+      // just processoCnj.ts's own hand-rolled view models.
+      expect(result.nucleoCompartilhado.encontrado).toBe(false);
+      expect(result.nucleoCompartilhado.cnj_formatado).toBe('0000001-02.2024.8.22.0001');
+      expect(result.nucleoCompartilhado.djen).toBeNull();
+      expect(result.nucleoCompartilhado).not.toHaveProperty('type');
     } finally {
       vi.unstubAllGlobals();
     }
@@ -539,6 +546,12 @@ describe('buscarProcesso', () => {
         'Relatório de cobertura (indice_processual.report.json) indisponível; sem detalhamento de ' +
           'quais fontes estavam carregadas na geração do dataset.',
       ]);
+      // #1105: the same dossier assembled here must validate as the shared OKF core.
+      expect(result.nucleoCompartilhado.fontes_presentes).toEqual(['datajud', 'djen']);
+      expect(result.nucleoCompartilhado.djen).not.toBeNull();
+      expect(result.nucleoCompartilhado.juris).toBeNull();
+      expect(result.nucleoCompartilhado.datajud).toMatchObject({ classe_oficial: 'Apelacao' });
+      expect(result.nucleoCompartilhado.avisos).toEqual(result.avisos);
     } finally {
       vi.unstubAllGlobals();
     }
