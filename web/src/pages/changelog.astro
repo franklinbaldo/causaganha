@@ -1,9 +1,7 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
-import Breadcrumbs from '../components/Breadcrumbs.astro';
-
-const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+import { css } from '../../styled-system/css';
+import { badge, card } from '../../styled-system/recipes';
 
 const entries = [
   {
@@ -17,35 +15,23 @@ const entries = [
     items: ['Painel admin de performance estabilizado.', 'Melhorias de cache para dados de backfill.'],
   },
 ];
-
-const dateFormatter = new Intl.DateTimeFormat('pt-BR', {
-  day: '2-digit',
-  month: 'long',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
+const dateFormatter = new Intl.DateTimeFormat('pt-BR', { day: '2-digit', month: 'long', year: 'numeric', timeZone: 'UTC' });
 ---
 
-<Layout title="Changelog — CausaGanha" description="Atualizações de produto e status do projeto CausaGanha." showNetworkBanner={false}>
-  <PageHeader title="Changelog" subtitle="Evolução do dashboard e do pipeline" backHref={BASE} backLabel="Início" tile="changelog" />
+<Layout title="Changelog — CausaGanha" description="Atualizações publicadas do CausaGanha." fullWidth={true} showNetworkBanner={false}>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' } })}>
+    <span class={badge({ tone: 'neutral' })}>Histórico</span>
+    <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, m: '0', mt: '5', maxW: '10ch' })}>O que mudou.</h1>
+    <p class={css({ mt: '6', mb: '10', maxW: '44rem', color: 'textMuted', fontSize: 'lg', lineHeight: 'body' })}>Registro curto de mudanças públicas relevantes. O histórico técnico completo permanece no GitHub.</p>
 
-  <div class="container">
-    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Changelog' }]} />
-
-    <section>
-      {entries.map((entry) => (
-        <article>
-          <small>
-            <time datetime={entry.date}>
-              {dateFormatter.format(new Date(entry.date + 'T00:00:00Z'))}
-            </time>
-          </small>
-          <h2>{entry.title}</h2>
-          <ul>
-            {entry.items.map((item) => <li>{item}</li>)}
-          </ul>
+    <div class={css({ display: 'grid', gap: '4', maxW: 'reading' })}>
+      {entries.map(entry => (
+        <article class={card()}>
+          <time datetime={entry.date} class={css({ textStyle: 'eyebrow', color: 'info' })}>{dateFormatter.format(new Date(entry.date + 'T00:00:00Z'))}</time>
+          <h2 class={css({ mt: '4', mb: '4', fontSize: 'xl' })}>{entry.title}</h2>
+          <ul class={css({ m: '0', pl: '6', display: 'grid', gap: '2', color: 'textMuted', lineHeight: 'body' })}>{entry.items.map(item => <li>{item}</li>)}</ul>
         </article>
       ))}
-    </section>
-  </div>
+    </div>
+  </section>
 </Layout>
