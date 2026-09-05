@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Execute matching Python-service and Web SQL plans against shared fixtures (#1107).
 
-Generic bridge, not a query DSL: it does not know what "djen" or "juris"
-*mean* — it only dispatches to the already-existing private SQL builders in
+The bridge dispatches to the already-existing private SQL builders in
 `causaganha.processos.service` and runs the caller-supplied Web SQL text
 (produced by `web/src/lib/processoCnj.ts`'s own builders) through the same
-DuckDB engine and the same fixture files, so the Web/Vitest parity test can
-compare both row sets for the exact semantics #1107 cares about: principal
-document selection, ordering, null handling and pagination equivalence.
+DuckDB engine and the same fixture files. For source plans it also executes
+Python's real `_build_*` mapping path and serializes that domain object into
+the public Web-view shape, so the parity test covers both raw rows and the
+row-to-domain normalization boundary.
 
 Reads a JSON `{"cases": [...]}` file (see `_python_sql` for the per-plan
 shape of each case) and writes a JSON list of
-`{label, python_sql, python_rows, web_rows}` results.
+`{label, python_sql, python_rows, web_rows, python_mapped}` results.
 """
 
 from __future__ import annotations
@@ -57,6 +57,112 @@ def _rows(con: duckdb.DuckDBPyConnection, sql: str, params: list[Any]) -> list[d
     return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
 
+def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict[str, Any] | None:
+    """Run the Python runtime's real source mapper and expose the Web-view shape.
+
+    This intentionally calls `_build_*` rather than reimplementing row mapping
+    in the harness. The only translation here is naming: Python domain fields
+    are projected to the camelCase public view consumed by the Web parity test.
+    `None` for non-source plans keeps the bridge generic for índice/documentos.
+    """
+    plan = case["plan"]
+    if plan not in _SOURCE_PLAN_BUILDERS:
+        return None
+
+    cnj = case["python_params"][0]
+    urls = case["urls"]
+    avisos: list[str] = []
+
+    if plan == "djen":
+        value = service._build_djen(con, urls, cnj, avisos)
+        if value is None:
+            return {
+                "present": False,
+                "primeiraPub": None,
+                "ultimaPub": None,
+                "nPublicacoes": None,
+                "tribunais": [],
+            }
+        return {
+            "present": True,
+            "primeiraPub": value.primeira_publicacao,
+            "ultimaPub": value.ultima_publicacao,
+            "nPublicacoes": value.n_publicacoes,
+            "tribunais": value.tribunais,
+        }
+
+    if plan == "juris":
+        value = service._build_juris(con, urls, cnj, avisos)
+        if value is None:
+            return {
+                "present": False,
+                "nDocumentos": None,
+                "tipos": [],
+                "dataJulgamento": None,
+                "orgao": None,
+                "relator": None,
+                "classe": None,
+                "url": None,
+            }
+        return {
+            "present": True,
+            "nDocumentos": value.n_documentos,
+            "tipos": value.tipos,
+            "dataJulgamento": value.data_julgamento,
+            "orgao": value.orgao,
+            "relator": value.relator,
+            "classe": value.classe,
+            "url": value.url,
+        }
+
+    if plan == "stj":
+        value = service._build_stj(con, urls, cnj, avisos)
+        if value is None:
+            return {
+                "present": False,
+                "id": None,
+                "classe": None,
+                "relator": None,
+                "tema": None,
+                "tese": None,
+                "ementa": None,
+                "dataDecisao": None,
+                "dataPublicacao": None,
+            }
+        return {
+            "present": True,
+            "id": value.id,
+            "classe": value.classe,
+            "relator": value.relator,
+            "tema": value.tema,
+            "tese": value.tese,
+            "ementa": value.ementa,
+            "dataDecisao": value.data_decisao,
+            "dataPublicacao": value.data_publicacao,
+        }
+
+    value = service._build_datajud(con, urls, cnj, avisos)
+    if value is None:
+        return {
+            "present": False,
+            "classeOficial": None,
+            "assuntos": None,
+            "orgaoJulgador": None,
+            "grau": None,
+            "dataAjuizamento": None,
+            "ultimaAtualizacao": None,
+        }
+    return {
+        "present": True,
+        "classeOficial": value.classe_oficial,
+        "assuntos": value.assuntos,
+        "orgaoJulgador": value.orgao_julgador,
+        "grau": value.grau,
+        "dataAjuizamento": value.data_ajuizamento,
+        "ultimaAtualizacao": value.ultima_atualizacao,
+    }
+
+
 def run_cases(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     results = []
     with duckdb.connect() as con:
@@ -68,6 +174,7 @@ def run_cases(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
                     "python_sql": python_sql,
                     "python_rows": _rows(con, python_sql, case["python_params"]),
                     "web_rows": _rows(con, case["web_sql"], case["web_params"]),
+                    "python_mapped": _python_mapped(con, case),
                 }
             )
     return results

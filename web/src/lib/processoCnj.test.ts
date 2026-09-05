@@ -366,6 +366,33 @@ describe('mapDatajudRow', () => {
     expect(mapDatajudRow(null)).toMatchObject({ present: false, classeOficial: null });
     expect(mapDatajudRow({ n: 0 })).toMatchObject({ present: false });
   });
+
+  it('preserves ultima_atualizacao time-of-day instead of truncating to a bare date (#1107)', () => {
+    // ultima_atualizacao is DataJud's one genuine TIMESTAMP column (the rest
+    // of the dossier's dates are DATE); DuckDB's own VARCHAR cast produces a
+    // space-separated 'YYYY-MM-DD HH:MM:SS' string, matching Python
+    // service.py's _iso()/datetime.isoformat() semantics for the same
+    // column, which never truncates the time-of-day.
+    const view = mapDatajudRow({
+      n: 1,
+      classe_oficial: 'Apelacao Civel',
+      data_ajuizamento: '2024-01-10',
+      ultima_atualizacao: '2024-06-01 14:23:05',
+    });
+    expect(view.ultimaAtualizacao).toBe('2024-06-01T14:23:05');
+    // data_ajuizamento is a genuine DATE column — no time-of-day to lose.
+    expect(view.dataAjuizamento).toBe('2024-01-10');
+  });
+
+  it('preserves a bare-date ultima_atualizacao unchanged', () => {
+    const view = mapDatajudRow({ n: 1, ultima_atualizacao: '2024-06-01' });
+    expect(view.ultimaAtualizacao).toBe('2024-06-01');
+  });
+
+  it('maps a null ultima_atualizacao to null', () => {
+    const view = mapDatajudRow({ n: 1, ultima_atualizacao: null });
+    expect(view.ultimaAtualizacao).toBeNull();
+  });
 });
 
 describe('mapDocumentoRow', () => {
