@@ -1,48 +1,25 @@
 ---
-import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
-import Breadcrumbs from '../components/Breadcrumbs.astro';
-import TribunalCompareCard from '../components/TribunalCompareCard.astro';
-import EmptyState from '../components/EmptyState.svelte';
-import { loadContract } from '../lib/data';
-
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-
-// Per-tribunal metrics from the tribunal_coverage query contract — same
-// canonical manifest as site-status.json (no legacy cache/backfill snapshot).
-const coverage = (await loadContract('tribunal_coverage')) ?? [];
-
-// Sort by date span (longest archive first) — volume alone is a misleading proxy for usefulness
-const tribunais = coverage
-  .filter(row => row.uploaded > 0 && row.earliest_upload && row.latest_upload)
-  .map(row => ({
-    tribunal: row.tribunal,
-    zipCount: row.uploaded,
-    earliestDate: row.earliest_upload as string,
-    latestDate: row.latest_upload as string,
-  }))
-  .sort((a, b) => {
-    const spanA = new Date(a.latestDate).getTime() - new Date(a.earliestDate).getTime();
-    const spanB = new Date(b.latestDate).getTime() - new Date(b.earliestDate).getTime();
-    return spanB - spanA;
-  })
-  .slice(0, 12);
+const target = `${BASE}stats`;
+const canonicalURL = new URL(target, Astro.site);
 ---
 
-<Layout title="Comparador de Tribunais — CausaGanha" description="Compare cobertura e volume de publicações entre tribunais." showNetworkBanner={false}>
-  <PageHeader title="Comparador de Tribunais" subtitle="Tribunais com maior cobertura histórica — do mais antigo ao mais recente" backHref={BASE + 'publicacoes'} backLabel="Publicações" tile="comparador" />
-
-  <div class="container">
-    <Breadcrumbs crumbs={[{ label: 'Início', href: BASE }, { label: 'Comparador' }]} />
-
-    <section>
-      {tribunais.length > 0 ? (
-        <div class="auto-grid">
-          {tribunais.map((tribunal) => <TribunalCompareCard {...tribunal} />)}
-        </div>
-      ) : (
-        <EmptyState title="Sem dados de cobertura" message="O contrato tribunal_coverage ainda não foi renderizado — rode scripts/render_queries.py para gerar os dados de comparação." />
-      )}
-    </section>
-  </div>
-</Layout>
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="refresh" content={`0;url=${target}`} />
+    <meta name="robots" content="noindex,follow" />
+    <link rel="canonical" href={canonicalURL} />
+    <title>Comparador de tribunais — CausaGanha</title>
+  </head>
+  <body>
+    <main>
+      <p>Esta visão foi consolidada em <a href={target}>Estatísticas e cobertura</a>.</p>
+    </main>
+    <script define:vars={{ target }}>
+      window.location.replace(target);
+    </script>
+  </body>
+</html>
