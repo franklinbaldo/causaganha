@@ -8,14 +8,11 @@ export const GET: APIRoute = async ({ site }) => {
   const BASE_URL = new URL(basePath, site).toString().replace(/\/$/, '');
   const sitemapUrls: string[] = [];
   const now = new Date().toISOString();
-  // Mesma fonte e mesma seleção de advogados/[tribunal].astro (getStaticPaths):
-  // contrato canônico tribunal_coverage — o sitemap lista exatamente as rotas
-  // que o build gera, nem mais (links quebrados) nem menos.
   const advogadosTribunals = topAdvogadosTribunals(await loadContract('tribunal_coverage'));
 
   // Product hierarchy: primary jobs first, then continuity, advanced tools and docs.
-  // Legacy analytical routes remain indexable, but no longer compete with the two
-  // main public entry points: process lookup and publication search (#1138).
+  // /advogados and /comparador now preserve old URLs only as redirects to /stats,
+  // so they are intentionally absent from indexing (#1138).
   const staticPages = [
     { url: '/', changefreq: 'daily', priority: '1.0' },
     { url: '/processo', changefreq: 'daily', priority: '0.9' },
@@ -24,8 +21,6 @@ export const GET: APIRoute = async ({ site }) => {
     { url: '/stats', changefreq: 'daily', priority: '0.6' },
     { url: '/explorador', changefreq: 'weekly', priority: '0.6' },
     { url: '/agentes', changefreq: 'weekly', priority: '0.6' },
-    { url: '/advogados', changefreq: 'daily', priority: '0.5' },
-    { url: '/comparador', changefreq: 'daily', priority: '0.5' },
     { url: '/sobre', changefreq: 'weekly', priority: '0.5' },
     { url: '/changelog', changefreq: 'weekly', priority: '0.4' },
   ];
@@ -41,7 +36,6 @@ export const GET: APIRoute = async ({ site }) => {
     `);
   });
 
-  // Dynamic tribunal pages
   TRIBUNAIS.forEach(tribunal => {
     sitemapUrls.push(`
   <url>
