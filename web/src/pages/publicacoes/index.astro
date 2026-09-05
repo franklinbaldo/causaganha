@@ -32,11 +32,15 @@ function fmt(n: number): string {
       <span class="kicker">§ Publicações · arquivo de busca</span>
       <h1>Procurar uma <em>intimação,</em><br/>uma sentença, um edital.</h1>
       <p class="lede">
-        Busca direta nas publicações do DJEN arquivadas no Internet Archive.
-        {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados (pares tribunal × dia)' : 'ZIPs arquivados'} de {tribunalsWithData} tribunais{sinceYear ? ` desde ${sinceYear}` : ''}.
         Cole um número de processo CNJ, uma inscrição na OAB, o nome de uma parte, ou texto livre.
       </p>
-      <p class="page-head__meta">Métricas do manifesto canônico · geradas em {generatedAtLabel}</p>
+    </div>
+  </section>
+
+  <!-- ═══════════ SEARCH ═══════════ -->
+  <section class="publication-search-section">
+    <div class="wrap wrap--wide">
+      <PublicationSearch client:load />
     </div>
   </section>
 
@@ -47,17 +51,15 @@ function fmt(n: number): string {
           <strong>○ Cobertura e lacunas por tribunal</strong>
           <span class="badge" data-tone="info">Status textual, contagens e calendário</span>
         </header>
+        <p>
+          Busca direta nas publicações do DJEN arquivadas no Internet Archive.
+          {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados (pares tribunal × dia)' : 'ZIPs arquivados'} de {tribunalsWithData} tribunais{sinceYear ? ` desde ${sinceYear}` : ''}.
+        </p>
         <p>Impacto: dias sem dados podem omitir publicações em buscas por processo, OAB ou parte.</p>
         <p>Possível causa: ausência oficial do diário, backfill pendente ou falha temporária de coleta.</p>
         <p><strong>Próxima ação:</strong> abra a página de um tribunal para ver cards de atenção, calendário e dias ausentes.</p>
+        <p class="page-head__meta">Métricas do manifesto canônico · geradas em {generatedAtLabel}</p>
       </article>
-    </div>
-  </section>
-
-  <!-- ═══════════ SEARCH ═══════════ -->
-  <section class="publication-search-section">
-    <div class="wrap wrap--wide">
-      <PublicationSearch client:load />
     </div>
   </section>
 
