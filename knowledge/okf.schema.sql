@@ -80,24 +80,23 @@ CREATE TABLE "DocumentoProcesso" (
     PRIMARY KEY (fonte, id_documento)
 );
 
--- Operational contract for the hourly Claude Code loop.
--- A session starts from the scaffold in .claude/agent-run-scaffold.md and
--- becomes valid as the agent reads the project, chooses goals, advances work,
--- records evidence, and closes the round.
+-- Session-level state machine for the hourly Claude Code loop. The scaffold is
+-- intentionally invalid at birth; repeated okf-parser checks reveal what the
+-- round still needs to read, decide, prove, check, and hand off.
 CREATE TABLE "AgentRun" (
     id VARCHAR PRIMARY KEY,
-    started_at VARCHAR NOT NULL,
-    completed_at VARCHAR NOT NULL,
-    branch_at_start VARCHAR NOT NULL,
-    commit_at_start VARCHAR NOT NULL,
+    started_at VARCHAR NOT NULL CHECK (length(trim(started_at)) > 0),
+    completed_at VARCHAR NOT NULL CHECK (length(trim(completed_at)) > 0),
+    branch_at_start VARCHAR NOT NULL CHECK (length(trim(branch_at_start)) > 0),
+    commit_at_start VARCHAR NOT NULL CHECK (length(trim(commit_at_start)) > 0),
 
-    read_claude_md BOOLEAN NOT NULL CHECK (read_claude_md = TRUE),
-    read_open_issues BOOLEAN NOT NULL CHECK (read_open_issues = TRUE),
-    read_open_prs BOOLEAN NOT NULL CHECK (read_open_prs = TRUE),
-    read_okf_knowledge BOOLEAN NOT NULL CHECK (read_okf_knowledge = TRUE),
+    claude_md_reading_id VARCHAR NOT NULL CHECK (length(trim(claude_md_reading_id)) > 0),
+    issues_reading_id VARCHAR NOT NULL CHECK (length(trim(issues_reading_id)) > 0),
+    prs_reading_id VARCHAR NOT NULL CHECK (length(trim(prs_reading_id)) > 0),
+    okf_reading_id VARCHAR NOT NULL CHECK (length(trim(okf_reading_id)) > 0),
 
-    goals VARCHAR[] NOT NULL CHECK (array_length(goals) > 0),
-    goal_rationale VARCHAR NOT NULL CHECK (length(trim(goal_rationale)) > 0),
+    goal_ids VARCHAR[] NOT NULL CHECK (array_length(goal_ids) > 0),
+    primary_goal_id VARCHAR NOT NULL CHECK (length(trim(primary_goal_id)) > 0),
     considered_work VARCHAR[] NOT NULL CHECK (array_length(considered_work) > 0),
     selected_work VARCHAR NOT NULL CHECK (length(trim(selected_work)) > 0),
     expected_behavior VARCHAR NOT NULL CHECK (length(trim(expected_behavior)) > 0),
@@ -105,10 +104,55 @@ CREATE TABLE "AgentRun" (
     entry_state VARCHAR NOT NULL CHECK (entry_state IN ('new', 'red', 'green', 'review', 'blocked')),
     target_state VARCHAR NOT NULL CHECK (target_state IN ('red', 'green', 'review', 'merged', 'unblocked')),
 
-    actions VARCHAR[] NOT NULL CHECK (array_length(actions) > 0),
-    evidence VARCHAR[] NOT NULL CHECK (array_length(evidence) > 0),
-    checks VARCHAR[] NOT NULL CHECK (array_length(checks) > 0),
+    decision_ids VARCHAR[] NOT NULL CHECK (array_length(decision_ids) > 0),
+    evidence_ids VARCHAR[] NOT NULL CHECK (array_length(evidence_ids) > 0),
+    check_ids VARCHAR[] NOT NULL CHECK (array_length(check_ids) > 0),
     result_state VARCHAR NOT NULL CHECK (result_state IN ('red', 'green', 'review', 'merged', 'blocked')),
     result_summary VARCHAR NOT NULL CHECK (length(trim(result_summary)) > 0),
     next_move VARCHAR NOT NULL CHECK (length(trim(next_move)) > 0)
+);
+
+CREATE TABLE "AgentReading" (
+    id VARCHAR PRIMARY KEY,
+    run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    subject VARCHAR NOT NULL CHECK (subject IN ('claude_md', 'open_issues', 'open_prs', 'okf_knowledge', 'code', 'tests', 'ci', 'other')),
+    reference VARCHAR NOT NULL CHECK (length(trim(reference)) > 0),
+    finding VARCHAR NOT NULL CHECK (length(trim(finding)) > 0)
+);
+
+CREATE TABLE "AgentGoal" (
+    id VARCHAR PRIMARY KEY,
+    run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    goal VARCHAR NOT NULL CHECK (length(trim(goal)) > 0),
+    rationale VARCHAR NOT NULL CHECK (length(trim(rationale)) > 0),
+    success_signal VARCHAR NOT NULL CHECK (length(trim(success_signal)) > 0),
+    status VARCHAR NOT NULL CHECK (status IN ('proposed', 'active', 'achieved', 'carried'))
+);
+
+CREATE TABLE "AgentDecision" (
+    id VARCHAR PRIMARY KEY,
+    run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    goal_id VARCHAR REFERENCES "AgentGoal"(id),
+    question VARCHAR NOT NULL CHECK (length(trim(question)) > 0),
+    choice VARCHAR NOT NULL CHECK (length(trim(choice)) > 0),
+    rationale VARCHAR NOT NULL CHECK (length(trim(rationale)) > 0)
+);
+
+CREATE TABLE "AgentEvidence" (
+    id VARCHAR PRIMARY KEY,
+    run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    goal_id VARCHAR REFERENCES "AgentGoal"(id),
+    kind VARCHAR NOT NULL CHECK (kind IN ('test_red', 'test_green', 'ci', 'diff', 'review', 'runtime', 'issue', 'pr', 'okf', 'other')),
+    reference VARCHAR NOT NULL CHECK (length(trim(reference)) > 0),
+    summary VARCHAR NOT NULL CHECK (length(trim(summary)) > 0)
+);
+
+CREATE TABLE "AgentCheck" (
+    id VARCHAR PRIMARY KEY,
+    run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    goal_id VARCHAR REFERENCES "AgentGoal"(id),
+    command VARCHAR NOT NULL CHECK (length(trim(command)) > 0),
+    result VARCHAR NOT NULL CHECK (result IN ('passed', 'failed', 'observed')),
+    evidence_id VARCHAR REFERENCES "AgentEvidence"(id),
+    summary VARCHAR NOT NULL CHECK (length(trim(summary)) > 0)
 );
