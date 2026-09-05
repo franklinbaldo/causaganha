@@ -22,6 +22,13 @@ CNJ_ALL = "00000010220248220001"
 CNJ_DJEN_ONLY = "00000020320248220002"
 CNJ_UNKNOWN = "00000030420248220003"
 
+# Registered in indice_processual for 'djen', but arquivo_ia_url points at a
+# parquet that is never written — a real duckdb.Error on read, distinct from
+# CNJ_UNKNOWN's zero-row (never-registered) absence. Exercises #1107's
+# "fonte registrada mas parquet indisponível" ≠ "CNJ ausente" distinction
+# through the real query-plan parity harness (scripts/processo_query_plan_compare.py).
+CNJ_SOURCE_UNAVAILABLE = "00000060720248220006"
+
 # Not wired into indice_processual — exists only in the juris/stj source
 # parquets, to exercise principal-document tie-break selection (a more
 # recent SENTENÇA must lose to an older ACÓRDÃO; a more recent STJ acórdão
@@ -106,6 +113,7 @@ def build_fixtures(tmp_path: Path) -> dict[str, Path]:
                data_ajuizamento, ultima_atualizacao)
         """,
     )
+    missing_djen = tmp_path / "missing-djen.parquet"  # deliberately never written
     indice = copy_to_parquet(
         tmp_path / "indice_processual.parquet",
         f"""
@@ -115,7 +123,8 @@ def build_fixtures(tmp_path: Path) -> dict[str, Path]:
             ('{CNJ_ALL}',       'juris',   '1',     'TJRO', DATE '2024-01-15', '{juris}'),
             ('{CNJ_ALL}',       'stj',     'stj-1', 'STJ',  DATE '2024-05-01', '{stj}'),
             ('{CNJ_ALL}',       'datajud', 'dj-1',  'TJRO', DATE '2024-06-01', '{datajud}'),
-            ('{CNJ_DJEN_ONLY}', 'djen',    'c3',    'TJRO', DATE '2024-04-01', '{comunicacoes}')
+            ('{CNJ_DJEN_ONLY}', 'djen',    'c3',    'TJRO', DATE '2024-04-01', '{comunicacoes}'),
+            ('{CNJ_SOURCE_UNAVAILABLE}', 'djen', 'c4', 'TJRO', DATE '2024-04-02', '{missing_djen}')
         ) AS t(numero_processo, fonte, registro_id, tribunal, data, arquivo_ia_url)
         """,
     )
@@ -140,4 +149,5 @@ def build_fixtures(tmp_path: Path) -> dict[str, Path]:
         "juris": juris,
         "stj": stj,
         "datajud": datajud,
+        "missing_djen": missing_djen,
     }

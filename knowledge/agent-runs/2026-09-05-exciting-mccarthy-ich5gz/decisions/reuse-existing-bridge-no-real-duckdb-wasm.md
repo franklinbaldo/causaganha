@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-05-exciting-mccarthy-ich5gz-decision-reuse-existing-bridge-no-real-duckdb-wasm"
+run_id: "2026-09-05-exciting-mccarthy-ich5gz"
+goal_id: "2026-09-05-exciting-mccarthy-ich5gz-goal-fonte-indisponivel-vs-ausente-parity"
+question: "How to prove 'fonte indisponível' vs 'CNJ ausente' agree across Python and Web without standing up a real DuckDB-WASM connection in Vitest (no such harness exists in the repo) or reimplementing buscarProcesso()'s orchestration logic inside the bridge script (which would create a third, drift-prone copy of the same control flow)?"
+choice: "Extend the EXISTING scripts/processo_query_plan_compare.py bridge (already the accepted stand-in for DuckDB-WASM per processoQueryPlanParity.test.ts's own header comment: native DuckDB and DuckDB-WASM share the same SQL engine/dialect) with a safe-execution wrapper (_safe_rows) that reports raise/no-raise instead of crashing, and expose the avisos the REAL _build_djen() mapper collects (not a reimplementation) via a new python_mapped_avisos field. Add one new fixture CNJ (CNJ_SOURCE_UNAVAILABLE) registered for 'djen' at a parquet path that is never written, alongside the untouched CNJ_UNKNOWN ('absent from índice entirely') fixture, and one new test case in the same describe block using the same runCases() machinery already proven correct by the PRESENT/ABSENT and DataJud-timestamp tests. Extract a shared formatFonteIndisponivelAviso() in processoCnj.ts (mirroring Python's existing, already-named _fonte_indisponivel_aviso) so the aviso wording itself is a testable, named unit on both sides instead of an inline template string."
+rationale: "This keeps the proof inside the harness architecture the repo has already reviewed and accepted for #1107 (native DuckDB standing in for DuckDB-WASM), touches only the real production functions (_build_djen, queryRowSafe via its extracted formatter) rather than adding a parallel orchestration reimplementation, and avoids every risk #1107's own 'Riscos' section names: no DSL, no new backend, no site-to-MCP coupling. It is also the smallest change that turns an already-true-but-unverified cross-runtime claim into an enforced, RED-then-GREEN test — consistent with #1107's repeated review guidance ('não criar DSL genérica antecipada', 'pequena autoridade compartilhada + testes de conformidade')."
+---
+
+# Decisão: reusar o bridge de paridade existente, sem duckdb-wasm real em Node
+
+Padrão já aceito pela própria issue (DuckDB nativo como substituto fiel de DuckDB-WASM) e já usado pelos testes de paridade anteriores — evita criar uma segunda infraestrutura de teste ou uma terceira cópia da orquestração `buscarProcesso`/`buscar_processo`.

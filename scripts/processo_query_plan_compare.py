@@ -57,17 +57,25 @@ def _rows(con: duckdb.DuckDBPyConnection, sql: str, params: list[Any]) -> list[d
     return [dict(zip(columns, row, strict=True)) for row in cursor.fetchall()]
 
 
-def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict[str, Any] | None:
+def _python_mapped(
+    con: duckdb.DuckDBPyConnection, case: dict[str, Any]
+) -> tuple[dict[str, Any] | None, list[str]]:
     """Run the Python runtime's real source mapper and expose the Web-view shape.
 
     This intentionally calls `_build_*` rather than reimplementing row mapping
     in the harness. The only translation here is naming: Python domain fields
     are projected to the camelCase public view consumed by the Web parity test.
     `None` for non-source plans keeps the bridge generic for índice/documentos.
+
+    Also returns the `avisos` list `_build_*` collected — e.g. a fonte-specific
+    "indisponível" warning when the underlying parquet failed to read (#1107's
+    "fonte registrada mas parquet indisponível" ≠ "CNJ ausente" proof needs
+    this, not just the mapped present/absent flag, since both states resolve
+    to `present: False`).
     """
     plan = case["plan"]
     if plan not in _SOURCE_PLAN_BUILDERS:
-        return None
+        return None, []
 
     cnj = case["python_params"][0]
     urls = case["urls"]
@@ -82,14 +90,14 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
                 "ultimaPub": None,
                 "nPublicacoes": None,
                 "tribunais": [],
-            }
+            }, avisos
         return {
             "present": True,
             "primeiraPub": value.primeira_publicacao,
             "ultimaPub": value.ultima_publicacao,
             "nPublicacoes": value.n_publicacoes,
             "tribunais": value.tribunais,
-        }
+        }, avisos
 
     if plan == "juris":
         value = service._build_juris(con, urls, cnj, avisos)
@@ -103,7 +111,7 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
                 "relator": None,
                 "classe": None,
                 "url": None,
-            }
+            }, avisos
         return {
             "present": True,
             "nDocumentos": value.n_documentos,
@@ -113,7 +121,7 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
             "relator": value.relator,
             "classe": value.classe,
             "url": value.url,
-        }
+        }, avisos
 
     if plan == "stj":
         value = service._build_stj(con, urls, cnj, avisos)
@@ -128,7 +136,7 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
                 "ementa": None,
                 "dataDecisao": None,
                 "dataPublicacao": None,
-            }
+            }, avisos
         return {
             "present": True,
             "id": value.id,
@@ -139,7 +147,7 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
             "ementa": value.ementa,
             "dataDecisao": value.data_decisao,
             "dataPublicacao": value.data_publicacao,
-        }
+        }, avisos
 
     value = service._build_datajud(con, urls, cnj, avisos)
     if value is None:
@@ -151,7 +159,7 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
             "grau": None,
             "dataAjuizamento": None,
             "ultimaAtualizacao": None,
-        }
+        }, avisos
     return {
         "present": True,
         "classeOficial": value.classe_oficial,
@@ -160,7 +168,18 @@ def _python_mapped(con: duckdb.DuckDBPyConnection, case: dict[str, Any]) -> dict
         "grau": value.grau,
         "dataAjuizamento": value.data_ajuizamento,
         "ultimaAtualizacao": value.ultima_atualizacao,
-    }
+    }, avisos
+
+
+def _safe_rows(con: duckdb.DuckDBPyConnection, sql: str, params: list[Any]) -> dict[str, Any]:
+    """Like `_rows`, but a genuinely broken parquet (#1107's "fonte indisponível"
+    fixture) must not crash the whole comparison run — it is itself the signal
+    under test, distinct from a merely-absent CNJ, which never raises.
+    """
+    try:
+        return {"rows": _rows(con, sql, params), "raised": False, "error": None}
+    except duckdb.Error as exc:
+        return {"rows": [], "raised": True, "error": str(exc)}
 
 
 def run_cases(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -168,13 +187,21 @@ def run_cases(cases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     with duckdb.connect() as con:
         for case in cases:
             python_sql = _python_sql(case)
+            python_result = _safe_rows(con, python_sql, case["python_params"])
+            web_result = _safe_rows(con, case["web_sql"], case["web_params"])
+            mapped, mapped_avisos = _python_mapped(con, case)
             results.append(
                 {
                     "label": case["label"],
                     "python_sql": python_sql,
-                    "python_rows": _rows(con, python_sql, case["python_params"]),
-                    "web_rows": _rows(con, case["web_sql"], case["web_params"]),
-                    "python_mapped": _python_mapped(con, case),
+                    "python_rows": python_result["rows"],
+                    "python_raised": python_result["raised"],
+                    "python_error": python_result["error"],
+                    "web_rows": web_result["rows"],
+                    "web_raised": web_result["raised"],
+                    "web_error": web_result["error"],
+                    "python_mapped": mapped,
+                    "python_mapped_avisos": mapped_avisos,
                 }
             )
     return results

@@ -23,6 +23,7 @@ if str(ROOT) not in sys.path:
 from causaganha.processos.query_plan_fixtures import (  # noqa: E402 — sys.path bootstrap above
     CNJ_ALL,
     CNJ_DJEN_ONLY,
+    CNJ_SOURCE_UNAVAILABLE,
     CNJ_TIEBREAK,
     CNJ_UNKNOWN,
     build_fixtures,
@@ -36,8 +37,10 @@ def write_manifest(output_dir: Path) -> dict:
         "cnj_djen_only": CNJ_DJEN_ONLY,
         "cnj_unknown": CNJ_UNKNOWN,
         "cnj_tiebreak": CNJ_TIEBREAK,
+        "cnj_source_unavailable": CNJ_SOURCE_UNAVAILABLE,
         "indice_url": str(fixtures["indice"]),
         "report_url": str(fixtures["report"]),
+        "missing_djen_url": str(fixtures["missing_djen"]),
         "urls": {
             "djen": [str(fixtures["comunicacoes"])],
             "juris": [str(fixtures["juris"])],
