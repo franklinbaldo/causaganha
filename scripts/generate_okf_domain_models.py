@@ -1,26 +1,17 @@
-"""Regenerate the OKF-derived Pydantic domain models module (#1105 slice 2).
+"""Regenerate the OKF-derived Pydantic domain models module (#1105).
 
-`src/causaganha_mcp/_generated/domain_models.py` is a **generated** file — it
-must never be edited by hand. It is produced by `okf_parser.schema_export`
-straight from the `knowledge/` TypeContract bundle, so `ProcessoConsultarProjection`
-and its nested concepts (`DjenResumoConcept`, `JurisDecisaoConcept`, ...) stay
-mechanically derived from the same authority MCP and Web both read (RFC 0015).
+`src/causaganha_mcp/_generated/domain_models.py` is generated from the
+`knowledge/` TypeContract bundle. Field types come from the per-type declared
+DuckDB schemas under `knowledge/.okf/specs/*.schema.sql`; examples are not a
+second typing authority. The relational schema still supplies references and
+projection composition.
 
-Run after editing anything under `knowledge/`:
+Run after editing the bundle or its declared schemas:
 
     uv run python scripts/generate_okf_domain_models.py
 
-The OKF CI gate (`.github/workflows/okf.yml`) regenerates into a throwaway
-file and diffs it against the checked-in one, failing the build on drift —
-so a stale commit here is caught before merge, not discovered at runtime.
-
-Deliberately does **not** pass `infer_types=True`: at okf-parser 0.45.6 that
-flag infers `nr_processo`'s Python type from the bundle's example value
-rather than trusting the relational schema's declared `VARCHAR`, producing
-`nr_processo: int` — which would truncate any real CNJ with a leading zero
-on validation. Every scalar field is `str` until that upstream inference bug
-is fixed; see `tests/causaganha_mcp/test_okf_domain_models.py` for the
-regression coverage this works around.
+The OKF CI gate regenerates and diffs the checked-in module, so stale bindings
+fail before merge.
 """
 
 from __future__ import annotations
@@ -32,6 +23,7 @@ from okf_parser.schema_export import export_pydantic_source
 
 _REPO_ROOT = Path(__file__).resolve().parents[1]
 _KNOWLEDGE_ROOT = _REPO_ROOT / "knowledge"
+_SPEC_TEMPLATE = ".okf/specs/{slug}.md"
 _RELATIONAL_SCHEMA = "okf.schema.sql"
 _OUTPUT_PATH = _REPO_ROOT / "src" / "causaganha_mcp" / "_generated" / "domain_models.py"
 
@@ -43,7 +35,11 @@ _BANNER = (
 
 def render() -> str:
     """Return the current generated module source, straight from `knowledge/`."""
-    body = export_pydantic_source(str(_KNOWLEDGE_ROOT), relational_schema=_RELATIONAL_SCHEMA)
+    body = export_pydantic_source(
+        str(_KNOWLEDGE_ROOT),
+        spec_template=_SPEC_TEMPLATE,
+        relational_schema=_RELATIONAL_SCHEMA,
+    )
     return _BANNER + body
 
 
