@@ -162,6 +162,15 @@ describe('SQL builders never use SELECT * and filter by parameter', () => {
     );
   });
 
+  it('indice query accepts an explicit URL override, mirroring service._indice_sql(url) (#1107)', () => {
+    // Without this, the cross-runtime query-plan parity harness can't exercise
+    // buildIndiceSql() against a local fixture the way it already does for
+    // every other source plan — it stays permanently wired to production.
+    const sql = buildIndiceSql('/tmp/causaganha-fixture/indice_processual.parquet');
+    expect(sql).toContain("read_parquet('/tmp/causaganha-fixture/indice_processual.parquet')");
+    expect(sql).not.toContain('archive.org');
+  });
+
   it('djen query unions the discovered URLs and filters by placeholder', () => {
     const sql = buildDjenSql(['https://a/comunicacoes.parquet', "https://b/comunicacoes.parquet"]);
     expect(sql).not.toMatch(/select\s+\*/i);
