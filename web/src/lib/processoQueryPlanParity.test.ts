@@ -24,21 +24,24 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
-import { buildDatajudSql, buildDjenSql, buildDocumentosSql, buildJurisSql, buildStjSql } from './processoCnj';
+import { buildDatajudSql, buildDjenSql, buildDocumentosSql, buildIndiceSql, buildJurisSql, buildStjSql } from './processoCnj';
 
 interface FixtureManifest {
   cnj_all: string;
   cnj_djen_only: string;
+  cnj_unknown: string;
   cnj_tiebreak: string;
+  indice_url: string;
   urls: { djen: string[]; juris: string[]; stj: string[]; datajud: string[] };
 }
 
 interface QueryPlanCase {
   label: string;
-  plan: 'djen' | 'juris' | 'stj' | 'datajud' | 'documentos';
+  plan: 'indice' | 'djen' | 'juris' | 'stj' | 'datajud' | 'documentos';
   urls?: string[];
   jurisUrls?: string[];
   stjUrls?: string[];
+  indiceUrl?: string;
   python_params: unknown[];
   web_sql: string;
   web_params: unknown[];
@@ -165,5 +168,51 @@ describe('processo query-plan parity (#1107)', () => {
     expect(jurisTiebreak?.web_rows[0]?.orgao).toBe('3a Camara'); // older ACÓRDÃO beats newer SENTENÇA
     const stjTiebreak = results.find((r) => r.label === 'stj:CNJ_TIEBREAK');
     expect(stjTiebreak?.web_rows[0]?.relator).toBe('MIN Z'); // most recent dataDecisao wins
+  });
+
+  it('indice plan agrees between Python service and Web SQL, including the CNJ ausente case', () => {
+    // Unlike every other plan above, buildIndiceSql() used to have no way to
+    // target a local fixture — it always embedded the production archive.org
+    // URL (#1119's own review note). Now that it accepts an override, this
+    // proves the index plan itself agrees between runtimes: which fontes a
+    // known CNJ resolves to (CNJ_ALL/CNJ_DJEN_ONLY), *and* that a CNJ absent
+    // from the index (CNJ_UNKNOWN) comes back as zero rows on both sides —
+    // the observable "CNJ ausente" signal neither service.buscar_processo nor
+    // buscarProcesso() had ever been proven to agree on before this slice.
+    const { cnj_all: cnjAll, cnj_djen_only: cnjDjenOnly, cnj_unknown: cnjUnknown, indice_url: indiceUrl } = manifest;
+    const indiceSql = buildIndiceSql(indiceUrl);
+
+    const cases: QueryPlanCase[] = [
+      { label: 'indice:CNJ_ALL', plan: 'indice', indiceUrl, python_params: [cnjAll], web_sql: indiceSql, web_params: [cnjAll] },
+      {
+        label: 'indice:CNJ_DJEN_ONLY',
+        plan: 'indice',
+        indiceUrl,
+        python_params: [cnjDjenOnly],
+        web_sql: indiceSql,
+        web_params: [cnjDjenOnly],
+      },
+      {
+        label: 'indice:CNJ_UNKNOWN',
+        plan: 'indice',
+        indiceUrl,
+        python_params: [cnjUnknown],
+        web_sql: indiceSql,
+        web_params: [cnjUnknown],
+      },
+    ];
+
+    const results = runCases(cases);
+    expect(results.map((r) => r.label)).toEqual(cases.map((c) => c.label));
+
+    for (const result of results) {
+      expect(result.web_rows, `${result.label}: web plan diverges from python plan`).toEqual(result.python_rows);
+    }
+
+    const cnjAllResult = results.find((r) => r.label === 'indice:CNJ_ALL');
+    expect(cnjAllResult?.web_rows.map((r) => r.fonte).sort()).toEqual(['datajud', 'djen', 'djen', 'juris', 'stj']);
+    const cnjUnknownResult = results.find((r) => r.label === 'indice:CNJ_UNKNOWN');
+    expect(cnjUnknownResult?.web_rows).toEqual([]);
+    expect(cnjUnknownResult?.python_rows).toEqual([]);
   });
 });

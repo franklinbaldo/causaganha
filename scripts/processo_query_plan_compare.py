@@ -46,6 +46,8 @@ def _python_sql(case: dict[str, Any]) -> str:
     if plan == "documentos":
         sql, _n_params = service._documentos_sql(case["jurisUrls"], case["stjUrls"])
         return sql
+    if plan == "indice":
+        return service._indice_sql(case["indiceUrl"])
     return _SOURCE_PLAN_BUILDERS[plan](case["urls"])
 
 
