@@ -2,7 +2,7 @@
 type: AgentRun
 id: "2026-09-05-exciting-mccarthy-ejibsp"
 started_at: "2026-09-05T14:23:00Z"
-completed_at: "2026-09-05T15:10:00Z"
+completed_at: "2026-09-05T14:47:00Z"
 branch_at_start: "claude/exciting-mccarthy-ejibsp"
 commit_at_start: "59f060625af9f766730fbb2e338f63b2804042af"
 claude_md_reading_id: "2026-09-05-exciting-mccarthy-ejibsp-reading-claude-md"
@@ -31,6 +31,7 @@ evidence_ids:
   - "2026-09-05-exciting-mccarthy-ejibsp-evidence-okf-conformant"
   - "2026-09-05-exciting-mccarthy-ejibsp-evidence-full-suite"
   - "2026-09-05-exciting-mccarthy-ejibsp-evidence-index-md-crash-fix"
+  - "2026-09-05-exciting-mccarthy-ejibsp-evidence-pr-1146-merge"
 check_ids:
   - "2026-09-05-exciting-mccarthy-ejibsp-check-pytest-red"
   - "2026-09-05-exciting-mccarthy-ejibsp-check-pytest-green"
@@ -38,9 +39,10 @@ check_ids:
   - "2026-09-05-exciting-mccarthy-ejibsp-check-okf-conformant"
   - "2026-09-05-exciting-mccarthy-ejibsp-check-full-suite"
   - "2026-09-05-exciting-mccarthy-ejibsp-check-completeness-over-real-tree"
-result_state: "green"
-result_summary: "Merged PR #1144 (feat/okf-agent-run-contract completeness, commit 94bfc3a) after its branch had gone stale behind #1143 and needed a base update to pass branch protection. Using that as the starting point, generalized scripts/check_agent_run_completeness.py from an AgentRun-only, single-file checker into a per-type dispatcher (missing_fields_for_type) covering all six Agent* round-report tables declared in knowledge/okf.schema.sql, with a directory-scan mode in main() that validates every recognized document under a tree in one pass. Confirmed RED (ImportError before the dispatcher existed, via a git-stash of the implementation) then GREEN (31 tests passing, including fixture tests that run the checker over this very knowledge/agent-runs/ tree). Dogfooding the directory-scan mode against the real tree (after adding knowledge/agent-runs/index.md, a reserved frontmatter-less doc mirroring knowledge/index.md) surfaced a real crash — parse_document raised DocumentParseError on the frontmatter-less file instead of it being skipped — fixed by catching that error in directory mode, with a regression test added. Wired the checker into .github/workflows/okf.yml as a new CI step so an incomplete round report now fails a pull request automatically, closing the next_move PR #1144 itself recorded."
-next_move: "This round's own report tree is the second real multi-file Agent* instance in the bundle (after 2026-09-05-eager-wozniak-5akx2o) and is itself proof the directory-mode checker works end to end. A future round should: (1) consider whether the completeness contract should also validate cross-file referential shape (e.g. every goal_id an AgentDecision/AgentEvidence/AgentCheck references actually resolves to a goal in the same run) beyond what okf-parser's own FK check already catches; (2) once there are several rounds' worth of reports, mine them for recurring next_move items that never got picked up, to keep the loop's backlog honest; (3) turn attention back to the open product backlog (#1128-#1139 web/UX, #1107 contract, #1047-1057 segmenter) now that the operational AgentRun contract itself is enforced end to end."
+  - "2026-09-05-exciting-mccarthy-ejibsp-check-pr-1146-ci"
+result_state: "merged"
+result_summary: "Merged PR #1144 (feat/okf-agent-run-contract completeness, commit 94bfc3a) after its branch had gone stale behind #1143 and needed a base update to pass branch protection. Using that as the starting point, generalized scripts/check_agent_run_completeness.py from an AgentRun-only, single-file checker into a per-type dispatcher (missing_fields_for_type) covering all six Agent* round-report tables declared in knowledge/okf.schema.sql, with a directory-scan mode in main() that validates every recognized document under a tree in one pass. Confirmed RED (ImportError before the dispatcher existed, via a git-stash of the implementation) then GREEN (31 tests passing, including fixture tests that run the checker over this very knowledge/agent-runs/ tree). Dogfooding the directory-scan mode against the real tree (after adding knowledge/agent-runs/index.md, a reserved frontmatter-less doc mirroring knowledge/index.md) surfaced a real crash — parse_document raised DocumentParseError on the frontmatter-less file instead of it being skipped — fixed by catching that error in directory mode, with a regression test added. Wired the checker into .github/workflows/okf.yml as a new CI step so an incomplete round report now fails a pull request automatically, closing the next_move PR #1144 itself recorded. Opened PR #1146 with all of this, all 10 CI checks green, and merged it (squash, commit e88617e) into main."
+next_move: "This round's own report tree is the second real multi-file Agent* instance in the bundle (after 2026-09-05-eager-wozniak-5akx2o) and is itself proof the directory-mode checker works end to end — and now runs automatically in CI on every PR touching knowledge/**. A future round should: (1) consider whether the completeness contract should also validate cross-file referential shape (e.g. every goal_id an AgentDecision/AgentEvidence/AgentCheck references actually resolves to a goal in the same run) beyond what okf-parser's own FK check already catches; (2) once there are several rounds' worth of reports, mine them for recurring next_move items that never got picked up, to keep the loop's backlog honest; (3) turn attention back to the open product backlog (#1128-#1139 web/UX, #1107 contract, #1047-1057 segmenter) now that the operational AgentRun contract itself is enforced end to end, both structurally (okf-parser) and for completeness (this checker, now in CI)."
 ---
 
 # Agent run — 2026-09-05-exciting-mccarthy-ejibsp
