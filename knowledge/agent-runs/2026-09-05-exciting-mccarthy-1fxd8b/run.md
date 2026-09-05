@@ -2,7 +2,7 @@
 type: AgentRun
 id: "2026-09-05-exciting-mccarthy-1fxd8b"
 started_at: "2026-09-05T17:24:00Z"
-completed_at: ""
+completed_at: "2026-09-05T17:44:00Z"
 branch_at_start: "claude/exciting-mccarthy-1fxd8b"
 commit_at_start: "1c365afcdfb96ed78bc67208fe12c44aa25083ad"
 claude_md_reading_id: "2026-09-05-exciting-mccarthy-1fxd8b-reading-claude-md"
@@ -30,6 +30,7 @@ evidence_ids:
   - "2026-09-05-exciting-mccarthy-1fxd8b-evidence-red-wiring"
   - "2026-09-05-exciting-mccarthy-1fxd8b-evidence-green-wiring"
   - "2026-09-05-exciting-mccarthy-1fxd8b-evidence-full-suite"
+  - "2026-09-05-exciting-mccarthy-1fxd8b-evidence-pr-1154"
 check_ids:
   - "2026-09-05-exciting-mccarthy-1fxd8b-check-vitest-red-pure-function"
   - "2026-09-05-exciting-mccarthy-1fxd8b-check-vitest-green-pure-function"
@@ -39,8 +40,8 @@ check_ids:
   - "2026-09-05-exciting-mccarthy-1fxd8b-check-vitest-green-wiring"
   - "2026-09-05-exciting-mccarthy-1fxd8b-check-full-suite"
 result_state: "review"
-result_summary: "PENDING — filled once the PR is opened."
-next_move: "PENDING — filled once the PR is opened."
+result_summary: "Implemented issue #1130's evidence-summary strip on /processo end-to-end via 3 TDD slices, each RED-then-GREEN: (1) evidenceMatrixRows(fontes, avisos, cobertura) in web/src/lib/processoCnj.ts, a pure function classifying each of the 4 sources as presente/ausente/indisponivel with indisponivel taking explicit precedence over ausente (decisions/status-precedence.md), plus its papel (Arquivo/Estado/Teor); (2) ProcessoEvidenceMatrix.svelte, a new pure presentational component rendering one linked, textually-labeled badge per source; (3) wiring into ProcessoLookup.svelte via a new evidenceRows $derived, placed between the existing snapshot section and the avisos block. Full web vitest suite: 353/353 passing (up from 340). eslint clean. astro typecheck confirmed against a git-stash-u baseline (16/0/3 errors/warnings/hints before this diff) at 19/0/3 after — the only new errors match a pre-existing testing-library idiom already accepted in a prior round's merged PR #1153, no new warnings, hints unchanged. Python side untouched: ruff check and ruff format --check pass. Opened as PR #1154 (https://github.com/franklinbaldo/causaganha/pull/1154) against main; CI was still pending at the time this report was written — this session subscribed to the PR's activity and will merge once green with no outstanding review comments, following this loop's established self-merge convention."
+next_move: "Watch PR #1154 to green and merge it (this session is subscribed to its activity). Once merged: (1) #1130's acceptance criteria are then fully covered — the issue should be closed by that PR; (2) revisit whether FonteCobertura.status ever needs a documented enum (today it's a free-text string defaulting to 'unknown') now that the UI actually reads it for the first time; (3) otherwise pick up #1107 (contract(processo) MCP/Web parity) as the next largest product slice, once its own multi-slice scope (still gated on the first slice of #1105) can be broken into a single-round fixture+parity first step; (4) #1131-#1134/#1136 remain open, less concretely scoped web/UX candidates for a future round."
 ---
 
 # Agent run — 2026-09-05-exciting-mccarthy-1fxd8b
