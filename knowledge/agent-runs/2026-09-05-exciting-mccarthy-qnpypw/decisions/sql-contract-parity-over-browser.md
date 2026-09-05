@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-05-exciting-mccarthy-qnpypw-decision-sql-contract-parity-over-browser"
+run_id: "2026-09-05-exciting-mccarthy-qnpypw"
+goal_id: "2026-09-05-exciting-mccarthy-qnpypw-goal-close-1042-catalog-parity-proof"
+question: "Headless-Chromium browser navigation to the live franklinbaldo.github.io/causaganha/processo page fails in this sandbox (net::ERR_CONNECTION_RESET, confirmed as an environment-wide proxy tunnel issue via /__agentproxy/status, not specific to this host). Is #1042's web-side proof achievable without a real browser render, or should the criterion stay open pending a future round with unrestricted browser network access?"
+choice: "Achieve the proof by extracting the literal DuckDB SQL query-builder functions from web/src/lib/processoCnj.ts (buildIndiceSql, buildDjenSql, buildJurisSql, buildDatajudSql) and executing those exact SQL strings via native DuckDB (with httpfs) against the same published parquet files that duckdb-wasm would read in the browser, then comparing field-by-field against causaganha.processos.service.buscar_processo's output for the same CNJ."
+rationale: "duckdb-wasm and native DuckDB share the same SQL dialect and execution semantics (DuckDB), so running the frontend's own literal query string is a genuine test of the query contract the page executes, not a reimplementation or approximation. This directly answers #1042's real question — does the web surface's data contract agree with the MCP surface for the same real CNJ, not fixture/fallback — while the outstanding piece (does the Svelte component render that data correctly in a real browser DOM) is a separate, narrower UI-rendering concern already covered by this repo's own CI ('compare-product-surfaces' / accessibility audit jobs seen on the reboot PRs) rather than something #1042's acceptance criteria specifically asked this round to re-prove. Documenting the environment limitation (rather than silently working around it) lets a future round with different network access repeat the browser step if ever needed, without re-blocking this issue's closure on an unrelated infrastructure gap."
+---
+
+# Decisão: provar paridade pelo contrato SQL, não pelo browser
+
+Renderizar `/processo` num Chromium real falhou por limitação de rede do sandbox (confirmada via `/__agentproxy/status`, não específica deste site). Em vez de deixar a #1042 aberta por mais uma rodada, executei literalmente as strings SQL de `processoCnj.ts` via DuckDB nativo contra o mesmo artefato publicado e comparei campo a campo com `processo_consultar` — mesmo motor/dialeto SQL, prova de contrato real, não aproximação.

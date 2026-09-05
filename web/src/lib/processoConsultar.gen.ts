@@ -7,7 +7,7 @@ export const AgentCheckSchema = z.object({
   "command": z.string(),
   "description": z.string().optional(),
   "evidence_id": z.string().describe("references AgentEvidence(id)").optional(),
-  "goal_id": z.string().describe("references AgentGoal(id)"),
+  "goal_id": z.string().describe("references AgentGoal(id)").optional(),
   "id": z.string(),
   "result": z.string(),
   "run_id": z.string().describe("references AgentRun(id)"),
@@ -19,7 +19,7 @@ export const AgentCheckSchema = z.object({
 export const AgentDecisionSchema = z.object({
   "choice": z.string(),
   "description": z.string().optional(),
-  "goal_id": z.string().describe("references AgentGoal(id)"),
+  "goal_id": z.string().describe("references AgentGoal(id)").optional(),
   "id": z.string(),
   "question": z.string(),
   "rationale": z.string(),
@@ -30,7 +30,7 @@ export const AgentDecisionSchema = z.object({
 
 export const AgentEvidenceSchema = z.object({
   "description": z.string().optional(),
-  "goal_id": z.string().describe("references AgentGoal(id)"),
+  "goal_id": z.string().describe("references AgentGoal(id)").optional(),
   "id": z.string(),
   "kind": z.string(),
   "reference": z.string(),
