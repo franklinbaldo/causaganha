@@ -57,23 +57,35 @@ async def test_decision_search_is_content_first_and_not_current_process_state(mc
     assert "processo_consultar" in description
 
 
-async def test_status_tools_are_described_as_operational_not_product_prerequisites(mcp) -> None:
-    server = mcp.instructions.lower()
-
-    assert "tools `*_status`" in server
-    assert "diagnóstico operacional" in server
-    assert "não" in server and "etapa obrigatória" in server
-
-
-async def test_server_teaches_archive_state_content_boundary(mcp) -> None:
+async def test_server_routes_the_four_primary_jobs_explicitly(mcp) -> None:
     instructions = mcp.instructions.lower()
 
-    assert "arquivo" in instructions
-    assert "estado" in instructions
-    assert "teor" in instructions
-    assert "decisoes_buscar" in instructions
-    assert "movimento" in instructions
-    assert "não prova inexistência" in instructions
+    expected_routes = {
+        "arquivo": "processo_consultar",
+        "estado": "processo_estado",
+        "publicações": "publicacoes_buscar",
+        "teor": "decisoes_buscar",
+    }
+    for job, tool_name in expected_routes.items():
+        assert job in instructions
+        assert f"`{tool_name}`" in instructions
+
+
+async def test_server_keeps_operational_tools_outside_primary_routing(mcp) -> None:
+    instructions = mcp.instructions.lower()
+
+    assert "status/facetas" in instructions
+    assert "auxiliares" in instructions
+    assert "cobertura" in instructions
+    assert "freshness" in instructions
+    assert "indisponibilidade" in instructions
+
+
+async def test_server_instructions_are_short_enough_to_scan_as_a_router(mcp) -> None:
+    instructions = mcp.instructions
+
+    assert len(instructions.splitlines()) <= 6
+    assert len(instructions) < 900
 
 
 async def test_product_catalog_does_not_require_storage_vocabulary_for_tool_selection(mcp) -> None:
