@@ -1,0 +1,51 @@
+/* Shared query-state presentation for the two primary product searches (#1136).
+ *
+ * Keep semantic state machines in their owning components. This stylesheet only
+ * gives equivalent states a common visual rhythm while preserving the crucial
+ * distinction between a valid empty result and an unavailable source.
+ */
+
+:where(.processo-lookup, .publication-search) :where(.empty-state, .empty-search) {
+  display: grid;
+  align-items: start;
+  justify-items: stretch;
+  gap: 0.75rem;
+  min-block-size: 7rem;
+  padding: 1rem;
+  text-align: left;
+  color: var(--color-content-tertiary);
+  background: var(--color-surface-overlay);
+  border: 1px dashed var(--color-border);
+  border-radius: var(--radius-box);
+}
+
+:where(.processo-lookup, .publication-search) :where(.empty-state, .empty-search) :where(h3, strong, p) {
+  margin-block: 0;
+}
+
+/* A source failure is not an empty result: keep the stronger alert treatment
+ * and reserve stable vertical space while the query settles. */
+:where(.processo-lookup, .publication-search) [role='alert'] {
+  min-block-size: 7rem;
+}
+
+:where(.processo-lookup, .publication-search) [aria-busy='true'] {
+  min-block-size: 2.75rem;
+  display: flex;
+  align-items: center;
+}
+
+/* Actions stay reachable and wrap instead of forcing horizontal scrolling on
+ * narrow screens. Both product surfaces already use these action containers. */
+:where(.processo-lookup, .publication-search) :where(.processo-dossie__actions, .empty-search__actions) {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  :where(.processo-lookup, .publication-search) :where(.empty-state, .empty-search, [role='alert']) {
+    min-block-size: 6rem;
+    padding: 0.875rem;
+  }
+}
