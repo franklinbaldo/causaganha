@@ -112,7 +112,7 @@ export const ProcessoSchema = z.object({
 });
 
 export const StjAcordaoSchema = z.object({
-  "classe": z.string(),
+  "classe": z.string().nullable(),
   "data_decisao": z.string().nullable(),
   "data_publicacao": z.string().nullable(),
   "description": z.string().optional(),
