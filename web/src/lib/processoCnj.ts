@@ -17,6 +17,7 @@
  */
 
 import { FRESHNESS_THRESHOLD_MS, parseTimestamp } from './data/siteStatus';
+import { serializeSharedCore, type SharedCore } from './processoContract';
 
 export const IA_DASHBOARD_BASE = 'https://archive.org/download/causaganha-dashboard';
 export const INDICE_PROCESSUAL_URL = `${IA_DASHBOARD_BASE}/indice_processual.parquet`;
@@ -598,6 +599,12 @@ export interface ProcessoResultado {
   cobertura: FonteCobertura[];
   datasetGeradoEm: string | null;
   avisos: string[];
+  /**
+   * O mesmo dossiê, validado contra o contrato OKF compartilhado (#1105) via
+   * `serializeSharedCore` (#1120) — a mesma verificação que o MCP aplica do
+   * lado Python, agora também sobre o retorno vivo de `buscarProcesso()`.
+   */
+  nucleoCompartilhado: SharedCore;
 }
 
 /**
@@ -638,6 +645,19 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
       cobertura,
       datasetGeradoEm,
       avisos,
+      nucleoCompartilhado: serializeSharedCore({
+        encontrado: false,
+        nrProcesso: digits,
+        nrProcessoMascara,
+        fontesPresentes: [],
+        djen: AUSENTE_DJEN,
+        juris: AUSENTE_JURIS,
+        stj: AUSENTE_STJ,
+        datajud: AUSENTE_DATAJUD,
+        coberturaDataset: cobertura,
+        datasetGeradoEm,
+        avisos,
+      }),
     };
   }
 
@@ -659,20 +679,38 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
     ? await queryRowSafe(conn, 'datajud', buildDatajudSql(datajudUrls), [digits], avisos)
     : null;
 
+  const djen = mapDjenRow(djenRaw);
+  const juris = mapJurisRow(jurisRaw);
+  const stj = mapStjRow(stjRaw);
+  const datajud = mapDatajudRow(datajudRaw);
+
   return {
     encontrado: true,
     nrProcesso: digits,
     nrProcessoMascara,
     fontes,
-    djen: mapDjenRow(djenRaw),
-    juris: mapJurisRow(jurisRaw),
-    stj: mapStjRow(stjRaw),
-    datajud: mapDatajudRow(datajudRaw),
+    djen,
+    juris,
+    stj,
+    datajud,
     jurisUrls,
     stjUrls,
     cobertura,
     datasetGeradoEm,
     avisos,
+    nucleoCompartilhado: serializeSharedCore({
+      encontrado: true,
+      nrProcesso: digits,
+      nrProcessoMascara,
+      fontesPresentes: fontes,
+      djen,
+      juris,
+      stj,
+      datajud,
+      coberturaDataset: cobertura,
+      datasetGeradoEm,
+      avisos,
+    }),
   };
 }
 
