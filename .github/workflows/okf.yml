@@ -4,11 +4,13 @@ on:
   pull_request:
     paths:
       - "knowledge/**"
+      - "scripts/check_agent_run_completeness.py"
       - ".github/workflows/okf.yml"
   push:
     branches: [main]
     paths:
       - "knowledge/**"
+      - "scripts/check_agent_run_completeness.py"
       - ".github/workflows/okf.yml"
 
 permissions:
@@ -39,6 +41,11 @@ jobs:
         run: >-
           uv run --project .okf-parser --frozen okf-parser check knowledge
           --relational-schema okf.schema.sql
+
+      - name: Check AgentRun-family round reports are complete
+        run: >-
+          uv run --project .okf-parser --frozen python
+          scripts/check_agent_run_completeness.py knowledge/agent-runs
 
       - name: Export ProcessoConsultar projection
         run: |
