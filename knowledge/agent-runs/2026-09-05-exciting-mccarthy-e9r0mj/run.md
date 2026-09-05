@@ -28,6 +28,7 @@ evidence_ids:
   - "2026-09-05-exciting-mccarthy-e9r0mj-evidence-green-timestamp-fix"
   - "2026-09-05-exciting-mccarthy-e9r0mj-evidence-red-mapping-parity"
   - "2026-09-05-exciting-mccarthy-e9r0mj-evidence-green-mapping-parity"
+  - "2026-09-05-exciting-mccarthy-e9r0mj-evidence-pr-1157"
 check_ids:
   - "2026-09-05-exciting-mccarthy-e9r0mj-check-vitest-red-timestamp"
   - "2026-09-05-exciting-mccarthy-e9r0mj-check-vitest-green-timestamp"
