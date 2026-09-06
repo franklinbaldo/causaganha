@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-06-exciting-mccarthy-s5c21a-goal-1136-minhas-consultas-query-states"
+run_id: "2026-09-06-exciting-mccarthy-s5c21a"
+goal: "Extend issue #1136's shared query-state visual contract (web/src/styles/query-states.css) from ProcessoLookup/PublicationSearch to SavedConsultations (rendered on /minhas-consultas), so its loading/empty/error states get the same layout-stability guarantees already proven for the other two primary surfaces, now that /minhas-consultas has been migrated to the Cobogó/Panda shell (#1173/#1174 done)."
+rationale: "#1136's own comment history explicitly deferred this: its first slice (#1164) covered only .processo-lookup/.publication-search, and its last comment said '/stats e /minhas-consultas só devem receber o mesmo vocabulário quando forem migradas ao novo shell em slices posteriores' — that migration has now happened (live-read web/src/pages/stats.astro and minhas-consultas.astro both use styled-system css()/recipes). Live inspection shows SavedConsultations.svelte already emits the exact same semantic markers (class=\"empty-state\", role=\"alert\", aria-busy=\"true\") the shared stylesheet keys off of, but its top-level class .saved-consultations is absent from every :where() selector in query-states.css, so today it gets only the generic global box treatment (index.css:137 — border/background/padding) and none of the min-block-size layout-jump guards or narrow-viewport padding adjustment already proven for ProcessoLookup/PublicationSearch. This is the smallest, most concrete, unblocked, non-colliding slice of the deferred web/UX backlog (avoids #1134, which has the owner's own active PR #1182)."
+success_signal: "A test (extending web/src/components/queryStates.contract.test.ts) fails RED because query-states.css's :where() selectors do not include .saved-consultations, then passes GREEN once .saved-consultations is added to those selectors alongside .processo-lookup/.publication-search — with an explicit assertion that the empty-state rule still never collapses with the alert rule, preserving #1136's core semantic guarantee (indisponibilidade ≠ 0 resultados) for the third surface. Full web gates (vitest, typecheck, eslint, build) and repo gates (ruff, pytest) stay green, and a PR referencing #1136 is opened."
+status: "achieved"
+---
+
+# Goal: estender query-states.css para /minhas-consultas (#1136)
+
+Terceira superfície (`SavedConsultations.svelte` / `/minhas-consultas`) recebe o mesmo vocabulário visual de loading/vazio/erro já provado para `ProcessoLookup`/`PublicationSearch`, sem inventar um componente genérico novo — apenas estendendo os seletores `:where()` já existentes, já que a marcação semântica (`empty-state`, `role="alert"`, `aria-busy="true"`) já é idêntica.
