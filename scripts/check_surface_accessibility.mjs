@@ -7,6 +7,7 @@ const baseUrl = process.env.SURFACE_BASE_URL ?? 'http://127.0.0.1:4174/causaganh
 const revision = process.env.SURFACE_REVISION ?? process.env.GITHUB_SHA ?? 'unknown';
 const output = process.env.SURFACE_ACCESSIBILITY_OUTPUT ?? 'captures/accessibility.json';
 const routes = [
+  '',
   'index.html',
   'processo.html',
   'publicacoes.html',
@@ -30,7 +31,14 @@ for (const viewport of viewports) {
     const url = new URL(route, baseUrl).toString();
     const response = await page.goto(url, { waitUntil: 'networkidle' });
     if (!response?.ok()) {
-      throw new Error(`${route} respondeu HTTP ${response?.status() ?? 'sem resposta'}`);
+      throw new Error(`${route || '/'} respondeu HTTP ${response?.status() ?? 'sem resposta'}`);
+    }
+
+    let uiGeneration = null;
+    let uiGenerationMatches = true;
+    if (route === '') {
+      uiGeneration = await page.locator('[data-ui-generation]').first().getAttribute('data-ui-generation');
+      uiGenerationMatches = uiGeneration === 'cobogo-panda';
     }
 
     await page.addScriptTag({ content: axe.source });
@@ -113,9 +121,11 @@ for (const viewport of viewports) {
     const missing = expected.filter((control) => !reached.has(control.id));
     const uniqueFocusFailures = [...new Set(focusFailures)];
     const result = {
-      route,
+      route: route || '/',
       url,
       viewport,
+      ui_generation: uiGeneration,
+      ui_generation_matches: uiGenerationMatches,
       expected_controls: expected.length,
       reached_controls: reached.size,
       missing_controls: missing,
@@ -124,7 +134,7 @@ for (const viewport of viewports) {
     };
     results.push(result);
 
-    if (violations.length || missing.length || uniqueFocusFailures.length) failed = true;
+    if (!uiGenerationMatches || violations.length || missing.length || uniqueFocusFailures.length) failed = true;
     await page.close();
   }
   await context.close();
