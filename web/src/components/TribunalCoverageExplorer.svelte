@@ -28,6 +28,7 @@
   let tribunal = $state(initial.tribunal);
   let start = $state(initial.start);
   let end = $state(initial.end);
+  let copyStatus = $state('');
 
   // Only the selected tribunal's partition is ever fetched (#1191) — never
   // the full tribunal_calendar contract, which client:only would otherwise
@@ -65,6 +66,7 @@
     const params = buildDrilldownQuery({ tribunal, start, end });
     const next = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState(null, '', next);
+    copyStatus = '';
   }
 
   function onTribunalChange(e: Event) {
@@ -88,6 +90,17 @@
     parsedEnd.setUTCDate(parsedEnd.getUTCDate() - (days - 1));
     start = parsedEnd.toISOString().slice(0, 10);
     syncUrl();
+  }
+
+  async function copyQueryLink() {
+    if (typeof window === 'undefined') return;
+    syncUrl();
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      copyStatus = 'Link copiado.';
+    } catch {
+      copyStatus = 'Não foi possível copiar automaticamente. Copie o endereço do navegador.';
+    }
   }
 </script>
 
@@ -139,7 +152,11 @@
     {/if}
   </div>
 
-  <a href={calendarHref}>Ver calendário completo de {tribunal} →</a>
+  <div class="tribunal-explorer__actions">
+    <a href={calendarHref}>Ver calendário completo de {tribunal} →</a>
+    <button type="button" class="tribunal-explorer__copy" onclick={copyQueryLink}>Copiar link desta consulta</button>
+    <span class="meta-text" aria-live="polite">{copyStatus}</span>
+  </div>
 </div>
 
 <style>
@@ -156,7 +173,8 @@
     display: grid;
     gap: 0.35rem;
   }
-  .tribunal-explorer__quick-ranges {
+  .tribunal-explorer__quick-ranges,
+  .tribunal-explorer__actions {
     display: flex;
     align-items: center;
     flex-wrap: wrap;
@@ -165,7 +183,8 @@
   .tribunal-explorer__quick-ranges .kicker {
     margin-right: 0.25rem;
   }
-  .tribunal-explorer__quick-ranges button {
+  .tribunal-explorer__quick-ranges button,
+  .tribunal-explorer__copy {
     min-height: 2.75rem;
     padding: 0.55rem 0.85rem;
     border: 1px solid currentColor;
@@ -177,8 +196,14 @@
     cursor: pointer;
   }
   .tribunal-explorer__quick-ranges button:hover,
-  .tribunal-explorer__quick-ranges button:focus-visible {
+  .tribunal-explorer__quick-ranges button:focus-visible,
+  .tribunal-explorer__copy:hover,
+  .tribunal-explorer__copy:focus-visible {
     background: var(--colors-text, #171717);
     color: var(--colors-canvas, #fff);
+  }
+  .tribunal-explorer__actions .meta-text {
+    flex-basis: 100%;
+    min-height: 1.25rem;
   }
 </style>
