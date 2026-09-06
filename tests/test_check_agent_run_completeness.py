@@ -22,6 +22,7 @@ from scripts.check_agent_run_completeness import (
     AGENT_REPORT_TYPES,
     missing_agent_run_fields,
     missing_fields_for_type,
+    unknown_fields_for_type,
 )
 
 
@@ -252,6 +253,67 @@ def test_main_over_a_directory_skips_frontmatter_less_index_files(tmp_path: Path
     (tmp_path / "index.md").write_text("# Just a plain doc, no frontmatter\n")
     _write_concept(tmp_path / "run.md", "AgentRun", _COMPLETE_FRONTMATTER)
     assert main([str(tmp_path)]) == 0
+
+
+# Schema-drift detection: `missing_fields_for_type` only ever checks that a
+# *declared* required field is present and non-blank — it has no opinion on an
+# *undeclared* key, so a round that drafts an `AgentGoal` with `title`/
+# `motivation` instead of the schema's `goal`/`rationale` passes as long as
+# some other coincidence fills every required name. That drift went
+# undetected by `okf-parser check` in a prior round (it only validates PK/FK
+# catalog metadata) and only surfaced later as an unrelated `pytest -q`
+# failure — a generated-file diff from `scripts/generate_okf_types.py` reading
+# the wrong columns. `unknown_fields_for_type` closes that gap by checking
+# frontmatter keys against the exact columns `knowledge/okf.schema.sql`
+# declares for `concept_type`, so the drift shows up at `okf-parser check`
+# time instead.
+
+
+@pytest.mark.parametrize("concept_type", sorted(_COMPLETE_SIBLING_FRONTMATTER))
+def test_fully_filled_sibling_type_has_no_unknown_fields(concept_type: str) -> None:
+    frontmatter = dict(type=concept_type, **_COMPLETE_SIBLING_FRONTMATTER[concept_type])
+    assert unknown_fields_for_type(concept_type, frontmatter) == []
+
+
+def test_fully_filled_run_has_no_unknown_fields() -> None:
+    assert unknown_fields_for_type("AgentRun", _COMPLETE_FRONTMATTER) == []
+
+
+def test_renamed_field_is_reported_unknown_even_though_it_is_not_blank() -> None:
+    frontmatter = dict(_COMPLETE_SIBLING_FRONTMATTER["AgentGoal"])
+    frontmatter["title"] = frontmatter.pop("goal")
+    frontmatter["motivation"] = frontmatter.pop("rationale")
+    unknown = unknown_fields_for_type("AgentGoal", frontmatter)
+    assert unknown == ["motivation", "title"]
+    # and it is still caught as missing too, since `goal`/`rationale` are gone:
+    assert {"goal", "rationale"} <= set(missing_fields_for_type("AgentGoal", frontmatter))
+
+
+@pytest.mark.parametrize(
+    ("concept_type", "optional_field"),
+    [
+        ("AgentDecision", "goal_id"),
+        ("AgentEvidence", "goal_id"),
+        ("AgentCheck", "goal_id"),
+        ("AgentCheck", "evidence_id"),
+    ],
+)
+def test_schema_optional_field_is_not_reported_unknown(
+    concept_type: str, optional_field: str
+) -> None:
+    frontmatter = dict(_COMPLETE_SIBLING_FRONTMATTER[concept_type], **{optional_field: "goal-1"})
+    assert unknown_fields_for_type(concept_type, frontmatter) == []
+
+
+def test_main_over_a_directory_reports_nonzero_when_a_document_has_an_unknown_field(
+    tmp_path: Path,
+) -> None:
+    from scripts.check_agent_run_completeness import main
+
+    _write_concept(tmp_path / "run.md", "AgentRun", _COMPLETE_FRONTMATTER)
+    drifted_goal = dict(_COMPLETE_SIBLING_FRONTMATTER["AgentGoal"], extra_field="surprise")
+    _write_concept(tmp_path / "goals" / "g.md", "AgentGoal", drifted_goal)
+    assert main([str(tmp_path)]) == 1
 
 
 def test_main_over_this_rounds_own_report_tree_is_complete() -> None:
