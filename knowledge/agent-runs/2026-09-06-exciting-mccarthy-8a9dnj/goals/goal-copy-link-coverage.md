@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-06-exciting-mccarthy-8a9dnj-goal-copy-link-coverage"
+run_id: "2026-09-06-exciting-mccarthy-8a9dnj"
+goal: "Add regression test coverage for TribunalCoverageExplorer.svelte's 'Copiar link desta consulta' (copyQueryLink) sharing feature, which shipped in the owner's own direct commit (#1213, 0460d63) with zero test coverage."
+rationale: "TribunalCoverageExplorer.svelte is a hot file under continuous, mostly owner-direct iteration this cycle (#1131, #1191, #1204, #1213) — four changes to the same component in roughly six hours, per git log. #1213 added an async Clipboard-API interaction (copyQueryLink: syncUrl -> navigator.clipboard.writeText -> success/failure status message, plus a reset-on-change side effect) with no test asserting any of: the copied URL's shape, the success message, the fallback message on a rejected clipboard write, or the reset behavior when the query changes again. A future edit to this same component (already a pattern here) could silently break sharing without any test failing. This is a concrete, low-risk, credential-free, scope-bounded advancement — unlike the round's 17 open issues (all blocked/deprioritized per knowledge/backlog/) and the empty open-PR queue, this gap needed no new architecture, no product decision, and no external access to close."
+success_signal: "web/src/components/TribunalCoverageExplorer.test.ts gains a `describe('copyQueryLink', ...)` block covering: (1) the copied URL includes the current pathname and the drilldown query params reflecting the latest selection, and the UI shows 'Link copiado.' on success; (2) a rejected clipboard write shows the manual-copy fallback message instead; (3) changing the tribunal/date selection after a successful copy clears the prior 'Link copiado.' confirmation. A deliberate mutation of the production implementation (navigator.clipboard.writeText(window.location.href) -> navigator.clipboard.writeText('')) makes the new URL-content assertion fail (proving the test is not vacuous), and reverting the mutation makes it pass again. npm test (full web suite), npm run lint and npm run typecheck all stay green afterward."
+status: "achieved"
+---
+
+# Goal: cobertura de teste para copiar link de consulta
+
+`TribunalCoverageExplorer.svelte` recebe edições frequentes e diretas do dono; a funcionalidade de compartilhamento de link (`copyQueryLink`, `#1213`) foi ao ar sem nenhum teste. Fechar essa lacuna com testes que travam o comportamento observável (URL copiada, mensagem de sucesso, fallback em falha, reset ao mudar a seleção), validados por uma mutação deliberada da implementação para provar que os testes realmente testam algo.
