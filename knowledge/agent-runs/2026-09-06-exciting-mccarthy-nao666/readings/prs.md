@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-nao666-reading-prs"
+run_id: "2026-09-06-exciting-mccarthy-nao666"
+subject: "open_prs"
+reference: "franklinbaldo/causaganha list_pull_requests(state=open) + pull_request_read(get, get_status) on #1169 and #1170, checked 2026-09-06T00:3x"
+finding: "Exactly two open PRs, both authored by franklinbaldo (OWNER) on non-claude/* branches (reboot/cobogo-web, reboot/cobogo-panda-home) against the same main head (aeb54a7): #1169 ('reboot(web): rebuild CausaGanha on Cobogó + Panda CSS', 39 files, +3368/-4854, 15 commits, mergeable_state=unknown, 0 status checks reported yet) migrates all 12 public surfaces plus the global shell in one PR, with its own body naming a merge gate of 'CI, captura visual desktop/mobile ... e captura específica de /agentes' still pending review. #1170 ('reboot(web): start the CausaGanha Cobogó/Panda surface (#1168)', 7 files, +2764/-500, 5 commits, mergeable_state=behind, 0 status checks) deliberately scopes to only the shell + home, matching #1168's own 'primeira fatia' acceptance criteria verbatim, and is already behind main (needs a rebase before it can be evaluated as mergeable). Neither PR is red — both are simply unevaluated/in-progress on the owner's own competing branches. This is not a concurrent-automated-session collision (the pattern earlier rounds correctly avoided by not racing #1160/#1161/#1164); it is the repository owner exploring two different reboot strategies (big-bang vs. staged) on their own account. Continuing this round's non-interference decision: this session neither pushes to, rebases, reviews, nor picks a winner between #1169/#1170 — that call belongs to the owner, and any web/UX work this round would sit on a page shell already slated for wholesale replacement by one of these two PRs. This round's actual selected work (verifying and closing issue #924) touches no file either PR touches, so there is zero collision risk either way."
+---
+
+# Leitura de PRs abertos
+
+Duas PRs abertas, ambas do próprio dono do repositório, competindo entre si pela mesma direção de reboot visual (#1168) — não uma corrida entre sessões automatizadas. Nenhuma está vermelha; ambas estão simplesmente aguardando a decisão do dono sobre qual estratégia (big-bang vs. faseada) seguir. Esta rodada não interfere em nenhuma das duas e escolhe trabalho fora de `web/` para garantir zero colisão.
