@@ -28,6 +28,7 @@ class AgentCheckConcept(BaseModel):
         },
     )
     goal_id: str = Field(
+        default=None,
         json_schema_extra={
             "x-okf-references": {
                 "type": "AgentGoal",
@@ -62,6 +63,7 @@ class AgentDecisionConcept(BaseModel):
     choice: str
     description: str = Field(default=None)
     goal_id: str = Field(
+        default=None,
         json_schema_extra={
             "x-okf-references": {
                 "type": "AgentGoal",
@@ -95,6 +97,7 @@ class AgentEvidenceConcept(BaseModel):
 
     description: str = Field(default=None)
     goal_id: str = Field(
+        default=None,
         json_schema_extra={
             "x-okf-references": {
                 "type": "AgentGoal",
