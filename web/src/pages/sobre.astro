@@ -2,14 +2,18 @@
 import Layout from '../layouts/Layout.astro';
 import { css } from '../../styled-system/css';
 import { badge, button, card } from '../../styled-system/recipes';
+import { loadContract } from '../lib/data';
+import { loadSiteStatus } from '../lib/data/siteStatus';
+import { buildSourceCoverage } from '../lib/data/sourceCoverage';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
-const sources = [
-  ['Arquivo', 'DJEN', 'Publicações preservadas e cobertura do acervo.'],
-  ['Estado', 'DataJud', 'Capa, classe, assuntos e movimentos processuais.'],
-  ['Teor', 'TJRO JURIS', 'Decisões e documentos quando presentes no corpus.'],
-  ['Teor', 'STJ', 'Acórdãos e metadados ligados ao processo quando disponíveis.'],
-];
+const [siteStatus, datajud, juris, stj] = await Promise.all([
+  loadSiteStatus(),
+  loadContract('datajud_totals'),
+  loadContract('juris_totals'),
+  loadContract('stj_totals'),
+]);
+const sources = buildSourceCoverage({ siteStatus, datajud, juris, stj });
 ---
 
 <Layout
@@ -31,17 +35,35 @@ const sources = [
   <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '14', md: '20' } })}>
     <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: '0.7fr 1.3fr' }, gap: '10', alignItems: 'start' })}>
       <div>
-        <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Quatro fontes</p>
-        <h2 class={css({ textStyle: 'title', m: '0', maxW: '12ch' })}>Cada uma sustenta uma parte do quadro.</h2>
+        <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Cobertura por fonte</p>
+        <h2 class={css({ textStyle: 'title', m: '0', maxW: '12ch' })}>O que cada fonte sustenta — e onde termina.</h2>
+        <p class={css({ mt: '5', mb: '0', color: 'textMuted', lineHeight: 'body' })}>
+          Números e datas abaixo vêm dos mesmos contratos públicos usados pelas superfícies de consulta. Ausência de artefato aparece como cobertura não publicada, nunca como zero.
+        </p>
       </div>
       <div class={css({ display: 'grid', gap: '3' })}>
-        {sources.map(([role, name, description]) => (
+        {sources.map((source) => (
           <article class={card()}>
             <div class={css({ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '4', flexWrap: 'wrap' })}>
-              <span class={badge({ tone: role === 'Arquivo' ? 'accent' : role === 'Estado' ? 'info' : 'neutral' })}>{role}</span>
-              <strong>{name}</strong>
+              <span class={badge({ tone: source.role === 'Arquivo' ? 'accent' : source.role === 'Estado' ? 'info' : 'neutral' })}>{source.role}</span>
+              <strong>{source.name}</strong>
             </div>
-            <p class={css({ mb: '0', mt: '4', color: 'textMuted', lineHeight: 'body' })}>{description}</p>
+            <p class={css({ mb: '0', mt: '4', color: 'text', lineHeight: 'body' })}>{source.description}</p>
+            <dl class={css({ display: 'grid', gap: '2', mt: '4', mb: '0', color: 'textMuted', fontSize: 'sm' })}>
+              <div>
+                <dt class={css({ fontWeight: 'bold', color: 'text' })}>Cobertura publicada</dt>
+                <dd class={css({ m: '0' })}>{source.coverage}</dd>
+              </div>
+              <div>
+                <dt class={css({ fontWeight: 'bold', color: 'text' })}>Atualização</dt>
+                <dd class={css({ m: '0' })}>{source.freshness}</dd>
+              </div>
+              <div>
+                <dt class={css({ fontWeight: 'bold', color: 'text' })}>Limite</dt>
+                <dd class={css({ m: '0' })}>{source.limitation}</dd>
+              </div>
+            </dl>
+            <a class={button({ visual: 'outline' })} href={BASE + source.href}>Usar esta fonte</a>
           </article>
         ))}
       </div>
