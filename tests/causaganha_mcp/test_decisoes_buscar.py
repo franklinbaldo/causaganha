@@ -150,14 +150,57 @@ async def test_cnj_lookup_narrows_juris_scan_to_the_indexed_file(
     assert captured["juris_urls"] == [matching.url]
 
 
-async def test_cnj_lookup_falls_back_to_full_scan_when_index_unavailable(
+def _fake_juris_manifest_datasets(count: int) -> list[PublishedDecisionDataset]:
+    """A realistic-scale (1000+) fake JURIS dataset list, matching the
+    production manifest's actual scale (#1241) — used to prove the index-
+    unavailable failure path never opens the historical corpus."""
+    return [
+        PublishedDecisionDataset(fonte="juris", url=f"https://example/{i:05d}.parquet")
+        for i in range(count)
+    ]
+
+
+async def test_cnj_lookup_fonte_juris_fails_bounded_when_index_unavailable(
     mcp,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An infra failure reading indice_processual must never silently drop
-    real JURIS results — fall back to the previous unbounded-scan behavior."""
-    dataset = PublishedDecisionDataset(fonte="juris", url="https://example/2026-02.parquet")
-    monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
+    """#1241: an infra failure reading indice_processual must never make a
+    fonte="juris" CNJ lookup fall back to scanning every published JURIS
+    partition — it must fail explicitly and boundedly instead, touching zero
+    JURIS parquets."""
+    datasets = _fake_juris_manifest_datasets(1200)
+    assert len(datasets) > 1000
+    monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: (datasets, []))
+
+    def _raise(_cnj_digits: str) -> list[str]:
+        raise IndiceProcessualUnavailableError("boom")
+
+    monkeypatch.setattr(decisoes, "resolve_juris_urls_for_cnj", _raise)
+
+    def _fail_if_called(*_args: object, **_kwargs: object) -> DecisionSearchResult:
+        pytest.fail("search_decisions must not run a JURIS scan when the index is unavailable")
+
+    monkeypatch.setattr(decisoes, "search_decisions", _fail_if_called)
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    with pytest.raises(ToolError, match="[íÍ]ndice"):
+        fn(texto=None, fonte="juris", cnj="00000010220248220001")
+
+
+async def test_cnj_lookup_fonte_todas_omits_juris_but_keeps_other_sources_when_index_unavailable(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1241: fonte="todas" must not invent an unbounded JURIS scan when the
+    index is unavailable — it must consult zero JURIS parquets, record an
+    explicit limitation, and still return results from sources that can
+    legitimately answer the same filter (stj)."""
+    juris_datasets = _fake_juris_manifest_datasets(1200)
+    stj_dataset = PublishedDecisionDataset(fonte="stj", url="https://example/stj.parquet")
+    assert len(juris_datasets) > 1000
+    monkeypatch.setattr(
+        decisoes, "_datasets_for_source", lambda _fonte: ([*juris_datasets, stj_dataset], [])
+    )
 
     def _raise(_cnj_digits: str) -> list[str]:
         raise IndiceProcessualUnavailableError("boom")
@@ -169,14 +212,36 @@ async def test_cnj_lookup_falls_back_to_full_scan_when_index_unavailable(
         _texto, plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None
     ):
         captured["juris_urls"] = [item.url for item in plan.juris]
-        return DecisionSearchResult(datasets_consultados=len(plan.juris))
+        captured["stj_urls"] = [item.url for item in plan.stj]
+        return DecisionSearchResult(datasets_consultados=len(plan.stj))
 
     monkeypatch.setattr(decisoes, "search_decisions", _fake_search)
 
     fn = await _tool_fn(mcp, "decisoes_buscar")
-    fn(texto=None, fonte="juris", cnj="00000010220248220001")
+    result = fn(texto=None, fonte="todas", cnj="00000010220248220001")
 
-    assert captured["juris_urls"] == [dataset.url]
+    assert captured["juris_urls"] == []
+    assert captured["stj_urls"] == [stj_dataset.url]
+    assert any("juris" in msg.lower() for msg in result.limitacoes)
+
+
+async def test_cnj_index_miss_is_real_absence_not_unavailability(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """#1241: a CNJ genuinely absent from indice_processual (index reachable,
+    zero rows) is a real absence, not an infra failure — it must not raise
+    and must not add a 'JURIS indisponível' limitation, unlike the
+    index-unavailable case above."""
+    dataset = PublishedDecisionDataset(fonte="juris", url="https://example/2026-02.parquet")
+    monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
+    monkeypatch.setattr(decisoes, "resolve_juris_urls_for_cnj", lambda _cnj_digits: [])
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    result = fn(texto=None, fonte="juris", cnj="00000010220248220001")
+
+    assert result.resultados == []
+    assert not any("indispon" in msg.lower() for msg in result.limitacoes)
 
 
 async def test_offset_is_forwarded_and_next_offset_reported_when_truncated(

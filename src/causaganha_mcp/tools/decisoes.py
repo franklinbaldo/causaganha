@@ -118,20 +118,20 @@ def _narrow_juris_datasets_for_cnj(
     ``indice_processual`` index already has for this CNJ (#1238), instead of
     scanning every published JURIS partition — the production manifest
     already has 1000+ of them, spanning 1989-2026, so an unnarrowed CNJ
-    lookup opens every single one via DuckDB httpfs on every call.
+    lookup would open every single one via DuckDB httpfs on every call.
 
-    Falls back to the unnarrowed list — the previous, safe, unbounded-scan
-    behavior — whenever the index itself cannot be read: an infra failure
-    reading ``indice_processual`` must never be mistaken for "no juris file
-    matches this CNJ" (that would silently under-report real results).
+    Raises :class:`IndiceProcessualUnavailableError` when the index itself
+    cannot be read, instead of swallowing it (#1241): a genuine index miss
+    (CNJ not found, empty result) is a real, provable absence, but an
+    unavailable index must never be papered over by falling back to the
+    unbounded historical scan this function exists to prevent — callers
+    decide how to degrade (bounded failure for ``fonte="juris"``, or drop
+    JURIS while preserving other sources for ``fonte="todas"``).
     """
     cnj_digits = so_digitos(cnj)
     if not cnj_digits:
         return datasets
-    try:
-        resolved_urls = set(resolve_juris_urls_for_cnj(cnj_digits))
-    except IndiceProcessualUnavailableError:
-        return datasets
+    resolved_urls = set(resolve_juris_urls_for_cnj(cnj_digits))
     return [item for item in datasets if item.fonte != "juris" or item.url in resolved_urls]
 
 
@@ -309,6 +309,16 @@ def register(mcp: FastMCP) -> None:
         verificada, então ``fonte="tcu"`` falha explicitamente em vez de
         devolver zero resultados; quando essa prova existir, a cobertura
         inicial é restrita a acórdãos com identidade KEY provada.
+
+        Um lookup por ``cnj`` consulta apenas o(s) arquivo(s) JURIS que o
+        índice ``indice_processual`` já associa a esse CNJ, nunca todas as
+        partições publicadas. Se esse índice estiver momentaneamente
+        indisponível, ``fonte="juris"`` falha explicitamente (em vez de
+        devolver zero resultados ou reabrir todo o histórico) e
+        ``fonte="todas"`` omite JURIS registrando uma limitação, preservando
+        resultados de outras fontes para o mesmo CNJ — isso é diferente de um
+        CNJ que o índice já consultou e não encontrou, que continua sendo
+        reportado como ausência real, sem limitação de indisponibilidade.
         """
         query_text = _query_text_for_period_listing(texto, cnj, data_inicio, data_fim)
         datasets, coverage_limitations = _datasets_for_source(fonte)
@@ -318,8 +328,25 @@ def register(mcp: FastMCP) -> None:
                 "de leitura verificada está disponível no momento."
             )
             raise ToolError(msg)
-        if cnj:
-            datasets = _narrow_juris_datasets_for_cnj(datasets, cnj)
+        if cnj and fonte in {"todas", "juris"}:
+            try:
+                datasets = _narrow_juris_datasets_for_cnj(datasets, cnj)
+            except IndiceProcessualUnavailableError:
+                datasets = [item for item in datasets if item.fonte != "juris"]
+                if fonte == "juris":
+                    msg = (
+                        "Índice de processos indisponível: não foi possível "
+                        "consultar indice_processual para localizar o(s) "
+                        "arquivo(s) JURIS deste CNJ agora, então a fonte juris "
+                        "está temporariamente indisponível para esta busca. "
+                        "Tente novamente em instantes."
+                    )
+                    raise ToolError(msg) from None
+                coverage_limitations.append(
+                    "JURIS indisponível: o índice de processos não pôde ser "
+                    "consultado agora, então a fonte juris foi omitida desta "
+                    "busca por CNJ."
+                )
         try:
             plan = plan_decision_search(
                 datasets,

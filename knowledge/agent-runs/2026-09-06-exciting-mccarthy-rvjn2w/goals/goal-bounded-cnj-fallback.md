@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-06-exciting-mccarthy-rvjn2w-goal-bounded-cnj-fallback"
+run_id: "2026-09-06-exciting-mccarthy-rvjn2w"
+goal: "Make a CNJ lookup in decisoes_buscar stay bounded even when indice_processual.parquet cannot be read, closing issue #1241."
+rationale: "#1238/#1239 (merged just before this round) fixed the normal decisoes_buscar(cnj=...) path to consult only the JURIS partition(s) indice_processual actually has for the CNJ, instead of scanning all published partitions (1000+ in production). But the failure path of that same fix, _narrow_juris_datasets_for_cnj's except IndiceProcessualUnavailableError branch, still returns the entire unnarrowed dataset list — exactly the unbounded scan the fix exists to prevent, now reachable whenever the index itself is briefly unreadable. #1241, filed by the repo owner minutes before this round and marked READY, names this precisely and is especially important ahead of #950 (a future public remote MCP endpoint), where an index hiccup turning into a 1000+-partition remote scan under a 45s tool timeout would be a real availability risk, not just an inefficiency." 
+success_signal: "A new regression test with a realistic-scale (1000+) fake JURIS dataset list proves that when resolve_juris_urls_for_cnj raises IndiceProcessualUnavailableError, decisoes_buscar(cnj=..., fonte='juris') raises a clear, bounded ToolError (RED before the fix: the mocked search_decisions call would receive all 1000+ synthetic juris URLs; GREEN after: search_decisions is never even called) and decisoes_buscar(cnj=..., fonte='todas') omits JURIS entirely (zero juris URLs reach the search plan) while still returning results from sources that can legitimately answer the same filter (stj/tcu), with an explicit 'JURIS indisponível' limitation distinct from the existing, unchanged 'CNJ ausente do índice' zero-result case (index reachable, CNJ genuinely not in it) which must continue to add no such limitation. The full Python suite (ruff check, ruff format --check, pytest -q) stays green, okf-parser check stays conformant, and a PR is opened and driven to a mergeable, green state closing #1241."
+status: "achieved"
+---
+
+# Goal: lookup por CNJ deve continuar bounded quando o índice estiver indisponível (#1241)
+
+Eliminar o fallback de `_narrow_juris_datasets_for_cnj` que hoje devolve a lista JURIS inteira (1000+ partições em produção) quando `indice_processual.parquet` não pode ser lido — substituindo por uma falha explícita e bounded (`fonte="juris"`) ou por omissão registrada da fonte JURIS preservando as demais (`fonte="todas"`), sem nunca confundir "índice indisponível" com "CNJ ausente do índice".
