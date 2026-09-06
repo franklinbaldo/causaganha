@@ -136,6 +136,49 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
     return `Dataset ${itemId || '(sem seleção)'} não encontrado no Internet Archive. ${tribunalPart} Também é possível trocar o tribunal no seletor acima.`;
   }
 
+  function describeUnavailableDataset() {
+    return `Não foi possível verificar o dataset ${itemId || '(sem seleção)'} no Internet Archive agora — isso indica instabilidade temporária do serviço, não que o dataset não exista. Tente novamente em instantes.`;
+  }
+
+  async function checkDataset(id) {
+    let response;
+    try {
+      response = await fetch(`https://archive.org/metadata/${id}/files`);
+    } catch {
+      return { status: 'unavailable', files: [], error: describeUnavailableDataset(), cacheable: false };
+    }
+
+    if (response.status === 404) {
+      return { status: 'missing', files: [], error: describeMissingDataset(), cacheable: true };
+    }
+
+    if (!response.ok) {
+      return { status: 'unavailable', files: [], error: describeUnavailableDataset(), cacheable: false };
+    }
+
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      return { status: 'unavailable', files: [], error: describeUnavailableDataset(), cacheable: false };
+    }
+
+    let files;
+    try {
+      files = (data?.result || data || [])
+        .filter((file) => file?.name?.endsWith('.parquet'))
+        .map((file) => ({ name: file.name, size: Number(file.size) || 0 }));
+    } catch {
+      return { status: 'unavailable', files: [], error: describeUnavailableDataset(), cacheable: false };
+    }
+
+    if (files.length === 0) {
+      return { status: 'missing', files: [], error: describeMissingDataset(), cacheable: true };
+    }
+
+    return { status: 'ready', files, error: null, cacheable: true };
+  }
+
   async function init() {
     dbStatus = 'loading';
     try {
@@ -179,6 +222,13 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
     }
   });
 
+  let retryNonce = $state(0);
+
+  function retryDatasetCheck() {
+    datasetCache.delete(itemId);
+    retryNonce += 1;
+  }
+
   $effect(() => {
     if (!hasDatasetSelection) {
       datasetStatus = 'idle';
@@ -187,6 +237,8 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
       return;
     }
 
+    void retryNonce;
+    const id = itemId;
     let active = true;
 
     async function validateDataset() {
@@ -194,8 +246,8 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
       datasetError = null;
       datasetFiles = [];
 
-      if (datasetCache.has(itemId)) {
-        const cached = datasetCache.get(itemId);
+      if (datasetCache.has(id)) {
+        const cached = datasetCache.get(id);
         if (!active) return;
         datasetStatus = cached.status;
         datasetFiles = cached.files;
@@ -203,30 +255,14 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
         return;
       }
 
-      try {
-        const response = await fetch(`https://archive.org/metadata/${itemId}/files`);
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        const data = await response.json();
-        const files = (data?.result || data || [])
-          .filter((file) => file?.name?.endsWith('.parquet'))
-          .map((file) => ({ name: file.name, size: Number(file.size) || 0 }));
-
-        if (files.length === 0) throw new Error('Nenhum arquivo Parquet encontrado');
-
-        const value = { status: 'ready', files, error: null };
-        datasetCache.set(itemId, value);
-        if (!active) return;
-        datasetStatus = value.status;
-        datasetFiles = value.files;
-        datasetError = value.error;
-      } catch (err) {
-        const value = { status: 'missing', files: [], error: describeMissingDataset() };
-        datasetCache.set(itemId, value);
-        if (!active) return;
-        datasetStatus = value.status;
-        datasetFiles = value.files;
-        datasetError = value.error;
+      const result = await checkDataset(id);
+      if (result.cacheable) {
+        datasetCache.set(id, result);
       }
+      if (!active) return;
+      datasetStatus = result.status;
+      datasetFiles = result.files;
+      datasetError = result.error;
     }
 
     validateDataset();
@@ -243,6 +279,11 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
 
     if (datasetStatus === 'missing') {
       error = datasetError ?? describeMissingDataset();
+      return;
+    }
+
+    if (datasetStatus === 'unavailable') {
+      error = datasetError ?? describeUnavailableDataset();
       return;
     }
 
@@ -382,6 +423,14 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
     {#if datasetStatus === 'missing'}
       <article role="alert" data-tone="error">
         <p>{datasetError}</p>
+      </article>
+    {/if}
+    {#if datasetStatus === 'unavailable'}
+      <article role="alert" data-tone="warning">
+        <p>{datasetError}</p>
+        <button class="secondary outline" onclick={retryDatasetCheck}>
+          Tentar verificar novamente
+        </button>
       </article>
     {/if}
 
