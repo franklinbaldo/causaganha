@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-06-exciting-mccarthy-iyujok-decision-svelte-ignore-vs-restructure"
+run_id: "2026-09-06-exciting-mccarthy-iyujok"
+goal_id: "2026-09-06-exciting-mccarthy-iyujok-goal-mcpconfigcard-a11y"
+question: "How to make the scrollable MCP config block keyboard-focusable (a deliberate, correct pattern — WCAG SC 2.1.1 requires a way to reach and scroll static overflow content by keyboard) without tripping Svelte's a11y_no_noninteractive_tabindex warning: restructure the markup (e.g. move tabindex onto a wrapping <div>, matching the div+tabindex+aria-label pattern already used in web/src/pages/stats.astro), or keep the <pre> and suppress the warning explicitly?"
+choice: "Keep tabindex on the <pre> itself, add role=\"region\" + a descriptive aria-label, and add an explicit <!-- svelte-ignore a11y_no_noninteractive_tabindex --> comment directly above it."
+rationale: "Empirically verified with svelte/compiler's compile() (node one-liners, not guesswork) that Svelte 5's a11y_no_noninteractive_tabindex check fires on ANY non-interactive-role element carrying tabindex>=0 — a plain <div tabindex=\"0\">, even with role=\"region\" and aria-label added, still produces the exact same warning, because 'region' is a landmark role, not one of the ARIA widget roles the check treats as 'interactive'. The stats.astro div+tabindex+aria-label pattern I initially tried to mirror never actually passes through this check at all: .astro files are not compiled by the Svelte compiler, so that pattern was never validated against this specific rule — it is not a counter-example, just a different toolchain. svelte-ignore is the framework's own supported mechanism for exactly this situation (a deliberately correct pattern the static analysis cannot distinguish from a mistake), confirmed empirically to fully suppress the warning. Restructuring into a wrapping <div> would have added markup and CSS complexity for no accessibility benefit, since the underlying pattern (a focusable, ARIA-labelled scroll region) needs the same ignore either way."
+---
+
+# Decisão: `svelte-ignore` em vez de reestruturar a marcação
+
+Testei experimentalmente que `role="region"` sozinho (em `<pre>` ou em um `<div>` que o envolvesse) não suprime `a11y_no_noninteractive_tabindex` — apenas papéis de widget interativo suprimem. O padrão `div+tabindex+aria-label` de `stats.astro` nunca passou por essa checagem porque arquivos `.astro` não compilam pelo compilador Svelte. Optei por manter o `<pre>`, adicionar `role="region"` + `aria-label` (semântica correta para leitores de tela) e suprimir o warning com o mecanismo oficial do próprio Svelte (`svelte-ignore`), em vez de reestruturar a marcação sem ganho real de acessibilidade.
