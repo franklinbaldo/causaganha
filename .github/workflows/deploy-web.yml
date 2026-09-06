@@ -136,6 +136,40 @@ jobs:
           npm install --no-audit --no-fund playwright@1.55.0 axe-core@4.10.3
           node check.mjs
 
+      - name: Verify published stats payload stays local
+        shell: bash
+        env:
+          PAGE_URL: ${{ needs.deploy.outputs.page_url }}
+        run: |
+          set -euo pipefail
+          mkdir -p published-evidence
+          stats_url="${PAGE_URL%/}/stats.html"
+          curl --fail --silent --show-error --location "$stats_url" --output published-evidence/stats.html
+          stats_bytes=$(wc -c < published-evidence/stats.html)
+          max_stats_bytes=$((250 * 1024))
+          echo "Published /stats HTML: ${stats_bytes} bytes (budget: ${max_stats_bytes})"
+          if [ "$stats_bytes" -gt "$max_stats_bytes" ]; then
+            echo "::error::Published /stats HTML exceeds the 250 KiB regression budget (${stats_bytes} bytes)."
+            exit 1
+          fi
+          if grep -q 'calendarRows' published-evidence/stats.html; then
+            echo "::error::Published /stats serialized calendarRows again; the global tribunal calendar leaked back into the initial HTML."
+            exit 1
+          fi
+          python3 - <<'PY'
+          import json, os
+          from datetime import datetime, timezone
+          data = {
+              "url": f"{os.environ['PAGE_URL'].rstrip('/')}/stats.html",
+              "bytes": os.path.getsize("published-evidence/stats.html"),
+              "budget_bytes": 250 * 1024,
+              "global_calendar_prop_present": b"calendarRows" in open("published-evidence/stats.html", "rb").read(),
+              "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+          }
+          with open("published-evidence/stats-payload.json", "w", encoding="utf-8") as f:
+              json.dump(data, f, ensure_ascii=False, indent=2)
+          PY
+
       - name: Capture the published routes in desktop and mobile widths
         shell: bash
         env:
@@ -144,7 +178,7 @@ jobs:
           set -euo pipefail
           mkdir -p published-evidence
           base="${PAGE_URL%/}/"
-          for page in index.html processo.html publicacoes.html sobre.html agentes.html minhas-consultas.html; do
+          for page in index.html processo.html publicacoes.html stats.html sobre.html agentes.html minhas-consultas.html; do
             stem="${page%.html}"
             npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
               "${base}${page}" "published-evidence/${stem}-desktop.png"
@@ -161,7 +195,7 @@ jobs:
               "public_url": os.environ["PAGE_URL"],
               "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
               "viewports": [{"width": 1280, "height": 900}, {"width": 390, "height": 844}],
-              "routes": ["index.html", "processo.html", "publicacoes.html", "sobre.html", "agentes.html", "minhas-consultas.html"],
+              "routes": ["index.html", "processo.html", "publicacoes.html", "stats.html", "sobre.html", "agentes.html", "minhas-consultas.html"],
           }
           with open("published-evidence/published.json", "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
