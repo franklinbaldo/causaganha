@@ -51,7 +51,7 @@ export function buildExplorerRecipes(
       requiredFiles: ['comunicacoes.parquet'],
       missingInput: startDate && endDate ? null : 'period',
       sql: startDate && endDate
-        ? `SELECT data_disponibilizacao, numero_processo, nome_orgao, tipo_comunicacao\nFROM read_parquet('${comunicacoes}')\nWHERE data_disponibilizacao BETWEEN DATE '${startDate}' AND DATE '${endDate}'\nORDER BY data_disponibilizacao DESC\nLIMIT 200`
+        ? `SELECT data_disponibilizacao, numero_processo, nome_orgao\nFROM read_parquet('${comunicacoes}')\nWHERE data_disponibilizacao BETWEEN DATE '${startDate}' AND DATE '${endDate}'\nORDER BY data_disponibilizacao DESC\nLIMIT 200`
         : '-- Informe data inicial e final para gerar esta receita.',
     },
     {
@@ -61,7 +61,7 @@ export function buildExplorerRecipes(
       requiredFiles: ['comunicacoes.parquet'],
       missingInput: cnj ? null : 'cnj',
       sql: cnj
-        ? `SELECT data_disponibilizacao, numero_processo, nome_orgao, tipo_comunicacao, texto\nFROM read_parquet('${comunicacoes}')\nWHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = '${cnj}'\nORDER BY data_disponibilizacao DESC\nLIMIT 200`
+        ? `SELECT *\nFROM read_parquet('${comunicacoes}')\nWHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = '${cnj}'\nORDER BY data_disponibilizacao DESC\nLIMIT 200`
         : '-- Informe um número CNJ válido (20 dígitos) para gerar esta receita.',
     },
     {
