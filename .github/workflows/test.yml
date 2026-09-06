@@ -92,6 +92,8 @@ jobs:
           echo '[{"tribunal":"PLACEHOLDER","date":"2026-01-01","status":"uploaded"}]' > web/public/data/tribunal_calendar.json
       - name: Lint
         run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
       - name: Test
         run: npm test
       - name: Build

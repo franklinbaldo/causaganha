@@ -25,11 +25,11 @@ describe('rendered query contracts', () => {
         readFileSync(join(fixtureRoot, 'query-contracts.json'), 'utf8'),
       ) as RenderManifest;
       const queryByOutput = new Map(manifest.contracts.map((query) => [query.output, query]));
-      const frontendByOutput = new Map(
+      const frontendByOutput = new Map<string, { name: string; contract: (typeof contracts)[keyof typeof contracts] }>(
         Object.entries(contracts).map(([name, contract]) => [contract.output, { name, contract }]),
       );
       const dataDir = join(fixtureRoot, 'web/public/data');
-      const allEmitted = readdirSync(dataDir, { recursive: true })
+      const allEmitted = readdirSync(dataDir, { recursive: true, encoding: 'utf8' })
         .filter((file) => file.endsWith('.json'))
         .map((file) => `data/${file}`);
 
