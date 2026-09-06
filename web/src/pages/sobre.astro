@@ -53,10 +53,13 @@ const sources = [
       <div>
         <p class={css({ textStyle: 'eyebrow', color: 'accent', mb: '3' })}>Dados abertos</p>
         <h2 class={css({ textStyle: 'title', fontSize: '2xl', color: 'canvas', m: '0', maxW: '16ch' })}>Você pode reproduzir a consulta fora do site.</h2>
-        <p class={css({ mt: '5', mb: '0', maxW: '46rem', color: 'surfaceMuted', lineHeight: 'body' })}>Catálogo, manifestos e Parquets públicos permitem conferir cobertura e refazer análises sem depender da interface.</p>
+        <p class={css({ mt: '5', mb: '0', maxW: '46rem', color: 'surfaceMuted', lineHeight: 'body' })}>
+          Catálogo, manifestos e Parquets públicos permitem conferir cobertura e refazer análises sem depender da interface. O <code>catalog.sql</code> é o contrato textual reproduzível para materializar as views em um DuckDB do próprio consumidor.
+        </p>
       </div>
       <div class={css({ display: 'flex', flexWrap: 'wrap', gap: '3' })}>
-        <a class={button({ visual: 'solid' })} href="https://archive.org/details/causaganha-catalog">Abrir catálogo ↗</a>
+        <a class={button({ visual: 'solid' })} href="https://archive.org/download/causaganha-catalog/catalog.sql">Abrir catalog.sql ↗</a>
+        <a class={button({ visual: 'light' })} href="https://archive.org/details/causaganha-catalog">Ver catálogo ↗</a>
         <a class={button({ visual: 'light' })} href={BASE + 'agentes'}>Usar com agentes</a>
       </div>
     </div>
