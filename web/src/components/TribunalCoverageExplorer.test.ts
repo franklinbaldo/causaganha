@@ -165,4 +165,88 @@ describe('TribunalCoverageExplorer', () => {
     const link = screen.getByRole('link', { name: /ver calendário completo/i }) as HTMLAnchorElement;
     expect(link.getAttribute('href')).toBe('/publicacoes/tjro');
   });
+
+  describe('copyQueryLink', () => {
+    function stubClipboard(writeText: (text: string) => Promise<void>) {
+      Object.defineProperty(navigator, 'clipboard', {
+        value: { writeText },
+        configurable: true,
+      });
+    }
+
+    it('copies the current page URL, including the drilldown query, and confirms success', async () => {
+      mockFetch();
+      const writeText = vi.fn().mockResolvedValue(undefined);
+      stubClipboard(writeText);
+
+      render(TribunalCoverageExplorer, {
+        tribunals: TRIBUNALS,
+        publicBase: '/',
+        initialTribunal: 'TJRO',
+        initialStart: '2026-01-01',
+        initialEnd: '2026-01-03',
+      });
+
+      const select = screen.getByLabelText(/tribunal/i) as HTMLSelectElement;
+      await fireEvent.change(select, { target: { value: 'TJSP' } });
+
+      const copyButton = screen.getByRole('button', { name: /copiar link desta consulta/i });
+      await fireEvent.click(copyButton);
+
+      await waitFor(() => {
+        expect(writeText).toHaveBeenCalledTimes(1);
+      });
+      const copiedUrl = writeText.mock.calls[0][0] as string;
+      expect(copiedUrl).toContain(window.location.pathname);
+      expect(new URL(copiedUrl).searchParams.get('tribunal')).toBe('TJSP');
+
+      await waitFor(() => {
+        expect(screen.getByText(/link copiado/i)).toBeInTheDocument();
+      });
+    });
+
+    it('falls back to a manual-copy message when the Clipboard API rejects', async () => {
+      mockFetch();
+      stubClipboard(vi.fn().mockRejectedValue(new Error('permission denied')));
+
+      render(TribunalCoverageExplorer, {
+        tribunals: TRIBUNALS,
+        publicBase: '/',
+        initialTribunal: 'TJRO',
+        initialStart: '2026-01-01',
+        initialEnd: '2026-01-03',
+      });
+
+      const copyButton = screen.getByRole('button', { name: /copiar link desta consulta/i });
+      await fireEvent.click(copyButton);
+
+      await waitFor(() => {
+        expect(screen.getByText(/não foi possível copiar automaticamente/i)).toBeInTheDocument();
+      });
+    });
+
+    it('clears a prior copy confirmation once the query changes again', async () => {
+      mockFetch();
+      stubClipboard(vi.fn().mockResolvedValue(undefined));
+
+      render(TribunalCoverageExplorer, {
+        tribunals: TRIBUNALS,
+        publicBase: '/',
+        initialTribunal: 'TJRO',
+        initialStart: '2026-01-01',
+        initialEnd: '2026-01-03',
+      });
+
+      const copyButton = screen.getByRole('button', { name: /copiar link desta consulta/i });
+      await fireEvent.click(copyButton);
+      await waitFor(() => {
+        expect(screen.getByText(/link copiado/i)).toBeInTheDocument();
+      });
+
+      const select = screen.getByLabelText(/tribunal/i) as HTMLSelectElement;
+      await fireEvent.change(select, { target: { value: 'TJSP' } });
+
+      expect(screen.queryByText(/link copiado/i)).not.toBeInTheDocument();
+    });
+  });
 });
