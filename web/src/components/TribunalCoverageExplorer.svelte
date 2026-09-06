@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from 'svelte';
   import {
     buildDailyStates,
     summarizeDailyStates,
@@ -61,6 +62,12 @@
     loadPartition(tribunal);
   });
 
+  function buildQueryHref(forTribunal = tribunal) {
+    if (typeof window === 'undefined') return '#coverage-explorer';
+    const params = buildDrilldownQuery({ tribunal: forTribunal, start, end });
+    return `${window.location.pathname}?${params.toString()}#coverage-explorer`;
+  }
+
   function syncUrl() {
     if (typeof window === 'undefined') return;
     const params = buildDrilldownQuery({ tribunal, start, end });
@@ -68,6 +75,52 @@
     window.history.replaceState(null, '', next);
     copyStatus = '';
   }
+
+  function selectFromManifest(forTribunal: string) {
+    tribunal = forTribunal;
+    syncUrl();
+    document.querySelector('#coverage-explorer')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    window.setTimeout(() => {
+      document.querySelector<HTMLSelectElement>('#coverage-explorer select')?.focus({ preventScroll: true });
+    }, 350);
+  }
+
+  function refreshManifestLinks() {
+    if (typeof document === 'undefined') return;
+    for (const row of document.querySelectorAll<HTMLTableRowElement>('[data-tribunal-row]')) {
+      const forTribunal = row.dataset.tribunal;
+      const cell = row.querySelector<HTMLTableCellElement>('td:first-child');
+      if (!forTribunal || !cell) continue;
+
+      let link = cell.querySelector<HTMLAnchorElement>('[data-explore-tribunal]');
+      if (!link) {
+        link = document.createElement('a');
+        link.dataset.exploreTribunal = '';
+        link.className = 'manifest-explore-link';
+        link.textContent = 'Explorar →';
+        cell.append(document.createElement('br'), link);
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          const selected = link?.dataset.tribunal;
+          if (selected) selectFromManifest(selected);
+        });
+      }
+
+      link.dataset.tribunal = forTribunal;
+      link.href = buildQueryHref(forTribunal);
+      link.setAttribute('aria-label', `Explorar cobertura de ${forTribunal}`);
+    }
+  }
+
+  onMount(() => {
+    refreshManifestLinks();
+  });
+
+  $effect(() => {
+    start;
+    end;
+    refreshManifestLinks();
+  });
 
   function onTribunalChange(e: Event) {
     tribunal = (e.target as HTMLSelectElement).value;
@@ -104,7 +157,7 @@
   }
 </script>
 
-<div class="tribunal-explorer">
+<div id="coverage-explorer" class="tribunal-explorer" tabindex="-1">
   <div class="tribunal-explorer__controls">
     <label class="tribunal-explorer__field">
       <span class="kicker">Tribunal</span>
@@ -163,6 +216,10 @@
   .tribunal-explorer {
     display: grid;
     gap: 1rem;
+    scroll-margin-top: 1rem;
+  }
+  .tribunal-explorer:focus {
+    outline: none;
   }
   .tribunal-explorer__controls {
     display: grid;
@@ -205,5 +262,12 @@
   .tribunal-explorer__actions .meta-text {
     flex-basis: 100%;
     min-height: 1.25rem;
+  }
+  :global(.manifest-explore-link) {
+    display: inline-block;
+    margin-top: 0.35rem;
+    font-size: 0.8rem;
+    font-weight: 700;
+    white-space: nowrap;
   }
 </style>
