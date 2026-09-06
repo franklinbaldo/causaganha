@@ -81,6 +81,14 @@
     end = (e.target as HTMLInputElement).value;
     syncUrl();
   }
+
+  function useRecentDays(days: number) {
+    const parsedEnd = new Date(`${end}T00:00:00Z`);
+    if (Number.isNaN(parsedEnd.getTime())) return;
+    parsedEnd.setUTCDate(parsedEnd.getUTCDate() - (days - 1));
+    start = parsedEnd.toISOString().slice(0, 10);
+    syncUrl();
+  }
 </script>
 
 <div class="tribunal-explorer">
@@ -103,6 +111,13 @@
       <span class="kicker">Até</span>
       <input type="date" value={end} onchange={onEndChange} />
     </label>
+  </div>
+
+  <div class="tribunal-explorer__quick-ranges" role="group" aria-label="Períodos rápidos">
+    <span class="kicker">Período rápido</span>
+    <button type="button" onclick={() => useRecentDays(7)}>7 dias</button>
+    <button type="button" onclick={() => useRecentDays(30)}>30 dias</button>
+    <button type="button" onclick={() => useRecentDays(90)}>90 dias</button>
   </div>
 
   <div aria-live="polite">
@@ -140,5 +155,30 @@
   .tribunal-explorer__field {
     display: grid;
     gap: 0.35rem;
+  }
+  .tribunal-explorer__quick-ranges {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .tribunal-explorer__quick-ranges .kicker {
+    margin-right: 0.25rem;
+  }
+  .tribunal-explorer__quick-ranges button {
+    min-height: 2.75rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid currentColor;
+    border-radius: 0;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .tribunal-explorer__quick-ranges button:hover,
+  .tribunal-explorer__quick-ranges button:focus-visible {
+    background: var(--colors-text, #171717);
+    color: var(--colors-canvas, #fff);
   }
 </style>
