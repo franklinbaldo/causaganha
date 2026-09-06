@@ -66,10 +66,13 @@ cd web && npm run dev
 
 ### CSS token boundary
 
-Two token systems coexist — keep them in their lanes:
+There is one design system, not two: **Panda CSS** via the `cobogo` preset (`web/panda.config.ts`). Almost every page styles through `css()`/`styled-system/recipes` (`alert`, `badge`, `card`, `table`, …) reading Panda's own tokens directly — this is the Cobogó/Panda reboot (#1169) and it now covers all substantive pages (the only two holdouts, `advogados.astro` and `comparador.astro`, are trivial redirect stubs to `/stats`).
 
-- **Brazilian Modernism** (`--s-*`, `--papel-*`, `--tinta-*`): homepage and marketing sections only (`index.astro`, `sobre.astro`). Do not use inside `container`-layout data pages.
-- **Semantic** (`--color-*`, `--space-*`, `--pico-*`): all functional/data pages (`stats`, `publicacoes`, `explorador`, tribunal pages, etc.).
+`web/src/index.css` is a **compatibility bridge**, not a second token system for a page category: it defines `--cg-*` primitives backed by Panda's `--colors-*`/`--fonts-*`, and re-exposes legacy custom-property names (`--papel-*`, `--s-*`, `--color-*`) as aliases to those same values. Those legacy names are consumed only inside the `<style>` blocks of four Svelte islands that predate the reboot and haven't been converted to Panda `css()` yet: `ProcessoLookup.svelte`, `PublicationSearch.svelte`, `SavedConsultations.svelte`, `TribunalCalendar.svelte` (several call sites already fall back to the semantic alias, e.g. `var(--papel-20, var(--color-surface))`). `--pico-*` and `--tinta-*` no longer exist anywhere in the codebase.
+
+- New pages/components: use Panda (`css()`/recipes from the `cobogo` preset). Don't invent bespoke custom properties outside `panda.config.ts`.
+- Maintaining one of the four legacy Svelte islands above: it's fine to keep using its existing `--papel-*`/`--s-*` names; don't introduce new ones, and prefer routing through the semantic aliases already declared in `index.css`.
+- There is no "marketing vs. data page" split to preserve — don't reintroduce one.
 
 ### Style
 
