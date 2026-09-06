@@ -30,6 +30,7 @@ evidence_ids:
   - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-1178-red-test"
   - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-1178-green-test"
   - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-1178-full-gates-green"
+  - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-pr-1180-opened"
 check_ids:
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-cobogo-preset-grep"
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-vitest-red"
@@ -39,8 +40,8 @@ check_ids:
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-eslint"
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-ruff-pytest"
 result_state: "review"
-result_summary: "PENDING — filled in after push/PR/CI in the same round."
-next_move: "PENDING — filled in after push/PR/CI in the same round."
+result_summary: "Pushed commit 2716ef0e to claude/exciting-mccarthy-6tcxrn and opened PR #1180 (https://github.com/franklinbaldo/causaganha/pull/1180), referencing 'Closes #1178'. Subscribed this session to the PR's activity. CI is running at push time; this field will be updated in a follow-up commit once CI resolves, and again on merge (or on any fix needed to reach green)."
+next_move: "Watch PR #1180's CI; if green and no review feedback needed, merge it (this session's own well-tested, low-risk change, consistent with prior rounds' pattern of self-merging fully-green, fully-tested PRs) and update this report's result_state to merged. If CI fails, diagnose and push a fix per the standard drive-to-green loop. Once #1178/#1180 lands, the next natural slice is the larger web/UX backlog this round deferred (#1136, #1131-1134, #1093), now genuinely unblocked since both the reboot fork (#1168) and its immediate priority-1 follow-up (#1178) are resolved."
 ---
 
 # Agent run — 2026-09-06-exciting-mccarthy-6tcxrn
