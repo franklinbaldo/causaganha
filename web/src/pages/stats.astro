@@ -154,15 +154,32 @@ const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).
 
     {tribunalCoverage.length > 0 ? (
       <>
+        <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: 'minmax(18rem, 28rem) auto' }, alignItems: 'end', gap: '3', mb: '4' })}>
+          <label class={css({ display: 'grid', gap: '2', fontSize: 'sm', fontWeight: 'bold' })}>
+            <span>Localizar tribunal</span>
+            <input
+              type="search"
+              inputmode="search"
+              autocomplete="off"
+              placeholder="Ex.: TJRO, TRF1, TRT14"
+              data-tribunal-filter
+              aria-controls="tribunal-coverage-table"
+              class={css({ w: 'full', minH: '11', px: '3', border: '1px solid', borderColor: 'text', background: 'canvas', color: 'text', font: 'inherit' })}
+            />
+          </label>
+          <p class={css({ m: '0', color: 'textMuted', fontSize: 'sm' })} aria-live="polite" data-tribunal-filter-status>
+            {tribunalCoverage.length} tribunais no manifesto.
+          </p>
+        </div>
         <p class={css({ display: { base: 'block', md: 'none' }, mt: '0', mb: '3', color: 'textMuted', fontSize: 'sm' })}>
           Deslize a tabela para o lado para comparar todas as colunas.
         </p>
         <div class={css({ overflowX: 'auto', border: '1px solid', borderColor: 'border', background: 'surface' })} tabindex="0" aria-label="Tabela de cobertura rolável horizontalmente">
-          <table class={`${table({ density: 'compact' })} ${css({ minW: '52rem' })}`}>
+          <table id="tribunal-coverage-table" class={`${table({ density: 'compact' })} ${css({ minW: '52rem' })}`}>
             <thead><tr><th>Tribunal</th><th>ZIPs IA</th><th>Pendente</th><th>Ausente</th><th>Desconhecido</th><th>Cobertura</th><th>Período</th></tr></thead>
             <tbody>
               {tribunalCoverage.map(t => (
-                <tr>
+                <tr data-tribunal-row data-tribunal={t.tribunal}>
                   <td><strong>{t.tribunal}</strong></td>
                   <td>{t.uploaded.toLocaleString('pt-BR')}</td>
                   <td>{t.pending.toLocaleString('pt-BR')}</td>
@@ -203,3 +220,37 @@ const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).
     )}
   </section>
 </Layout>
+
+<script>
+  const filter = document.querySelector<HTMLInputElement>('[data-tribunal-filter]');
+  const status = document.querySelector<HTMLElement>('[data-tribunal-filter-status]');
+  const rows = [...document.querySelectorAll<HTMLTableRowElement>('[data-tribunal-row]')];
+
+  const normalize = (value: string) =>
+    value
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLocaleLowerCase('pt-BR')
+      .trim();
+
+  const updateTribunalFilter = () => {
+    if (!filter || !status) return;
+    const query = normalize(filter.value);
+    let visible = 0;
+
+    for (const row of rows) {
+      const tribunal = normalize(row.dataset.tribunal ?? '');
+      const matches = !query || tribunal.includes(query);
+      row.hidden = !matches;
+      if (matches) visible += 1;
+    }
+
+    status.textContent = query
+      ? visible === 1
+        ? '1 tribunal encontrado.'
+        : `${visible} tribunais encontrados.`
+      : `${rows.length} tribunais no manifesto.`;
+  };
+
+  filter?.addEventListener('input', updateTribunalFilter);
+</script>
