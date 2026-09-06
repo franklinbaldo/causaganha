@@ -1,0 +1,13 @@
+---
+type: AgentEvidence
+id: "2026-09-06-exciting-mccarthy-b0lycs-evidence-red-green-component-and-python-partition"
+run_id: "2026-09-06-exciting-mccarthy-b0lycs"
+goal_id: "2026-09-06-exciting-mccarthy-b0lycs-goal-fix-stats-payload-regression"
+kind: "diff"
+reference: "web/src/components/TribunalCoverageExplorer.{svelte,test.ts}; scripts/render_queries.py; tests/test_render_queries.py"
+summary: "RED: rewrote TribunalCoverageExplorer.test.ts to drop the calendarRows prop and instead mock global.fetch per-tribunal, asserting the component only ever requests a per-tribunal partition URL, refetches on tribunal change, and shows a load-error state on fetch failure — ran against the untouched component and got 7/7 failures ('rows is not iterable', since the component still read the removed prop synchronously). GREEN: rewrote TribunalCoverageExplorer.svelte to fetch via loadTribunalCalendarPartition on tribunal change (with a request-sequence guard against races) and added a loading/error render branch; all 7 tests passed. Same RED/GREEN cycle on the Python side: added 3 tests to tests/test_render_queries.py (partitions by tribunal, parity with the canonical rendered contract, no-op when tribunal_calendar.json wasn't rendered) against a not-yet-existing _partition_tribunal_calendar — 2 of 3 failed (empty partition dir); implemented the function and wired it into render_all(), all 31 tests in that file passed. Also caught and fixed a real regression in an existing test this change would otherwise have broken: web/src/lib/data/renderedContracts.integration.test.ts recursively scans every file under the rendered public/data/ and requires each to match a registered frontend contract — the new tribunal_calendar_by_tribunal/*.json partitions failed that match ('has no matching frontend contract') on the first run after wiring the Python side in; fixed by excluding that directory from the 1:1 contract-matching loop and adding a dedicated assertion that every partition validates against tribunalCalendarSchema and equals the canonical contract's rows filtered to that tribunal (parity, mirroring the Python-side test)."
+---
+
+# Evidência: RED/GREEN do componente Svelte e do particionamento Python
+
+Componente reescrito para buscar via fetch por tribunal (7 testes, vermelho→verde). `render_queries.py` ganhou `_partition_tribunal_calendar` (3 testes novos, vermelho→verde, 31/31 no arquivo). Um teste de integração existente (`renderedContracts.integration.test.ts`) quebrou como efeito colateral real do particionamento e foi corrigido para validar as partições separadamente, com paridade em relação ao contrato canônico.

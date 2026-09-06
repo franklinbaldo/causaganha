@@ -4,11 +4,10 @@
     summarizeDailyStates,
     parseDrilldownQuery,
     buildDrilldownQuery,
-    type TribunalCalendarRow,
   } from '../lib/tribunalCoverageDrilldown';
+  import { loadTribunalCalendarPartition } from '../lib/tribunalCalendarPartition';
 
   interface Props {
-    calendarRows: TribunalCalendarRow[];
     tribunals: string[];
     publicBase: string;
     initialTribunal: string;
@@ -16,7 +15,7 @@
     initialEnd: string;
   }
 
-  let { calendarRows, tribunals, publicBase, initialTribunal, initialStart, initialEnd }: Props = $props();
+  let { tribunals, publicBase, initialTribunal, initialStart, initialEnd }: Props = $props();
 
   const defaults = { tribunal: initialTribunal, start: initialStart, end: initialEnd };
 
@@ -30,11 +29,36 @@
   let start = $state(initial.start);
   let end = $state(initial.end);
 
-  let dailyStates = $derived(buildDailyStates(calendarRows, tribunal, start, end));
+  // Only the selected tribunal's partition is ever fetched (#1191) — never
+  // the full tribunal_calendar contract, which client:only would otherwise
+  // serialize whole into the page for every /stats visitor.
+  let rows = $state<Awaited<ReturnType<typeof loadTribunalCalendarPartition>>>([]);
+  let loadState = $state<'loading' | 'loaded' | 'error'>('loading');
+
+  let dailyStates = $derived(buildDailyStates(rows ?? [], tribunal, start, end));
   let summary = $derived(summarizeDailyStates(dailyStates));
 
   const base = publicBase.endsWith('/') ? publicBase : publicBase + '/';
   let calendarHref = $derived(`${base}publicacoes/${tribunal.toLowerCase()}`);
+
+  let requestSeq = 0;
+  async function loadPartition(forTribunal: string) {
+    const seq = ++requestSeq;
+    loadState = 'loading';
+    const result = await loadTribunalCalendarPartition(forTribunal, publicBase);
+    if (seq !== requestSeq) return; // a newer tribunal was selected meanwhile — discard this response
+    if (result === null) {
+      rows = [];
+      loadState = 'error';
+      return;
+    }
+    rows = result;
+    loadState = 'loaded';
+  }
+
+  $effect(() => {
+    loadPartition(tribunal);
+  });
 
   function syncUrl() {
     if (typeof window === 'undefined') return;
@@ -82,7 +106,11 @@
   </div>
 
   <div aria-live="polite">
-    {#if summary.coveragePct === null}
+    {#if loadState === 'loading'}
+      <p role="status" data-tone="muted">Carregando dados de {tribunal}…</p>
+    {:else if loadState === 'error'}
+      <p role="status" data-tone="attention">Não foi possível carregar os dados de {tribunal}. Tente novamente mais tarde.</p>
+    {:else if summary.coveragePct === null}
       <p role="status" data-tone="muted">Sem evidência suficiente neste período para {tribunal}.</p>
     {:else}
       <p>

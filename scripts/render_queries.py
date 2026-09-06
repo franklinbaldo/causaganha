@@ -809,6 +809,37 @@ def check_queries(queries_dir: Path | None = None) -> list[str]:
     return failures
 
 
+def _partition_tribunal_calendar(public_dir: Path) -> None:
+    """Split the rendered tribunal_calendar.json into one file per tribunal.
+
+    Issue #1191: /stats' drill-down island only ever renders one tribunal's
+    days at a time, but used to receive the whole tribunal_calendar contract
+    (every tribunal x date in the archive) as a client:only prop — which
+    serializes it whole into the page for hydration. Partitioning the same
+    canonical contract here (no second source of truth) lets the frontend
+    fetch only the tribunal it needs. A no-op when the contract wasn't
+    rendered this run (e.g. the manifest source was unavailable).
+    """
+    source = public_dir / "data" / "tribunal_calendar.json"
+    if not source.exists():
+        return
+
+    rows: list[dict[str, Any]] = json.loads(source.read_text(encoding="utf-8"))
+    if not rows:
+        return
+
+    by_tribunal: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        by_tribunal.setdefault(row["tribunal"], []).append(row)
+
+    out_dir = public_dir / "data" / "tribunal_calendar_by_tribunal"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for tribunal, tribunal_rows in by_tribunal.items():
+        out_path = out_dir / f"{tribunal.lower()}.json"
+        out_path.write_text(json.dumps(tribunal_rows), encoding="utf-8")
+    print(f"  → {out_dir} ({len(by_tribunal)} tribunal partition(s))")
+
+
 def render_all(
     queries_dir: Path | None = None,
     public_dir: Path | None = None,
@@ -877,6 +908,8 @@ def render_all(
         )
         print(f"  → {output_path} ({output_path.stat().st_size:,} bytes)")
         count += 1
+
+    _partition_tribunal_calendar(public_dir)
 
     return count, failures
 
