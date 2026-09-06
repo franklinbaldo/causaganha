@@ -179,7 +179,7 @@ jobs:
           set -euo pipefail
           mkdir -p published-evidence
           base="${PAGE_URL%/}/"
-          for page in index.html processo.html publicacoes.html stats.html sobre.html agentes.html minhas-consultas.html; do
+          for page in index.html processo.html publicacoes.html stats.html explorador.html sobre.html agentes.html minhas-consultas.html; do
             stem="${page%.html}"
             npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="1280,900" --full-page \
               "${base}${page}" "published-evidence/${stem}-desktop.png"
@@ -196,7 +196,7 @@ jobs:
               "public_url": os.environ["PAGE_URL"],
               "observed_at": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
               "viewports": [{"width": 1280, "height": 900}, {"width": 390, "height": 844}],
-              "routes": ["index.html", "processo.html", "publicacoes.html", "stats.html", "sobre.html", "agentes.html", "minhas-consultas.html"],
+              "routes": ["index.html", "processo.html", "publicacoes.html", "stats.html", "explorador.html", "sobre.html", "agentes.html", "minhas-consultas.html"],
           }
           with open("published-evidence/published.json", "w", encoding="utf-8") as f:
               json.dump(data, f, ensure_ascii=False, indent=2)
