@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-6tcxrn-reading-issues"
+run_id: "2026-09-06-exciting-mccarthy-6tcxrn"
+subject: "open_issues"
+reference: "mcp__github__list_issues franklinbaldo/causaganha state=OPEN (23 results)"
+finding: "23 open issues. #1168 (the Cobogó/Panda reboot) is now CLOSED as completed (state_reason=completed, closed_at 2026-09-06T02:03:21Z) — the architectural fork between owner PRs #1169/#1170 that blocked prior rounds' web work is resolved (#1169 merged, #1170 superseded). The very next issue, #1178 ('web(theme): restaurar ou remover explicitamente o contrato de tema após reboot Cobogó/Panda'), was opened by the owner immediately after (02:02:27Z) as a direct, explicit follow-up to the adversarial review this session's prior round posted on PR #1169 (#1177): the reboot deleted PageHeader.astro (the only renderer of ThemeToggle.astro) and the theme pre-paint script, leaving ThemeToggle.astro orphaned and referencing removed legacy CSS custom properties. The issue is marked 'READY para IMPLEMENTAÇÃO. Prioridade 1 pós-reboot' with concrete acceptance criteria and two named valid outcomes (restore theming properly on Cobogó/Panda tokens, or decide single-theme and remove the dead component) — selected as this round's work. Other open issues remain gated exactly as prior rounds found them: web/UX issues #1136/#1131-1134/#1093 are candidates but #1178 is a more direct, narrower, owner-flagged priority-1 item that unblocks them (they'd otherwise sit on a still-incomplete post-reboot shell); segmenter issues #1047/#1050-1057/#884/#886/#887 remain annotation/GPU-heavy and unsuited to an unattended round; #1022/#1011/#985 (TCU/TSE Internet Archive publication) still need explicit human sign-off for live credentialed uploads; #950/#951 (MCP remote hosting) remain live deploy/hosting decisions."
+---
+
+# Leitura das issues abertas
+
+23 issues abertas. A bifurcação arquitetural do reboot (#1168) que travou rodadas anteriores está resolvida (fechada como completed). A issue mais nova, #1178, é um achado direto da própria revisão adversarial de uma rodada anterior desta sessão (#1177) sobre a PR de reboot, já com critérios de aceite concretos e marcada "Prioridade 1 pós-reboot" pelo dono do repositório — selecionada como o trabalho desta rodada. Demais candidatas (segmenter, TCU/TSE, hospedagem MCP) seguem travadas pelos mesmos motivos já registrados em rodadas anteriores.
