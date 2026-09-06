@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-buxwff-reading-issues"
+run_id: "2026-09-06-exciting-mccarthy-buxwff"
+subject: "open_issues"
+reference: "mcp__github__list_issues(owner=franklinbaldo, repo=causaganha, state=OPEN) as of 2026-09-06T15:24Z; knowledge/backlog/index.md and its 17 issue-<n>.md files"
+finding: "18 open issues. The 17 already catalogued in knowledge/backlog/ (884, 886, 887, 950, 951, 985, 1011, 1022, 1047, 1050, 1051, 1053, 1054, 1055, 1056, 1057, 1093) are unchanged since the previous round's verification (usm2ot, 2026-09-06T12:00:00Z — the run this round would have needed to re-derive from scratch otherwise): same credential (IAS3_ACCESS_KEY/IAS3_SECRET_KEY absent, verified again this round with the same env grep), infra-decision (#951, remote MCP hosting/auth), or owner-deprioritization (#1093) blockers, none of which changed on GitHub. Trusted per the backlog mechanism's own instructions rather than re-investigated. The genuinely new item is #1219 'web(home): expor Agentes/MCP como superfície pública de primeira classe', filed by the repo owner (franklinbaldo) at 2026-09-06T14:58:55Z — 26 minutes before this round started, and less than an hour after #1217/#1218 merged. Its own body marks it 'READY para IMPLEMENTAÇÃO', explicitly scoped as a small web slice independent of credentials/deploy/MCP-contract changes, with concrete, checkable acceptance criteria (a visible home CTA to /agentes without opening 'Mais', text clarifying agents query the same archive not a parallel API, Processo/Publicações remaining the primary human entries, /agentes in the footer, desktop nav promotion without mobile overflow, correct aria-current/keyboard/focus, visual capture, no remote MCP URL announced before #950). This is the only open issue with no external blocker, and it directly complements the just-merged #1217/#1218 work per its own 'Dependências e relações' section."
+---
+
+# Leitura das issues abertas
+
+17 das 18 issues abertas seguem bloqueadas/despriorizadas sem mudança de estado no GitHub (cache de `knowledge/backlog/` confiado, credenciais IAS3 reverificadas ausentes). A novidade é #1219, aberta pelo dono do repositório minutos antes desta rodada, explicitamente "READY para IMPLEMENTAÇÃO", complementando #1217/#1218 recém-mesclados, sem bloqueio de credencial/infra/decisão de produto. Esta é a issue escolhida para o trabalho da rodada.
