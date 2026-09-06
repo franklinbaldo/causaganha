@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-usm2ot-reading-issues"
+run_id: "2026-09-06-exciting-mccarthy-usm2ot"
+subject: "open_issues"
+reference: "17 open issues in franklinbaldo/causaganha as of 2026-09-06T12:00Z (mcp__github__list_issues, state=OPEN)"
+finding: "All 17 open issues remain blocked or deprioritized, unchanged from at least the last ~10 rounds' independently re-derived assessments (yigsua, 6x90uc, m65xwe and predecessors): #1047/#1050/#1051/#1053/#1054/#1055/#1056/#1057/#884/#886/#887 (11 issues) need GPU/active-learning/human-annotation work unsuited to an unattended round; #1022/#1011/#985 (3 issues) need a live credentialed Internet Archive upload — re-verified this round that IAS3_ACCESS_KEY/IAS3_SECRET_KEY are absent from `env` in this session; #950/#951 (2 issues) need a live hosting/deploy decision; #1093 (1 issue) is explicitly marked 'NÃO é prioridade imediata' by its own owner in the issue body. This is the ~10th round in a row to reach this same conclusion by independently re-reading and re-justifying the same 17 issues from scratch (round 6x90uc's own next_move explicitly flagged this redundancy and proposed, but declined to build, 'a short-lived per-round cache or a single shared blocked backlog knowledge doc'; round m65xwe's next_move repeated the same open item). This round decided to close that gap: it is a knowledge-model deficiency (the OKF model has no place to durably record 'this issue was checked on date X and is still blocked for reason Y'), not a product decision about which issues matter — building a cache of verified facts does not itself decide the backlog's priority, so it does not require a product-owner call the way m65xwe's prior round assumed."
+---
+
+# Leitura das issues abertas
+
+As 17 issues abertas seguem todas bloqueadas ou despriorizadas, exatamente como o histórico recente já vinha concluindo — e por pelo menos a décima vez seguida, cada rodada rederivou essa mesma conclusão do zero, incluindo reverificar ao vivo a ausência de `IAS3_ACCESS_KEY`/`IAS3_SECRET_KEY`. Como esse padrão de retrabalho já havia sido nomeado (mas não resolvido, por engano classificado como decisão de product owner) pelas rodadas 6x90uc e m65xwe, esta rodada decidiu fechar essa lacuna: criar um registro OKF durável (`BacklogItem`) que guarda o motivo e a data da última verificação de cada issue bloqueada, para que rodadas futuras leiam em vez de reinvestigar.
