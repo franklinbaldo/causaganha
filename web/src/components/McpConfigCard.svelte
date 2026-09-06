@@ -57,6 +57,7 @@
   .config-card { min-width: 0; border: 1px solid var(--border); }
   .config-card__head { display: flex; justify-content: space-between; gap: 1rem; padding: .7rem .9rem; border-bottom: 1px solid var(--border); font-family: var(--font-mono); font-size: .75rem; color: var(--fg-muted); }
   pre { margin: 0; padding: 1rem; overflow-x: auto; font-size: .82rem; line-height: 1.55; }
+  pre:focus-visible { outline: 3px solid var(--cg-info); outline-offset: -3px; }
   code { font-family: var(--font-mono); }
   .config-card__actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding: .7rem .9rem; border-top: 1px solid var(--border); }
   .feedback { margin: 0; font-family: var(--font-mono); font-size: .78rem; color: var(--fg-muted); min-height: 1.2em; }
