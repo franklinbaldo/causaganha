@@ -151,6 +151,80 @@ describe('TribunalCoverageExplorer', () => {
     });
   });
 
+  describe('quick-range buttons (useRecentDays)', () => {
+    it.each([
+      ['7 dias', 7, '2026-06-24'],
+      ['30 dias', 30, '2026-06-01'],
+      ['90 dias', 90, '2026-04-02'],
+    ])('sets start to exactly %s ending on the current end date', async (label, _days, expectedStart) => {
+      mockFetch();
+
+      render(TribunalCoverageExplorer, {
+        tribunals: TRIBUNALS,
+        publicBase: '/',
+        initialTribunal: 'TJRO',
+        initialStart: '2026-01-01',
+        initialEnd: '2026-06-30',
+      });
+
+      const button = screen.getByRole('button', { name: label });
+      await fireEvent.click(button);
+
+      await waitFor(() => {
+        const params = new URLSearchParams(window.location.search);
+        expect(params.get('start')).toBe(expectedStart);
+        expect(params.get('end')).toBe('2026-06-30');
+      });
+    });
+
+    it('computes the range in UTC regardless of the host timezone, at a UTC-midnight boundary', async () => {
+      // A timezone west of UTC (e.g. America/Los_Angeles, UTC-7/8) is where a
+      // local-time (non-UTC) implementation would parse/format 2026-03-01T00:00:00Z
+      // as 2026-02-28, shifting every quick-range result by a day.
+      const originalTz = process.env.TZ;
+      process.env.TZ = 'America/Los_Angeles';
+      try {
+        mockFetch();
+
+        render(TribunalCoverageExplorer, {
+          tribunals: TRIBUNALS,
+          publicBase: '/',
+          initialTribunal: 'TJRO',
+          initialStart: '2026-01-01',
+          initialEnd: '2026-03-01',
+        });
+
+        const button = screen.getByRole('button', { name: '7 dias' });
+        await fireEvent.click(button);
+
+        await waitFor(() => {
+          const params = new URLSearchParams(window.location.search);
+          expect(params.get('start')).toBe('2026-02-23');
+        });
+      } finally {
+        process.env.TZ = originalTz;
+      }
+    });
+
+    it('does nothing when the current end date is invalid/empty', async () => {
+      mockFetch();
+
+      render(TribunalCoverageExplorer, {
+        tribunals: TRIBUNALS,
+        publicBase: '/',
+        initialTribunal: 'TJRO',
+        initialStart: '2026-01-01',
+        initialEnd: '',
+      });
+
+      const button = screen.getByRole('button', { name: '30 dias' });
+      await fireEvent.click(button);
+
+      const params = new URLSearchParams(window.location.search);
+      expect(params.get('start')).toBeNull();
+    });
+  });
+
   it('links to the full per-tribunal calendar page', () => {
     mockFetch();
 
