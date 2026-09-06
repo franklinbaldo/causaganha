@@ -27,7 +27,7 @@ function fmt(n: number): string {
     <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' }, display: 'grid', gridTemplateColumns: { base: '1fr', lg: '1.2fr 0.8fr' }, gap: '10', alignItems: 'end' })}>
       <div>
         <span class={badge({ tone: 'accent' })}>Publicações · DJEN</span>
-        <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, color: 'canvas', m: '0', mt: '5', maxW: '10ch' })}>Encontre a publicação.</h1>
+        <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, color: 'canvas', m: '0', mt: '5', maxW: '12ch' })}>Encontre a publicação.</h1>
         <p class={css({ mt: '6', mb: '0', maxW: '46rem', color: 'surfaceMuted', fontSize: 'lg', lineHeight: 'body' })}>
           Pesquise por CNJ, OAB, parte ou texto livre. O resultado continua ligado ao tribunal, data e origem consultada.
         </p>
@@ -52,7 +52,7 @@ function fmt(n: number): string {
         {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados' : 'ZIPs arquivados'} · {tribunalsWithData} tribunais{sinceYear ? ` · desde ${sinceYear}` : ''}.
         Dias sem dados podem representar ausência oficial do diário, backfill pendente ou falha de coleta.
       </span>
-      <small class={css({ fontFamily: 'mono', color: 'textMuted' })}>Métricas geradas em {generatedAtLabel}</small>
+      <small class={css({ fontFamily: 'mono', color: 'text' })}>Métricas geradas em {generatedAtLabel}</small>
     </div>
   </section>
 </Layout>
