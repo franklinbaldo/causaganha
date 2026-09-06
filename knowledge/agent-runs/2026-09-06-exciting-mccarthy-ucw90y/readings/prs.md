@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-ucw90y-reading-prs"
+run_id: "2026-09-06-exciting-mccarthy-ucw90y"
+subject: "open_prs"
+reference: "franklinbaldo/causaganha list_pull_requests(state=open) + pull_request_read(get, get_comments, get_status) on #1169 + search_pull_requests for #1170, checked 2026-09-06T01:0xZ"
+finding: "The architectural fork the previous round (nao666) deliberately deferred — issue #1168 with competing owner-authored PRs #1169 (big-bang) vs #1170 (staged) — has been resolved by the owner themselves since that round ended: PR #1170 is now closed as superseded (closed_at 2026-09-06T01:01:47Z), and PR #1169 is the sole surviving, canonical implementation. The owner posted a comment directly on #1169 at 2026-09-06T01:01:33Z declaring it 'a PR canônica da implementação desta rodada', reporting all three merge-gate checks green on the current head (385970171515f6f33e42a4ec6083b895c93170ea) — CI, Product Surface Visual Capture, Agents Surface Visual Capture — and explicitly asking for an adversarial review against 6 named contract points (ProcessoLookup not_found/source_unavailable distinction; PublicationSearch empty/error distinction; /publicacoes action-before-coverage order; canonical/OG/skip-link + output:static; legacy CSS/Pico removal without breaking Svelte islands; advanced routes remaining findable without competing with Processo/Publicações), closing with 'Nenhum merge nesta fase' (no merge in this phase — review only). This is a direct, explicit, current handoff request from the repository owner on a PR they authored, matching this round's mandate to prioritize continuity on already-started work. Two now-redundant follow-up issues (#1173 mover /processo, #1174 mover /publicacoes) were filed under the old staged-migration plan (#1170's approach) but PR #1169's own body claims it already migrated every surface including /processo and /publicacoes in one shot — worth flagging to the owner as likely closeable once #1169's claims are verified, which this round did."
+---
+
+# Leitura de PRs abertos
+
+A bifurcação #1169 vs #1170 (vista pela rodada anterior) já foi resolvida pelo próprio dono: #1170 fechada como superseded, #1169 vira a PR canônica única do reboot. O dono deixou um pedido explícito de revisão adversarial contra 6 pontos de contrato, com "nenhum merge nesta fase" — exatamente o tipo de trabalho já iniciado que esta rodada deve retomar, por instrução do próprio scaffold (priorizar continuidade).
