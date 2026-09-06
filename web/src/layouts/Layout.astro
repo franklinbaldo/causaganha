@@ -62,12 +62,12 @@ const primary = [
     {showNetworkBanner && <NetworkStatusBanner />}
 
     <header class={css({ borderBottom: '1px solid', borderColor: 'border', background: 'canvas' })}>
-      <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, minH: '20', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '6' })}>
+      <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '4', sm: '0' }, minH: { sm: '20' }, display: 'grid', gridTemplateColumns: { base: '1fr', sm: 'auto 1fr' }, alignItems: 'center', gap: { base: '3', sm: '6' } })}>
         <a href={BASE} class={css({ display: 'inline-flex', alignItems: 'center', gap: '3', color: 'text', textDecoration: 'none', fontWeight: 'black', fontSize: 'xl', letterSpacing: '-0.04em' })}>
           <span class={css({ display: 'grid', placeItems: 'center', w: '10', h: '10', background: 'accent', border: '1px solid', borderColor: 'text', fontFamily: 'mono', fontSize: 'sm' })} aria-hidden="true">CG</span>
           <span>CausaGanha</span>
         </a>
-        <nav class={css({ display: 'flex', alignItems: 'center', gap: { base: '3', md: '6' }, flexWrap: 'wrap', justifyContent: 'end' })} aria-label="Principal">
+        <nav class={css({ display: 'flex', alignItems: 'center', gap: { base: '3', md: '6' }, flexWrap: 'wrap', justifyContent: { base: 'space-between', sm: 'end' }, w: '100%' })} aria-label="Principal">
           {primary.map((link) => (
             <a class={navLink({ active: pathname.includes(link.match) })} href={link.href} aria-current={pathname.includes(link.match) ? 'page' : undefined}>{link.label}</a>
           ))}
@@ -92,7 +92,7 @@ const primary = [
       <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: '10', display: 'grid', gridTemplateColumns: { base: '1fr', md: '1fr auto' }, gap: '8', alignItems: 'end' })}>
         <div>
           <p class={css({ textStyle: 'eyebrow', mb: '3' })}>CausaGanha</p>
-          <p class={css({ m: '0', maxW: '42rem', color: 'textMuted', lineHeight: 'body' })}>Consulta judicial pública com fontes oficiais, arquivo preservado e proveniência explícita.</p>
+          <p class={css({ m: '0', maxW: '42rem', color: 'text', lineHeight: 'body' })}>Consulta judicial pública com fontes oficiais, arquivo preservado e proveniência explícita.</p>
         </div>
         <nav class={css({ display: 'flex', flexWrap: 'wrap', gap: '5' })} aria-label="Rodapé">
           <a class={navLink()} href={BASE + 'processo'}>Processo</a>
