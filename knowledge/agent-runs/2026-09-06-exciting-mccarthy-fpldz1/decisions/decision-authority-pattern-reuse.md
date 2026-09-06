@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-06-exciting-mccarthy-fpldz1-decision-authority-pattern-reuse"
+run_id: "2026-09-06-exciting-mccarthy-fpldz1"
+goal_id: "2026-09-06-exciting-mccarthy-fpldz1-goal-continue-with-agent"
+question: "Issue #1225 asks to reuse or test parity with the #1217 example-question authority (causaganha_mcp/agents_examples.py) instead of inventing an untested parallel string. #1217's authority is a Python module whose contract test only works because /agentes is static with a fixed golden CNJ. /processo is a runtime, user-typed CNJ inside a Svelte island — a verbatim cross-language string match is not applicable. What does 'reuse the authority' mean here?"
+choice: "Follow the same architectural pattern #1217 established (single-authority function, isolated from the component, covered by its own dedicated unit tests) rather than the specific Python module: a new web/src/lib/agentContinuationQuestion.ts exports buildAgentContinuationQuestion(nrProcessoMascara), mirroring how ProcessoLookup.svelte already delegates 'Copiar referência' to web/src/lib/processoReference.ts's buildProcessoReferenceText/buildDocumentoReferenceText. Parity with #1217's convention is enforced by tests, not by importing agents_examples.py: the new tests assert the same constraints #1217's contract test enforces server-side — task-only language, no MCP tool name, no JSON payload — plus the three ARQUIVO/ESTADO/TEOR roles and the provenance/date/ausência-vs-indisponibilidade framing already established across /processo and /agentes."
+rationale: "knowledge/projections/processo-consultar.md confirms Processo is the one shared domain root behind both surfaces — the correct kind of reuse is architectural consistency (same authority-function pattern, same no-duplicate-untested-string discipline), not forcing a runtime-interpolated web string through a Python module built for a static page with a fixed fixture. Choosing the processoReference.ts pattern instead keeps the new code inside this file's own established idioms (the four legacy Svelte islands already delegate their copy-text construction to sibling lib/*.ts modules) rather than introducing a second, inconsistent convention."
+---
+
+# Decisão: que forma de reuso da autoridade de #1217 se aplica aqui
+
+`/processo` reaproveita o *padrão* de autoridade única e testada de #1217 (função isolada + testes dedicados), não o módulo Python em si, que só funciona para uma página estática com CNJ fixo. A paridade é garantida por teste, exigindo a mesma linguagem de tarefa e as mesmas garantias (arquivo/estado/teor, proveniência/data, ausência ≠ indisponibilidade) já estabelecidas nas duas superfícies.

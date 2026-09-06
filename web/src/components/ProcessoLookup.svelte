@@ -21,6 +21,7 @@
   } from '../lib/processoCnj';
   import ProcessoEvidenceMatrix from './ProcessoEvidenceMatrix.svelte';
   import { buildDocumentoReferenceText, buildProcessoReferenceText } from '../lib/processoReference';
+  import { buildAgentContinuationQuestion } from '../lib/agentContinuationQuestion';
   import {
     SAVED_CONSULTATIONS_STORAGE_KEY,
     parseSavedConsultations,
@@ -51,10 +52,12 @@
   let lastQueriedCnj = $state(null);
   let linkCopied = $state(false);
   let referenceCopied = $state(false);
+  let agentQuestionCopied = $state(false);
   let documentoReferenceCopiedId = $state(null);
   let savedLocally = $state(false);
   let feedbackTimeout = null;
   let referenceFeedbackTimeout = null;
+  let agentQuestionFeedbackTimeout = null;
   let documentoReferenceTimeout = null;
 
   let conn = null;
@@ -87,6 +90,7 @@
       ? `${BASE}publicacoes?numeroProcesso=${encodeURIComponent(lastQueriedCnj)}`
       : `${BASE}publicacoes`,
   );
+  const agentesHref = `${BASE}agentes`;
 
   async function init() {
     dbStatus = 'initializing';
@@ -189,6 +193,25 @@
       }, 1800);
     } catch {
       referenceCopied = false;
+    }
+  }
+
+  // Issue #1225: copy a natural-language question carrying the already-
+  // consulted CNJ, for continuing this same lookup with a connected agent.
+  // Pure clipboard write — no MCP call, no server request, no auto-execution.
+  async function copyAgentQuestion() {
+    if (!processo) return;
+    const question = buildAgentContinuationQuestion(processo.nrProcessoMascara);
+    try {
+      await navigator.clipboard.writeText(question);
+      agentQuestionCopied = true;
+      if (agentQuestionFeedbackTimeout) clearTimeout(agentQuestionFeedbackTimeout);
+      agentQuestionFeedbackTimeout = setTimeout(() => {
+        agentQuestionCopied = false;
+        agentQuestionFeedbackTimeout = null;
+      }, 1800);
+    } catch {
+      agentQuestionCopied = false;
     }
   }
 
@@ -443,10 +466,18 @@
           <button type="button" class="outline secondary" onclick={copyReference}>
             {referenceCopied ? 'Referência copiada' : 'Copiar referência'}
           </button>
+          <button type="button" class="outline secondary" onclick={copyAgentQuestion}>
+            {agentQuestionCopied ? 'Pergunta copiada' : 'Continuar com um agente'}
+          </button>
           <button type="button" class="outline secondary" onclick={saveCurrentProcess}>
             {savedLocally ? 'Salvo em Minhas consultas' : 'Salvar em Minhas consultas'}
           </button>
         </div>
+        <p class="meta-text">
+          A pergunta usa exatamente o CNJ consultado e não é enviada a nenhum servidor — só fica
+          na área de transferência. Ainda não conectou um agente? Veja como em
+          <a href={agentesHref}>/agentes</a>.
+        </p>
       </header>
 
       <section class="processo-dossie__snapshot" aria-labelledby="snapshot-title">
