@@ -9,6 +9,7 @@ import {
   utcDateTimeAttr,
   pctOfTotal,
 } from '../lib/data/siteStatus';
+import TribunalCoverageExplorer from '../components/TribunalCoverageExplorer.svelte';
 import { css } from '../../styled-system/css';
 import { alert, badge, card, table } from '../../styled-system/recipes';
 
@@ -18,7 +19,16 @@ const statsCoverage = await loadContract('stats_coverage');
 const courtReliability = (await loadContract('court_reliability')) ?? [];
 const weeklyPattern = (await loadContract('weekly_pattern')) ?? [];
 const tribunalCoverage = (await loadContract('tribunal_coverage')) ?? [];
+const tribunalCalendarRows = (await loadContract('tribunal_calendar')) ?? [];
 const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
+
+const BASE = import.meta.env.BASE_URL;
+const explorerTribunals = [...new Set(tribunalCoverage.map(t => t.tribunal))].sort();
+const explorerEnd = (siteStatus.generated_at ?? new Date().toISOString()).slice(0, 10);
+const explorerStartDate = new Date(`${explorerEnd}T00:00:00Z`);
+explorerStartDate.setUTCDate(explorerStartDate.getUTCDate() - 29);
+const explorerStart = explorerStartDate.toISOString().slice(0, 10);
+const explorerDefaultTribunal = explorerTribunals[0] ?? '';
 const generatedAtIso = utcDateTimeAttr(siteStatus.generated_at);
 
 const totalTribunals = djen.tribunals_total;
@@ -154,6 +164,29 @@ const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).
       </div>
     ) : (
       <div class={alert({ tone: 'attention' })}><strong>Dados de cobertura indisponíveis.</strong><span>O contrato `tribunal_coverage` não foi renderizado neste build.</span></div>
+    )}
+  </section>
+
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' } })}>
+    <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '2' })}>Explorar</p>
+    <h2 class={css({ textStyle: 'title', m: '0', mb: '5' })}>Cobertura por tribunal e período</h2>
+    <p class={css({ mt: '0', mb: '6', color: 'textMuted', maxW: '52rem' })}>
+      Escolha um tribunal e um período para ver quantos dias estão preservados (arquivados no Internet Archive) e quantos têm ausência de publicação confirmada, segundo o calendário canônico. Dias sem linha no calendário aparecem como sem evidência — nunca como ausência.
+    </p>
+    {explorerTribunals.length > 0 ? (
+      <div class={css({ border: '1px solid', borderColor: 'border', background: 'surface', p: { base: '4', md: '6' } })}>
+        <TribunalCoverageExplorer
+          client:only="svelte"
+          calendarRows={tribunalCalendarRows}
+          tribunals={explorerTribunals}
+          publicBase={BASE}
+          initialTribunal={explorerDefaultTribunal}
+          initialStart={explorerStart}
+          initialEnd={explorerEnd}
+        />
+      </div>
+    ) : (
+      <div class={alert({ tone: 'attention' })}><strong>Sem tribunais para explorar.</strong><span>O contrato `tribunal_coverage` não foi renderizado neste build.</span></div>
     )}
   </section>
 </Layout>
