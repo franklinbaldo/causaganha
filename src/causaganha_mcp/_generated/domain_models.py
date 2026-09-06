@@ -206,6 +206,32 @@ class AgentRunConcept(BaseModel):
     type: Literal["AgentRun"]
 
 
+class BacklogItemConcept(BaseModel):
+    """Generated Pydantic model for one OKF contract object."""
+
+    model_config = ConfigDict(extra="allow")
+
+    blocking_reason: str
+    category: str
+    description: str = Field(default=None)
+    issue_number: str
+    last_verified_at: str
+    last_verified_run_id: str = Field(
+        json_schema_extra={
+            "x-okf-references": {
+                "type": "AgentRun",
+                "columns": ["last_verified_run_id"],
+                "referencedColumns": ["id"],
+                "position": 0,
+            },
+        },
+    )
+    status: str
+    title: str
+    type: Literal["BacklogItem"]
+    unblock_condition: str
+
+
 class DatajudCapaConcept(BaseModel):
     """Generated Pydantic model for one OKF contract object."""
 

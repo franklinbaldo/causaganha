@@ -156,3 +156,21 @@ CREATE TABLE "AgentCheck" (
     evidence_id VARCHAR REFERENCES "AgentEvidence"(id),
     summary VARCHAR NOT NULL CHECK (length(trim(summary)) > 0)
 );
+
+-- Cross-round "blocked backlog" cache. Unlike AgentReading (scoped to one
+-- round's own run_id and directory), a BacklogItem records a fact meant to
+-- outlive the round that verified it: why an open GitHub issue is currently
+-- blocked/deprioritized, and which round last confirmed that reason still
+-- holds. A future round reads this instead of re-deriving the same
+-- rejection reasoning from the issue tracker from scratch (see
+-- knowledge/backlog/index.md).
+CREATE TABLE "BacklogItem" (
+    issue_number BIGINT PRIMARY KEY,
+    title VARCHAR NOT NULL CHECK (length(trim(title)) > 0),
+    category VARCHAR NOT NULL CHECK (category IN ('ml_data_work', 'credentials', 'infra_decision', 'deprioritized_by_owner')),
+    blocking_reason VARCHAR NOT NULL CHECK (length(trim(blocking_reason)) > 0),
+    unblock_condition VARCHAR NOT NULL CHECK (length(trim(unblock_condition)) > 0),
+    last_verified_run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    last_verified_at VARCHAR NOT NULL CHECK (length(trim(last_verified_at)) > 0),
+    status VARCHAR NOT NULL CHECK (status IN ('blocked', 'deprioritized', 'unblocked'))
+);

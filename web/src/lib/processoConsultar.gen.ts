@@ -91,6 +91,19 @@ export const AgentRunSchema = z.object({
   "type": z.literal("AgentRun")
 });
 
+export const BacklogItemSchema = z.object({
+  "blocking_reason": z.string(),
+  "category": z.string(),
+  "description": z.string().optional(),
+  "issue_number": z.string(),
+  "last_verified_at": z.string(),
+  "last_verified_run_id": z.string().describe("references AgentRun(id)"),
+  "status": z.string(),
+  "title": z.string(),
+  "type": z.literal("BacklogItem"),
+  "unblock_condition": z.string()
+});
+
 export const DatajudCapaSchema = z.object({
   "assuntos": z.string().nullable(),
   "classe_oficial": z.string().nullable(),

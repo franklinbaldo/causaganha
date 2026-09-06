@@ -23,6 +23,8 @@ Materialize primeiro as leituras requeridas como `AgentReading`:
 
 Cada leitura registra a referência consultada e o achado que ela trouxe para a decisão da sessão. Ligue seus IDs aos campos `*_reading_id` do `AgentRun`.
 
+Antes de reinvestigar uma issue aberta do zero, confira `knowledge/backlog/issue-<n>.md`. Esse diretório guarda `BacklogItem`s — fatos sobre por que uma issue está bloqueada/despriorizada que sobrevivem à rodada que os verificou, ao contrário de `AgentReading` (preso ao `run_id` da própria rodada). Se o `status` e o `blocking_reason` registrados ainda valem, cite o arquivo na sua própria leitura de issues em vez de rederivar a mesma justificativa; só reabra a investigação se a issue mudou de estado no GitHub, o ambiente mudou (ex.: credenciais passaram a existir) ou `last_verified_at` está muito antigo. Ao confirmar ou atualizar um item, ajuste `last_verified_run_id`/`last_verified_at` para a rodada atual (veja `knowledge/backlog/index.md`).
+
 Depois crie um ou mais `AgentGoal`. Cada goal declara o que se pretende avançar, por que isso importa e qual sinal observável permitirá dizer que houve avanço. Registre os IDs em `goal_ids` e escolha `primary_goal_id`.
 
 Leia o estado real do repositório, compare alternativas em `considered_work`, escolha o trabalho e declare `expected_behavior`, `entry_state` e `target_state`.
