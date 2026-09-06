@@ -153,24 +153,29 @@ const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).
     </div>
 
     {tribunalCoverage.length > 0 ? (
-      <div class={css({ overflowX: 'auto', border: '1px solid', borderColor: 'border', background: 'surface' })} tabindex="0" aria-label="Tabela de cobertura rolável">
-        <table class={table({ density: 'compact' })}>
-          <thead><tr><th>Tribunal</th><th>ZIPs IA</th><th>Pendente</th><th>Ausente</th><th>Desconhecido</th><th>Cobertura</th><th>Período</th></tr></thead>
-          <tbody>
-            {tribunalCoverage.map(t => (
-              <tr>
-                <td><strong>{t.tribunal}</strong></td>
-                <td>{t.uploaded.toLocaleString('pt-BR')}</td>
-                <td>{t.pending.toLocaleString('pt-BR')}</td>
-                <td>{t.absent.toLocaleString('pt-BR')}</td>
-                <td>{t.unknown ? t.unknown.toLocaleString('pt-BR') : '—'}</td>
-                <td><strong>{t.coverage_pct ?? 0}%</strong></td>
-                <td>{t.earliest_upload ? `${t.earliest_upload} → ${t.latest_upload ?? '—'}` : '—'}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <>
+        <p class={css({ display: { base: 'block', md: 'none' }, mt: '0', mb: '3', color: 'textMuted', fontSize: 'sm' })}>
+          Deslize a tabela para o lado para comparar todas as colunas.
+        </p>
+        <div class={css({ overflowX: 'auto', border: '1px solid', borderColor: 'border', background: 'surface' })} tabindex="0" aria-label="Tabela de cobertura rolável horizontalmente">
+          <table class={`${table({ density: 'compact' })} ${css({ minW: '52rem' })}`}>
+            <thead><tr><th>Tribunal</th><th>ZIPs IA</th><th>Pendente</th><th>Ausente</th><th>Desconhecido</th><th>Cobertura</th><th>Período</th></tr></thead>
+            <tbody>
+              {tribunalCoverage.map(t => (
+                <tr>
+                  <td><strong>{t.tribunal}</strong></td>
+                  <td>{t.uploaded.toLocaleString('pt-BR')}</td>
+                  <td>{t.pending.toLocaleString('pt-BR')}</td>
+                  <td>{t.absent.toLocaleString('pt-BR')}</td>
+                  <td>{t.unknown ? t.unknown.toLocaleString('pt-BR') : '—'}</td>
+                  <td><strong>{t.coverage_pct ?? 0}%</strong></td>
+                  <td>{t.earliest_upload ? `${t.earliest_upload} → ${t.latest_upload ?? '—'}` : '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </>
     ) : (
       <div class={alert({ tone: 'attention' })}><strong>Dados de cobertura indisponíveis.</strong><span>O contrato `tribunal_coverage` não foi renderizado neste build.</span></div>
     )}
