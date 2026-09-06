@@ -31,6 +31,7 @@ evidence_ids:
   - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-1178-green-test"
   - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-1178-full-gates-green"
   - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-pr-1180-opened"
+  - "2026-09-06-exciting-mccarthy-6tcxrn-evidence-pr-1180-merge"
 check_ids:
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-cobogo-preset-grep"
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-vitest-red"
@@ -39,9 +40,10 @@ check_ids:
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-typecheck-parity"
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-eslint"
   - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-ruff-pytest"
-result_state: "review"
-result_summary: "Pushed commit 2716ef0e to claude/exciting-mccarthy-6tcxrn and opened PR #1180 (https://github.com/franklinbaldo/causaganha/pull/1180), referencing 'Closes #1178'. Subscribed this session to the PR's activity. CI is running at push time; this field will be updated in a follow-up commit once CI resolves, and again on merge (or on any fix needed to reach green)."
-next_move: "Watch PR #1180's CI; if green and no review feedback needed, merge it (this session's own well-tested, low-risk change, consistent with prior rounds' pattern of self-merging fully-green, fully-tested PRs) and update this report's result_state to merged. If CI fails, diagnose and push a fix per the standard drive-to-green loop. Once #1178/#1180 lands, the next natural slice is the larger web/UX backlog this round deferred (#1136, #1131-1134, #1093), now genuinely unblocked since both the reboot fork (#1168) and its immediate priority-1 follow-up (#1178) are resolved."
+  - "2026-09-06-exciting-mccarthy-6tcxrn-check-1178-pr-ci-final"
+result_state: "merged"
+result_summary: "PR #1180 ('fix(web): remove orphaned ThemeToggle after Cobogó/Panda reboot') opened, all 3 CI workflows (test, OKF knowledge, Product Surface Visual Capture) green on both its commits, mergeable_state=clean, 0 outstanding reviews. Squash-merged into main as commit 1cf5db9d482eaf08f4bc60f78151caf34b534412. Issue #1178 auto-closed as completed via the PR's 'Closes #1178' reference. This follow-up commit records the merge outcome and re-runs okf-parser check, per this project's own established pattern (the prior round's PR #1176 did the same for PR #1175) — pushed on a branch restarted from the new main, since the original PR/branch is already merged."
+next_move: "Both this round's goal (#1178) and the architectural fork that blocked prior rounds (#1168) are now resolved, so the next natural slice is the larger web/UX backlog this round deliberately deferred: #1136 (loading/empty/unavailable/error state parity across surfaces), #1131 (stats → actionable exploration), #1132 (explorador recipes), #1133 (minhas-consultas change tracking), #1134 (sobre coverage matrix), and #1093 (teor direct search) are all genuinely unblocked now that the post-reboot shell is stable and its one flagged regression (this round's #1178) is fixed. A future round should also pick up CLAUDE.md's now-stale CSS-token-boundary section (flagged in this round's claude-md reading — it still describes Pico/Brazilian-Modernism token lanes the #1169 reboot already replaced with the Cobogó/Panda foundation)."
 ---
 
 # Agent run — 2026-09-06-exciting-mccarthy-6tcxrn
@@ -55,4 +57,5 @@ Rodada do loop horário do CausaGanha, orientada pelo scaffold `.claude/agent-ru
 3. **Decisão**: tema único — remover `ThemeToggle.astro` em vez de reconstruir tema local por cima do Cobogó.
 4. **TDD**: teste novo (`web/src/lib/themeSingleModeGuard.test.ts`) RED contra a árvore original, depois GREEN após `git rm web/src/components/ThemeToggle.astro`.
 5. **Gates**: suite web completa (363 passaram + 4 pulados), typecheck idêntico ao de `main` (19 erros pré-existentes, nenhum novo), eslint corrigido no próprio teste novo, ruff/pytest verdes.
-6. Ver `goals/`, `decisions/`, `evidence/` e `checks/` para o detalhe tipado de cada etapa. Seção final atualizada após push/PR/CI.
+6. **Fechamento**: PR #1180 aberta com `Closes #1178`, CI verde nos 3 workflows, mesclada por squash (`1cf5db9d`). A issue #1178 fechou automaticamente. Este commit de acompanhamento registra o resultado do merge e roda o `okf-parser check` novamente, no mesmo padrão que a rodada anterior (`nao666`/PR #1176) usou para a PR #1175.
+7. Ver `goals/`, `decisions/`, `evidence/` e `checks/` para o detalhe tipado de cada etapa.
