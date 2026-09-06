@@ -11,7 +11,12 @@
     serializeSavedConsultations,
     type SavedConsultation,
   } from '../lib/savedConsultations';
-  import { buildConsultationSnapshot, compareConsultationSnapshots, type ConsultationComparison } from '../lib/consultationSnapshot';
+  import {
+    buildConsultationSnapshot,
+    compareConsultationSnapshots,
+    type ConsultationComparison,
+    type ConsultationSnapshot,
+  } from '../lib/consultationSnapshot';
   import {
     getConsultationSnapshot,
     removeConsultationSnapshot,
@@ -32,6 +37,9 @@
 
   type ChangeVerdict = ConsultationComparison | 'carregando' | 'erro';
   let changeStatus = $state<Record<string, ChangeVerdict>>({});
+  // Captura mais recente pendente de reconhecimento (#1232): existe apenas
+  // enquanto o item mostra 'mudou', e vira a nova baseline ao ser reconhecida.
+  let pendingSnapshot = $state<Record<string, ConsultationSnapshot>>({});
 
   function persist(next: SavedConsultation[]) {
     items = next;
@@ -43,6 +51,13 @@
    * estado atual do dossiê. Uma falha ao consultar (fonte fora do ar, DuckDB
    * não inicializa) nunca derruba a página — vira 'erro' para aquele item,
    * sem sobrescrever o snapshot já guardado.
+   *
+   * A baseline só avança automaticamente quando a leitura é 'sem_historico'
+   * (primeira captura) ou 'sem_mudanca' (nada para preservar). Um veredito
+   * 'mudou' fica pendente de reconhecimento explícito (#1232: uma segunda
+   * verificação automática nunca pode fazer o aviso desaparecer sozinho);
+   * 'nao_comparavel' também não avança, porque a captura atual tem menos
+   * fontes que a baseline e sobrescrevê-la perderia o histórico real.
    */
   async function checkForChanges(item: Extract<SavedConsultation, { type: 'processo' }>) {
     changeStatus = { ...changeStatus, [item.id]: 'carregando' };
@@ -51,11 +66,39 @@
       const resultado = await buscarProcesso(conn, item.cnj);
       const current = buildConsultationSnapshot(resultado, new Date().toISOString());
       const previous = getConsultationSnapshot(item.id);
-      changeStatus = { ...changeStatus, [item.id]: compareConsultationSnapshots(previous, current) };
-      saveConsultationSnapshot(item.id, current);
+      const comparison = compareConsultationSnapshots(previous, current);
+      changeStatus = { ...changeStatus, [item.id]: comparison };
+
+      if (comparison.status === 'mudou') {
+        pendingSnapshot = { ...pendingSnapshot, [item.id]: current };
+      } else {
+        if (comparison.status !== 'nao_comparavel') saveConsultationSnapshot(item.id, current);
+        if (item.id in pendingSnapshot) {
+          const { [item.id]: _discard, ...rest } = pendingSnapshot;
+          pendingSnapshot = rest;
+        }
+      }
     } catch {
       changeStatus = { ...changeStatus, [item.id]: 'erro' };
     }
+  }
+
+  /** Reconhece a mudança pendente: a captura atual vira a nova baseline (#1232). */
+  function acknowledgeChange(item: Extract<SavedConsultation, { type: 'processo' }>) {
+    const snapshot = pendingSnapshot[item.id];
+    if (!snapshot) return;
+    saveConsultationSnapshot(item.id, snapshot);
+    changeStatus = {
+      ...changeStatus,
+      [item.id]: {
+        status: 'sem_mudanca',
+        changedFields: [],
+        fontesIndisponiveis: snapshot.fontesIndisponiveis,
+        unstableFontes: [],
+      },
+    };
+    const { [item.id]: _discard, ...rest } = pendingSnapshot;
+    pendingSnapshot = rest;
   }
 
   function addProcess(event: SubmitEvent) {
@@ -79,6 +122,10 @@
     const next = removeSavedConsultation(items, id);
     persist(next);
     removeConsultationSnapshot(id);
+    if (id in pendingSnapshot) {
+      const { [id]: _discard, ...rest } = pendingSnapshot;
+      pendingSnapshot = rest;
+    }
     notice = 'Consulta removida.';
 
     if (next.length === 0) {
@@ -166,6 +213,9 @@
                   <p class="meta-text" role="status">Não foi possível verificar alterações agora.</p>
                 {:else if verdict.status === 'mudou'}
                   <p role="status" data-change-status="mudou">Mudou desde a última consulta.</p>
+                  <button type="button" class="outline secondary" onclick={() => acknowledgeChange(item)}>
+                    Marcar como visto
+                  </button>
                 {:else if verdict.status === 'sem_mudanca'}
                   <p class="meta-text" role="status">Sem mudanças desde a última consulta.</p>
                 {:else if verdict.status === 'nao_comparavel'}
