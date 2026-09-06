@@ -44,7 +44,7 @@
     <span>Configuração genérica</span>
     <span>{label}</span>
   </div>
-  <pre><code>{config}</code></pre>
+  <pre tabindex="0"><code>{config}</code></pre>
   <div class="config-card__actions">
     <button type="button" class="outline secondary" onclick={copyConfig}>
       Copiar configuração
