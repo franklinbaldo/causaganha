@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-06-exciting-mccarthy-uwm65t-goal-agents-page-examples"
+run_id: "2026-09-06-exciting-mccarthy-uwm65t"
+goal: "Turn each of the four MCP job cards on the public /agentes page into a copyable, testable example question with an accessible 'Copiar pergunta' action, closing issue #1217."
+rationale: "The /agentes page already names and describes the four jobs (processo_consultar, publicacoes_buscar, processo_estado, decisoes_buscar) but stops at description-level: a person who just connected the MCP server has to invent their own first question and cannot quickly verify the agent picked the right tool. #1217, filed by the repo owner minutes into this round and marked READY, is the only open issue with no external blocker (credentials/infra/product decision) — every other open issue is already recorded in knowledge/backlog/ as blocked. This is a small, local, TDD-friendly web slice with concrete acceptance criteria, matching this round's mandate to prioritize continuity and real, deliverable product advancement."
+success_signal: "web/src/pages/agentes.astro renders one example question per job card via a new reusable Svelte component with a working, keyboard-reachable 'Copiar pergunta' button and accessible success/failure feedback (mirroring McpConfigCard.svelte's clipboard pattern); a single Python module (src/causaganha_mcp/agents_examples.py) is the sole authority for the four questions' wording; a new pytest contract test fails (RED) before the page is wired up because the example markup does not exist yet, then passes (GREEN) once wired, and separately asserts (a) every example's tool is in build_server()'s live catalog, (b) the decisoes_buscar example never names an unpublished fonte (tcu, per causaganha.decisoes.published.unpublished_fontes()), (c) the page's displayed/copied question text matches the Python module byte-for-byte (no drift), (d) the golden CNJ used is derived from the same raw digits already reused across test_processo_consultar.py/test_publicacoes_buscar.py/test_arquivo_estado_teor_contract.py, not a new one invented for this page; a new Vitest suite for the Svelte component passes (display/copy/success/failure/no-clipboard/keyboard, mirroring McpConfigCard.test.ts); ruff check/format, npm run lint/typecheck/test and pytest -q all stay green; a PR is opened and driven to a mergeable, green state."
+status: "achieved"
+---
+
+# Goal: exemplos copiáveis nos quatro jobs de /agentes (#1217)
+
+Fechar #1217: cada card de job em `/agentes` ganha uma pergunta de exemplo com ação "Copiar pergunta" acessível, protegida por teste de contrato contra o catálogo real do `build_server()` e a autoridade de fontes publicadas, reaproveitando o CNJ que o projeto já trata como fixture dourada.

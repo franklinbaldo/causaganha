@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-uwm65t-reading-issues"
+run_id: "2026-09-06-exciting-mccarthy-uwm65t"
+subject: "open_issues"
+reference: "mcp__github__list_issues(owner=franklinbaldo, repo=causaganha, state=OPEN) as of 2026-09-06T14:10Z; knowledge/backlog/index.md and its 17 issue-<n>.md files"
+finding: "18 open issues, not 17. All 17 issues already catalogued in knowledge/backlog/ (issue-884, 886, 887, 950, 951, 985, 1011, 1022, 1047, 1050, 1051, 1053, 1054, 1055, 1056, 1057, 1093) are unchanged since the last round's verification (usm2ot, run_id referenced by every backlog file's last_verified_run_id) — per the backlog mechanism's own instructions (knowledge/backlog/index.md), this round trusts that cache rather than re-deriving each rejection from scratch, since none of their GitHub state changed (same open/closed status, no new comments altering the blocking condition) and the environment credential checks they depend on (IAS3_ACCESS_KEY/IAS3_SECRET_KEY absence) are not re-checked every round by design. One issue is genuinely new and outside the backlog cache: #1217 'web(agentes): transformar os quatro jobs MCP em exemplos copiáveis e executáveis', filed by the repo owner (franklinbaldo) at 2026-09-06T14:03:03Z, explicitly marked 'READY para IMPLEMENTAÇÃO' in its own body, scoped to a small local web slice (no credentials, no remote deploy, no MCP contract change), with concrete TDD-friendly acceptance criteria (per-job example question with a working 'Copiar pergunta' action, gated against the real build_server() catalog and the unpublished-fontes authority, using at least one deterministic golden fixture, exact copy-to-display text, keyboard/mobile usable, visual capture coverage). This is the strongest available new work: unlike all 17 backlog items it has no external blocker, and unlike re-verifying the backlog it is a real, undone product gap."
+---
+
+# Leitura das issues abertas
+
+17 das 18 issues abertas já estão registradas em `knowledge/backlog/` e continuam bloqueadas/despriorizadas sem mudança de estado no GitHub — esta rodada confia nesse cache em vez de rederivar cada uma, conforme o próprio mecanismo do backlog instrui. A novidade é a issue #1217, aberta pelo dono do repositório há poucos minutos, explicitamente marcada "READY para IMPLEMENTAÇÃO", sem bloqueio de credencial/infra/decisão de produto, com critérios de aceite específicos e testáveis. Esta é a issue escolhida para o trabalho da rodada.
