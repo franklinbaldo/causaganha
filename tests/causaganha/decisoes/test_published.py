@@ -4,14 +4,24 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from causaganha.decisoes.published import (
+    IndiceProcessualUnavailableError,
     PublishedDecisionDataset,
     STJ_PARQUET_URL,
     TCU_PARQUET_URL,
     discover_published_decision_datasets,
     discover_published_juris_datasets,
     discover_published_tcu_dataset,
+    resolve_juris_urls_for_cnj,
     unpublished_fontes,
+)
+from causaganha.processos.query_plan_fixtures import (
+    CNJ_ALL,
+    CNJ_DJEN_ONLY,
+    CNJ_UNKNOWN,
+    build_fixtures,
 )
 
 
@@ -110,3 +120,34 @@ def test_discover_published_tcu_dataset_malformed_json_returns_none(tmp_path) ->
     evidence_path.write_text("not json", encoding="utf-8")
 
     assert discover_published_tcu_dataset(evidence_path) is None
+
+
+def test_resolve_juris_urls_for_cnj_returns_the_exact_indexed_file(tmp_path) -> None:
+    """decisoes_buscar's CNJ lookup must reuse the same thin index
+    processo_consultar already relies on instead of scanning every published
+    JURIS partition (the production manifest already has 1000+ of them)."""
+    fixtures = build_fixtures(tmp_path)
+
+    urls = resolve_juris_urls_for_cnj(CNJ_ALL, indice_url=str(fixtures["indice"]))
+
+    assert urls == [str(fixtures["juris"])]
+
+
+def test_resolve_juris_urls_for_cnj_absent_cnj_is_a_real_empty_result(tmp_path) -> None:
+    """A CNJ with no juris row in the index is a provable absence — the same
+    authority processo_consultar already answers "no juris document" from —
+    not a signal to fall back to scanning everything."""
+    fixtures = build_fixtures(tmp_path)
+
+    assert resolve_juris_urls_for_cnj(CNJ_DJEN_ONLY, indice_url=str(fixtures["indice"])) == []
+    assert resolve_juris_urls_for_cnj(CNJ_UNKNOWN, indice_url=str(fixtures["indice"])) == []
+
+
+def test_resolve_juris_urls_for_cnj_unreadable_index_raises_distinct_error(tmp_path) -> None:
+    """An infra failure reading the index itself must never be mistaken for a
+    proven absence — callers need to tell the two apart to decide whether to
+    fall back to an unbounded scan."""
+    missing_index = tmp_path / "missing-indice_processual.parquet"
+
+    with pytest.raises(IndiceProcessualUnavailableError):
+        resolve_juris_urls_for_cnj(CNJ_ALL, indice_url=str(missing_index))
