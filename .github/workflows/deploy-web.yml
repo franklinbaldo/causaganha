@@ -4,6 +4,7 @@ on:
   push:
     branches: [main]
     paths:
+      - '.github/workflows/deploy-web.yml'
       - 'web/**'
       - 'scripts/generate_cache_from_manifest.py'
       - 'scripts/render_queries.py'
