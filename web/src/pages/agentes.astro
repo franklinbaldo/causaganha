@@ -12,13 +12,6 @@ const localConfig = `{
     }
   }
 }`;
-
-const jobs = [
-  ['Arquivo', 'processo_consultar', 'O que sabemos sobre este processo?', 'Reúne evidências preservadas e deixa explícito onde há ou não cobertura.'],
-  ['Arquivo', 'publicacoes_buscar', 'Quais publicações foram preservadas?', 'Busca comunicações por processo, parte, advogado, OAB, texto, tribunal ou período.'],
-  ['Estado', 'processo_estado', 'Qual é o estado processual disponível?', 'Consulta estado oficial disponível sem confundi-lo com um snapshot histórico.'],
-  ['Teor', 'decisoes_buscar', 'Há decisão ou acórdão — e o que diz?', 'Pesquisa teor decisório nas fontes suportadas, preservando origem e limitações.'],
-];
 ---
 
 <Layout
@@ -41,20 +34,34 @@ const jobs = [
     <p class={css({ textStyle: 'eyebrow', color: 'info', mb: '3' })}>Quatro jobs</p>
     <h2 class={css({ textStyle: 'title', m: '0', mb: '8', maxW: '16ch' })}>Arquivo, estado e teor continuam separados.</h2>
     <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: '1fr 1fr' }, gap: '4' })}>
-      {jobs.map(([role, tool, title, description]) => (
-        <article class={card()} data-mcp-tool={tool}>
-          <span class={badge({ tone: role === 'Arquivo' ? 'accent' : role === 'Estado' ? 'info' : 'neutral' })}>{role}</span>
-          <h3 class={css({ mt: '5', mb: '3', fontSize: 'xl' })}>{title}</h3>
-          <p class={css({ m: '0', color: 'textMuted', lineHeight: 'body' })}>{description}</p>
-          {tool === 'decisoes_buscar' && (
-            <ul class={css({ listStyle: 'none', p: '0', mt: '5', mb: '0', display: 'flex', flexWrap: 'wrap', gap: '2' })} aria-label="Fontes reconhecidas por decisoes_buscar">
-              <li data-mcp-fonte="juris" data-mcp-status="published"><span class={badge({ tone: 'neutral' })}>JURIS</span></li>
-              <li data-mcp-fonte="stj" data-mcp-status="published"><span class={badge({ tone: 'neutral' })}>STJ</span></li>
-              <li data-mcp-fonte="tcu" data-mcp-status="unpublished"><span class={badge({ tone: 'attention' })}>TCU · ainda não publicada</span></li>
-            </ul>
-          )}
-        </article>
-      ))}
+      <article class={card()} data-mcp-tool="processo_consultar" data-mcp-role="ARQUIVO">
+        <span class={badge({ tone: 'accent' })}>Arquivo</span>
+        <h3 class={css({ mt: '5', mb: '3', fontSize: 'xl' })}>O que sabemos sobre este processo?</h3>
+        <p class={css({ m: '0', color: 'textMuted', lineHeight: 'body' })}>Reúne evidências preservadas e deixa explícito onde há ou não cobertura.</p>
+      </article>
+
+      <article class={card()} data-mcp-tool="publicacoes_buscar" data-mcp-role="ARQUIVO">
+        <span class={badge({ tone: 'accent' })}>Arquivo</span>
+        <h3 class={css({ mt: '5', mb: '3', fontSize: 'xl' })}>Quais publicações foram preservadas?</h3>
+        <p class={css({ m: '0', color: 'textMuted', lineHeight: 'body' })}>Busca comunicações por processo, parte, advogado, OAB, texto, tribunal ou período.</p>
+      </article>
+
+      <article class={card()} data-mcp-tool="processo_estado" data-mcp-role="ESTADO">
+        <span class={badge({ tone: 'info' })}>Estado</span>
+        <h3 class={css({ mt: '5', mb: '3', fontSize: 'xl' })}>Qual é o estado processual disponível?</h3>
+        <p class={css({ m: '0', color: 'textMuted', lineHeight: 'body' })}>Consulta estado oficial disponível sem confundi-lo com um snapshot histórico.</p>
+      </article>
+
+      <article class={card()} data-mcp-tool="decisoes_buscar" data-mcp-role="TEOR">
+        <span class={badge({ tone: 'neutral' })}>Teor</span>
+        <h3 class={css({ mt: '5', mb: '3', fontSize: 'xl' })}>Há decisão ou acórdão — e o que diz?</h3>
+        <p class={css({ m: '0', color: 'textMuted', lineHeight: 'body' })}>Pesquisa teor decisório nas fontes suportadas, preservando origem e limitações.</p>
+        <ul class={css({ listStyle: 'none', p: '0', mt: '5', mb: '0', display: 'flex', flexWrap: 'wrap', gap: '2' })} aria-label="Fontes reconhecidas por decisoes_buscar">
+          <li data-mcp-fonte="juris" data-mcp-status="published"><span class={badge({ tone: 'neutral' })}>JURIS</span></li>
+          <li data-mcp-fonte="stj" data-mcp-status="published"><span class={badge({ tone: 'neutral' })}>STJ</span></li>
+          <li data-mcp-fonte="tcu" data-mcp-status="unpublished"><span class={badge({ tone: 'attention' })}>TCU · ainda não publicada</span></li>
+        </ul>
+      </article>
     </div>
   </section>
 
