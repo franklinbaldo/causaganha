@@ -1,4 +1,4 @@
-import { fireEvent, render, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, waitFor, type RenderResult } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import ProcessoLookup from './ProcessoLookup.svelte';
 import { getDuckDB } from '../lib/duckdbSingleton';
@@ -75,7 +75,7 @@ beforeEach(() => {
   vi.mocked(processoCnj.carregarDocumentos).mockResolvedValue({ items: [], hasMore: false });
 });
 
-async function submit(component: ReturnType<typeof render>) {
+async function submit(component: RenderResult<typeof ProcessoLookup>) {
   const input = (await waitFor(() => component.getByLabelText(/Número do processo/i))) as HTMLInputElement;
   await fireEvent.input(input, { target: { value: CNJ } });
   await fireEvent.click(component.getByText('Buscar'));

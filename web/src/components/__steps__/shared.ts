@@ -1,5 +1,6 @@
 import { vi } from 'vitest';
-import { render as _render } from '@testing-library/svelte/pure';
+import { render as _render, type RenderResult } from '@testing-library/svelte/pure';
+import type { Component } from '@testing-library/svelte-core/types';
 import { QueryClient } from '@tanstack/svelte-query';
 
 // Prevent @tanstack/query-devtools from rendering in tests (requires window.matchMedia)
@@ -31,9 +32,16 @@ vi.mock('../../lib/fetchData', () => ({
  * `Component<P, E>` signature that `render` expects. At runtime the component
  * is still a real Svelte 5 function, so the cast here is safe and lets BDD
  * step files pass Astro-shimmed components directly.
+ *
+ * The return type is written as `RenderResult<Component<Props>>` rather than
+ * `ReturnType<typeof _render>`: `ReturnType` on an uninstantiated generic
+ * function drops `_render`'s `Q extends Queries = typeof queries` default,
+ * collapsing every bound query (getByText, getByLabelText, ...) to an
+ * incompatible union/index-signature type. Naming `RenderResult<C>` directly
+ * lets its own `Q` default apply instead.
  */
-export const render = _render as unknown as <Props = Record<string, unknown>>(
+export const render = _render as unknown as <Props extends Record<string, unknown> = Record<string, unknown>>(
   Component: unknown,
   props?: Props,
   options?: Parameters<typeof _render>[2],
-) => ReturnType<typeof _render>;
+) => RenderResult<Component<Props>>;

@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-m65xwe-reading-okf"
+run_id: "2026-09-06-exciting-mccarthy-m65xwe"
+subject: "okf_knowledge"
+reference: "knowledge/okf.schema.sql; knowledge/agent-runs/index.md; uv run okf-parser check knowledge --relational-schema okf.schema.sql (410 concepts before this round's own report existed)"
+finding: "knowledge/ models two families: product-domain concepts (Fonte, Pipeline, Processo, DjenResumo, JurisDecisao, StjAcordao, DatajudCapa, FonteCobertura, DocumentoProcesso — untouched this round) and the AgentRun family (AgentRun/AgentReading/AgentGoal/AgentDecision/AgentEvidence/AgentCheck) that drives this hourly loop, whose NOT NULL/CHECK/FK contracts okf-parser's `check --relational-schema` only partially enforces (PK/FK catalog metadata) — scripts/check_agent_run_completeness.py (added by round yigsua/6x90uc's lineage, PR #1141 then #1205) fills the rest: required-field presence, enum membership, and (since #1205) unknown-field detection against the schema's declared columns. Running `uv run okf-parser check` immediately after copying the scaffold to this round's run.md (before filling any field) correctly reports 3 OKF022 foreign-key errors — the three AgentReading documents just written reference run_id '2026-09-06-exciting-mccarthy-m65xwe', which does not yet exist as an AgentRun row because run.md's frontmatter is still the untouched scaffold. This is the expected, documented scaffold-then-fill state described in .claude/agent-run-scaffold.md, not a defect: it resolves once run.md's own frontmatter is completed with matching id/started_at/etc. No gap in the OKF model itself was found that blocks this round's selected work (a web/ typecheck-debt fix); the model does not need to change this round."
+---
+
+# Leitura do conhecimento OKF
+
+`knowledge/` tem duas famílias: conceitos de domínio do produto (Fonte, Pipeline, Processo, ...) e a família `AgentRun` que sustenta este loop. `okf-parser check` cobre só metadados de PK/FK; `scripts/check_agent_run_completeness.py` cobre o resto (campos obrigatórios, enums, e desde a rodada 6x90uc/PR #1205, campos desconhecidos). Rodar o check logo após copiar o scaffold, antes de preencher `run.md`, reporta corretamente 3 erros de FK (as três leituras já escritas apontam para um `AgentRun` que ainda não existe) — exatamente o estado esperado descrito no próprio scaffold, que se resolve ao preencher `run.md`. Nenhuma lacuna no modelo OKF em si bloqueia o trabalho desta rodada.
