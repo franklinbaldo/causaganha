@@ -50,7 +50,7 @@ function fmt(n: number): string {
       <strong>Cobertura não é uma promessa de completude.</strong>
       <span>
         {totalZips > 0 ? fmt(totalZips) + ' ZIPs arquivados' : 'ZIPs arquivados'} · {tribunalsWithData} tribunais{sinceYear ? ` · desde ${sinceYear}` : ''}.
-        Dias sem dados podem representar ausência oficial do diário, backfill pendente ou falha de coleta.
+        Dias sem dados podem representar ausência oficial do diário, backfill pendente ou falha temporária de coleta.
       </span>
       <small class={css({ fontFamily: 'mono', color: 'text' })}>Métricas geradas em {generatedAtLabel}</small>
     </div>
