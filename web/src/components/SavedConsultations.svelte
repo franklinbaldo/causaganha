@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte';
-  import { formatCnj } from '../lib/processoCnj';
+  import { formatCnj, buscarProcesso } from '../lib/processoCnj';
+  import { getDuckDB } from '../lib/duckdbSingleton';
   import {
     SAVED_CONSULTATIONS_STORAGE_KEY,
     parseSavedConsultations,
@@ -10,6 +11,12 @@
     serializeSavedConsultations,
     type SavedConsultation,
   } from '../lib/savedConsultations';
+  import { buildConsultationSnapshot, compareConsultationSnapshots, type ConsultationComparison } from '../lib/consultationSnapshot';
+  import {
+    getConsultationSnapshot,
+    removeConsultationSnapshot,
+    saveConsultationSnapshot,
+  } from '../lib/consultationSnapshotStore';
 
   const BASE = import.meta.env.BASE_URL.endsWith('/')
     ? import.meta.env.BASE_URL
@@ -23,9 +30,32 @@
   let ready = $state(false);
   let cnjInput: HTMLInputElement;
 
+  type ChangeVerdict = ConsultationComparison | 'carregando' | 'erro';
+  let changeStatus = $state<Record<string, ChangeVerdict>>({});
+
   function persist(next: SavedConsultation[]) {
     items = next;
     localStorage.setItem(SAVED_CONSULTATIONS_STORAGE_KEY, serializeSavedConsultations(next));
+  }
+
+  /**
+   * Melhor esforço: compara a captura anterior salva localmente (#1133) com o
+   * estado atual do dossiê. Uma falha ao consultar (fonte fora do ar, DuckDB
+   * não inicializa) nunca derruba a página — vira 'erro' para aquele item,
+   * sem sobrescrever o snapshot já guardado.
+   */
+  async function checkForChanges(item: Extract<SavedConsultation, { type: 'processo' }>) {
+    changeStatus = { ...changeStatus, [item.id]: 'carregando' };
+    try {
+      const { conn } = await getDuckDB();
+      const resultado = await buscarProcesso(conn, item.cnj);
+      const current = buildConsultationSnapshot(resultado, new Date().toISOString());
+      const previous = getConsultationSnapshot(item.id);
+      changeStatus = { ...changeStatus, [item.id]: compareConsultationSnapshots(previous, current) };
+      saveConsultationSnapshot(item.id, current);
+    } catch {
+      changeStatus = { ...changeStatus, [item.id]: 'erro' };
+    }
   }
 
   function addProcess(event: SubmitEvent) {
@@ -37,6 +67,7 @@
       persist(next);
       const saved = next.find((item) => item.cnj === cnj.replace(/\D/g, ''));
       notice = saved ? `${saved.label} salvo neste navegador.` : 'Processo salvo neste navegador.';
+      if (saved?.type === 'processo') void checkForChanges(saved);
       cnj = '';
       label = '';
     } catch {
@@ -47,6 +78,7 @@
   async function removeItem(id: string) {
     const next = removeSavedConsultation(items, id);
     persist(next);
+    removeConsultationSnapshot(id);
     notice = 'Consulta removida.';
 
     if (next.length === 0) {
@@ -64,6 +96,9 @@
   onMount(() => {
     items = parseSavedConsultations(localStorage.getItem(SAVED_CONSULTATIONS_STORAGE_KEY));
     ready = true;
+    for (const item of items) {
+      if (item.type === 'processo') void checkForChanges(item);
+    }
   });
 </script>
 
@@ -122,9 +157,21 @@
       {#each items as item}
         <li>
           {#if item.type === 'processo'}
+            {@const verdict = changeStatus[item.id]}
             <div>
               <strong>{item.label}</strong>
               <code>{formatCnj(item.cnj)}</code>
+              {#if verdict && verdict !== 'carregando'}
+                {#if verdict === 'erro'}
+                  <p class="meta-text" role="status">Não foi possível verificar alterações agora.</p>
+                {:else if verdict.status === 'mudou'}
+                  <p role="status" data-change-status="mudou">Mudou desde a última consulta.</p>
+                {:else if verdict.status === 'sem_mudanca'}
+                  <p class="meta-text" role="status">Sem mudanças desde a última consulta.</p>
+                {:else if verdict.status === 'nao_comparavel'}
+                  <p class="meta-text" role="status">Não foi possível comparar agora.</p>
+                {/if}
+              {/if}
             </div>
             <div class="saved-consultations__actions">
               <a class="button" href={`${BASE}processo?cnj=${encodeURIComponent(formatCnj(item.cnj))}`}>
