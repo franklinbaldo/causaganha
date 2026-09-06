@@ -176,6 +176,132 @@ describe('SavedConsultations — mudou desde a última consulta (#1133)', () => 
     expect(component.queryByText(/Mudou desde/)).toBeNull();
   });
 
+  it('keeps flagging the pending change across a second reload, without silent acknowledgement (#1232)', async () => {
+    localStorage.setItem(
+      CONSULTATION_SNAPSHOTS_STORAGE_KEY,
+      JSON.stringify({
+        [ID]: {
+          version: 1,
+          capturedAt: '2026-08-01T00:00:00Z',
+          encontrado: true,
+          datasetGeradoEm: '2026-08-01T00:00:00Z',
+          fontesPresentes: ['djen'],
+          fontesIndisponiveis: [],
+          djen: { nPublicacoes: 3, ultimaPub: '2026-01-10' },
+          juris: null,
+          stj: null,
+          datajud: null,
+        },
+      }),
+    );
+    saveItem();
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue(resultadoWith(5) as never);
+
+    const first = render(SavedConsultations);
+    await waitFor(() => expect(first.getByText(/Mudou desde a última consulta/)).toBeTruthy());
+    first.unmount();
+
+    const second = render(SavedConsultations);
+    await waitFor(() => expect(second.getByText(/Mudou desde a última consulta/)).toBeTruthy());
+    expect(second.queryByText(/Sem mudanças desde a última consulta/)).toBeNull();
+  });
+
+  it('lets the user acknowledge a pending change, after which the same observation reads as no change (#1232)', async () => {
+    localStorage.setItem(
+      CONSULTATION_SNAPSHOTS_STORAGE_KEY,
+      JSON.stringify({
+        [ID]: {
+          version: 1,
+          capturedAt: '2026-08-01T00:00:00Z',
+          encontrado: true,
+          datasetGeradoEm: '2026-08-01T00:00:00Z',
+          fontesPresentes: ['djen'],
+          fontesIndisponiveis: [],
+          djen: { nPublicacoes: 3, ultimaPub: '2026-01-10' },
+          juris: null,
+          stj: null,
+          datajud: null,
+        },
+      }),
+    );
+    saveItem();
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue(resultadoWith(5) as never);
+
+    const first = render(SavedConsultations);
+    await waitFor(() => expect(first.getByText(/Mudou desde a última consulta/)).toBeTruthy());
+
+    await fireEvent.click(first.getByText('Marcar como visto'));
+    await waitFor(() => expect(first.getByText(/Sem mudanças desde a última consulta/)).toBeTruthy());
+    first.unmount();
+
+    const second = render(SavedConsultations);
+    await waitFor(() => expect(second.getByText(/Sem mudanças desde a última consulta/)).toBeTruthy());
+    expect(second.queryByText(/Mudou desde/)).toBeNull();
+  });
+
+  it('never treats a source outage as an acknowledged baseline, so a real change is still caught afterwards (#1232)', async () => {
+    localStorage.setItem(
+      CONSULTATION_SNAPSHOTS_STORAGE_KEY,
+      JSON.stringify({
+        [ID]: {
+          version: 1,
+          capturedAt: '2026-08-01T00:00:00Z',
+          encontrado: true,
+          datasetGeradoEm: '2026-08-01T00:00:00Z',
+          fontesPresentes: ['djen'],
+          fontesIndisponiveis: [],
+          djen: { nPublicacoes: 3, ultimaPub: '2026-01-10' },
+          juris: null,
+          stj: null,
+          datajud: null,
+        },
+      }),
+    );
+    saveItem();
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValueOnce(
+      resultadoWith(3, [formatFonteIndisponivelAviso('djen', 'timeout')]) as never,
+    );
+
+    const first = render(SavedConsultations);
+    await waitFor(() => expect(first.getByText(/Não foi possível comparar/)).toBeTruthy());
+    first.unmount();
+
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue(resultadoWith(5) as never);
+    const second = render(SavedConsultations);
+    await waitFor(() => expect(second.getByText(/Mudou desde a última consulta/)).toBeTruthy());
+  });
+
+  it('keeps the "Marcar como visto" action reachable and activatable from the keyboard alone (#1232)', async () => {
+    localStorage.setItem(
+      CONSULTATION_SNAPSHOTS_STORAGE_KEY,
+      JSON.stringify({
+        [ID]: {
+          version: 1,
+          capturedAt: '2026-08-01T00:00:00Z',
+          encontrado: true,
+          datasetGeradoEm: '2026-08-01T00:00:00Z',
+          fontesPresentes: ['djen'],
+          fontesIndisponiveis: [],
+          djen: { nPublicacoes: 3, ultimaPub: '2026-01-10' },
+          juris: null,
+          stj: null,
+          datajud: null,
+        },
+      }),
+    );
+    saveItem();
+    vi.mocked(processoCnj.buscarProcesso).mockResolvedValue(resultadoWith(5) as never);
+
+    const component = render(SavedConsultations);
+    const ackButton = (await waitFor(() => component.getByText('Marcar como visto'))) as HTMLElement;
+
+    ackButton.focus();
+    expect(ackButton).toHaveFocus();
+
+    await fireEvent.click(ackButton);
+    await waitFor(() => expect(component.getByText(/Sem mudanças desde a última consulta/)).toBeTruthy());
+  });
+
   it('removes the stored snapshot together with the saved consultation', async () => {
     saveItem();
     vi.mocked(processoCnj.buscarProcesso).mockResolvedValue(resultadoWith(3) as never);
