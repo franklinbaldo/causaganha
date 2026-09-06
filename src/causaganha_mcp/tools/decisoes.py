@@ -11,12 +11,15 @@ from pydantic import BaseModel, Field
 
 from causaganha.decisoes.planner import DecisionSearchBudgetError, plan_decision_search
 from causaganha.decisoes.published import (
+    IndiceProcessualUnavailableError,
     PublishedDecisionDataset,
     STJ_PARQUET_URL,
     discover_published_juris_datasets,
     discover_published_tcu_dataset,
+    resolve_juris_urls_for_cnj,
 )
 from causaganha.decisoes.search import search_decisions
+from causaganha.processos.cnj import so_digitos
 from tjro_juris import archive as juris_archive
 from tjro_juris.manifest import ManifestFormatError
 
@@ -105,6 +108,31 @@ def _datasets_for_source(fonte: str) -> tuple[list[PublishedDecisionDataset], li
                 "publicados entre 2017 e 2026 — anos anteriores não são consultados."
             )
     return datasets, limitations
+
+
+def _narrow_juris_datasets_for_cnj(
+    datasets: list[PublishedDecisionDataset],
+    cnj: str,
+) -> list[PublishedDecisionDataset]:
+    """Narrow the ``juris`` entries of *datasets* to the file(s) the thin
+    ``indice_processual`` index already has for this CNJ (#1238), instead of
+    scanning every published JURIS partition — the production manifest
+    already has 1000+ of them, spanning 1989-2026, so an unnarrowed CNJ
+    lookup opens every single one via DuckDB httpfs on every call.
+
+    Falls back to the unnarrowed list — the previous, safe, unbounded-scan
+    behavior — whenever the index itself cannot be read: an infra failure
+    reading ``indice_processual`` must never be mistaken for "no juris file
+    matches this CNJ" (that would silently under-report real results).
+    """
+    cnj_digits = so_digitos(cnj)
+    if not cnj_digits:
+        return datasets
+    try:
+        resolved_urls = set(resolve_juris_urls_for_cnj(cnj_digits))
+    except IndiceProcessualUnavailableError:
+        return datasets
+    return [item for item in datasets if item.fonte != "juris" or item.url in resolved_urls]
 
 
 def _next_actions(results: list[DecisaoResult]) -> list[dict[str, str]]:
@@ -290,6 +318,8 @@ def register(mcp: FastMCP) -> None:
                 "de leitura verificada está disponível no momento."
             )
             raise ToolError(msg)
+        if cnj:
+            datasets = _narrow_juris_datasets_for_cnj(datasets, cnj)
         try:
             plan = plan_decision_search(
                 datasets,

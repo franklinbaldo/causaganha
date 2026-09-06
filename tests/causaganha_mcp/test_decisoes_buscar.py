@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from fastmcp.exceptions import ToolError
 
-from causaganha.decisoes.published import PublishedDecisionDataset
+from causaganha.decisoes.published import IndiceProcessualUnavailableError, PublishedDecisionDataset
 from causaganha.decisoes.search import DecisionHit, DecisionSearchResult
 from causaganha_mcp.server import build_server
 from causaganha_mcp.tools import decisoes
@@ -111,6 +111,72 @@ async def test_cnj_lookup_bypasses_juris_thematic_period_requirement(
 
     assert captured["cnj"] == "00000010220248220001"
     assert result.resultados[0].id_documento == "j1"
+
+
+async def test_cnj_lookup_narrows_juris_scan_to_the_indexed_file(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A CNJ lookup must scan only the JURIS partition(s) indice_processual
+    actually has for that CNJ, not every published partition (#1238) — the
+    production manifest already has 1000+ of them."""
+    matching = PublishedDecisionDataset(fonte="juris", url="https://example/matching.parquet")
+    many_others = [
+        PublishedDecisionDataset(fonte="juris", url=f"https://example/{year}-{month:02d}.parquet")
+        for year in range(2018, 2027)
+        for month in range(1, 13)
+    ]
+    monkeypatch.setattr(
+        decisoes, "_datasets_for_source", lambda _fonte: ([matching, *many_others], [])
+    )
+    monkeypatch.setattr(
+        decisoes,
+        "resolve_juris_urls_for_cnj",
+        lambda _cnj_digits: [matching.url],
+    )
+    captured: dict[str, object] = {}
+
+    def _fake_search(
+        _texto, plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None
+    ):
+        captured["juris_urls"] = [item.url for item in plan.juris]
+        return DecisionSearchResult(datasets_consultados=len(plan.juris))
+
+    monkeypatch.setattr(decisoes, "search_decisions", _fake_search)
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    fn(texto=None, fonte="juris", cnj="00000010220248220001")
+
+    assert captured["juris_urls"] == [matching.url]
+
+
+async def test_cnj_lookup_falls_back_to_full_scan_when_index_unavailable(
+    mcp,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An infra failure reading indice_processual must never silently drop
+    real JURIS results — fall back to the previous unbounded-scan behavior."""
+    dataset = PublishedDecisionDataset(fonte="juris", url="https://example/2026-02.parquet")
+    monkeypatch.setattr(decisoes, "_datasets_for_source", lambda _fonte: ([dataset], []))
+
+    def _raise(_cnj_digits: str) -> list[str]:
+        raise IndiceProcessualUnavailableError("boom")
+
+    monkeypatch.setattr(decisoes, "resolve_juris_urls_for_cnj", _raise)
+    captured: dict[str, object] = {}
+
+    def _fake_search(
+        _texto, plan, *, limite, cnj=None, offset=0, classe=None, orgao=None, relator=None
+    ):
+        captured["juris_urls"] = [item.url for item in plan.juris]
+        return DecisionSearchResult(datasets_consultados=len(plan.juris))
+
+    monkeypatch.setattr(decisoes, "search_decisions", _fake_search)
+
+    fn = await _tool_fn(mcp, "decisoes_buscar")
+    fn(texto=None, fonte="juris", cnj="00000010220248220001")
+
+    assert captured["juris_urls"] == [dataset.url]
 
 
 async def test_offset_is_forwarded_and_next_offset_reported_when_truncated(
