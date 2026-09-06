@@ -29,6 +29,7 @@ const primary = [
   { href: BASE + 'processo', label: 'Processo', match: '/processo' },
   { href: BASE + 'publicacoes', label: 'Publicações', match: '/publicacoes' },
   { href: BASE + 'minhas-consultas', label: 'Salvos', match: '/minhas-consultas' },
+  { href: BASE + 'agentes', label: 'Agentes', match: '/agentes' },
 ];
 ---
 
@@ -75,7 +76,6 @@ const primary = [
             <summary class={css({ cursor: 'pointer', listStyle: 'none', fontSize: 'xs', fontWeight: 'bold', letterSpacing: '0.06em', textTransform: 'uppercase' })}>Mais</summary>
             <div class={css({ position: 'absolute', right: '0', top: 'calc(100% + 0.75rem)', zIndex: '30', minW: '14rem', p: '3', background: 'surface', border: '1px solid', borderColor: 'text', display: 'grid', gap: '1', boxShadow: 'lift' })}>
               <a class={navLink()} href={BASE + 'stats'}>Cobertura</a>
-              <a class={navLink()} href={BASE + 'agentes'}>Agentes</a>
               <a class={navLink()} href={BASE + 'sobre'}>Projeto & dados</a>
               <a class={navLink()} href="https://github.com/franklinbaldo/causaganha">GitHub ↗</a>
             </div>
@@ -97,6 +97,7 @@ const primary = [
         <nav class={css({ display: 'flex', flexWrap: 'wrap', gap: '5' })} aria-label="Rodapé">
           <a class={navLink()} href={BASE + 'processo'}>Processo</a>
           <a class={navLink()} href={BASE + 'publicacoes'}>Publicações</a>
+          <a class={navLink()} href={BASE + 'agentes'}>Agentes</a>
           <a class={navLink()} href={BASE + 'sobre'}>Sobre</a>
         </nav>
       </div>
