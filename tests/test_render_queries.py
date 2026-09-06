@@ -455,3 +455,127 @@ def test_site_status_pending_real_max_age_hours_is_null_when_nothing_pending(
     djen = payload["sources"]["djen"]
     assert djen["pending_real"] == 0
     assert djen["pending_real_max_age_hours"] is None
+
+
+# ── tribunal_calendar partitioning (#1191) ──────────────────────────────────────
+#
+# /stats' drill-down island only ever needs one tribunal's rows at a time, but
+# used to receive the whole tribunal_calendar contract (every tribunal x date
+# in the archive) as a client:only prop, which serializes it whole into the
+# page for hydration. render_all() now also splits the rendered
+# tribunal_calendar.json into one small file per tribunal — same canonical
+# contract, no second source of truth — so the frontend can fetch only the
+# tribunal it needs.
+
+_TRIBUNAL_CALENDAR_SQL = """
+SELECT
+  tribunal,
+  date,
+  CASE
+    WHEN ia_status = 'uploaded' THEN 'uploaded'
+    WHEN djen_status = 'absent' THEN 'absent'
+  END AS status
+FROM manifest
+WHERE ia_status = 'uploaded' OR djen_status = 'absent'
+ORDER BY tribunal, date
+"""
+
+
+@pytest.fixture
+def manifest_parquet_multi_tribunal(tmp_path: Path) -> Path:
+    """A manifest spanning two tribunals, for partition-by-tribunal tests."""
+    import duckdb
+
+    path = tmp_path / "sync-manifest-multi.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-01', 'uploaded', 'available', '200', "
+            "'2025-01-01T12:00:00+00:00'), "
+            "('tjro', '2025-01-02', '', 'absent', '404', "
+            "'2025-01-02T12:00:00+00:00'), "
+            "('tjsp', '2025-06-01', '', 'absent', '400', "
+            "'2025-06-01T12:00:00+00:00')"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_render_partitions_tribunal_calendar_by_tribunal(tmp_path, manifest_parquet_multi_tribunal):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    _write_qmd(
+        queries,
+        "tribunal_calendar.qmd",
+        _TRIBUNAL_CALENDAR_SQL,
+        output="/data/tribunal_calendar.json",
+    )
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet_multi_tribunal))
+    assert failures == []
+
+    tjro = json.loads((public / "data" / "tribunal_calendar_by_tribunal" / "tjro.json").read_text())
+    assert tjro == [
+        {"tribunal": "tjro", "date": "2025-01-01", "status": "uploaded"},
+        {"tribunal": "tjro", "date": "2025-01-02", "status": "absent"},
+    ]
+
+    tjsp = json.loads((public / "data" / "tribunal_calendar_by_tribunal" / "tjsp.json").read_text())
+    assert tjsp == [{"tribunal": "tjsp", "date": "2025-06-01", "status": "absent"}]
+
+
+def test_tribunal_calendar_partitions_have_parity_with_the_canonical_contract(
+    tmp_path, manifest_parquet_multi_tribunal
+):
+    """Every row in the canonical contract appears in exactly one partition."""
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    _write_qmd(
+        queries,
+        "tribunal_calendar.qmd",
+        _TRIBUNAL_CALENDAR_SQL,
+        output="/data/tribunal_calendar.json",
+    )
+    public = tmp_path / "public"
+
+    rq.render_all(queries, public, _manifest_specs(manifest_parquet_multi_tribunal))
+
+    canonical = json.loads((public / "data" / "tribunal_calendar.json").read_text())
+    partitioned: list[dict] = []
+    for partition_file in sorted(
+        (public / "data" / "tribunal_calendar_by_tribunal").glob("*.json")
+    ):
+        partitioned.extend(json.loads(partition_file.read_text()))
+
+    key = lambda row: (row["tribunal"], row["date"])  # noqa: E731
+    assert sorted(partitioned, key=key) == sorted(canonical, key=key)
+
+
+def test_render_without_tribunal_calendar_contract_writes_no_partitions(tmp_path, manifest_parquet):
+    """No tribunal_calendar.qmd in this build (or contract absent) → no partition dir."""
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    _write_qmd(
+        queries,
+        "totals.qmd",
+        "SELECT COUNT(*) AS total FROM manifest",
+        output="/data/totals.json",
+        fmt="object",
+    )
+    public = tmp_path / "public"
+
+    rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+
+    assert not (public / "data" / "tribunal_calendar_by_tribunal").exists()

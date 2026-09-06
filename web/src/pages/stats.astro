@@ -19,8 +19,17 @@ const statsCoverage = await loadContract('stats_coverage');
 const courtReliability = (await loadContract('court_reliability')) ?? [];
 const weeklyPattern = (await loadContract('weekly_pattern')) ?? [];
 const tribunalCoverage = (await loadContract('tribunal_coverage')) ?? [];
-const tribunalCalendarRows = (await loadContract('tribunal_calendar')) ?? [];
 const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
+
+// #1191: the drill-down island (client:only) only ever needs one tribunal's
+// days at a time. It used to receive the whole tribunal_calendar contract
+// (every tribunal x date in the archive) as a prop — client:only still
+// serializes its props into the page for hydration, so that shipped the
+// entire contract to every /stats visitor. scripts/render_queries.py now
+// splits tribunal_calendar.json into one small file per tribunal at the same
+// time it renders the canonical contract (before this build even starts);
+// the island fetches only the tribunal it needs — see
+// web/src/lib/tribunalCalendarPartition.ts.
 
 const BASE = import.meta.env.BASE_URL;
 const explorerTribunals = [...new Set(tribunalCoverage.map(t => t.tribunal))].sort();
@@ -177,7 +186,6 @@ const lowestDay = [...weeklyPattern].filter(w => w.days_count > 0 && w.avg > 0).
       <div class={css({ border: '1px solid', borderColor: 'border', background: 'surface', p: { base: '4', md: '6' } })}>
         <TribunalCoverageExplorer
           client:only="svelte"
-          calendarRows={tribunalCalendarRows}
           tribunals={explorerTribunals}
           publicBase={BASE}
           initialTribunal={explorerDefaultTribunal}
