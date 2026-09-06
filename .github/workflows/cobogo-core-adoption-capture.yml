@@ -127,6 +127,9 @@ jobs:
             capture "$state" "$port" "agentes.html" "1280,900" "desktop"
             capture "$state" "$port" "agentes.html" "390,844" "mobile"
             capture "$state" "$port" "stats.html" "1280,900" "desktop"
+            capture "$state" "$port" "stats.html" "390,844" "mobile"
+            capture "$state" "$port" "explorador.html" "1280,900" "desktop"
+            capture "$state" "$port" "explorador.html" "390,844" "mobile"
             capture "$state" "$port" "processo.html" "1280,900" "desktop"
             capture "$state" "$port" "processo.html" "390,844" "mobile"
             capture_invalid_process "$state" "$port" "1280,900" "desktop"
@@ -144,7 +147,8 @@ jobs:
             index.html-desktop index.html-mobile \
             sobre.html-desktop sobre.html-mobile \
             agentes.html-desktop agentes.html-mobile \
-            stats.html-desktop \
+            stats.html-desktop stats.html-mobile \
+            explorador.html-desktop explorador.html-mobile \
             processo.html-desktop processo.html-mobile \
             processo-invalid-desktop processo-invalid-mobile \
             publicacoes.html-desktop publicacoes.html-mobile \
