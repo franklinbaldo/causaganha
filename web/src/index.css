@@ -3,7 +3,10 @@
 
 :root {
   --cg-text: var(--colors-text, #17221f);
-  --cg-muted: var(--colors-text-muted, #62665f);
+  /* Slightly darker than Cobogó's current muted token so legacy Svelte
+     bridges also clear AA on the sand surface. Panda surfaces that need
+     stronger contrast use the semantic `text` token explicitly. */
+  --cg-muted: #5b5f59;
   --cg-canvas: var(--colors-canvas, #f4f0e6);
   --cg-surface: var(--colors-surface, #fffdf8);
   --cg-surface-muted: var(--colors-surface-muted, #e7dfce);
@@ -83,7 +86,7 @@ button, a { -webkit-tap-highlight-color: transparent; }
   line-height: 1.5;
 }
 
-main :where(h1, h2, h3, p) { overflow-wrap: anywhere; }
+main :where(h1, h2, h3, p) { overflow-wrap: break-word; }
 main :where(pre) {
   overflow-x: auto;
   border: 1px solid var(--cg-border);
