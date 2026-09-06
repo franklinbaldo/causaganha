@@ -1,42 +1,25 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PageHeader from '../../components/PageHeader.astro';
-import Breadcrumbs from '../../components/Breadcrumbs.astro';
 import TribunalDetail from '../../components/TribunalDetail.svelte';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
 import { loadContract } from '../../lib/data';
 import { readJson } from '../../lib/readJson';
+import { css } from '../../../styled-system/css';
+import { badge, navLink } from '../../../styled-system/recipes';
 import fs from 'node:fs';
 import path from 'node:path';
 
 export function getStaticPaths() {
-  return TRIBUNAIS.map(t => ({
-    params: { tribunal: t.toLowerCase() },
-    props: { tribunalCode: t },
-  }));
+  return TRIBUNAIS.map(t => ({ params: { tribunal: t.toLowerCase() }, props: { tribunalCode: t } }));
 }
 
 const { tribunalCode } = Astro.props;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const tribunalUpper = tribunalCode.toUpperCase();
-
-// Contagens do contrato canônico tribunal_coverage (sync-manifest.parquet) —
-// substitui o archive_snapshot legado de cache/backfill.json para os números
-// exibidos em metadados/OG. zipCount = pares (tribunal × dia) com ZIP no IA.
-const coverageRow = ((await loadContract('tribunal_coverage')) ?? [])
-  .find(row => row.tribunal.toUpperCase() === tribunalUpper);
+const coverageRow = ((await loadContract('tribunal_coverage')) ?? []).find(row => row.tribunal.toUpperCase() === tribunalUpper);
 const zipCount = coverageRow?.uploaded ?? 0;
 const earliestDate = coverageRow?.earliest_upload ?? '';
 const latestDate = coverageRow?.latest_upload ?? '';
-
-// Calendário dia-a-dia do contrato canônico tribunal_calendar (mesmo
-// sync-manifest.parquet) — substitui tribunalCoverage/tribunalAbsentCoverage/
-// iaSnapshot legados (cache/backfill.json), que historicamente divergiam do
-// manifesto canônico (issue #809). Filtrado por tribunal aqui em build-time
-// para não embarcar o contrato inteiro (todos os tribunais) no HTML da página.
-// loadContract('tribunal_calendar') é cacheado por processo (web/src/lib/data/index.ts) —
-// o array completo (todos os tribunais) só é lido/parseado/validado uma vez
-// para as ~96 páginas geradas por getStaticPaths, não uma vez por página.
 const calendarRows = (await loadContract('tribunal_calendar')) ?? [];
 const uploadedDates: string[] = [];
 const absentDates: string[] = [];
@@ -44,14 +27,8 @@ for (const row of calendarRows) {
   if (row.tribunal.toUpperCase() !== tribunalUpper) continue;
   (row.status === 'uploaded' ? uploadedDates : absentDates).push(row.date);
 }
-
-// tribunal_start_dates.json é um arquivo estático curado (data de gênese por
-// tribunal — não derivável do manifesto, que só rastreia datas a partir de
-// quando o tribunal entrou em operação). Lido em build-time, nunca em
-// runtime — não é o tipo de "snapshot paralelo" que a issue #809 mira.
 const tribunalStartDates = readJson<Record<string, string>>('tribunal_start_dates.json') ?? {};
 const startDate = tribunalStartDates[tribunalUpper] ?? null;
-
 const tribunalNames: Record<string, string> = {
   STF: 'Supremo Tribunal Federal', STJ: 'Superior Tribunal de Justiça', TST: 'Tribunal Superior do Trabalho',
   TSE: 'Tribunal Superior Eleitoral', STM: 'Superior Tribunal Militar', CNJ: 'Conselho Nacional de Justiça',
@@ -61,22 +38,8 @@ const ogDesc = zipCount > 0
   ? `${zipCount} ZIPs de diários arquivados (pares tribunal × dia) de ${earliestDate} a ${latestDate}`
   : `Publicações judiciais do ${tribunalCode} arquivadas no Internet Archive`;
 
-// Regenerate the OG image SVG from live snapshot data — but only during
-// production builds and only when we actually have stats. Skipping in dev
-// (and when zipCount is 0) avoids clobbering the committed fallback SVGs
-// in web/public/og/ whenever a contributor browses this page locally.
 if (import.meta.env.PROD && zipCount > 0) {
-  const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630">
-  <rect width="1200" height="630" fill="#0f172a"/>
-  <rect x="40" y="40" width="1120" height="550" rx="20" fill="#1e293b" stroke="#334155" stroke-width="2"/>
-  <text x="80" y="120" font-family="system-ui,sans-serif" font-size="24" fill="#94a3b8">CausaGanha</text>
-  <text x="80" y="200" font-family="system-ui,sans-serif" font-size="72" font-weight="bold" fill="#3b82f6">${tribunalCode}</text>
-  <text x="80" y="260" font-family="system-ui,sans-serif" font-size="28" fill="#cbd5e1">${fullName}</text>
-  <text x="80" y="360" font-family="monospace" font-size="48" font-weight="bold" fill="#f8fafc">${zipCount.toLocaleString('pt-BR')} ZIPs arquivados</text>
-  <text x="80" y="420" font-family="system-ui,sans-serif" font-size="24" fill="#64748b">${earliestDate ? earliestDate + ' a ' + latestDate : 'Internet Archive'}</text>
-  <text x="80" y="520" font-family="system-ui,sans-serif" font-size="20" fill="#475569">Dados públicos do Diário de Justiça Eletrônico Nacional</text>
-  <text x="80" y="555" font-family="system-ui,sans-serif" font-size="18" fill="#334155">franklinbaldo.github.io/causaganha</text>
-</svg>`;
+  const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#17221f"/><rect x="48" y="48" width="1104" height="534" fill="#f4f0e6"/><rect x="48" y="48" width="260" height="534" fill="#d5f03f"/><text x="360" y="170" font-family="Arial,sans-serif" font-size="28" fill="#62665f">CausaGanha · DJEN</text><text x="360" y="280" font-family="Arial,sans-serif" font-size="92" font-weight="900" fill="#17221f">${tribunalCode}</text><text x="360" y="335" font-family="Arial,sans-serif" font-size="26" fill="#17221f">${fullName}</text><text x="360" y="430" font-family="monospace" font-size="38" font-weight="700" fill="#17221f">${zipCount.toLocaleString('pt-BR')} ZIPs arquivados</text><text x="360" y="482" font-family="Arial,sans-serif" font-size="22" fill="#62665f">${earliestDate ? earliestDate + ' → ' + latestDate : 'Internet Archive'}</text></svg>`;
   const ogDir = path.resolve('./public/og');
   fs.mkdirSync(ogDir, { recursive: true });
   fs.writeFileSync(path.join(ogDir, `${tribunalCode.toLowerCase()}.svg`), ogSvg);
@@ -84,28 +47,27 @@ if (import.meta.env.PROD && zipCount > 0) {
 const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.site).toString();
 ---
 
-<Layout
-  title={`${tribunalCode} — Publicações — CausaGanha`}
-  description={ogDesc}
-  ogImage={ogImage}
->
-  <PageHeader backHref={BASE + 'publicacoes'} backLabel="Publicações" tile="tribunal" title="">
-    <Fragment slot="title">CausaGanha <small>/ {tribunalCode}</small></Fragment>
-  </PageHeader>
+<Layout title={`${tribunalCode} — Publicações — CausaGanha`} description={ogDesc} ogImage={ogImage} fullWidth={true}>
+  <section class={css({ background: 'surfaceMuted', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '10', md: '14' } })}>
+      <a class={navLink()} href={BASE + 'publicacoes'}>← Publicações</a>
+      <div class={css({ display: 'flex', alignItems: 'end', justifyContent: 'space-between', gap: '8', flexWrap: 'wrap', mt: '7' })}>
+        <div>
+          <span class={badge({ tone: 'accent' })}>DJEN · tribunal</span>
+          <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, m: '0', mt: '4' })}>{tribunalCode}</h1>
+          <p class={css({ mt: '3', mb: '0', color: 'textMuted', fontSize: 'lg' })}>{fullName}</p>
+        </div>
+        <div class={css({ fontFamily: 'mono', fontSize: 'sm', color: 'textMuted', textAlign: { md: 'right' } })}>
+          <strong class={css({ display: 'block', color: 'text', fontSize: 'xl' })}>{zipCount.toLocaleString('pt-BR')} ZIPs</strong>
+          {earliestDate ? `${earliestDate} → ${latestDate}` : 'sem período publicado'}
+        </div>
+      </div>
+    </div>
+  </section>
 
-  <div class="container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Publicações', href: BASE + 'publicacoes' },
-      { label: tribunalCode }
-    ]} />
-
-    <TribunalDetail
-      client:only="svelte"
-      tribunalCode={tribunalCode}
-      initialUploadedDates={uploadedDates}
-      initialAbsentDates={absentDates}
-      initialStartDate={startDate}
-    />
-  </div>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '10', md: '16' } })}>
+    <div class={css({ background: 'surface', border: '1px solid', borderColor: 'text', p: { base: '4', md: '7' } })}>
+      <TribunalDetail client:only="svelte" tribunalCode={tribunalCode} initialUploadedDates={uploadedDates} initialAbsentDates={absentDates} initialStartDate={startDate} />
+    </div>
+  </section>
 </Layout>

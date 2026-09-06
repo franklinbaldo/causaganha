@@ -1,76 +1,57 @@
 ---
 import Layout from '../../layouts/Layout.astro';
-import PageHeader from '../../components/PageHeader.astro';
-import Breadcrumbs from '../../components/Breadcrumbs.astro';
-import AlertBanner from '../../components/AlertBanner.svelte';
-import StatCard from '../../components/StatCard.astro';
-import EmptyState from '../../components/EmptyState.svelte';
 import { loadContract } from '../../lib/data';
 import { loadSiteStatus, formatUtcDateTime } from '../../lib/data/siteStatus';
 import { topAdvogadosTribunals } from '../../lib/advogadosCoverage';
+import { css } from '../../../styled-system/css';
+import { alert, badge, button, card } from '../../../styled-system/recipes';
 
-// Mesma fonte e mesma seleção da página /advogados: contrato canônico
-// tribunal_coverage (ver lib/advogadosCoverage.ts). O snapshot legado
-// cache/backfill.json foi aposentado desta rota.
 export async function getStaticPaths() {
   const coverage = await loadContract('tribunal_coverage');
-  return topAdvogadosTribunals(coverage).map((item) => ({
-    params: { tribunal: item.tribunal.toLowerCase() },
-  }));
+  return topAdvogadosTribunals(coverage).map(item => ({ params: { tribunal: item.tribunal.toLowerCase() } }));
 }
 
 const siteStatus = await loadSiteStatus();
 const generatedAtLabel = formatUtcDateTime(siteStatus.generated_at) ?? 'desconhecido';
 const coverage = await loadContract('tribunal_coverage');
 const tribunalStats = topAdvogadosTribunals(coverage);
-
 const { tribunal } = Astro.params;
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const key = String(tribunal ?? '').toUpperCase();
-const entry = tribunalStats.find((item) => item.tribunal === key);
+const entry = tribunalStats.find(item => item.tribunal === key);
 const query = `SELECT numero_oab, uf_oab, COUNT(*) AS aparicoes\nFROM advogados\nWHERE tribunal = '${key}'\nGROUP BY numero_oab, uf_oab\nORDER BY aparicoes DESC\nLIMIT 25;`;
 ---
 
-<Layout title={`${key} — Advogados — CausaGanha`} description={`Guia de consulta de advogados/OAB para ${key}.`} showNetworkBanner={false}>
-  <PageHeader backHref={BASE + 'advogados'} backLabel="Advogados" tile="advogados" title={`Guia por Tribunal: ${key}`} subtitle="Use no Explorador para consultar OABs com dados já coletados" />
+<Layout title={`${key} — OAB no acervo — CausaGanha`} description={`Guia de exploração de OABs no acervo de ${key}.`} fullWidth={true} showNetworkBanner={false}>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' } })}>
+    <span class={badge({ tone: 'neutral' })}>Ferramenta histórica · {key}</span>
+    <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, m: '0', mt: '5', maxW: '10ch' })}>Explore OABs no acervo.</h1>
+    <p class={css({ mt: '6', mb: '0', maxW: '48rem', color: 'textMuted', fontSize: 'lg', lineHeight: 'body' })}>
+      Esta rota não é um ranking de advogados. Ela mantém uma consulta reproduzível sobre registros do tribunal e direciona para o explorador.
+    </p>
+  </section>
 
-  <div class="container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Advogados', href: BASE + 'advogados' },
-      { label: key },
-    ]} />
-
-    <AlertBanner
-      level="info"
-      title="Detalhe baseado no manifesto canônico"
-      message={`Cobertura calculada do contrato tribunal_coverage (manifesto sync-manifest.parquet), gerado em ${generatedAtLabel}, com query pronta para localizar OABs reais no explorador.`}
-    />
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, pb: { base: '12', md: '18' }, display: 'grid', gap: '6' })}>
+    <div class={alert({ tone: 'info' })}>
+      <strong>Manifesto canônico.</strong>
+      <span>Cobertura calculada por `tribunal_coverage`, gerado em {generatedAtLabel}.</span>
+    </div>
 
     {entry ? (
       <>
-        <section class="auto-grid">
-          <StatCard title="Tribunal" value={entry.tribunal} />
-          <StatCard title="Cobertura" value={`${entry.dataRatePct.toFixed(1)}%`} subtitle="ZIPs arquivados / dias rastreados" tone="info" />
-          <StatCard title="Dias arquivados" value={`${entry.daysWithData.toLocaleString('pt-BR')} / ${entry.daysTotal.toLocaleString('pt-BR')}`} subtitle="Pares tribunal × dia com ZIP no IA" />
-        </section>
-
-        <article>
-          <h2>Consulta SQL sugerida</h2>
-          <p class="meta-text">Cole no explorador para identificar OABs mais recorrentes neste tribunal.</p>
-          <pre><code>{query}</code></pre>
-          <footer>
-            <a href={BASE + 'explorador'} role="button">Abrir Explorador</a>
-          </footer>
+        <div class={css({ display: 'grid', gridTemplateColumns: { base: '1fr', md: 'repeat(3, 1fr)' }, gap: '4' })}>
+          <article class={card()}><span class={css({ textStyle: 'eyebrow' })}>Tribunal</span><strong class={css({ display: 'block', mt: '3', fontSize: 'xl' })}>{entry.tribunal}</strong></article>
+          <article class={card({ tone: 'muted' })}><span class={css({ textStyle: 'eyebrow' })}>Cobertura</span><strong class={css({ display: 'block', mt: '3', fontSize: 'xl' })}>{entry.dataRatePct.toFixed(1)}%</strong></article>
+          <article class={card()}><span class={css({ textStyle: 'eyebrow' })}>Dias arquivados</span><strong class={css({ display: 'block', mt: '3', fontSize: 'xl' })}>{entry.daysWithData.toLocaleString('pt-BR')} / {entry.daysTotal.toLocaleString('pt-BR')}</strong></article>
+        </div>
+        <article class={card({ tone: 'dark' })}>
+          <p class={css({ textStyle: 'eyebrow', color: 'accent', mb: '3' })}>SQL sugerido</p>
+          <pre class={css({ background: 'text', color: 'canvas', borderColor: 'surfaceMuted', m: '0' })}><code>{query}</code></pre>
+          <a class={button({ visual: 'light' })} href={BASE + 'explorador'}>Abrir explorador</a>
         </article>
       </>
     ) : (
-      <EmptyState
-        title="Tribunal não encontrado"
-        message="Não há dados de cobertura para este identificador no contrato tribunal_coverage deste build."
-        actionHref={BASE + 'advogados'}
-        actionLabel="Voltar para Advogados"
-      />
+      <div class={alert({ tone: 'attention' })}><strong>Tribunal não encontrado.</strong><span>Não há cobertura para este identificador neste build.</span></div>
     )}
-  </div>
+  </section>
 </Layout>

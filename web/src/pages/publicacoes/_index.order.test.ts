@@ -14,20 +14,20 @@ function indexOfOrThrow(marker: string): number {
 }
 
 describe('/publicacoes page hierarchy (#1139)', () => {
-  it('renders the search action before the coverage/gaps explanation', () => {
+  it('renders the search action before the coverage explanation', () => {
     const searchIndex = indexOfOrThrow('<PublicationSearch');
-    const coverageIndex = indexOfOrThrow('Cobertura e lacunas por tribunal');
+    const coverageIndex = indexOfOrThrow('Cobertura não é uma promessa de completude.');
 
     expect(searchIndex).toBeLessThan(coverageIndex);
   });
 
-  it('keeps the search action immediately after the page header, with no attention-card in between', () => {
-    const headerIndex = indexOfOrThrow('class="page-head"');
+  it('keeps the page hero before search and explanatory alerts after search', () => {
+    const heroIndex = indexOfOrThrow('Encontre a publicação.');
     const searchIndex = indexOfOrThrow('<PublicationSearch');
-    const attentionCardIndex = pageSource.indexOf('attention-card');
+    const coverageAlertIndex = indexOfOrThrow("alert({ tone: 'info' })");
 
-    expect(headerIndex).toBeLessThan(searchIndex);
-    expect(attentionCardIndex === -1 || attentionCardIndex > searchIndex).toBe(true);
+    expect(heroIndex).toBeLessThan(searchIndex);
+    expect(searchIndex).toBeLessThan(coverageAlertIndex);
   });
 
   it('still distinguishes official absence, pending backfill, and transient failure', () => {

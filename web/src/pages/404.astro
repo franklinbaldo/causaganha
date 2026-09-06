@@ -1,37 +1,24 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
+import { css } from '../../styled-system/css';
+import { button } from '../../styled-system/recipes';
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
   title="Página não encontrada — CausaGanha"
-  description="O endereço não existe ou foi movido. Use a busca ou volte ao início para encontrar publicações judiciais arquivadas."
+  description="O endereço não existe ou foi movido. Use a busca ou volte ao início."
+  fullWidth={true}
 >
-  <PageHeader title="Página não encontrada" backHref={BASE} backLabel="Início" tile="404" />
-
-  <section class="container">
-    <hgroup>
-      <p class="error-code" aria-hidden="true">404</p>
-      <p>
-        O endereço não existe ou foi movido. Se você chegou por um link antigo, este conteúdo pode ainda não ter sido coletado — tente a busca ou volte ao início.
-      </p>
-    </hgroup>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '16', md: '28' }, display: 'grid', gridTemplateColumns: { base: '1fr', md: '0.7fr 1.3fr' }, gap: '10', alignItems: 'end' })}>
+    <p class={css({ m: '0', textStyle: 'display', color: 'attention' })} aria-hidden="true">404</p>
     <div>
-      <a href={BASE + 'publicacoes'} role="button">Buscar publicações</a>
-      <a href={BASE} role="button" class="secondary outline">Início</a>
+      <h1 class={css({ textStyle: 'title', fontSize: '2xl', m: '0' })}>Página não encontrada</h1>
+      <p class={css({ mt: '5', mb: '7', maxW: '38rem', color: 'textMuted', fontSize: 'lg', lineHeight: 'body' })}>O endereço não existe ou foi movido. Tente procurar a publicação ou volte ao início.</p>
+      <div class={css({ display: 'flex', flexWrap: 'wrap', gap: '3' })}>
+        <a class={button({ visual: 'solid' })} href={BASE + 'publicacoes'}>Buscar publicações</a>
+        <a class={button({ visual: 'outline' })} href={BASE}>Início</a>
+      </div>
     </div>
   </section>
 </Layout>
-
-<style>
-  /* Decorative digit, not a heading — PageHeader above already renders the
-     page's one heading ("Página não encontrada"). See not-found.feature. */
-  .error-code {
-    font-size: clamp(2.5rem, 10vw, 6rem);
-    font-weight: 800;
-    line-height: 1;
-    margin: 0;
-    color: var(--color-content);
-  }
-</style>

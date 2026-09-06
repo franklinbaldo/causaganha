@@ -9,8 +9,9 @@ from causaganha.decisoes.published import unpublished_fontes
 from causaganha_mcp.server import build_server
 
 
-_AGENTS_PAGE = Path(__file__).parents[2] / "web" / "src" / "pages" / "agentes.astro"
-_HOME_PAGE = Path(__file__).parents[2] / "web" / "src" / "pages" / "index.astro"
+_ROOT = Path(__file__).parents[2]
+_AGENTS_PAGE = _ROOT / "web" / "src" / "pages" / "agentes.astro"
+_LAYOUT = _ROOT / "web" / "src" / "layouts" / "Layout.astro"
 
 _EXPECTED_PUBLIC_JOBS = {
     "processo_consultar": "ARQUIVO",
@@ -28,35 +29,15 @@ class _PublicJobParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__()
         self.jobs: dict[str, str] = {}
-        self._tool: str | None = None
-        self._capture_job_code = False
-        self._job_code_parts: list[str] = []
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag != "article":
+            return
         attributes = dict(attrs)
-        if tag == "article" and attributes.get("data-mcp-tool"):
-            self._tool = attributes["data-mcp-tool"]
-            self._job_code_parts = []
-            return
-
-        classes = (attributes.get("class") or "").split()
-        if self._tool and tag == "span" and "job-code" in classes:
-            self._capture_job_code = True
-
-    def handle_data(self, data: str) -> None:
-        if self._capture_job_code:
-            self._job_code_parts.append(data)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag == "span" and self._capture_job_code:
-            self._capture_job_code = False
-            return
-
-        if tag == "article" and self._tool:
-            job_code = " ".join("".join(self._job_code_parts).split())
-            self.jobs[self._tool] = job_code
-            self._tool = None
-            self._job_code_parts = []
+        tool = attributes.get("data-mcp-tool")
+        role = attributes.get("data-mcp-role")
+        if tool and role:
+            self.jobs[tool] = role
 
 
 def _public_jobs() -> dict[str, str]:
@@ -66,7 +47,7 @@ def _public_jobs() -> dict[str, str]:
 
 
 class _DecisoesFonteParser(HTMLParser):
-    """Collects data-mcp-fonte/data-mcp-status pairs inside the decisoes_buscar job card."""
+    """Collect data-mcp-fonte/data-mcp-status pairs inside decisoes_buscar."""
 
     def __init__(self) -> None:
         super().__init__()
@@ -154,8 +135,8 @@ def test_agents_page_unpublished_fontes_match_the_publication_authority() -> Non
     assert site_unpublished == unpublished_fontes()
 
 
-def test_home_agents_interface_links_to_the_public_agents_page() -> None:
-    """Keep the MCP path inside the public product without freezing homepage copy."""
-    home = _HOME_PAGE.read_text(encoding="utf-8")
-    assert "href={BASE + 'agentes'}" in home
-    assert "github.com" not in home.lower()
+def test_global_navigation_links_to_the_public_agents_page() -> None:
+    """Keep the MCP path inside the public product without competing with primary jobs."""
+    layout = _LAYOUT.read_text(encoding="utf-8")
+    assert "href={BASE + 'agentes'}" in layout
+    assert ">Agentes</a>" in layout

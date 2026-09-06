@@ -1,50 +1,36 @@
 ---
 import Layout from '../layouts/Layout.astro';
-import PageHeader from '../components/PageHeader.astro';
-import Breadcrumbs from '../components/Breadcrumbs.astro';
 import DuckDBExplorer from '../components/DuckDBExplorer.svelte';
+import { css } from '../../styled-system/css';
+import { alert, badge } from '../../styled-system/recipes';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 ---
 
 <Layout
-  title="Explorador de Dados — CausaGanha"
-  description="Consulte dados judiciais brasileiros diretamente no navegador usando SQL e DuckDB-WASM."
+  title="Explorador de dados — CausaGanha"
+  description="Consulte os Parquets públicos do CausaGanha com SQL e DuckDB-WASM diretamente no navegador."
+  fullWidth={true}
 >
-  <PageHeader title="Explorador de Dados" backHref={BASE} backLabel="Início" tile="explorador">
-  </PageHeader>
-
-  <div class="container">
-    <Breadcrumbs crumbs={[
-      { label: 'Início', href: BASE },
-      { label: 'Explorador de Dados' }
-    ]} />
-
-    <section>
-      <p>
-        Execute consultas SQL diretamente nos arquivos Parquet hospedados no
-        <a href="https://archive.org/details/causaganha-dashboard" target="_blank" rel="noopener noreferrer">Internet Archive</a>
-        (um item por tribunal/ano, ex.: <code>djen-tjro-2026</code>).
-        O <strong>DuckDB-WASM</strong> roda inteiramente no seu navegador — nenhum dado é enviado para servidores externos.
+  <section class={css({ background: 'surfaceMuted', borderBottom: '1px solid', borderColor: 'text' })}>
+    <div class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '12', md: '18' } })}>
+      <span class={badge({ tone: 'info' })}>Ferramenta avançada</span>
+      <h1 class={css({ textStyle: 'display', fontSize: { base: '2xl', md: '3xl' }, m: '0', mt: '5', maxW: '11ch' })}>Consulte o dado bruto.</h1>
+      <p class={css({ mt: '6', mb: '0', maxW: '52rem', color: 'textMuted', fontSize: 'lg', lineHeight: 'body' })}>
+        Rode SQL diretamente sobre os Parquets públicos. O DuckDB-WASM executa no seu navegador; a consulta não passa por um servidor do CausaGanha.
       </p>
+    </div>
+  </section>
 
-      <article>
-        <header><strong>Fluxo do explorador</strong></header>
-        <ul>
-          <li>Escolha um tribunal e ano antes de editar a consulta SQL.</li>
-          <li>Use os templates para gerar automaticamente caminhos <code>read_parquet(...)</code> no formato <code>djen-&lt;tribunal&gt;-&lt;ano&gt;</code>.</li>
-          <li>Consulte rapidamente as tabelas principais: comunicações, advogados, vínculos e processos.</li>
-        </ul>
-      </article>
-    </section>
+  <section class={css({ maxW: 'content', mx: 'auto', px: { base: '5', md: '8' }, py: { base: '10', md: '14' }, display: 'grid', gap: '8' })}>
+    <div class={alert({ tone: 'info' })}>
+      <strong>Comece escolhendo tribunal e ano.</strong>
+      <span>Os templates montam caminhos `read_parquet(...)` para comunicações, advogados, vínculos e processos.</span>
+      <a href="https://archive.org/details/causaganha-dashboard">Ver arquivos no Internet Archive ↗</a>
+    </div>
 
-    <DuckDBExplorer client:only="svelte" publicBase={BASE} />
-
-    <footer>
-      <small data-tone="muted">
-        Dados do DJEN arquivados no Internet Archive.
-        O DuckDB-WASM executa no navegador — seus dados não saem do seu dispositivo.
-      </small>
-    </footer>
-  </div>
+    <div class={css({ minW: '0', background: 'surface', border: '1px solid', borderColor: 'text', p: { base: '4', md: '6' } })}>
+      <DuckDBExplorer client:only="svelte" publicBase={BASE} />
+    </div>
+  </section>
 </Layout>

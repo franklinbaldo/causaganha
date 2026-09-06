@@ -1,17 +1,189 @@
-@import '@picocss/pico/css/pico.css';
-@import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
-@import url('https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600;700;800;900&family=Piazzolla:ital,wght@0,400;0,500;0,700;1,400;1,500&display=swap');
-
-@import './styles/tokens.css';
-/* Verbatim, commit-pinned upstream snapshot. See vendor/cobogo-core.pin.json. */
-@import './styles/vendor/cobogo-core.css';
-/* Product values override Cobogó defaults; CausaGanha keeps its own identity. */
-@import './styles/cobogo-mapping.css';
-@import './styles/base.css';
 @import './styles/query-states.css';
-@import './styles/layout.css';
-@import './styles/navigation.css';
-@import './styles/publications.css';
-@import './styles/data-viz.css';
-/* Local fixes proved by the rendered accessibility audit. */
-@import './styles/accessibility.css';
+@layer reset, base, tokens, recipes, utilities;
+
+:root {
+  --cg-text: var(--colors-text, #17221f);
+  /* Slightly darker than Cobogó's current muted token so legacy Svelte
+     bridges also clear AA on the sand surface. Panda surfaces that need
+     stronger contrast use the semantic `text` token explicitly. */
+  --cg-muted: #5b5f59;
+  --cg-canvas: var(--colors-canvas, #f4f0e6);
+  --cg-surface: var(--colors-surface, #fffdf8);
+  --cg-surface-muted: var(--colors-surface-muted, #e7dfce);
+  --cg-border: var(--colors-border, #bdb5a5);
+  --cg-accent: var(--colors-accent, #d5f03f);
+  --cg-info: var(--colors-info, #235f77);
+  --cg-attention: var(--colors-attention, #ed654b);
+  --fg: var(--cg-text);
+  --fg-muted: var(--cg-muted);
+  --border: var(--cg-border);
+  --papel-00: var(--cg-canvas);
+  --papel-20: var(--cg-surface);
+  --verde: var(--cg-accent);
+  --color-accent: var(--cg-accent);
+  --color-canvas: var(--cg-canvas);
+  --color-surface: var(--cg-surface);
+  --color-surface-overlay: var(--cg-surface);
+  --color-border: var(--cg-border);
+  --color-content-tertiary: var(--cg-muted);
+  --font-sans: var(--fonts-body, "Helvetica Neue", Arial, sans-serif);
+  --font-display: var(--fonts-display, "Arial Narrow", "Helvetica Neue", Arial, sans-serif);
+  --font-mono: var(--fonts-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  --t-micro: 0.75rem;
+  --t-small: 0.875rem;
+  --radius: 0.2rem;
+  --radius-box: 0.2rem;
+  --s-2: 0.5rem;
+  --s-3: 0.75rem;
+  --s-4: 1rem;
+  --s-5: 1.25rem;
+  --s-6: 1.5rem;
+  --s-8: 2rem;
+}
+
+html { scroll-behavior: smooth; }
+body { margin: 0; }
+*, *::before, *::after { box-sizing: border-box; }
+img, svg { max-width: 100%; }
+button, input, select, textarea { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.skip-link {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 999;
+  transform: translateY(-180%);
+  padding: 0.75rem 1rem;
+  background: var(--cg-text);
+  color: var(--cg-canvas);
+  font-weight: 800;
+}
+.skip-link:focus { transform: translateY(0); }
+
+.container {
+  width: min(calc(100% - 2rem), 76rem);
+  margin-inline: auto;
+}
+
+.meta-text,
+[data-tone='muted'] {
+  color: var(--cg-muted);
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  line-height: 1.5;
+}
+
+main :where(h1, h2, h3, p) { overflow-wrap: break-word; }
+main :where(pre) {
+  overflow-x: auto;
+  border: 1px solid var(--cg-border);
+  background: var(--cg-surface);
+  padding: 1rem;
+}
+main :where(code) { font-family: var(--font-mono); }
+main :where(details) {
+  border-top: 1px solid var(--cg-border);
+  padding-block: 1rem;
+}
+main :where(summary) { cursor: pointer; font-weight: 800; }
+
+:where(input, select, textarea) {
+  width: 100%;
+  min-height: 3rem;
+  border: 1px solid var(--cg-border);
+  border-radius: 0;
+  background: var(--cg-surface);
+  color: var(--cg-text);
+  padding: 0.8rem 0.9rem;
+}
+:where(input, select, textarea):focus-visible {
+  outline: 3px solid var(--cg-accent);
+  outline-offset: 1px;
+}
+
+:where(button, a[role='button']) {
+  min-height: 2.75rem;
+  border: 1px solid var(--cg-text);
+  border-radius: 0;
+  background: var(--cg-accent);
+  color: var(--cg-text);
+  padding: 0.7rem 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  text-decoration: none;
+}
+:where(button.secondary, .secondary[role='button'], button.outline, .outline[role='button']) {
+  background: transparent;
+}
+:where(button):disabled { opacity: 0.5; cursor: not-allowed; }
+:where(button, a[role='button']):focus-visible {
+  outline: 3px solid var(--cg-info);
+  outline-offset: 3px;
+}
+
+:where(.alert, [role='alert'], .empty-state, .empty-search) {
+  border: 1px solid var(--cg-border);
+  border-left: 0.5rem solid var(--cg-info);
+  background: var(--cg-surface);
+  padding: 1rem;
+}
+:where([data-level='warning'], [data-tone='warning']) { border-left-color: var(--cg-attention); }
+:where([data-level='error'], [data-tone='error']) { border-left-color: var(--cg-attention); }
+
+.processo-lookup,
+.publication-search {
+  display: grid;
+  gap: 1.25rem;
+}
+.processo-lookup__form,
+.publication-search form {
+  display: grid;
+  gap: 0.75rem;
+}
+.processo-lookup__row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.75rem;
+}
+
+.publication-search__actions,
+.publication-search__result-actions,
+.empty-search__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.publication-search__results-list,
+.publication-search ul[aria-label='Lista de filtros ativos'] {
+  list-style: none;
+  padding: 0;
+}
+.publication-search__results-list { display: grid; gap: 1rem; }
+
+#network-status-banner {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  border-bottom: 1px solid var(--cg-text);
+  background: var(--cg-attention);
+  color: var(--cg-text);
+  padding: 0.75rem 1rem;
+}
+
+@media (max-width: 42rem) {
+  .processo-lookup__row { grid-template-columns: 1fr; }
+  .processo-lookup__row button { width: 100%; }
+}
