@@ -1,6 +1,7 @@
 <script>
   import { onMount } from 'svelte';
   import { getDuckDB } from '../lib/duckdbSingleton';
+  import { buildExplorerRecipes, recipeIsAvailable } from '../lib/explorerRecipes';
 
   const IA_BASE = 'https://archive.org/download';
   const CURRENT_YEAR = new Date().getUTCFullYear();
@@ -27,40 +28,6 @@
     },
   ];
 
-  const TEMPLATE_DEFINITIONS = [
-    {
-      label: 'Comunicações por órgão',
-      description: 'Conta as comunicações por órgão julgador no dataset selecionado.',
-      sql: (path) => `SELECT nome_orgao, COUNT(*) as total
-FROM read_parquet('${path('comunicacoes.parquet')}')
-GROUP BY nome_orgao
-ORDER BY total DESC
-LIMIT 20`,
-    },
-    {
-      label: 'Advogados mais ativos',
-      description: 'Cruza advogados com vínculos de comunicação para ranquear por volume.',
-      sql: (path) => `SELECT nome, numero_oab, uf_oab, COUNT(*) as comunicacoes
-FROM read_parquet('${path('advogados.parquet')}') a
-JOIN read_parquet('${path('comunicacao_advogados.parquet')}') ca
-  ON a.id = ca.advogado_id
-GROUP BY nome, numero_oab, uf_oab
-ORDER BY comunicacoes DESC
-LIMIT 20`,
-    },
-    {
-      label: 'Processos distintos',
-      description: 'Conta processos únicos nas comunicações.',
-      sql: (path) => `SELECT COUNT(DISTINCT numero_processo) as processos
-FROM read_parquet('${path('comunicacoes.parquet')}')`,
-    },
-    {
-      label: 'Schema de comunicações',
-      description: 'Inspeciona as colunas de comunicações sem carregar linhas.',
-      sql: (path) => `DESCRIBE SELECT * FROM read_parquet('${path('comunicacoes.parquet')}') LIMIT 0`,
-    },
-  ];
-
   let { publicBase = '/' } = $props();
 
   let sql = $state('');
@@ -75,6 +42,9 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
   let datasetStatus = $state('idle');
   let datasetError = $state(null);
   let datasetFiles = $state([]);
+  let recipeStartDate = $state('');
+  let recipeEndDate = $state('');
+  let recipeCnj = $state('');
 
   let db = null;
   let conn = null;
@@ -93,7 +63,7 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
     ...table,
     available: datasetStatus === 'ready' ? availableFileNames.has(table.file) : null,
   })));
-  const queryTemplates = $derived(hasDatasetSelection ? buildTemplates() : []);
+  const queryTemplates = $derived(datasetStatus === 'ready' ? buildTemplates() : []);
   const suggestedTribunals = $derived(tribunals.slice(0, 8).join(', '));
   const suggestedYears = $derived(selectedTribunal ? getYearOptions(selectedTribunal).join(', ') : DEFAULT_YEARS.join(', '));
 
@@ -116,16 +86,40 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
   }
 
   function buildTemplates() {
-    return TEMPLATE_DEFINITIONS.map((template) => ({
+    return buildExplorerRecipes(parquetPath, {
+      startDate: recipeStartDate,
+      endDate: recipeEndDate,
+      cnj: recipeCnj,
+    }).map((template) => ({
       ...template,
-      sql: template.sql(parquetPath),
+      available: recipeIsAvailable(template, availableFileNames),
     }));
   }
 
   function applyTemplate(template) {
+    if (!template.available || template.missingInput) return;
     sql = template.sql;
     result = null;
     error = null;
+    queueMicrotask(() => textareaEl?.focus());
+  }
+
+  function useFreeEditor() {
+    sql = '';
+    result = null;
+    error = null;
+    queueMicrotask(() => textareaEl?.focus());
+  }
+
+  function templateDisabled(template) {
+    return dbStatus !== 'ready' || datasetStatus !== 'ready' || !template.available || Boolean(template.missingInput);
+  }
+
+  function templateHint(template) {
+    if (!template.available) return 'Arquivo necessário não disponível neste dataset.';
+    if (template.missingInput === 'period') return 'Informe data inicial e final.';
+    if (template.missingInput === 'cnj') return 'Informe um CNJ válido com 20 dígitos.';
+    return template.description;
   }
 
   function describeMissingDataset() {
@@ -482,34 +476,70 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
       </div>
     </section>
 
-    <!-- Starter cards -->
-    <div class="auto-grid" aria-label="Consultas de exemplo">
-      {#each queryTemplates.slice(0, 3) as tmpl}
-        <button
-          class="outline"
-          onclick={() => applyTemplate(tmpl)}
-          disabled={dbStatus !== 'ready' || datasetStatus !== 'ready'}
-        >
-          <strong>{tmpl.label}</strong>
-          <small>{tmpl.description}</small>
+    {#if datasetStatus === 'ready'}
+      <section aria-labelledby="recipe-title">
+        <h3 id="recipe-title">Receitas de consulta</h3>
+        <p>
+          Escolha uma receita para preencher o editor. O SQL aparece completo antes da execução e continua livre para edição.
+        </p>
+        <div class="grid">
+          <label>
+            Data inicial
+            <input type="date" bind:value={recipeStartDate} aria-label="Data inicial da receita" />
+          </label>
+          <label>
+            Data final
+            <input type="date" bind:value={recipeEndDate} aria-label="Data final da receita" />
+          </label>
+          <label>
+            Processo CNJ
+            <input
+              type="text"
+              bind:value={recipeCnj}
+              inputmode="numeric"
+              placeholder="0001234-56.2026.8.22.0001"
+              aria-label="Número CNJ da receita"
+            />
+          </label>
+        </div>
+
+        <!-- Starter cards -->
+        <div class="auto-grid" aria-label="Receitas de consulta">
+          {#each queryTemplates.slice(0, 4) as tmpl}
+            <button
+              class="outline"
+              onclick={() => applyTemplate(tmpl)}
+              disabled={templateDisabled(tmpl)}
+              title={templateHint(tmpl)}
+            >
+              <strong>{tmpl.label}</strong>
+              <small>{templateHint(tmpl)}</small>
+            </button>
+          {/each}
+        </div>
+
+        <details>
+          <summary>Ver mais receitas</summary>
+          <div class="auto-grid">
+            {#each queryTemplates.slice(4) as tmpl}
+              <button
+                class="secondary"
+                onclick={() => applyTemplate(tmpl)}
+                disabled={templateDisabled(tmpl)}
+                title={templateHint(tmpl)}
+              >
+                <strong>{tmpl.label}</strong>
+                <small>{templateHint(tmpl)}</small>
+              </button>
+            {/each}
+          </div>
+        </details>
+
+        <button class="secondary outline" onclick={useFreeEditor}>
+          Voltar ao editor SQL livre
         </button>
-      {/each}
-    </div>
-    <!-- Additional templates -->
-    <details>
-      <summary>Ver mais consultas de exemplo</summary>
-      <div>
-        {#each queryTemplates.slice(3) as tmpl}
-          <button
-            class="secondary"
-            onclick={() => applyTemplate(tmpl)}
-            disabled={dbStatus !== 'ready' || datasetStatus !== 'ready'}
-          >
-            {tmpl.label}
-          </button>
-        {/each}
-      </div>
-    </details>
+      </section>
+    {/if}
   {/if}
 
   <!-- SQL editor -->
