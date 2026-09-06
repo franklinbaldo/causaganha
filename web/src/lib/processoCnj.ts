@@ -662,6 +662,20 @@ export function formatFonteIndisponivelAviso(fonte: Fonte, detalhe: string): str
   return `Fonte '${fonte}' indisponível para este processo: ${detalhe}`;
 }
 
+const FONTE_INDISPONIVEL_AVISO_PATTERN = /^Fonte '([a-z]+)' indisponível para este processo: /;
+
+/**
+ * Inverso de formatFonteIndisponivelAviso: extrai a fonte de um aviso, se o
+ * aviso seguir exatamente esse formato. Usado por quem precisa saber QUAL
+ * fonte falhou a partir de `ProcessoResultado.avisos` (ex.: snapshot de
+ * consulta salva, #1133) sem duplicar o parsing do texto em cada chamador.
+ */
+export function parseFonteIndisponivelAviso(aviso: string): Fonte | null {
+  const match = FONTE_INDISPONIVEL_AVISO_PATTERN.exec(aviso);
+  const fonte = match?.[1];
+  return fonte && (ALL_FONTES as readonly string[]).includes(fonte) ? (fonte as Fonte) : null;
+}
+
 /**
  * Como queryRows, mas isolada por fonte: uma falha (404, CORS, parquet
  * corrompido, erro transitório) vira aviso identificando `fonte` e resolve
