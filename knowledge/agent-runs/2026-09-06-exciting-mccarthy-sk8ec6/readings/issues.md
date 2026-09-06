@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-sk8ec6-reading-issues"
+run_id: "2026-09-06-exciting-mccarthy-sk8ec6"
+subject: "open_issues"
+reference: "mcp__github__list_issues franklinbaldo/causaganha state=OPEN (19 results, ordered by updated_at desc)"
+finding: "19 open issues. #1193 ('fix(web/explorador): distinguir dataset ausente de indisponibilidade do Internet Archive') was filed by the repo owner this same day (created/updated 2026-09-06T08:01:39Z, minutes before this round started) and is explicitly marked 'READY para IMPLEMENTAÇÃO' with a small, single-component scope (DuckDBExplorer.svelte) and eight concrete acceptance criteria, including an explicit test list (404, metadata sem Parquet, 5xx, network failure). It also states it 'deve entrar antes de #1132' (web(explorador): receitas executáveis), making it a blocking prerequisite for that other open issue rather than an isolated nice-to-have. Read DuckDBExplorer.svelte live and confirmed the bug directly: its dataset-validation effect wrapped the entire Internet Archive metadata fetch in one try/catch that treated 404, 5xx, network failure, and 'no parquet files found' identically, cached the result under 'missing' permanently for the session, and told the user the dataset was not found even when the real cause was a transient Internet Archive outage. #1131 (stats drill-down) is already shipped this cycle (PR #1189, merged as f96ea75, confirmed via `git log origin/main`). #1132 explicitly depends on #1193 landing first, per #1193's own body. #1093 is explicitly annotated by its own owner as 'NÃO é prioridade imediata'. Segmenter issues (#1047/#1050-1057/#884/#886/#887), TCU/TSE Internet Archive publication (#1022/#1011/#985), and MCP remote hosting (#950/#951) remain unchanged from every prior round's assessment: they need real annotation/GPU work, a live credentialed-upload sign-off, or a live hosting/deploy decision respectively — none suited to an unattended round."
+---
+
+# Leitura das issues abertas
+
+19 issues abertas. A `#1193`, aberta minutos antes desta rodada e marcada "READY para IMPLEMENTAÇÃO", descreve com precisão um bug real confirmado por leitura direta de `DuckDBExplorer.svelte`: qualquer falha na checagem de metadados do Internet Archive (404, 5xx, falha de rede, resposta inválida) virava, indistintamente, `"dataset ausente"`, cacheado permanentemente na sessão. A issue também bloqueia `#1132`. Demais candidatos permanecem no mesmo estado avaliado por rodadas anteriores (não prioritários, dependem de decisão humana, ou já entregues).
