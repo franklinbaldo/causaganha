@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-yigsua-reading-issues"
+run_id: "2026-09-06-exciting-mccarthy-yigsua"
+subject: "open_issues"
+reference: "mcp__github__list_issues franklinbaldo/causaganha state=OPEN (19 results, ordered by updated_at desc)"
+finding: "19 open issues. #1197 ('fix(web/explorador): não converter falha HTTP durante a consulta em dataset ausente'), filed by the repo owner minutes before this round started (2026-09-06T09:00:27Z), is an explicit, owner-marked 'READY para IMPLEMENTAÇÃO' follow-up to #1193/PR #1195 (fixed by round sk8ec6 this same day): that round corrected the dataset-*validation* step in DuckDBExplorer.svelte (checkDataset/the metadata-fetch effect) to distinguish 'missing' from 'unavailable', but the *query-execution* path (runQuery()'s catch block) still has the old collapsing logic — `message.includes(itemId) || message.includes('HTTP')` decorates almost any HTTP-shaped error (including transient 5xx/timeout/network failures during `conn.query()`'s remote parquet read) with the 'dataset not found' text. Verified this directly by reading DuckDBExplorer.svelte:312-316 live. #1197 explicitly states it must land before #1132 ('adicionar receitas executáveis'), which itself now states in its own body (updated same day) that it depends on #1197 — a direct, single, unambiguous chain confirmed by reading both issues' current text, not inferred. #1093 remains explicitly 'NÃO é prioridade imediata' by its own owner. Segmenter issues (#1047/#1050-1057/#884/#886/#887), TCU/TSE Internet Archive publication (#1022/#1011/#985), and MCP remote hosting (#950/#951) remain unchanged from every prior round's assessment: GPU/annotation-heavy work, a live credentialed-upload sign-off, or a live hosting/deploy decision respectively — none suited to an unattended round."
+---
+
+# Leitura das issues abertas
+
+19 issues abertas. A `#1197`, aberta minutos antes desta rodada e marcada "READY para IMPLEMENTAÇÃO", é um follow-up direto e bem delimitado da `#1193`/PR #1195 (corrigida pela rodada anterior, `sk8ec6`, nesta mesma data): aquela rodada corrigiu a *validação* do dataset, mas o mesmo erro semântico (tratar qualquer erro com "HTTP" na mensagem como "dataset ausente") ainda existe no *catch* de `runQuery()`. A `#1197` bloqueia a `#1132`, que já reflete essa dependência no próprio corpo. Demais candidatos inalterados frente a rodadas anteriores.

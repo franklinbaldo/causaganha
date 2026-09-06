@@ -140,6 +140,28 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
     return `Não foi possível verificar o dataset ${itemId || '(sem seleção)'} no Internet Archive agora — isso indica instabilidade temporária do serviço, não que o dataset não exista. Tente novamente em instantes.`;
   }
 
+  function classifyQueryError(message, id) {
+    if (!message) return null;
+
+    const mentionsDataset = Boolean(id) && message.includes(id);
+    const looksLikeNotFound = /\b404\b/.test(message) || /not found/i.test(message);
+    if (mentionsDataset && looksLikeNotFound) {
+      return 'missing';
+    }
+
+    const looksLikeTransientFailure =
+      /\bHTTP\b/i.test(message) ||
+      /\b5\d{2}\b/i.test(message) ||
+      /timeout/i.test(message) ||
+      /network/i.test(message) ||
+      /failed to fetch/i.test(message);
+    if (looksLikeTransientFailure) {
+      return 'unavailable';
+    }
+
+    return null;
+  }
+
   async function checkDataset(id) {
     let response;
     try {
@@ -311,9 +333,14 @@ FROM read_parquet('${path('comunicacoes.parquet')}')`,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      error = message.includes(itemId) || message.includes('HTTP')
-        ? `${message}\n\n${describeMissingDataset()}`
-        : message;
+      const classification = classifyQueryError(message, itemId);
+      if (classification === 'missing') {
+        error = `${message}\n\n${describeMissingDataset()}`;
+      } else if (classification === 'unavailable') {
+        error = `${message}\n\n${describeUnavailableDataset()}`;
+      } else {
+        error = message;
+      }
     } finally {
       loading = false;
     }
