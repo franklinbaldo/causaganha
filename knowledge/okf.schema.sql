@@ -167,7 +167,7 @@ CREATE TABLE "AgentCheck" (
 CREATE TABLE "BacklogItem" (
     issue_number BIGINT PRIMARY KEY,
     title VARCHAR NOT NULL CHECK (length(trim(title)) > 0),
-    category VARCHAR NOT NULL CHECK (category IN ('ml_data_work', 'credentials', 'infra_decision', 'deprioritized_by_owner')),
+    category VARCHAR NOT NULL CHECK (category IN ('ml_data_work', 'credentials', 'infra_decision', 'deprioritized_by_owner', 'network_access')),
     blocking_reason VARCHAR NOT NULL CHECK (length(trim(blocking_reason)) > 0),
     unblock_condition VARCHAR NOT NULL CHECK (length(trim(unblock_condition)) > 0),
     last_verified_run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
