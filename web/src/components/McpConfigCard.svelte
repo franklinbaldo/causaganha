@@ -44,7 +44,12 @@
     <span>Configuração genérica</span>
     <span>{label}</span>
   </div>
-  <pre tabindex="0"><code>{config}</code></pre>
+  <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
+  <pre
+    tabindex="0"
+    role="region"
+    aria-label="Configuração MCP ({label}), rolável horizontalmente"
+  ><code>{config}</code></pre>
   <div class="config-card__actions">
     <button type="button" class="outline secondary" onclick={copyConfig}>
       Copiar configuração
