@@ -79,27 +79,38 @@ export function searchConsultationId(query: DjenComunicacaoQuery): string {
   return `busca:${canonicalSearchParams(query)}`;
 }
 
+/**
+ * Sole authority for turning arbitrary, untrusted array entries into valid
+ * `SavedConsultation`s — shared by `parseSavedConsultations` (live storage,
+ * bare array or versioned envelope) and `savedConsultationsBackup.ts`
+ * (export/import file). Never accept a shape here that the other callers
+ * wouldn't also accept from local storage.
+ */
+export function parseSavedConsultationItems(rawItems: unknown[]): SavedConsultation[] {
+  return rawItems
+    .map((item): SavedConsultation | null => {
+      if (isSavedProcess(item)) {
+        const cnj = normalizeCnj(item.cnj);
+        const label = item.label?.trim() || formatCnj(cnj);
+        return { ...item, id: `processo:${cnj}`, cnj, label };
+      }
+      if (isSavedSearch(item)) {
+        const label = item.label?.trim() || 'Busca DJEN';
+        return { ...item, id: `busca:${item.params}`, label };
+      }
+      return null;
+    })
+    .filter((item): item is SavedConsultation => item !== null)
+    .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+}
+
 export function parseSavedConsultations(raw: string | null): SavedConsultation[] {
   if (!raw) return [];
   try {
     const parsed: unknown = JSON.parse(raw);
     const rawItems = Array.isArray(parsed) ? parsed : isVersionedPayload(parsed) ? parsed.items : null;
     if (!rawItems) return [];
-    return rawItems
-      .map((item): SavedConsultation | null => {
-        if (isSavedProcess(item)) {
-          const cnj = normalizeCnj(item.cnj);
-          const label = item.label?.trim() || formatCnj(cnj);
-          return { ...item, id: `processo:${cnj}`, cnj, label };
-        }
-        if (isSavedSearch(item)) {
-          const label = item.label?.trim() || 'Busca DJEN';
-          return { ...item, id: `busca:${item.params}`, label };
-        }
-        return null;
-      })
-      .filter((item): item is SavedConsultation => item !== null)
-      .sort((a, b) => b.savedAt.localeCompare(a.savedAt));
+    return parseSavedConsultationItems(rawItems);
   } catch {
     return [];
   }

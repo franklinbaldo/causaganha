@@ -11,6 +11,7 @@
     serializeSavedConsultations,
     type SavedConsultation,
   } from '../lib/savedConsultations';
+  import { mergeSavedConsultations, parseBackup, serializeBackup } from '../lib/savedConsultationsBackup';
   import {
     buildConsultationSnapshot,
     compareConsultationSnapshots,
@@ -34,6 +35,7 @@
   let notice = $state<string | null>(null);
   let ready = $state(false);
   let cnjInput: HTMLInputElement;
+  let importFileInput: HTMLInputElement = $state()!;
 
   type ChangeVerdict = ConsultationComparison | 'carregando' | 'erro';
   let changeStatus = $state<Record<string, ChangeVerdict>>({});
@@ -140,6 +142,59 @@
     persist(renameSavedConsultation(items, item.id, nextLabel));
   }
 
+  /** Backup manual, local, sem conta nem rede (#1235) — não é sincronização. */
+  function exportBackup() {
+    const timestampSlug = new Date().toISOString().replace(/[:.]/g, '-');
+    const blob = new Blob([serializeBackup(items)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `causaganha-minhas-consultas-${timestampSlug}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function triggerImport() {
+    importFileInput.click();
+  }
+
+  function readFileAsText(file: File): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(reader.error);
+      reader.readAsText(file);
+    });
+  }
+
+  async function importBackupFile(event: Event) {
+    const input = event.currentTarget as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+
+    error = null;
+    notice = null;
+    const raw = await readFileAsText(file);
+    const result = parseBackup(raw);
+    if (!result.ok) {
+      error = result.error;
+      return;
+    }
+
+    const before = new Set(items.map((item) => item.id));
+    const merged = mergeSavedConsultations(items, result.items);
+    persist(merged);
+    const added = merged.filter((item) => !before.has(item.id));
+    notice =
+      added.length > 0
+        ? `${added.length} consulta(s) importada(s). Itens já existentes mantiveram seus dados locais.`
+        : 'Nenhuma consulta nova encontrada no arquivo — os itens já existiam.';
+    for (const item of added) {
+      if (item.type === 'processo') void checkForChanges(item);
+    }
+  }
+
   onMount(() => {
     items = parseSavedConsultations(localStorage.getItem(SAVED_CONSULTATIONS_STORAGE_KEY));
     ready = true;
@@ -158,6 +213,33 @@
       dispositivo: não exige conta, não é enviada ao CausaGanha e desaparece se você limpar os dados
       locais do navegador.
     </p>
+    {#if ready}
+      <div class="saved-consultations__backup">
+        <button
+          type="button"
+          class="outline secondary"
+          disabled={items.length === 0}
+          onclick={exportBackup}
+        >
+          Exportar salvos
+        </button>
+        <button type="button" class="outline secondary" onclick={triggerImport}>
+          Importar salvos
+        </button>
+        <input
+          bind:this={importFileInput}
+          type="file"
+          accept="application/json,.json"
+          class="sr-only"
+          aria-label="Selecionar arquivo de backup para importar"
+          onchange={importBackupFile}
+        />
+        <small class="meta-text">
+          Backup manual em arquivo local: não sincroniza entre dispositivos nem envia dados ao
+          CausaGanha.
+        </small>
+      </div>
+    {/if}
   </div>
 
   <form class="saved-consultations__form" onsubmit={addProcess}>
@@ -261,6 +343,18 @@
 
   .saved-consultations__intro h2 {
     margin-top: var(--s-2, 0.5rem);
+  }
+
+  .saved-consultations__backup {
+    display: flex;
+    align-items: center;
+    gap: var(--s-2, 0.5rem);
+    flex-wrap: wrap;
+    margin-top: var(--s-3, 0.75rem);
+  }
+
+  .saved-consultations__backup small {
+    flex-basis: 100%;
   }
 
   .saved-consultations__form {
