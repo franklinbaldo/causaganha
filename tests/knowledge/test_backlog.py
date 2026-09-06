@@ -34,6 +34,7 @@ VALID_CATEGORIES = {
     "credentials",
     "infra_decision",
     "deprioritized_by_owner",
+    "network_access",
 }
 VALID_STATUSES = {"blocked", "deprioritized", "unblocked"}
 REQUIRED_TEXT_FIELDS = (
@@ -96,3 +97,25 @@ def test_every_backlog_item_last_verified_run_id_resolves_to_a_real_agent_run() 
         assert run_file.is_file(), (
             f"{path}: last_verified_run_id {run_id!r} has no knowledge/agent-runs/{run_id}/run.md"
         )
+
+
+def test_backlog_item_985_reflects_its_actual_tse_network_blocker() -> None:
+    """Issue #985 (TSE Processual 2026 integration proof) was filed in #1211 by
+    copy-pasting the Internet-Archive-upload-credentials template that
+    correctly describes #1011/#1022 (publishing TCU data to IA). #985 has
+    never reached the IA-upload step: its own issue thread has always named
+    read access to TSE's official ZIPs as the blocker. That mismatch survived
+    two subsequent re-verification rounds because they only re-checked the
+    recorded reason's own premise (IAS3 keys absent), not whether it actually
+    matched #985's scope. Pin the correct category/content so it cannot
+    silently drift back to the wrong template.
+    """
+    frontmatter = dict(_backlog_items())[BACKLOG_DIR / "issue-985.md"]
+    assert frontmatter["category"] == "network_access", (
+        "#985 is blocked by network access to tse.jus.br, not by missing "
+        "credentials (that is #1011/#1022's blocker) or an infra decision"
+    )
+    blocking_reason = frontmatter["blocking_reason"]
+    assert "tse.jus.br" in blocking_reason
+    assert "IAS3" not in blocking_reason
+    assert "Internet Archive" not in blocking_reason

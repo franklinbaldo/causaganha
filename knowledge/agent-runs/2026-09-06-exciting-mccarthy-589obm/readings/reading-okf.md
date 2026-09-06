@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-06-exciting-mccarthy-589obm-reading-okf"
+run_id: "2026-09-06-exciting-mccarthy-589obm"
+subject: "okf_knowledge"
+reference: "knowledge/okf.schema.sql (BacklogItem table, line 167); tests/knowledge/test_backlog.py; knowledge/backlog/issue-985.md, issue-1011.md, issue-1022.md; knowledge/agent-runs/2026-09-06-exciting-mccarthy-uwm65t/run.md and .../buxwff/run.md (recent continuity)"
+finding: "BacklogItem.category is a closed CHECK enum ('ml_data_work', 'credentials', 'infra_decision', 'deprioritized_by_owner') with no value for 'the runtime's network egress to a specific external host is blocked' — a real, recurring shape of blocker in this project (any TCU/TSE/DataJud-style live-fetch step), distinct from 'credentials' (auth material is absent) and from 'infra_decision' (a human must choose a hosting/product design). issue-985.md was filed under 'credentials' with a blocking_reason literally about IAS3_ACCESS_KEY/IAS3_SECRET_KEY, which is issue-1011.md/issue-1022.md's blocker (TCU→Internet Archive upload), not #985's (TSE ZIP download). This is exactly the kind of code/knowledge inconsistency CLAUDE.md and the run instructions call out as fair game to fix without waiting for an issue. Prior rounds (uwm65t, buxwff) both closed real product work (#1217, #1219) and both re-verified the 17-item backlog cache mechanically, but neither went back to #985's own issue thread to check the recorded reason against the issue's actual scope — the bug survived two full re-verification cycles. Fix: add 'network_access' to the schema enum and to test_backlog.py's VALID_CATEGORIES, add a regression test pinning #985's category/blocking_reason to the network story (not IAS3), and correct issue-985.md's content and last_verified_run_id/at to this round's own live finding. No other OKF type needs a change for this round's work."
+---
+
+# Leitura do conhecimento OKF
+
+O enum `BacklogItem.category` não tem valor para "acesso de rede a um host externo específico está bloqueado" — só `credentials`, `infra_decision`, `ml_data_work`, `deprioritized_by_owner`. `issue-985.md` foi arquivada sob `credentials` com uma `blocking_reason` que na verdade descreve `#1011`/`#1022` (upload TCU→IA), não `#985` (download de ZIPs do TSE). Duas rodadas anteriores rederivaram o cache sem notar a inconsistência. Corrijo o schema, o teste e o próprio `BacklogItem` nesta rodada.
