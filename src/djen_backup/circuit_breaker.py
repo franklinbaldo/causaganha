@@ -51,6 +51,7 @@ class CircuitBreaker:
         self._failure_count = 0
         self._state = CircuitState.CLOSED
         self._opened_at = 0.0
+        self._probing = False
         self.was_opened = False
         self._lock = threading.Lock()
 
@@ -94,8 +95,13 @@ class CircuitBreaker:
             if s == CircuitState.HALF_OPEN:
                 # Consume the probe slot — transition to OPEN so only one
                 # worker gets through while the test request is in-flight.
+                # Track it explicitly: by the time record_failure() runs,
+                # _state/_opened_at already reflect this OPEN transition, so
+                # re-deriving "was this the half-open probe?" from state
+                # would always see a freshly-opened circuit, never HALF_OPEN.
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
+                self._probing = True
                 return True
             return False
 
@@ -105,14 +111,16 @@ class CircuitBreaker:
             self._failure_count = 0
             self._state = CircuitState.CLOSED
             self._recovery_timeout = self._base_recovery
+            self._probing = False
 
     def record_failure(self) -> None:
         """Record a failed request and update circuit state accordingly."""
         with self._lock:
             self._failure_count += 1
             was_open = self._state == CircuitState.OPEN
-            if self._state_locked() == CircuitState.HALF_OPEN:
+            if self._probing:
                 # Test request failed — reopen with increased timeout
+                self._probing = False
                 self._recovery_timeout = min(self._recovery_timeout * 2, 300.0)
                 self._state = CircuitState.OPEN
                 self._opened_at = time.monotonic()
