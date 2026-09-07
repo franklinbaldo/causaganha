@@ -1,3 +1,3 @@
 # Skills
 
-Reusable procedural guidance evolved by WikiSkill is versioned here.
+Reusable procedural guidance evolved by Wisk is versioned here.
