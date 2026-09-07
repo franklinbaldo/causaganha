@@ -120,8 +120,15 @@ class CircuitBreaker:
         with self._lock:
             self._failure_count += 1
             was_open = self._state == CircuitState.OPEN
-            if self._probing:
-                # Test request failed — reopen with increased timeout
+            was_half_open_probe = self._probing or self._state_locked() == CircuitState.HALF_OPEN
+            if was_half_open_probe:
+                # Test request failed — reopen with increased timeout. This
+                # also covers a sync caller (ia_s3.py) that only checks
+                # ``is_open``/``state`` and never calls ``allow_request``, so
+                # ``_probing`` is never set: without also checking the
+                # dynamic half-open state here, ``_opened_at`` would never
+                # advance and the next call would immediately see the same
+                # elapsed recovery_timeout and allow another unthrottled retry.
                 self._probing = False
                 self._recovery_timeout = min(self._recovery_timeout * 2, 300.0)
                 self._state = CircuitState.OPEN
