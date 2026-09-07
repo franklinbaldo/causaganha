@@ -1,4 +1,4 @@
-"""Tribunal list management — hardcoded fallback + live API merge."""
+"""Tribunal list management — union of live API codes and hardcoded baseline."""
 
 from __future__ import annotations
 
@@ -47,11 +47,17 @@ async def get_tribunal_list(
     client: httpx.AsyncClient,
     base_url: str,
 ) -> list[str]:
-    """Return tribunal list: API (preferred) with hardcoded fallback."""
+    """Return the union of live API codes and the hardcoded baseline.
+
+    A partial or transiently incomplete API response must never shrink the
+    run's scope below the hardcoded list — it can only add tribunals the
+    hardcoded list doesn't know about yet. The hardcoded list alone is used
+    only when the API returns nothing at all.
+    """
     api_codes = await fetch_tribunal_list_from_api(client, base_url)
     if api_codes:
-        result = sorted(set(api_codes))
-        log.info("tribunal_list_loaded", source="api", count=len(result))
+        result = sorted(set(api_codes) | set(TRIBUNAIS))
+        log.info("tribunal_list_loaded", source="api_merged_with_hardcoded", count=len(result))
         return result
     result = sorted(TRIBUNAIS)
     log.info("tribunal_list_loaded", source="hardcoded_fallback", count=len(result))
