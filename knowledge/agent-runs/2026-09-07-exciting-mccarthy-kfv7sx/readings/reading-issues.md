@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-07-exciting-mccarthy-kfv7sx-reading-issues"
+run_id: "2026-09-07-exciting-mccarthy-kfv7sx"
+subject: "open_issues"
+reference: "mcp__github__list_issues(owner=franklinbaldo, repo=causaganha, state=OPEN) as of 2026-09-07T00:25Z; knowledge/backlog/index.md and its 17 issue-<n>.md files"
+finding: "18 open issues, not 17. All 17 issues already catalogued in knowledge/backlog/ (884, 886, 887, 950, 951, 985, 1011, 1022, 1047, 1050, 1051, 1053, 1054, 1055, 1056, 1057, 1093) are unchanged since the last verification (run uwm65t, referenced by every backlog file's last_verified_run_id) — trusted per the backlog mechanism's own instructions rather than re-derived from scratch, since none of their GitHub state changed. One issue is genuinely new and outside the backlog cache: #1244 'mcp: separar catálogo público de produto das tools locais de operador antes do endpoint remoto', filed by the repo owner (franklinbaldo) at 2026-09-07T00:01:28Z, explicitly marked 'READY para IMPLEMENTAÇÃO' in its own body, scoped to a local, testable, credential-free code slice (no deploy, no remote endpoint): compose two explicit MCP tool-catalog profiles (public/product vs operator/local) instead of the current single build_server() that mixes the four product tools with filesystem-path-accepting status tools (datajud_status(fonte='local', diretorio_dados=...) etc). It names #950 (remote HTTP endpoint) as the issue it reduces risk for, but #950 itself stays independently blocked on a hosting/deploy decision (see knowledge/backlog/issue-950.md) — #1244's own acceptance criteria are self-contained and do not require deploying anything. This is the strongest available new work this round: no external blocker, concrete falsifiable acceptance criteria, and it directly continues the MCP-catalog-hygiene thread the repo owner has been filing issues in (#1217 last round, #1011 today, #950 today)."
+---
+
+# Leitura das issues abertas
+
+17 das 18 issues abertas já estão em `knowledge/backlog/`, sem mudança de estado — esta rodada confia no cache. A novidade é #1244, aberta pelo dono do repositório poucos minutos antes da rodada, marcada "READY para IMPLEMENTAÇÃO", pedindo a separação explícita entre o catálogo MCP público de produto (as quatro tools canônicas) e as tools de operador/local que aceitam caminho de arquivo arbitrário (`datajud_status(fonte="local", diretorio_dados=...)` etc). É um slice de código puro, sem depender do deploy bloqueado de #950. Escolhida para o trabalho desta rodada.

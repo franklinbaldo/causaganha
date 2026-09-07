@@ -6,7 +6,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 
 from causaganha.decisoes.published import unpublished_fontes
-from causaganha_mcp.server import build_server
+from causaganha_mcp.profiles import build_public_server
 
 
 _ROOT = Path(__file__).parents[2]
@@ -92,7 +92,7 @@ def _agents_page_decisoes_status_by_fonte() -> dict[str, str]:
 
 
 async def _decisoes_buscar_fonte_enum() -> set[str]:
-    tools = await build_server().list_tools()
+    tools = await build_public_server().list_tools()
     (decisoes_buscar,) = (tool for tool in tools if tool.name == "decisoes_buscar")
     enum_values = set(decisoes_buscar.parameters["properties"]["fonte"]["enum"])
     return enum_values - {_AGGREGATE_FONTE}
@@ -104,8 +104,8 @@ def test_agents_page_freezes_the_public_job_set() -> None:
 
 
 async def test_agents_page_only_names_registered_mcp_tools() -> None:
-    """A rename/removal in build_server() must not silently stale the website."""
-    catalog = {tool.name for tool in await build_server().list_tools()}
+    """A rename/removal in the public profile must not silently stale the website."""
+    catalog = {tool.name for tool in await build_public_server().list_tools()}
     assert set(_public_jobs()) <= catalog
 
 
