@@ -9,9 +9,9 @@ state: "Revalidated after PR #1274: main is 66f145c45d52651eedddc99d10d0a25ed86d
 status: "archived"
 title: "PR #1272 (first durable Wiki synthesis) is awaiting integration"
 type: "Handoff"
-continued_by_run: "runs/20260907T152500Z-fa-a-o-melhor-avan-o-poss-vel-neste-reposit-rio"
-archived_at: "2026-09-07T15:27:03.790375Z"
-resolution: "PR #1272 confirmada mesclada em main (merged_at=2026-09-07T11:35:05Z, squash e7a8e5d/33afaf1); origin/main HEAD (dcda828) ja contem esse commit. Nenhuma acao adicional necessaria; handoff arquivado como resolvido."
+continued_by_run: "runs/20260907T122956Z-fa-a-o-melhor-avan-o-poss-vel-neste-reposit-rio"
+archived_at: "2026-09-07T12:31:36.905116Z"
+resolution: "PR #1272 verified merged (merged_at 2026-09-07T11:35:05Z, merge commit 33afaf1) and present in main/this branch's history. The canonical .wisk namespace synthesis it protected is intact; no further action needed. Archived."
 ---
 
 # Handoff
