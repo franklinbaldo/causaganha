@@ -1,4 +1,4 @@
-"""HTTP transport must expose the same semantic MCP facade as local stdio."""
+"""HTTP transport must expose the public remote-safe MCP profile."""
 
 from __future__ import annotations
 
@@ -9,14 +9,9 @@ import pytest
 from fastmcp.exceptions import ToolError
 from fastmcp.server.middleware import MiddlewareContext
 
-import causaganha_mcp.__main__ as stdio_entry
 import causaganha_mcp.http_server as http_entry
-from causaganha_mcp.http_server import (
-    HttpSettings,
-    OperationalLimitsMiddleware,
-    PathArgumentGuardMiddleware,
-)
-from causaganha_mcp.server import build_server
+from causaganha_mcp.http_server import HttpSettings, OperationalLimitsMiddleware
+from causaganha_mcp.profiles import build_public_server
 
 
 if TYPE_CHECKING:
@@ -125,16 +120,9 @@ def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
     calls: list[dict[str, object]] = []
     middleware: list[object] = []
 
-    class FakeTool:
-        def __init__(self, name: str) -> None:
-            self.name = name
-
     class FakeServer:
         def add_middleware(self, item: object) -> None:
             middleware.append(item)
-
-        async def list_tools(self) -> list[FakeTool]:
-            return [FakeTool(name) for name in http_entry._READ_ONLY_TOOL_NAMES]
 
         def run(self, **kwargs: object) -> None:
             calls.append(kwargs)
@@ -148,9 +136,8 @@ def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
 
     http_entry.main()
 
-    assert len(middleware) == 2
-    guard, limits = middleware
-    assert isinstance(guard, PathArgumentGuardMiddleware)
+    assert len(middleware) == 1
+    limits = middleware[0]
     assert isinstance(limits, OperationalLimitsMiddleware)
     assert limits.timeout_seconds == 30.0
     assert limits.max_concurrency == 2
@@ -196,12 +183,8 @@ async def test_operational_limits_reject_saturation_without_waiting() -> None:
     assert await first == "ok"
 
 
-def test_stdio_and_http_entrypoints_start_from_same_server_instance() -> None:
-    assert stdio_entry.mcp is http_entry.mcp
-
-
-async def test_http_catalog_matches_fresh_canonical_server() -> None:
-    expected = await _catalog_signature(build_server())
+async def test_http_catalog_matches_fresh_public_server() -> None:
+    expected = await _catalog_signature(build_public_server())
     actual = await _catalog_signature(http_entry.mcp)
 
     assert actual == expected
