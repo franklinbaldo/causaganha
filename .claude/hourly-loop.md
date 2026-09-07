@@ -2,11 +2,11 @@
 
 O loop horário do CausaGanha é operado pelo Wisk. Não reproduza aqui a política de `AgentRun`, a seleção manual de papéis ou o ciclo Experience → Wiki → Skill: isso pertence ao runtime do Wisk.
 
-Cada checkout deve inicializar o bundle gerenciado de forma idempotente e então pedir ao Wisk a próxima sessão útil:
+O Wisk é instalado como dependência de desenvolvimento do próprio projeto. Depois de preparar o ambiente (`uv sync --group dev`), cada checkout deve inicializar o bundle gerenciado de forma idempotente e então pedir ao Wisk a próxima sessão útil usando a instalação do ambiente:
 
 ```bash
-uvx wisk init .
-uvx wisk session start-next "Faça o melhor avanço possível neste repositório"
+uv run wisk init .
+uv run wisk session start-next "Faça o melhor avanço possível neste repositório"
 ```
 
 Siga o `SessionType`, `RunSpec`, contexto, cadência, checks, handoffs e demais contratos selecionados pelo Wisk até o maior avanço razoável desta rodada. O estado atual do repositório e do GitHub continua sendo a fonte factual de verdade para o trabalho de domínio.
