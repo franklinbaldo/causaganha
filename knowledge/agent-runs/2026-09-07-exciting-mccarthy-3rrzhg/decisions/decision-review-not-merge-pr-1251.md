@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-07-exciting-mccarthy-3rrzhg-decision-review-not-merge-pr-1251"
+run_id: "2026-09-07-exciting-mccarthy-3rrzhg"
+goal_id: "2026-09-07-exciting-mccarthy-3rrzhg-goal-review-pr-1251"
+question: "PR #1251 is open, not draft, authored by the repo owner, and all 10 CI checks are green. Should this round merge it (closing out the WikiSkill migration) or only review it and leave the merge decision to the owner?"
+choice: "Review only. Post one PR comment on the concrete .gitignore gap found; do not merge, and do not push any commit to the PR's branch."
+rationale: "Three reasons, independent of each other and each sufficient on its own: (1) Every prior AgentRun-driven PR in this repository's history (#1245, #1248, #1249, #1250) was merged by the repo owner, never self-merged by the agent session that opened it — even when fully green with zero review comments (see run kfv7sx's own evidence-pr-1245-merged.md: 'merged by the repo owner ... pull_request.closed webhook'). PR #1251 is not even a session-opened PR; it is the owner's own direct commit. There is no precedent anywhere in this repository's history for an automated round merging a PR it did not open itself, let alone one authored directly by the human owner. (2) This specific PR is uniquely high-blast-radius for this exact mechanism: merging it changes .claude/hourly-loop.md, the file that governs how every future round (including a differently-scheduled future instance of this very task) bootstraps itself, in favor of an external tool (uvx --from git+https://github.com/franklinbaldo/wikiskill.git@<pinned-sha>) this session has no visibility into (GitHub tool access this session is scoped to franklinbaldo/causaganha only — the wikiskill repository cannot be inspected) and the PR body itself says 'A automação horária também foi atualizada fora do repo' (the owner is coordinating an external cron config change alongside this PR), meaning the owner is actively mid-transition and best placed to control the exact merge timing. (3) A real, unresolved technical question exists (the .gitignore gap) that the owner — who has access to the wikiskill tool's actual behavior — can resolve in seconds, whereas this session can only speculate. Raising it first is strictly better than merging past it."
+---
+
+# Decision: review PR #1251, do not merge it
+
+Every precedent in this repository has the human owner performing the final merge, even on fully green, zero-comment PRs the agent itself opened. PR #1251 is the owner's own PR, changes the operating model for every future round, and depends on an external tool this session cannot inspect. This round reviews it — surfacing one concrete, verifiable gap — and leaves the merge to the owner.
