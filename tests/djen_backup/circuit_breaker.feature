@@ -33,3 +33,11 @@ Feature: Circuit breaker
     And the test request fails
     Then the circuit breaker should be open
     And the recovery timeout should have doubled
+
+  Scenario: Sync is_open check reflects half-open recovery
+    Given the circuit breaker threshold is 5
+    And the recovery timeout is 1 second
+    When 5 consecutive IA uploads fail
+    Then is_open should report True
+    When I wait for the recovery timeout
+    Then is_open should report False

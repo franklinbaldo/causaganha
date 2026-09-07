@@ -71,10 +71,12 @@ class CircuitBreaker:
 
         Returns True only for OPEN — HALF_OPEN is "ready to probe" so callers
         that drive the state machine via ``allow_request`` see a chance to
-        recover. Sync callers that only check ``is_open`` resume once a
-        ``record_success`` resets the counter.
+        recover. Reads the dynamic ``state`` (not raw ``_state``): once
+        ``recovery_timeout`` elapses, a sync caller that never calls
+        ``allow_request``/``record_success`` still sees the circuit become
+        probeable instead of staying open forever.
         """
-        return self._state == CircuitState.OPEN
+        return self.state == CircuitState.OPEN
 
     def _state_locked(self) -> CircuitState:
         """Compute state while the lock is held (avoids TOCTOU)."""

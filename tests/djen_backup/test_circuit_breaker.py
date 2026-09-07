@@ -36,6 +36,11 @@ def test_half_open_failure_doubles_timeout() -> None:
     pass
 
 
+@scenario("circuit_breaker.feature", "Sync is_open check reflects half-open recovery")
+def test_is_open_reflects_half_open_recovery() -> None:
+    pass
+
+
 # ── Given ────────────────────────────────────────────────────────────
 
 
@@ -126,3 +131,8 @@ def then_timeout_doubled(
     circuit_breaker: CircuitBreaker, recovery_timeout_before_probe: float
 ) -> None:
     assert circuit_breaker._recovery_timeout == recovery_timeout_before_probe * 2
+
+
+@then(parsers.parse("is_open should report {expected}"))
+def then_is_open_reports(circuit_breaker: CircuitBreaker, expected: str) -> None:
+    assert circuit_breaker.is_open is (expected == "True")
