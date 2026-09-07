@@ -11,7 +11,7 @@ uv run wisk session start-next "Faça o melhor avanço possível neste repositó
 
 Siga o `SessionType`, `RunSpec`, contexto, cadência, checks, handoffs e demais contratos selecionados pelo Wisk até o maior avanço razoável desta rodada. O estado atual do repositório e do GitHub continua sendo a fonte factual de verdade para o trabalho de domínio.
 
-O `wisk init .` é deliberadamente não destrutivo e pode ser repetido em checkouts frescos. O estado gerenciado reproduzível fica ignorado pelo Git; conhecimento local e estado aprendido produzido pelo runtime permanecem versionáveis sob `.wikiskill/knowledge/` conforme o contrato do Wisk.
+O `wisk init .` é deliberadamente não destrutivo e pode ser repetido em checkouts frescos. `wisk` grava seu bundle gerenciado em `<repo>/.wisk`; `.wisk` é um symlink versionado para `.wikiskill` (ver `.gitignore`), então `wisk init .` escreve `manifest.json`, `specs/` e `knowledge/system/` diretamente dentro de `.wikiskill/`, onde o próprio `wisk init .` grava um `.gitignore` aninhado que os ignora. Sem esse symlink, `wisk session start-next` sem `--path` resolve para `.wisk/knowledge` e grava LoopRun/Experience num diretório separado e ignorado, perdendo silenciosamente o conhecimento da rodada ao final do container — não remova o symlink nem recrie `.wisk/` como diretório real. Conhecimento local e estado aprendido produzido pelo runtime permanecem versionáveis sob `.wikiskill/knowledge/` conforme o contrato do Wisk.
 
 ## Migração do loop legado
 

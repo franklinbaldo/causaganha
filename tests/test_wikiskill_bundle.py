@@ -24,6 +24,24 @@ The second check walks *tracked* files (`git ls-files`), not the raw
 filesystem: running `wikiskill init .` locally legitimately drops generated,
 gitignored state (`manifest.json`, `specs/`, `knowledge/system/`) straight
 under `.wikiskill/`, which is fine at runtime but must never be committed.
+
+A third defect was introduced when the hourly loop switched from the git-hosted
+`wikiskill` package to the published `wisk` PyPI package (#1251, #1260):
+`wisk.bootstrap.init_repository` hardcodes its managed-bundle target to
+`<repo>/.wisk`, not `<repo>/.wikiskill`. `.claude/hourly-loop.md` still documents
+plain `wisk init .` / `wisk session start-next ...` with no `--path`, and
+`wisk`'s own CLI defaults an unqualified command to `.wisk/knowledge` whenever
+that directory exists. The net effect: every hourly-loop round silently
+bootstraps and records its LoopRun/Experience state under the gitignored
+`.wisk/` tree instead of the tracked `.wikiskill/knowledge/` one, so all of
+that round's readings/goals/evidence/checks/outcomes vanish the moment the
+container is torn down. Making `.wisk` a symlink to `.wikiskill` closes this:
+`wisk init .` then writes its generated `manifest.json`, `specs/`, and
+`knowledge/system/` straight into `.wikiskill/` (ignored there by the nested
+`.gitignore` `wisk init .` itself writes), and an unqualified
+`wisk session start-next ...` resolves its default path to `.wisk/knowledge`,
+which -- through the symlink -- *is* `.wikiskill/knowledge`, so records land in
+the tracked namespaces without needing an explicit `--path` on every call.
 """
 
 from __future__ import annotations
@@ -36,6 +54,7 @@ from okf_parser.service import check_bundle
 REPO_ROOT = Path(__file__).resolve().parent.parent
 WIKISKILL_ROOT = REPO_ROOT / ".wikiskill"
 WIKISKILL_KNOWLEDGE = WIKISKILL_ROOT / "knowledge"
+WISK_ROOT = REPO_ROOT / ".wisk"
 
 _PRESERVED_NAMESPACES = ("local", "experiences", "wiki", "skills")
 
@@ -64,3 +83,16 @@ def test_no_unmanaged_files_outside_preserved_wikiskill_namespaces() -> None:
     ]
 
     assert stray == []
+
+
+def test_wisk_root_is_a_symlink_into_wikiskill() -> None:
+    assert WISK_ROOT.is_symlink(), (
+        "'.wisk' must be a tracked symlink into '.wikiskill' so that "
+        "'wisk init .' bootstraps its managed bundle (manifest.json, specs/, "
+        "knowledge/system/) directly under the git-tracked knowledge tree, and "
+        "an unqualified 'wisk session start-next ...' -- as documented in "
+        "'.claude/hourly-loop.md' -- records its LoopRun/Experience state under "
+        "'.wikiskill/knowledge/' instead of silently writing it into a separate, "
+        "gitignored '.wisk/' tree that is lost when the container is torn down."
+    )
+    assert WISK_ROOT.resolve() == WIKISKILL_ROOT
