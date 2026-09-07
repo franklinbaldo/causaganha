@@ -92,3 +92,34 @@ async def test_bulk_load_invalidates_tally() -> None:
     m.load_from_csv(csv, overwrite=True)
     assert m.counts() == _recount(m)
     assert m.counts().uploaded == 1
+
+
+def test_apply_event_invalidates_warm_counts_cache() -> None:
+    """apply_event mutates an entry directly and must invalidate the tally.
+
+    Unlike mark_djen_raw/mark_uploaded/mark_ia_uploaded, which adjust the
+    warm cache incrementally, apply_event has no bookkeeping of its own —
+    it relies on callers (apply_segment_csv, the parquet loader) to call
+    _invalidate_caches() afterward. A direct call must not silently leave
+    a previously-warmed tally stale.
+    """
+    m = SyncManifest()
+    m.build(["TJSP"], date(2024, 1, 1), date(2024, 1, 1))
+    initial = m.counts()  # warm the tally
+    assert initial.unknown == 1
+
+    m.apply_event("TJSP", date(2024, 1, 1), ia_status="uploaded", updated_at="2024-01-02")
+
+    assert m.counts() == _recount(m)
+    assert m.counts().uploaded == 1
+
+
+def test_apply_event_invalidates_warm_uploaded_index() -> None:
+    """Same bug, surfaced through the (tribunal, year) uploaded index."""
+    m = SyncManifest()
+    m.build(["TJSP"], date(2024, 1, 1), date(2024, 1, 1))
+    assert not m.has_uploaded_entries("TJSP", 2024)  # warm the index
+
+    m.apply_event("TJSP", date(2024, 1, 1), ia_status="uploaded", updated_at="2024-01-02")
+
+    assert m.has_uploaded_entries("TJSP", 2024)
