@@ -1,71 +1,18 @@
-"""HTTP transport must refuse to start if a non-reviewed tool is exposed.
-
-Closes the remaining #950 Segurança checklist gap: "nenhuma operação
-mutável é exposta" was previously an unenforced assumption — nothing
-stopped a future tool registered in `causaganha_mcp.server.build_server()`
-from being silently served over the remote HTTP transport. This locks the
-set of tools the HTTP entrypoint will ever serve to a reviewed allowlist,
-so any addition to the catalog requires deliberately updating
-`_READ_ONLY_TOOL_NAMES` after a security review — the same fail-closed
-pattern `PathArgumentGuardMiddleware` already established for path
-arguments.
-"""
+"""HTTP security boundary is the explicit public MCP profile, not a runtime blacklist."""
 
 from __future__ import annotations
 
-import pytest
-
 import causaganha_mcp.http_server as http_entry
-from causaganha_mcp.server import build_server
+from causaganha_mcp.profiles import OPERATOR_ONLY_TOOL_NAMES, PUBLIC_TOOL_NAMES
 
 
-class _FakeTool:
-    def __init__(self, name: str) -> None:
-        self.name = name
+async def test_http_catalog_is_exactly_the_declared_public_profile() -> None:
+    names = {tool.name for tool in await http_entry.mcp.list_tools()}
+
+    assert names == PUBLIC_TOOL_NAMES
 
 
-class _FakeServer:
-    def __init__(self, tool_names: list[str]) -> None:
-        self._tool_names = tool_names
-        self.middleware: list[object] = []
-        self.ran = False
+async def test_http_catalog_never_registers_operator_only_tools() -> None:
+    names = {tool.name for tool in await http_entry.mcp.list_tools()}
 
-    def add_middleware(self, item: object) -> None:
-        self.middleware.append(item)
-
-    async def list_tools(self) -> list[_FakeTool]:
-        return [_FakeTool(name) for name in self._tool_names]
-
-    def run(self, **_kwargs: object) -> None:
-        self.ran = True
-
-
-async def test_read_only_allowlist_matches_canonical_catalog() -> None:
-    """The reviewed allowlist must track build_server() exactly — no silent drift."""
-    tools = await build_server().list_tools()
-    catalog_names = {tool.name for tool in tools}
-
-    assert catalog_names == http_entry._READ_ONLY_TOOL_NAMES
-
-
-def test_main_starts_when_catalog_matches_allowlist(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake = _FakeServer(sorted(http_entry._READ_ONLY_TOOL_NAMES))
-    monkeypatch.setattr(http_entry, "mcp", fake)
-
-    http_entry.main()
-
-    assert fake.ran is True
-
-
-def test_main_refuses_to_start_when_unreviewed_tool_is_exposed(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    fake = _FakeServer([*sorted(http_entry._READ_ONLY_TOOL_NAMES), "backfill_upload"])
-    monkeypatch.setattr(http_entry, "mcp", fake)
-
-    with pytest.raises(RuntimeError, match="backfill_upload"):
-        http_entry.main()
-
-    assert fake.ran is False
+    assert names.isdisjoint(OPERATOR_ONLY_TOOL_NAMES)

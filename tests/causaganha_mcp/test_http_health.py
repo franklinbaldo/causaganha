@@ -12,7 +12,7 @@ from starlette.testclient import TestClient
 
 import causaganha_mcp.http_server as http_entry
 from causaganha_mcp import __version__
-from causaganha_mcp.server import build_server
+from causaganha_mcp.profiles import build_public_server
 
 
 @pytest.fixture
@@ -37,10 +37,10 @@ async def test_health_endpoint_reports_installed_version(
     assert response.json()["version"] == __version__
 
 
-async def test_health_endpoint_tool_count_matches_canonical_catalog(
+async def test_health_endpoint_tool_count_matches_public_catalog(
     client: TestClient,
 ) -> None:
-    expected_tools = await build_server().list_tools()
+    expected_tools = await build_public_server().list_tools()
 
     response = client.get("/health")
 

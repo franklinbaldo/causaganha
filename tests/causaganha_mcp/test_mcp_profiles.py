@@ -17,9 +17,9 @@ from causaganha_mcp.profiles import (
 from causaganha_mcp.server import build_server
 
 
-# The three known local-filesystem escape hatches across the operator-only
-# tools (causaganha_mcp/http_server.py's _PATH_ARGUMENT_TOOLS documents the
-# same three names for its own, separate runtime guard).
+# Known local-filesystem escape hatches across the operator-only tools. The
+# remote HTTP transport must exclude the tools structurally rather than guard
+# these arguments at runtime.
 _FORBIDDEN_PATH_PARAMS = frozenset({"diretorio_dados", "arquivo_manifesto", "caminho_manifesto"})
 
 
