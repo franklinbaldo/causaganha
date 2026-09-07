@@ -72,7 +72,7 @@ async def request_with_retry(
 
     Respects ``Retry-After`` header when present.
     """
-    async for attempt in tenacity.AsyncRetrying(
+    retryer = tenacity.AsyncRetrying(
         stop=tenacity.stop_after_attempt(max_retries + 1),
         wait=_wait,
         retry=(
@@ -82,12 +82,14 @@ async def request_with_retry(
             )
         ),
         reraise=True,
-    ):
-        with attempt:
-            return await client.request(method, url, content=content, headers=headers)
-    # Unreachable — tenacity either returns via attempt or raises.
-    msg = "unreachable"
-    raise RuntimeError(msg)  # pragma: no cover
+    )
+    try:
+        return await retryer(client.request, method, url, content=content, headers=headers)
+    except tenacity.RetryError as exc:
+        # Retries exhausted on a still-retriable *response* (not an exception —
+        # those are handled by reraise=True above). Hand back that last response
+        # so callers can read resp.status_code, as documented.
+        return exc.last_attempt.result()
 
 
 def _backoff(attempt: int, resp: httpx.Response) -> float:
