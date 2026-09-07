@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-07-exciting-mccarthy-abz39i-goal-fix-pr-1247-http-health"
+run_id: "2026-09-07-exciting-mccarthy-abz39i"
+goal: "Turn PR #1247 ('feat(mcp): bind HTTP transport to public tool profile', closing #1244) from a failing 'tests (tjro)' CI check into a green, mergeable state by fixing the one test the profile-split diff left stale."
+rationale: "PR #1247 is exactly the http_server.py migration that run kfv7sx's next_move flagged as the natural continuation of #1244, opened directly by the repo owner. It is otherwise a clean, well-scoped diff (verified by reading its full get_diff): http_server.py now builds build_public_server() directly, the redundant PathArgumentGuardMiddleware/_READ_ONLY_TOOL_NAMES guard and its three dedicated test files are removed/rewritten to assert the structural PUBLIC_TOOL_NAMES/OPERATOR_ONLY_TOOL_NAMES boundary instead. The single blocker is tests/causaganha_mcp/test_http_health.py::test_health_endpoint_tool_count_matches_canonical_catalog, which still imports causaganha_mcp.server.build_server() (10 operator tools) and asserts the HTTP /health endpoint's reported tool count equals it, while http_server.py's mcp is now build_public_server() (6 public tools) — the PR's own author could not run local gates (network failure noted in its body) and this one test slipped through. Fixing this one stale assertion, rather than touching any of the (already correct) production code, is the highest-leverage advance available this round: it directly unblocks a repo-owner-authored PR that closes #1244 and is otherwise ready."
+success_signal: "tests/causaganha_mcp/test_http_health.py's tool-count test imports build_public_server() from causaganha_mcp.profiles and asserts against it instead of build_server(); the test fails RED against the unmodified PR branch (reproduced locally: assert 6 == 10) and passes GREEN after the one-line fix; the full local pytest -q suite, ruff check and ruff format --check all stay green; a PR is opened (from this session's branch, targeting feat/http-public-mcp-profile — this session's branch rules forbid pushing directly to a different branch) carrying only this fix, and its CI turns 'tests (tjro)' from failure to success on the new head."
+status: "achieved"
+---
+
+# Goal: destravar o CI da PR #1247
+
+Corrigir `test_http_health.py`, que ainda comparava a contagem de tools do endpoint `/health` contra `build_server()` (10, catálogo de operador) em vez de `build_public_server()` (6, catálogo público), depois que a própria PR #1247 trocou o `mcp` do transporte HTTP para o perfil público. Único teste que ficou obsoleto no diff da PR; resto do código já revisado e correto.
