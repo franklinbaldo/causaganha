@@ -111,9 +111,6 @@ data/segmenter_work/
 deployment/relay-cf/node_modules/
 deployment/relay-cf/dist/
 
-# `.wisk` is a tracked symlink to `.wikiskill` (see .claude/hourly-loop.md):
-# `wisk init .` hardcodes its managed-bundle target to `<repo>/.wisk`, so the
-# symlink makes that target land inside the git-tracked `.wikiskill/` tree
-# instead of a separate root. `wisk init .` itself writes a nested
-# `.wikiskill/.gitignore` that ignores its own generated files
-# (manifest.json, specs/, knowledge/system/) -- do not ignore `.wisk` here.
+# Wisk state is versioned under .wisk/knowledge/{local,experiences,wiki,skills}.
+# `wisk init .` may add generated, nested gitignored state such as manifest.json,
+# specs/, and knowledge/system/ under .wisk/. Do not ignore the .wisk root.
