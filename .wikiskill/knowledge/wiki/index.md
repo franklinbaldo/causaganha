@@ -1,3 +1,3 @@
 # Wiki
 
-Durable knowledge synthesized by WikiSkill is versioned here.
+Durable knowledge synthesized by Wisk is versioned here.
