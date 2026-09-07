@@ -10,7 +10,7 @@
   }
 
   let { title, message, level = 'info', live }: Props = $props();
-  const isLive = live ?? (level === 'error' || level === 'warning');
+  const isLive = $derived(live ?? (level === 'error' || level === 'warning'));
 </script>
 
 <aside role={isLive ? 'alert' : 'note'} class="alert" data-level={level}>
