@@ -1,0 +1,1 @@
+"""Human-facing CausaGanha CLI."""
