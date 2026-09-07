@@ -30,7 +30,7 @@ import structlog
 if TYPE_CHECKING:
     from datetime import date
 
-from djen_backup.djen import DJENNotFoundError, get_caderno_url
+from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, get_caderno_url
 from djen_backup.segments import SegmentWriter, absent_raw_code, segment_name
 from djen_backup.segments import upload_segment as _upload_segment
 
@@ -94,6 +94,11 @@ async def _probe_one(
         # no_publications for HTTP 200 "Sem comunicações"), never a bare 200.
         await delta_writer.mark_absent(tribunal, d, absent_raw_code(exc.status_code))
         log.debug("probe_absent", tribunal=tribunal, date=d.isoformat())
+    except DJENRateLimitedError:
+        # CloudFront/WAF rate limit — not a verdict on absence, don't mark
+        # either way, will retry next run. Same handling as engine.py's
+        # checker and scripts/drain_unknowns.py.
+        log.debug("probe_skip_rate_limited", tribunal=tribunal, date=d.isoformat())
     except (httpx.HTTPError, httpx.RequestError) as exc:
         # Transient error — don't mark either way, will retry next run
         log.debug("probe_skip_error", tribunal=tribunal, date=d.isoformat(), error=str(exc))

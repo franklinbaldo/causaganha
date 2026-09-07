@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-07-exciting-mccarthy-vgrupn-reading-issues"
+run_id: "2026-09-07-exciting-mccarthy-vgrupn"
+subject: "open_issues"
+reference: "mcp__github__list_issues(owner=franklinbaldo, repo=causaganha, state=OPEN) as of 2026-09-07T20:10Z; knowledge/backlog/index.md and its 17 issue-<n>.md files; prior round 7gg7l1's primary-source re-verification at 2026-09-07T02:45Z (~18h earlier same day)"
+finding: "Exactly 17 open issues (884, 886, 887, 950, 951, 985, 1011, 1022, 1047, 1050, 1051, 1053, 1054, 1055, 1056, 1057, 1093) — the same 17 numbers as knowledge/backlog/'s 17 issue-<n>.md files, each carrying last_verified_run_id=7gg7l1 / last_verified_at=2026-09-07T02:45:00Z. No GitHub state changed for any of them since that verification (checked titles/updated_at against the cached backlog entries): 12 are 'Requires GPU training runs, active-learning annotation rounds, or human-in-the-loop corpus work' (segmenter ML issues 884/886/887/1047/1050/1051/1053-1057), 3 are 'infra_decision' blocked on a hosting/auth decision only the repo owner can make (950, 951 — remote MCP endpoint), 2 are 'credentials' blocked on live IAS3_ACCESS_KEY/IAS3_SECRET_KEY not present in this environment (1011, 1022 — TCU IA uploads), 1 is 'network_access' blocked on TSE's Akamai front rejecting this runtime's egress with 403 (985), and 1 is explicitly deprioritized by its own body text (1093, 'NÃO é prioridade imediata'). No new issue has been filed since #1244 (closed 2026-09-07T02:04Z). This round trusts the existing backlog verification (same-day, ~18h old, done with primary-source checks per its own run report) rather than repeating identical checks with no reason to expect a different answer. Because every open issue is cached as blocked/deprioritized, this round's goal must come from fresh first-principles investigation of the codebase, per the run instructions' explicit point that issues are a queue of opportunities, not a ceiling on what can be improved — exactly the situation the two immediately preceding same-day rounds (7gg7l1, cctnlf) also found."
+---
+
+# Leitura das issues abertas
+
+17 issues abertas, todas já verificadas como bloqueadas/despriorizadas em `knowledge/backlog/` pela rodada `7gg7l1` há ~18h no mesmo dia, sem mudança de estado desde então. Nenhuma issue nova desde #1244 (fechada). Esta rodada precisa buscar seu objetivo em investigação fresca do código, como as duas rodadas anteriores do mesmo dia (`7gg7l1`, `cctnlf`).
