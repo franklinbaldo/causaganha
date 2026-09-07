@@ -41,6 +41,14 @@ def test_is_open_reflects_half_open_recovery() -> None:
     pass
 
 
+@scenario(
+    "circuit_breaker.feature",
+    "Failed sync probe reopens the circuit with a doubled timeout",
+)
+def test_sync_probe_failure_doubles_timeout() -> None:
+    pass
+
+
 # ── Given ────────────────────────────────────────────────────────────
 
 
@@ -92,6 +100,17 @@ def when_test_fails(circuit_breaker: CircuitBreaker) -> float:
         assert allowed, "Expected half-open circuit to allow a test request"
 
     asyncio.run(_run())
+    circuit_breaker.record_failure()
+    return before
+
+
+@when("the sync probe fails", target_fixture="recovery_timeout_before_probe")
+def when_sync_probe_fails(circuit_breaker: CircuitBreaker) -> float:
+    """Simulate a sync caller (ia_s3.py) that only checks ``is_open`` before
+    attempting a request and never calls ``allow_request`` — so ``_probing``
+    is never set when the probe attempt fails."""
+    before = circuit_breaker._recovery_timeout
+    assert not circuit_breaker.is_open, "Expected half-open circuit to allow a sync probe"
     circuit_breaker.record_failure()
     return before
 

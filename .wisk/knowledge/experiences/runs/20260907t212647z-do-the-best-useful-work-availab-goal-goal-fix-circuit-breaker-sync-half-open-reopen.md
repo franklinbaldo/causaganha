@@ -1,0 +1,12 @@
+---
+type: "RunGoal"
+id: "run-goals/20260907t212647z-do-the-best-useful-work-availab/goal-fix-circuit-breaker-sync-half-open-reopen"
+run: "runs/20260907T212647Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "task-advance"
+goal: "Fix CircuitBreaker.record_failure() so a sync caller's failed half-open probe (is_open + record_failure, never allow_request) actually reopens the circuit with a doubled recovery_timeout, instead of silently no-op'ing."
+rationale: "Following up on this same-day round-family's own next_move (2 prior real bugs fixed in circuit_breaker.py: c352943, b383135), did a fresh adversarial read of src/djen_backup/circuit_breaker.py against its real callers (grep across src/). ia_s3.py's sync path (causaganha/pipeline/ia_s3.py:227-298) only ever calls circuit_breaker.is_open and then record_success()/record_failure() -- it never calls allow_request(), which is the only method that sets self._probing=True. record_failure() only reopens-with-doubled-timeout when self._probing is True (or, before this fix, effectively never for the sync path); otherwise it falls through both branches (was_open is True because raw _state is still OPEN, so the elif's 'not was_open' guard also fails) and silently no-ops: _opened_at and _recovery_timeout stay untouched. Since the dynamic state property already reported HALF_OPEN (that's why is_open let the caller retry in the first place), the very next is_open check immediately reports HALF_OPEN again -- an unlimited-rate retry loop against a still-failing IA host with zero backoff, the opposite of what a circuit breaker is for. This gap was invisible to every existing test because the one 'failed test request reopens with doubled timeout' BDD scenario always drives the probe through allow_request() first (setting _probing=True), which is the async-only code path (archive.py, engine.py, drain.py) -- none of it exercises ia_s3.py's is_open-only usage."
+success_signal: "A new BDD scenario ('Failed sync probe reopens the circuit with a doubled timeout') that calls only is_open + record_failure (never allow_request) fails RED on unmodified circuit_breaker.py (state stays half_open instead of reopening to open). After adding an explicit half-open check (self._probing or self._state_locked() == CircuitState.HALF_OPEN) to record_failure()'s reopen branch, the new scenario and the full existing circuit_breaker.feature suite (6 scenarios) pass GREEN, the full pytest -q suite stays green, and ruff check/format stay clean."
+status: "achieved"
+---
+
+# RunGoal
