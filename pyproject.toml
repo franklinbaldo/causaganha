@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "causaganha"
-version = "1.0.2"
+version = "1.0.3"
 description = "Public, auditable archive and structured data layer for Brazilian judicial publications (DJEN)"
 readme = "README.md"
 authors = [
@@ -25,51 +25,29 @@ dependencies = [
     "httpx>=0.27",
     "structlog>=24.1",
     "tenacity>=9.1",
-    "click>=8.1", # for djen_backup CLI
+    "click>=8.1",
     "numpy>=2.0.0",
     "holidays>=0.40.0",
     "pyyaml>=6.0.3",
     "aiolimiter>=1.2.1",
     "anyio>=4.0",
     "aiohttp>=3.9.0",
-    # causaganha_mcp — RFC 0013 Fase 3. Floor covers both APIs actually used:
-    # tool annotations (readOnlyHint etc.) landed in 2.2.7; structured
-    # output/output_schema, which the tools' Pydantic return types and
-    # tests/causaganha_mcp/test_tool_schema.py depend on, landed in 2.10.0.
-    # Matches the floor already adopted in the sibling repo `pink`.
     "fastmcp>=3.4.2",
-    # OKF relation consumption — #877. 0.45.4 is the first published line
-    # with RFC 0018 Projection export to Pydantic/Zod (#1105 slice 2) — the
-    # in-process Bundle.compile_types()/TypedRelations surface used since
-    # #877 is unaffected by the bump.
     "okf-parser>=0.45.4,<0.46",
-    # djen_backup/tjro_juris/stj_acordaos/datajud CLIs — RFC 0013 Fase 4.
-    # Was already present transitively (fastmcp[server]'s own CLI depends on
-    # cyclopts>=4.0.0); declared directly now that the four CLIs use its
-    # App/Parameter API themselves, so it isn't silently at the mercy of
-    # fastmcp's own dependency choices. Floor matches the version already
-    # resolved and exercised by tests/cli_contract/ during migration.
     "cyclopts>=4.22.0",
 ]
 
 [dependency-groups]
 opf = [
-    # OpenAI Privacy Filter bootstrap workflow (Stage 1 CPU labeling).
     "opf @ git+https://github.com/openai/privacy-filter.git",
 ]
 classify = [
-    # LLM abstraction layer used by analysis/llm_analyzer.py
     "litellm>=1.40.0",
 ]
 lab = [
-    # Experimental analysis scripts only (scripts/pipeline/embed*.py,
-    # scripts/analyze_with_rag.py, scripts/batch_embed_decisions.py,
-    # scripts/index_ground_truth.py). Not used by the archive product or
-    # any scheduled workflow.
     "google-genai>=1.0.0",
 ]
 ner = [
-    # Decision segmenter training (scripts/train_decision_segmenter.py)
     "torch>=2.2.0",
 ]
 dev = [
@@ -80,14 +58,7 @@ dev = [
     "pytest-bdd>=7.0.0",
     "pytest-cov>=6.2.1",
     "respx>=0.22.0",
-    # Pinned exactly, not floored. ruff.toml uses select = ["ALL"], so any newly
-    # stabilised rule in a future release silently becomes CI policy — and
-    # uv.lock is gitignored, so nothing else holds the version steady. Moving to
-    # a newer ruff should be a deliberate migration PR that decides which
-    # newly stabilised rules we actually want.
     "ruff==0.15.22",
-    # Runtime of deployment/relay/function/main.py (Cloud Run relay) — needed
-    # to import and unit-test it; not used anywhere else in the repo.
     "functions-framework>=3.0.0",
     "pip-audit>=2.7.2",
     "safety>=3.2.0",
@@ -97,16 +68,12 @@ dev = [
     "mkdocs-git-revision-date-localized-plugin>=1.5.0",
     "mkdocs-minify-plugin>=0.8.0",
     "playwright>=1.58.0",
-    # marimo notebooks (notebooks/*.py) + ipynb export used by the
-    # notebook-sync CI check (scripts/check_notebooks_synced.py). uv.lock is
-    # gitignored, so this is the only thing pinning the version anywhere —
-    # exact-pinned because even patch bumps change ipynb export bytes and
-    # break that check (hit twice now: 0.23.11->0.23.13, then ->0.23.14).
     "marimo==0.23.14",
     "nbformat>=5.10.4",
 ]
 
 [project.scripts]
+causaganha = "causaganha_cli.__main__:app"
 djen-backup = "djen_backup.__main__:app"
 stj-acordaos = "stj_acordaos.__main__:app"
 tjro-juris = "tjro_juris.__main__:app"
@@ -139,19 +106,12 @@ filterwarnings = [
     "ignore::DeprecationWarning",
 ]
 
-# Ruff config is in ruff.toml (takes precedence over pyproject.toml)
-
 [tool.uv]
-# Ensure uv resolves wheels for Linux x86_64 (CI runner) and macOS (dev).
-# Without this, uv may pick a greenlet release that only ships macOS/Windows
-# wheels and fails to install on Linux (manylinux_2_39+).
 required-environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64'",
     "sys_platform == 'darwin'",
     "sys_platform == 'win32'",
 ]
-
 constraint-dependencies = [
-    # greenlet 3.5.3 has no Linux wheel — cap until a fix is released.
     "greenlet!=3.5.3",
 ]
