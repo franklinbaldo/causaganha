@@ -65,6 +65,9 @@ def comunicacoes(
     output: Annotated[str, Parameter(help="Formato: table ou json.")] = "table",
 ) -> None:
     """Liste comunicações judiciais do catálogo público."""
+    if output not in {"table", "json"}:
+        msg = "output deve ser 'table' ou 'json'"
+        raise ValueError(msg)
     if limit < 1 or limit > 10_000:
         msg = "limit deve estar entre 1 e 10000"
         raise ValueError(msg)
