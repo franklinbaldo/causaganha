@@ -24,3 +24,12 @@ Feature: Circuit breaker
     And I wait for the recovery timeout
     And the test request succeeds
     Then the circuit breaker should be closed
+
+  Scenario: Failed test request reopens the circuit with a doubled timeout
+    Given the circuit breaker threshold is 5
+    And the recovery timeout is 1 second
+    When 5 consecutive IA uploads fail
+    And I wait for the recovery timeout
+    And the test request fails
+    Then the circuit breaker should be open
+    And the recovery timeout should have doubled

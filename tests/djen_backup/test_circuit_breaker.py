@@ -28,6 +28,14 @@ def test_circuit_closes() -> None:
     pass
 
 
+@scenario(
+    "circuit_breaker.feature",
+    "Failed test request reopens the circuit with a doubled timeout",
+)
+def test_half_open_failure_doubles_timeout() -> None:
+    pass
+
+
 # ── Given ────────────────────────────────────────────────────────────
 
 
@@ -70,6 +78,19 @@ def when_test_succeeds(circuit_breaker: CircuitBreaker) -> None:
     circuit_breaker.record_success()
 
 
+@when("the test request fails", target_fixture="recovery_timeout_before_probe")
+def when_test_fails(circuit_breaker: CircuitBreaker) -> float:
+    before = circuit_breaker._recovery_timeout
+
+    async def _run() -> None:
+        allowed = await circuit_breaker.allow_request()
+        assert allowed, "Expected half-open circuit to allow a test request"
+
+    asyncio.run(_run())
+    circuit_breaker.record_failure()
+    return before
+
+
 # ── Then ─────────────────────────────────────────────────────────────
 
 
@@ -98,3 +119,10 @@ def then_one_allowed(circuit_breaker: CircuitBreaker) -> None:
 @then("the circuit breaker should be closed")
 def then_closed(circuit_breaker: CircuitBreaker) -> None:
     assert circuit_breaker.state == CircuitState.CLOSED
+
+
+@then("the recovery timeout should have doubled")
+def then_timeout_doubled(
+    circuit_breaker: CircuitBreaker, recovery_timeout_before_probe: float
+) -> None:
+    assert circuit_breaker._recovery_timeout == recovery_timeout_before_probe * 2
