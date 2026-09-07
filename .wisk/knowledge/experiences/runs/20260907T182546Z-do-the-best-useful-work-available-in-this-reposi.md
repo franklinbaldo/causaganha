@@ -1,8 +1,8 @@
 ---
-checks: []
+checks: ["run-checks/20260907t182546z-do-the-best-useful-work-availab/check-full-suite-and-lint"]
 decisions: []
-evidence: []
-goals: []
+evidence: ["run-evidence/20260907t182546z-do-the-best-useful-work-availab/evidence-red-green-normalize-absent"]
+goals: ["run-goals/20260907t182546z-do-the-best-useful-work-availab/goal-fix-absent-empty-raw-normalization"]
 id: "runs/20260907T182546Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260907t182546z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260907t182546z-do-the-best-useful-work-availab/reading-active-skills"]
 run_spec: "run-specs/experience"
