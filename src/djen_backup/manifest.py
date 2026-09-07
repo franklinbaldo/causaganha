@@ -731,11 +731,18 @@ class SyncManifest:
           (``interpret_djen_raw('200')`` derives available). Rewrite the raw
           to the ``no_publications`` sentinel so the row re-derives to
           absent from the raw alone (plan §5 Fase 1 self-consistency).
+        - An ``absent`` verdict with no ``djen_raw`` at all can't be
+          re-verified (CLAUDE.md: "Don't trust `absent` from old runs...
+          reset all `absent` entries where `djen_raw` is empty to unknown").
+          Downgrade it to unknown, mirroring the same guard the legacy CSV
+          loader (``_load_manifest_line``) already applies.
         """
         if djen_status == "confirmed":
             djen_status = "available"
         if djen_status == "absent" and (djen_raw == "200" or djen_raw.startswith("200:")):
             djen_raw = "no_publications"
+        if djen_status == "absent" and not djen_raw:
+            djen_status = ""
         return djen_status, djen_raw
 
     def apply_segment_csv(self, text: str) -> int:

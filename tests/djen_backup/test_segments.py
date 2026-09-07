@@ -180,6 +180,21 @@ def test_apply_event_normalizes_confirmed_and_contradictory_absent() -> None:
     assert (e.djen_status, e.djen_raw) == ("absent", "no_publications")
 
 
+def test_apply_event_resets_absent_with_empty_raw_to_unknown() -> None:
+    # CLAUDE.md: "Don't trust `absent` from old runs. If auditing shows
+    # false positives, reset all `absent` entries (where `djen_raw` is
+    # empty) to unknown." `_load_manifest_line` (the legacy CSV path)
+    # already enforces this; `apply_event` (the canonical parquet+segment
+    # path) must apply the same guard for a brand-new entry.
+    m = SyncManifest()
+    m.apply_event(
+        "TJSP", date(2024, 1, 2), djen_status="absent", djen_raw="", updated_at="2024-01-01"
+    )
+    e = m.get_status("TJSP", date(2024, 1, 2))
+    assert e is not None
+    assert (e.djen_status, e.djen_raw) == ("", "")
+
+
 def test_apply_segment_csv_merges_rows() -> None:
     m = SyncManifest()
     m.load_from_csv("TJSP,2024-01-02,,available,200,2024-01-01T00:00:00+00:00\n")
