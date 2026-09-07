@@ -1,8 +1,7 @@
-"""HTTP entry point for the same read-only CausaGanha MCP facade used by stdio."""
+"""HTTP entry point for the public, remote-safe CausaGanha MCP profile."""
 
 from __future__ import annotations
 
-import asyncio
 import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -13,11 +12,11 @@ from fastmcp.server.middleware import Middleware, MiddlewareContext
 from starlette.responses import JSONResponse
 
 from causaganha_mcp import __version__
-from causaganha_mcp.server import mcp
+from causaganha_mcp.profiles import build_public_server
 
 
 if TYPE_CHECKING:
-    from collections.abc import Awaitable, Callable, Iterable
+    from collections.abc import Awaitable, Callable
 
     from starlette.requests import Request
 
@@ -30,48 +29,10 @@ _DEFAULT_MAX_CONCURRENCY = 4
 _COMMIT_ENV_VAR = "CAUSAGANHA_MCP_COMMIT"
 _UNKNOWN_COMMIT = "unknown"
 
-# Tools that accept a local-filesystem path argument, and which argument
-# name it is. All four read a manifest straight off disk (Path(...)) with
-# no validation — safe for a local stdio operator (RFC 0013 Fase 3A), never
-# safe for a remote HTTP caller. See PathArgumentGuardMiddleware below.
-_PATH_ARGUMENT_TOOLS: dict[str, str] = {
-    "tjro_juris_status": "diretorio_dados",
-    "datajud_status": "diretorio_dados",
-    "djen_backup_status": "arquivo_manifesto",
-    "stj_acordaos_status": "caminho_manifesto",
-}
-
-# Tools the remote HTTP transport is reviewed and allowed to expose (#950
-# Segurança: "não expor CLIs mutáveis, ingestão, upload ou backfill"). Every
-# entry in causaganha_mcp.server.build_server()'s catalog must be added here
-# deliberately, after confirming it is read-only — main() below refuses to
-# start if the live catalog ever contains anything outside this set.
-_READ_ONLY_TOOL_NAMES: frozenset[str] = frozenset(
-    {
-        "causaganha_status",
-        "datajud_facetas",
-        "datajud_status",
-        "decisoes_buscar",
-        "djen_backup_status",
-        "processo_consultar",
-        "processo_estado",
-        "publicacoes_buscar",
-        "stj_acordaos_status",
-        "tjro_juris_status",
-    }
-)
-
-
-def _assert_only_read_only_tools_exposed(tool_names: Iterable[str]) -> None:
-    """Fail closed if the live catalog exposes a tool outside the reviewed allowlist."""
-    unreviewed = sorted(set(tool_names) - _READ_ONLY_TOOL_NAMES)
-    if unreviewed:
-        msg = (
-            "Recusando iniciar o transporte HTTP: tool(s) fora do allowlist "
-            f"read-only revisado: {unreviewed}. Revise a segurança e adicione "
-            "deliberadamente a _READ_ONLY_TOOL_NAMES antes de expor remotamente."
-        )
-        raise RuntimeError(msg)
+# HTTP is structurally bound to the remote-safe catalog. Local/operator tools
+# never get registered here, so the transport does not need a second blacklist
+# or argument guard to compensate for an over-broad server composition.
+mcp = build_public_server()
 
 
 @dataclass(frozen=True, slots=True)
@@ -181,35 +142,6 @@ class OperationalLimitsMiddleware(Middleware):
             self._limiter.release()
 
 
-class PathArgumentGuardMiddleware(Middleware):
-    """Reject caller-supplied local filesystem paths on the remote transport.
-
-    A remote HTTP caller who can pass diretorio_dados/arquivo_manifesto/
-    caminho_manifesto could point these tools at an arbitrary path on the
-    server's own disk (#950 Segurança: "não aceitar... caminho de arquivo...
-    arbitrários"). A local stdio operator legitimately overrides these
-    defaults (RFC 0013 Fase 3A) — this middleware is only ever added to the
-    HTTP transport in main() below, so stdio keeps accepting the argument.
-    """
-
-    async def on_call_tool(
-        self,
-        context: MiddlewareContext,
-        call_next: Callable[[MiddlewareContext], Awaitable[Any]],
-    ) -> Any:
-        """Reject a tool call that supplies a guarded path argument explicitly."""
-        param = _PATH_ARGUMENT_TOOLS.get(context.message.name)
-        arguments = context.message.arguments or {}
-        if param is not None and arguments.get(param) is not None:
-            msg = (
-                f"'{param}' não é aceito remotamente por '{context.message.name}': o endpoint "
-                "HTTP não aceita caminho de arquivo arbitrário do chamador. Use o valor padrão "
-                "do servidor."
-            )
-            raise ToolError(msg)
-        return await call_next(context)
-
-
 def _deployment_commit() -> str:
     """Read the deployed commit from the environment, without shelling out to git."""
     return os.getenv(_COMMIT_ENV_VAR, "").strip() or _UNKNOWN_COMMIT
@@ -217,7 +149,7 @@ def _deployment_commit() -> str:
 
 @mcp.custom_route("/health", methods=["GET"])
 async def _health(request: Request) -> JSONResponse:
-    """Prove the MCP catalog is up and report version/commit, with no upstream calls."""
+    """Prove the public MCP catalog is up and report version/commit, with no upstream calls."""
     tools = await mcp.list_tools()
     return JSONResponse(
         {
@@ -230,11 +162,8 @@ async def _health(request: Request) -> JSONResponse:
 
 
 def main() -> None:
-    """Serve the canonical CausaGanha MCP catalog over Streamable HTTP."""
+    """Serve the public CausaGanha MCP profile over Streamable HTTP."""
     settings = HttpSettings.from_env()
-    tools = asyncio.run(mcp.list_tools())
-    _assert_only_read_only_tools_exposed(tool.name for tool in tools)
-    mcp.add_middleware(PathArgumentGuardMiddleware())
     mcp.add_middleware(
         OperationalLimitsMiddleware(
             timeout_seconds=settings.tool_timeout_seconds,
