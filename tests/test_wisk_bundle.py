@@ -21,7 +21,9 @@ def test_wisk_knowledge_bundle_is_okf_conformant() -> None:
 
 
 def test_no_unmanaged_files_outside_preserved_wisk_namespaces() -> None:
-    preserved_prefixes = tuple(f"knowledge/{name}/" for name in _PRESERVED_NAMESPACES)
+    preserved_prefixes = tuple(
+        f"knowledge/{name}/" for name in _PRESERVED_NAMESPACES
+    )
     tracked = subprocess.run(
         ["git", "ls-files", "--", ".wisk"],
         cwd=REPO_ROOT,
