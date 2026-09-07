@@ -222,8 +222,13 @@ def _facetas_tool_error(exc: Exception) -> ToolError:
     )
 
 
-def register(mcp: FastMCP) -> None:
-    """Registra ``datajud_status`` e ``datajud_facetas`` em *mcp*."""
+def register_status(mcp: FastMCP) -> None:
+    """Registra ``datajud_status`` em *mcp*.
+
+    Aceita ``diretorio_dados`` (caminho de filesystem local) via
+    ``fonte='local'`` — operador/local apenas (#1244), nunca o perfil
+    público remoto (``causaganha_mcp.profiles.build_public_server``).
+    """
 
     @mcp.tool(
         name="datajud_status",
@@ -322,6 +327,14 @@ def register(mcp: FastMCP) -> None:
             aviso=warning,
         )
 
+
+def register_facetas(mcp: FastMCP) -> None:
+    """Registra ``datajud_facetas`` em *mcp*.
+
+    Sem parâmetro de filesystem — seguro para o perfil público remoto
+    (#1244).
+    """
+
     @mcp.tool(
         name="datajud_facetas",
         timeout=_FACETAS_TOOL_TIMEOUT,
@@ -380,3 +393,14 @@ def register(mcp: FastMCP) -> None:
             ],
             consultado_em=datetime.now(UTC).isoformat(timespec="seconds"),
         )
+
+
+def register(mcp: FastMCP) -> None:
+    """Registra ``datajud_status`` e ``datajud_facetas`` em *mcp*.
+
+    Conveniência para um caller que quer o módulo inteiro (ex.: o perfil
+    operador em ``causaganha_mcp.profiles``); não duplica lógica, apenas
+    compõe ``register_status``/``register_facetas``.
+    """
+    register_status(mcp)
+    register_facetas(mcp)

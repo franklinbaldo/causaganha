@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-07-exciting-mccarthy-kfv7sx-decision-defer-http-server"
+run_id: "2026-09-07-exciting-mccarthy-kfv7sx"
+goal_id: "2026-09-07-exciting-mccarthy-kfv7sx-goal-mcp-public-profile"
+question: "Should this round also rewrite causaganha_mcp/http_server.py to consume causaganha_mcp.profiles.build_public_server() directly, removing its existing PathArgumentGuardMiddleware/_READ_ONLY_TOOL_NAMES runtime-blacklist machinery, to fully close every acceptance criterion in issue #1244 (including '#950 consegue usar a mesma composição sem blacklist específica do deploy')?"
+choice: "No — scope this round to the self-contained composition + tests + web-parity-gate slice; leave http_server.py's existing guard untouched and hand off the http_server.py migration explicitly as next_move."
+rationale: "#1244's own body frames this as staged work: 'A próxima fase deve começar pela composição/testes do catálogo público e só depois ajustar o entrypoint/paridade web necessários' — composition+tests first, entrypoint adjustments after. http_server.py's runtime guard (PathArgumentGuardMiddleware, _READ_ONLY_TOOL_NAMES, _assert_only_read_only_tools_exposed) is not dead code to delete casually: it is covered by three dedicated, currently-green test files (test_http_path_argument_guard.py, test_http_readonly_allowlist.py, test_http_transport.py) implementing a real, working defense-in-depth for #950's HTTP transport. #950 itself remains independently blocked on a hosting/deploy decision the repo owner has not made (knowledge/backlog/issue-950.md), so there is no live deployment whose risk is reduced by rewriting http_server.py this instant — the risk of an unattended round making a large, only-partially-necessary change to tested security-relevant code (three test files to rewrite or delete, behavior change in what a remote caller sees even though nothing is deployed) outweighs closing every last acceptance-criterion checkbox in one round. profiles.build_public_server() now exists and is ready for a future round (or #950's own eventual implementation) to adopt in http_server.py with a small, focused diff, once that round can also update the three dependent test files deliberately."
+---
+
+# Decisão: não reescrever http_server.py nesta rodada
+
+Escopo desta rodada fica na composição autocontida (perfil + testes + gate de paridade web), deixando a migração de `http_server.py` (que remove `PathArgumentGuardMiddleware`/`_READ_ONLY_TOOL_NAMES` em favor da composição) para uma rodada futura. `#950` segue bloqueado por decisão de deploy; a máquina atual de `http_server.py` tem 3 arquivos de teste dedicados e nenhum risco de produção real hoje. `profiles.build_public_server()` já existe e fica pronta para a próxima fase adotar.
