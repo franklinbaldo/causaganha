@@ -706,16 +706,19 @@ class SyncManifest:
                 updated_at=updated_at,
             )
             self._entries[k] = entry
+            self._invalidate_caches()
             return
 
         newer = updated_at >= (entry.updated_at or "")
         if ia_status == "uploaded" and entry.ia_status != "uploaded":
             entry.ia_status = "uploaded"
             entry.updated_at = max(entry.updated_at, updated_at)
+            self._invalidate_caches()
         if (djen_status or djen_raw) and newer:
             entry.djen_status = djen_status
             entry.djen_raw = djen_raw
             entry.updated_at = max(entry.updated_at, updated_at)
+            self._invalidate_caches()
 
     @staticmethod
     def _normalize_event(djen_status: str, djen_raw: str) -> tuple[str, str]:
