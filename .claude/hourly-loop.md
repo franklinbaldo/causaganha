@@ -11,19 +11,15 @@ uv sync --group dev
 uv run wisk init .
 ```
 
-A inicialização é bootstrap idempotente, não uma etapa conceitual de cada rodada. Depois disso, cada execução deve entrar no golden path do Wisk usando a instalação do ambiente:
-
-```bash
-uv run wisk session start-next "Faça o melhor avanço possível neste repositório"
-```
-
-Enquanto a versão instalada ainda expuser `session start-next`, use esse comando de compatibilidade. Assim que a versão do Wisk que implementa o RFC 0006 estiver publicada e adotada pelo projeto, o loop deve reduzir-se a:
+A inicialização acontece uma vez por checkout. Depois disso, cada rodada do loop horário deve executar somente o golden path do Wisk:
 
 ```bash
 uv run wisk start
 ```
 
-Siga o `SessionType`, `RunSpec`, contexto, cadência, checks, handoffs e demais contratos selecionados pelo Wisk até o maior avanço razoável da rodada. O estado atual do repositório e do GitHub continua sendo a fonte factual de verdade para o trabalho de domínio.
+Não repita `wisk init` a cada rodada e não selecione manualmente `SessionType` ou `RunSpec` no scheduler normal. O `wisk start` deve retomar um LoopRun compatível ainda vivo ou selecionar o próximo trabalho elegível a partir da cadência, dos handoffs e do estado persistido.
+
+Siga o `state`, `next`, `SessionType`, `RunSpec`, contexto, checks, handoffs e demais contratos retornados pelo Wisk até o maior avanço razoável da rodada. O estado atual do repositório e do GitHub continua sendo a fonte factual de verdade para o trabalho de domínio.
 
 O estado gerenciado e aprendido do runtime pertence ao namespace `.wisk/`. Conhecimento local e especializações do consumidor devem usar `.wisk/knowledge/local/`. Não introduza novos caminhos, prompts ou contratos sob o nome antigo do projeto.
 

@@ -70,7 +70,7 @@ dev = [
     "playwright>=1.58.0",
     "marimo==0.23.14",
     "nbformat>=5.10.4",
-    "wisk>=0.3.0,<0.4",
+    "wisk @ git+https://github.com/franklinbaldo/wisk.git@8d16567ebe61c5a6733ec23f61965fb2cd00259d",
 ]
 
 [project.scripts]
