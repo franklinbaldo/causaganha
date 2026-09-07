@@ -1,0 +1,15 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260907t163857z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260907T163857Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "updated"
+work_status: "complete"
+summary: "Resumed handoffs/handoff-pr-1277-awaiting-ci per wisk start's handoff-continuation selection and found its resolving PR (#1282, opened by an independent concurrent round) already open but stuck for about an hour: mergeable_state=behind and merge_pull_request returning HTTP 405 'Repository rule violations -- Required status check \"GitGuardian Security Checks\" is expected', even though the repo's own CI workflow had already passed on that head. Root cause: the required check had simply never reported against that specific head SHA. Fix: update_pull_request_branch (merge current main into the PR head) re-triggered the full required-check suite; once green on the new head (4c6bd67) the same squash merge succeeded (a7e0d7d), archiving the handoff on main. Rather than let this operational discovery evaporate, this round's real contribution is capturing it as durable knowledge: wiki/continuous-loop-operational-invariants.md now documents the GitGuardian/required-status-check merge-gate pattern and its fix, plus the fact that a stale handoff's PR can already be open from a concurrent round (resume and finish it rather than duplicating). No production code changed. Checks executed after the merge and the wiki edit: wisk check (structural conformant, 0 diagnostics), okf-parser check knowledge --relational-schema okf.schema.sql (conformant, 0 diagnostics, 678 concepts), ruff check (clean), ruff format --check (388 files formatted), TRIBUNAL=tjro pytest -q (full suite green, exit 0)."
+next_move: "No active handoff remains (handoff-pr-1277-awaiting-ci is archived on main). The 17 previously-blocked GitHub issues were not re-verified this round (this round's run-spec was wiki/knowledge-consolidation, triggered by handoff-environment revalidation, not a fresh issue/PR sweep) -- the next round should re-read open issues and PRs from scratch per the prior round's own next_move, since infra/credential blockers (IA keys, deploy-mcp.yml's GCP inputs, TSE's 403) or a new READY issue could have changed since the last live verification (round 7gg7l1, 2026-09-07T02:45Z). If a future round hits another unexplained 405 merging its own green PR, check for a required status check that hasn't reported on the current head before treating the PR as conflicted or escalating -- update_pull_request_branch is the fix, now documented in the wiki."
+goals_advanced: ["run-goals/20260907t163857z-do-the-best-useful-work-availab/goal-consolidate-merge-gate-pattern"]
+evidence: ["run-evidence/20260907t163857z-do-the-best-useful-work-availab/evidence-wiki-merge-gate-diff"]
+checks: ["run-checks/20260907t163857z-do-the-best-useful-work-availab/check-handoff-environment", "run-checks/20260907t163857z-do-the-best-useful-work-availab/check-handoff-disposition", "run-checks/20260907t163857z-do-the-best-useful-work-availab/check-grounding-wiki-diff"]
+experiences_recorded: []
+---
+
+# RunOutcome
