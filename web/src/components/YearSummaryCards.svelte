@@ -8,12 +8,12 @@ interface Props {
 
 const { complete, partial, low, missing }: Props = $props();
 
-const cards = [
+const cards = $derived([
   { value: complete, label: '>90%' },
   { value: partial,  label: '50–89%' },
   { value: low,      label: '<50%' },
   { value: missing,  label: 'Sem dados' },
-];
+]);
 </script>
 
 <div class="auto-grid">
