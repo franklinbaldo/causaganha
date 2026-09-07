@@ -1,5 +1,5 @@
 ---
-checks: []
+checks: ["run-checks/20260907t152500z-fa-a-o-melhor-avan-o-poss-vel-n/check-post-merge-suite-green"]
 decisions: []
 evidence: ["run-evidence/20260907t152500z-fa-a-o-melhor-avan-o-poss-vel-n/evidence-pr-1277-merged", "run-evidence/20260907t152500z-fa-a-o-melhor-avan-o-poss-vel-n/evidence-pr-1280-conflict-resolved"]
 goals: ["run-goals/20260907t152500z-fa-a-o-melhor-avan-o-poss-vel-n/goal-drive-open-loop-prs-to-merged"]
