@@ -41,3 +41,13 @@ Feature: Circuit breaker
     Then is_open should report True
     When I wait for the recovery timeout
     Then is_open should report False
+
+  Scenario: Failed sync probe reopens the circuit with a doubled timeout
+    Given the circuit breaker threshold is 5
+    And the recovery timeout is 1 second
+    When 5 consecutive IA uploads fail
+    And I wait for the recovery timeout
+    And the sync probe fails
+    Then the circuit breaker should be open
+    And the recovery timeout should have doubled
+    And is_open should report True
