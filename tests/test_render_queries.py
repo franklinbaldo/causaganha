@@ -625,6 +625,79 @@ def manifest_parquet_uploaded_and_stale_absent(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.fixture
+def manifest_parquet_null_djen_status(tmp_path: Path) -> Path:
+    """A row downgraded to unknown the way render_manifest_parquet.py's
+    _normalize_manifest actually does it in production: SQL NULL, not ''.
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-null-djen-status.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-02', '', NULL, NULL, '2025-01-02T12:00:00+00:00')"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_totals_counts_null_djen_status_row_as_unknown(tmp_path, manifest_parquet_null_djen_status):
+    """A row whose djen_status is SQL NULL (as _normalize_manifest's downgrade
+
+    actually writes it) must still land in one of the displayed buckets --
+    otherwise it counts toward `total` while vanishing from
+    uploaded+pending+absent+unknown, since `djen_status = ''` is NULL (not
+    true) when djen_status IS NULL.
+    """
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "totals.qmd").write_text(TOTALS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet_null_djen_status))
+    assert failures == []
+
+    payload = json.loads((public / "data" / "totals.json").read_text())
+    assert payload["total"] == 1
+    assert payload["unknown"] == 1
+    assert (
+        payload["uploaded"] + payload["pending"] + payload["absent"] + payload["unknown"]
+        == payload["total"]
+    )
+
+
+def test_tribunal_coverage_counts_null_djen_status_row_as_unknown(
+    tmp_path, manifest_parquet_null_djen_status
+):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "tribunal_coverage.qmd").write_text(
+        TRIBUNAL_COVERAGE_QMD.read_text(encoding="utf-8")
+    )
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet_null_djen_status))
+    assert failures == []
+
+    rows = json.loads((public / "data" / "tribunal_coverage.json").read_text())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["unknown"] == 1
+    assert row["uploaded"] + row["pending"] + row["absent"] + row["unknown"] == row["total"]
+
+
 def test_totals_does_not_double_count_uploaded_row_as_absent(
     tmp_path, manifest_parquet_uploaded_and_stale_absent
 ):

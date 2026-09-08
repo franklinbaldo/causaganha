@@ -151,8 +151,8 @@ def test_normalize_manifest_downgrades_absent_with_empty_raw_to_unknown(tmp_path
     rmp._normalize_manifest(con)
 
     rows = dict(con.execute("SELECT tribunal, djen_status FROM manifest").fetchall())
-    assert rows["TJMS"] is None
-    assert rows["TJPA"] is None
+    assert rows["TJMS"] == ""
+    assert rows["TJPA"] == ""
     assert rows["TJBA"] == "absent"
 
 

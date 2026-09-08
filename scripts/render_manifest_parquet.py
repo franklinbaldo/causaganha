@@ -445,7 +445,7 @@ def _normalize_manifest(con: duckdb.DuckDBPyConnection) -> None:
 
     downgraded = con.execute(
         f"""
-        UPDATE manifest SET djen_status = NULL
+        UPDATE manifest SET djen_status = ''
         WHERE djen_status = '{ABSENT}' AND (djen_raw IS NULL OR djen_raw = '')
         """
     ).fetchone()[0]

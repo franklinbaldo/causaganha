@@ -81,9 +81,11 @@ def test_sql_normalization_agrees_with_python_rule(djen_status: str, djen_raw: s
     rmp._normalize_manifest(con)  # noqa: SLF001
 
     sql_status, sql_raw = con.execute("SELECT djen_status, djen_raw FROM manifest").fetchone()
-    sql_status = sql_status or ""
-    sql_raw = sql_raw or ""
 
     py_status, py_raw = normalize_absent(djen_status, djen_raw)
 
+    # Compare the real stored values, not a coerced approximation: a SQL NULL
+    # and Python's "" both mean "unknown", but they are not the same value
+    # and downstream .qmd queries only ever test for `djen_status = ''`
+    # (see totals.qmd/tribunal_coverage.qmd) -- a NULL silently disagrees.
     assert (sql_status, sql_raw) == (py_status, py_raw)
