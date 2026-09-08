@@ -1,0 +1,14 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260908t064732z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260908T064732Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "success"
+work_status: "partial"
+summary: "Investigated this round-family's own flagged next_move (FRONTEND.md's Pico CSS section is stale) and confirmed it independently by reading node_modules/cobogo/preset/index.mjs directly: the live preset defines globalCss only for html/body/::selection/a, with no Pico-style automatic element styling. Rewrote the Tech Stack Overview Styling row and the entire Pico CSS section into a new Panda CSS section (recipes + css() tokens + the include-boundary note), preserving the still-valid, actively-used accessibility guidance under a Pico-independent heading. While verifying, found and fixed two further, related instances of the same doc-drift pattern this round-family has now hit three times (PR #1307's Tier-0 fetchData claims, PR #1309's dead --pico- variable, and this): the 'Vanilla CSS and Design Tokens' section fabricated token names (--space-4/--color-base-100/--radius-card) that don't exist in index.css, and an entire 'Theming' subsection (data-theme/causaganha/causaganhadark) describing a light/dark toggle that was deliberately removed in issue #1178 (confirmed via the existing themeSingleModeGuard.test.ts regression test) -- and the Astro island section's example cited ThemeToggle.astro, a file confirmed deleted. Rewrote all of it with grep-verified real examples. Full web suite (66/66 files, 493/493 tests), astro check (0 errors), eslint (0 errors) all green; docs-only change. Landed as PR #1311 against main; work_status=partial because CI on the new head is pending at report time (see handoff-pr-1311-awaiting-ci)."
+next_move: "Resume via handoff-pr-1311-awaiting-ci: watch PR #1311's CI, merge once green (squash), archive the handoff. The 17-issue backlog remains environment-blocked and should be re-verified fresh. Three consecutive rounds fixing the same doc-drift-in-FRONTEND.md pattern (Tier 0 architecture, dead CSS var, now the whole Pico section) suggests the next worthwhile pass, if no other lead surfaces, is a final read-through of FRONTEND.md's remaining sections (Zod, DOMPurify, DuckDB, Testing, TypeScript, Known Gaps) against real code -- three-for-three hit rate on this doc justifies treating it as still probably stale rather than assuming it's now fully accurate."
+goals_advanced: ["run-goals/20260908t064732z-do-the-best-useful-work-availab/goal-fix-frontend-md-pico-css-drift"]
+evidence: ["run-evidence/20260908t064732z-do-the-best-useful-work-availab/evidence-frontend-md-panda-rewrite"]
+checks: ["run-checks/20260908t064732z-do-the-best-useful-work-availab/check-frontend-md-accuracy-and-suite-green"]
+---
+
+# RunOutcome
