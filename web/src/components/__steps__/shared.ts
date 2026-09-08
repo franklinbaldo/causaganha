@@ -9,17 +9,14 @@ vi.mock('@tanstack/svelte-query-devtools', () => ({
 }));
 
 // Provide a fresh QueryClient per test so islands get context without errors.
-// fetchAllData is mocked to return null, so queries complete immediately with null data,
-// and components fall back to their initialXxx props.
 vi.mock('../../lib/queryClient', () => ({
   getQueryClient: () => new QueryClient({
     defaultOptions: { queries: { retry: false, staleTime: 0 } },
   }),
 }));
 
-// Mock fetchAllData for components that import it directly
+// Mock fetchWithRetry for components that import it directly
 vi.mock('../../lib/fetchData', () => ({
-  fetchAllData: vi.fn().mockResolvedValue(null),
   fetchWithRetry: vi.fn().mockResolvedValue({ ok: false, status: 503, json: async () => ({}) }),
 }));
 

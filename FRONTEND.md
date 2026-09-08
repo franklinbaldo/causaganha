@@ -100,8 +100,8 @@ This is the most consequential decision in this codebase. Getting it wrong adds 
 
 | Group | Files |
 |---|---|
-| Core data fetching | `fetchData.ts`, `readJson.ts`, `buildTimeData.ts`, `duckdbSingleton.ts` |
-| TanStack Query / async state | `queryClient.ts`, `queryKeys.ts`, `useDashboard.svelte.ts` |
+| Core data fetching | `fetchData.ts`, `readJson.ts`, `duckdbSingleton.ts` |
+| TanStack Query / async state | `queryClient.ts`, `queryKeys.ts` |
 | Svelte stores | `completedItemsStore.svelte.ts`, `workflowStatusStore.ts` |
 | Search & query | `djen.ts`, `djenClient.ts`, `searchQueryString.ts` |
 | Utilities | `colorUtils.ts`, `dateUtils.ts`, `velocityCalc.ts`, `iaMetadataFetcher.ts`, `stats-processing.ts` |
@@ -210,39 +210,38 @@ Do not mix the Svelte 4 `$:` reactive statements with Svelte 5 runes in the same
 
 Choose the right tier for each piece of state:
 
-**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). They read local JSON via `readJson()`, merge it through `deriveData()` to produce the canonical `DerivedData` shape, and pass specific fields of that shape as typed `initialXxx` props to Svelte islands. The island calls `useDashboardWithPolling()` to get live data via TanStack Query, falling back to the build-time seed until the first fetch completes:
+**0. Build-time static seed** — Astro pages run at **build time** (not at request time, because this site is static). Each page loads the data it needs in its own frontmatter via `loadContract()` (query contracts, see CLAUDE.md's "Manifest query contracts") and/or `readJson()` for standalone static JSON, then passes specific fields as typed `initialXxx` props to Svelte islands:
 
 ```astro
 ---
 // web/src/pages/publicacoes/[tribunal].astro (runs at BUILD TIME)
-import { loadBuildTimeData } from '../../lib/buildTimeData';
+import { loadContract } from '../../lib/data';
+import { readJson } from '../../lib/readJson';
 
-const data = loadBuildTimeData();
+const coverageRow = ((await loadContract('tribunal_coverage')) ?? [])
+  .find(row => row.tribunal.toUpperCase() === tribunalUpper);
+const tribunalStartDates = readJson<Record<string, string>>('tribunal_start_dates.json') ?? {};
 ---
 <TribunalDetail
   client:only="svelte"
   tribunalCode={tribunalCode}
-  initialCoverage={data.tribunalCoverage}
-  initialEtas={data.tribunalEtas}
+  initialUploadedDates={uploadedDates}
+  initialStartDate={tribunalStartDates[tribunalUpper] ?? null}
 />
 ```
 
 ```svelte
 <!-- web/src/components/TribunalDetail.svelte (runs in the BROWSER) -->
 <script lang="ts">
-  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
+  let { initialUploadedDates, initialStartDate }: TribunalDetailProps = $props();
 
-  let { initialCoverage } = $props();
-  const dashboard = useDashboardWithPolling();  // sets context + creates query
-
-  // Falls back to build-time seed until live refresh arrives
-  let coverage = $derived(dashboard.data?.tribunalCoverage ?? initialCoverage);
+  // The island renders directly from the build-time seed — there is no
+  // client-side live-refresh layer for this tier today.
+  let coverageSet = $derived(new Set(initialUploadedDates));
 </script>
 ```
 
-The seed and the live-refresh shape must match exactly — that is why the page derives both through `deriveData()` rather than passing raw JSON. Always pass build-time data as `initialXxx` props when the page has it. Never leave an island with `null` initial state when the page can pre-populate it — the skeleton flash is user-visible and avoidable.
-
-> **`buildTimeData.ts` is server-only.** `loadBuildTimeData()` imports `readJson()` which uses `node:fs`. **Only `.astro` frontmatter may import this module** — never `.svelte` files, never `.svelte.ts` stores, never any `.ts` reachable from client code. Adding it to `fetchData.ts` would pull `node:fs` into the browser bundle and break the build.
+Always pass build-time data as `initialXxx` props when the page has it. Never leave an island with `null` initial state when the page can pre-populate it — the skeleton flash is user-visible and avoidable. Islands that do need live, post-load data use TanStack Query directly for that one query (see below) rather than a shared dashboard-wide refresh helper — no such helper currently exists in this codebase.
 
 **1. Component-local state** — `$state` / `$derived` inside a `<script>` block. Use for state that belongs entirely to one component instance.
 
@@ -567,8 +566,8 @@ Each `client:*` island is an isolated Svelte component tree with no shared top-l
 
   // TanStack Query v6: options wrapped in an accessor function
   const myQuery = createQuery(() => ({
-    queryKey: QUERY_KEYS.dashboard,
-    queryFn: fetchAllData,
+    queryKey: QUERY_KEYS.iaCoverage(year),
+    queryFn: () => fetchAllTribunalMetadata(year, undefined, { useCache: false }),
     staleTime: 15_000,
   }));
 </script>
@@ -585,37 +584,13 @@ Each `client:*` island is an isolated Svelte component tree with no shared top-l
 
 > **Important:** TanStack Svelte Query v6 returns a reactive **Proxy**, not a Svelte store. Access result properties as `query.data`, `query.isPending`, etc. — **never** with a `$` prefix.
 
-#### Dashboard queries with meta.json polling
-
-Use `useDashboardWithPolling()` from `web/src/lib/useDashboard.svelte.ts` for any island that displays dashboard data. It encapsulates:
-
-- A lightweight sentinel query that polls `meta.json` every 3 minutes (`staleTime: 0`)
-- The main dashboard query (no self-polling) that is automatically invalidated when `generated_at` changes
-
-```svelte
-<script lang="ts">
-  import { useDashboardWithPolling } from '../lib/useDashboard.svelte';
-
-  // Internally calls setQueryClientContext — no need to do it separately
-  const dashboard = useDashboardWithPolling();
-
-  let field = $derived(dashboard.data?.field ?? initialField);
-</script>
-```
-
-Because all islands share the same singleton `QueryClient`, only one polling interval runs per page regardless of how many islands call `useDashboardWithPolling()`.
-
 #### Centralized query keys
 
 All query keys are defined in `web/src/lib/queryKeys.ts`:
 
 ```ts
-QUERY_KEYS.dashboard        // ['dashboard']
-QUERY_KEYS.dashboardMeta    // ['dashboard', 'meta']
 QUERY_KEYS.iaCoverage(year) // ['ia-coverage', year]
 QUERY_KEYS.djenSearch(q)    // ['djen-search', q]
-QUERY_KEYS.pipelineRuns     // ['pipeline', 'runs']
-QUERY_KEYS.pipelineToday    // ['pipeline', 'today']
 ```
 
 Use these constants everywhere — never write query key arrays inline in components.
@@ -717,18 +692,9 @@ export function getStaticPaths() {
 
 ## Data Fetching
 
-All data fetching goes through `web/src/lib/fetchData.ts`, which implements retry logic and error handling. Do not call `fetch()` directly in components.
+Client-side HTTP calls go through `web/src/lib/fetchData.ts`'s `fetchWithRetry(url)` — a single URL fetch with exponential-backoff retry and error handling. Do not call `fetch()` directly in components.
 
-The file exports:
-- `fetchWithRetry(url)` — single URL fetch with exponential-backoff retry
-- `fetchAllData()` — fetches the full derived dataset. **This is the canonical list of inputs that feed `DerivedData`** and is used as the TanStack Query `queryFn` for `QUERY_KEYS.dashboard`. Any build-time seed assembled in an Astro page must pass the same inputs in the same order, or the seed shape will silently drift from the runtime shape.
-- `deriveData(stats, dashboardData, cacheData, tribunalStartDates?, tribunalQualityScores?, perfMetrics?, iaSnapshot?)` — pure transformation that merges multiple data sources into the `DerivedData` shape; used in Astro pages at build time
-
-### Build-time hydration: a single source of truth
-
-The build-time seed pattern (Tier 0 under [Four tiers of state](#four-tiers-of-state)) currently has no central helper — every Astro page reimplements its own `readJson()` boilerplate and hand-assembles the arguments to `deriveData()`. This is fragile. The target is a single `loadBuildTimeData()` helper that mirrors `fetchAllData()` but uses `readJson()` synchronously and returns `DerivedData`. Pages would then call `loadBuildTimeData()` once and pass slices of its result as `initialXxx` props. Until that helper exists, align any new page with `fetchAllData()`'s input list exactly.
-
-**The helper must live in a server-only module — not in `fetchData.ts`.** `fetchData.ts` is imported by client code (TanStack Query `queryFn`s and many `.svelte` components via `fetchWithRetry`), so any `readJson()` call added there would transitively pull `node:fs` / `node:path` into the browser bundle. Create a dedicated file such as `web/src/lib/buildTimeData.ts` that imports `readJson` and `deriveData`, and document in a file-top comment that **it must only be imported from `.astro` frontmatter** (never from `.svelte`, never from a `.svelte.ts` store, never from anything reachable by client code).
+Build-time data loading is a separate concern (Tier 0 under [Four tiers of state](#four-tiers-of-state)): each Astro page loads what it needs directly in its frontmatter via `loadContract()` (query contracts, see CLAUDE.md) and/or `readJson()` for standalone static JSON, then passes the fields it needs as `initialXxx` props. There is no shared build-time aggregation helper — `loadContract`/`readJson` calls belong in `.astro` frontmatter only, never in `fetchData.ts` or any module reachable from client code, since both use `node:fs` under the hood and would break the browser bundle if pulled in there.
 
 ```ts
 // Correct — use the exported helpers
@@ -916,10 +882,9 @@ The project uses strict TypeScript (`astro/tsconfigs/strict`). All `.svelte` fil
 - Never use `any`. Use `unknown` when the type is genuinely unknown and then narrow it.
 - Do not use non-null assertion (`!`) except where the value is structurally guaranteed (e.g., immediately after a null-check guard at the top of a function).
 
-**Exception — data-layer boundary types:** `DerivedData` in `fetchData.ts` and the store state shape currently use `any` because data originates from heterogeneous JSON sources (Internet Archive, static cache files) whose schemas are not yet fully codified. This is a tracked gap; strict typing will replace them incrementally. Rules for working in this layer:
+**Exception — data-layer boundary types:** some store state shapes (e.g. `workflowStatusStore.ts`'s parsed GitHub API response) currently use `any` because data originates from heterogeneous JSON sources whose schemas are not yet fully codified. This is a tracked gap; strict typing will replace it incrementally. Rules for working in this layer:
 
 - Do not spread `any` deeper than the boundary. Use `unknown` + type narrowing inside component and store logic.
-- When adding a new field to `DerivedData`, give it the most specific type you can.
 - Add a `// TODO: type this` comment on any new `any` field.
 - Never use `any` in component `$props()` declarations or in store APIs for data you control.
 
@@ -932,8 +897,7 @@ These areas are not yet covered by existing infrastructure. Be aware before assu
 - **No end-to-end tests.** Playwright or a similar e2e framework is not set up. BDD tests run in jsdom only and do not test real browser behavior or full page navigation.
 - **No i18n.** All UI strings are hardcoded in Portuguese. There is no translation framework in place.
 - **Accessibility.** Guidelines and known gaps are documented in `web/ACCESSIBILITY.md` and `web/ACCESSIBILITY_IMPROVEMENTS_NEEDED.md`. Read both before modifying any UI component — do not introduce new accessibility regressions.
-- **Build-time hydration has no central source of truth.** Every Astro page that seeds a Svelte island reimplements its own `readJson()` + `deriveData()` boilerplate, and pages read different subsets of the underlying JSON files. This means the build-time seed shape silently differs from the `fetchAllData()` runtime shape on any page that forgets a source. The fix is a single `loadBuildTimeData()` helper in a dedicated **server-only** module (e.g. `web/src/lib/buildTimeData.ts`) — **not** in `fetchData.ts`, which is imported by client code and would leak `node:fs` into the browser bundle (see [Data Fetching](#data-fetching)). Until it lands, always pass `deriveData()` the exact same arguments that `fetchAllData()` does.
-- **`DerivedData` is mostly `any`.** See the [TypeScript](#typescript) section's carve-out. Strict typing will be added incrementally as schemas are codified.
+- **Build-time hydration has no central source of truth.** Every Astro page that seeds a Svelte island calls `loadContract()`/`readJson()` directly and reads different subsets of the underlying data. There is no shared helper enforcing that a page's build-time seed and any later live query stay in sync — check the target island's own props when adding a new data source.
 
 ---
 
