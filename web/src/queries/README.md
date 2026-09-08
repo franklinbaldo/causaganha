@@ -34,7 +34,7 @@ contract — it never fails the build. Contracts without the flag are
 
 Currently optional: `lawyer_leaderboard`, `stj_totals`, `stj_temas`,
 `stj_relatores`, `juris_totals`, `juris_classes`, `juris_orgaos`,
-`processos_multi_fonte`.
+`processos_multi_fonte`, `datajud_totals`, `datajud_classes`.
 
 ## Data Sources
 

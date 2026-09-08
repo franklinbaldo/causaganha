@@ -27,6 +27,19 @@ def test_classify_available_on_200() -> None:
     assert _classify("200") == "available"
 
 
+def test_classify_available_on_200_with_detail_suffix() -> None:
+    """``djen_backup.manifest.interpret_djen_raw`` treats "200:<url>" as available too --
+
+    a real value written by the legacy engine format (see
+    tests/fixtures/manifest_contract_rows.csv and
+    web/src/queries/site_status.qmd). Without this, a manifest row stored as
+    "200:https://..." and a live re-probe returning bare "200" land in
+    different _classify buckets ("other:200:..." vs "available") and
+    _diff_label reports a false DRIFT for a row that is not actually drifting.
+    """
+    assert _classify("200:https://example.test/djen.zip") == "available"
+
+
 def test_classify_rate_limited_on_403() -> None:
     assert _classify("403") == "rate-limited"
 
