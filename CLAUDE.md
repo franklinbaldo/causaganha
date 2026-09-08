@@ -78,7 +78,7 @@ There is one design system, not two: **Panda CSS** via the `cobogo` preset (`web
 ### Style
 
 - Ruff is strict. Only formatter-incompatible ignores + accepted-pattern ignores are in `ruff.toml` (see comments).
-- **No blind `except Exception`.** Use specific types: `httpx.HTTPError`, `httpx.RequestError`, `OSError`, `RuntimeError`.
+- **No blind `except Exception`.** Use specific types: `httpx.HTTPError`, `httpx.RequestError`, `OSError`, `RuntimeError`. Exception: a per-item bulkhead inside a worker-pool loop over independent units of work (one upload, one LLM call, one table export) may catch `Exception` broadly *if* the handler calls `.exception(...)` (full traceback, never swallowed silently) before recording a per-item failure or re-raising — see `docs/adr/0011-broad-except-in-worker-loop-bulkheads.md`. This is not a license to catch broadly elsewhere; a new site must cite the ADR in a comment or use specific types.
 - **TRY300/TRY301/TRY401 enforced.** Extract raises to inner functions.
 - Python 3.12+, `|` unions, `from __future__ import annotations` at top.
 

@@ -384,7 +384,7 @@ class LLMAnalyzer:
                 )
                 last_exc = exc
                 continue
-            except Exception as exc:
+            except Exception as exc:  # per-model bulkhead, see docs/adr/0011
                 if _is_retryable(exc):
                     logger.warning(
                         "llm_model_unavailable",
@@ -496,7 +496,7 @@ class LLMAnalyzer:
                     last_exc = exc
                     # Don't try other keys for formatting errors, go to next model/next step
                     break
-                except Exception as exc:
+                except Exception as exc:  # per-key/model bulkhead, see docs/adr/0011
                     if (
                         _is_retryable(exc)
                         or "quota" in str(exc).lower()

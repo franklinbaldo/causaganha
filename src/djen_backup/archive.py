@@ -261,7 +261,7 @@ async def upload_zip(
         log.info("upload_starting", item_id=item_id, file=zip_path.name)
         try:
             ok = await ia_s3.upload_to_ia(client, item_id, zip_path, date_str)
-        except Exception as exc:
+        except Exception as exc:  # per-item bulkhead, see docs/adr/0011
             elapsed = round(time.monotonic() - start, 1)
             log.exception(
                 "upload_exception",
