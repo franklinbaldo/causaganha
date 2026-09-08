@@ -29,6 +29,8 @@ from typing import Any
 import duckdb
 import httpx
 
+from djen_backup.manifest import ABSENT_CODES
+
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 
 
@@ -150,7 +152,7 @@ def _classify(djen_raw: str) -> str:
         return "unknown"
     if raw == "200":
         return "available"
-    if raw in {"404", "400"}:
+    if raw in ABSENT_CODES:
         return "absent"
     if raw == "403":
         return "rate-limited"
