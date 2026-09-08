@@ -410,6 +410,14 @@ def _normalize_manifest(con: duckdb.DuckDBPyConnection) -> None:
     ``interpret_djen_raw('200')`` would re-derive ``available``. Rewrite the
     raw to the ``no_publications`` sentinel so the verdict is reproducible
     from the raw alone, regardless of which consumer reads it.
+
+    ``djen_status='absent'`` with no ``djen_raw`` at all can't be
+    re-verified (CLAUDE.md: "Don't trust `absent` from old runs... reset
+    all `absent` entries where `djen_raw` is empty to unknown"). Downgrade
+    it to unknown, mirroring ``src/djen_backup/manifest.py``'s
+    ``SyncManifest._normalize_event``. This matters because
+    ``_apply_deltas``'s legacy 5-column upload-delta merge can set
+    ``djen_status='absent'`` without ever setting ``djen_raw``.
     """
     fixed = con.execute(
         """
@@ -420,6 +428,15 @@ def _normalize_manifest(con: duckdb.DuckDBPyConnection) -> None:
     ).fetchone()[0]
     if fixed:
         print(f"  normalized {fixed} absent rows with a contradictory 200 raw")
+
+    downgraded = con.execute(
+        """
+        UPDATE manifest SET djen_status = NULL
+        WHERE djen_status = 'absent' AND (djen_raw IS NULL OR djen_raw = '')
+        """
+    ).fetchone()[0]
+    if downgraded:
+        print(f"  downgraded {downgraded} absent rows with no djen_raw to unknown")
 
 
 def render_parquet(

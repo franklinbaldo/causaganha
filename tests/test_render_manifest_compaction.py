@@ -126,6 +126,36 @@ def test_normalize_manifest_rewrites_contradictory_absent_200(tmp_path):
     assert rows["TJRO"] == "200"  # available keeps its raw
 
 
+def test_normalize_manifest_downgrades_absent_with_empty_raw_to_unknown(tmp_path):
+    """CLAUDE.md: "reset all `absent` entries where `djen_raw` is empty to unknown".
+
+    ``manifest.py``'s in-memory ``_normalize_event`` already enforces this
+    downgrade (see ``SyncManifest.apply_event``). The compactor's
+    ``_normalize_manifest`` must enforce the same invariant, since
+    ``_apply_deltas``'s legacy 5-column upload-delta merge can set
+    ``djen_status='absent'`` without ever touching ``djen_raw``.
+    """
+    rmp = _load_render_module()
+    base = _make_base_parquet(
+        tmp_path / "base.parquet",
+        [
+            # can't be re-verified from djen_raw alone → must downgrade
+            ("TJMS", "2024-01-02", None, "absent", None, "2024-02-01"),
+            ("TJPA", "2024-01-02", None, "absent", "", "2024-02-01"),
+            # genuine absent with a real raw code → untouched
+            ("TJBA", "2024-01-02", None, "absent", "404", "2024-02-01"),
+        ],
+    )
+    con = duckdb.connect()
+    rmp._load_base(con, base)
+    rmp._normalize_manifest(con)
+
+    rows = dict(con.execute("SELECT tribunal, djen_status FROM manifest").fetchall())
+    assert rows["TJMS"] is None
+    assert rows["TJPA"] is None
+    assert rows["TJBA"] == "absent"
+
+
 def test_segment_and_delta_listing_filters():
     rmp = _load_render_module()
     names = [
