@@ -169,7 +169,7 @@ export function buildTribunalAttentionCards(params: {
 }): AttentionCard[] {
   const cards: AttentionCard[] = [];
   const completion = params.expectedDays > 0
-    ? (params.coverageSize / params.expectedDays) * 100
+    ? ((params.coverageSize + params.absentCount) / params.expectedDays) * 100
     : params.completionPct;
 
   if (params.missingDays > 0) {
