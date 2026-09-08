@@ -26,6 +26,9 @@ export function daysBetweenIso(aIso: string, bIso: string): number {
   return Math.floor((b.getTime() - a.getTime()) / MS_PER_DAY);
 }
 
+/** Business days (Mon-Fri) per calendar week -- the achievable ceiling for any "per week" rate derived from business-day counts, since manifest.py never records weekends. */
+export const BUSINESS_DAYS_PER_WEEK = 5;
+
 /** Whether an ISO date string falls on Mon-Fri, matching manifest.py's `weekday() < 5` build rule. */
 export function isBusinessDayIso(iso: string): boolean {
   const day = new Date(iso + 'T00:00:00Z').getUTCDay();
