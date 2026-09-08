@@ -1,8 +1,8 @@
 ---
-checks: []
+checks: ["run-checks/20260908t102845z-do-the-best-useful-work-availab/check-astro-version-and-baseline-green"]
 decisions: []
-evidence: []
-goals: ["run-goals/20260908t102845z-do-the-best-useful-work-availab/goal-confirm-pr-1318-merge"]
+evidence: ["run-evidence/20260908t102845z-do-the-best-useful-work-availab/evidence-astro-version-fixed"]
+goals: ["run-goals/20260908t102845z-do-the-best-useful-work-availab/goal-confirm-pr-1318-merge", "run-goals/20260908t102845z-do-the-best-useful-work-availab/goal-fix-astro-version-drift"]
 id: "runs/20260908T102845Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260908t102845z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260908t102845z-do-the-best-useful-work-availab/reading-active-skills"]
 run_spec: "run-specs/experience"

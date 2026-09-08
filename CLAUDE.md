@@ -7,7 +7,7 @@ Project guide for Claude Code. Keep this file short and actionable.
 CausaGanha archives Brazilian judicial communications (DJEN) on Internet Archive and serves a public dashboard. Two runtime surfaces:
 
 - **Python backend** in `src/causaganha` and `src/djen_backup`
-- **Web frontend** in `web/` (Astro 5 + Svelte 5)
+- **Web frontend** in `web/` (Astro 7 + Svelte 5)
 
 ## Architecture at a glance
 

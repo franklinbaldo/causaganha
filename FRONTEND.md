@@ -21,7 +21,7 @@ All frontend decisions must serve the [Design Constitution](#design-constitution
 
 | Layer | Technology |
 |---|---|
-| Meta-framework | Astro 5 |
+| Meta-framework | Astro 7 |
 | Component framework | Svelte 5 |
 | Styling | Panda CSS (`cobogo` preset — tokens, recipes) + Vanilla CSS in `index.css` for three legacy Svelte islands |
 | Async state / data fetching | TanStack Query (`@tanstack/svelte-query@^6`) |
