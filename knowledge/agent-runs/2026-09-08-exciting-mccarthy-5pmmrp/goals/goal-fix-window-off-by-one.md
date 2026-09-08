@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-08-exciting-mccarthy-5pmmrp-goal-fix-window-off-by-one"
+run_id: "2026-09-08-exciting-mccarthy-5pmmrp"
+goal: "Fix the off-by-one in stats_coverage.qmd's and daily_uploads.qmd's 'last N days' window filters, which currently include N+1 distinct calendar dates instead of N."
+rationale: "web/src/queries/stats_coverage.qmd:15 filters `date >= CURRENT_DATE - INTERVAL 30 DAY`, which spans today-30..today inclusive -- 31 distinct dates, not 30. This contract is rendered directly onto the live /stats page (web/src/pages/stats.astro's 'Últimos 30 dias' card: avgCoverage30, bestDay, worstDay), so the page's own label promises exactly 30 days while the SQL delivers 31, skewing avg_coverage/best_day/worst_day by including one extra, arbitrary boundary date each time the page renders. web/src/queries/daily_uploads.qmd:17 has the identical bug with INTERVAL 120 DAY (120+1=121 dates); its JSON is not currently fetched by any live component, but it is the single shared 'last N days' pattern in this codebase and should not ship the same known-wrong SQL a second time in the same PR. Confirmed via a dedicated Explore subagent survey of scripts/render_queries.py, all .qmd contracts, causaganha_mcp/, manifest.py, archive.py and every calendar/business-day calculation in web/src/lib -- this off-by-one is the only currently-live, cleanly-testable defect found this round (the codebase's last ~100 commits already cover the business-day-vs-calendar-day bug class exhaustively)."
+success_signal: "A new pytest in tests/test_render_queries.py builds a manifest whose one 'extra' boundary-day row (exactly N days before CURRENT_DATE) has a distinguishably different value from the N days that should count, renders stats_coverage.qmd (and daily_uploads.qmd) via rq.render_all, and asserts the output reflects exactly N dates, not N+1. This test fails (RED) against the current SQL and passes (GREEN) once the WHERE clause is changed to exclude the N-days-ago boundary date. Full suite (uv run pytest -q) stays green afterward, along with uv run ruff check and uv run ruff format --check. A PR is opened and driven to a green, mergeable state."
+status: "achieved"
+---
+
+# Goal: corrigir off-by-one nas janelas "últimos N dias"
+
+`stats_coverage.qmd` e `daily_uploads.qmd` usam `date >= CURRENT_DATE - INTERVAL N DAY`, que inclui N+1 datas distintas (hoje até hoje-N, inclusive), não N. `stats_coverage.qmd` é renderizado direto no card "Últimos 30 dias" da página pública `/stats` -- o rótulo promete 30 dias, o SQL entrega 31. Corrigido com TDD: teste RED que prova a data-limite extra entra no cálculo, depois GREEN ajustando o filtro.

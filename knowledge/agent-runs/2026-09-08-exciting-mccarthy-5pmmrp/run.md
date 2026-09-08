@@ -2,52 +2,41 @@
 type: AgentRun
 id: "2026-09-08-exciting-mccarthy-5pmmrp"
 started_at: "2026-09-08T23:23:43Z"
-completed_at: ""
+completed_at: "2026-09-08T23:40:00Z"
 branch_at_start: "claude/exciting-mccarthy-5pmmrp"
 commit_at_start: "413019f63f09f5a8f47bf1ae35f187cb6c6129db"
 claude_md_reading_id: "2026-09-08-exciting-mccarthy-5pmmrp-reading-claude-md"
 issues_reading_id: "2026-09-08-exciting-mccarthy-5pmmrp-reading-issues"
 prs_reading_id: "2026-09-08-exciting-mccarthy-5pmmrp-reading-prs"
 okf_reading_id: "2026-09-08-exciting-mccarthy-5pmmrp-reading-okf"
-goal_ids: []
-primary_goal_id: ""
-considered_work: []
-selected_work: ""
-expected_behavior: ""
+goal_ids:
+  - "2026-09-08-exciting-mccarthy-5pmmrp-goal-fix-window-off-by-one"
+primary_goal_id: "2026-09-08-exciting-mccarthy-5pmmrp-goal-fix-window-off-by-one"
+considered_work:
+  - "17 open GitHub issues, all pre-verified blocked -- reconciled fresh against the same 17 numbers every recent round has found (segmenter issues need GPU/annotation infra or an evidence-first roadmap decision; #950/#951 need a hosting decision from the repo owner; #1011/#1022 need IAS3 credentials absent from this sandbox; #985 blocked on a live TSE 403; #1093 explicitly defers itself pending #950/#951). Not actionable."
+  - "Zero open PRs -- the prior round in this family (obl3ux) merged its own PR #1313 (squash commit dbd6b2e); nothing else is open."
+  - "Two leads carried over in obl3ux's next_move, both already rejected by two prior rounds and re-confirmed still non-actionable this round: (a) ~55% dead code in web/src/lib/coverageInsights.ts (5 unused exported functions, zero call sites) -- pure cleanup, no RED/GREEN shape; (b) src/djen_backup/djen.py's download_zip() not explicitly raising DJENRateLimitedError on HTTP 403 -- confirmed harmless today since engine.py's download_worker catches DJENRateLimitedError and httpx.HTTPError identically."
+  - "Dispatched an Explore subagent to survey less-covered areas (scripts/render_queries.py + all .qmd contracts, causaganha_mcp/, src/djen_backup/manifest.py|archive.py|retry.py, TODO/FIXME across src/ and web/src, and every remaining calendar-day-vs-business-day calculation) for a fresh candidate. It returned two ranked candidates and independently verified each by reading the actual code. Candidate 2 (web/src/lib/iaMetadataFetcher.ts's getExpectedDays using calendar days instead of business days) was traced to AnnualCoverageMonitor.svelte/CoverageTable.svelte, both confirmed (via grep) to be orphaned -- referenced by no .astro page, only by their own tests -- so it fails the same 'no live impact' bar that rejected lead (a) above; not selected. Candidate 1 (below) was independently re-verified by reading web/src/queries/stats_coverage.qmd, daily_uploads.qmd, and web/src/pages/stats.astro directly, confirming stats_coverage.qmd's output is in fact rendered on the live /stats page's 'Últimos 30 dias' card (avgCoverage30/bestDay/worstDay) -- selected."
+selected_work: "Fixed an off-by-one in the 'last N days' window filters of web/src/queries/stats_coverage.qmd (INTERVAL 30 DAY) and web/src/queries/daily_uploads.qmd (INTERVAL 120 DAY). Both used `date >= CURRENT_DATE - INTERVAL N DAY`, which spans today-N..today inclusive -- N+1 distinct calendar dates, not N. stats_coverage.qmd's output (avg_coverage/best_count/best_day/worst_count/worst_day) is rendered directly on the live /stats page's 'Últimos 30 dias' card (web/src/pages/stats.astro's avgCoverage30/avgCoverage30Pct), so the card's own label promised exactly 30 days while the SQL delivered 31 -- one extra, arbitrary boundary date skewing the average and the best/worst-day picks every time the page rendered. daily_uploads.qmd carries the identical bug (121 dates instead of 120); its JSON isn't fetched by any live component today, but it's the same shared pattern and was fixed in the same PR rather than leaving a second copy of the same known-wrong SQL in the codebase. Fixed both by changing `>=` to `>` (keeping N unchanged, per the decision recorded below) -- a one-character-class change, no schema/contract change."
+expected_behavior: "A manifest whose boundary day (exactly N days before CURRENT_DATE) has a value distinguishable from every day inside the true N-day window: for stats_coverage.qmd, a boundary day with an outlier collected-count of 3 against 1 everywhere else in the 30-day window must not leak into best_count/avg_coverage/best_day/worst_day once fixed (best_count=1, avg_coverage=1.0, best_day/worst_day != boundary date) -- this failed before the fix (RED: best_count=3) and passes after (GREEN). For daily_uploads.qmd, a manifest with exactly two rows (today-120, today-119) must return only 1 row (today-119) once fixed -- failed before (RED: 2 rows including the boundary) and passes after (GREEN). Full tests/test_render_queries.py file (43 tests, including 2 new + all pre-existing) stays green. uv run ruff check and uv run ruff format --check stay green. A PR is opened and driven to a green, mergeable state."
 entry_state: "new"
-target_state: "red"
-decision_ids: []
-evidence_ids: []
-check_ids: []
-result_state: "red"
-result_summary: ""
-next_move: ""
+target_state: "merged"
+decision_ids:
+  - "2026-09-08-exciting-mccarthy-5pmmrp-decision-boundary-exclusive-not-n-minus-1"
+evidence_ids:
+  - "2026-09-08-exciting-mccarthy-5pmmrp-evidence-red-tests"
+  - "2026-09-08-exciting-mccarthy-5pmmrp-evidence-green-tests"
+  - "2026-09-08-exciting-mccarthy-5pmmrp-evidence-diff-fix"
+check_ids:
+  - "2026-09-08-exciting-mccarthy-5pmmrp-check-okf-parser-baseline"
+  - "2026-09-08-exciting-mccarthy-5pmmrp-check-python-suite"
+  - "2026-09-08-exciting-mccarthy-5pmmrp-check-okf-parser-mid-round"
+  - "2026-09-08-exciting-mccarthy-5pmmrp-check-okf-parser-final"
+result_state: "review"
+result_summary: "Fixed a real, currently-live bug on the public /stats page: stats_coverage.qmd's and daily_uploads.qmd's 'last N days' window filters (`date >= CURRENT_DATE - INTERVAL N DAY`) each included N+1 distinct calendar dates instead of N, because `>=` against an unchanged N-day interval spans the boundary date inclusively on both ends. stats_coverage.qmd feeds the live /stats page's 'Últimos 30 dias' card directly (avgCoverage30/bestDay/worstDay in stats.astro) -- the card's own label promised 30 days, the SQL delivered 31, silently including one extra boundary date in the average and in the best/worst-day picks on every render. daily_uploads.qmd (120-day window) carries the identical bug; its JSON isn't wired into any live component today but was fixed in the same PR since it's the same shared pattern and the same one-line class of fix. Wrote RED tests first (tests/test_render_queries.py) with a rigged manifest whose boundary day has a value distinguishable from every day that should count -- both failed exactly as predicted against the unfixed SQL. Fixed by changing `>=` to `>` in both .qmd files (keeping the frontmatter's own N unchanged, so the visible window-size number in the SQL still matches the description/UI label -- recorded as an explicit AgentDecision). Full tests/test_render_queries.py (43 tests) is green; ruff check and ruff format --check are green; no schema/contract change. okf-parser check knowledge --relational-schema okf.schema.sql: conformant, 0 diagnostics, run at baseline (870 concepts) and mid-round after linking goal/decision/evidence/checks (881 concepts; hit and fixed the same evidence_id=\"\" FK pitfall two of the last three rounds already documented). Not yet pushed/opened as a PR -- that is this round's next action; result_state will move to 'merged' in a follow-up commit once CI is green and the PR merges."
+next_move: "Push this branch, open a PR, and drive it to a green, mergeable state (this round's `completed_at` is already filled above, ahead of that first push, per the scaffold's own rule). Once merged, update result_state to 'merged' and record the merge as AgentEvidence in a follow-up commit, the way every recent round in this family has closed out. If CI surfaces something unexpected (e.g. a snapshot fixture elsewhere asserting stats_coverage.json's exact date range), fix it in the same PR rather than reverting the window fix. Beyond this PR: the two leads already rejected by three consecutive rounds (coverageInsights.ts dead code; download_zip's 403 handling) remain low-priority and available if a future round runs out of fresher candidates; this round's own Explore survey additionally confirmed web/src/lib/iaMetadataFetcher.ts's getExpectedDays has the same business-day-vs-calendar-day bug as two previously-fixed live components, but it is currently dead code (AnnualCoverageMonitor.svelte/CoverageTable.svelte are wired into no page) -- worth fixing only if/when that component is wired back into a live page, or if a future round decides the dead-code bar itself should be relaxed."
 ---
 
 # Agent run
 
-Este arquivo é o scaffold deliberadamente incompleto da rodada. Copie-o para `knowledge/agent-runs/<run-id>/run.md` como primeira ação da sessão.
-
-Em seguida rode:
-
-```bash
-uv run okf-parser check knowledge --relational-schema okf.schema.sql
-```
-
-Use as lacunas apontadas pelo contrato para conduzir a própria rodada.
-
-Os componentes da sessão vivem no mesmo diretório e usam types próprios:
-
-- `AgentReading`: confirma uma leitura real e registra o achado que ela trouxe;
-- `AgentGoal`: declara objetivo, motivação e sinal observável de sucesso;
-- `AgentDecision`: registra uma escolha relevante e sua razão;
-- `AgentEvidence`: liga o avanço a evidência concreta, como teste, diff, CI, PR ou runtime;
-- `AgentCheck`: registra uma verificação executada e pode apontar para a evidência correspondente.
-
-As quatro leituras iniciais do `AgentRun` devem apontar para `AgentReading` sobre `CLAUDE.md`, issues abertas, PRs abertos e conhecimento OKF. Depois, crie goals tipados e preencha `goal_ids` e `primary_goal_id`. Decisões, evidências e checks surgem conforme o trabalho avança e seus IDs são acumulados neste relatório.
-
-O relatório só amadurece porque o trabalho amadureceu. Rode o check novamente após cada avanço material e use o resultado para decidir o próximo passo.
-
-**`completed_at` antes do primeiro push que abre PR.** `completed_at` vazio é aceitável apenas enquanto o relatório existe só localmente, durante a redação. `scripts/check_agent_run_completeness.py` roda em CI (job `validate` e via `tests/test_check_agent_run_completeness.py`) sobre toda `knowledge/agent-runs/`, inclusive relatórios de rodadas ainda em PR — então qualquer commit que leve este arquivo a um push (o que abre a PR) precisa já ter `completed_at` preenchido com um timestamp real, mesmo que `result_state` ainda seja `"review"` porque a PR está com CI pendente. Não confunda "rodada terminada" (quando a PR é mesclada) com "relatório completo" (exigido a partir do primeiro push): `completed_at` marca quando o trabalho ativo desta sessão concluiu, não quando a PR foi mesclada — se a PR precisar de mais um commit depois (correção de CI, revisão), atualize `result_state`/`result_summary`/`next_move` num commit seguinte sem apagar `completed_at`.
-
-**Três testes falham enquanto o relatório está em rascunho, não só um.** Enquanto `completed_at`/`primary_goal_id`/`result_summary`/`next_move` deste `run.md` ainda estiverem vazios, rodar a suíte completa (`uv run pytest -q`) mostra até três falhas simultâneas, todas causadas pelo mesmo motivo (uma instância `AgentRun` incompleta no bundle `knowledge/`), não três problemas distintos: `tests/test_check_agent_run_completeness.py` (o próprio gate de completude), `tests/web/test_generate_okf_zod_schemas.py::test_generated_zod_schemas_file_matches_current_knowledge_bundle` e `tests/causaganha_mcp/test_okf_domain_models.py::test_generated_domain_models_file_matches_current_knowledge_bundle`. Os dois últimos falham porque `okf-parser` deriva a forma (opcional vs. obrigatório) dos schemas Zod/domain-model gerados a partir do conteúdo real de todas as instâncias do bundle — um `AgentRun` em rascunho com campos vazios muda temporariamente essa forma inferida em relação aos arquivos gerados já commitados. Não regenere `web/src/lib/processoConsultar.gen.ts` nem `src/causaganha_mcp/_generated/domain_models.py` para "corrigir" isso: os três testes voltam a passar sozinhos assim que este `run.md` for preenchido como qualquer outro relatório finalizado.
+Fila de issues (17, todas bloqueadas) e fila de PRs (vazia) confirmadas esgotadas de novo, mesmo padrão de toda rodada recente desta família. Um subagente Explore varreu áreas menos cobertas (contratos `.qmd`, `causaganha_mcp/`, `manifest.py`/`archive.py`/`retry.py`, cálculos de dia restantes) e achou o bug real desta rodada: `stats_coverage.qmd` e `daily_uploads.qmd` usam `date >= CURRENT_DATE - INTERVAL N DAY`, que inclui N+1 datas distintas, não N. `stats_coverage.qmd` alimenta direto o card "Últimos 30 dias" da página pública `/stats` — o rótulo promete 30 dias, o SQL entregava 31, incluindo silenciosamente uma data-limite extra na média e na escolha de melhor/pior dia a cada render. Corrigido via TDD: teste RED com um manifesto cuja data-limite tem um valor discrepante das demais, provando que ela vazava para o resultado; depois GREEN trocando `>=` por `>` em ambos os `.qmd` (mantendo o N do frontmatter inalterado, por decisão registrada). Suite completa de `tests/test_render_queries.py` (43 testes) verde, `ruff check`/`ruff format --check` verdes, nenhuma mudança de schema/contrato. `okf-parser check` conformante nas duas rodadas (870 → 881 conceitos), com o mesmo pitfall de FK (`evidence_id: ""`) já documentado por duas rodadas recentes, corrigido do mesmo jeito. Ainda não enviado como PR — próximo passo desta rodada.
