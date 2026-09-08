@@ -17,6 +17,8 @@ TOTALS_QMD = REPO_ROOT / "web" / "src" / "queries" / "totals.qmd"
 TRIBUNAL_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "tribunal_coverage.qmd"
 COURT_RELIABILITY_QMD = REPO_ROOT / "web" / "src" / "queries" / "court_reliability.qmd"
 CONSOLIDATION_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "consolidation_status.qmd"
+STATS_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "stats_coverage.qmd"
+DAILY_UPLOADS_QMD = REPO_ROOT / "web" / "src" / "queries" / "daily_uploads.qmd"
 
 
 def _write_qmd(
@@ -926,3 +928,131 @@ def test_consolidation_status_counts_a_date_with_every_tracked_tribunal_as_fully
     assert payload["total_dates_with_uploads"] == 2
     assert payload["dates_fully_uploaded"] == 1
     assert payload["dates_partially_uploaded"] == 1
+
+
+# ── "last N days" window boundaries (stats_coverage / daily_uploads) ───────────
+
+
+@pytest.fixture
+def manifest_parquet_30_day_window(tmp_path: Path) -> tuple[Path, str]:
+    """31 dates spanning stats_coverage's 'last 30 days' window.
+
+    The boundary date (exactly 30 days before CURRENT_DATE) has 3 distinct
+    tribunals uploaded; every one of the 30 days after it (today-29..today)
+    has exactly 1. A query that correctly counts only 30 days never sees the
+    boundary's outlier count of 3. Returns (parquet_path, boundary_date_iso).
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-30-day-window.parquet"
+    con = duckdb.connect()
+    try:
+        today = con.execute("SELECT CURRENT_DATE").fetchone()[0]
+        boundary = today - timedelta(days=30)
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            f"('tjro', '{boundary.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjac', '{boundary.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjba', '{boundary.isoformat()}', 'uploaded', 'available', '200', now())"
+        )
+        for offset in range(29, -1, -1):
+            day = (today - timedelta(days=offset)).isoformat()
+            con.execute(
+                "INSERT INTO manifest VALUES "
+                f"('tjro', '{day}', 'uploaded', 'available', '200', now())"
+            )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path, boundary.isoformat()
+
+
+def test_stats_coverage_last_30_days_excludes_the_31st_boundary_day(
+    tmp_path, manifest_parquet_30_day_window
+):
+    """web/src/pages/stats.astro labels this card 'Últimos 30 dias' -- the
+
+    query must reflect exactly 30 distinct dates, not 31. The boundary date
+    (today-30) is rigged with an outlier collected-count of 3 (every other
+    date has 1); if the window wrongly includes it, avg_coverage/best_count
+    pick it up.
+    """
+    manifest_parquet, boundary_iso = manifest_parquet_30_day_window
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "stats_coverage.qmd").write_text(STATS_COVERAGE_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert failures == []
+
+    payload = json.loads((public / "data" / "stats_coverage.json").read_text())
+    assert payload["best_count"] == 1
+    assert payload["worst_count"] == 1
+    assert payload["avg_coverage"] == 1.0
+    assert payload["best_day"] != boundary_iso
+    assert payload["worst_day"] != boundary_iso
+
+
+@pytest.fixture
+def manifest_parquet_120_day_window(tmp_path: Path) -> tuple[Path, str]:
+    """Two dates only, straddling daily_uploads's 'last 120 days' boundary:
+
+    exactly 120 days before CURRENT_DATE (must be excluded) and 119 days
+    before (must be included). Returns (parquet_path, boundary_date_iso).
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-120-day-window.parquet"
+    con = duckdb.connect()
+    try:
+        today = con.execute("SELECT CURRENT_DATE").fetchone()[0]
+        boundary = today - timedelta(days=120)
+        inside = today - timedelta(days=119)
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            f"('tjro', '{boundary.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjro', '{inside.isoformat()}', 'uploaded', 'available', '200', now())"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path, boundary.isoformat()
+
+
+def test_daily_uploads_last_120_days_excludes_the_121st_boundary_day(
+    tmp_path, manifest_parquet_120_day_window
+):
+    """daily_uploads.qmd's own description promises 'last 120 days' -- the
+
+    boundary date (today-120) must not appear in the rendered rows.
+    """
+    manifest_parquet, boundary_iso = manifest_parquet_120_day_window
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "daily_uploads.qmd").write_text(DAILY_UPLOADS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert failures == []
+
+    rows = json.loads((public / "data" / "daily_uploads.json").read_text())
+    dates = [row["date"] for row in rows]
+    assert boundary_iso not in dates
+    assert len(rows) == 1

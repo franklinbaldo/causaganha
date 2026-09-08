@@ -12,7 +12,7 @@ número de tribunais distintos com `ia_status='uploaded'` naquela data.
 WITH daily AS (
   SELECT date, COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS collected
   FROM manifest
-  WHERE date >= CURRENT_DATE - INTERVAL 30 DAY
+  WHERE date > CURRENT_DATE - INTERVAL 30 DAY
   GROUP BY date
 )
 SELECT

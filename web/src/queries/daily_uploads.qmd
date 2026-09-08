@@ -14,7 +14,7 @@ SELECT
   COUNT(*) AS count
 FROM manifest
 WHERE ia_status = 'uploaded'
-  AND date >= CURRENT_DATE - INTERVAL 120 DAY
+  AND date > CURRENT_DATE - INTERVAL 120 DAY
 GROUP BY date
 ORDER BY date;
 ```
