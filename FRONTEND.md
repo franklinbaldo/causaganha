@@ -23,7 +23,7 @@ All frontend decisions must serve the [Design Constitution](#design-constitution
 |---|---|
 | Meta-framework | Astro 5 |
 | Component framework | Svelte 5 |
-| Styling | Pico CSS (semantic baseline) + Vanilla CSS with design tokens |
+| Styling | Panda CSS (`cobogo` preset — tokens, recipes) + Vanilla CSS in `index.css` for three legacy Svelte islands |
 | Async state / data fetching | TanStack Query (`@tanstack/svelte-query@^6`) |
 | Local state | Svelte 5 runes (`$state`, `$derived`) |
 | Cross-island shared state | Svelte stores (`writable`) |
@@ -77,7 +77,7 @@ This is the most consequential decision in this codebase. Getting it wrong adds 
 ### Create a `.astro` file when
 
 - The output is **purely static** — no user interaction after page load.
-- Interactivity is **light DOM manipulation** that a plain `<script>` tag handles easily (example: `ThemeToggle.astro` uses `addEventListener` and `localStorage` without any Svelte overhead).
+- Interactivity is **light DOM manipulation** that a plain `<script>` tag handles easily (example: `NetworkStatusBanner.astro` listens for `cg-network-*` custom events with `addEventListener` and toggles `hidden` on plain DOM nodes, without any Svelte overhead).
 - You are building a **layout**, **page**, or **structural shell** — headers, footers, breadcrumbs, page wrappers.
 - You need to **compose islands**: `.astro` files are the correct host that decides which Svelte components get hydrated and which don't.
 
@@ -307,7 +307,7 @@ Any component that imports `myStore` reads reactive state directly — no subscr
 
 Every `.svelte` file scopes its `<style>` block to the component. Do not add global selectors inside a component's `<style>` unless you wrap them in `:global()` explicitly and have a clear reason.
 
-Design token CSS variables (defined in `web/src/index.css`) are available everywhere — use them, do not hardcode colors or spacing values.
+The `--cg-*`/`--papel-*`/`--s-*` CSS custom properties (defined in `web/src/index.css`, see "`index.css` — the Legacy-Svelte-Island CSS Bridge" below) are available to any Svelte component's scoped `<style>` block — use them there, do not hardcode colors or spacing values. New Svelte components should still prefer Panda recipes for anything a recipe already expresses (see "Panda's `include` boundary" below for why raw `css({...})` doesn't work inside `.svelte` files).
 
 ### Anti-patterns — Svelte
 
@@ -320,62 +320,71 @@ Design token CSS variables (defined in `web/src/index.css`) are available everyw
 
 ---
 
-## Pico CSS — Semantic HTML as the First Styling Layer
+## Panda CSS — Tokens and Recipes as the First Styling Layer
 
-Pico CSS is the visual baseline. It styles **native HTML elements directly** — no framework classes required for the common cases. The workflow is:
+Panda CSS, configured through the shared `cobogo` preset (`web/panda.config.ts`), is the visual baseline for every `.astro` file. `cobogo` sets `globalCss` only for `html`, `body`, `::selection`, and `a` — there is no Pico-style automatic styling of `<button>`, `<table>`, `<article>`, or any other element. Every visual choice beyond that global reset is an explicit call:
 
-1. Write semantically correct HTML.
-2. Pico provides the visual styling for free.
-3. Add custom classes only for what Pico cannot express idiomatically.
+1. Reach for a **recipe** (`button`, `card`, `badge`, `alert`, `input`, `article`, `table`, `navLink`) when the element matches one of `cobogo`'s named patterns.
+2. Reach for **`css({...})`** for one-off utility styling using the preset's tokens (spacing, color, typography).
+3. Add a scoped `<style>` block only for what neither expresses idiomatically.
 
-This means **element choice is a styling decision.** Picking the wrong element defeats Pico's mapping and often breaks accessibility at the same time.
+```astro
+---
+import { css } from '../../styled-system/css';
+import { badge, card, alert } from '../../styled-system/recipes';
+---
+<span class={badge({ tone: 'info' })}>Cobertura · DJEN</span>
 
-### Semantic patterns Pico expects
+<article class={card({ tone: 'muted' })}>
+  <p class={css({ textStyle: 'eyebrow', mb: '4' })}>Média diária</p>
+  <strong class={css({ display: 'block', fontSize: '2xl' })}>{avgCoverage30Pct.toFixed(1)}%</strong>
+</article>
+
+<div class={alert({ tone: 'attention' })}>
+  <strong>Dados de cobertura indisponíveis.</strong>
+  <span>O contrato `tribunal_coverage` não foi renderizado neste build.</span>
+</div>
+```
+
+(Real call sites: `web/src/pages/stats.astro`, `web/src/pages/agentes.astro`, `web/src/layouts/Layout.astro`.)
+
+### Recipes and their variants
+
+Each recipe's variant options live in `node_modules/cobogo/preset/index.mjs` — check there before inventing a one-off style for something a recipe already expresses:
+
+| Recipe | Variants | Real usage |
+|---|---|---|
+| `button({ visual, size })` | `visual`: `solid` \| `outline` \| `light` \| `dark`; `size`: `sm` \| `md` | `<a class={button({ visual: 'solid' })} href={...}>Consultar processo</a>` (`index.astro`) |
+| `card({ tone, lift })` | `tone`: `plain` \| `muted` \| `dark` \| `attention`; `lift`: `flat` \| `raised` | `<article class={card()}>` (`stats.astro`) |
+| `badge({ tone })` | `tone`: `neutral` \| `info` \| `attention` \| `accent` | `<span class={badge({ tone: 'info' })}>Projeto & dados</span>` (`sobre.astro`) |
+| `alert({ tone })` | `tone`: `info` \| `attention` \| `success` | `<div class={alert({ tone: 'info' })}>` (`explorador.astro`, `processo.astro`) |
+| `input({ density })` | `density`: `compact` \| `comfortable` | form inputs across search islands |
+| `article({ density })` | `density`: `editorial` \| `compact` | long-form prose blocks |
+| `table({ density })` | `density`: `compact` \| `comfortable` | `<table class={table({ density: 'compact' })}>` (`stats.astro`) |
+| `navLink({ active })` | `active`: `true` | `<a class={navLink({ active: pathname.includes(link.match) })}>` (`Layout.astro`) |
+
+### `css()` tokens
+
+`css({...})` (from `styled-system/css`) accepts the preset's semantic tokens directly — `color: 'text'`, `background: 'surfaceMuted'`, `textStyle: 'title'`, spacing scale keys (`p: '6'`, `gap: '4'`), and responsive objects (`fontSize: { base: '2xl', md: '3xl' }`). See `web/src/pages/stats.astro` for dense, real examples of every one of these.
+
+### Semantic HTML — accessibility patterns
+
+These patterns are independent of the styling system (they were true under Pico and remain true under Panda) and are actively followed in this codebase's search UIs (`SearchFilters.svelte`, `SmartSearchInput.svelte`, `IASearchBar.svelte`). Element choice affects assistive-technology behavior regardless of which CSS system renders it:
 
 | Pattern | Correct | Wrong |
 |---|---|---|
 | Grouped radio / checkbox inputs | `<fieldset><legend>Label</legend>` | `<div><small>Label</small>` |
-| Search input wrapper | `<search>` | `<div class="search-wrapper">` |
-| Card container | `<article>` with `<header>` / `<footer>` | `<div class="card">` |
-| Highlighted / status badge | `<mark data-tone="warning">` | `<span class="badge warning">` |
-| Supporting metadata | `<small>` (within flow) | Used as group label substitute |
-| Inline aria-busy loading hint | `<p aria-busy="true">` | `<div class="spinner">` |
+| Search form | `<form role="search">` | A plain `<div>` wrapper with no search semantics |
+| Keyboard-shortcut hint | `<kbd>` outside the `<label>`, wrapped in `aria-hidden="true"` | `<kbd>` inside the `<label>` (pollutes the input's accessible name) |
+| Site navigation landmark | `<nav>` for menus/breadcrumbs/pagination | `<nav>` for a cluster of action buttons (use `<div role="toolbar" aria-label="...">` instead) |
 
-### Elements used for semantic meaning only
-
-These elements carry meaning beyond their visual appearance. Pico styles them, but **use them only when their meaning applies.**
-
-| Element | Correct use | Wrong use |
-|---|---|---|
-| `<kbd>` | Keyboard input the user types (`Ctrl+K`) | Numeric badges, counts, visual chips |
-| `<nav>` | Site navigation landmarks (main menu, breadcrumb, pagination) | Groups of action buttons (download, share, view) |
-| `<data value="...">` | Machine-readable numeric or structured value alongside human text | Visual number display with no machine-readable need |
-| `<small>` | Fine print, metadata captions, supporting context | Substitute for `<legend>` inside a `<fieldset>` |
-
-#### Why `<nav>` is not for action groups
-
-`<nav>` creates a landmark region that screen readers list alongside `<main>`, `<header>`, and `<footer>`. A cluster of action buttons (e.g. "Baixar ZIP / Compartilhar / Ver no IA") is not a navigation landmark — it is a toolbar or a button group. Use `<div aria-label="...">` or, if the keyboard interaction warrants it, `<div role="toolbar" aria-label="...">`.
-
-#### Why `<kbd>` is not for visual badges
-
-`<kbd>` tells assistive technology that the enclosed text represents a key the user should press. A screen reader navigating a ranking list will announce `<kbd>42</kbd>` as "press 42" — which is wrong. Use `<data value={n}>{n}</data>` for structured numeric output, or a plain `<span>` with a visual class.
-
-#### Why `<fieldset>` + `<legend>` for radio / checkbox groups
-
-Pico CSS styles `<fieldset>` as a clean grouped block and `<legend>` as the group's visible label. Using `<div>` + `<small>` loses the semantic grouping, breaks screen-reader announcement of which radio group is active, and foregoes Pico's default styling at the same time.
-
-### Keyboard shortcut hints inside form labels
-
-Do not put `<kbd>` elements inside a `<label>` — they become part of the accessible name of the associated input. A screen reader will announce "Buscar publicações Control K" as the field name. Keep `<kbd>` hints outside the `<label>`, use `aria-hidden="true"` on their wrapper, and position them visually with CSS:
-
-```html
-<!-- Correct -->
-<search>
-  <label>
-    <input type="search" aria-label="Buscar publicações" />
-  </label>
-  <span class="search-shortcut-hint" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
-</search>
+```svelte
+<!-- Correct — web/src/components/SmartSearchInput.svelte -->
+<form role="search">
+  <label for="publication-smart-search">Buscar publicações</label>
+  <input id="publication-smart-search" type="search" />
+  <span class="smart-search__shortcut" aria-hidden="true"><kbd>Ctrl</kbd><kbd>K</kbd></span>
+</form>
 
 <!-- Wrong — "Buscar publicações Control K" becomes the field's accessible name -->
 <label>
@@ -384,44 +393,46 @@ Do not put `<kbd>` elements inside a `<label>` — they become part of the acces
 </label>
 ```
 
-### Anti-patterns — Pico CSS
+### Panda's `include` boundary
 
-- **Do not** use `<kbd>` as a badge or counter. Use `<data value={n}>{n}</data>` or a `<span>`.
-- **Do not** use `<div>` + `<small>` to label radio or checkbox groups. Use `<fieldset>` + `<legend>`.
-- **Do not** use `<nav>` for action button clusters. `<nav>` is a landmark — reserve it for navigation.
-- **Do not** put `<kbd>` hints inside `<label>` elements. They pollute the accessible name of the input.
-- **Do not** write `style="background: #1A6B3C; display: inline-block; ..."` for things that should be CSS classes. Inline colors ignore `[data-theme="dark"]` and can't be overridden by the design token system.
-- **Do not** invent custom button classes for what Pico already expresses: use `.secondary`, `.outline`, `.secondary.outline` before adding a new class.
+Panda's `include` in `panda.config.ts` only scans `.astro`/`.js`/`.jsx`/`.ts`/`.tsx` files — **never `.svelte`.** A `css({...})` call written inside a `.svelte` file is unreliable, because any property/value combination not *also* used in an included file never gets its atomic class extracted into the stylesheet (see CLAUDE.md's "CSS token boundary" section for the full explanation and the three legacy Svelte islands this affects). Recipes are safe to call from a Svelte component — their full variant CSS is generated regardless of call site — but raw `css({...})` is not. This is why every Svelte component, new or legacy, styles through global element-level CSS/utility classes (`index.css`) and its own scoped `<style>` block rather than importing `css()` directly.
+
+### Anti-patterns — Panda CSS
+
+- **Do not** write inline `style="background: #1A6B3C; ..."` for anything a token or recipe already expresses. Inline styles ignore theme tokens and can't be overridden.
+- **Do not** invent a bespoke CSS class for a button/card/badge/alert/input/article/table/nav-link — check the recipe's variant list first.
+- **Do not** call raw `css({...})` from inside a `.svelte` file — see "Panda's `include` boundary" above.
+- **Do not** add new custom properties outside `panda.config.ts`/the `cobogo` preset. `web/src/index.css` is a compatibility bridge for three legacy Svelte islands, not a second token system (see CLAUDE.md).
 
 ---
 
-## Vanilla CSS and Design Tokens
+## `index.css` — the Legacy-Svelte-Island CSS Bridge
 
-All global design tokens are in `web/src/index.css`. Every token is a CSS custom property on `:root`.
+`web/src/index.css` is **not** the primary token system — see "Panda CSS" above for that. It exists only as a compatibility bridge for the three legacy Svelte islands that predate the Panda/`cobogo` reboot and haven't been converted to `css()`/recipes yet (`ProcessoLookup.svelte`, `PublicationSearch.svelte`, `SavedConsultations.svelte`), per CLAUDE.md's "CSS token boundary" section. It defines `--cg-*` primitives backed by Panda's own `--colors-*` custom properties, and re-exposes legacy names (`--papel-*`, `--s-*`, `--color-*`) as aliases to those same values.
 
 ### Use tokens — never hardcode
 
 ```css
-/* Correct */
+/* Correct — inside one of the three legacy islands' scoped <style> block */
 .card {
-  padding: var(--space-4);
-  background: var(--color-base-100);
-  border-radius: var(--radius-card);
-  font-size: var(--font-size-sm);
+  padding: var(--s-4);
+  background: var(--color-surface);
+  color: var(--cg-text);
 }
 
 /* Wrong */
 .card {
   padding: 16px;
-  background: #1a1a2e;
-  border-radius: 8px;
-  font-size: 14px;
+  background: #fffdf8;
+  color: #1a1a2e;
 }
 ```
 
-### Theming
+New Svelte components should not introduce new `--cg-*`/`--papel-*`/`--s-*` names — that vocabulary is frozen for the three legacy islands. A new component styles through recipes plus its own scoped `<style>` with literal values, per CLAUDE.md.
 
-The theme is applied via `data-theme` on `<html>`. Both `causaganha` (light) and `causaganhadark` (dark) themes are defined as attribute selectors in `index.css`. Components automatically respond to theme changes because they use CSS variables.
+### No light/dark theme toggle
+
+CausaGanha is intentionally single-theme (issue #1178): the `cobogo` preset defines one flat palette with no dark-mode variant, no `data-theme` awareness, and no theme-toggle component. `web/src/lib/themeSingleModeGuard.test.ts` is a regression test that fails if any source file reintroduces `data-theme`, `causaganha-theme`, or other pre-#1178 theming markers — do not add a light/dark toggle without first revisiting that decision.
 
 ### Tailwind migration status
 
@@ -446,11 +457,11 @@ Use a mobile-first approach. Write the default styles for small screens and add 
 
 ### Anti-patterns — CSS
 
-- **Do not** write inline `style="..."` with hardcoded values. Use tokens via CSS classes or CSS variables. Inline colors are invisible to `[data-theme="dark"]` and cannot be overridden.
+- **Do not** write inline `style="..."` with hardcoded values. Use Panda tokens/recipes (`.astro`) or the legacy `--cg-*`/`--papel-*`/`--s-*` aliases (the three legacy Svelte islands only).
 - **Do not** use `!important`. If specificity is a problem, restructure the selectors.
-- **Do not** add new one-off color values. Extend the token set in `index.css` if a new semantic color is needed.
-- **Do not** duplicate token values by copy-pasting hex codes. Always reference the variable.
-- **Do not** write CSS utility classes for visual states that Pico already handles via element/attribute selectors. Check Pico's documentation before adding a class. See the [Pico CSS section](#pico-css--semantic-html-as-the-first-styling-layer) for canonical idioms.
+- **Do not** add a new one-off color value. Extend the `cobogo` preset (`node_modules/cobogo/preset/index.mjs` is vendored from the `cobogo` package — propose the addition upstream) if a new semantic color is genuinely needed; do not add a new custom property to `index.css`.
+- **Do not** duplicate token values by copy-pasting hex codes. Always reference the token or variable.
+- **Do not** reintroduce `data-theme` or a light/dark toggle — see "No light/dark theme toggle" above.
 
 ---
 
