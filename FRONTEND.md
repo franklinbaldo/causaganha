@@ -102,7 +102,7 @@ This is the most consequential decision in this codebase. Getting it wrong adds 
 |---|---|
 | Core data fetching | `fetchData.ts`, `readJson.ts`, `duckdbSingleton.ts` |
 | TanStack Query / async state | `queryClient.ts`, `queryKeys.ts` |
-| Svelte stores | `completedItemsStore.svelte.ts`, `workflowStatusStore.ts` |
+| Svelte stores | `workflowStatusStore.ts` |
 | Search & query | `djen.ts`, `djenClient.ts`, `searchQueryString.ts` |
 | Utilities | `colorUtils.ts`, `dateUtils.ts`, `velocityCalc.ts`, `iaMetadataFetcher.ts`, `stats-processing.ts` |
 | Reference data | `tribunais.ts`, `homepage-content.ts` |
@@ -264,31 +264,23 @@ export const workflowStatus = writable<string | null>(null);
 
 The `$` prefix auto-subscribes and auto-unsubscribes. Never manually call `.subscribe()` inside a component unless you also call the returned unsubscribe function in `onDestroy`.
 
-**3. Singleton lazy-loader** — module-level `$state` runes inside a `.svelte.ts` file. Use for shared data that should be fetched once and shared reactively across any component that imports it. The file extension **must be `.svelte.ts`** for runes to work outside of `.svelte` components.
+**3. Singleton lazy-loader** — a plain `.ts` module with a module-level variable and a getter function that initializes it on first call. Use for an expensive shared *resource* (a client, a connection) that every caller should reuse rather than reconstruct — not for reactive UI state (see Tier 2 or TanStack Query in "State Architecture" for that).
 
 ```ts
-// web/src/lib/completedItemsStore.svelte.ts
-let _data = $state<Record<string, any> | null>(null);
-let _loading = $state(true);
-let _initialized = false;
+// web/src/lib/queryClient.ts
+import { QueryClient } from '@tanstack/svelte-query';
 
-function ensureLoaded() {
-  if (_initialized || typeof window === 'undefined') return;
-  _initialized = true;
-  fetch('...')
-    .then(r => r.json())
-    .then(json => { _data = json; })
-    .finally(() => { _loading = false; });
+let _client: QueryClient | null = null;
+
+export function getQueryClient(): QueryClient {
+  if (!_client) {
+    _client = new QueryClient({ /* ... */ });
+  }
+  return _client;
 }
-
-export const myStore = {
-  get data()    { return _data; },
-  get loading() { return _loading; },
-  load: ensureLoaded,
-};
 ```
 
-Any component that imports `myStore` reads reactive state directly — no subscription boilerplate needed.
+`web/src/lib/duckdbSingleton.ts` follows the same shape for the DuckDB WASM connection. Shared data that should be *fetched once and reused reactively* across islands uses TanStack Query against the shared `getQueryClient()` instance (see "State Architecture" below) — not a bespoke runes-based store.
 
 ### Props — use `$props()` rune in Svelte 5
 
@@ -553,7 +545,7 @@ The hardest problem in this architecture is sharing state between Svelte islands
 
 Islands share state by importing the same store module. Because modules are singletons in the browser, both islands read from and write to the same store instance.
 
-See `web/src/lib/workflowStatusStore.ts` for a simple example and `web/src/lib/completedItemsStore.svelte.ts` for the singleton lazy-loader variant.
+See `web/src/lib/workflowStatusStore.ts` for a simple example and `web/src/lib/queryClient.ts` or `web/src/lib/duckdbSingleton.ts` for the singleton lazy-loader variant: a module-level variable plus a getter function that initializes it on first call.
 
 ### TanStack Query for async state
 
@@ -918,7 +910,7 @@ When adding a new piece of code, ask these questions in order:
 
 1. **Is this logic with no UI?** → `lib/` as a `.ts` file.
 2. **Is this a Zod schema or type definition?** → `lib/` alongside the fetcher that uses it.
-3. **Is this a singleton store or lazy-loader?** → `lib/` as a `.svelte.ts` file (module-level `$state`).
+3. **Is this a singleton store or lazy-loader?** → `lib/` as a plain `.ts` file with a module-level variable and a getter function that initializes it on first call (see `queryClient.ts`, `duckdbSingleton.ts`).
 4. **Is this shared reactive state between islands?** → `lib/` as a plain `.ts` file with a `writable` store.
 5. **Is this static HTML with at most one trivial DOM interaction?** → `.astro` with a plain `<script>`.
 6. **Is this interactive UI with reactive state?** → `.svelte` component, added to a page as an island with the least-expensive `client:*` directive that still works.

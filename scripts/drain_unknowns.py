@@ -28,6 +28,7 @@ from datetime import datetime
 import httpx
 import structlog
 
+from djen_backup.archive import HTTP_OK
 from djen_backup.djen import (
     DJENNotFoundError,
     DJENRateLimitedError,
@@ -78,6 +79,13 @@ async def _classify(client: httpx.AsyncClient, base: str, tribunal, d) -> str:
     try:
         await get_caderno_url(client, base, tribunal, d)
     except DJENNotFoundError as exc:
+        # A 200 that raised NotFound is "Sem comunicações" (HTTP 200, empty
+        # body, no download URL) — genuinely absent. Record the canonical
+        # absent sentinel so interpret_djen_raw() maps it to absent; the bare
+        # "200" would derive "available" and manufacture a phantom caderno
+        # (mirrors engine.py's _classify_djen_status).
+        if exc.status_code == HTTP_OK:
+            return "no_publications"
         return str(exc.status_code)
     except DJENRateLimitedError:
         return "403"
