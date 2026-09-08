@@ -183,7 +183,7 @@ A consolidação Parquet é um module CLI: `python -m causaganha.consolidate`.
 
 ## Frontend e contratos de consulta
 
-O frontend usa Astro 5, Svelte 5, DuckDB WASM, Vitest e Zod.
+O frontend usa Astro 7, Svelte 5, DuckDB WASM, Vitest e Zod.
 
 As necessidades de dados do site são declaradas em `web/src/queries/*.qmd`. Cada contrato define output/formato e uma consulta SQL. `scripts/render_queries.py` materializa JSON em `web/public/data/`, e os payloads renderizados são validados contra o registry Zod do frontend em CI.
 
