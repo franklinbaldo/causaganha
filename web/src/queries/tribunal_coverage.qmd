@@ -12,7 +12,7 @@ de pendentes/ausentes e intervalos de datas uploaded.
 SELECT
   tribunal,
   COUNT(*) FILTER (WHERE ia_status = 'uploaded') AS uploaded,
-  COUNT(*) FILTER (WHERE djen_status = 'available' AND ia_status != 'uploaded') AS pending,
+  COUNT(*) FILTER (WHERE djen_status IN ('available', 'confirmed') AND ia_status != 'uploaded') AS pending,
   COUNT(*) FILTER (WHERE djen_status = 'absent' AND ia_status != 'uploaded') AS absent,
   COUNT(*) FILTER (WHERE COALESCE(djen_status, '') = '' AND ia_status != 'uploaded') AS unknown,
   COUNT(*) AS total,
