@@ -1,5 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import * as coverageInsights from './coverageInsights';
 import { buildTribunalAttentionCards } from './coverageInsights';
+
+describe('coverageInsights module surface', () => {
+  it('exposes only the tribunal-detail helper actually used by a page or component', () => {
+    // summarizeCatalogDay/filterCoverageDays/countCoverageFilters/getDayStatusLabel/
+    // buildCatalogAttentionCards had zero callers anywhere in web/src -- including the
+    // calendar-day (not business-day) 'recent-drop'/'persistent-absence' heuristics inside
+    // buildCatalogAttentionCards that a prior loop round flagged but could not confirm live.
+    // This guard keeps that dead surface from silently reappearing.
+    expect(Object.keys(coverageInsights).sort()).toEqual(['buildTribunalAttentionCards']);
+  });
+});
 
 describe('buildTribunalAttentionCards', () => {
   it('does not flag a fully-resolved tribunal as an anomaly just because it has legitimate absent days', () => {
