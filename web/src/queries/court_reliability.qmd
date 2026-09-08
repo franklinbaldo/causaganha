@@ -14,7 +14,7 @@ WITH known AS (
   SELECT
     tribunal,
     COUNT(*) FILTER (WHERE ia_status = 'uploaded') AS collected,
-    COUNT(*) FILTER (WHERE djen_status = 'absent') AS absent
+    COUNT(*) FILTER (WHERE djen_status = 'absent' AND ia_status != 'uploaded') AS absent
   FROM manifest
   GROUP BY tribunal
 )

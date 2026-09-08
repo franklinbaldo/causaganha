@@ -13,6 +13,9 @@ from scripts import render_queries as rq
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SITE_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "site_status.qmd"
+TOTALS_QMD = REPO_ROOT / "web" / "src" / "queries" / "totals.qmd"
+TRIBUNAL_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "tribunal_coverage.qmd"
+COURT_RELIABILITY_QMD = REPO_ROOT / "web" / "src" / "queries" / "court_reliability.qmd"
 
 
 def _write_qmd(
@@ -579,3 +582,113 @@ def test_render_without_tribunal_calendar_contract_writes_no_partitions(tmp_path
     rq.render_all(queries, public, _manifest_specs(manifest_parquet))
 
     assert not (public / "data" / "tribunal_calendar_by_tribunal").exists()
+
+
+# ── absent must not double-count an already-uploaded row (#continuity) ──────
+#
+# SyncManifest.mark_ia_uploaded() (manifest.py) flips ia_status to 'uploaded'
+# for any date IA reports as archived, without ever clearing a stale
+# djen_status='absent' left over from an earlier check -- so a manifest row
+# with BOTH ia_status='uploaded' and djen_status='absent' is a reachable live
+# state, not a theoretical one. Every other place that resolves this same
+# ambiguity already treats 'uploaded' as authoritative over a stale 'absent'
+# (SyncManifest._categorize(), render_manifest_parquet.py's _apply_deltas,
+# and this same test file's own _TRIBUNAL_CALENDAR_SQL above). These three
+# reporting queries' own 'pending'/'unknown' filters already guard with
+# 'AND ia_status != uploaded' -- their 'absent' filter must too.
+
+
+@pytest.fixture
+def manifest_parquet_uploaded_and_stale_absent(tmp_path: Path) -> Path:
+    """One row that is both ia_status='uploaded' and a stale djen_status='absent'."""
+    import duckdb
+
+    path = tmp_path / "sync-manifest-uploaded-absent.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-02', 'uploaded', 'absent', '404', "
+            "'2025-01-02T12:00:00+00:00')"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_totals_does_not_double_count_uploaded_row_as_absent(
+    tmp_path, manifest_parquet_uploaded_and_stale_absent
+):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "totals.qmd").write_text(TOTALS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(
+        queries, public, _manifest_specs(manifest_parquet_uploaded_and_stale_absent)
+    )
+    assert failures == []
+
+    payload = json.loads((public / "data" / "totals.json").read_text())
+    assert payload["uploaded"] == 1
+    assert payload["absent"] == 0
+    assert (
+        payload["uploaded"] + payload["pending"] + payload["absent"] + payload["unknown"]
+        == payload["total"]
+    )
+
+
+def test_tribunal_coverage_does_not_double_count_uploaded_row_as_absent(
+    tmp_path, manifest_parquet_uploaded_and_stale_absent
+):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "tribunal_coverage.qmd").write_text(
+        TRIBUNAL_COVERAGE_QMD.read_text(encoding="utf-8")
+    )
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(
+        queries, public, _manifest_specs(manifest_parquet_uploaded_and_stale_absent)
+    )
+    assert failures == []
+
+    rows = json.loads((public / "data" / "tribunal_coverage.json").read_text())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["uploaded"] == 1
+    assert row["absent"] == 0
+    assert row["uploaded"] + row["pending"] + row["absent"] + row["unknown"] == row["total"]
+
+
+def test_court_reliability_does_not_double_count_uploaded_row_as_absent(
+    tmp_path, manifest_parquet_uploaded_and_stale_absent
+):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "court_reliability.qmd").write_text(
+        COURT_RELIABILITY_QMD.read_text(encoding="utf-8")
+    )
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(
+        queries, public, _manifest_specs(manifest_parquet_uploaded_and_stale_absent)
+    )
+    assert failures == []
+
+    rows = json.loads((public / "data" / "court_reliability.json").read_text())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["collected"] == 1
+    assert row["absent"] == 0
+    assert row["total"] == 1
+    assert row["rate"] == 1.0
