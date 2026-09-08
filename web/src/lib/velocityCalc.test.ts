@@ -53,4 +53,20 @@ describe('calculateVelocityAndRegression', () => {
     expect(result!.currentCoverage).toBeLessThan(90);
     expect(result!.baselineCoverage).toBeGreaterThan(99);
   });
+
+  it('reports a flat (~0%) trend, not a false decline, for a tribunal collected on every business day', () => {
+    // historicalAvgVelocity and currentVelocity are both "business days collected
+    // per week" (max achievable = 5, since weekends never appear in the manifest).
+    // A steady, fully-collected tribunal must show trend ~= 0, not a false decline.
+    const start = '2025-09-01'; // Monday, > 90 days before the target end below
+    const end = '2026-01-16'; // Friday
+    const coverageSet = businessDaysCollectedSince(start, end);
+
+    const result = calculateVelocityAndRegression(coverageSet, end, start);
+
+    expect(result).not.toBeNull();
+    expect(result!.historicalAvgVelocity).toBeCloseTo(5, 1);
+    expect(result!.currentVelocity).toBeCloseTo(5, 1);
+    expect(Math.abs(result!.trend)).toBeLessThan(5);
+  });
 });

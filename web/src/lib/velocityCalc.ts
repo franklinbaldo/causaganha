@@ -1,4 +1,4 @@
-import { isBusinessDayIso } from './dateUtils';
+import { BUSINESS_DAYS_PER_WEEK, isBusinessDayIso } from './dateUtils';
 
 export interface VelocityResult {
   weeklyData: { weekOffset: number; collected: number }[];
@@ -90,7 +90,12 @@ export function calculateVelocityAndRegression(
     }
   }
 
-  const historicalAvgVelocity = (totalHistoricalCollected / totalHistoricalDays) * 7;
+  // totalHistoricalDays counts only business days (weekends never appear in the
+  // manifest, see the comment above), so this ratio's natural ceiling is 1 --
+  // scale by business days/week, not calendar days/week, to match currentVelocity's
+  // own units (recent4WeeksCollected/4, whose max is BUSINESS_DAYS_PER_WEEK).
+  const historicalAvgVelocity =
+    (totalHistoricalCollected / totalHistoricalDays) * BUSINESS_DAYS_PER_WEEK;
   const currentVelocity = recent4WeeksCollected / 4;
 
   const baselineCoverage = baseline60Days > 0 ? baseline60Collected / baseline60Days : 0;
