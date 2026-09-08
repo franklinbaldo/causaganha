@@ -1,0 +1,14 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260908t083545z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260908T083545Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "success"
+work_status: "complete"
+summary: "Fixed a live production data-integrity bug: scripts/drain_unknowns.py::_classify (wired to the scheduled drain-unknowns.yml workflow) returned the bare '200' raw_status for DJEN's 'Sem comunicações' response (HTTP 200, no download URL), which interpret_djen_raw() then derives as 'available' -- silently reproducing the exact historical ~79K-row false-available bug CLAUDE.md warns about, every time the workflow runs. Fixed with RED (tests/test_drain_unknowns_classify.py, 6 cases mirroring engine.py's existing _classify_djen_status coverage) then GREEN: _classify now special-cases DJENNotFoundError(status_code=HTTP_OK) to return 'no_publications', matching engine.py's already-correct sibling implementation. Full repo suite, ruff check, and ruff format --check stay green. Also fixed FRONTEND.md doc drift (this session-family's 4th consecutive find in that file): 'State Architecture', 'Four tiers of state' Tier 3, and the lib/ organisation table all cited a nonexistent completedItemsStore.svelte.ts and a fictional module-level-$state-in-.svelte.ts reactive-singleton pattern (grep confirms zero .svelte.ts files exist anywhere in web/src, and the filename has no git history) -- corrected to the real, existing plain-.ts lazy-singleton pattern (queryClient.ts, duckdbSingleton.ts) and pointed shared-reactive-fetch guidance at the already-documented TanStack Query section."
+next_move: "Both goals achieved locally; next round should push this branch, open the PR, and confirm CI/merge (this round's environment set up uv/wisk from a cold cache, which consumed most of the round's time budget on a transient PyPI metadata-endpoint network blip -- resolved by retrying, not a lasting issue). If no PR/CI signal is pending by the time the next round starts, treat FRONTEND.md as fully clean now (4/4 doc-drift leads resolved this session-family) and fall back to a fresh repository/issue-backlog scan rather than re-auditing the same file a 5th time."
+goals_advanced: ["run-goals/20260908t083545z-do-the-best-useful-work-availab/goal-fix-drain-unknowns-200-bug", "run-goals/20260908t083545z-do-the-best-useful-work-availab/goal-fix-frontend-md-singleton-drift"]
+evidence: ["run-evidence/20260908t083545z-do-the-best-useful-work-availab/evidence-drain-unknowns-red", "run-evidence/20260908t083545z-do-the-best-useful-work-availab/evidence-drain-unknowns-green", "run-evidence/20260908t083545z-do-the-best-useful-work-availab/evidence-frontend-md-fixed"]
+checks: ["run-checks/20260908t083545z-do-the-best-useful-work-availab/check-drain-unknowns-suite"]
+---
+
+# RunOutcome
