@@ -161,6 +161,11 @@ def reset_manifest(manifest_file: Path, *, tribunal: str | None, reset_all: bool
         if reset_all or (tribunal and entry.tribunal == tribunal.upper()):
             entry.ia_status = ""
             entry.djen_status = ""
+            # djen_raw is what engine.py's check-priority builder actually
+            # treats as canonical (engine.py:417-422) — leaving it behind
+            # would make the entry re-derive the same terminal available/
+            # absent verdict via interpret_djen_raw() and get skipped again.
+            entry.djen_raw = ""
             entry.updated_at = ""
             count += 1
 
