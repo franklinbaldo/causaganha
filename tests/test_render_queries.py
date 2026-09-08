@@ -16,6 +16,7 @@ SITE_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "site_status.qmd"
 TOTALS_QMD = REPO_ROOT / "web" / "src" / "queries" / "totals.qmd"
 TRIBUNAL_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "tribunal_coverage.qmd"
 COURT_RELIABILITY_QMD = REPO_ROOT / "web" / "src" / "queries" / "court_reliability.qmd"
+CONSOLIDATION_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "consolidation_status.qmd"
 
 
 def _write_qmd(
@@ -765,3 +766,82 @@ def test_court_reliability_does_not_double_count_uploaded_row_as_absent(
     assert row["absent"] == 0
     assert row["total"] == 1
     assert row["rate"] == 1.0
+
+
+# ── consolidation_status must not hardcode the tribunal roster size ─────────
+#
+# consolidation_status.qmd classified a date as "fully uploaded" via
+# `tribunals_uploaded >= 90`, a literal that happened to match
+# src/causaganha/config.py's TRIBUNAIS count (96) loosely at the time it was
+# written but is never actually derived from it. Any manifest that doesn't
+# happen to track >=90 tribunals -- a smaller test fixture, an early period
+# of the roster's history, or a future roster change -- can never produce a
+# single "fully uploaded" date, no matter how complete daily coverage
+# actually is for the tribunals the manifest does track.
+
+
+@pytest.fixture
+def manifest_parquet_small_tribunal_universe(tmp_path: Path) -> Path:
+    """A manifest tracking only 3 tribunals: one date fully covered by all
+    three, one date covered by only two of the three (a straggler).
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-small-universe.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-01', 'uploaded', 'available', '200', "
+            "'2025-01-01T12:00:00+00:00'), "
+            "('tjac', '2025-01-01', 'uploaded', 'available', '200', "
+            "'2025-01-01T12:00:00+00:00'), "
+            "('tjsp', '2025-01-01', 'uploaded', 'available', '200', "
+            "'2025-01-01T12:00:00+00:00'), "
+            "('tjro', '2025-01-02', 'uploaded', 'available', '200', "
+            "'2025-01-02T12:00:00+00:00'), "
+            "('tjac', '2025-01-02', 'uploaded', 'available', '200', "
+            "'2025-01-02T12:00:00+00:00'), "
+            "('tjsp', '2025-01-02', '', 'available', '200', "
+            "'2025-01-02T12:00:00+00:00')"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_consolidation_status_counts_a_date_with_every_tracked_tribunal_as_fully_uploaded(
+    tmp_path, manifest_parquet_small_tribunal_universe
+):
+    """2025-01-01 has all 3 of the manifest's 3 tracked tribunals uploaded --
+
+    it must count as a fully uploaded date. A hardcoded ">=90" threshold can
+    never be satisfied by a 3-tribunal manifest, so this fails against the
+    unfixed query (dates_fully_uploaded == 0) and passes once the threshold
+    is derived from the manifest's own distinct tribunal count.
+    """
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "consolidation_status.qmd").write_text(
+        CONSOLIDATION_STATUS_QMD.read_text(encoding="utf-8")
+    )
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(
+        queries, public, _manifest_specs(manifest_parquet_small_tribunal_universe)
+    )
+    assert failures == []
+
+    payload = json.loads((public / "data" / "consolidation_status.json").read_text())
+    assert payload["total_dates_with_uploads"] == 2
+    assert payload["dates_fully_uploaded"] == 1
+    assert payload["dates_partially_uploaded"] == 1
