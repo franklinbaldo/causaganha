@@ -237,13 +237,30 @@ def generate_today_json(summary: dict[str, Any], rows: list[dict[str, str]]) -> 
     }
 
 
+def _calendar_bucket(row: dict[str, str]) -> str:
+    """Classify a manifest row into the same vocabulary as totals.qmd / tribunal_coverage.qmd.
+
+    uploaded: already on IA. pending: DJEN confirmed a caderno exists
+    (djen_status 'available' or 'confirmed') but it isn't uploaded yet.
+    absent: DJEN confirmed no caderno for this date. unknown: never checked.
+    """
+    if row.get("ia_status") == "uploaded":
+        return "uploaded"
+    djen_status = row.get("djen_status") or ""
+    if djen_status in ("available", "confirmed"):
+        return "pending"
+    if djen_status == "absent":
+        return "absent"
+    return "unknown"
+
+
 def generate_calendar_json(rows: list[dict[str, str]]) -> dict[str, Any]:
     """Generate cache/calendar.json — daily coverage for heatmap."""
     today = datetime.now(UTC).date()
     cutoff = today - timedelta(days=120)
 
     by_date: dict[str, dict[str, int]] = defaultdict(
-        lambda: {"uploaded": 0, "absent": 0, "total": 0}
+        lambda: {"uploaded": 0, "pending": 0, "absent": 0, "unknown": 0, "total": 0}
     )
     for row in rows:
         try:
@@ -252,18 +269,16 @@ def generate_calendar_json(rows: list[dict[str, str]]) -> dict[str, Any]:
             continue
         if d < cutoff:
             continue
-        status = row.get("ia_status") or row.get("djen_status") or ""
         by_date[row["date"]]["total"] += 1
-        if status == "uploaded":
-            by_date[row["date"]]["uploaded"] += 1
-        elif status == "absent":
-            by_date[row["date"]]["absent"] += 1
+        by_date[row["date"]][_calendar_bucket(row)] += 1
 
     days = [
         {
             "date": d,
             "uploaded": v["uploaded"],
+            "pending": v["pending"],
             "absent": v["absent"],
+            "unknown": v["unknown"],
             "total": v["total"],
             "coverage_pct": round(v["uploaded"] / v["total"] * 100, 1) if v["total"] else 0,
         }
