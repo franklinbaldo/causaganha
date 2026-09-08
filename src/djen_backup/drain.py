@@ -36,7 +36,7 @@ from djen_backup.archive import (
     get_ia_item_id,
     upload_zip,
 )
-from djen_backup.djen import DJENNotFoundError, download_zip, get_caderno_url
+from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, download_zip, get_caderno_url
 from djen_backup.segments import SegmentWriter, absent_raw_code, segment_name
 from djen_backup.segments import upload_segment as _upload_segment
 
@@ -115,6 +115,11 @@ async def _drain_one(
         # verdict (404/400, or no_publications for 200 "Sem comunicações").
         log.debug("drain_skip_absent", tribunal=tribunal, date=d.isoformat())
         await delta_writer.mark_absent(tribunal, d, absent_raw_code(exc.status_code))
+    except DJENRateLimitedError:
+        # CloudFront/WAF 403 — transient, not absence, not a worker failure.
+        # See CLAUDE.md: "Never treat 403 as absent." The next drain run
+        # (or a fresh batch fetch) will pick this pair up again.
+        log.debug("drain_skip_rate_limited", tribunal=tribunal, date=d.isoformat())
     except (httpx.HTTPError, httpx.RequestError) as exc:
         log.debug("drain_skip_error", tribunal=tribunal, date=d.isoformat(), error=str(exc))
     finally:
