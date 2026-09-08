@@ -1,7 +1,7 @@
 ---
-checks: []
+checks: ["run-checks/20260908t202452z-do-the-best-useful-work-availab/check-causaganha-mcp-audit"]
 decisions: []
-evidence: []
+evidence: ["run-evidence/20260908t202452z-do-the-best-useful-work-availab/evidence-causaganha-mcp-clean"]
 goals: ["run-goals/20260908t202452z-do-the-best-useful-work-availab/goal-audit-causaganha-mcp"]
 id: "runs/20260908T202452Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260908t202452z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260908t202452z-do-the-best-useful-work-availab/reading-active-skills"]
