@@ -654,6 +654,87 @@ def manifest_parquet_null_djen_status(tmp_path: Path) -> Path:
     return path
 
 
+@pytest.fixture
+def manifest_parquet_confirmed_pending(tmp_path: Path) -> Path:
+    """One row probe-confirmed available but not yet uploaded, as written by
+
+    src/djen_backup/probe.py's mark_confirmed() -> segments.py, merged as-is
+    into the canonical parquet by render_manifest_parquet.py's _apply_deltas
+    (djen_status='confirmed' is never rewritten to 'available' there --
+    only write_back_csv's legacy CSV export folds it, per that function's
+    own docstring).
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-confirmed.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            "('tjro', '2025-01-02', '', 'confirmed', '200', "
+            "'2025-01-02T12:00:00+00:00')"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_totals_counts_confirmed_row_as_pending(tmp_path, manifest_parquet_confirmed_pending):
+    """djen_status='confirmed' is a real parquet/drain-only refinement of
+
+    'available' (probe.py's mark_confirmed, prioritised by drain.py and
+    already folded into 'pending' by render_manifest_parquet.py's own
+    _print_merge_stats) -- it must not vanish from every displayed bucket.
+    """
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "totals.qmd").write_text(TOTALS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(
+        queries, public, _manifest_specs(manifest_parquet_confirmed_pending)
+    )
+    assert failures == []
+
+    payload = json.loads((public / "data" / "totals.json").read_text())
+    assert payload["pending"] == 1
+    assert (
+        payload["uploaded"] + payload["pending"] + payload["absent"] + payload["unknown"]
+        == payload["total"]
+    )
+
+
+def test_tribunal_coverage_counts_confirmed_row_as_pending(
+    tmp_path, manifest_parquet_confirmed_pending
+):
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "tribunal_coverage.qmd").write_text(
+        TRIBUNAL_COVERAGE_QMD.read_text(encoding="utf-8")
+    )
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(
+        queries, public, _manifest_specs(manifest_parquet_confirmed_pending)
+    )
+    assert failures == []
+
+    rows = json.loads((public / "data" / "tribunal_coverage.json").read_text())
+    assert len(rows) == 1
+    row = rows[0]
+    assert row["pending"] == 1
+    assert row["uploaded"] + row["pending"] + row["absent"] + row["unknown"] == row["total"]
+
+
 def test_totals_counts_null_djen_status_row_as_unknown(tmp_path, manifest_parquet_null_djen_status):
     """A row whose djen_status is SQL NULL (as _normalize_manifest's downgrade
 
