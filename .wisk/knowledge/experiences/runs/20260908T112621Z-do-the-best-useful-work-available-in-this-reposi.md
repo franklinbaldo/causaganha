@@ -1,7 +1,7 @@
 ---
-checks: []
+checks: ["run-checks/20260908t112621z-do-the-best-useful-work-availab/check-manifest-absent-downgrade-green"]
 decisions: []
-evidence: []
+evidence: ["run-evidence/20260908t112621z-do-the-best-useful-work-availab/evidence-pr-1319-merged", "run-evidence/20260908t112621z-do-the-best-useful-work-availab/evidence-red-test"]
 goals: ["run-goals/20260908t112621z-do-the-best-useful-work-availab/goal-continue-work"]
 id: "runs/20260908T112621Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260908t112621z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260908t112621z-do-the-best-useful-work-availab/reading-active-skills"]
