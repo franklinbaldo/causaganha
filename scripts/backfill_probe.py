@@ -22,14 +22,16 @@ import random
 import sys
 import tempfile
 from collections import Counter, defaultdict
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
 import duckdb
 import httpx
 
+from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, get_caderno_url
 from djen_backup.manifest import ABSENT_CODES
+from djen_backup.segments import absent_raw_code
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 
@@ -46,6 +48,8 @@ DJEN_PROXY_FALLBACK = "https://djen-proxy-mhgmawcn3a-rj.a.run.app"
 SAMPLE_PER_CATEGORY = 8
 CONCURRENCY = 6
 HTTP_TIMEOUT = 30.0
+HTTP_OK = 200
+HTTP_FORBIDDEN = 403
 
 
 def _proxy_base() -> str:
@@ -167,7 +171,18 @@ async def _probe_one(
     d: str,
     sem: asyncio.Semaphore,
 ) -> dict[str, Any]:
-    """Hit the DJEN proxy live for a single (tribunal, date) and capture result."""
+    """Hit the DJEN proxy live for a single (tribunal, date) and capture result.
+
+    Classifies ``live_raw`` via ``get_caderno_url`` — the same canonical
+    entry point every other DJEN caller in this codebase uses (``engine.py``'s
+    checker, ``djen_backup/probe.py``, ``scripts/drain_unknowns.py``) — instead
+    of reading the bare HTTP status code. A bare 200 does not mean available:
+    DJEN returns 200 with body ``{"status": "Sem comunicações"}`` for a
+    genuinely absent caderno (no download URL), and this probe's entire
+    purpose is to compare live status against the manifest's own
+    ``djen_raw``, which already records that case as ``"no_publications"``,
+    never a bare ``"200"`` (see CLAUDE.md's ~79K-row false-available history).
+    """
     base = _proxy_base()
     url = f"{base}/api/v1/caderno/{tribunal}/{d}/D"
     out: dict[str, Any] = {
@@ -181,19 +196,32 @@ async def _probe_one(
     }
     async with sem:
         try:
-            resp = await client.get(url, timeout=HTTP_TIMEOUT)
+            download_url = await get_caderno_url(client, base, tribunal, date.fromisoformat(d))
+        except DJENNotFoundError as exc:
+            out["status"] = exc.status_code
+            out["live_raw"] = absent_raw_code(exc.status_code)
+            out["snippet"] = exc.reason
+            return out
+        except DJENRateLimitedError as exc:
+            out["status"] = HTTP_FORBIDDEN
+            out["live_raw"] = "403"
+            out["snippet"] = str(exc)
+            return out
         except httpx.TimeoutException:
             out["live_raw"] = "timeout"
             return out
-        except httpx.RequestError as exc:
+        except httpx.HTTPStatusError as exc:
+            out["status"] = exc.response.status_code
+            out["live_raw"] = str(exc.response.status_code)
+            return out
+        except httpx.HTTPError as exc:
             out["live_raw"] = "network"
             out["error"] = f"{type(exc).__name__}: {exc}"
             return out
 
-        out["status"] = resp.status_code
-        out["live_raw"] = str(resp.status_code)
-        body = resp.text or ""
-        out["snippet"] = body[:240]
+        out["status"] = HTTP_OK
+        out["live_raw"] = "200"
+        out["snippet"] = download_url
         return out
 
 
@@ -238,7 +266,7 @@ async def main() -> int:
     print(f"sample/cat:     {SAMPLE_PER_CATEGORY}")
     print(f"concurrency:    {CONCURRENCY}")
 
-    async with httpx.AsyncClient(follow_redirects=True) as client:
+    async with httpx.AsyncClient(follow_redirects=True, timeout=HTTP_TIMEOUT) as client:
         _print_header("Fetching manifest from IA")
         try:
             rows = await _fetch_manifest(client)
