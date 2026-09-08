@@ -1,8 +1,9 @@
 """Tests for the batched-drain mode (``djen_backup.drain``).
 
 Covers ``SegmentWriter`` (append-only segment CSV), ``_drain_one`` (single-pair
-flow: already-on-IA short-circuit, happy path, DJEN 404 skip, transport
-error skip, ``ItemBusyError`` retry loop), and ``drain`` deadline behaviour.
+flow: already-on-IA short-circuit, happy path, DJEN 404 skip, 403 rate-limit
+skip, transport error skip, ``ItemBusyError`` retry loop), and ``drain``
+deadline behaviour.
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ import pytest
 
 from djen_backup import drain as drain_module
 from djen_backup.archive import CircuitBreaker, ItemBusyError
-from djen_backup.djen import DJENNotFoundError
+from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError
 from djen_backup.drain import _drain_one, drain
 from djen_backup.segments import SEGMENT_HEADER, SegmentWriter
 
@@ -125,6 +126,36 @@ async def test_drain_one_swallows_djen_not_found(
     assert writer.absent_count == 1
     body = (tmp_path / "delta.csv").read_text(encoding="utf-8")
     assert "TJSP,2024-01-02,,absent,404," in body
+
+
+@pytest.mark.asyncio
+async def test_drain_one_swallows_rate_limited(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A 403 (CloudFront/WAF block) must not crash the worker — it's transient,
+
+    not absence. See CLAUDE.md: 'Never treat 403 as absent.'
+    """
+    monkeypatch.setattr(drain_module, "check_ia_file_exists", _ia_miss)
+    monkeypatch.setattr(
+        drain_module,
+        "get_caderno_url",
+        _async_raise(DJENRateLimitedError("CloudFront block (403) — rate limited")),
+    )
+
+    writer = SegmentWriter(tmp_path / "delta.csv")
+    await _drain_one(
+        "TJSP",
+        date(2024, 1, 2),
+        dl_client=_FakeClient(),
+        upload_client=_FakeClient(),
+        djen_proxy_url="https://djen.example",
+        breaker=CircuitBreaker(),
+        delta_writer=writer,
+    )
+
+    assert writer.count == 0
+    assert writer.absent_count == 0  # 403 is not absence — must not be recorded as such
 
 
 @pytest.mark.asyncio
