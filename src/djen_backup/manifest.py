@@ -15,6 +15,8 @@ import anyio
 import httpx
 import structlog
 
+from djen_backup.absent_consistency import normalize_absent
+
 
 log = structlog.get_logger()
 
@@ -726,24 +728,17 @@ class SyncManifest:
 
         - ``confirmed`` is a parquet/drain-only refinement of ``available``;
           the engine's flows (``entries_needing_upload``, ``_categorize``)
-          only know ``available``.
-        - An ``absent`` verdict with a bare 200 raw contradicts itself
-          (``interpret_djen_raw('200')`` derives available). Rewrite the raw
-          to the ``no_publications`` sentinel so the row re-derives to
-          absent from the raw alone (plan §5 Fase 1 self-consistency).
-        - An ``absent`` verdict with no ``djen_raw`` at all can't be
-          re-verified (CLAUDE.md: "Don't trust `absent` from old runs...
-          reset all `absent` entries where `djen_raw` is empty to unknown").
-          Downgrade it to unknown, mirroring the same guard the legacy CSV
-          loader (``_load_manifest_line``) already applies.
+          only know ``available``. This rewrite is specific to the engine's
+          own vocabulary, not part of the absent self-consistency rule below.
+        - The absent self-consistency rule (contradictory-200 rewrite +
+          unverifiable-absent downgrade, plan §5 Fase 1) is shared with
+          ``scripts/render_manifest_parquet.py``'s DuckDB-SQL compactor via
+          ``absent_consistency.normalize_absent`` — see that module's
+          docstring for why the two runtimes each need their own call site.
         """
         if djen_status == "confirmed":
             djen_status = "available"
-        if djen_status == "absent" and (djen_raw == "200" or djen_raw.startswith("200:")):
-            djen_raw = "no_publications"
-        if djen_status == "absent" and not djen_raw:
-            djen_status = ""
-        return djen_status, djen_raw
+        return normalize_absent(djen_status, djen_raw)
 
     def apply_segment_csv(self, text: str) -> int:
         """Apply a manifest-log segment (6-col event CSV). Returns rows applied."""
