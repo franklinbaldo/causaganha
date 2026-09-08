@@ -217,6 +217,7 @@ def test_cnj_lookup_matches_juris_and_skips_stj_with_explicit_limitation(
         "stj" in limitation.lower() and "cnj" in limitation.lower()
         for limitation in result.limitacoes
     )
+    assert result.datasets_consultados == 1
 
 
 def test_cnj_lookup_without_stj_in_plan_adds_no_limitation(tmp_path: Path) -> None:
@@ -334,6 +335,7 @@ def test_orgao_filter_matches_juris_and_skips_stj_with_explicit_limitation(
         "stj" in limitation.lower() and "órgão" in limitation.lower()
         for limitation in result.limitacoes
     )
+    assert result.datasets_consultados == 1
 
 
 def test_orgao_filter_without_stj_in_plan_adds_no_limitation(tmp_path: Path) -> None:
