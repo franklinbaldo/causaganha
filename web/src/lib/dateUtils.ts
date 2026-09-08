@@ -26,6 +26,25 @@ export function daysBetweenIso(aIso: string, bIso: string): number {
   return Math.floor((b.getTime() - a.getTime()) / MS_PER_DAY);
 }
 
+/** Whether an ISO date string falls on Mon-Fri, matching manifest.py's `weekday() < 5` build rule. */
+export function isBusinessDayIso(iso: string): boolean {
+  const day = new Date(iso + 'T00:00:00Z').getUTCDay();
+  return day !== 0 && day !== 6;
+}
+
+/** Count of business days (Mon-Fri) in the inclusive range [aIso, bIso]. */
+export function businessDaysBetweenIso(aIso: string, bIso: string): number {
+  let count = 0;
+  const cur = new Date(aIso + 'T00:00:00Z');
+  const end = new Date(bIso + 'T00:00:00Z');
+  while (cur <= end) {
+    const day = cur.getUTCDay();
+    if (day !== 0 && day !== 6) count++;
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return count;
+}
+
 /** Latest (lexicographically max) ISO date string across one or more arrays, or null if all empty. */
 export function latestIsoDate(...dateArrays: string[][]): string | null {
   let latest: string | null = null;

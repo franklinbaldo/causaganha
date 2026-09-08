@@ -1,3 +1,5 @@
+import { isBusinessDayIso } from './dateUtils';
+
 export interface VelocityResult {
   weeklyData: { weekOffset: number; collected: number }[];
   historicalAvgVelocity: number;
@@ -33,8 +35,16 @@ export function calculateVelocityAndRegression(
 
   const current = new Date(tribunalStartDate);
   while (current <= targetRangeEnd) {
-    totalHistoricalDays++;
     const dStr = current.toISOString().split('T')[0];
+    // The manifest only ever tracks weekdays (src/djen_backup/manifest.py's
+    // SyncManifest.build() skips weekends entirely), so weekends can never
+    // appear in coverageSet. Counting them as "expected" days here would
+    // permanently cap coverage at ~5/7 even for a fully-collected tribunal.
+    if (!isBusinessDayIso(dStr)) {
+      current.setUTCDate(current.getUTCDate() + 1);
+      continue;
+    }
+    totalHistoricalDays++;
     const isCollected = coverageSet.has(dStr);
 
     if (isCollected) {

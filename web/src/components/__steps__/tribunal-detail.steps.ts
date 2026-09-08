@@ -14,6 +14,22 @@ function isoDaysAgo(n: number): string {
   return d.toISOString().split('T')[0];
 }
 
+// expectedDays counts business days only (src/djen_backup/manifest.py's
+// SyncManifest.build() never creates weekend rows), so the number of missing
+// days in a fixed trailing window shifts with which weekdays fall in it —
+// it can't be hardcoded independent of "today".
+function businessDaysBetween(startIso: string, endIso: string): number {
+  let count = 0;
+  const cur = new Date(startIso + 'T00:00:00Z');
+  const end = new Date(endIso + 'T00:00:00Z');
+  while (cur <= end) {
+    const day = cur.getUTCDay();
+    if (day !== 0 && day !== 6) count++;
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return count;
+}
+
 describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   let props: any;
 
@@ -88,13 +104,22 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
   });
 
   Scenario('Highlight tribunal coverage gap state', ({ Given, When, Then, And }) => {
+    let expectedMissingDays = 0;
+
     Given('tribunal "STF" has 12 missing days and 4 absent days', () => {
       props = makeProps('STF');
-      // expectedDays = 18 (17 days ago .. today); 2 uploaded + 4 absent
-      // leaves 18 - 2 - 4 = 12 missing days.
-      props.initialStartDate = isoDaysAgo(17);
+      const start = isoDaysAgo(17);
+      const today = isoDaysAgo(0);
+      props.initialStartDate = start;
       props.initialUploadedDates = [isoDaysAgo(17), isoDaysAgo(16)];
       props.initialAbsentDates = [isoDaysAgo(15), isoDaysAgo(14), isoDaysAgo(13), isoDaysAgo(12)];
+      // expectedDays (business days in [start, today]) minus what's already
+      // accounted for; not a fixed "12" since it depends on which weekdays
+      // fall in this trailing window relative to whichever day this runs on.
+      expectedMissingDays =
+        businessDaysBetween(start, today) -
+        props.initialUploadedDates.length -
+        props.initialAbsentDates.length;
     });
 
     When('the tribunal detail page loads', () => {
@@ -102,8 +127,9 @@ describeFeature(feature, ({ Scenario, BeforeEachScenario }) => {
     });
 
     Then('I should see a coverage gap attention card', () => {
+      const dayWord = expectedMissingDays === 1 ? 'dia' : 'dias';
       expect(document.body.textContent).toContain('Lacuna de cobertura do tribunal');
-      expect(document.body.textContent).toContain('STF tem 12 dias sem publicação coletada');
+      expect(document.body.textContent).toContain(`STF tem ${expectedMissingDays} ${dayWord} sem publicação coletada`);
     });
 
     And('I should see explanatory next action text', () => {
