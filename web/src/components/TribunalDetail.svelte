@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
   import { TRIBUNAIS, TRIBUNAL_GROUPS } from '../lib/tribunais';
-  import { toDateString, daysBetweenIso, latestIsoDate } from '../lib/dateUtils';
+  import { toDateString, daysBetweenIso, businessDaysBetweenIso, latestIsoDate } from '../lib/dateUtils';
   import Heatmap from './Heatmap.svelte';
   import { calculateVelocityAndRegression } from '../lib/velocityCalc';
   import DateDetail from './DateDetail.svelte';
@@ -86,8 +86,12 @@
     window.location.href = `${baseUrl}publicacoes/${encodeURIComponent(newTribunal.toLowerCase())}`;
   }
 
+  // Business days only: the manifest (src/djen_backup/manifest.py's
+  // SyncManifest.build()) never creates weekend rows, so weekend dates can
+  // never appear in coverageSet/absentSet. Counting calendar days here would
+  // permanently inflate the denominator and cap completion around 5/7.
   let expectedDays = $derived(
-    tribunalStartDate ? Math.max(0, daysBetweenIso(tribunalStartDate, targetRange.end) + 1) : 0
+    tribunalStartDate ? businessDaysBetweenIso(tribunalStartDate, targetRange.end) : 0
   );
 
   let absentCount = $derived(absentSet.size);
