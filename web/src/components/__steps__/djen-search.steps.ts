@@ -148,6 +148,20 @@ describe('searchDjenComunicacoes', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it('honors a short Retry-After instead of flooring it to 60s', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(
+      mockResponse({ message: 'Too Many Requests' }, {
+        status: 429,
+        headers: { 'retry-after': '5' },
+      }),
+    );
+    global.fetch = fetchMock as unknown as typeof fetch;
+
+    await expect(
+      searchDjenComunicacoes({ siglaTribunal: 'TJSP' }),
+    ).rejects.toMatchObject({ name: 'DjenRateLimitError', retryAfterSec: 5 });
+  });
+
   it('falls back to proxy on public network failure and sets usedFallback', async () => {
     // A geo-block (CORS / DNS / unreachable) surfaces from `fetch` as a
     // TypeError — the only shape `isGeoBlockShape()` in `djenClient.ts`

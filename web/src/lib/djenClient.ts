@@ -305,7 +305,7 @@ async function unwrap<T>(
     const retryHeader = Number(response.headers.get("retry-after"));
     const retryAfterSec =
       Number.isFinite(retryHeader) && retryHeader > 0 ? retryHeader : 60;
-    throw new DjenRateLimitError(Math.max(60, retryAfterSec));
+    throw new DjenRateLimitError(retryAfterSec);
   }
 
   if (error !== undefined || !response.ok) {
