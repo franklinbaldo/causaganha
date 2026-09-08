@@ -332,10 +332,12 @@ def search_decisions(
             "CNJ de origem (#1045); busca por cnj não é aplicada a esta fonte "
             "— resultados STJ desta busca não cobrem cnj."
         )
+    datasets_consultados = 0
     try:
         for fonte, datasets in (("juris", plan.juris), ("stj", plan.stj), ("tcu", plan.tcu)):
             if fonte == "stj" and (skip_stj_for_orgao or skip_stj_for_cnj):
                 continue
+            datasets_consultados += len(datasets)
             source_hits, source_truncated, error = _search_source(
                 con,
                 fonte=fonte,
@@ -362,6 +364,6 @@ def search_decisions(
     return DecisionSearchResult(
         resultados=hits,
         resultados_truncados=truncated,
-        datasets_consultados=plan.total_datasets,
+        datasets_consultados=datasets_consultados,
         limitacoes=limitations,
     )
