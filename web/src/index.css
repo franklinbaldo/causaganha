@@ -143,6 +143,21 @@ main :where(summary) { cursor: pointer; font-weight: 800; }
 :where([data-level='warning'], [data-tone='warning']) { border-left-color: var(--cg-attention); }
 :where([data-level='error'], [data-tone='error']) { border-left-color: var(--cg-attention); }
 
+/* Equal-width columns, collapsing to one column on narrow screens. Restored
+   from the pre-Cobogó `styles/base.css` (deleted by #1169) — several
+   components kept using these class names after the migration removed the
+   only place that defined them. */
+.auto-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 14rem), 1fr));
+  gap: 1rem;
+}
+.auto-grid-sm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr));
+  gap: 0.75rem;
+}
+
 .processo-lookup,
 .publication-search {
   display: grid;

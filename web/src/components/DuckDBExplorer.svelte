@@ -397,7 +397,7 @@
   <!-- Dataset selectors -->
   <section aria-labelledby="dataset-selector-title">
     <h3 id="dataset-selector-title">Escolha o dataset</h3>
-    <div class="grid">
+    <div class="auto-grid">
       <label>
         Tribunal
         <select bind:value={selectedTribunal} disabled={tribunals.length === 0} aria-label="Tribunal">
@@ -482,7 +482,7 @@
         <p>
           Escolha uma receita para preencher o editor. O SQL aparece completo antes da execução e continua livre para edição.
         </p>
-        <div class="grid">
+        <div class="auto-grid">
           <label>
             Data inicial
             <input type="date" bind:value={recipeStartDate} aria-label="Data inicial da receita" />
