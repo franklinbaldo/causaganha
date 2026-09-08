@@ -29,6 +29,7 @@ from typing import Any
 import duckdb
 import httpx
 
+from djen_backup.absent_consistency import BARE_200_RAW, PREFIXED_200_RAW_PREFIX
 from djen_backup.djen import DJENNotFoundError, DJENRateLimitedError, get_caderno_url
 from djen_backup.manifest import ABSENT_CODES
 from djen_backup.segments import absent_raw_code
@@ -154,7 +155,7 @@ def _classify(djen_raw: str) -> str:
     raw = (djen_raw or "").strip()
     if raw == "":
         return "unknown"
-    if raw == "200":
+    if raw == BARE_200_RAW or raw.startswith(PREFIXED_200_RAW_PREFIX):
         return "available"
     if raw in ABSENT_CODES:
         return "absent"
