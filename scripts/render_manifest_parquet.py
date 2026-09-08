@@ -47,6 +47,18 @@ import ibis
 import tenacity
 
 from causaganha.pipeline.ia_s3 import create_upload_client, upload_to_ia
+from djen_backup.absent_consistency import (
+    ABSENT,
+    BARE_200_RAW,
+    NO_PUBLICATIONS_SENTINEL,
+    PREFIXED_200_RAW_PREFIX,
+)
+
+
+# Re-exported so both the SQL literals below and this module's own tests
+# build from djen_backup.absent_consistency's single source of truth rather
+# than a re-typed copy of the sentinel string (see PR #1323, the prior drift).
+ABSENT_SELF_CONSISTENCY_SENTINEL = NO_PUBLICATIONS_SENTINEL
 
 for stream in (sys.stdout, sys.stderr):
     if stream and stream.encoding and stream.encoding.lower() != "utf-8":
@@ -410,16 +422,35 @@ def _normalize_manifest(con: duckdb.DuckDBPyConnection) -> None:
     ``interpret_djen_raw('200')`` would re-derive ``available``. Rewrite the
     raw to the ``no_publications`` sentinel so the verdict is reproducible
     from the raw alone, regardless of which consumer reads it.
+
+    ``djen_status='absent'`` with no ``djen_raw`` at all can't be
+    re-verified (CLAUDE.md: "Don't trust `absent` from old runs... reset
+    all `absent` entries where `djen_raw` is empty to unknown"). Downgrade
+    it to unknown, mirroring ``djen_backup.absent_consistency.normalize_absent``
+    (also used by ``src/djen_backup/manifest.py``'s ``SyncManifest._normalize_event``
+    — see that module's docstring for why a bulk SQL ``UPDATE`` can't just
+    call the Python function per row). This matters because
+    ``_apply_deltas``'s legacy 5-column upload-delta merge can set
+    ``djen_status='absent'`` without ever setting ``djen_raw``.
     """
     fixed = con.execute(
-        """
-        UPDATE manifest SET djen_raw = 'no_publications'
-        WHERE djen_status = 'absent'
-          AND (djen_raw = '200' OR djen_raw LIKE '200:%')
+        f"""
+        UPDATE manifest SET djen_raw = '{NO_PUBLICATIONS_SENTINEL}'
+        WHERE djen_status = '{ABSENT}'
+          AND (djen_raw = '{BARE_200_RAW}' OR djen_raw LIKE '{PREFIXED_200_RAW_PREFIX}%')
         """
     ).fetchone()[0]
     if fixed:
         print(f"  normalized {fixed} absent rows with a contradictory 200 raw")
+
+    downgraded = con.execute(
+        f"""
+        UPDATE manifest SET djen_status = ''
+        WHERE djen_status = '{ABSENT}' AND (djen_raw IS NULL OR djen_raw = '')
+        """
+    ).fetchone()[0]
+    if downgraded:
+        print(f"  downgraded {downgraded} absent rows with no djen_raw to unknown")
 
 
 def render_parquet(
