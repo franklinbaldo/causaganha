@@ -65,6 +65,7 @@ from datajud.archive import (  # noqa: E402 — importado após o bootstrap de s
     CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA,
 )
 from djen_backup.manifest import HEADER as _MANIFEST_HEADER  # noqa: E402 — idem
+from scripts import reconcile_processos  # noqa: E402 — idem
 from tjro_juris.service import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA  # noqa: E402 — idem
 
 
@@ -580,24 +581,53 @@ def _register_processo_documentos(con: duckdb.DuckDBPyConnection) -> bool:
 
 
 def _register_datajud_capa(con: duckdb.DuckDBPyConnection) -> bool:
-    # datajud enrich writes: data/datajud/datajud-capa-{tribunal}.parquet
-    datajud_files = sorted(ROOT.glob("data/datajud/datajud-capa-*.parquet"))
+    """DataJud capa parquets: local files, or the datajud-{tribunal} IA items.
+
+    Delegates to reconcile_processos.ensure_datajud_parquets() instead of only
+    globbing data/datajud/ — that directory is never populated in either real
+    CI path (deploy-web.yml's fresh checkout never runs reconcile_processos.py
+    at all; update-catalog.yml does, but its own IA-fallback downloads land
+    under data/reconcile-cache/datajud/, not here), so the local-only glob
+    left datajud_totals.qmd and friends permanently unrendered in production.
+    """
+    datajud_files, load = reconcile_processos.ensure_datajud_parquets()
     if not datajud_files:
         return False
     datajud_list = ", ".join(f"'{p}'" for p in datajud_files)
-    print(f"Using local DataJud capa parquets: {len(datajud_files)} files")
+    print(f"Registering DataJud capa view ({load.status}): {len(datajud_files)} file(s)")
     con.execute(f"CREATE VIEW datajud_capa AS SELECT * FROM read_parquet([{datajud_list}])")
     return True
 
 
 def _register_tjro_juris(con: duckdb.DuckDBPyConnection) -> bool:
-    # Consolidate command writes: data/tjro_juris/<year>/tjro-juris-<year>.parquet
-    juris_files = sorted(ROOT.glob("data/tjro_juris/*/tjro-juris-*.parquet"))
+    """JURIS parquets: local files, or the tjro-juris-{year} IA items.
+
+    Same fix as _register_datajud_capa, for the same reason. When
+    ensure_juris_parquets() reports needs_dedup=True (overlapping monthly IA
+    shards — its own fallback when an item has no consolidated
+    tjro-juris-{year}.parquet), collapse by id_documento exactly like
+    reconcile_processos.py's own _register_juris does: without this, a
+    document appearing in two overlapping crawl shards would double-count in
+    juris_totals.qmd's COUNT(*).
+    """
+    juris_files, _urls, needs_dedup, load = reconcile_processos.ensure_juris_parquets()
     if not juris_files:
         return False
     juris_list = ", ".join(f"'{p}'" for p in juris_files)
-    print(f"Using local JURIS parquets: {len(juris_files)} files")
-    con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
+    print(f"Registering JURIS view ({load.status}): {len(juris_files)} file(s)")
+    if needs_dedup:
+        con.execute(
+            "CREATE VIEW tjro_juris AS "
+            "SELECT * EXCLUDE (_rn) FROM ("
+            "  SELECT *, ROW_NUMBER() OVER ("
+            "    PARTITION BY id_documento ORDER BY extraido_em DESC NULLS LAST"
+            "  ) AS _rn "
+            f"  FROM read_parquet([{juris_list}], union_by_name=true) "
+            "  WHERE id_documento IS NOT NULL"
+            ") WHERE _rn = 1"
+        )
+    else:
+        con.execute(f"CREATE VIEW tjro_juris AS SELECT * FROM read_parquet([{juris_list}])")
     return True
 
 

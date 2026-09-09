@@ -417,6 +417,117 @@ def test_register_comunicacoes_prefers_indice_when_available(tmp_path, monkeypat
     assert rows == [("00000010220248220001",)]
 
 
+# ── _register_tjro_juris / _register_datajud_capa IA fallback ─────────────────
+# deploy-web.yml's fresh checkout never runs reconcile_processos.py, and even
+# update-catalog.yml's own job caches its IA-fallback downloads under
+# data/reconcile-cache/ rather than the directories these two functions used
+# to glob — so, before this fix, they returned False (and the corresponding
+# .qmd contracts silently skipped) in every real CI environment whenever the
+# source wasn't a pre-existing local file. Delegating to
+# reconcile_processos.ensure_juris_parquets()/ensure_datajud_parquets() (the
+# same local-then-IA logic the reconciler itself already relies on and tests)
+# fixes this without duplicating the IA item discovery.
+
+
+def test_register_datajud_capa_falls_back_to_ia_when_local_absent(tmp_path, monkeypatch):
+    from scripts import reconcile_processos as rp
+
+    datajud_parquet = _copy_sql_to_parquet(
+        tmp_path / "datajud-capa-tjro.parquet",
+        """
+        SELECT '00000010220248220001' AS numero_processo, 'TJRO' AS tribunal,
+            'Execução Fiscal' AS classe_nome
+        """,
+    )
+
+    def fake_ensure_datajud_parquets():
+        load = rp.SourceLoad("datajud", rp.STATUS_LOADED_REMOTE, "IA item(s) datajud-tjro")
+        return [datajud_parquet], load
+
+    # No local files exist under tmp_path's isolated cwd, so the pre-fix glob
+    # would find nothing — only the IA-fallback path below can succeed.
+    monkeypatch.setattr(rp, "ensure_datajud_parquets", fake_ensure_datajud_parquets)
+
+    con = __import__("duckdb").connect()
+    try:
+        registered = rq._register_datajud_capa(con)
+        assert registered is True
+        rows = con.execute("SELECT numero_processo FROM datajud_capa").fetchall()
+    finally:
+        con.close()
+    assert rows == [("00000010220248220001",)]
+
+
+def test_register_tjro_juris_falls_back_to_ia_when_local_absent(tmp_path, monkeypatch):
+    from scripts import reconcile_processos as rp
+
+    juris_parquet = _copy_sql_to_parquet(
+        tmp_path / "tjro-juris-2024.parquet",
+        """
+        SELECT 'd1' AS id_documento, 'ACÓRDÃO' AS tipo,
+            DATE '2024-05-01' AS data_julgamento,
+            TIMESTAMP '2024-05-02 00:00:00' AS extraido_em
+        """,
+    )
+
+    def fake_ensure_juris_parquets():
+        load = rp.SourceLoad("juris", rp.STATUS_LOADED_REMOTE, "IA item(s) tjro-juris-2024")
+        return [juris_parquet], {}, False, load
+
+    monkeypatch.setattr(rp, "ensure_juris_parquets", fake_ensure_juris_parquets)
+
+    con = __import__("duckdb").connect()
+    try:
+        registered = rq._register_tjro_juris(con)
+        assert registered is True
+        rows = con.execute("SELECT id_documento FROM tjro_juris").fetchall()
+    finally:
+        con.close()
+    assert rows == [("d1",)]
+
+
+def test_register_tjro_juris_dedups_overlapping_ia_shards(tmp_path, monkeypatch):
+    """needs_dedup=True (overlapping monthly IA shards) must not double-count.
+
+    Mirrors reconcile_processos.py's own _register_juris dedup: same
+    id_documento keeps only the row with the most recent extraido_em.
+    """
+    from scripts import reconcile_processos as rp
+
+    shard_a = _copy_sql_to_parquet(
+        tmp_path / "2024-05-ACORDAO.parquet",
+        """
+        SELECT 'd1' AS id_documento, 'ACÓRDÃO' AS tipo,
+            DATE '2024-05-01' AS data_julgamento,
+            TIMESTAMP '2024-05-02 00:00:00' AS extraido_em
+        """,
+    )
+    shard_b = _copy_sql_to_parquet(
+        tmp_path / "2024-06-ACORDAO.parquet",
+        """
+        SELECT 'd1' AS id_documento, 'ACÓRDÃO' AS tipo,
+            DATE '2024-05-01' AS data_julgamento,
+            TIMESTAMP '2024-06-01 00:00:00' AS extraido_em
+        """,
+    )
+
+    def fake_ensure_juris_parquets():
+        load = rp.SourceLoad("juris", rp.STATUS_LOADED_REMOTE, "IA item(s) tjro-juris-2024")
+        return [shard_a, shard_b], {}, True, load
+
+    monkeypatch.setattr(rp, "ensure_juris_parquets", fake_ensure_juris_parquets)
+
+    con = __import__("duckdb").connect()
+    try:
+        registered = rq._register_tjro_juris(con)
+        assert registered is True
+        rows = con.execute("SELECT id_documento, extraido_em FROM tjro_juris").fetchall()
+    finally:
+        con.close()
+    assert len(rows) == 1
+    assert rows[0][0] == "d1"
+
+
 # ── site_status.qmd — pending_real_max_age_hours (#924 §3.4) ──────────────────
 
 
