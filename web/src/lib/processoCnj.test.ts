@@ -230,6 +230,23 @@ describe('SQL builders never use SELECT * and filter by parameter', () => {
     expect(sql).toContain('regexp_replace("numeroProcesso"');
   });
 
+  it('stj query casts dataDecisao/dataPublicacao to DATE, not VARCHAR (mirrors service.py _stj_sql)', () => {
+    // Unlike JURIS' data_julgamento (schema-pinned to pa.date32() in
+    // tjro_juris/service.py), STJ's dedup_acordaos() ingests via DuckDB's
+    // read_json(auto_detect=true) with no explicit type pin -- if the
+    // upstream JSON carries a time component, DuckDB infers TIMESTAMP, and
+    // ::VARCHAR on a TIMESTAMP yields 'YYYY-MM-DD HH:MM:SS'. toIsoDate()
+    // reinterprets that shape via `new Date(...)`, which parses a
+    // space-separated (non-ISO) datetime as *local* time -- shifting the
+    // calendar day for a viewer outside UTC. Casting to DATE first (as
+    // service.py's _stj_sql already does) always yields a bare
+    // 'YYYY-MM-DD', which toIsoDate handles UTC-safely regardless of
+    // viewer timezone.
+    const sql = buildStjSql(['https://a/stj-acordaos.parquet']);
+    expect(sql).toContain('MAX("dataDecisao")::DATE AS data_decisao');
+    expect(sql).toContain('MAX("dataPublicacao")::DATE AS data_publicacao');
+  });
+
   it('datajud query filters by placeholder over the discovered URLs', () => {
     const sql = buildDatajudSql(['https://a/datajud-capa-tjro.parquet']);
     expect(sql).toContain('WHERE numero_processo = ?');
@@ -247,6 +264,11 @@ describe('SQL builders never use SELECT * and filter by parameter', () => {
 
     const none = buildDocumentosSql([], []);
     expect(none.nParams).toBe(0);
+  });
+
+  it('documentos query casts stj dataDecisao to DATE, not VARCHAR (mirrors service.py _documentos_sql)', () => {
+    const { sql } = buildDocumentosSql([], ['https://a/stj.parquet']);
+    expect(sql).toContain('"dataDecisao"::DATE AS data');
   });
 });
 

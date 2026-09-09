@@ -210,8 +210,8 @@ export function buildStjSql(urls: string[]): string {
       FIRST("tema" ORDER BY "dataDecisao" DESC NULLS LAST)::VARCHAR AS tema,
       FIRST("teseJuridica" ORDER BY "dataDecisao" DESC NULLS LAST) AS tese,
       FIRST("ementa" ORDER BY "dataDecisao" DESC NULLS LAST) AS ementa,
-      MAX("dataDecisao")::VARCHAR AS data_decisao,
-      MAX("dataPublicacao")::VARCHAR AS data_publicacao
+      MAX("dataDecisao")::DATE AS data_decisao,
+      MAX("dataPublicacao")::DATE AS data_publicacao
     FROM read_parquet([${urlListSql(urls)}])
     WHERE regexp_replace("numeroProcesso", '[^0-9]', '', 'g') = ?
   `;
@@ -252,7 +252,7 @@ export function buildDocumentosSql(jurisUrls: string[], stjUrls: string[]): { sq
   if (stjUrls.length > 0) {
     parts.push(`
       SELECT 'stj' AS fonte, id::VARCHAR AS id_documento, "siglaClasse" AS tipo,
-        "dataDecisao"::VARCHAR AS data, '' AS url, left("ementa", 500) AS resumo
+        "dataDecisao"::DATE AS data, '' AS url, left("ementa", 500) AS resumo
       FROM read_parquet([${urlListSql(stjUrls)}])
       WHERE regexp_replace("numeroProcesso", '[^0-9]', '', 'g') = ?
     `);
