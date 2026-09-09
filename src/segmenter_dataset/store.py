@@ -83,7 +83,9 @@ import csv
 from typing import TYPE_CHECKING
 from xml.etree import ElementTree as ET
 
+from segmenter_dataset import mechanical
 from segmenter_dataset.schemas import (
+    MIN_INDEPENDENT_ANNOTATIONS,
     AnnotationQuality,
     AnnotationRecord,
     AnnotatorConfig,
@@ -105,6 +107,18 @@ if TYPE_CHECKING:
 
 class ImmutabilityError(ValueError):
     """An attempt to write different content under an existing content-addressed ID."""
+
+
+class NonIndependentReviewError(ValueError):
+    """An accepted review's input annotations don't form an independent pair (RFC 0012 SS9).
+
+    Mirrors the check ``release.py``'s ``_iaa_gates`` already applies before
+    trusting a review as inter-annotator evidence
+    (:func:`segmenter_dataset.mechanical.annotations_are_independent`), but
+    enforced here at write time so a non-independent-pair review can never be
+    persisted as ``accepted`` in the first place -- not just excluded from
+    IAA later.
+    """
 
 
 def _read_csv(path: Path, fieldnames: tuple[str, ...]) -> list[dict[str, str]]:
@@ -632,7 +646,23 @@ class SegmenterDatasetStore:
 
     # -- reviews ----------------------------------------------------
 
+    def _require_independent_inputs(self, review: ReviewRecord) -> None:
+        annotations = self.list_annotations(document_id=review.document_id)
+        inputs = [a for a in annotations if a.annotation_id in review.input_annotation_ids]
+        if len(inputs) < MIN_INDEPENDENT_ANNOTATIONS or not mechanical.annotations_are_independent(
+            inputs[0], inputs[1]
+        ):
+            message = (
+                f"review {review.review_id!r} is 'accepted' but its input_annotation_ids "
+                "don't resolve to an independent pair (RFC 0012 §9): needs >= "
+                f"{MIN_INDEPENDENT_ANNOTATIONS} resolvable annotations, unseeded and from "
+                f"distinct model families; found {len(inputs)} resolvable"
+            )
+            raise NonIndependentReviewError(message)
+
     def write_review(self, review: ReviewRecord) -> None:
+        if review.status == "accepted":
+            self._require_independent_inputs(review)
         path = self.reviews_dir / review.document_id / f"{review.review_id}.xml"
         existing_root = _read_xml(path)
         if existing_root is not None:
