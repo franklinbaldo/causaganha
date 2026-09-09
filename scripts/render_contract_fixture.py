@@ -10,12 +10,14 @@ the query metadata needed to check frontend-contract coverage.
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import shutil
 import sys
 from pathlib import Path
 
 import duckdb
+import httpx
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -23,6 +25,69 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 import scripts.render_queries as renderer  # noqa: E402 — importado após o bootstrap de sys.path acima
+
+
+class RealNetworkAccessError(RuntimeError):
+    """Raised when fixture rendering falls through to a real network call.
+
+    Every source render_all() touches must be satisfied by a local fixture
+    file or a monkeypatch installed below. This is deliberately a plain
+    RuntimeError, not OSError/httpx.HTTPError: render_queries.py's own
+    _try_download_parquet() catches OSError (degrading to a silent
+    "optional contract skipped" warning) and reconcile_processos.py's
+    ensure_*_parquets() catch httpx.HTTPError (degrading similarly) — either
+    would swallow this guard instead of surfacing it. A source missing its
+    fixture isolation is exactly the bug that made this test suite's own
+    frontend integration test silently download real IA parquets and time
+    out at 120s (see PR #1356's follow-up fix); this guard turns any future
+    recurrence into an immediate, clearly-diagnosed failure instead.
+    """
+
+
+@contextlib.contextmanager
+def _patched_attrs(*patches: tuple[object, str, object]):
+    """Apply (obj, attr, value) patches and restore the prior values on exit.
+
+    render_fixture() redirects several unrelated modules' path/function
+    globals (renderer's own ROOT-style globals, reconcile_processos's
+    ensure_*_parquets functions) at once — previously via bare
+    reassignment, which permanently overwrote scripts.render_queries's real
+    _register_comunicacoes and reconcile_processos's real
+    ensure_juris_parquets/ensure_datajud_parquets for the rest of the
+    process once render_fixture() ran in-process (as this file's own pytest
+    suite does). One patch/restore mechanism for all of them keeps
+    render_fixture() side-effect-free on its callees' module state.
+    """
+    originals = [(obj, attr, getattr(obj, attr)) for obj, attr, _ in patches]
+    for obj, attr, value in patches:
+        setattr(obj, attr, value)
+    try:
+        yield
+    finally:
+        for obj, attr, value in originals:
+            setattr(obj, attr, value)
+
+
+@contextlib.contextmanager
+def _block_real_network():
+    real_urlopen = renderer.urllib.request.urlopen
+    real_send = httpx.Client.send
+
+    def _blocked_urlopen(url, *args, **kwargs):
+        msg = f"urllib.request.urlopen blocked during fixture rendering: {url!r}"
+        raise RealNetworkAccessError(msg)
+
+    def _blocked_send(self, request, *args, **kwargs):
+        msg = f"httpx.Client blocked during fixture rendering: {request.method} {request.url}"
+        raise RealNetworkAccessError(msg)
+
+    renderer.urllib.request.urlopen = _blocked_urlopen
+    httpx.Client.send = _blocked_send
+    try:
+        yield
+    finally:
+        renderer.urllib.request.urlopen = real_urlopen
+        httpx.Client.send = real_send
 
 
 def _write_relation(con: duckdb.DuckDBPyConnection, name: str, destination: Path) -> None:
@@ -82,26 +147,18 @@ def render_fixture(output_dir: Path) -> None:
     fixtures_dir = output_dir / "fixtures"
     fixture_paths = _write_fixtures(fixtures_dir)
 
-    # The production registration functions derive their local input paths from
-    # these module globals. Point them at our complete fixture tree instead.
-    renderer.ROOT = fixtures_dir
-    renderer.LOCAL_MANIFEST_PARQUET = fixtures_dir / "data/sync-manifest.parquet"
-    renderer.DEV_RATINGS_DIR = fixtures_dir / "data/parquets"
-    renderer._STJ_PARQUET = fixtures_dir / "data/stj/stj-acordaos.parquet"
-
     def register_comunicacoes(con: duckdb.DuckDBPyConnection) -> bool:
         renderer._register_view_from_parquet(con, "comunicacoes", fixture_paths["comunicacoes"])
         return True
 
-    renderer._register_comunicacoes = register_comunicacoes
-
     # _register_tjro_juris/_register_datajud_capa (fixed to fall back to IA via
     # reconcile_processos.ensure_juris_parquets()/ensure_datajud_parquets() —
     # see this round's AgentDecision) read their local-file paths from
-    # reconcile_processos's own ROOT/DATA_DIR module globals, not renderer.ROOT
-    # above — so without this they'd see no local files here and hit the real
-    # network for IA fallback, exactly like tests/test_render_queries.py mocks
-    # the same two functions directly to avoid that.
+    # reconcile_processos's own ROOT/DATA_DIR module globals, not renderer's
+    # own ROOT-style globals below — so without patching them too, they'd see
+    # no local files here and hit the real network for IA fallback, exactly
+    # like tests/test_render_queries.py mocks the same two functions directly
+    # to avoid that.
     reconcile_processos = renderer.reconcile_processos
 
     def fake_ensure_juris_parquets():
@@ -118,10 +175,21 @@ def render_fixture(output_dir: Path) -> None:
         )
         return [fixture_paths["datajud_capa"]], load
 
-    reconcile_processos.ensure_juris_parquets = fake_ensure_juris_parquets
-    reconcile_processos.ensure_datajud_parquets = fake_ensure_datajud_parquets
+    # The production registration functions derive their local input paths
+    # (or, for the two IA-fallback ones, their loader functions) from these
+    # globals across two different modules. One patch list, one restore.
+    patches: tuple[tuple[object, str, object], ...] = (
+        (renderer, "ROOT", fixtures_dir),
+        (renderer, "LOCAL_MANIFEST_PARQUET", fixtures_dir / "data/sync-manifest.parquet"),
+        (renderer, "DEV_RATINGS_DIR", fixtures_dir / "data/parquets"),
+        (renderer, "_STJ_PARQUET", fixtures_dir / "data/stj/stj-acordaos.parquet"),
+        (renderer, "_register_comunicacoes", register_comunicacoes),
+        (reconcile_processos, "ensure_juris_parquets", fake_ensure_juris_parquets),
+        (reconcile_processos, "ensure_datajud_parquets", fake_ensure_datajud_parquets),
+    )
     public_dir = output_dir / "web/public"
-    count, failures = renderer.render_all(public_dir=public_dir)
+    with _patched_attrs(*patches), _block_real_network():
+        count, failures = renderer.render_all(public_dir=public_dir)
     if failures:
         raise RuntimeError("fixture rendering failed: " + "; ".join(failures))
 
