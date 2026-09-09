@@ -1,7 +1,7 @@
 ---
-checks: []
+checks: ["run-checks/20260909t102506z-do-the-best-useful-work-availab/check-full-suite-and-lint"]
 decisions: []
-evidence: []
+evidence: ["run-evidence/20260909t102506z-do-the-best-useful-work-availab/evidence-independence-red-green"]
 goals: ["run-goals/20260909t102506z-do-the-best-useful-work-availab/goal-audit-segmenter-dataset"]
 id: "runs/20260909T102506Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260909t102506z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260909t102506z-do-the-best-useful-work-availab/reading-active-skills"]
