@@ -2,30 +2,40 @@
 type: AgentRun
 id: "2026-09-09-exciting-mccarthy-ko7vqq"
 started_at: "2026-09-09T18:24:00Z"
-completed_at: ""
+completed_at: "2026-09-09T18:50:00Z"
 branch_at_start: "claude/exciting-mccarthy-ko7vqq"
 commit_at_start: "ec6ff4bf8d1e83c674284d98ce81495739c67731"
 claude_md_reading_id: "2026-09-09-exciting-mccarthy-ko7vqq-reading-claude-md"
 issues_reading_id: "2026-09-09-exciting-mccarthy-ko7vqq-reading-issues"
 prs_reading_id: "2026-09-09-exciting-mccarthy-ko7vqq-reading-prs"
 okf_reading_id: "2026-09-09-exciting-mccarthy-ko7vqq-reading-okf"
-goal_ids: []
-primary_goal_id: ""
+goal_ids:
+  - "2026-09-09-exciting-mccarthy-ko7vqq-goal-datajud-enrich-erro-not-ok-on-parse-failure"
+primary_goal_id: "2026-09-09-exciting-mccarthy-ko7vqq-goal-datajud-enrich-erro-not-ok-on-parse-failure"
 considered_work:
   - "17 open GitHub issues, identical set to every round today, all pre-verified blocked/deprioritized in knowledge/backlog/issue-<n>.md -- not actionable."
   - "One open PR (#1353), an automated Dependabot devDependency bump in deployment/relay-cf, unrelated to agent work -- not selected."
-  - "PR #1385, dangling from round ktosqx (opened, CI/OKF green, one flaky infra check re-run in progress) -- this round's first priority is confirming green and merging it, then closing out ktosqx's round report, per this project's established pattern."
-selected_work: ""
-expected_behavior: ""
+  - "PR #1385, dangling from round ktosqx: CI/OKF green, one check (Product Surface Visual Capture) failed on a Playwright browser-download timeout before any test ran -- a pure CI-infra flake unrelated to the diff, confirmed by re-running only that job (rerun_failed_jobs on run 34385519857), which then passed clean. PR #1385 merged (by the ktosqx session's own subsequent PR-activity-driven closeout, ahead of this round's own merge attempt) as f0a86363009657414d92703dc596462c00daf050 while this round was mid-verification; this round independently reached the same conclusion and attempted its own closeout, which conflicted with the ktosqx session's own closeout (PR #1386, already merged to main) on rebase -- resolved by keeping the ktosqx session's own authoritative account (it had the real root cause: an apt Hash Sum mismatch installing Chromium, not the Playwright download timeout this round diagnosed from a truncated log read) and dropping this round's now-redundant duplicate edit."
+  - "Dispatched a background Explore subagent (30 tool uses, ~211s) to survey areas not already exhausted by today's many rounds (MCP server, DataJud/TJRO-JURIS clients, reconcile_processos.py, manifest/archive internals, web/src/lib/*.ts, Svelte components), explicitly excluding a list of already-declined/already-fixed leads. It found and independently reproduced (via a runnable script against the live source tree) a CONFIRMED bug: src/datajud/service.py's enrich() marks a CNJ whose DataJud document failed pydantic validation (dropped in fetch_capas, only log.warning'd) exactly the same as a CNJ with a genuine zero-document result -- status=STATUS_OK, docs=0 -- so ManifestDataJud.needs_refresh() treats a parse failure as a settled, fresh answer and never retries it. Selected as this round's goal."
+selected_work: "2026-09-09-exciting-mccarthy-ko7vqq-goal-datajud-enrich-erro-not-ok-on-parse-failure"
+expected_behavior: "tests/datajud/test_datajud_enrich.py::test_enrich_marks_a_malformed_document_as_erro_not_ok: mocks a DataJud response with two hits for two pending CNJs -- one well-formed, one with a valid numeroProcesso but an invalid nivelSigilo, which makes ProcessoCapa.from_source raise ValidationError while numeroProcesso is still readable. FAILS RED before the fix (the malformed CNJ's manifest entry has status='ok'). PASSES GREEN after fetch_capas returns the set of normalized CNJs it could attribute a validation failure to, and enrich() marks any such pending CNJ (absent from the successfully parsed capas) as STATUS_ERRO instead of STATUS_OK -- so manifest.needs_refresh() returns True for it on the next run. All other tests/datajud/ tests (75 total), the full Python suite (only the expected, self-resolving draft-report completeness gate failure), and ruff check/format all stay green."
 entry_state: "new"
-target_state: "red"
-decision_ids: []
-evidence_ids: []
+target_state: "merged"
+decision_ids:
+  - "2026-09-09-exciting-mccarthy-ko7vqq-decision-okf-cli-check-vs-load-bundle-strictness"
+evidence_ids:
+  - "2026-09-09-exciting-mccarthy-ko7vqq-evidence-red-test"
+  - "2026-09-09-exciting-mccarthy-ko7vqq-evidence-green-test"
+  - "2026-09-09-exciting-mccarthy-ko7vqq-evidence-diff"
 check_ids:
   - "2026-09-09-exciting-mccarthy-ko7vqq-check-okf-parser-baseline"
-result_state: "red"
-result_summary: ""
-next_move: ""
+  - "2026-09-09-exciting-mccarthy-ko7vqq-check-okf-parser-after-ktosqx-closeout"
+  - "2026-09-09-exciting-mccarthy-ko7vqq-check-python-suite"
+  - "2026-09-09-exciting-mccarthy-ko7vqq-check-ruff"
+  - "2026-09-09-exciting-mccarthy-ko7vqq-check-okf-parser-final"
+result_state: "review"
+result_summary: "This round attempted two units of work, one of which turned out to be a race with the ktosqx session's own PR-activity-driven closeout. (1) Continuity: PR #1385 (round ktosqx's DateDetail.svelte pagination fix) had one failing check (Product Surface Visual Capture); this round diagnosed it (from a truncated CI log) as a Playwright browser-download timeout, confirmed it as a flake by re-running the job in isolation (passed clean), and drafted its own closeout of ktosqx's round report. Before this round could push, the ktosqx session itself -- which had stayed subscribed to PR #1385's activity -- reached the same 'merge once green' conclusion independently, merged the PR as f0a86363009657414d92703dc596462c00daf050, and pushed its own closeout (PR #1386, already merged to main) with the real root cause (an apt Hash Sum mismatch installing Chromium, not a download timeout) and a fuller CI narrative. On rebase, this round's redundant closeout commit was dropped entirely and its follow-on commits' conflicting edits resolved in favor of the ktosqx session's authoritative account -- no content lost, no duplicate evidence_ids or result fields left in ktosqx's report. (2) New substantive fix, unaffected by the above and fully this round's own: src/datajud/service.py's enrich() marked a CNJ whose DataJud hit failed pydantic validation (already silently dropped by fetch_capas, logged only as a warning) with the exact same status=STATUS_OK/docs=0 a CNJ with a genuine zero-document result gets -- so ManifestDataJud.needs_refresh() treated a parse failure as a settled, fresh answer and never retried it, silently and permanently degrading DataJud enrichment coverage with zero operator-visible signal. Found and independently reproduced (a runnable script against the live source tree) by a background Explore survey explicitly excluding today's already-declined/already-fixed leads. Fixed via TDD: fetch_capas() now also returns the set of normalized CNJs whose failure it could attribute to a specific pending CNJ (via the hit's own numeroProcesso, still readable even when a different field fails validation); enrich() marks those STATUS_ERRO instead of STATUS_OK. One new RED-then-GREEN test; tests/datajud/test_datajud_state.py's fetch_capas stub updated for the new tuple return signature. Full tests/datajud/ suite green (75 tests), full Python suite green (only the expected draft-report gate failure), ruff check/format clean, okf-parser conformant via both the CLI and load_bundle().is_conformant. Also recorded as an AgentDecision: this round's own edit accidentally introduced a duplicated evidence_ids YAML key in ktosqx's report, caught by `uv run pytest -q` (via load_bundle().is_conformant, OKF001) but missed by the `okf-parser check` CLI -- a signal-reliability lesson for future rounds, independent of the race outcome above. PR not yet opened -- next action after this report."
+next_move: "Open a PR for this branch (src/datajud/service.py + the new/updated tests + this report), watch its CI, merge once green, then close out this round's report in a follow-up commit recording the merge SHA -- same pattern most rounds today followed. If a future round wants to extend the DataJud fix's scope: a DataJud hit whose own numeroProcesso is missing entirely still cannot be attributed to a specific pending CNJ and is silently treated as a genuine zero-result for every pending CNJ that got no other hit -- broadening EnrichResult to surface an explicit 'N hits could not be attributed' count (rather than fixing the attribution itself, which may not be possible with the data DataJud returns) could make this residual gap operator-visible; not attempted here as it's a smaller, more speculative follow-up than this round's confirmed, reproduced defect. Operationally: when two sessions race to close out the same dangling PR, prefer the originating session's own account (it has first-hand CI/root-cause context this round can only reconstruct from logs) and resolve via rebase rather than re-diagnosing from scratch. Two long-declined, still-low-value leads remain untouched (dead code in web/src/lib/coverageInsights.ts; download_zip()'s 403-vs-DJENRateLimitedError typing gap in src/djen_backup/djen.py) -- not worth a dedicated round without new live-impact evidence."
 ---
 
 # Agent run
