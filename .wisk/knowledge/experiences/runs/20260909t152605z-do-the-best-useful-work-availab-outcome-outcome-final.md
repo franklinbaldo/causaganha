@@ -1,0 +1,15 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260909t152605z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260909T152605Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "success"
+work_status: "complete"
+summary: "Closed the gap PR #1373's own next_move explicitly named as still open: ReviewRecord._at_least_two_inputs_when_accepted only checked the count of input_annotation_ids, never that the referenced annotations actually form an independent pair (RFC 0012 SS9) -- so a non-independent-pair review could still be written and accepted through SegmenterDatasetStore.write_review, only excluded from IAA evidence at release time by release.py's existing _iaa_gates check. Added NonIndependentReviewError and a _require_independent_inputs guard (mirrors _iaa_gates' own resolve-then-check pattern) that write_review now runs before persisting any review with status=='accepted'. RED (new tests failed to import NonIndependentReviewError) -> GREEN (3 new tests: same-family pair rejected, seeded pair rejected, non-accepted status still allowed through). Two pre-existing test_release.py fixtures that happened to rely on writing a non-independent-pair accepted review as setup were adapted: one to use genuinely independent annotators (its own intent -- unresolved-conflict detection -- was unrelated to independence), the other to write its now-unreachable-via-the-public-API fixture directly via a new _write_review_bypassing_independence_guard test helper, proving release.py's _iaa_gates still holds as defense-in-depth. tests/segmenter_dataset: 78/78 green. Full repo suite, ruff check, and ruff format --check all green. Opened PR #1381 and handoffs/handoff-pr-1381-awaiting-ci to track CI/merge."
+next_move: "PR #1381 needs CI/merge confirmation via handoffs/handoff-pr-1381-awaiting-ci -- a future round should check its status first per the wiki's standing invariant before sourcing fresh work. If merged clean, the annotator-independence family (circuit_breaker.py x3, drain_unknowns/engine, manifest/render_manifest_parquet x2, backfill_probe, and now three segmenter_dataset instances across PR #1373/#1375/#1381) is fully closed for the leads named so far. Still open from prior rounds and not touched this round: candidate_mining.py has zero real callers (issue #1050's 'mine real candidates for rare categories' bullet); preliminar remains the weakest category at support=10 (the floor); the two long-declined low-value leads (coverageInsights.ts dead code trace already resolved by PR #1332; download_zip()'s 403-vs-DJENRateLimitedError typing gap in djen.py, declined 4+ rounds) are still not worth picking up absent new evidence of live impact."
+goals_advanced: ["run-goals/20260909t152605z-do-the-best-useful-work-availab/goal-write-review-independence"]
+evidence: ["run-evidence/20260909t152605z-do-the-best-useful-work-availab/evidence-red-green"]
+checks: ["run-checks/20260909t152605z-do-the-best-useful-work-availab/check-full-suite-and-lint"]
+experiences_recorded: []
+---
+
+# RunOutcome
