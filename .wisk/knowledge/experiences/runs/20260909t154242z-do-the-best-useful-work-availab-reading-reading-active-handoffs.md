@@ -1,0 +1,11 @@
+---
+type: "RunReading"
+id: "run-readings/20260909t154242z-do-the-best-useful-work-availab/reading-active-handoffs"
+run: "runs/20260909T154242Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "active-handoffs"
+subject: ".wisk/knowledge/experiences/handoffs/"
+reference: "checkout"
+finding: "handoff-pr-1381-awaiting-ci is the only active handoff; every other file under handoffs/ is archived. It will be archived by this same round via 'wisk handoff continue' now that PR #1381 is confirmed merged."
+---
+
+# RunReading
