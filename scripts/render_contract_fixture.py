@@ -73,11 +73,11 @@ def _block_real_network():
     real_urlopen = renderer.urllib.request.urlopen
     real_send = httpx.Client.send
 
-    def _blocked_urlopen(url, *args, **kwargs):
+    def _blocked_urlopen(url, *_args, **_kwargs):
         msg = f"urllib.request.urlopen blocked during fixture rendering: {url!r}"
         raise RealNetworkAccessError(msg)
 
-    def _blocked_send(self, request, *args, **kwargs):
+    def _blocked_send(_self, request, *_args, **_kwargs):
         msg = f"httpx.Client blocked during fixture rendering: {request.method} {request.url}"
         raise RealNetworkAccessError(msg)
 
