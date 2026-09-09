@@ -8,18 +8,39 @@ format: object
 Cobertura média + melhor/pior dia nos últimos 30 dias. Cada "cobertura" =
 número de tribunais distintos com `ia_status='uploaded'` naquela data.
 
+`best_day`/`worst_day` só consideram dias **settled** (mesmo critério de
+`absent_confirmed`/`pending_real` de `site_status.qmd`): um dia com par(es)
+`pending_real` (DJEN confirmou o caderno mas o upload ainda não aconteceu,
+dentro do SLO de 24h de `docs/SERVICE_OBJECTIVES.md`) não é um dia de
+cobertura ruim, é um dia que ainda não terminou de processar -- exatamente
+por isso `collect-zips.yml`/`src/djen_backup/__main__.py` já excluem "hoje"
+do próprio range de checagem por padrão. `avg_coverage` continua somando
+todos os dias da janela (o card "Cobertura média" descreve os últimos 30
+dias como um todo, não apenas os já settled).
+
 ```{sql}
-WITH daily AS (
-  SELECT date, COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS collected
+WITH classified AS (
+  SELECT
+    date,
+    tribunal,
+    coalesce(CAST(ia_status AS VARCHAR), '') = 'uploaded' AS uploaded,
+    coalesce(CAST(djen_raw AS VARCHAR), '') IN ('404', '400', 'no_publications') AS raw_absent
   FROM manifest
   WHERE date > CURRENT_DATE - INTERVAL 30 DAY
+),
+daily AS (
+  SELECT
+    date,
+    COUNT(*) FILTER (WHERE uploaded) AS collected,
+    COUNT(*) FILTER (WHERE NOT uploaded AND NOT raw_absent) AS unsettled
+  FROM classified
   GROUP BY date
 )
 SELECT
   ROUND(AVG(collected), 2)::DOUBLE AS avg_coverage,
-  MAX(collected) AS best_count,
-  CAST(ARG_MAX(date, collected) AS VARCHAR) AS best_day,
-  MIN(collected) AS worst_count,
-  CAST(ARG_MIN(date, collected) AS VARCHAR) AS worst_day
+  MAX(collected) FILTER (WHERE unsettled = 0) AS best_count,
+  CAST(ARG_MAX(date, collected) FILTER (WHERE unsettled = 0) AS VARCHAR) AS best_day,
+  MIN(collected) FILTER (WHERE unsettled = 0) AS worst_count,
+  CAST(ARG_MIN(date, collected) FILTER (WHERE unsettled = 0) AS VARCHAR) AS worst_day
 FROM daily;
 ```

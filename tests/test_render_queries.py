@@ -1201,6 +1201,85 @@ def test_stats_coverage_last_30_days_excludes_the_31st_boundary_day(
 
 
 @pytest.fixture
+def manifest_parquet_stats_coverage_with_in_flight_day(tmp_path: Path) -> tuple[Path, str, str]:
+    """Three recent days, only one of them genuinely the worst.
+
+    - 5 days ago: all 3 tribunals uploaded (collected=3) -- settled, best day.
+    - 2 days ago: 2 uploaded + 1 djen-confirmed absent (404, settled) --
+      collected=2, the true worst *settled* day.
+    - today: 1 uploaded + 2 still `pending_real` (djen_raw='200', not yet
+      uploaded -- DJEN confirmed the caderno exists but the archival hasn't
+      caught up, same 'pending_real' CLAUDE.md/site_status.qmd concept, well
+      within the 24h SLO) -- collected=1, lower than the settled worst day,
+      but not a genuine coverage failure: it just hasn't finished yet.
+
+    Returns (parquet_path, best_day_iso, worst_settled_day_iso).
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-stats-coverage-in-flight.parquet"
+    con = duckdb.connect()
+    try:
+        today = con.execute("SELECT CURRENT_DATE").fetchone()[0]
+        best_day = today - timedelta(days=5)
+        worst_settled_day = today - timedelta(days=2)
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            f"('tjro', '{best_day.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjac', '{best_day.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjba', '{best_day.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjro', '{worst_settled_day.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjac', '{worst_settled_day.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjba', '{worst_settled_day.isoformat()}', '', 'absent', '404', now()), "
+            f"('tjro', '{today.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjac', '{today.isoformat()}', '', 'available', '200', now()), "
+            f"('tjba', '{today.isoformat()}', '', 'available', '200', now())"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path, best_day.isoformat(), worst_settled_day.isoformat()
+
+
+def test_stats_coverage_worst_day_excludes_still_in_flight_day(
+    tmp_path, manifest_parquet_stats_coverage_with_in_flight_day
+):
+    """'Pior dia' (web/src/pages/stats.astro) must name a real coverage
+
+    failure, not today's still-converging numbers. collect-zips.yml itself
+    never checks 'today' (src/djen_backup/__main__.py's default end_date is
+    yesterday) precisely because a partial day looks artificially bad --
+    stats_coverage.qmd must apply the same 'not settled yet' exclusion
+    site_status.qmd already uses for its own pending_real/absent_confirmed
+    split, not just a same-day exclusion.
+    """
+    manifest_parquet, best_day_iso, worst_settled_day_iso = (
+        manifest_parquet_stats_coverage_with_in_flight_day
+    )
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "stats_coverage.qmd").write_text(STATS_COVERAGE_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert failures == []
+
+    payload = json.loads((public / "data" / "stats_coverage.json").read_text())
+    assert payload["worst_day"] == worst_settled_day_iso
+    assert payload["worst_count"] == 2
+    assert payload["best_day"] == best_day_iso
+    assert payload["best_count"] == 3
+
+
+@pytest.fixture
 def manifest_parquet_120_day_window(tmp_path: Path) -> tuple[Path, str]:
     """Two dates only, straddling daily_uploads's 'last 120 days' boundary:
 
