@@ -31,11 +31,37 @@ from typing import TYPE_CHECKING
 
 
 if TYPE_CHECKING:
-    from segmenter_dataset.schemas import Label
+    from segmenter_dataset.schemas import AnnotationRecord, Label
 
 
 _INICIO_SUFFIX = "_inicio"
 _FIM_SUFFIX = "_fim"
+
+
+def annotations_are_independent(a: AnnotationRecord, b: AnnotationRecord) -> bool:
+    """RFC 0012 §5.3's operational independence definition for a *pair*.
+
+    Two annotations are independent only if: neither is seeded with the
+    other's output or with any model prediction (``seeded_with == "none"``
+    for both — the same necessary local condition
+    :meth:`~segmenter_dataset.schemas.AnnotationRecord.is_independent_capable`
+    checks per-record), and they come from distinct model families. Nothing
+    in :class:`~segmenter_dataset.schemas.AnnotatorConfig` records a
+    "provably isolated run" within the same family, so same-family pairs
+    cannot be confirmed independent from the schema alone and are treated as
+    not independent here — the RFC's "or provably isolated runs" clause has
+    no data to satisfy it yet.
+
+    This is the pairwise half `is_independent_capable` was written for but
+    that was never implemented; wire this into any code path that treats a
+    pair of annotations as inter-annotator evidence (e.g.
+    ``release._iaa_gates``) rather than trusting ``len(inputs) >= 2`` alone.
+    """
+    if a.annotation_id == b.annotation_id:
+        return False
+    if a.annotator_config.seeded_with != "none" or b.annotator_config.seeded_with != "none":
+        return False
+    return a.annotator_config.model_family != b.annotator_config.model_family
 
 
 def check_final_invariants(text: str, labels: list[Label]) -> list[str]:

@@ -321,6 +321,12 @@ def _iaa_gates(
             inputs = [a for a in annotations if a.annotation_id in review.input_annotation_ids]
             if len(inputs) < MIN_INDEPENDENT_ANNOTATIONS_FOR_IAA:
                 continue
+            if not mechanical.annotations_are_independent(inputs[0], inputs[1]):
+                # RFC 0012 §5.3: a review resolved from a non-independent pair
+                # (one seeded with the other, or same model family) is not
+                # genuine inter-annotator evidence -- never let it inflate
+                # the IAA floor gates.
+                continue
             out.append(
                 DocumentAnnotationPair(
                     document_id=item.document.document_id,

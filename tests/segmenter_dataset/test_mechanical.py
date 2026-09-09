@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from conftest import make_annotation, make_document
+
 from segmenter_dataset.mechanical import (
+    annotations_are_independent,
     check_final_invariants,
     validate_ontology_membership,
     validate_pairs,
@@ -117,3 +120,53 @@ def test_validate_record_composes_all_checks() -> None:
         Label(start=5, end=10, category="cabecalho_fim"),
     ]
     assert validate_record(text, labels, CATEGORIES) == []
+
+
+# ---------------------------------------------------------------------------
+# annotations_are_independent (RFC 0012 §5.3's operational independence
+# definition, referenced but never implemented — schemas.py's
+# AnnotationRecord.is_independent_capable() docstring points here for the
+# pairwise half of the check).
+# ---------------------------------------------------------------------------
+
+
+def test_annotations_are_independent_distinct_unseeded_families() -> None:
+    doc = make_document()
+    ann_a = make_annotation(doc, annotator_id="a", model_family="fam-a", seeded_with="none")
+    ann_b = make_annotation(doc, annotator_id="b", model_family="fam-b", seeded_with="none")
+    assert annotations_are_independent(ann_a, ann_b) is True
+
+
+def test_annotations_are_independent_false_when_one_seeded_by_the_other() -> None:
+    doc = make_document()
+    ann_a = make_annotation(doc, annotator_id="a", model_family="fam-a", seeded_with="none")
+    ann_b = make_annotation(
+        doc, annotator_id="b", model_family="fam-a", seeded_with=ann_a.annotation_id
+    )
+    assert annotations_are_independent(ann_a, ann_b) is False
+    # Symmetric: order of arguments must not matter.
+    assert annotations_are_independent(ann_b, ann_a) is False
+
+
+def test_annotations_are_independent_false_when_both_seeded_by_a_model_draft() -> None:
+    doc = make_document()
+    ann_a = make_annotation(doc, annotator_id="a", model_family="fam-a", seeded_with="draft-1")
+    ann_b = make_annotation(doc, annotator_id="b", model_family="fam-b", seeded_with="draft-1")
+    assert annotations_are_independent(ann_a, ann_b) is False
+
+
+def test_annotations_are_independent_false_when_same_model_family_even_if_unseeded() -> None:
+    """RFC 0012 §5.3: independent requires distinct families OR provably isolated
+    runs. Nothing in AnnotatorConfig proves isolation beyond model_family, so
+    two same-family unseeded annotations are not a provable independent pair.
+    """
+    doc = make_document()
+    ann_a = make_annotation(doc, annotator_id="a", model_family="fam-a", seeded_with="none")
+    ann_b = make_annotation(doc, annotator_id="b", model_family="fam-a", seeded_with="none")
+    assert annotations_are_independent(ann_a, ann_b) is False
+
+
+def test_annotations_are_independent_false_for_same_annotation_id() -> None:
+    doc = make_document()
+    ann_a = make_annotation(doc, annotator_id="a", model_family="fam-a", seeded_with="none")
+    assert annotations_are_independent(ann_a, ann_a) is False

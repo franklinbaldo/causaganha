@@ -350,3 +350,75 @@ def test_build_dataset_release_reports_per_category_support_across_splits(tmp_pa
     # never annotated in the locked test split -- must be reported as an
     # explicit zero, not silently absent from the report.
     assert manifest.category_counts["test:resultado"] == 0
+
+
+def test_build_dataset_release_blocked_when_val_pairs_are_not_independent(
+    tmp_path: Path,
+) -> None:
+    """RFC 0012 §5.3: a review built from a copied/seeded annotation pair must
+    never certify IAA.
+
+    Each val document below is "adjudicated" from two annotations where the
+    second is explicitly seeded with the first's own annotation_id (e.g. a
+    correction pass over a model draft, RFC 0012 §9's own example of what is
+    *not* independent) and simply repeats its labels. Before the independence
+    check is wired into ``_iaa_gates``, this pair is indistinguishable from a
+    genuine independent pair and inflates val_iaa_span_f1 to a fabricated
+    1.0, passing the rigid, non-waivable ``iaa_aggregate_floor`` gate. With
+    no genuinely independent val evidence at all, the release must instead be
+    blocked by that same gate.
+    """
+    store = SegmenterDatasetStore(tmp_path)
+    assignment = _seed_release(store, n_train=10, n_val=0, n_test=5)
+
+    val_ids: set[str] = set()
+    role_labels, role_covered = _labels_and_covered(None)
+    for i in range(5):
+        doc = make_document(text=_text_for("val", i), source_uri=f"val-{i}")
+        store.write_document(doc)
+        ann_a = make_annotation(
+            doc,
+            annotator_id="a",
+            model_family="fam-a",
+            labels=role_labels,
+            covered_categories=role_covered,
+        )
+        # Seeded from ann_a and left otherwise identical -- a correction pass
+        # over a model draft, not a second independent annotator.
+        ann_b = make_annotation(
+            doc,
+            annotator_id="b",
+            model_family="fam-a",
+            seeded_with=ann_a.annotation_id,
+            labels=role_labels,
+            covered_categories=role_covered,
+        )
+        store.write_annotation(ann_a)
+        store.write_annotation(ann_b)
+        review = make_review(doc, [ann_a, ann_b], final_labels=role_labels)
+        store.write_review(review)
+        val_ids.add(doc.document_id)
+
+    assignment = SplitAssignment(
+        train_ids=assignment.train_ids,
+        val_ids=frozenset(val_ids),
+        test_ids=assignment.test_ids,
+    )
+
+    with pytest.raises(ReleaseBlockedError) as exc_info:
+        build_dataset_release(
+            store,
+            release_id="segmenter-silver-v8.1",
+            ontology_version="segmenter-ontology-v8.0.0",
+            guideline_version="g1",
+            source_commit="a" * 40,
+            dependency_lock_hash="b" * 64,
+            ci_provider=CI_PROVIDER,
+            ci_run_id=CI_RUN_ID,
+            ontology_categories=ONTOLOGY,
+            split_manifest=_manifest_for(assignment),
+            known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
+            iaa_seed=1,
+        )
+    gate_names = {g.name for g in exc_info.value.gate_results}
+    assert "iaa_aggregate_floor" in gate_names
