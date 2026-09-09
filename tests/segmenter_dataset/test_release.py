@@ -352,6 +352,87 @@ def test_build_dataset_release_reports_per_category_support_across_splits(tmp_pa
     assert manifest.category_counts["test:resultado"] == 0
 
 
+def test_build_dataset_release_blocked_by_unresolved_annotation_conflict(tmp_path: Path) -> None:
+    """RFC 0012 §14: 'nenhum conflito de anotação não resolvido' is a rigid gate.
+
+    A train document with two annotation records whose labels disagree, and
+    no accepted review naming both annotation_ids, is an unresolved conflict
+    -- distinct from val_test_independently_adjudicated (which only checks
+    that val/test documents *have* an accepted review at all, never that a
+    disagreement elsewhere was actually adjudicated). Before this gate is
+    wired to real evidence, ``resolve_split``'s "latest annotation wins" for
+    train silently picks one side of the disagreement with zero record that
+    the other annotator's conflicting labels were ever looked at.
+    """
+    store = SegmenterDatasetStore(tmp_path)
+    assignment = _seed_release(store, n_train=10, n_val=5, n_test=5)
+
+    conflicted = make_document(text="0123conflict00089ABCDEFGHIJ", source_uri="train-conflict")
+    store.write_document(conflicted)
+    ann_a = make_annotation(
+        conflicted,
+        annotator_id="a",
+        completed_at="2026-01-01T00:00:00Z",
+        labels=PAIR_LABELS,
+        covered_categories=("cabecalho_inicio", "cabecalho_fim"),
+    )
+    ann_b = make_annotation(
+        conflicted,
+        annotator_id="b",
+        completed_at="2026-01-02T00:00:00Z",
+        labels=[
+            Label(start=0, end=5, category="cabecalho_inicio"),
+            Label(start=12, end=15, category="cabecalho_fim"),
+        ],
+        covered_categories=("cabecalho_inicio", "cabecalho_fim"),
+    )
+    store.write_annotation(ann_a)
+    store.write_annotation(ann_b)
+    broken_assignment = SplitAssignment(
+        train_ids=assignment.train_ids | {conflicted.document_id},
+        val_ids=assignment.val_ids,
+        test_ids=assignment.test_ids,
+    )
+
+    with pytest.raises(ReleaseBlockedError) as exc_info:
+        build_dataset_release(
+            store,
+            release_id="segmenter-silver-v8.1",
+            ontology_version="segmenter-ontology-v8.0.0",
+            guideline_version="g1",
+            source_commit="a" * 40,
+            dependency_lock_hash="b" * 64,
+            ci_provider=CI_PROVIDER,
+            ci_run_id=CI_RUN_ID,
+            ontology_categories=ONTOLOGY,
+            split_manifest=_manifest_for(broken_assignment),
+            known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
+            iaa_seed=1,
+        )
+    gate_names = {g.name for g in exc_info.value.gate_results}
+    assert "no_unresolved_annotation_conflicts" in gate_names
+
+    # Once an accepted review names both disagreeing annotation_ids, the
+    # conflict is resolved and the gate passes.
+    review = make_review(conflicted, [ann_a, ann_b], final_labels=ann_a.labels)
+    store.write_review(review)
+    manifest = build_dataset_release(
+        store,
+        release_id="segmenter-silver-v8.2",
+        ontology_version="segmenter-ontology-v8.0.0",
+        guideline_version="g1",
+        source_commit="a" * 40,
+        dependency_lock_hash="b" * 64,
+        ci_provider=CI_PROVIDER,
+        ci_run_id=CI_RUN_ID,
+        ontology_categories=ONTOLOGY,
+        split_manifest=_manifest_for(broken_assignment),
+        known_limitations=SINGLE_TRIBUNAL_KNOWN_LIMITATIONS,
+        iaa_seed=1,
+    )
+    assert manifest.counts["train"] == 11
+
+
 def test_build_dataset_release_blocked_when_val_pairs_are_not_independent(
     tmp_path: Path,
 ) -> None:

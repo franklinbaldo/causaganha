@@ -41,6 +41,7 @@ implementation gap, not a design decision — closing it requires extending
 from __future__ import annotations
 
 import hashlib
+import itertools
 import shutil
 import tempfile
 from dataclasses import dataclass, field
@@ -205,6 +206,51 @@ def _full_category_counts(
     """
     counts = _category_counts(resolved)
     return {category: counts.get(category, 0) for category in sorted(ontology_categories)}
+
+
+def _unresolved_conflicts(
+    annotations: list[AnnotationRecord], reviews: list[ReviewRecord]
+) -> list[str]:
+    """RFC 0012 §14's own rigid gate: 'nenhum conflito de anotação não resolvido'.
+
+    Distinct from ``val_test_independently_adjudicated``, which only checks
+    that a val/test document *has* an accepted review at all. This checks
+    every document with two or more annotation records: if any pair
+    disagrees on labels, an accepted review naming both annotation_ids (RFC
+    0012 §8's lineage fix — ``input_annotation_ids`` says exactly which pair
+    a review adjudicated) is what "resolved" means. Without it,
+    ``resolve_split``'s train "latest annotation wins" would silently pick
+    one side of a disagreement with no record the conflict was ever looked
+    at.
+    """
+    by_document: dict[str, list[AnnotationRecord]] = {}
+    for annotation in annotations:
+        by_document.setdefault(annotation.document_id, []).append(annotation)
+
+    accepted_inputs_by_document: dict[str, list[frozenset[str]]] = {}
+    for review in reviews:
+        if review.status != "accepted":
+            continue
+        accepted_inputs_by_document.setdefault(review.document_id, []).append(
+            frozenset(review.input_annotation_ids)
+        )
+
+    problems: list[str] = []
+    for document_id in sorted(by_document):
+        doc_annotations = sorted(by_document[document_id], key=lambda a: a.annotation_id)
+        if len(doc_annotations) < 2:
+            continue
+        resolved_input_sets = accepted_inputs_by_document.get(document_id, [])
+        for a, b in itertools.combinations(doc_annotations, 2):
+            if frozenset(a.labels) == frozenset(b.labels):
+                continue
+            if any({a.annotation_id, b.annotation_id} <= inputs for inputs in resolved_input_sets):
+                continue
+            problems.append(
+                f"{document_id}: annotations {a.annotation_id} and {b.annotation_id} "
+                "disagree with no accepted review resolving that pair"
+            )
+    return problems
 
 
 def _mechanical_gate(
@@ -501,6 +547,7 @@ def build_dataset_release(
         split_assignment.test_ids
     )
     multiple_tribunals_gate, multiple_source_systems_gate = _diversity_gates(train, val, test)
+    conflict_problems = _unresolved_conflicts(annotations, reviews)
     gate_results = [
         GateResult(
             name="split_disjoint_by_group_id_hash",
@@ -509,8 +556,8 @@ def build_dataset_release(
         ),
         GateResult(
             name="no_unresolved_annotation_conflicts",
-            passed=True,
-            detail="resolved by latest accepted review per document",
+            passed=not conflict_problems,
+            detail="; ".join(conflict_problems[:20]) if conflict_problems else "no conflicts found",
         ),
         GateResult(
             name="val_test_independently_adjudicated",
