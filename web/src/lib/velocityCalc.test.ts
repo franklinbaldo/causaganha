@@ -54,6 +54,25 @@ describe('calculateVelocityAndRegression', () => {
     expect(result!.baselineCoverage).toBeGreaterThan(99);
   });
 
+  it('does not let a weekend row preserved by manifest prune() (already uploaded) push currentVelocity past the business-day ceiling', () => {
+    // SyncManifest.prune() (src/djen_backup/manifest.py) removes weekend
+    // entries UNLESS ia_status == "uploaded" -- so a weekend date CAN reach
+    // coverageSet via legacy CSV merges or a genuine weekend publication.
+    // The historical/baseline/current-30-day loop already filters to
+    // business days; weeklyData (feeding currentVelocity) must match, or a
+    // preserved weekend row inflates currentVelocity above the 5/week
+    // ceiling that historicalAvgVelocity is capped at by construction.
+    const start = '2025-09-01'; // Monday, > 90 days before the target end below
+    const end = '2026-01-16'; // Friday
+    const coverageSet = businessDaysCollectedSince(start, end);
+    coverageSet.add('2026-01-10'); // Saturday within the most recent week
+
+    const result = calculateVelocityAndRegression(coverageSet, end, start);
+
+    expect(result).not.toBeNull();
+    expect(result!.currentVelocity).toBeLessThanOrEqual(5);
+  });
+
   it('reports a flat (~0%) trend, not a false decline, for a tribunal collected on every business day', () => {
     // historicalAvgVelocity and currentVelocity are both "business days collected
     // per week" (max achievable = 5, since weekends never appear in the manifest).

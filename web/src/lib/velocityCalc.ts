@@ -36,10 +36,13 @@ export function calculateVelocityAndRegression(
   const current = new Date(tribunalStartDate);
   while (current <= targetRangeEnd) {
     const dStr = current.toISOString().split('T')[0];
-    // The manifest only ever tracks weekdays (src/djen_backup/manifest.py's
-    // SyncManifest.build() skips weekends entirely), so weekends can never
-    // appear in coverageSet. Counting them as "expected" days here would
-    // permanently cap coverage at ~5/7 even for a fully-collected tribunal.
+    // The manifest builds weekday rows only (src/djen_backup/manifest.py's
+    // SyncManifest.build()); prune() also preserves an already-uploaded
+    // weekend row instead of removing it, so coverageSet can rarely still
+    // contain one. These metrics deliberately count business days only
+    // (matching weeklyData below) -- counting calendar days as "expected"
+    // here would permanently cap coverage at ~5/7 even for a fully-collected
+    // tribunal.
     if (!isBusinessDayIso(dStr)) {
       current.setUTCDate(current.getUTCDate() + 1);
       continue;
@@ -75,7 +78,13 @@ export function calculateVelocityAndRegression(
     while (day <= weekEnd) {
       if (day >= tribunalStartDate) {
         const dStr = day.toISOString().split('T')[0];
-        if (coverageSet.has(dStr)) weekCollected++;
+        // Match the business-day filter used above: SyncManifest.prune()
+        // (src/djen_backup/manifest.py) preserves a weekend row once it is
+        // already ia_status == "uploaded" instead of removing it, so a
+        // weekend date can reach coverageSet. Counting it here but not in
+        // the historical/baseline loop would silently inflate currentVelocity
+        // past the same 5/week ceiling historicalAvgVelocity is capped at.
+        if (isBusinessDayIso(dStr) && coverageSet.has(dStr)) weekCollected++;
       }
       day.setUTCDate(day.getUTCDate() + 1);
     }
@@ -90,8 +99,8 @@ export function calculateVelocityAndRegression(
     }
   }
 
-  // totalHistoricalDays counts only business days (weekends never appear in the
-  // manifest, see the comment above), so this ratio's natural ceiling is 1 --
+  // totalHistoricalDays counts only business days (see the comment above),
+  // so this ratio's natural ceiling is 1 --
   // scale by business days/week, not calendar days/week, to match currentVelocity's
   // own units (recent4WeeksCollected/4, whose max is BUSINESS_DAYS_PER_WEEK).
   const historicalAvgVelocity =

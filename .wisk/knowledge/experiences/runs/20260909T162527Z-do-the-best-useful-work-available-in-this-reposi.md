@@ -1,8 +1,8 @@
 ---
-checks: []
+checks: ["run-checks/20260909t162527z-do-the-best-useful-work-availab/check-full-suite-and-lint"]
 decisions: []
-evidence: []
-goals: []
+evidence: ["run-evidence/20260909t162527z-do-the-best-useful-work-availab/evidence-red-green"]
+goals: ["run-goals/20260909t162527z-do-the-best-useful-work-availab/goal-velocity-business-day-consistency"]
 id: "runs/20260909T162527Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260909t162527z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260909t162527z-do-the-best-useful-work-availab/reading-active-skills"]
 run_spec: "run-specs/experience"
