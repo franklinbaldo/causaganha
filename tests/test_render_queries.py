@@ -1065,6 +1065,62 @@ def test_totals_does_not_double_count_uploaded_row_as_absent(
     )
 
 
+@pytest.fixture
+def manifest_parquet_empty(tmp_path: Path) -> Path:
+    """A local sync-manifest.parquet with zero rows, matching the canonical schema.
+
+    Reproduces a fresh/truncated bootstrap where the manifest parquet opens
+    fine but has no rows yet -- render_queries.py must still be able to
+    serialize totals.json as strict JSON.
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-empty.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path
+
+
+def test_totals_coverage_pct_is_null_not_nan_when_manifest_empty(tmp_path, manifest_parquet_empty):
+    """coverage_pct divides by COUNT(*); an empty manifest makes that 0/0.
+
+    DuckDB evaluates 0.0/0.0 as NaN (not NULL), and Python's json.dumps
+    writes NaN as a bare, non-standard literal token -- which the frontend's
+    strict `JSON.parse` (web/src/lib/data/index.ts) rejects outright,
+    failing the whole build (RFC 0007 fail-loud; totals.qmd is not
+    `optional`). totalsSchema already types coverage_pct as
+    `z.number().nullable()` (web/src/lib/data/contracts.ts) -- the SQL must
+    actually emit that null, the same way site_status.qmd's own
+    coverage_pct already does via NULLIF(COUNT(*), 0).
+    """
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "totals.qmd").write_text(TOTALS_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet_empty))
+    assert failures == []
+
+    raw = (public / "data" / "totals.json").read_text()
+    assert "NaN" not in raw, (
+        "totals.json must be strict JSON -- JS JSON.parse rejects a bare NaN token"
+    )
+    payload = json.loads(raw)
+    assert payload["total"] == 0
+    assert payload["coverage_pct"] is None
+
+
 def test_tribunal_coverage_does_not_double_count_uploaded_row_as_absent(
     tmp_path, manifest_parquet_uploaded_and_stale_absent
 ):
