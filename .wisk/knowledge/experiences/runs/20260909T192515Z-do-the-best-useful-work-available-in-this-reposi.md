@@ -1,7 +1,7 @@
 ---
-checks: []
+checks: ["run-checks/20260909t192515z-do-the-best-useful-work-availab/check-full-suite-green"]
 decisions: []
-evidence: []
+evidence: ["run-evidence/20260909t192515z-do-the-best-useful-work-availab/evidence-render-queries-red-green"]
 goals: ["run-goals/20260909t192515z-do-the-best-useful-work-availab/goal-audit-unswept-modules"]
 id: "runs/20260909T192515Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260909t192515z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260909t192515z-do-the-best-useful-work-availab/reading-active-skills"]

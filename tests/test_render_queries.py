@@ -282,6 +282,35 @@ def test_render_invalid_frontmatter_is_failure(tmp_path, manifest_parquet):
     assert any("nofm.qmd" in f for f in failures)
 
 
+def test_render_object_format_row_count_violation_is_failure_not_crash(tmp_path, manifest_parquet):
+    """A format=object contract whose SQL returns != 1 row must fail in
+    isolation (like a missing-source CatalogException), not crash render_all
+    and silently skip every contract that sorts after it."""
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    public = tmp_path / "public"
+    _write_qmd(
+        queries,
+        "a_bad.qmd",
+        "SELECT tribunal FROM manifest WHERE 1 = 0",
+        output="/data/bad.json",
+        fmt="object",
+    )
+    _write_qmd(
+        queries,
+        "b_ok.qmd",
+        "SELECT COUNT(*) AS total FROM manifest",
+        output="/data/ok.json",
+        fmt="object",
+    )
+    count, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert count == 1
+    assert len(failures) == 1
+    assert "a_bad.qmd" in failures[0]
+    assert not (public / "data" / "bad.json").exists()
+    assert (public / "data" / "ok.json").exists()
+
+
 # ── main() exit codes ──────────────────────────────────────────────────────────
 
 
