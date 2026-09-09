@@ -21,6 +21,7 @@ from djen_backup.manifest import SyncManifest
 from djen_backup.segments import (
     SEGMENT_HEADER,
     absent_raw_code,
+    format_event,
     segment_name,
 )
 
@@ -206,6 +207,51 @@ def test_apply_segment_csv_merges_rows() -> None:
     assert applied == 2
     assert m.get_status("TJSP", date(2024, 1, 2)).ia_status == "uploaded"
     assert m.get_status("TJBA", date(2024, 1, 3)).djen_status == "absent"
+
+
+def test_format_event_and_apply_segment_csv_preserve_comma_in_djen_raw() -> None:
+    """format_event()/apply_segment_csv() must round-trip through real CSV
+    escaping, not a hand-rolled join/split(",") pair — the same latent
+    column-misalignment bug class already fixed in the sibling
+    datajud/tjro_juris/stj_acordaos manifest modules. djen_raw is documented
+    as a short enum token with no comma today, so this doesn't fire in
+    production yet, but the wire format itself must not silently corrupt.
+    """
+    line = format_event(
+        "TJSP",
+        date(2024, 1, 2),
+        djen_status="absent",
+        djen_raw="network,timeout",
+        updated_at="2024-01-05T00:00:00+00:00",
+    )
+
+    m = SyncManifest()
+    applied = m.apply_segment_csv(SEGMENT_HEADER + "\n" + line + "\n")
+
+    assert applied == 1
+    e = m.get_status("TJSP", date(2024, 1, 2))
+    assert e is not None
+    assert e.djen_raw == "network,timeout"
+    assert e.updated_at == "2024-01-05T00:00:00+00:00"
+
+
+@pytest.mark.asyncio
+async def test_to_segment_csv_round_trips_comma_in_djen_raw() -> None:
+    """_serialize_rows()/to_segment_csv() (used by upload_segment_to_ia) must
+    also escape commas, mirroring the format_event()/apply_segment_csv() fix.
+    """
+    m = SyncManifest()
+    m.build(["TJSP"], date(2024, 1, 1), date(2024, 1, 1))
+    await m.mark_djen_raw("TJSP", date(2024, 1, 1), "network,timeout")
+
+    segment_csv = m.to_segment_csv()
+
+    m2 = SyncManifest()
+    applied = m2.apply_segment_csv(segment_csv)
+    assert applied == 1
+    e = m2.get_status("TJSP", date(2024, 1, 1))
+    assert e is not None
+    assert e.djen_raw == "network,timeout"
 
 
 # ── load_from_ia: parquet base + segments, CSV fallback ─────────────

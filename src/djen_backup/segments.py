@@ -18,6 +18,8 @@ field-by-field, last-write-wins by ``updated_at`` (plan §4.1/§4.3).
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 import os
 import uuid
 from datetime import UTC, date, datetime
@@ -89,7 +91,11 @@ def format_event(
 ) -> str:
     """Render one segment CSV line. Empty fields mean "no change"."""
     ts = updated_at or datetime.now(UTC).isoformat(timespec="seconds")
-    return f"{tribunal.upper()},{d.isoformat()},{ia_status},{djen_status},{djen_raw},{ts}"
+    buf = io.StringIO()
+    csv.writer(buf, lineterminator="").writerow(
+        [tribunal.upper(), d.isoformat(), ia_status, djen_status, djen_raw, ts]
+    )
+    return buf.getvalue()
 
 
 class SegmentWriter:

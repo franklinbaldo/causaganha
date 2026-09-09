@@ -90,6 +90,32 @@ def test_manifest_csv_round_trip() -> None:
     assert m2.counts().total == 2
 
 
+def test_manifest_csv_round_trip_preserves_comma_in_field() -> None:
+    """to_csv()/load_from_csv() must escape commas, not hand-roll the join.
+
+    djen_raw is documented as a short enum token ("200"/"404"/"timeout"/...)
+    with no comma today, so this doesn't fire in production yet — but the
+    format itself must not silently misalign columns if it ever did, the
+    same latent-corruption bug class already fixed in the sibling
+    datajud/tjro_juris/stj_acordaos manifest modules.
+    """
+    m = SyncManifest()
+    m.build(["TJSP"], date(2024, 1, 1), date(2024, 1, 1))
+    entry = m._entries["TJSP/2024-01-01"]
+    entry.djen_status = "absent"
+    entry.djen_raw = "network,timeout"
+    entry.updated_at = "2024-01-01T00:00:00+00:00"
+
+    csv_text = m.to_csv()
+
+    m2 = SyncManifest()
+    m2.load_from_csv(csv_text)
+    reloaded = m2.get_status("TJSP", date(2024, 1, 1))
+    assert reloaded is not None
+    assert reloaded.djen_raw == "network,timeout"
+    assert reloaded.updated_at == "2024-01-01T00:00:00+00:00"
+
+
 def test_manifest_legacy_csv_import() -> None:
     legacy = (
         "timestamp,tribunal,date,status,url\n"
