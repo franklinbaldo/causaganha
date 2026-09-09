@@ -26,6 +26,7 @@ decision_ids:
 evidence_ids:
   - "2026-09-09-exciting-mccarthy-p7xocl-evidence-red-test"
   - "2026-09-09-exciting-mccarthy-p7xocl-evidence-green-tests"
+  - "2026-09-09-exciting-mccarthy-p7xocl-evidence-pr-1377-opened"
 check_ids:
   - "2026-09-09-exciting-mccarthy-p7xocl-check-red-test"
   - "2026-09-09-exciting-mccarthy-p7xocl-check-green-and-suites"
