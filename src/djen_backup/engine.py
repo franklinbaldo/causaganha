@@ -459,7 +459,9 @@ async def run_pipeline(
     download_queue: asyncio.Queue[ManifestEntry | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
     upload_queue: asyncio.Queue[StagedItem | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
 
-    backlog = manifest.entries_needing_upload()
+    # check-only ("no I/O", per CLAUDE.md) must never drain the existing
+    # available/not-yet-uploaded backlog into the download/upload workers.
+    backlog = [] if config.check_only else manifest.entries_needing_upload()
     if backlog:
         log.info("backlog_priority_load", count=len(backlog))
 
@@ -673,19 +675,24 @@ async def run_pipeline(
                     return
                 await asyncio.sleep(5)
 
-        feeder_task = asyncio.create_task(feed_available())
+        # check-only never downloads or uploads: no feeder, no download/upload
+        # workers, so the checker phase is the entire run.
+        feeder_task = None if config.check_only else asyncio.create_task(feed_available())
         checker_tasks = [
             asyncio.create_task(checker_worker(check_client)) for _ in range(min(2, config.workers))
         ]
-        dl_tasks = [asyncio.create_task(download_worker(dl_client))]
-        upload_tasks = [
-            asyncio.create_task(upload_worker(upload_client)) for _ in range(config.workers)
-        ]
+        dl_tasks = [] if config.check_only else [asyncio.create_task(download_worker(dl_client))]
+        upload_tasks = (
+            []
+            if config.check_only
+            else [asyncio.create_task(upload_worker(upload_client)) for _ in range(config.workers)]
+        )
 
         try:
             await asyncio.gather(*checker_tasks, return_exceptions=True)
             checkers_done.set()
-            await asyncio.gather(feeder_task, return_exceptions=True)
+            if feeder_task is not None:
+                await asyncio.gather(feeder_task, return_exceptions=True)
             for _ in dl_tasks:
                 await _put_with_deadline(download_queue, None)
             await asyncio.gather(*dl_tasks, return_exceptions=True)
