@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import csv
+import io
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -67,7 +69,7 @@ class ManifestSTJ:
             line = raw_line.strip()
             if not line or line.startswith("arquivo"):
                 continue
-            parts = line.split(",")
+            parts = next(csv.reader([line]))
             if len(parts) < 6:  # noqa: PLR2004
                 if strict:
                     msg = f"malformed row in {source}: expected 6 columns, got {len(parts)}"
@@ -114,12 +116,14 @@ class ManifestSTJ:
     def save(self) -> None:
         """Persist manifest to disk."""
         self._path.parent.mkdir(parents=True, exist_ok=True)
-        lines = [HEADER]
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\n")
+        writer.writerow(HEADER.split(","))
         for e in sorted(self._entries.values(), key=lambda e: e.arquivo):
-            lines.append(
-                f"{e.arquivo},{e.tipo},{e.data_extracao},{e.ia_status},{e.n_registros},{e.updated_at}"
+            writer.writerow(
+                [e.arquivo, e.tipo, e.data_extracao, e.ia_status, e.n_registros, e.updated_at]
             )
-        self._path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        self._path.write_text(buf.getvalue(), encoding="utf-8")
         log.info("stj_manifest_saved", path=str(self._path), entries=len(self._entries))
 
     # ── Mutation ─────────────────────────────────────────────────────────

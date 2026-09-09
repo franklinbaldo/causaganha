@@ -2,32 +2,40 @@
 type: AgentRun
 id: "2026-09-09-exciting-mccarthy-8esdwh"
 started_at: "2026-09-09T08:23:00Z"
-completed_at: ""
+completed_at: "2026-09-09T09:05:00Z"
 branch_at_start: "claude/exciting-mccarthy-8esdwh"
 commit_at_start: "339118bab7cc3fa42f5b53f9e14a8b1ac53a5f1e"
 claude_md_reading_id: "2026-09-09-exciting-mccarthy-8esdwh-reading-claude-md"
 issues_reading_id: "2026-09-09-exciting-mccarthy-8esdwh-reading-issues"
 prs_reading_id: "2026-09-09-exciting-mccarthy-8esdwh-reading-prs"
 okf_reading_id: "2026-09-09-exciting-mccarthy-8esdwh-reading-okf"
-goal_ids: []
-primary_goal_id: ""
+goal_ids:
+  - "2026-09-09-exciting-mccarthy-8esdwh-goal-csv-manifest-escaping"
+primary_goal_id: "2026-09-09-exciting-mccarthy-8esdwh-goal-csv-manifest-escaping"
 considered_work:
   - "17 open GitHub issues, identical set to every round today, all pre-verified blocked (segmenter needs GPU/annotation; #950/#951/#1011/#1022 need an infra decision or IAS3 credentials absent from this sandbox; #985 blocked on live TSE 403; #1093 explicitly deprioritized) -- not actionable."
   - "PR #1364: a stale, orphaned round-closeout doc PR from a concurrent same-family session, superseded by #1363 (already merged as b37e970) and mergeable_state='dirty' against current main. Closed without merging (see AgentDecision decision-close-stale-pr-1364) rather than treated as a goal, since it carries no code change."
   - "PR #1353: healthy automated Dependabot devDependency bump, not stuck/red, no action needed."
   - "render_queries.py's IA-fallback/join-key/dedup bug class: exhaustively mined by four concurrent same-day rounds (pf1xhn, 8kw55y, 0lpi0s, qvqmci, ez5wkn) -- not re-surveyed."
-selected_work: ""
-expected_behavior: ""
+  - "Dispatched a background Explore subagent to survey causaganha_mcp/, datajud/, ADR-vs-code drift, web/src/lib/ date helpers, and djen_backup retry/archive/circuit-breaker for a fresh candidate outside today's already-mined render_queries.py area. It ruled out three plausible leads after reading the actual code (a manifest-scoping year-resolution gap in publicacoes/service.py -- disproven, the catalog generator guarantees one of two year sources always resolves; a sync-vs-async CircuitBreaker probe-slot race -- disproven, the only sync caller path is single-threaded by design; STJ-vs-CNJ join mismatches -- already fixed and test-locked from a past issue). It surfaced one real structural gap: datajud/manifest.py, tjro_juris/manifest.py, and stj_acordaos/manifest.py all build CSV rows by raw f-string concatenation with no escaping, while two of the three already read them back through csv.DictReader (which expects real CSV quoting) and the third hand-rolls both sides with a naive line.split(\",\"). Confirmed by direct code reading, not just the subagent's claim."
+selected_work: "Fixed datajud/manifest.py's ManifestDataJud.save_local, tjro_juris/manifest.py's ManifestJuris.save_local, and stj_acordaos/manifest.py's ManifestSTJ.save/load_text to round-trip any field value through csv.writer/csv.reader instead of a hand-built comma-joined string and (for stj_acordaos) a naive line.split(\",\"). Verified every current call site of these three manifests only ever passes digit strings, short enum codes, ISO timestamps, or pipeline-generated Path.name filenames into the affected fields -- so this is a real but currently-latent format-contract bug (silent column misalignment on read, no exception), not yet triggered by live data, matching the same bug class (a format contract with no test locking its edge case) that earlier rounds today fixed in render_queries.py before its own first live trigger."
+expected_behavior: "A new test per module: save an entry whose one text field contains a comma, reload it, and assert the round-tripped value is unchanged. Before the fix (RED) the reloaded value is silently truncated/misaligned (e.g. status='erro, timeout' comes back as just 'erro') with no exception raised. After the fix (GREEN) it round-trips exactly. All pre-existing tests in the three modules' test files stay green unchanged, since csv.writer with default QUOTE_MINIMAL quoting is byte-identical to the old f-string join for comma-free fields. Full Python suite, ruff check, and ruff format --check stay green."
 entry_state: "new"
-target_state: "red"
+target_state: "merged"
 decision_ids:
   - "2026-09-09-exciting-mccarthy-8esdwh-decision-close-stale-pr-1364"
 evidence_ids:
   - "2026-09-09-exciting-mccarthy-8esdwh-evidence-pr-1364-closed"
-check_ids: []
-result_state: "red"
-result_summary: ""
-next_move: ""
+  - "2026-09-09-exciting-mccarthy-8esdwh-evidence-red-tests"
+  - "2026-09-09-exciting-mccarthy-8esdwh-evidence-green-tests"
+  - "2026-09-09-exciting-mccarthy-8esdwh-evidence-diff-fix"
+check_ids:
+  - "2026-09-09-exciting-mccarthy-8esdwh-check-okf-parser-baseline"
+  - "2026-09-09-exciting-mccarthy-8esdwh-check-python-suite"
+  - "2026-09-09-exciting-mccarthy-8esdwh-check-ruff-and-vulture"
+result_state: "review"
+result_summary: "The issue/PR queue was exhausted again (17 identical pre-verified-blocked issues; one healthy Dependabot PR) and render_queries.py's IA-fallback/join bug class -- the source of every fix in this AgentRun family today -- had already been mined by four concurrent same-day rounds. Housekeeping first: closed PR #1364, an orphaned round-closeout duplicate from a concurrent session's race (superseded by #1363/b37e970, mergeable_state=dirty against current main). Then dispatched a background Explore survey of areas outside today's already-mined territory (causaganha_mcp/, datajud/, ADR-vs-code drift, web date helpers, djen_backup retry/archive/circuit-breaker). It ruled out three plausible leads after reading the actual code and surfaced one real structural gap: datajud/manifest.py, tjro_juris/manifest.py, and stj_acordaos/manifest.py all persist CSV rows via raw f-string concatenation with zero escaping, while two of the three already read them back through csv.DictReader (which expects real CSV quoting) and the third hand-rolls both sides with a naive line.split(','). Verified every current call site only ever passes digit strings, short enum codes, ISO timestamps, or pipeline-generated Path.name filenames into the affected fields, so this is a real but currently-latent format-contract bug, not yet triggered by live data -- the same bug shape (an unlocked edge case in a format/fallback contract) as every fix this family has made today, just one step earlier in its lifecycle. Fixed via TDD: one new RED test per module (a comma inside a text field), each failing differently before the fix -- silent truncation in datajud (status='erro, timeout' came back as 'erro'), a raised ManifestFormatError in tjro_juris (the shifted column broke int() on n_docs), and silent truncation again in stj_acordaos (arquivo truncated to 'acordaos') -- then GREEN after switching all three save paths to csv.writer and stj_acordaos's load_text to csv.reader per line. All 24 pre-existing tests across the three modules' test files stayed green unchanged, confirming csv.writer's default quoting is byte-identical to the old f-string join for comma-free fields. Full Python suite green (only the expected, now-resolved draft-report failure), ruff check/format clean repo-wide, vulture (pinned to Python 3.12 per an earlier round's operational note) clean. okf-parser check: conformant throughout the round (985 -> 991 -> 998 concepts)."
+next_move: "This round's PR is about to be opened and driven to green -- a future round's PR-reading step should check for it first (per qvqmci's and ez5wkn's own operational notes about a preceding round's PR possibly still open) before sourcing fresh work. Once merged, the same csv.writer/csv.reader pattern could be worth auditing across any other hand-rolled CSV persistence in the repo (this round only searched datajud/tjro_juris/stj_acordaos's manifest modules specifically, following the survey's scope; djen_backup's own sync-manifest.parquet is unaffected since it's Parquet, not CSV, but any remaining legacy CSV writer elsewhere in the codebase should be checked the same way). Two long-declined, still-low-value leads remain untouched (dead code in web/src/lib/coverageInsights.ts; download_zip()'s 403-vs-DJENRateLimitedError typing gap in src/djen_backup/djen.py) -- not worth a dedicated round without new live-impact evidence."
 ---
 
 # Agent run
