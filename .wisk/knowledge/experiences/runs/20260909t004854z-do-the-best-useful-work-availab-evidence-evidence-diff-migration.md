@@ -1,0 +1,11 @@
+---
+type: "RunEvidence"
+id: "run-evidence/20260909t004854z-do-the-best-useful-work-availab/evidence-diff-migration"
+run: "runs/20260909T004854Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "execution"
+reference: "diff: pyproject.toml, src/causaganha/consolidate/cli.py, src/segmenter_dataset/__main__.py, tests/consolidate/test_cli_importable.py, tests/segmenter_dataset/test_cli_contract.py (new)"
+summary: "Migrated both remaining Typer CLIs to Cyclopts, following RFC 0013 Fase 4's conventions (Parameter(negative=[]) for --force's suppressed negation; / after former typer.Argument params to keep them positional-only; cyclopts.validators.Path(exists=True, file_okay=False)/Number(gte=1000) replacing typer.Option's exists=/file_okay=/min= kwargs; version_flags=[] to match Typer's lack of --version; typer.Exit/typer.echo replaced with plain return-int/print per the harness's documented convention). Removed typer from pyproject.toml's direct dependencies -- zero 'import typer'/'from typer' remain anywhere under src/ or scripts/ (grep-verified); typer itself stays in uv.lock only as an unrelated transitive dependency of the 'safety' dev tool. Live user redirect mid-task ('We can go clean break to have a better cli') simplified the initial draft: dropped the @app.default no_args_is_help=True emulation shim from both files (a bare invocation now shows help and exits 0, Cyclopts' own clean default, instead of forcing the old Typer exit-2 convention nothing depends on) -- kept only the preservations that are genuinely good CLI design regardless of legacy parity (positional-only date/tribunal/year args, --force having no --no-force pair, path/number validators). Characterized real argv behavior for both CLIs under the OLD Typer implementation first (via typer.testing.CliRunner, one-off scratch scripts, not committed) to have ground truth to migrate against, then re-characterized under the NEW Cyclopts implementation using tests/cli_contract/harness.py's shared _invoke adapter (the same one RFC 0013 Fase 4 used for the other four packages) before writing the final test assertions -- this caught the real Cyclopts usage-error exit code (1, not Typer/Click's 2) empirically rather than assuming it."
+goal: "goal-migrate-typer-to-cyclopts"
+---
+
+# RunEvidence

@@ -26,7 +26,7 @@ from typing import Annotated
 
 import ibis
 import structlog
-import typer
+from cyclopts import App, Parameter
 
 from causaganha.consolidate import checkpoint, manifest_reader
 from causaganha.consolidate.candidates import (
@@ -58,9 +58,9 @@ from causaganha.pipeline.ia_s3 import (
 
 log = structlog.get_logger()
 
-app = typer.Typer(
+app = App(
     help="DJEN ZIP → Parquet consolidation pipeline",
-    no_args_is_help=True,
+    version_flags=[],
 )
 
 
@@ -341,12 +341,13 @@ def _print_stats(stats: dict) -> None:
     )
 
 
-@app.command()
+@app.command
 def date(
-    target_date: Annotated[str, typer.Argument(help="Date to consolidate (YYYY-MM-DD)")],
+    target_date: Annotated[str, Parameter(help="Date to consolidate (YYYY-MM-DD)")],
+    /,
     *,
-    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
-    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors"),
+    dry_run: Annotated[bool, Parameter(help="Skip IA uploads")] = False,
+    workers: Annotated[int, Parameter(help="Parallel ZIP processors")] = 4,
 ) -> None:
     """Consolidate all ZIPs for a single date into a per-date IA item."""
     zips = manifest_reader.uploaded_zips_for_date(target_date)
@@ -359,13 +360,14 @@ def date(
         checkpoint.mark_date_complete(target_date)
 
 
-@app.command("tribunal-year")
+@app.command(name="tribunal-year")
 def tribunal_year(
-    tribunal: Annotated[str, typer.Argument(help="Tribunal code (e.g. TJSP)")],
-    year: Annotated[int, typer.Argument(help="Year (e.g. 2026)")],
+    tribunal: Annotated[str, Parameter(help="Tribunal code (e.g. TJSP)")],
+    year: Annotated[int, Parameter(help="Year (e.g. 2026)")],
+    /,
     *,
-    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
-    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors"),
+    dry_run: Annotated[bool, Parameter(help="Skip IA uploads")] = False,
+    workers: Annotated[int, Parameter(help="Parallel ZIP processors")] = 4,
 ) -> None:
     """Consolidate all ZIPs for a (tribunal, year) into a per-tribunal-year IA item."""
     zips = manifest_reader.uploaded_zips_for_tribunal_year(tribunal, year)
@@ -429,13 +431,13 @@ def _run_date_batch(
     return total_stats
 
 
-@app.command()
+@app.command
 def backfill(
     *,
-    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
-    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors per date"),
-    max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
-    deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
+    dry_run: Annotated[bool, Parameter(help="Skip IA uploads")] = False,
+    workers: Annotated[int, Parameter(help="Parallel ZIP processors per date")] = 4,
+    max_dates: Annotated[int, Parameter(help="Max dates per run (0 = all)")] = 0,
+    deadline_seconds: Annotated[int, Parameter(help="Stop after N seconds")] = 600,
 ) -> None:
     """Find unconsolidated dates (newest first) and consolidate them until deadline."""
     dates = dates_needing_consolidation_from_ia()
@@ -450,18 +452,25 @@ def backfill(
     _print_stats(total_stats)
 
 
-@app.command()
+@app.command
 def reconsolidate(
     *,
-    dry_run: bool = typer.Option(default=False, help="Skip IA uploads"),
-    workers: int = typer.Option(4, "--workers", help="Parallel ZIP processors per date"),
-    max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
-    deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        help="Re-process all items, including those already at current version/layout.",
-    ),
+    dry_run: Annotated[bool, Parameter(help="Skip IA uploads")] = False,
+    workers: Annotated[int, Parameter(help="Parallel ZIP processors per date")] = 4,
+    max_dates: Annotated[int, Parameter(help="Max dates per run (0 = all)")] = 0,
+    deadline_seconds: Annotated[int, Parameter(help="Stop after N seconds")] = 600,
+    force: Annotated[
+        bool,
+        Parameter(
+            name="--force",
+            # negative=[]: the original Typer option had an explicit "--force"
+            # string, which suppressed the --no-force pair under Typer's own
+            # convention. Cyclopts doesn't suppress it just from an explicit
+            # name (RFC 0013 Fase 4 finding) — negative=[] is required.
+            negative=[],
+            help="Re-process all items, including those already at current version/layout.",
+        ),
+    ] = False,
 ) -> None:
     """Re-consolidate dates with stale schema or layout (newest first).
 

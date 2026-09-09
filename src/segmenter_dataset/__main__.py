@@ -14,10 +14,12 @@ Two commands, split at the same seam as RFC 0012 §10/§12:
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Annotated
 
-import typer
+import cyclopts.validators
+from cyclopts import App, Parameter
 
 from segmenter_dataset.dataset_card import render_dataset_card
 from segmenter_dataset.iaa import DEFAULT_BOOTSTRAP_RESAMPLES
@@ -37,25 +39,33 @@ from segmenter_dataset.store import SegmenterDatasetStore
 
 
 if TYPE_CHECKING:
-    # Path stays a live import above — Typer's @app.command parameters below
-    # need a runtime-resolvable annotation to build the CLI schema.
-    # GateResult is only used in a plain helper, not a command, so it's safe
-    # to defer.
+    # Path stays a live import above — the @app.command parameters below need
+    # a runtime-resolvable annotation to build the CLI schema. GateResult is
+    # only used in a plain helper, not a command, so it's safe to defer.
     from segmenter_dataset.gates import GateResult
 
 
-app = typer.Typer(no_args_is_help=True, help="Segmenter dataset lifecycle (RFC 0012).")
+app = App(
+    help="Segmenter dataset lifecycle (RFC 0012).",
+    version_flags=[],
+)
 
 
-@app.command("assign-splits")
+@app.command(name="assign-splits")
 def assign_splits_command(
-    data_root: Path = typer.Option(..., exists=True, file_okay=False, help="data/segmenter/"),
-    output: Path = typer.Option(..., help="Where to write split_manifest.json"),
-    train_ratio: float = typer.Option(0.70),
-    val_ratio: float = typer.Option(0.15),
-    seed: int = typer.Option(..., help="Deterministic assignment seed (RFC 0012 §10)"),
-    near_duplicate_threshold: float = typer.Option(0.9),
-) -> None:
+    *,
+    data_root: Annotated[
+        Path,
+        Parameter(
+            validator=cyclopts.validators.Path(exists=True, file_okay=False), help="data/segmenter/"
+        ),
+    ],
+    output: Annotated[Path, Parameter(help="Where to write split_manifest.json")],
+    train_ratio: float = 0.70,
+    val_ratio: float = 0.15,
+    seed: Annotated[int, Parameter(help="Deterministic assignment seed (RFC 0012 §10)")],
+    near_duplicate_threshold: float = 0.9,
+) -> int | None:
     """Group documents, apply role eligibility, and write a split manifest."""
     store = SegmenterDatasetStore(data_root)
     documents = store.list_documents()
@@ -77,8 +87,8 @@ def assign_splits_command(
             seed=seed,
         )
     except EmptyEvalSplitError as exc:
-        typer.echo(f"assign-splits blocked: {exc}", err=True)
-        raise typer.Exit(code=1) from exc
+        print(f"assign-splits blocked: {exc}", file=sys.stderr)
+        return 1
 
     manifest = create_split_manifest(
         assignment,
@@ -90,30 +100,48 @@ def assign_splits_command(
     )
     output.parent.mkdir(parents=True, exist_ok=True)
     output.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
-    typer.echo(
+    print(
         f"wrote {output}: train={len(manifest.train_ids)} "
         f"val={len(manifest.val_ids)} test={len(manifest.test_ids)}"
     )
+    return None
 
 
-@app.command("build-release")
+@app.command(name="build-release")
 def build_release_command(
-    data_root: Path = typer.Option(..., exists=True, file_okay=False, help="data/segmenter/"),
-    split_manifest: Path = typer.Option(..., exists=True, help="Output of assign-splits"),
-    release_id: str = typer.Option(...),
-    label_space: Path = typer.Option(..., exists=True, help="Path to label_space.json"),
-    source_commit: str = typer.Option(..., help="Full 40-character Git commit SHA"),
-    dependency_lock_hash: str = typer.Option(..., help="SHA-256 of the pinned lockfile"),
-    ci_provider: str = typer.Option(..., help="CI provider, e.g. github-actions"),
-    ci_run_id: str = typer.Option(..., help="Immutable CI run identifier"),
-    guideline_version: str = typer.Option(...),
-    iaa_seed: int = typer.Option(...),
-    iaa_resamples: int = typer.Option(DEFAULT_BOOTSTRAP_RESAMPLES, min=1000),
-    known_limitations: Path | None = typer.Option(
-        None, exists=True, help="JSON list of {gate, reason}"
-    ),
-    ontology_version: str = typer.Option(ONTOLOGY_V8),
-) -> None:
+    *,
+    data_root: Annotated[
+        Path,
+        Parameter(
+            validator=cyclopts.validators.Path(exists=True, file_okay=False), help="data/segmenter/"
+        ),
+    ],
+    split_manifest: Annotated[
+        Path,
+        Parameter(validator=cyclopts.validators.Path(exists=True), help="Output of assign-splits"),
+    ],
+    release_id: str,
+    label_space: Annotated[
+        Path,
+        Parameter(validator=cyclopts.validators.Path(exists=True), help="Path to label_space.json"),
+    ],
+    source_commit: Annotated[str, Parameter(help="Full 40-character Git commit SHA")],
+    dependency_lock_hash: Annotated[str, Parameter(help="SHA-256 of the pinned lockfile")],
+    ci_provider: Annotated[str, Parameter(help="CI provider, e.g. github-actions")],
+    ci_run_id: Annotated[str, Parameter(help="Immutable CI run identifier")],
+    guideline_version: str,
+    iaa_seed: int,
+    iaa_resamples: Annotated[
+        int, Parameter(validator=cyclopts.validators.Number(gte=1000))
+    ] = DEFAULT_BOOTSTRAP_RESAMPLES,
+    known_limitations: Annotated[
+        Path | None,
+        Parameter(
+            validator=cyclopts.validators.Path(exists=True), help="JSON list of {gate, reason}"
+        ),
+    ] = None,
+    ontology_version: str = ONTOLOGY_V8,
+) -> int | None:
     """Build the immutable dataset release (RFC 0012 §12)."""
     store = SegmenterDatasetStore(data_root)
     manifest = SplitManifest.model_validate_json(split_manifest.read_text(encoding="utf-8"))
@@ -143,18 +171,26 @@ def build_release_command(
         )
     except ReleaseBlockedError as exc:
         _echo_gate_failures(exc.gate_results)
-        raise typer.Exit(code=1) from exc
+        return 1
 
-    typer.echo(f"release {release_manifest.release_id!r} written: counts={release_manifest.counts}")
+    print(f"release {release_manifest.release_id!r} written: counts={release_manifest.counts}")
+    return None
 
 
-@app.command("render-dataset-card")
+@app.command(name="render-dataset-card")
 def render_dataset_card_command(
-    data_root: Path = typer.Option(..., exists=True, file_okay=False, help="data/segmenter/"),
-    release_id: str = typer.Option(...),
-    output: Path | None = typer.Option(
-        None, help="Where to write the card; defaults to <release dir>/dataset_card.md"
-    ),
+    *,
+    data_root: Annotated[
+        Path,
+        Parameter(
+            validator=cyclopts.validators.Path(exists=True, file_okay=False), help="data/segmenter/"
+        ),
+    ],
+    release_id: str,
+    output: Annotated[
+        Path | None,
+        Parameter(help="Where to write the card; defaults to <release dir>/dataset_card.md"),
+    ] = None,
 ) -> None:
     """Render the RFC 0012 §15 dataset card for an already-built release."""
     store = SegmenterDatasetStore(data_root)
@@ -163,13 +199,13 @@ def render_dataset_card_command(
     destination = output or (store.release_dir(release_id) / "dataset_card.md")
     destination.parent.mkdir(parents=True, exist_ok=True)
     destination.write_text(card, encoding="utf-8")
-    typer.echo(f"wrote {destination}")
+    print(f"wrote {destination}")
 
 
 def _echo_gate_failures(gate_results: list[GateResult]) -> None:
-    typer.echo("release blocked:", err=True)
+    print("release blocked:", file=sys.stderr)
     for gate in gate_results:
-        typer.echo(f"  [{gate.severity.value}] {gate.name}: {gate.detail}", err=True)
+        print(f"  [{gate.severity.value}] {gate.name}: {gate.detail}", file=sys.stderr)
 
 
 if __name__ == "__main__":
