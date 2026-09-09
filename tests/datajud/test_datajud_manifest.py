@@ -51,6 +51,28 @@ def test_roundtrip_preserves_entries(tmp_path: Path):
     assert loaded.get("00000020320248220002", "tjro") is not None
 
 
+def test_roundtrip_preserves_a_comma_in_status(tmp_path: Path):
+    """save_local must escape commas, not just join fields with them.
+
+    status is normally a controlled enum ("ok"/"erro"/"") today, but the
+    on-disk format contract must not silently corrupt any value it is
+    asked to persist -- the reader (csv.DictReader) already expects real
+    CSV quoting, so the writer must produce it.
+    """
+    manifest = ManifestDataJud()
+    manifest.upsert(CNJ, "tjro", docs=3, status=STATUS_OK)
+    entry = manifest.get(CNJ, "tjro")
+    assert entry is not None
+    entry.status = "erro, timeout"
+    path = tmp_path / "datajud-manifest.csv"
+    manifest.save_local(path)
+
+    loaded = ManifestDataJud.load_local(path)
+    reloaded = loaded.get(CNJ, "tjro")
+    assert reloaded is not None
+    assert reloaded.status == "erro, timeout"
+
+
 def test_load_missing_file_is_empty(tmp_path: Path):
     manifest = ManifestDataJud.load_local(tmp_path / "nope.csv")
     assert len(manifest) == 0

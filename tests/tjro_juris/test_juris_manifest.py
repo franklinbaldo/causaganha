@@ -55,6 +55,29 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert e2.n_docs == 5
 
 
+def test_roundtrip_preserves_a_comma_in_ia_status(tmp_path: Path) -> None:
+    """save_local must escape commas, not just join fields with them.
+
+    ia_status is normally a controlled value today, but the on-disk format
+    contract must not silently corrupt any value it is asked to persist --
+    the reader (csv.DictReader) already expects real CSV quoting, so the
+    writer must produce it.
+    """
+    path = tmp_path / "tjro-juris-manifest.csv"
+    m1 = ManifestJuris()
+    m1.upsert(
+        ManifestJurisEntry(
+            tipo="ACÓRDÃO", mes_ano="2024-01", ia_status="erro, retry pending", n_docs=10
+        )
+    )
+    m1.save_local(path)
+
+    m2 = ManifestJuris.load_local(path)
+    entry = m2.get("ACÓRDÃO", "2024-01")
+    assert entry is not None
+    assert entry.ia_status == "erro, retry pending"
+
+
 def test_saved_csv_has_header_and_sorted_rows(tmp_path: Path) -> None:
     path = tmp_path / "m.csv"
     m = ManifestJuris()

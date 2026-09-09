@@ -41,6 +41,26 @@ def test_save_load_roundtrip(tmp_path: Path) -> None:
     assert rows[1]["n_registros"] == 42
 
 
+def test_roundtrip_preserves_a_comma_in_arquivo(tmp_path: Path) -> None:
+    """save/load_text must escape commas, not just join/split fields on them.
+
+    arquivo is always a pipeline-generated Path.name today, but the on-disk
+    format contract must not silently corrupt any value it is asked to
+    persist -- both sides currently hand-roll comma joining/splitting with
+    no escaping at all.
+    """
+    path = tmp_path / "stj-manifest.csv"
+    m1 = ManifestSTJ(path)
+    m1.upsert("acordaos, 2024.zip", "zip", "2024-01-31", "uploaded", 42)
+    m1.save()
+
+    m2 = ManifestSTJ(path)
+    assert m2.load() == 1
+    row = m2.to_df()[0]
+    assert row["arquivo"] == "acordaos, 2024.zip"
+    assert row["n_registros"] == 42
+
+
 def test_saved_csv_has_header_and_one_line_per_entry(tmp_path: Path) -> None:
     path = tmp_path / "stj-manifest.csv"
     m = ManifestSTJ(path)

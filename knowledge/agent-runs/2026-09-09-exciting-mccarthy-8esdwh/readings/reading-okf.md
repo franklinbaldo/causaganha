@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-09-exciting-mccarthy-8esdwh-reading-okf"
+run_id: "2026-09-09-exciting-mccarthy-8esdwh"
+subject: "okf_knowledge"
+reference: "knowledge/agent-runs/2026-09-09-exciting-mccarthy-{qvqmci,ez5wkn,8kw55y,0lpi0s,pf1xhn}/run.md (today's rounds in this AgentRun family); uv run okf-parser check knowledge --relational-schema okf.schema.sql"
+finding: "Read today's five prior rounds in full. This family runs highly concurrently (multiple sessions in parallel same day) and has been extremely productive today, all in scripts/render_queries.py's IA-fallback/join/dedup bug class: pf1xhn fixed _register_tjro_juris/_register_datajud_capa's missing IA fallback + fixture network leak; 8kw55y fixed lawyer_leaderboard.qmd's missing IA fallback; 0lpi0s fixed render_contract_fixture.py's unrestored module-global patching (state leak across in-process test runs); qvqmci fixed stats_coverage.qmd counting a still-in-flight day as settled for best/worst-day cards; ez5wkn fixed processos_unificados's DataJud join key not stripping CNJ punctuation like its DJEN/JURIS/STJ siblings. Two concurrent-session close-out races happened today (qvqmci's own PR #1362 was merged by ez5wkn's session; qvqmci's and a second session's close-out reports for #1362 collided, leaving stale PR #1364 -- see reading-prs). Two leads remain declined across 5+ consecutive rounds for lack of live impact (coverageInsights.ts dead code; download_zip's 403-vs-DJENRateLimitedError typing gap). 8kw55y's/pf1xhn's own follow-up checks (README optional-flag drift; all VIEW_SPECS sources having IA fallback) both came back clean -- that specific bug class in render_queries.py is now closed out. Given how thoroughly render_queries.py's IA-fallback/join bug class was mined today by 4 concurrent rounds, this round should look elsewhere (segmenter fix from PR #1367, causaganha_mcp, ADR-vs-code drift, or the web frontend) for a fresh, higher-signal, TDD-able bug rather than re-scanning the same file family. Ran `uv run okf-parser check knowledge --relational-schema okf.schema.sql` at round start: conformant, 0 diagnostics, 985 concepts (up from 886 at pf1xhn's baseline earlier today, reflecting the concurrent rounds' own goal/decision/evidence/check instances)."
+---
+
+# Leitura do conhecimento OKF
+
+Cinco rodadas concorrentes hoje já mineraram exaustivamente a família de bugs de IA-fallback/join/dedup em `render_queries.py`. Esta rodada deve buscar um alvo fora dessa área já esgotada. `okf-parser check`: conformante, 0 diagnósticos, 985 conceitos.

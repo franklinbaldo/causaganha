@@ -89,11 +89,12 @@ class ManifestDataJud:
     def save_local(self, path: Path) -> None:
         """Persist the manifest to a local CSV file."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        rows = [
-            f"{e.cnj},{e.tribunal},{e.docs},{e.consultado_em},{e.status}"
-            for e in sorted(self._entries.values(), key=lambda e: (e.tribunal, e.cnj))
-        ]
-        path.write_text("\n".join([HEADER, *rows]) + "\n", encoding="utf-8")
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\n")
+        writer.writerow(HEADER.split(","))
+        for e in sorted(self._entries.values(), key=lambda e: (e.tribunal, e.cnj)):
+            writer.writerow([e.cnj, e.tribunal, e.docs, e.consultado_em, e.status])
+        path.write_text(buf.getvalue(), encoding="utf-8")
 
     def get(self, cnj: str, tribunal: str) -> ManifestDataJudEntry | None:
         """Return the entry for (cnj, tribunal), or None."""

@@ -82,12 +82,12 @@ class ManifestJuris:
     def save_local(self, path: Path) -> None:
         """Save manifest to a local CSV file."""
         path.parent.mkdir(parents=True, exist_ok=True)
-        rows = [
-            f"{e.tipo},{e.mes_ano},{e.ia_status},{e.n_docs},{e.updated_at}"
-            for e in sorted(self._entries.values(), key=lambda e: (e.tipo, e.mes_ano))
-        ]
-        lines = [HEADER, *rows]
-        path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\n")
+        writer.writerow(HEADER.split(","))
+        for e in sorted(self._entries.values(), key=lambda e: (e.tipo, e.mes_ano)):
+            writer.writerow([e.tipo, e.mes_ano, e.ia_status, e.n_docs, e.updated_at])
+        path.write_text(buf.getvalue(), encoding="utf-8")
 
     def get(self, tipo: str, mes_ano: str) -> ManifestJurisEntry | None:
         """Return entry for (tipo, mes_ano) or None."""
