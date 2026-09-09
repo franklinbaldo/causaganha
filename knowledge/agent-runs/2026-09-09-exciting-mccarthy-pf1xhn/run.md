@@ -2,31 +2,39 @@
 type: AgentRun
 id: "2026-09-09-exciting-mccarthy-pf1xhn"
 started_at: "2026-09-09T02:24:30Z"
-completed_at: ""
+completed_at: "2026-09-09T02:44:52Z"
 branch_at_start: "claude/exciting-mccarthy-pf1xhn"
 commit_at_start: "1a611c5690b5d7ab4d30f2216a0417d3899403d3"
 claude_md_reading_id: "2026-09-09-exciting-mccarthy-pf1xhn-reading-claude-md"
 issues_reading_id: "2026-09-09-exciting-mccarthy-pf1xhn-reading-issues"
 prs_reading_id: "2026-09-09-exciting-mccarthy-pf1xhn-reading-prs"
 okf_reading_id: "2026-09-09-exciting-mccarthy-pf1xhn-reading-okf"
-goal_ids: []
-primary_goal_id: ""
+goal_ids:
+  - "2026-09-09-exciting-mccarthy-pf1xhn-goal-juris-datajud-ia-fallback"
+primary_goal_id: "2026-09-09-exciting-mccarthy-pf1xhn-goal-juris-datajud-ia-fallback"
 considered_work:
   - "17 open GitHub issues, identical set to the prior round (obl3ux), all pre-verified blocked (segmenter needs GPU/annotation; #950/#951/#1011/#1022 need an infra decision or IAS3 credentials absent from this sandbox; #985 blocked on live TSE 403; #1093 explicitly deprioritized) -- not actionable."
   - "One open PR (#1353), an automated Dependabot devDependency bump in deployment/relay-cf with 0 CI checks run yet -- not agent-authored work to resume, not stuck/red."
   - "Two low-value leads from obl3ux's next_move, already declined twice: (a) dead code in web/src/lib/coverageInsights.ts; (b) download_zip() 403 typing gap in src/djen_backup/djen.py (harmless today)."
   - "Dispatched a fresh Explore subagent to scan scripts/render_queries.py, .qmd contracts, causaganha_mcp/, manifest.py/archive.py, ADR-vs-code drift, and TODO/FIXME comments for a higher-value candidate."
-selected_work: ""
-expected_behavior: ""
+selected_work: "Fixed scripts/render_queries.py's _register_tjro_juris and _register_datajud_capa: both only globbed a local directory (data/tjro_juris/, data/datajud/) and returned False otherwise, with zero test coverage. Traced two live production paths where that local directory is never populated -- deploy-web.yml's fresh checkout never runs reconcile_processos.py at all, and even update-catalog.yml's own job (which does run it) caches IA-fallback downloads under data/reconcile-cache/{juris,datajud}/, never under the globbed directories -- per reconcile_processos.py's own docstring confirming CI always takes the IA-fetch branch. Net effect: juris_totals.json/datajud_totals.json (and the other JURIS/DataJud .qmd contracts) have never rendered in any CI environment, so sobre.astro has permanently shown JURIS/DataJud coverage as unpublished on the live site. Fixed by delegating both functions to reconcile_processos.py's own already-tested ensure_juris_parquets()/ensure_datajud_parquets() (local-then-IA-fallback), including porting the id_documento dedup reconcile_processos._register_juris already applies for overlapping monthly IA shards, to avoid a second correctness bug (double-counted rows) while fixing the first."
+expected_behavior: "tests/test_render_queries.py: _register_tjro_juris and _register_datajud_capa return True and register a queryable view when only IA-fallback-shaped paths are returned by ensure_juris_parquets()/ensure_datajud_parquets() (monkeypatched, no real network) -- this fails today (RED, both return False because the local glob is empty) and passes after the fix (GREEN). A third test proves needs_dedup=True collapses overlapping shard rows by id_documento instead of double-counting. Full Python suite (uv run pytest -q), ruff check, and ruff format --check stay green. No web/frontend files touched."
 entry_state: "new"
-target_state: "red"
-decision_ids: []
-evidence_ids: []
+target_state: "review"
+decision_ids:
+  - "2026-09-09-exciting-mccarthy-pf1xhn-decision-reuse-ensure-parquets-not-register-juris"
+evidence_ids:
+  - "2026-09-09-exciting-mccarthy-pf1xhn-evidence-red-tests"
+  - "2026-09-09-exciting-mccarthy-pf1xhn-evidence-green-tests"
+  - "2026-09-09-exciting-mccarthy-pf1xhn-evidence-diff-fix"
 check_ids:
   - "2026-09-09-exciting-mccarthy-pf1xhn-check-okf-parser-baseline"
-result_state: "red"
-result_summary: ""
-next_move: ""
+  - "2026-09-09-exciting-mccarthy-pf1xhn-check-python-suite"
+  - "2026-09-09-exciting-mccarthy-pf1xhn-check-ruff"
+  - "2026-09-09-exciting-mccarthy-pf1xhn-check-okf-parser-final"
+result_state: "review"
+result_summary: "Found and fixed a standing, universally-live production bug via a background Explore survey (the issue/PR queue was again exhausted -- 17 identical blocked issues, one unrelated Dependabot PR). scripts/render_queries.py's _register_tjro_juris and _register_datajud_capa only globbed a local directory (data/tjro_juris/, data/datajud/) and returned False otherwise, with zero test coverage -- unlike their siblings _register_acordaos/_register_comunicacoes, which both already have an IA fallback. Traced two concrete, currently-live production paths where that local directory is never populated: deploy-web.yml (the workflow that actually builds and publishes the site) does a fresh checkout and runs render_queries.py --strict without ever running reconcile_processos.py; and even update-catalog.yml's own job, which does run reconcile_processos.py first, caches its IA-fallback downloads under data/reconcile-cache/{juris,datajud}/ rather than the globbed directories -- confirmed directly from reconcile_processos.py's own module docstring stating CI always takes the IA-fetch branch. Net effect, live on production today: juris_totals.json/datajud_totals.json/juris_orgaos.qmd/juris_classes.qmd/datajud_classes.qmd have silently never rendered in any CI environment (all optional: true, so --strict never caught it), and sobre.astro has permanently shown JURIS/DataJud coverage as 'não publicada' even though update-catalog.yml's own comment confirms the underlying IA items genuinely exist. Fixed via TDD: wrote 3 RED tests in tests/test_render_queries.py (monkeypatching reconcile_processos.ensure_juris_parquets()/ensure_datajud_parquets() to simulate the IA-fallback case with no real network), confirmed each failed exactly as predicted (both functions returned False even though fake IA data was available), then made them GREEN by delegating both functions to reconcile_processos.py's own already-tested ensure_juris_parquets()/ensure_datajud_parquets() (local-then-IA fallback) instead of only globbing. Ported reconcile_processos._register_juris's id_documento dedup (ROW_NUMBER PARTITION BY id_documento ORDER BY extraido_em DESC) for the needs_dedup=True case (overlapping monthly IA shards), verified by a third RED/GREEN test, to avoid introducing a second correctness bug (double-counted rows) while fixing the first. Made and recorded a deliberate decision NOT to reuse reconcile_processos.py's higher-level _register_juris/_register_datajud (which always create a view, even an empty one, changing render_queries.py's existing 'unavailable optional source silently skips' semantics into 'renders as zero') -- delegated only to the lower-level ensure_*_parquets() functions to preserve that contract exactly. Full tests/test_render_queries.py: 44 passed (41 pre-existing + 3 new). Full repo suite (uv run pytest -q): green except the expected, transient tests/test_check_agent_run_completeness.py failure caused by this round's own run.md being in draft at check time (documented in the scaffold itself, resolved by this closing commit). ruff check and ruff format --check both pass. okf-parser check knowledge --relational-schema okf.schema.sql: conformant, 0 diagnostics throughout the round (886 -> 891 -> growing with each goal/decision/evidence/check instance recorded). PR not yet opened at commit time -- opening immediately after this commit; result_state will move to 'merged' in a following round's report once CI is green and it's merged, per this AgentRun family's established two-commit pattern (fix PR, then a docs(agent-run) confirmation commit)."
+next_move: "Watch and drive PR (to be opened right after this commit) to a green, mergeable state, then merge it -- this fix has zero web/frontend surface changes so only the Python-side CI jobs (tests, lint, validate) are relevant. Once merged, a future round should spot-check the live /sobre page after the next deploy-web.yml run to confirm juris_totals.json/datajud_totals.json actually populate in production now (this fix could not be verified against the real IA items from this sandboxed environment -- only against monkeypatched fakes -- so a live confirmation closes the loop). If that live check surfaces anything unexpected (e.g. the tjro-juris-{year}/datajud-{tribunal} IA items being empty or malformed in a way ensure_*_parquets() doesn't already guard against), file it as a fresh, separately-scoped issue rather than folding it into this fix. Two lower-priority leads remain on the backlog, declined by three consecutive rounds now for lack of live behavioral impact: (a) dead code in web/src/lib/coverageInsights.ts; (b) download_zip()'s 403-vs-DJENRateLimitedError typing gap in src/djen_backup/djen.py (still confirmed harmless -- engine.py's download_worker treats it identically to httpx.HTTPError)."
 ---
 
 # Agent run
