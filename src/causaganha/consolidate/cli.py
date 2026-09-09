@@ -118,10 +118,22 @@ def _uploads_complete(
     non_empty_tables: set[str],
     stats: dict[str, int | float],
     item_id: str,
+    *,
+    dry_run: bool = False,
 ) -> bool:
-    """Return true only when every non-empty table was uploaded to IA."""
+    """Return true when every non-empty table was uploaded to IA.
+
+    In dry-run mode no table is ever uploaded (uploads are skipped by
+    design), so completeness there means every table exported and
+    validated without a failure, not that ``stats["uploaded"]`` reached
+    ``len(non_empty_tables)`` -- that count can never be reached in
+    dry-run and would permanently block the manifest write below.
+    """
     expected = len(non_empty_tables)
-    if stats["uploaded"] == expected and stats["export_failures"] == 0:
+    if dry_run:
+        if stats["export_failures"] == 0:
+            return True
+    elif stats["uploaded"] == expected and stats["export_failures"] == 0:
         return True
 
     log.error(
@@ -220,7 +232,7 @@ async def _export_upload_and_manifest(
             else:
                 stats["uploaded_mb"] += size_mb
 
-        if _uploads_complete(non_empty_tables, stats, item_id) and (
+        if _uploads_complete(non_empty_tables, stats, item_id, dry_run=dry_run) and (
             (stats["uploaded"] > 0 or dry_run)
             and (dry_run or await upload_marker(client, item_id, date_tag, circuit_breaker=breaker))
         ):
@@ -446,8 +458,8 @@ def reconsolidate(
     max_dates: int = typer.Option(0, "--max-dates", help="Max dates per run (0 = all)"),
     deadline_seconds: int = typer.Option(600, "--deadline-seconds", help="Stop after N seconds"),
     force: bool = typer.Option(
+        False,
         "--force",
-        default=False,
         help="Re-process all items, including those already at current version/layout.",
     ),
 ) -> None:
