@@ -458,6 +458,69 @@ def test_register_datajud_capa_falls_back_to_ia_when_local_absent(tmp_path, monk
     assert rows == [("00000010220248220001",)]
 
 
+# ── processos_unificados: DataJud join-key normalization ──────────────────────
+# _DJEN_AGG_SQL/_JURIS_AGG_SQL/_STJ_AGG_SQL all emit
+# regexp_replace(..., '[^0-9]', '', 'g') AS nr_processo before FULL OUTER
+# JOIN USING (nr_processo) -- but _DATAJUD_AGG_SQL emitted the raw
+# numero_processo unchanged (only its WHERE clause computed the normalized
+# length, never applying it to the SELECTed column). This relied entirely on
+# ProcessoCapa.capa_row() (src/datajud/models.py) already writing a
+# digit-only CNJ at ingest time -- an invariant enforced in a different
+# package, with no assertion at the SQL layer that builds this join.
+
+
+def test_processos_unificados_datajud_join_key_normalizes_punctuation(tmp_path, monkeypatch):
+    """A punctuated CNJ in datajud_capa must still join its DJEN/JURIS/STJ
+    counterpart in processos_unificados, not silently fragment into an
+    unmatched extra row -- undercounting processos_multi_fonte.qmd's
+    cross-source hits for that process.
+    """
+    import duckdb
+
+    digits = "00000010220248220001"
+    punctuated = "0000001-02.2024.8.22.0001"
+
+    comunicacoes = _copy_sql_to_parquet(
+        tmp_path / "comunicacoes.parquet",
+        f"""
+        SELECT '{digits}' AS numero_processo, DATE '2024-03-01' AS data_disponibilizacao,
+            'TJRO' AS tribunal
+        """,
+    )
+    indice = _copy_sql_to_parquet(
+        tmp_path / "indice_processual.parquet",
+        f"""
+        SELECT '{digits}' AS numero_processo, 'djen' AS fonte,
+            'c1' AS registro_id, 'TJRO' AS tribunal, DATE '2024-03-01' AS data,
+            '{comunicacoes}' AS arquivo_ia_url
+        """,
+    )
+    monkeypatch.setattr(rq, "_INDICE_PROCESSUAL_PARQUET", indice)
+    # A wrong/unreachable catalog URL proves the fallback was never touched.
+    monkeypatch.setattr(rq, "_IA_CATALOG_MANIFEST_URL", "http://127.0.0.1:1/unreachable")
+
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            CREATE TABLE datajud_capa AS
+            SELECT '{punctuated}' AS numero_processo, 'Execução Fiscal' AS classe_nome,
+                []::VARCHAR[] AS assuntos, 'Vara Única' AS orgao_julgador,
+                'G1' AS grau, DATE '2024-01-01' AS data_ajuizamento,
+                TIMESTAMP '2024-06-01 00:00:00' AS ultima_atualizacao
+            """
+        )
+        registered = rq._register_processos_unificados(con)
+        assert registered is True
+        rows = con.execute(
+            "SELECT nr_processo, tem_datajud, n_fontes, classe_oficial FROM processos_unificados"
+        ).fetchall()
+    finally:
+        con.close()
+
+    assert rows == [(digits, True, 2, "Execução Fiscal")]
+
+
 def test_register_tjro_juris_falls_back_to_ia_when_local_absent(tmp_path, monkeypatch):
     from scripts import reconcile_processos as rp
 
