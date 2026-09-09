@@ -27,7 +27,7 @@ from pydantic import ValidationError
 from datajud import archive, state
 from datajud.client import DataJudClient, DataJudError
 from datajud.dedup import capa_row_key, dedup_capas, merge_capa_rows, merge_movimento_rows
-from datajud.manifest import STATUS_OK, ManifestDataJud
+from datajud.manifest import STATUS_ERRO, STATUS_OK, ManifestDataJud
 from datajud.models import ProcessoCapa, normalizar_cnj
 
 
@@ -144,21 +144,35 @@ def _read_parquet_rows(path: Path) -> list[dict]:
 # ── Fetch ────────────────────────────────────────────────────────────────
 
 
-async def fetch_capas(cnjs: list[str], tribunal: str, batch_size: int) -> list[ProcessoCapa]:
-    """Fetch capa+movimentos for *cnjs* from the DataJud API."""
+async def fetch_capas(
+    cnjs: list[str], tribunal: str, batch_size: int
+) -> tuple[list[ProcessoCapa], set[str]]:
+    """Fetch capa+movimentos for *cnjs* from the DataJud API.
+
+    Returns the successfully parsed capas plus the set of normalized CNJs
+    whose hit failed pydantic validation but still carried a readable
+    ``numeroProcesso`` — the caller must not treat these as confirmed-empty
+    results (see ``enrich``'s STATUS_ERRO handling).
+    """
     async with DataJudClient(tribunal=tribunal, batch_size=batch_size) as client:
         sources = await client.fetch_processos(cnjs)
     capas: list[ProcessoCapa] = []
+    failed_cnjs: set[str] = set()
     for source in sources:
         try:
             capas.append(ProcessoCapa.from_source(source))
         except ValidationError as exc:
+            numero_processo = source.get("numeroProcesso")
             log.warning(
                 "datajud_malformed_document",
                 error=str(exc),
-                numero_processo=source.get("numeroProcesso"),
+                numero_processo=numero_processo,
             )
-    return capas
+            if numero_processo:
+                norm = normalizar_cnj(numero_processo)
+                if norm:
+                    failed_cnjs.add(norm)
+    return capas, failed_cnjs
 
 
 def persist(
@@ -282,15 +296,21 @@ def enrich(
 
     log.info("datajud_consulting", count=len(pending), tribunal=tribunal.upper())
     try:
-        capas = dedup_capas(asyncio.run(fetch_capas(pending, tribunal, batch_size)))
+        fetched, failed_cnjs = asyncio.run(fetch_capas(pending, tribunal, batch_size))
     except (DataJudError, httpx.HTTPError) as exc:
         return EnrichResult(status="fetch_error", error=str(exc), restore_status=restore_status)
+    capas = dedup_capas(fetched)
 
     capa_path, mov_path, n_capa, n_mov = persist(capas, tribunal, data_dir)
 
     found = Counter(capa.cnj for capa in capas)
     for consulted in pending:
-        manifest.upsert(consulted, tribunal, docs=found.get(consulted, 0), status=STATUS_OK)
+        if consulted in failed_cnjs and consulted not in found:
+            # A malformed hit is not a confirmed-empty result -- mark it
+            # for retry instead of a settled zero-docs "ok".
+            manifest.upsert(consulted, tribunal, docs=0, status=STATUS_ERRO)
+        else:
+            manifest.upsert(consulted, tribunal, docs=found.get(consulted, 0), status=STATUS_OK)
 
     generation = ""
     if skip_upload:

@@ -64,12 +64,14 @@ def _install_remote(monkeypatch: pytest.MonkeyPatch) -> dict[str, bytes]:
 
 
 def _install_fetch(monkeypatch: pytest.MonkeyPatch, calls: list[list[str]]) -> None:
-    async def fetch_capas(cnjs: list[str], _tribunal: str, _batch_size: int) -> list[ProcessoCapa]:
+    async def fetch_capas(
+        cnjs: list[str], _tribunal: str, _batch_size: int
+    ) -> tuple[list[ProcessoCapa], set[str]]:
         calls.append(list(cnjs))
         return [
             ProcessoCapa.from_source(_source(cnj, orgao=index + 100))
             for index, cnj in enumerate(cnjs)
-        ]
+        ], set()
 
     monkeypatch.setattr(service, "fetch_capas", fetch_capas)
 
