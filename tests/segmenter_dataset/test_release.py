@@ -6,13 +6,29 @@ import pytest
 from conftest import make_annotation, make_document, make_review
 
 from segmenter_dataset.release import ReleaseBlockedError, build_dataset_release
-from segmenter_dataset.schemas import KnownLimitation, Label, SplitManifest
+from segmenter_dataset.schemas import KnownLimitation, Label, ReviewRecord, SplitManifest
 from segmenter_dataset.splits import SplitAssignment, SplitLeakError, create_split_manifest
-from segmenter_dataset.store import SegmenterDatasetStore
+from segmenter_dataset.store import SegmenterDatasetStore, _review_to_xml, _write_xml
 
 
 CI_PROVIDER = "github-actions"
 CI_RUN_ID = "run-1"
+
+
+def _write_review_bypassing_independence_guard(
+    store: SegmenterDatasetStore, review: ReviewRecord
+) -> None:
+    """Write a review straight to disk, skipping ``write_review``'s independence guard.
+
+    Simulates a review that reached the store some other way than today's
+    ``write_review`` (legacy data predating the guard, a direct XML edit) --
+    used only to prove ``release.py``'s own ``_iaa_gates``/conflict-resolution
+    checks still hold as defense-in-depth, independent of the store-level
+    guard that now makes this state unreachable through the public API.
+    """
+    document_text = store.read_document(review.document_id).text
+    path = store.reviews_dir / review.document_id / f"{review.review_id}.xml"
+    _write_xml(path, _review_to_xml(review, document_text))
 
 
 def _manifest_for(assignment: SplitAssignment) -> SplitManifest:
@@ -372,6 +388,7 @@ def test_build_dataset_release_blocked_by_unresolved_annotation_conflict(tmp_pat
     ann_a = make_annotation(
         conflicted,
         annotator_id="a",
+        model_family="family-a",
         completed_at="2026-01-01T00:00:00Z",
         labels=PAIR_LABELS,
         covered_categories=("cabecalho_inicio", "cabecalho_fim"),
@@ -379,6 +396,7 @@ def test_build_dataset_release_blocked_by_unresolved_annotation_conflict(tmp_pat
     ann_b = make_annotation(
         conflicted,
         annotator_id="b",
+        model_family="family-b",
         completed_at="2026-01-02T00:00:00Z",
         labels=[
             Label(start=0, end=5, category="cabecalho_inicio"),
@@ -442,12 +460,13 @@ def test_build_dataset_release_blocked_when_val_pairs_are_not_independent(
     Each val document below is "adjudicated" from two annotations where the
     second is explicitly seeded with the first's own annotation_id (e.g. a
     correction pass over a model draft, RFC 0012 §9's own example of what is
-    *not* independent) and simply repeats its labels. Before the independence
-    check is wired into ``_iaa_gates``, this pair is indistinguishable from a
-    genuine independent pair and inflates val_iaa_span_f1 to a fabricated
-    1.0, passing the rigid, non-waivable ``iaa_aggregate_floor`` gate. With
-    no genuinely independent val evidence at all, the release must instead be
-    blocked by that same gate.
+    *not* independent) and simply repeats its labels. ``write_review`` itself
+    now refuses to persist such a pair as ``accepted``
+    (``NonIndependentReviewError``), so these are written straight to disk
+    via ``_write_review_bypassing_independence_guard`` to simulate a review
+    that reached the store some other way (legacy data, a direct XML edit) --
+    proving ``_iaa_gates`` still excludes it from IAA and blocks the release
+    as defense-in-depth, not merely relying on the store-level guard.
     """
     store = SegmenterDatasetStore(tmp_path)
     assignment = _seed_release(store, n_train=10, n_val=0, n_test=5)
@@ -477,7 +496,7 @@ def test_build_dataset_release_blocked_when_val_pairs_are_not_independent(
         store.write_annotation(ann_a)
         store.write_annotation(ann_b)
         review = make_review(doc, [ann_a, ann_b], final_labels=role_labels)
-        store.write_review(review)
+        _write_review_bypassing_independence_guard(store, review)
         val_ids.add(doc.document_id)
 
     assignment = SplitAssignment(

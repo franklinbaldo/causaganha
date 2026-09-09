@@ -947,6 +947,11 @@ def render_all(
                 print(f"  ERROR: required contract failed — {reason}", file=sys.stderr)
                 failures.append(f"{qmd.name}: missing required data source — {reason}")
             continue
+        except (ValueError, duckdb.Error) as exc:
+            reason = _first_line(exc) if isinstance(exc, duckdb.Error) else str(exc)
+            print(f"  ERROR: contract query failed — {reason}", file=sys.stderr)
+            failures.append(f"{qmd.name}: query failed — {reason}")
+            continue
 
         output_path = public_dir / output.lstrip("/")
         output_path.parent.mkdir(parents=True, exist_ok=True)

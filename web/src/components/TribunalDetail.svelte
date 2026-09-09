@@ -87,9 +87,11 @@
   }
 
   // Business days only: the manifest (src/djen_backup/manifest.py's
-  // SyncManifest.build()) never creates weekend rows, so weekend dates can
-  // never appear in coverageSet/absentSet. Counting calendar days here would
-  // permanently inflate the denominator and cap completion around 5/7.
+  // SyncManifest.build()) only ever creates weekday rows, and prune() only
+  // rarely preserves an already-uploaded weekend row rather than removing
+  // it, so coverageSet/absentSet are business-day sets in practice. Counting
+  // calendar days here would permanently inflate the denominator and cap
+  // completion around 5/7.
   let expectedDays = $derived(
     tribunalStartDate ? businessDaysBetweenIso(tribunalStartDate, targetRange.end) : 0
   );
