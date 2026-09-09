@@ -26,10 +26,17 @@ export function daysBetweenIso(aIso: string, bIso: string): number {
   return Math.floor((b.getTime() - a.getTime()) / MS_PER_DAY);
 }
 
-/** Business days (Mon-Fri) per calendar week -- the achievable ceiling for any "per week" rate derived from business-day counts, since manifest.py never records weekends. */
+/** Business days (Mon-Fri) per calendar week -- the achievable ceiling for any "per week" rate derived from business-day counts, since manifest.py's SyncManifest.build() only ever creates weekday rows. */
 export const BUSINESS_DAYS_PER_WEEK = 5;
 
-/** Whether an ISO date string falls on Mon-Fri, matching manifest.py's `weekday() < 5` build rule. */
+/**
+ * Whether an ISO date string falls on Mon-Fri, matching manifest.py's
+ * `weekday() < 5` build rule. Note: `SyncManifest.prune()` preserves an
+ * already-uploaded weekend row instead of removing it, so a weekend date
+ * can rarely still reach a coverage set derived from the manifest -- any
+ * "business days only" metric must filter with this function explicitly
+ * rather than assume weekends are structurally absent.
+ */
 export function isBusinessDayIso(iso: string): boolean {
   const day = new Date(iso + 'T00:00:00Z').getUTCDay();
   return day !== 0 && day !== 6;
