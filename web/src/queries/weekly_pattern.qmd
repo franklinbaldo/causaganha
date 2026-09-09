@@ -8,12 +8,28 @@ format: array
 Média de cobertura por dia da semana — útil para detectar quedas
 estruturais (ex.: domingos sem publicação).
 
+Um dia ainda **não settled** (mesmo critério `absent_confirmed`/`pending_real`
+de `site_status.qmd` e `stats_coverage.qmd`: DJEN confirmou o caderno mas o
+upload ainda não aconteceu, dentro do SLO de 24h de
+`docs/SERVICE_OBJECTIVES.md`) é excluído da média do seu dia da semana --
+caso contrário um dia que só ainda não terminou de processar diluiria a
+média como se fosse uma queda de cobertura real.
+
 ```{sql}
-WITH daily AS (
+WITH classified AS (
   SELECT
     date,
-    COUNT(DISTINCT tribunal) FILTER (WHERE ia_status = 'uploaded') AS collected
+    tribunal,
+    coalesce(CAST(ia_status AS VARCHAR), '') = 'uploaded' AS uploaded,
+    coalesce(CAST(djen_raw AS VARCHAR), '') IN ('404', '400', 'no_publications') AS raw_absent
   FROM manifest
+),
+daily AS (
+  SELECT
+    date,
+    COUNT(*) FILTER (WHERE uploaded) AS collected,
+    COUNT(*) FILTER (WHERE NOT uploaded AND NOT raw_absent) AS unsettled
+  FROM classified
   GROUP BY date
 )
 SELECT
@@ -32,6 +48,7 @@ SELECT
 FROM (
   SELECT EXTRACT(DOW FROM date)::INTEGER AS dow, collected
   FROM daily
+  WHERE unsettled = 0
 )
 GROUP BY dow
 ORDER BY dow;

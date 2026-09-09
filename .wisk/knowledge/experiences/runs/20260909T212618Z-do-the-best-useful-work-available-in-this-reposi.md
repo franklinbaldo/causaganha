@@ -1,8 +1,8 @@
 ---
-checks: []
+checks: ["run-checks/20260909t212618z-do-the-best-useful-work-availab/check-full-validation"]
 decisions: []
-evidence: []
-goals: []
+evidence: ["run-evidence/20260909t212618z-do-the-best-useful-work-availab/evidence-red-green-test"]
+goals: ["run-goals/20260909t212618z-do-the-best-useful-work-availab/goal-weekly-pattern-in-flight"]
 id: "runs/20260909T212618Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260909t212618z-do-the-best-useful-work-availab/reading-claude-md", "run-readings/20260909t212618z-do-the-best-useful-work-availab/reading-issues", "run-readings/20260909t212618z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260909t212618z-do-the-best-useful-work-availab/reading-active-skills"]
 run_spec: "run-specs/experience"

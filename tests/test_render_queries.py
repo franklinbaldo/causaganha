@@ -18,6 +18,7 @@ TRIBUNAL_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "tribunal_covera
 COURT_RELIABILITY_QMD = REPO_ROOT / "web" / "src" / "queries" / "court_reliability.qmd"
 CONSOLIDATION_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "consolidation_status.qmd"
 STATS_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "stats_coverage.qmd"
+WEEKLY_PATTERN_QMD = REPO_ROOT / "web" / "src" / "queries" / "weekly_pattern.qmd"
 DAILY_UPLOADS_QMD = REPO_ROOT / "web" / "src" / "queries" / "daily_uploads.qmd"
 
 
@@ -1425,6 +1426,85 @@ def test_stats_coverage_worst_day_excludes_still_in_flight_day(
     assert payload["worst_count"] == 2
     assert payload["best_day"] == best_day_iso
     assert payload["best_count"] == 3
+
+
+# ── weekly_pattern must not dilute a weekday's average with in-flight days ──
+
+
+@pytest.fixture
+def manifest_parquet_weekly_pattern_with_in_flight_day(tmp_path: Path) -> tuple[Path, int]:
+    """Four same-weekday dates: three settled at collected=3, one still in flight.
+
+    Three past occurrences of one weekday (today - 7/14/21 days) are fully
+    settled with all 3 tribunals uploaded (collected=3). Today -- the same
+    weekday, since the offsets are exact multiples of 7 -- has only 1
+    tribunal uploaded and 2 still `pending_real` (djen_raw='200', not yet
+    uploaded), the same still-converging shape `stats_coverage.qmd` already
+    excludes from its own best/worst-day selection. Returns
+    (parquet_path, day_idx) where day_idx is DuckDB's EXTRACT(DOW ...) value
+    for that shared weekday.
+    """
+    import duckdb
+
+    path = tmp_path / "sync-manifest-weekly-pattern-in-flight.parquet"
+    con = duckdb.connect()
+    try:
+        today, day_idx = con.execute(
+            "SELECT CURRENT_DATE, EXTRACT(DOW FROM CURRENT_DATE)::INTEGER"
+        ).fetchone()
+        settled_days = [today - timedelta(days=offset) for offset in (7, 14, 21)]
+        con.execute(
+            """
+            CREATE TABLE manifest (
+                tribunal VARCHAR, date DATE, ia_status VARCHAR,
+                djen_status VARCHAR, djen_raw VARCHAR, updated_at TIMESTAMP
+            )
+            """
+        )
+        for day in settled_days:
+            con.execute(
+                "INSERT INTO manifest VALUES "
+                f"('tjro', '{day.isoformat()}', 'uploaded', 'available', '200', now()), "
+                f"('tjac', '{day.isoformat()}', 'uploaded', 'available', '200', now()), "
+                f"('tjba', '{day.isoformat()}', 'uploaded', 'available', '200', now())"
+            )
+        con.execute(
+            "INSERT INTO manifest VALUES "
+            f"('tjro', '{today.isoformat()}', 'uploaded', 'available', '200', now()), "
+            f"('tjac', '{today.isoformat()}', '', 'available', '200', now()), "
+            f"('tjba', '{today.isoformat()}', '', 'available', '200', now())"
+        )
+        con.execute(f"COPY manifest TO '{path}' (FORMAT PARQUET)")
+    finally:
+        con.close()
+    return path, day_idx
+
+
+def test_weekly_pattern_average_excludes_still_in_flight_day(
+    tmp_path, manifest_parquet_weekly_pattern_with_in_flight_day
+):
+    """weekly_pattern.qmd's own description says it detects 'structural drops'
+
+    per weekday -- a weekday whose average is silently pulled down by a day
+    that merely hasn't finished archiving yet (pending_real, well within the
+    24h SLO) reports a false drop, exactly the failure mode
+    `stats_coverage.qmd` was already fixed for. The settled average for the
+    shared weekday here is 3 (three days at collected=3); today's unsettled
+    collected=1 must not lower it to 2.5.
+    """
+    manifest_parquet, day_idx = manifest_parquet_weekly_pattern_with_in_flight_day
+    queries = tmp_path / "queries"
+    queries.mkdir()
+    (queries / "weekly_pattern.qmd").write_text(WEEKLY_PATTERN_QMD.read_text(encoding="utf-8"))
+    public = tmp_path / "public"
+
+    _, failures = rq.render_all(queries, public, _manifest_specs(manifest_parquet))
+    assert failures == []
+
+    rows = json.loads((public / "data" / "weekly_pattern.json").read_text())
+    row = next(r for r in rows if r["day_idx"] == day_idx)
+    assert row["avg"] == 3.0
+    assert row["days_count"] == 3
 
 
 @pytest.fixture
