@@ -75,9 +75,14 @@ MANIFEST_PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-m
 LOCAL_MANIFEST_PARQUET = ROOT / "data" / "sync-manifest.parquet"
 
 # Local dev/CI fallback: exported parquet snapshots from the ratings pipeline.
-# Views are only registered when the files exist; contracts that depend on
-# them declare `optional: true` and are skipped with a named warning.
+# If absent (deploy-web.yml's fresh checkout never populates this directory),
+# fall back to the canonical parquet scripts/pipeline/export_ratings.py
+# uploads to the causaganha-catalog IA item. Contracts that depend on these
+# views declare `optional: true` and are skipped with a named warning when
+# both the local file and the IA download are unavailable.
 DEV_RATINGS_DIR = ROOT / "data" / "parquets"
+_LAWYER_RATINGS_IA_URL = "https://archive.org/download/causaganha-catalog/lawyer_ratings.parquet"
+_RATINGS_HISTORY_IA_URL = "https://archive.org/download/causaganha-catalog/ratings_history.parquet"
 
 # Optional parquet views for STJ and TJRO JURIS corpora.
 # When the consolidated parquets are present locally (after running the
@@ -448,15 +453,28 @@ def _register_local_parquet(con: duckdb.DuckDBPyConnection, name: str, path: Pat
     return True
 
 
+def _register_ratings_table(
+    con: duckdb.DuckDBPyConnection, name: str, filename: str, ia_url: str
+) -> bool:
+    local_path = DEV_RATINGS_DIR / filename
+    if local_path.exists():
+        return _register_local_parquet(con, name, local_path)
+    path = _try_download_parquet(ia_url, local_path, name)
+    if path is None:
+        return False
+    _register_view_from_parquet(con, name, path)
+    return True
+
+
 def _register_lawyer_ratings(con: duckdb.DuckDBPyConnection) -> bool:
-    return _register_local_parquet(
-        con, "lawyer_ratings", DEV_RATINGS_DIR / "lawyer_ratings.parquet"
+    return _register_ratings_table(
+        con, "lawyer_ratings", "lawyer_ratings.parquet", _LAWYER_RATINGS_IA_URL
     )
 
 
 def _register_ratings_history(con: duckdb.DuckDBPyConnection) -> bool:
-    return _register_local_parquet(
-        con, "ratings_history", DEV_RATINGS_DIR / "ratings_history.parquet"
+    return _register_ratings_table(
+        con, "ratings_history", "ratings_history.parquet", _RATINGS_HISTORY_IA_URL
     )
 
 

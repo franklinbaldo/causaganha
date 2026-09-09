@@ -528,6 +528,93 @@ def test_register_tjro_juris_dedups_overlapping_ia_shards(tmp_path, monkeypatch)
     assert rows[0][0] == "d1"
 
 
+# ── _register_lawyer_ratings / _register_ratings_history IA fallback ──────────
+# deploy-web.yml's fresh checkout never populates data/parquets/, and neither
+# does test.yml's --check mode -- so, before this fix, these two functions
+# returned False (and lawyer_leaderboard.qmd, being optional, silently
+# skipped) in every real CI environment. scripts/pipeline/export_ratings.py
+# (run by consolidate-parquet.yml) uploads lawyer_ratings.parquet and
+# ratings_history.parquet to the causaganha-catalog IA item -- the same
+# fallback pattern _register_acordaos already uses for the STJ parquet.
+
+
+def test_register_lawyer_ratings_falls_back_to_ia_when_local_absent(tmp_path, monkeypatch):
+    ia_parquet = _copy_sql_to_parquet(
+        tmp_path / "ia-lawyer_ratings.parquet",
+        """
+        SELECT 'Fulano de Tal' AS lawyer_name, '12345' AS oab_number,
+            'RO' AS oab_state, 30.0 AS rating
+        """,
+    )
+    monkeypatch.setattr(rq, "DEV_RATINGS_DIR", tmp_path / "no-such-dir")
+
+    def fake_try_download_parquet(url, dest, label):
+        assert url == rq._LAWYER_RATINGS_IA_URL
+        return ia_parquet
+
+    monkeypatch.setattr(rq, "_try_download_parquet", fake_try_download_parquet)
+
+    con = __import__("duckdb").connect()
+    try:
+        registered = rq._register_lawyer_ratings(con)
+        assert registered is True
+        rows = con.execute("SELECT lawyer_name FROM lawyer_ratings").fetchall()
+    finally:
+        con.close()
+    assert rows == [("Fulano de Tal",)]
+
+
+def test_register_ratings_history_falls_back_to_ia_when_local_absent(tmp_path, monkeypatch):
+    ia_parquet = _copy_sql_to_parquet(
+        tmp_path / "ia-ratings_history.parquet",
+        """
+        SELECT 'Fulano de Tal' AS lawyer_name, DATE '2024-01-01' AS data, 25.0 AS rating
+        """,
+    )
+    monkeypatch.setattr(rq, "DEV_RATINGS_DIR", tmp_path / "no-such-dir")
+
+    def fake_try_download_parquet(url, dest, label):
+        assert url == rq._RATINGS_HISTORY_IA_URL
+        return ia_parquet
+
+    monkeypatch.setattr(rq, "_try_download_parquet", fake_try_download_parquet)
+
+    con = __import__("duckdb").connect()
+    try:
+        registered = rq._register_ratings_history(con)
+        assert registered is True
+        rows = con.execute("SELECT lawyer_name FROM ratings_history").fetchall()
+    finally:
+        con.close()
+    assert rows == [("Fulano de Tal",)]
+
+
+def test_register_lawyer_ratings_prefers_local_over_ia(tmp_path, monkeypatch):
+    """A pre-existing local file (dev workflow) must not trigger a network call."""
+    dev_dir = tmp_path / "parquets"
+    dev_dir.mkdir()
+    local_parquet = _copy_sql_to_parquet(
+        dev_dir / "lawyer_ratings.parquet",
+        "SELECT 'Local Lawyer' AS lawyer_name",
+    )
+    monkeypatch.setattr(rq, "DEV_RATINGS_DIR", dev_dir)
+
+    def fail_if_called(url, dest, label):
+        pytest.fail("must not attempt IA download when local file exists")
+
+    monkeypatch.setattr(rq, "_try_download_parquet", fail_if_called)
+
+    con = __import__("duckdb").connect()
+    try:
+        registered = rq._register_lawyer_ratings(con)
+        assert registered is True
+        rows = con.execute("SELECT lawyer_name FROM lawyer_ratings").fetchall()
+    finally:
+        con.close()
+    assert rows == [("Local Lawyer",)]
+    assert local_parquet.exists()
+
+
 # ── site_status.qmd — pending_real_max_age_hours (#924 §3.4) ──────────────────
 
 
