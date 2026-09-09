@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import csv
+import io
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 from typing import TYPE_CHECKING, NamedTuple
@@ -459,14 +461,22 @@ class SyncManifest:
     # ── CSV serialization ────────────────────────────────────────────
 
     def to_csv(self) -> str:
-        lines = [HEADER]
         rows = sorted(self._entries.values(), key=lambda e: (e.tribunal, e.date))
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\n")
+        writer.writerow(HEADER.split(","))
         for e in rows:
-            lines.append(
-                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},"
-                f"{e.djen_raw},{e.updated_at}"
+            writer.writerow(
+                [
+                    e.tribunal,
+                    e.date.isoformat(),
+                    e.ia_status,
+                    e.djen_status,
+                    e.djen_raw,
+                    e.updated_at,
+                ]
             )
-        return "\n".join(lines) + "\n"
+        return buf.getvalue()
 
     def load_from_csv(self, text: str, *, overwrite: bool = False) -> int:
         """Load from CSV text. Supports both new manifest format and legacy zip-inventory format.
@@ -479,12 +489,12 @@ class SyncManifest:
         Returns count of entries added/updated.
         """
         before = len(self._entries)
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith(("tribunal", "timestamp")):
+        for parts in csv.reader(io.StringIO(text)):
+            if not parts:
                 continue
-
-            parts = line.split(",")
+            first = parts[0]
+            if not first or first.startswith(("tribunal", "timestamp")):
+                continue
 
             # Detect legacy format: timestamp,tribunal,date,status,url
             if len(parts) >= 4 and "T" in parts[0] and parts[0][0].isdigit():
@@ -610,17 +620,25 @@ class SyncManifest:
     def _serialize_rows(self, keys: set[str]) -> str:
         from djen_backup.segments import SEGMENT_HEADER
 
-        lines = [SEGMENT_HEADER]
         entries = sorted(
             (self._entries[k] for k in keys if k in self._entries),
             key=lambda e: (e.tribunal, e.date),
         )
+        buf = io.StringIO()
+        writer = csv.writer(buf, lineterminator="\n")
+        writer.writerow(SEGMENT_HEADER.split(","))
         for e in entries:
-            lines.append(
-                f"{e.tribunal},{e.date.isoformat()},{e.ia_status},{e.djen_status},"
-                f"{e.djen_raw},{e.updated_at}"
+            writer.writerow(
+                [
+                    e.tribunal,
+                    e.date.isoformat(),
+                    e.ia_status,
+                    e.djen_status,
+                    e.djen_raw,
+                    e.updated_at,
+                ]
             )
-        return "\n".join(lines) + "\n"
+        return buf.getvalue()
 
     def to_segment_csv(self) -> str:
         """Serialize only the dirty rows (header + mutated entries)."""
@@ -743,11 +761,12 @@ class SyncManifest:
     def apply_segment_csv(self, text: str) -> int:
         """Apply a manifest-log segment (6-col event CSV). Returns rows applied."""
         applied = 0
-        for line in text.splitlines():
-            line = line.strip()
-            if not line or line.startswith("tribunal"):
+        for parts in csv.reader(io.StringIO(text)):
+            if not parts:
                 continue
-            parts = line.split(",")
+            first = parts[0]
+            if not first or first.startswith("tribunal"):
+                continue
             if len(parts) < 6:
                 continue
             try:
