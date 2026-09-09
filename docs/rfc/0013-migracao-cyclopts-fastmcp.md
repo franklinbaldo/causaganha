@@ -1,10 +1,11 @@
 # RFC 0013 — Migração das CLIs Typer para Cyclopts + FastMCP
 
-- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A, Fase 3B e Fase 4 implementadas
-  (PRs #849, #850, #851, #852, #853, e o PR desta fase). Fase 3 está fechada —
-  trabalho de produto sobre o servidor MCP continua em RFC 0014. RFC 0013
-  está fechada — os quatro pacotes CLI (`djen_backup`, `tjro_juris`,
-  `stj_acordaos`, `datajud`) rodam em Cyclopts, e as cinco tools FastMCP já
+- **Status:** Fase 1, Fase 2, Fase 2.5, Fase 3A, Fase 3B, Fase 4 e Fase 5
+  implementadas. Fase 3 está fechada — trabalho de produto sobre o servidor
+  MCP continua em RFC 0014. RFC 0013 está fechada — todos os seis pacotes CLI
+  do repositório (`djen_backup`, `tjro_juris`, `stj_acordaos`, `datajud`,
+  `causaganha.consolidate`, `segmenter_dataset`) rodam em Cyclopts, `typer`
+  saiu das dependências diretas do projeto, e as cinco tools FastMCP já
   existiam desde a Fase 3B.
 - **Data:** 2026-07-21
 - **Base:** comparação de arquitetura com o repo irmão `pink` (mesma stack alvo:
@@ -409,9 +410,11 @@ texto original acima:
   result_action="return_value")`, stdout/stderr capturados via
   `contextlib.redirect_std{out,err}`), preservando as mesmas asserções de
   exit code e saída de texto.
-- **`typer` continua como dependência.** `src/segmenter_dataset/__main__.py`
-  e `src/causaganha/consolidate/cli.py` usam Typer e estão fora do escopo
-  desta RFC (só os quatro pacotes de sincronização DJEN/TJRO/STJ/DataJud).
+- **`typer` continuava como dependência ao final desta fase** —
+  `src/segmenter_dataset/__main__.py` e `src/causaganha/consolidate/cli.py`
+  usavam Typer e estavam fora do escopo desta fase (só os quatro pacotes de
+  sincronização DJEN/TJRO/STJ/DataJud). Migrados na Fase 5, abaixo; `typer`
+  não é mais dependência direta do projeto.
 
 **Achados de review (PR #855), corrigidos antes do merge:**
 
@@ -466,6 +469,58 @@ texto original acima:
   equivalente existia em `tests/cli_contract/`. Adicionado
   `argv=["enrich", "--no-skip-upload"]` (`expected_exit_code=1`) e um caso
   positivo de `--cnj` repetido, verificando a lista na ordem recebida.
+
+### Fase 5 — os dois pacotes restantes: `causaganha.consolidate` e `segmenter_dataset` (implementada)
+
+O texto original (§1) deixou `segmenter-dataset` e `causaganha.consolidate`
+fora de escopo porque nenhum dos dois é chamado por workflow algum — decisão
+correta *para reduzir risco por etapa*, não uma exclusão permanente. Esta
+fase termina a migração por pedido direto do usuário ("vamos substituir o
+typer por cyclopts em todo o app"), sem esperar por um gatilho de produção.
+
+Achado que motivou a própria fase: `causaganha/consolidate/cli.py` não
+conseguia nem ser importado — `reconsolidate()`'s `--force` chamava
+`typer.Option("--force", default=False, ...)`, passando o nome da opção
+posicionalmente para o parâmetro `default` do próprio Typer enquanto também
+passava `default=False` por keyword, e o Typer levanta `TypeError` ao montar
+a classe do comando. Como isso acontece na *definição* do módulo, todo
+subcomando do arquivo ficou inutilizável, e nenhum teste jamais importava o
+módulo para pegar isso — corrigido antes desta fase, em PR #1350.
+
+Convenções da Fase 4 reaplicadas sem alteração: `Parameter(name="--force",
+negative=[])` (a string explícita do Typer suprimia `--no-force`; Cyclopts
+não suprime sozinho); `/` depois de todo parâmetro que era `typer.Argument`
+(`date`'s `target_date`, `tribunal-year`'s `tribunal`/`year`) para que
+`--target-date`/`--tribunal`/`--year` continuem rejeitados como opção;
+`version_flags=[]` nos dois `App(...)`; `cyclopts.validators.Path(exists=True,
+file_okay=False)` e `cyclopts.validators.Number(gte=1000)` no lugar dos
+kwargs `exists=`/`file_okay=`/`min=` do `typer.Option` em
+`segmenter_dataset` (`assign-splits`/`build-release`'s `data_root`,
+`split_manifest`, `label_space`, `known_limitations`, `iaa_resamples`).
+`typer.Exit(code=1)`/`typer.echo(..., err=True)` viraram `return 1`/
+`print(..., file=sys.stderr)`, o padrão que `tests/cli_contract/harness.py`
+já documentava para comandos migrados.
+
+Uma divergência deliberada da Fase 4, por decisão explícita do usuário
+("we can go clean break to have a better cli"): a Fase 4 tinha replicado o
+`no_args_is_help=True` original do Typer com um `@app.default` que imprime
+ajuda e retorna 2, para as CLIs que um workflow de produção chama. Nenhum
+dos dois pacotes desta fase é chamado por workflow algum — não há contrato
+externo a preservar — então uma invocação vazia aqui simplesmente mostra
+ajuda e sai 0, o comportamento nativo e mais simples do Cyclopts, sem o
+shim. Isso é uma divergência ciente da Fase 4, não um esquecimento: qualquer
+pacote futuro sem consumidor externo fixo deveria preferir o comportamento
+nativo do Cyclopts em vez de replicar convenções do Typer só por hábito.
+
+`tests/consolidate/test_cli_importable.py` (estendido) e
+`tests/segmenter_dataset/test_cli_contract.py` (novo — nenhum teste
+importava `segmenter_dataset.__main__` antes desta fase, o mesmo hiato que
+escondeu o bug de import do outro pacote) usam o mesmo adaptador
+`tests/cli_contract/harness.py`'s `_invoke` que a Fase 4 introduziu — sem
+duplicar a lógica de invocação. `typer` saiu de `dependencies` em
+`pyproject.toml`; a única referência restante a `typer` no ambiente é uma
+dependência transitiva não relacionada da ferramenta de desenvolvimento
+`safety`, fora do controle deste projeto.
 
 ## 3. Critérios de aceitação
 

@@ -91,7 +91,7 @@ src/djen_backup/
 ├── djen.py        — DJEN API client (get_caderno_url, download_zip)
 ├── archive.py     — IA upload (upload_zip, CircuitBreaker, per-item locks, TokenBucket)
 ├── retry.py       — HTTP retry with backoff
-└── __main__.py    — Typer CLI (full sync, check, upload subcommands)
+└── __main__.py    — Cyclopts CLI (full sync, check, upload subcommands)
 
 scripts/
 ├── render_queries.py              — .qmd → JSON
