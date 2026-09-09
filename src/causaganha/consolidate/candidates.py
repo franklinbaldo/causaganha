@@ -69,41 +69,6 @@ def dates_needing_consolidation_from_ia(
     return [str(r[0]) for r in rows]
 
 
-def tribunal_years_needing_consolidation_from_ia(
-    manifest_url: str = IA_MANIFEST_URL,
-) -> list[tuple[str, int]]:
-    """(tribunal, year) pairs with ZIPs but no consolidated Parquet set.
-
-    Uses the per-tribunal-year items (``djen-{tribunal}-{year}``). An item
-    is considered consolidated when it has the ``_consolidated.marker``
-    file (or the 10 Parquet tables).
-    """
-    con = _connect_httpfs()
-    try:
-        query = f"""
-            SELECT
-                split_part(item_id, '-', -2) AS tribunal,
-                CAST(split_part(item_id, '-', -1) AS INTEGER) AS year
-            FROM read_parquet('{manifest_url}')
-            WHERE item_id LIKE 'djen-%-%'
-            GROUP BY item_id, tribunal, year
-            HAVING SUM(CASE WHEN file_type = 'zip' THEN 1 ELSE 0 END) > 0
-               AND SUM(
-                   CASE WHEN file_type = 'parquet' OR file_name = '_consolidated.marker'
-                        THEN 1 ELSE 0 END
-               ) = 0
-            ORDER BY year DESC, tribunal
-        """
-        rows = con.execute(query).fetchall()
-    except duckdb.Error as e:
-        log.warning("candidates_tribunal_year_query_failed", error=str(e))
-        return []
-    finally:
-        con.close()
-
-    return [(str(t).upper(), int(y)) for t, y in rows if t and y]
-
-
 def dates_needing_consolidation_from_local_manifest(
     sync_manifest_path: Path,
 ) -> Iterator[str]:
