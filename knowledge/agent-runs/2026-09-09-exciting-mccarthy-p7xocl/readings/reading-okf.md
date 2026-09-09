@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-09-exciting-mccarthy-p7xocl-reading-okf"
+run_id: "2026-09-09-exciting-mccarthy-p7xocl"
+subject: "okf_knowledge"
+reference: "knowledge/agent-runs/index.md, .claude/hourly-loop.md, knowledge/pipelines/djen.md, knowledge/agent-runs/2026-09-09-exciting-mccarthy-e6f4j2/run.md (and its 4 readings/1 goal/1 decision/5 checks/5 evidence)"
+finding: "knowledge/agent-runs/index.md and .claude/hourly-loop.md (both last touched by commit 516f649 / PR #1327, 2026-09-08) declare that CausaGanha's *hourly loop* migrated to the Wisk runtime (.wisk/knowledge/) and that new rounds of that specific loop should not create further AgentRun/AgentReading/AgentGoal/AgentDecision/AgentEvidence/AgentCheck instances. This session's own scheduled prompt, however, explicitly directs the scaffold->okf-parser->AgentRun workflow this file map documents, and the repository shows this exact mechanism still actively producing merged PRs today, after that migration commit: e6f4j2 (PR #1371, merged), ez5wkn (PR #1365, merged), qvqmci (PR #1362, merged). This confirms the OKF/AgentRun mechanism and the Wisk-based hourly loop are two independently scheduled, still-coexisting automations on this repo -- the deprecation notice scopes to 'loop horário' specifically, not to every OKF-driven round on this project. Followed precedent: continued the AgentRun mechanism for this round, as every same-day predecessor has. The most recent completed round (e6f4j2) recorded a concrete, verified-live next_move: three more hand-rolled CSV parsers (scripts/generate_catalog.py x2, scripts/pipeline/consolidate.py, scripts/append_manifest.py) read data/sync-manifest.csv via bare str.split(','), the same bug class fixed in four modules across the day's last five rounds -- but flagged as unverified whether these three scripts are still on a live path. This round verified they are (wired into .github/workflows/update-catalog.yml and consolidate-parquet.yml) and used that as its goal source."
+---
+
+# Leitura de conhecimento OKF
+
+Confirmada a coexistência de dois mecanismos independentes (Wisk para o loop horário, AgentRun/OKF para esta rotina agendada). Seguido o precedente da própria rodada anterior. O `next_move` de e6f4j2 apontava três scripts com o mesmo padrão de CSV não escapado ainda não verificados quanto a estarem em caminho vivo -- confirmado que estão (workflows update-catalog.yml e consolidate-parquet.yml), definindo o objetivo desta rodada.

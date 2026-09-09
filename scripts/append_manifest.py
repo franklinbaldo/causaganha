@@ -13,6 +13,8 @@ Status:   production — invoked by the collect/backfill workflows.
 
 # Safely reconfigure standard output and standard error encoding error handling on Windows
 import contextlib
+import csv
+import io
 import json
 import os
 import sys
@@ -72,11 +74,10 @@ def get_new_uploads() -> list[dict]:
     now_str = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
     try:
-        for raw_line in SYNC_MANIFEST_PATH.read_text(encoding="utf-8").splitlines():
-            stripped = raw_line.strip()
-            if not stripped or stripped.startswith("tribunal"):
+        text = SYNC_MANIFEST_PATH.read_text(encoding="utf-8")
+        for parts in csv.reader(io.StringIO(text)):
+            if not parts or not parts[0].strip() or parts[0] == "tribunal":
                 continue
-            parts = stripped.split(",")
             if len(parts) < 3:
                 continue
             tribunal = parts[0].upper()
