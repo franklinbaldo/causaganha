@@ -5,7 +5,11 @@ from pathlib import Path
 import pytest
 from conftest import make_annotation, make_document, make_review
 
-from segmenter_dataset.store import ImmutabilityError, SegmenterDatasetStore
+from segmenter_dataset.store import (
+    ImmutabilityError,
+    NonIndependentReviewError,
+    SegmenterDatasetStore,
+)
 
 
 def test_write_and_read_document_round_trips(tmp_path: Path) -> None:
@@ -88,6 +92,78 @@ def test_review_allowed_unmatched_round_trips_through_storage(tmp_path: Path) ->
         "honorarios": "adjudicated as excused by both reviewers"
     }
     assert reloaded_reviews[0] == review
+
+
+def test_write_review_rejects_accepted_review_from_same_family_annotations(
+    tmp_path: Path,
+) -> None:
+    """RFC 0012 SS9: an accepted review must resolve two *independent* annotations.
+
+    `ReviewRecord`'s own pydantic validator only checks the *count* of
+    `input_annotation_ids` (`_at_least_two_inputs_when_accepted`); it has no
+    access to the annotation store, so it cannot see that both inputs came
+    from the same model family. Without a check here, a non-independent
+    pair could be written and accepted, silently failing to provide the
+    inter-annotator evidence an accepted review is supposed to certify --
+    the same gap release.py's `_iaa_gates` already guards against at
+    release time (`mechanical.annotations_are_independent`).
+    """
+    store = SegmenterDatasetStore(tmp_path)
+    document = make_document(text="0123456789")
+    store.write_document(document)
+
+    ann_a = make_annotation(document, annotator_id="a", model_family="family-a", labels=[])
+    ann_b = make_annotation(document, annotator_id="b", model_family="family-a", labels=[])
+    store.write_annotation(ann_a)
+    store.write_annotation(ann_b)
+
+    review = make_review(document, [ann_a, ann_b], final_labels=[])
+
+    with pytest.raises(NonIndependentReviewError):
+        store.write_review(review)
+    assert store.list_reviews(document_id=document.document_id) == []
+
+
+def test_write_review_rejects_accepted_review_from_seeded_annotation(tmp_path: Path) -> None:
+    """A second annotation seeded from the first's draft is not independent (RFC 0012 SS5.3)."""
+    store = SegmenterDatasetStore(tmp_path)
+    document = make_document(text="0123456789")
+    store.write_document(document)
+
+    ann_a = make_annotation(document, annotator_id="a", model_family="family-a", labels=[])
+    ann_b = make_annotation(
+        document,
+        annotator_id="b",
+        model_family="family-b",
+        seeded_with=ann_a.annotation_id,
+        labels=[],
+    )
+    store.write_annotation(ann_a)
+    store.write_annotation(ann_b)
+
+    review = make_review(document, [ann_a, ann_b], final_labels=[])
+
+    with pytest.raises(NonIndependentReviewError):
+        store.write_review(review)
+
+
+def test_write_review_allows_pending_review_from_non_independent_annotations(
+    tmp_path: Path,
+) -> None:
+    """Only *accepted* reviews require independence -- a draft/pending one may not yet."""
+    store = SegmenterDatasetStore(tmp_path)
+    document = make_document(text="0123456789")
+    store.write_document(document)
+
+    ann_a = make_annotation(document, annotator_id="a", model_family="family-a", labels=[])
+    ann_b = make_annotation(document, annotator_id="b", model_family="family-a", labels=[])
+    store.write_annotation(ann_a)
+    store.write_annotation(ann_b)
+
+    review = make_review(document, [ann_a, ann_b], status="pending", final_labels=[])
+
+    store.write_review(review)  # should not raise
+    assert store.list_reviews(document_id=document.document_id) == [review]
 
 
 def test_list_annotations_filters_by_document(tmp_path: Path) -> None:
