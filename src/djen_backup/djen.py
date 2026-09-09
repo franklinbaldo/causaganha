@@ -25,6 +25,7 @@ log = structlog.get_logger()
 HTTP_NOT_FOUND = 404
 HTTP_FORBIDDEN = 403
 HTTP_BAD_REQUEST = 400
+HTTP_PARTIAL_CONTENT = 206
 HTTP_INTERNAL_SERVER_ERROR = 500
 
 
@@ -36,6 +37,12 @@ def _raise_not_found(status_code: int, reason: str) -> None:
 def _raise_server_error(status_code: int) -> None:
     """Helper to raise httpx.HTTPError for server errors (satisfies TRY301)."""
     msg = f"Server error on download: {status_code}"
+    raise httpx.HTTPError(msg)
+
+
+def _raise_not_partial(status_code: int) -> None:
+    """Helper to raise httpx.HTTPError for a non-206 ranged response (satisfies TRY301)."""
+    msg = f"Expected 206 Partial Content for ranged segment, got {status_code}"
     raise httpx.HTTPError(msg)
 
 
@@ -137,6 +144,12 @@ async def _download_segment(
         msg = f"Server error on segment: {resp.status_code}"
         raise httpx.HTTPError(msg)
     resp.raise_for_status()
+    if resp.status_code != HTTP_PARTIAL_CONTENT:
+        # A proxy/CDN in front of DJEN that ignores the Range header and
+        # answers with a full-body 200 must not be accepted silently —
+        # download_zip() would concatenate oversized segment bodies into a
+        # corrupt ZIP with no error anywhere in the upload chain.
+        _raise_not_partial(resp.status_code)
     return resp.content
 
 
