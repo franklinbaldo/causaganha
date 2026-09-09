@@ -7,14 +7,31 @@ import re
 from collections import defaultdict
 from pathlib import Path
 
+from segmenter_dataset.schemas import AnnotationRecord
 from segmenter_dataset.store import SegmenterDatasetStore
+
+
+def _latest_per_document(annotations: list[AnnotationRecord]) -> list[AnnotationRecord]:
+    """Keep only the most recent (``completed_at``) annotation per document.
+
+    Mirrors ``release.py``'s ``_latest_annotation`` — the record any future
+    release actually resolves to for training (RFC 0012 §10). Auditing a
+    superseded, already-repaired annotation forever would make this script
+    useless as a repair-completion signal (issue #1050).
+    """
+    latest: dict[str, AnnotationRecord] = {}
+    for annotation in annotations:
+        current = latest.get(annotation.document_id)
+        if current is None or annotation.completed_at > current.completed_at:
+            latest[annotation.document_id] = annotation
+    return list(latest.values())
 
 
 def find_anti_patterns(store_dir: Path) -> dict[str, list[dict[str, str]]]:
     store = SegmenterDatasetStore(store_dir)
     findings = defaultdict(list)
 
-    for annotation in store.list_annotations():
+    for annotation in _latest_per_document(store.list_annotations()):
         doc = store.read_document(annotation.document_id)
         text = doc.text
         cat_labels = defaultdict(list)
