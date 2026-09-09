@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-09-exciting-mccarthy-8kw55y-goal-lawyer-ratings-ia-fallback"
+run_id: "2026-09-09-exciting-mccarthy-8kw55y"
+goal: "Give lawyer_ratings/ratings_history the same IA fallback as their VIEW_SPECS siblings"
+rationale: "scripts/render_queries.py's _register_lawyer_ratings and _register_ratings_history (lines 451-460) only call _register_local_parquet against DEV_RATINGS_DIR = ROOT/data/parquets, with no IA fallback -- unlike _register_acordaos (STJ, line 463), _register_tjro_juris, and _register_datajud_capa, which all try a local file first and fall back to downloading the canonical parquet from Internet Archive via _try_download_parquet. deploy-web.yml does a fresh checkout and runs `render_queries.py --strict` with nothing that ever populates data/parquets/; test.yml's --check mode never populates it either. Meanwhile scripts/pipeline/export_ratings.py (invoked by consolidate-parquet.yml) uploads exactly lawyer_ratings.parquet and ratings_history.parquet to the causaganha-catalog IA item via upload_to_ia(item_id='causaganha-catalog', ...), which writes to https://archive.org/download/causaganha-catalog/{table}.parquet -- the same IA item _IA_CATALOG_MANIFEST_URL already reads from. Net effect, live today: lawyer_leaderboard.qmd is optional:true so this failure is silent, and the 'Leaderboard de Advogados' page has plausibly never rendered real data in any CI/production render, only ever the empty synthetic fallback -- the exact same bug class PR #1356 fixed for JURIS/DataJud, now found for lawyer ratings by this round's background Explore survey."
+success_signal: "New RED tests in tests/test_render_queries.py assert _register_lawyer_ratings/_register_ratings_history return True and populate a queryable view when DEV_RATINGS_DIR is empty but the IA download succeeds (monkeypatched, no real network) -- failing today because both functions only glob the local directory. After the fix (delegating to _try_download_parquet against new _LAWYER_RATINGS_IA_URL/_RATINGS_HISTORY_IA_URL constants pointing at the causaganha-catalog IA item, mirroring _register_acordaos), the same tests pass GREEN. Full Python suite, ruff check, and ruff format --check stay green. web/src/queries/README.md's Data Sources table is updated to describe the IA fallback, matching how the acordaos/tjro_juris rows already read."
+status: "achieved"
+---
+
+# Goal: lawyer_ratings/ratings_history IA fallback
+
+Fecha a mesma classe de bug corrigida pela PR #1356 (JURIS/DataJud), agora para o leaderboard de advogados: `_register_lawyer_ratings`/`_register_ratings_history` nunca tiveram fallback para IA, então `lawyer_leaderboard.qmd` (optional, portanto silencioso) nunca renderizou dados reais em nenhum ambiente de CI real.
