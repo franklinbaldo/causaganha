@@ -29,7 +29,6 @@ evidence_ids:
   - "2026-09-09-exciting-mccarthy-ko7vqq-evidence-diff"
 check_ids:
   - "2026-09-09-exciting-mccarthy-ko7vqq-check-okf-parser-baseline"
-  - "2026-09-09-exciting-mccarthy-ko7vqq-check-okf-parser-after-ktosqx-closeout"
   - "2026-09-09-exciting-mccarthy-ko7vqq-check-python-suite"
   - "2026-09-09-exciting-mccarthy-ko7vqq-check-ruff"
   - "2026-09-09-exciting-mccarthy-ko7vqq-check-okf-parser-final"
