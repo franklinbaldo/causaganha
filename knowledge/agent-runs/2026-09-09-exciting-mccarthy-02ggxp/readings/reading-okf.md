@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-09-exciting-mccarthy-02ggxp-reading-okf"
+run_id: "2026-09-09-exciting-mccarthy-02ggxp"
+subject: "okf_knowledge"
+reference: "knowledge/agent-runs/index.md, .claude/hourly-loop.md, knowledge/agent-runs/2026-09-09-exciting-mccarthy-p7xocl/run.md (and its readings/goal/decision/checks/evidence), knowledge/agent-runs/2026-09-09-exciting-mccarthy-e6f4j2/run.md"
+finding: "knowledge/agent-runs/index.md declares the hourly loop migrated to the Wisk runtime and says not to create new AgentRun/AgentReading/... instances there; .claude/hourly-loop.md confirms Wisk owns that specific loop and calls knowledge/agent-runs/ + agent-run-scaffold.md legacy for that mechanism. This session, however, was invoked by a different, explicit scheduled-task prompt that names .claude/agent-run-scaffold.md and the scaffold -> okf-parser check -> ... workflow by file path as this session's own assigned task, independent of the hourly loop. Every same-day round back through pf1xhn (02:44 UTC) has read the same notice and reached the same conclusion: the two automations are independently scheduled and still coexist -- the deprecation notice scopes to the Wisk-driven hourly loop, not to this scheduled AgentRun routine, which keeps producing real merged PRs (8 today: #1348 chain through #1377/#1378). Followed that precedent again. p7xocl (most recent completed round, closed 12:45 UTC) verified its own goal source live, merged PR #1377 clean, and left next_move: no further CSV-escaping follow-up needed; a future round should re-check for a dangling PR first (none found, see reading-prs) then, if the issue/PR queue is still exhausted, source fresh work via an Explore-subagent survey of areas not yet mined today (causaganha_mcp/, djen_backup/retry.py|archive.py|engine.py|djen.py, web/src/lib/, other .qmd contracts, docs/adr/ vs code drift, missing test coverage) rather than re-treading the CSV/IA-fallback bug classes exhausted across 6+ modules already today. Dispatched exactly that survey as this round's first substantive step."
+---
+
+# Leitura de conhecimento OKF
+
+Confirmada novamente a coexistencia dos dois mecanismos independentes (Wisk para o loop horario, AgentRun/OKF para esta rotina agendada) -- mesma leitura de todas as rodadas de hoje. Seguido o proximo passo que p7xocl deixou registrado: sem PR pendurada, sem novidade nas issues, entao uma nova varredura via subagente Explore foi disparada para achar trabalho real fora das areas ja exauridas hoje (CSV escaping, IA fallback em render_queries.py).
