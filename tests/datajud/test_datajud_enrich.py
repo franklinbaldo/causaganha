@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 ENDPOINT = search_endpoint("tjro")
 CNJ = "00000010220248220001"
+CNJ_B = "00000020320248220002"
 
 
 def _invoke(argv: list[str]) -> tuple[int, str]:
@@ -109,6 +110,54 @@ def test_enrich_with_explicit_cnj_writes_parquets_and_manifest(tmp_path: Path):
     assert entry is not None
     assert entry.status == "ok"
     assert entry.docs == 2
+
+
+def test_enrich_marks_a_malformed_document_as_erro_not_ok(tmp_path: Path):
+    """A CNJ whose DataJud hit fails pydantic validation must be retried, not
+
+    treated as a confirmed-empty result. `nivelSigilo` set to a non-integer
+    string makes `ProcessoCapa.from_source` raise `ValidationError` while the
+    hit's own `numeroProcesso` is still readable, so the failure can be
+    attributed back to `CNJ_B` specifically (unlike a hit missing
+    `numeroProcesso` entirely, which cannot be attributed to any one pending
+    CNJ and is out of this test's scope).
+    """
+    data_dir = tmp_path / "datajud"
+    good = _source("G1", 111)
+    malformed = _source("G1", 222)
+    malformed["numeroProcesso"] = CNJ_B
+    malformed["nivelSigilo"] = "not-an-int"
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(200, json=_payload([good, malformed]))
+        exit_code, output = _invoke(
+            [
+                "enrich",
+                "--tribunal",
+                "tjro",
+                "--data-dir",
+                str(data_dir),
+                "--cnj",
+                CNJ,
+                "--cnj",
+                CNJ_B,
+                "--skip-upload",
+            ]
+        )
+
+    assert exit_code == 0, output
+
+    manifest = ManifestDataJud.load_local(data_dir / "datajud-manifest.csv")
+    ok_entry = manifest.get(CNJ, "tjro")
+    assert ok_entry is not None
+    assert ok_entry.status == "ok"
+
+    failed_entry = manifest.get(CNJ_B, "tjro")
+    assert failed_entry is not None
+    assert failed_entry.docs == 0
+    # A parse failure is not a confirmed-empty result -- it must be
+    # retried on the next run, unlike a genuine zero-hit CNJ.
+    assert failed_entry.status == "erro"
+    assert manifest.needs_refresh(CNJ_B, "tjro", max_age_days=9999)
 
 
 def test_enrich_is_incremental_second_run_skips_fresh_cnjs(tmp_path: Path):
