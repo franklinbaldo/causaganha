@@ -285,7 +285,7 @@ GROUP BY nr_processo
 # reached). data_ajuizamento takes the earliest — the original filing.
 _DATAJUD_AGG_SQL = """
 SELECT
-    numero_processo AS nr_processo,
+    regexp_replace(numero_processo, '[^0-9]', '', 'g') AS nr_processo,
     FIRST(classe_nome ORDER BY ultima_atualizacao DESC NULLS LAST) AS classe_oficial,
     FIRST(assuntos ORDER BY ultima_atualizacao DESC NULLS LAST) AS assuntos,
     FIRST(orgao_julgador ORDER BY ultima_atualizacao DESC NULLS LAST) AS orgao_julgador,
@@ -294,7 +294,7 @@ SELECT
     MAX(ultima_atualizacao) AS ultima_atualizacao
 FROM datajud_capa
 WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
-GROUP BY numero_processo
+GROUP BY nr_processo
 """
 
 _UNIFICADOS_SQL = """
