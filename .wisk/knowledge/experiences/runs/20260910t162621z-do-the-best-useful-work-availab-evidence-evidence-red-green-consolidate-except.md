@@ -1,0 +1,11 @@
+---
+type: "RunEvidence"
+id: "run-evidence/20260910t162621z-do-the-best-useful-work-availab/evidence-red-green-consolidate-except"
+run: "runs/20260910T162621Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "execution"
+reference: "tests/test_except_exception_policy.py"
+summary: "RED: added scripts/pipeline/consolidate.py to _SCRIPTS_CHECKED in tests/test_except_exception_policy.py -- test_confirmed_scripts_bulkheads_cite_the_bulkhead_adr failed listing all 10 bare 'except Exception' sites (lines 223, 1011, 1457, 1519, 1656, 1881, 2093, 2114, 2154, 2177), none cited. Read each site end-to-end against its caller to classify: 6 are genuine per-item worker-pool bulkheads (per-date marker upload at _upload_marker; per-table export at _export_and_upload_table, matching src/causaganha/consolidate/cli.py:172's own already-blessed per-table bulkhead cited by ADR-0011 itself; per-zip ndjson write inside process_zip_entry; two per-zip as_completed loops in consolidate_tribunal_year/consolidate_date; the backfill while-loop over independent dates that logs+continues rather than aborting) -- these got a one-line 'see docs/adr/0011' citation. The other 4 are single-shot operations with no enclosing loop over independent units (save_checkpoint_state's one state write; the three main() CLI branches -- tribunal/year, explicit --date, and default-today -- each running exactly once per script invocation) -- narrowed to specific exception types (OSError/TypeError for the checkpoint write; OSError/duckdb.Error/IbisError/httpx.HTTPError/RuntimeError/KeyError/ValueError/TypeError for the three CLI branches, matching this same file's own already-narrowed export-phase tuple at line ~1711 plus ibis/manifest-dict failure modes). GREEN: test_confirmed_scripts_bulkheads_cite_the_bulkhead_adr passes -- exactly 6 'except Exception' lines remain in the file, all citing docs/adr/0011; the other 4 no longer match the pattern at all. ruff check + ruff format --check clean; full uv run pytest -q (all tests) green, including tests/consolidate/ (31 tests) unaffected by the narrowing."
+goal: "run-goals/20260910t162621z-do-the-best-useful-work-availab/goal-consolidate-except-audit"
+---
+
+# RunEvidence

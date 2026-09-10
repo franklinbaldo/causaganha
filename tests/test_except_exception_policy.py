@@ -34,6 +34,16 @@ _GRANDFATHERED = {SRC_ROOT / "stj_acordaos" / "__main__.py"}
 _SCRIPTS_CHECKED = {
     REPO_ROOT / "scripts" / "annotate_with_llm.py",
     REPO_ROOT / "scripts" / "pipeline" / "embed_v2.py",
+    # scripts/pipeline/consolidate.py: read end-to-end. 6 of its 10 sites are
+    # genuine per-item bulkheads (per-date marker upload, per-table export,
+    # per-zip ndjson write, two per-zip as_completed loops, the backfill
+    # while-loop over dates) structurally identical to the ones ADR 0011
+    # already blesses -- including src/causaganha/consolidate/cli.py:172's
+    # own per-table bulkhead, the ADR's own cited example. The other 4 sites
+    # (checkpoint save, and the three single-shot main() CLI branches that
+    # each run exactly once per invocation, not in a loop) were narrowed to
+    # specific exception types instead.
+    REPO_ROOT / "scripts" / "pipeline" / "consolidate.py",
 }
 
 # These scripts/ sites were read end-to-end and are single-shot CLI
