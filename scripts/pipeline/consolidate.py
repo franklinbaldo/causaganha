@@ -220,7 +220,7 @@ def save_checkpoint_state(state: dict[str, Any]) -> None:
             date=state.get("current_date"),
             processed=len(state.get("processed_zips", [])),
         )
-    except Exception as e:
+    except (OSError, TypeError) as e:
         logger.exception("checkpoint_save_failed", error=str(e))
 
 
@@ -1008,7 +1008,7 @@ async def _upload_marker(client: httpx.AsyncClient, item_id: str, date_str: str)
         with contextlib.suppress(Exception):
             marker_path.unlink()
 
-    except Exception as e:
+    except Exception as e:  # per-date marker upload bulkhead, see docs/adr/0011
         logger.exception("marker_upload_failed", item_id=item_id, error=str(e))
         return False
     else:
@@ -1454,7 +1454,7 @@ async def _export_and_upload_table(
             logger.info("uploaded", table=table_name)
 
         result = (True, size_mb, uploaded)
-    except Exception as e:
+    except Exception as e:  # per-table export bulkhead, see docs/adr/0011
         logger.exception("parquet_export_failed", table=table_name, error=str(e))
         return False, 0.0, 0
     else:
@@ -1516,7 +1516,7 @@ def process_zip_entry(
             for rec in records:
                 if isinstance(rec, dict):
                     f.write(json.dumps(rec, default=str) + "\n")
-    except Exception as e:
+    except Exception as e:  # per-zip ndjson-write bulkhead, see docs/adr/0011
         logger.exception("ndjson_write_failed", file=ndjson_filename, error=str(e))
         return 0, 0
 
@@ -1653,7 +1653,7 @@ def consolidate_tribunal_year(
                     success_cnt, records_cnt = future.result()
                     stats["zips_processed"] += success_cnt
                     stats["records"] += records_cnt
-                except Exception as e:
+                except Exception as e:  # per-zip processing bulkhead, see docs/adr/0011
                     logger.exception(
                         "zip_processing_error",
                         zip=zip_entry["filename"],
@@ -1878,7 +1878,7 @@ def consolidate_date(
                     if success_cnt > 0 and not dry_run:
                         update_checkpoint_progress(date, zip_filename)
 
-                except Exception as e:
+                except Exception as e:  # per-zip processing bulkhead, see docs/adr/0011
                     logger.exception("zip_processing_error", zip=zip_filename, error=str(e))
 
         # Phase 2: Ibis-driven transformation (UDFs, unnest, distinct)
@@ -2090,7 +2090,20 @@ def main() -> int:
             _print_stats(stats)
             for k in total_stats:
                 total_stats[k] += stats.get(k, 0)
-        except Exception as e:
+        # Single-shot CLI branch (runs once per invocation, not a worker-pool
+        # loop over independent units) -- narrowed per docs/adr/0011 rather
+        # than cited, matching the failure surface consolidate_tribunal_year
+        # can actually raise past its own internal per-item bulkheads.
+        except (
+            OSError,
+            duckdb.Error,
+            IbisError,
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as e:
             logger.exception("consolidation_aborted", error=str(e))
             traceback.print_exc()
             return 1
@@ -2111,7 +2124,18 @@ def main() -> int:
             _print_stats(stats)
             for k in total_stats:
                 total_stats[k] += stats.get(k, 0)
-        except Exception as e:
+        # Single-shot CLI branch, not a loop over independent units --
+        # narrowed per docs/adr/0011 (see the tribunal/year branch above).
+        except (
+            OSError,
+            duckdb.Error,
+            IbisError,
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as e:
             logger.exception("consolidation_aborted", error=str(e))
             traceback.print_exc()
             return 1
@@ -2151,7 +2175,7 @@ def main() -> int:
                 for k in total_stats:
                     total_stats[k] += stats.get(k, 0)
                 dates_processed += 1
-            except Exception as e:
+            except Exception as e:  # per-date backfill bulkhead, see docs/adr/0011
                 logger.exception("consolidation_aborted", date=target_date, error=str(e))
                 traceback.print_exc()
                 # Continue to next date instead of aborting the entire run
@@ -2174,7 +2198,18 @@ def main() -> int:
             _print_stats(stats)
             for k in total_stats:
                 total_stats[k] += stats.get(k, 0)
-        except Exception as e:
+        # Single-shot CLI branch, not a loop over independent units --
+        # narrowed per docs/adr/0011 (see the tribunal/year branch above).
+        except (
+            OSError,
+            duckdb.Error,
+            IbisError,
+            httpx.HTTPError,
+            RuntimeError,
+            KeyError,
+            ValueError,
+            TypeError,
+        ) as e:
             logger.exception("consolidation_aborted", error=str(e))
             traceback.print_exc()
             return 1
