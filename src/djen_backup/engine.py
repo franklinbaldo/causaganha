@@ -452,9 +452,14 @@ async def run_pipeline(
 
     await anyio.Path(STAGING_DIR).mkdir(parents=True, exist_ok=True)
 
+    # upload-only ("Upload already-discovered available entries (backlog
+    # drain)", per CLAUDE.md and the `upload` subcommand's own docstring)
+    # must never probe DJEN for entries whose availability isn't already
+    # known -- it only drains the existing backlog.
     check_queue: asyncio.Queue[ManifestEntry] = asyncio.Queue()
-    for entry in unknown_entries:
-        check_queue.put_nowait(entry)
+    if not config.upload_only:
+        for entry in unknown_entries:
+            check_queue.put_nowait(entry)
 
     download_queue: asyncio.Queue[ManifestEntry | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
     upload_queue: asyncio.Queue[StagedItem | None] = asyncio.Queue(maxsize=MAX_STAGED_FILES)
@@ -678,9 +683,14 @@ async def run_pipeline(
         # check-only never downloads or uploads: no feeder, no download/upload
         # workers, so the checker phase is the entire run.
         feeder_task = None if config.check_only else asyncio.create_task(feed_available())
-        checker_tasks = [
-            asyncio.create_task(checker_worker(check_client)) for _ in range(min(2, config.workers))
-        ]
+        checker_tasks = (
+            []
+            if config.upload_only
+            else [
+                asyncio.create_task(checker_worker(check_client))
+                for _ in range(min(2, config.workers))
+            ]
+        )
         dl_tasks = [] if config.check_only else [asyncio.create_task(download_worker(dl_client))]
         upload_tasks = (
             []
