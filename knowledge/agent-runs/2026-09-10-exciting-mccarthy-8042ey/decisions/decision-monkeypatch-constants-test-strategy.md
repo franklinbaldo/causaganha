@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-10-exciting-mccarthy-8042ey-decision-monkeypatch-constants-test-strategy"
+run_id: "2026-09-10-exciting-mccarthy-8042ey"
+goal_id: "2026-09-10-exciting-mccarthy-8042ey-goal-writeback-constants-drift"
+question: "How to write a test that actually proves write_back_csv derives its behavior from djen_backup.absent_consistency's imported constants, rather than from its own re-typed copy of the same literal strings -- given the literal values are currently identical, so a plain behavioral test using the real values can't distinguish 'derived from the constant' from 'coincidentally re-typed to match the constant'?"
+choice: "Monkeypatch the render_manifest_parquet module's imported constant names (ABSENT, BARE_200_RAW, PREFIXED_200_RAW_PREFIX, NO_PUBLICATIONS_SENTINEL) to distinct sentinel values before calling write_back_csv, then assert the CSV output follows the patched values on one row and ignores the original hardcoded literals on another. Rejected a static/AST introspection test."
+rationale: "Because Python resolves module-level globals by name at call time (LOAD_GLOBAL), a function that truly references the imported name picks up whatever value monkeypatch.setattr bound to the module attribute; a function with a hardcoded literal copy cannot see the patch at all. This makes the test a direct, mechanical proof of derivation rather than an indirect inference from matching values -- it fails RED against the current write_back_csv (which ignores the patched attributes) and passes GREEN only once write_back_csv's ibis.cases() expression references the constants directly. The alternative (a static/AST introspection test asserting write_back_csv's source doesn't contain the literal strings '200'/'absent'/'no_publications') would be brittle to refactors and comments, and wouldn't survive if someone re-introduced the same literals under a different guise. The behavioral monkeypatch test instead encodes the actual invariant the absent_consistency module's docstring demands ('interpolated from these same constants rather than re-typed') as an executable contract: if a future edit reintroduces a hardcoded copy anywhere in write_back_csv, this test breaks immediately, the same way it broke here."
+---
+
+# Decision: prove constant-derivation via monkeypatch, not static inspection
+
+Testar a auto-consistência de `write_back_csv` com valores reais idênticos aos das constantes não provaria que a função *deriva* delas -- apenas que os literais reescritos coincidem hoje. Substituir os atributos do módulo por sentinelas e verificar que a saída segue a sentinela torna a derivação uma propriedade executável e não uma inferência.

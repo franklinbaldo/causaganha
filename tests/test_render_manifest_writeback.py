@@ -146,3 +146,53 @@ def test_write_back_makes_absent_200_rows_self_consistent(tmp_path, monkeypatch)
             assert derived == "absent", f"absent row has raw {r['djen_raw']!r} → {derived!r}"
         elif r["djen_status"] == "available":
             assert derived == "available"
+
+
+def test_write_back_derives_from_absent_consistency_constants_not_retyped_literals(
+    tmp_path, monkeypatch
+):
+    """write_back_csv must reference djen_backup.absent_consistency's constants,
+    not a second hand-typed copy of the same contract (the bug class PR #1323
+    already fixed once for _normalize_manifest in this same module).
+    """
+    rmp = _load_render_module()
+    out = tmp_path / "sync-manifest.csv"
+    monkeypatch.setattr(rmp, "LOCAL_CSV", out)
+
+    # Patch the module's imported constants to distinct sentinel values. If
+    # write_back_csv truly derives its behaviour from these names, the merge
+    # must follow the patched values instead of the original literals.
+    monkeypatch.setattr(rmp, "ABSENT", "zzz-absent")
+    monkeypatch.setattr(rmp, "BARE_200_RAW", "zzz-200")
+    monkeypatch.setattr(rmp, "PREFIXED_200_RAW_PREFIX", "zzz-200:")
+    monkeypatch.setattr(rmp, "NO_PUBLICATIONS_SENTINEL", "zzz-sentinel")
+
+    con = duckdb.connect()
+    con.execute(
+        """
+        CREATE TABLE manifest (
+            tribunal VARCHAR, date DATE, ia_status VARCHAR,
+            djen_status VARCHAR, djen_raw VARCHAR, updated_at VARCHAR
+        )
+        """
+    )
+    con.execute(
+        """
+        INSERT INTO manifest VALUES
+            -- matches the *patched* contract: must be rewritten to the patched sentinel.
+            ('TJSP', DATE '2024-01-02', '', 'zzz-absent', 'zzz-200', '2024-01-03'),
+            -- matches only the *original* hardcoded strings, which are no longer the
+            -- live contract once the constants are patched away: must be left untouched.
+            ('TJRO', DATE '2024-01-02', '', 'absent', '200', '2024-01-03')
+        """
+    )
+
+    rmp.write_back_csv(con)
+
+    with out.open(newline="") as fh:
+        rows = list(csv.DictReader(fh))
+    by_key = {(r["tribunal"], r["date"]): r for r in rows}
+
+    assert by_key[("TJSP", "2024-01-02")]["djen_raw"] == "zzz-sentinel"
+    assert by_key[("TJRO", "2024-01-02")]["djen_status"] == "absent"
+    assert by_key[("TJRO", "2024-01-02")]["djen_raw"] == "200"

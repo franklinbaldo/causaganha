@@ -518,9 +518,12 @@ def write_back_csv(con: duckdb.DuckDBPyConnection) -> Path:
         ),
         djen_raw=ibis.cases(
             (
-                (manifest.djen_status == "absent")
-                & ((manifest.djen_raw == "200") | manifest.djen_raw.startswith("200:")),
-                "no_publications",
+                (manifest.djen_status == ABSENT)
+                & (
+                    (manifest.djen_raw == BARE_200_RAW)
+                    | manifest.djen_raw.startswith(PREFIXED_200_RAW_PREFIX)
+                ),
+                NO_PUBLICATIONS_SENTINEL,
             ),
             else_=manifest.djen_raw,
         ),
