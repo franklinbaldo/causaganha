@@ -13,12 +13,8 @@ import json
 import httpx
 import pytest
 
-from common.relay import (
-    AsyncRelayTransport,
-    RelayTransport,
-    async_relay_transport_from_env,
-    relay_transport_from_env,
-)
+import common.relay
+from common.relay import RelayTransport, relay_transport_from_env
 
 
 RELAY_URL = "https://relay-abc.a.run.app/"
@@ -69,31 +65,10 @@ def test_relay_transport_preserves_method_and_body() -> None:
     assert sent.read() == b""
 
 
-@pytest.mark.asyncio
-async def test_async_relay_transport_rewrites_url_and_headers() -> None:
-    captured: list[httpx.Request] = []
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        captured.append(request)
-        return httpx.Response(200, json={"ok": True})
-
-    transport = AsyncRelayTransport(RELAY_URL, RELAY_TOKEN, inner=httpx.MockTransport(handler))
-    async with httpx.AsyncClient(transport=transport) as client:
-        resp = await client.post(ORIGINAL_URL, json={"from": 0, "size": 1})
-
-    assert resp.status_code == 200
-    sent = captured[0]
-    assert str(sent.url) == RELAY_URL
-    assert sent.headers["X-Relay-Url"] == ORIGINAL_URL
-    assert sent.headers["X-Relay-Token"] == RELAY_TOKEN
-    assert sent.method == "POST"
-
-
 def test_relay_transport_from_env_none_when_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("RELAY_URL", raising=False)
     monkeypatch.delenv("RELAY_TOKEN", raising=False)
     assert relay_transport_from_env() is None
-    assert async_relay_transport_from_env() is None
 
 
 def test_relay_transport_from_env_builds_when_both_set(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -101,11 +76,22 @@ def test_relay_transport_from_env_builds_when_both_set(monkeypatch: pytest.Monke
     monkeypatch.setenv("RELAY_TOKEN", RELAY_TOKEN)
     transport = relay_transport_from_env()
     assert isinstance(transport, RelayTransport)
-    async_transport = async_relay_transport_from_env()
-    assert isinstance(async_transport, AsyncRelayTransport)
 
 
 def test_relay_transport_from_env_none_when_only_url_set(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("RELAY_URL", RELAY_URL)
     monkeypatch.delenv("RELAY_TOKEN", raising=False)
     assert relay_transport_from_env() is None
+
+
+def test_relay_module_surface_excludes_async_transport() -> None:
+    """Regression guard: every relay consumer in this repo is sync-only.
+
+    ``AsyncRelayTransport``/``async_relay_transport_from_env`` had zero
+    callers anywhere in ``src/`` or ``scripts/`` (confirmed by a repo-wide
+    grep) -- no sync or async DJEN/STJ/TJRO/TSE client used them. Removed as
+    dead code; this guard keeps the unused surface from silently reappearing,
+    mirroring the module-surface regression-guard pattern from PR #1332.
+    """
+    assert not hasattr(common.relay, "AsyncRelayTransport")
+    assert not hasattr(common.relay, "async_relay_transport_from_env")

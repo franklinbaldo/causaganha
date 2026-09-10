@@ -77,38 +77,7 @@ class RelayTransport(httpx.BaseTransport):
         self._inner.close()
 
 
-class AsyncRelayTransport(httpx.AsyncBaseTransport):
-    """Async counterpart of :class:`RelayTransport`."""
-
-    def __init__(
-        self,
-        relay_url: str,
-        relay_token: str,
-        *,
-        inner: httpx.AsyncBaseTransport | None = None,
-    ) -> None:
-        """Wrap *inner* (default: a real ``httpx.AsyncHTTPTransport``) with relay rewriting."""
-        self._relay_url = relay_url
-        self._relay_token = relay_token
-        self._inner = inner or httpx.AsyncHTTPTransport()
-
-    async def handle_async_request(self, request: httpx.Request) -> httpx.Response:
-        """Rewrite *request* to the relay and delegate to the inner transport."""
-        relayed = _build_relayed_request(request, self._relay_url, self._relay_token)
-        return await self._inner.handle_async_request(relayed)
-
-    async def aclose(self) -> None:
-        """Close the inner transport."""
-        await self._inner.aclose()
-
-
 def relay_transport_from_env() -> RelayTransport | None:
     """Build a :class:`RelayTransport` from ``RELAY_URL``/``RELAY_TOKEN``, or ``None``."""
     env = _relay_env()
     return RelayTransport(*env) if env else None
-
-
-def async_relay_transport_from_env() -> AsyncRelayTransport | None:
-    """Build an :class:`AsyncRelayTransport` from env, or ``None`` if unset."""
-    env = _relay_env()
-    return AsyncRelayTransport(*env) if env else None
