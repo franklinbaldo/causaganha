@@ -623,6 +623,8 @@ async def run_pipeline(
                     error=str(exc),
                 )
                 await summary.inc_error()
+                if config.fail_fast:
+                    abort_event.set()
             finally:
                 download_queue.task_done()
 
