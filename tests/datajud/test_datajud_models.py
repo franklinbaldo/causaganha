@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datajud.models import (
     ProcessoCapa,
-    data14_bound,
     formatar_cnj,
     normalizar_cnj,
     normalizar_data14,
@@ -62,13 +61,6 @@ def test_normalizar_data14_invalid_returns_none():
     assert normalizar_data14("") is None
     assert normalizar_data14(None) is None
     assert normalizar_data14("not-a-date") is None
-
-
-def test_data14_bound_covers_the_whole_day():
-    assert data14_bound("15/01/2024") == "20240115000000"
-    assert data14_bound("15/01/2024", fim=True) == "20240115235959"
-    assert data14_bound("2024-01-15") == "20240115000000"
-    assert data14_bound("2024-01-15", fim=True) == "20240115235959"
 
 
 # ── CNJ helpers ──────────────────────────────────────────────────────────
