@@ -1121,7 +1121,7 @@ def create_catalog_duckdb(
 
     try:
         con = duckdb.connect(str(db_path))
-    except Exception as e:
+    except (duckdb.Error, OSError) as e:
         logger.exception("duckdb_connection_failed", path=str(db_path), error=str(e))
         return None
 
@@ -1221,7 +1221,7 @@ def create_catalog_duckdb(
         con.close()
         logger.info("duckdb_created", path=str(db_path))
 
-    except Exception as e:
+    except (duckdb.Error, OSError) as e:
         logger.exception("duckdb_creation_failed", error=str(e))
         with contextlib.suppress(Exception):
             con.close()
@@ -1262,7 +1262,7 @@ def save_parquet(data: list[dict], output_path: Path) -> bool:
         con.execute(f"COPY temp TO '{output_path}' (FORMAT PARQUET)")
         con.close()
 
-    except Exception as e:
+    except (duckdb.Error, OSError) as e:
         logger.exception("save_parquet_failed", path=str(output_path), error=str(e))
         return False
     else:
@@ -1454,7 +1454,7 @@ def main() -> int:
         # Append to history (JSONL)
         collect_history_path = output_dir / "collect-progress.jsonl"
         append_progress_jsonl(collect_history_path, collect_data)
-    except Exception as e:
+    except (OSError, TypeError) as e:
         logger.exception("collect_progress_failed", error=str(e))
 
     # Generate consolidate progress (parquets)

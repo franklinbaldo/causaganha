@@ -29,7 +29,7 @@ def get_item_metadata(client: httpx.Client, item_id: str) -> dict[str, Any] | No
         resp = client.get(url, timeout=30)
         resp.raise_for_status()
         return resp.json()
-    except Exception as e:
+    except Exception as e:  # per-item metadata-fetch bulkhead, see docs/adr/0011
         logger.exception("metadata_fetch_failed", item_id=item_id, error=str(e))
         return None
 
@@ -52,7 +52,7 @@ def delete_ia_file(client: httpx.Client, item_id: str, filename: str) -> bool:
         # IA S3 requires a DELETE request for removal
         resp = client.delete(url)
         resp.raise_for_status()
-    except Exception as e:
+    except Exception as e:  # per-file deletion bulkhead, see docs/adr/0011
         logger.exception("file_deletion_failed", item_id=item_id, file=filename, error=str(e))
         return False
     else:
@@ -80,7 +80,7 @@ def cleanup_deprecated_items():
         resp = client.get(search_url, params=params)
         resp.raise_for_status()
         items = resp.json().get("response", {}).get("docs", [])
-    except Exception as e:
+    except (httpx.HTTPError, httpx.RequestError, ValueError) as e:
         logger.exception("ia_search_failed", error=str(e))
         return
 
