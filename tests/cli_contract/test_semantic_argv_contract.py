@@ -105,8 +105,6 @@ def _check_collect_zips_bare(calls) -> None:
         max_items=0,
         workers=8,
         fail_fast=False,  # --no-fail-fast — the RFC's most fragile case
-        publish_live_status=False,
-        skip_if_mostly_complete=False,
         use_proxy=True,
     )
 

@@ -118,8 +118,6 @@ class SyncConfig:
     ia_auth: str
     dry_run: bool
     fail_fast: bool = True
-    publish_live_status: bool = False
-    skip_if_mostly_complete: bool = False
     check_only: bool = False
     upload_only: bool = False
     observer: ManifestObserver | None = None
