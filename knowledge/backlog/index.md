@@ -8,4 +8,6 @@ Cache durável de fatos que sobrevivem a mais de uma rodada do loop horário. Ca
 
 **Como manter:** ao verificar uma issue já registrada aqui e confirmar que a razão ainda vale, atualize `last_verified_run_id`/`last_verified_at` para a rodada atual. Ao descobrir que uma issue foi desbloqueada, mude `status` para `unblocked` (ou delete o arquivo, já que a issue deixou de ser "backlog bloqueado"). Ao surgir uma issue nova claramente bloqueada, adicione um novo `issue-<n>.md`.
 
-`tests/knowledge/test_backlog.py` valida a integridade estrutural deste diretório (chave única, enums válidos, campos não vazios, `last_verified_run_id` apontando para uma rodada real em `knowledge/agent-runs/`).
+**Formato de `last_verified_run_id`:** o loop horário migrou de `AgentRun` (`knowledge/agent-runs/`) para o runtime Wisk (`.claude/hourly-loop.md`); novas rodadas não criam mais `AgentRun`. Uma rodada legada continua referenciada pelo id nu (`knowledge/agent-runs/<id>/run.md`). Uma rodada Wisk usa o prefixo `wisk:`, por exemplo `wisk:runs/20260910T013046Z-do-the-best-useful-work-available-in-this-reposi` — resolvido por `tests/knowledge/test_backlog.py` contra qualquer arquivo em `.wisk/knowledge/experiences/runs/` cujo nome comece pelo timestamp (16 caracteres, minúsculo) do run id.
+
+`tests/knowledge/test_backlog.py` valida a integridade estrutural deste diretório (chave única, enums válidos, campos não vazios, `last_verified_run_id` apontando para uma rodada real — legada ou Wisk, conforme o prefixo).

@@ -163,14 +163,20 @@ CREATE TABLE "AgentCheck" (
 -- blocked/deprioritized, and which round last confirmed that reason still
 -- holds. A future round reads this instead of re-deriving the same
 -- rejection reasoning from the issue tracker from scratch (see
--- knowledge/backlog/index.md).
+-- knowledge/backlog/index.md). last_verified_run_id is a free-form
+-- provenance reference, not a hard FK to AgentRun: it resolves to either a
+-- legacy knowledge/agent-runs/<id>/run.md, or a "wisk:<run-id>" reference
+-- into the current Wisk LoopRun mechanism under .wisk/knowledge/experiences/
+-- runs/ (tests/knowledge/test_backlog.py enforces both shapes in Python,
+-- since a cross-bundle-root REFERENCES cannot span knowledge/ and .wisk/
+-- knowledge/).
 CREATE TABLE "BacklogItem" (
     issue_number BIGINT PRIMARY KEY,
     title VARCHAR NOT NULL CHECK (length(trim(title)) > 0),
     category VARCHAR NOT NULL CHECK (category IN ('ml_data_work', 'credentials', 'infra_decision', 'deprioritized_by_owner', 'network_access')),
     blocking_reason VARCHAR NOT NULL CHECK (length(trim(blocking_reason)) > 0),
     unblock_condition VARCHAR NOT NULL CHECK (length(trim(unblock_condition)) > 0),
-    last_verified_run_id VARCHAR NOT NULL REFERENCES "AgentRun"(id),
+    last_verified_run_id VARCHAR NOT NULL CHECK (length(trim(last_verified_run_id)) > 0),
     last_verified_at VARCHAR NOT NULL CHECK (length(trim(last_verified_at)) > 0),
     status VARCHAR NOT NULL CHECK (status IN ('blocked', 'deprioritized', 'unblocked'))
 );

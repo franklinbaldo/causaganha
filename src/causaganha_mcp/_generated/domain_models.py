@@ -216,16 +216,7 @@ class BacklogItemConcept(BaseModel):
     description: str = Field(default=None)
     issue_number: str
     last_verified_at: str
-    last_verified_run_id: str = Field(
-        json_schema_extra={
-            "x-okf-references": {
-                "type": "AgentRun",
-                "columns": ["last_verified_run_id"],
-                "referencedColumns": ["id"],
-                "position": 0,
-            },
-        },
-    )
+    last_verified_run_id: str
     status: str
     title: str
     type: Literal["BacklogItem"]
