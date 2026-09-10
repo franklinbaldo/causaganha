@@ -16,6 +16,18 @@ resolves to a real completed round) — the same role
 `tests/test_check_agent_run_completeness.py` plays for the `AgentRun` family,
 since `okf-parser check --relational-schema` only validates PK/FK catalog
 metadata, not `CHECK` constraints or cross-file existence.
+
+`last_verified_run_id` resolves to either of two provenance mechanisms, not
+a single hard FK: a legacy round under `knowledge/agent-runs/<id>/run.md`
+(the `AgentRun` type, frozen historical data as of the Wisk migration), or a
+`"wisk:<run-id>"` reference into the current Wisk LoopRun mechanism under
+`.wisk/knowledge/experiences/runs/`. `.claude/hourly-loop.md` and this
+repo's own `continuous-loop-operational-invariants` WikiEntry both say new
+rounds must not create `AgentRun`s anymore — a hard `REFERENCES
+"AgentRun"(id)` FK (removed from `okf.schema.sql` alongside this test) would
+have permanently frozen the backlog cache's own `last_verified_run_id` at
+whatever round last used the legacy mechanism, defeating the cache's stated
+purpose of staying current.
 """
 
 from __future__ import annotations
@@ -28,6 +40,9 @@ from okf_parser.parser import parse_document
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 BACKLOG_DIR = REPO_ROOT / "knowledge" / "backlog"
 AGENT_RUNS_DIR = REPO_ROOT / "knowledge" / "agent-runs"
+WISK_RUNS_DIR = REPO_ROOT / ".wisk" / "knowledge" / "experiences" / "runs"
+WISK_PROVENANCE_PREFIX = "wisk:"
+_TIMESTAMP_LEN = len("20260910t013046z")
 
 VALID_CATEGORIES = {
     "ml_data_work",
@@ -90,13 +105,27 @@ def test_every_backlog_item_has_nonblank_reasoning_fields() -> None:
             )
 
 
-def test_every_backlog_item_last_verified_run_id_resolves_to_a_real_agent_run() -> None:
+def _resolves_to_a_wisk_loop_run(run_id: str) -> bool:
+    wisk_run_id = run_id.removeprefix(WISK_PROVENANCE_PREFIX).strip("/")
+    timestamp_prefix = wisk_run_id.rsplit("/", 1)[-1].lower()[:_TIMESTAMP_LEN]
+    if not timestamp_prefix or not WISK_RUNS_DIR.is_dir():
+        return False
+    return any(WISK_RUNS_DIR.glob(f"{timestamp_prefix}*"))
+
+
+def test_every_backlog_item_last_verified_run_id_resolves_to_a_real_round() -> None:
     for path, frontmatter in _backlog_items():
         run_id = frontmatter["last_verified_run_id"]
-        run_file = AGENT_RUNS_DIR / run_id / "run.md"
-        assert run_file.is_file(), (
-            f"{path}: last_verified_run_id {run_id!r} has no knowledge/agent-runs/{run_id}/run.md"
-        )
+        if run_id.startswith(WISK_PROVENANCE_PREFIX):
+            assert _resolves_to_a_wisk_loop_run(run_id), (
+                f"{path}: last_verified_run_id {run_id!r} has no "
+                f".wisk/knowledge/experiences/runs/<timestamp>* record"
+            )
+        else:
+            run_file = AGENT_RUNS_DIR / run_id / "run.md"
+            assert run_file.is_file(), (
+                f"{path}: last_verified_run_id {run_id!r} has no knowledge/agent-runs/{run_id}/run.md"
+            )
 
 
 def test_backlog_item_985_reflects_its_actual_tse_network_blocker() -> None:

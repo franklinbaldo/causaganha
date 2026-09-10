@@ -97,7 +97,7 @@ export const BacklogItemSchema = z.object({
   "description": z.string().optional(),
   "issue_number": z.string(),
   "last_verified_at": z.string(),
-  "last_verified_run_id": z.string().describe("references AgentRun(id)"),
+  "last_verified_run_id": z.string(),
   "status": z.string(),
   "title": z.string(),
   "type": z.literal("BacklogItem"),
