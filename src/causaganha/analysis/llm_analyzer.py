@@ -327,6 +327,7 @@ def _build_analysis(parsed: dict[str, Any], intimation_id: int) -> DecisionAnaly
         judge_name=parsed.get("judge_name"),
         keywords=parsed.get("keywords") or [],
         legal_bases=parsed.get("legal_bases") or [],
+        precedents=parsed.get("precedents") or {},
     )
 
 

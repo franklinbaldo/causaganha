@@ -1,0 +1,14 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260910t052533z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260910T052533Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "success"
+work_status: "complete"
+summary: "Fixed src/causaganha/analysis/llm_analyzer.py's _build_analysis: both LLM prompts (_SYSTEM_PROMPT, _BATCH_SYSTEM_PROMPT) ask the model for a 'precedents' map (citation -> confirmado/distinto/ultrapassado), DecisionAnalysis.precedents exists to hold it, and scripts/build_gold_benchmark.py + scripts/daily_benchmark_update.py both persist analysis.precedents into gold_benchmark's precedents MAP column -- but _build_analysis copied every other rich field except precedents, so the column was permanently empty for every LLM-labeled row on both call paths (analyze_text, analyze_batch). Found by a dispatched Explore-agent audit scoped to modules not named in wiki/continuous-loop-operational-invariants.md's 21 documented patterns (src/common, src/causaganha_cli, src/tcu_acordaos, src/tse_processual, src/causaganha/analysis|pipeline|publicacoes|storage, and the long tail of scripts/*.py not yet swept), independently re-verified by reading llm_analyzer.py directly before accepting it. Fixed with RED (tests/causaganha/analysis/test_llm_analyzer_build_analysis.py, 2 cases: precedents preserved when present, defaults to {} when absent -- first failed on unmodified code) -> GREEN (one-line addition: precedents=parsed.get('precedents') or {}). Full uv run pytest -q suite green, ruff check and ruff format --check clean. PR opened against main; a handoff is left for CI/merge confirmation following this lineage's established pattern."
+next_move: "A follow-up round should check the opened PR's CI status and mergeable_state, merge it (squash) once green, and archive the handoff -- per the standard pattern this lineage has followed for every prior PR. No other candidate from the same audit sweep (relay.py, tse_processual/*, tcu_acordaos/*, causaganha_cli, publicacoes/service.py, pipeline/ia_s3.py, storage/*, keyword_classifier.py) was both concrete and unambiguously a defect; a future round's fallback audit should widen into src/common/ and the untouched long tail of scripts/*.py this round's Explore-agent scanned but did not deeply read line-by-line (analyze_with_rag.py, batch_embed_decisions.py, ensemble_compare.py, ingest_juris_technique1_batch.py, opf_annotate.py, ref_normativa_prepass.py, train_decision_segmenter.py, and the tcu_acordaos_*.py scripts)."
+goals_advanced: ["run-goals/20260910t052533z-do-the-best-useful-work-availab/goal-llm-analyzer-precedents"]
+evidence: ["run-evidence/20260910t052533z-do-the-best-useful-work-availab/evidence-red-green-tests"]
+checks: ["run-checks/20260910t052533z-do-the-best-useful-work-availab/check-full-suite"]
+---
+
+# RunOutcome
