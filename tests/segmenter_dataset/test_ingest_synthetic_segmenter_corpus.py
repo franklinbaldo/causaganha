@@ -14,6 +14,7 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
+from conftest import make_document
 from segmenter_dataset.schemas import Label
 
 
@@ -28,6 +29,31 @@ def _load_module():
 
 
 _MODULE = _load_module()
+
+
+def test_build_annotation_produces_a_valid_annotation_record() -> None:
+    """``_build_annotation`` must call ``ids.annotation_id`` with only the
+    fields its real signature accepts (document_id, annotator_id,
+    completed_at, labels) -- passing extra keywords the callee does not
+    declare (annotator_config, ontology_version, covered_categories,
+    allowed_unmatched, annotation_method) raises ``TypeError`` on every call,
+    so no document could ever be ingested by this script.
+    """
+    document = make_document()
+    labels = [Label(start=0, end=9, category="cabecalho_inicio")]
+
+    annotation = _MODULE._build_annotation(
+        bucket="seed",
+        info={},
+        document=document,
+        labels=labels,
+        covered_categories=("cabecalho_inicio",),
+    )
+
+    assert annotation.annotation_id.startswith("ann_")
+    assert annotation.document_id == document.document_id
+
+
 _detect_allowed_unmatched = _MODULE._detect_allowed_unmatched
 
 

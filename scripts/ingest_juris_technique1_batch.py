@@ -152,6 +152,37 @@ def _detect_allowed_unmatched(labels: list) -> dict[str, str]:
     }
 
 
+def _build_annotation(
+    document: DocumentRecord,
+    labels: list,
+    allowed_unmatched: dict[str, str],
+    covered_categories: tuple[str, ...],
+) -> AnnotationRecord:
+    annotator_id = "llm_technique1:batch1"
+    annotator_config = AnnotatorConfig(
+        model_family=MODEL_FAMILY,
+        guideline_version=GUIDELINE_VERSION,
+        seeded_with="none",
+    )
+    return AnnotationRecord(
+        annotation_id=build_annotation_id(
+            document_id=document.document_id,
+            annotator_id=annotator_id,
+            completed_at=COMPLETED_AT,
+            labels=[label.model_dump() for label in labels],
+        ),
+        document_id=document.document_id,
+        annotator_id=annotator_id,
+        annotator_config=annotator_config,
+        ontology_version=ONTOLOGY_V8,
+        covered_categories=covered_categories,
+        labels=labels,
+        allowed_unmatched=allowed_unmatched,
+        completed_at=COMPLETED_AT,
+        annotation_method="independent_full_read",
+    )
+
+
 def ingest(
     candidates_path: Path, tagged_dir: Path, output_dir: Path, ontology_categories: set[str]
 ) -> tuple[list[str], dict[str, str]]:
@@ -225,34 +256,7 @@ def ingest(
         store.write_document(document)
 
         covered_categories = tuple(sorted(ontology_categories))
-        annotator_id = "llm_technique1:batch1"
-        annotator_config = AnnotatorConfig(
-            model_family=MODEL_FAMILY,
-            guideline_version=GUIDELINE_VERSION,
-            seeded_with="none",
-        )
-        annotation = AnnotationRecord(
-            annotation_id=build_annotation_id(
-                document_id=document.document_id,
-                annotator_id=annotator_id,
-                annotator_config=annotator_config.model_dump(),
-                ontology_version=ONTOLOGY_V8,
-                covered_categories=covered_categories,
-                labels=[label.model_dump() for label in labels],
-                allowed_unmatched=allowed_unmatched,
-                completed_at=COMPLETED_AT,
-                annotation_method="independent_full_read",
-            ),
-            document_id=document.document_id,
-            annotator_id=annotator_id,
-            annotator_config=annotator_config,
-            ontology_version=ONTOLOGY_V8,
-            covered_categories=covered_categories,
-            labels=labels,
-            allowed_unmatched=allowed_unmatched,
-            completed_at=COMPLETED_AT,
-            annotation_method="independent_full_read",
-        )
+        annotation = _build_annotation(document, labels, allowed_unmatched, covered_categories)
         store.write_annotation(annotation)
         ingested.append(document.document_id)
 
