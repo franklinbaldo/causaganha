@@ -44,14 +44,28 @@ _SCRIPTS_CHECKED = {
     # each run exactly once per invocation, not in a loop) were narrowed to
     # specific exception types instead.
     REPO_ROOT / "scripts" / "pipeline" / "consolidate.py",
+    # scripts/dev/cleanup_deprecated_ia_items.py: read end-to-end. Its 2
+    # remaining bulkhead sites (get_item_metadata, delete_ia_file) are each
+    # called from two different loops over independent IA items/files
+    # (the outer `for item in items` search-results loop, and per-file
+    # deletion/verification loops nested inside it) -- structurally the
+    # same per-item-inside-a-loop-over-many shape ADR 0011 blesses, even
+    # though each wraps a narrow single-HTTP-call surface. The third site
+    # (the initial IA search request) runs once per script invocation, not
+    # in a loop, so it was narrowed instead (see _SCRIPTS_NARROWED).
+    REPO_ROOT / "scripts" / "dev" / "cleanup_deprecated_ia_items.py",
 }
 
 # These scripts/ sites were read end-to-end and are single-shot CLI
-# operations (parsing a local CSV, downloading one fallback manifest URL) --
+# operations (parsing a local CSV, downloading one fallback manifest URL,
+# one DuckDB connect/build call each, one best-effort metrics write) --
 # not per-item work inside a worker-pool loop -- so ADR 0011's bulkhead
 # carve-out does not apply. They must be narrowed to specific exception
 # types instead of citing the ADR.
-_SCRIPTS_NARROWED = {REPO_ROOT / "scripts" / "append_manifest.py"}
+_SCRIPTS_NARROWED = {
+    REPO_ROOT / "scripts" / "append_manifest.py",
+    REPO_ROOT / "scripts" / "generate_catalog.py",
+}
 
 
 def _except_exception_lines_in(paths: set[Path]) -> list[tuple[Path, int, str]]:
@@ -98,13 +112,12 @@ def test_confirmed_scripts_bulkheads_cite_the_bulkhead_adr():
     )
 
 
-def test_append_manifest_narrows_except_exception_to_specific_types():
+def test_narrowed_scripts_have_no_bare_except_exception():
     hits = _except_exception_lines_in(_SCRIPTS_NARROWED)
     assert not hits, (
-        "scripts/append_manifest.py's except-Exception sites are single-shot CLI "
-        "operations, not per-item worker-pool bulkheads -- narrow them to the "
-        "specific exception types they can actually raise instead of citing "
-        "docs/adr/0011:\n"
+        "These scripts/ except-Exception sites are single-shot CLI operations, "
+        "not per-item worker-pool bulkheads -- narrow them to the specific "
+        "exception types they can actually raise instead of citing docs/adr/0011:\n"
         + "\n".join(
             f"{path.relative_to(REPO_ROOT)}:{lineno}: {line.strip()}" for path, lineno, line in hits
         )
