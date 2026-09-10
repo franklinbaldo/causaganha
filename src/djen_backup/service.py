@@ -46,8 +46,6 @@ class PipelineRunConfig:
     max_items: int
     workers: int
     fail_fast: bool
-    publish_live_status: bool
-    skip_if_mostly_complete: bool
     use_proxy: bool
     upload_only: bool = False
     check_only: bool = False
@@ -89,8 +87,6 @@ async def run_pipeline(
         ia_auth=ia_auth,
         dry_run=False,
         fail_fast=config.fail_fast,
-        publish_live_status=config.publish_live_status,
-        skip_if_mostly_complete=config.skip_if_mostly_complete,
         check_only=config.check_only,
         upload_only=config.upload_only,
         observer=observer,

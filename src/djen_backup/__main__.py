@@ -369,8 +369,6 @@ def main(
             max_items=max_items,
             workers=workers,
             fail_fast=fail_fast,
-            publish_live_status=False,
-            skip_if_mostly_complete=False,
             use_proxy=use_proxy,
         )
     )
@@ -399,8 +397,6 @@ def check(
             max_items=0,
             workers=workers,
             fail_fast=fail_fast,
-            publish_live_status=False,
-            skip_if_mostly_complete=False,
             use_proxy=use_proxy,
             check_only=True,
             mode_label="Check Only",
@@ -428,8 +424,6 @@ def upload(
             max_items=max_items,
             workers=workers,
             fail_fast=fail_fast,
-            publish_live_status=False,
-            skip_if_mostly_complete=False,
             use_proxy=use_proxy,
             upload_only=True,
             mode_label="Upload Only",
