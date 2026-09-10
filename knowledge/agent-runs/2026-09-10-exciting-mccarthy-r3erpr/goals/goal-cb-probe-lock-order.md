@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-10-exciting-mccarthy-r3erpr-goal-cb-probe-lock-order"
+run_id: "2026-09-10-exciting-mccarthy-r3erpr"
+goal: "src/djen_backup/archive.py's upload_zip must not let a concurrent per-item lock conflict (ItemBusyError, try_lock=True) waste the CircuitBreaker's single HALF_OPEN probe slot."
+rationale: "upload_zip currently calls circuit_breaker.allow_request() before checking whether the per-item lock is held. allow_request() in HALF_OPEN state atomically consumes the breaker's one test slot and flips it to OPEN, expecting the caller to then attempt IA and report record_success/record_failure. But if the lock is busy, upload_zip raises ItemBusyError immediately after and never touches IA, so no result is ever recorded for that consumed probe -- the breaker is left OPEN with a fresh recovery_timeout for a request that was never actually tried. Under real concurrent load (engine.py runs config.workers upload workers sharing archive.py's process-wide _item_locks/circuit_breaker), a HALF_OPEN probe landing on an item another worker already holds silently and repeatedly delays circuit-breaker recovery after a genuine IA outage clears -- exactly the 'archive.py's token-bucket/circuit-breaker interaction under concurrent load' class of gap multiple prior AgentRun rounds' next_move flagged as unfuzzed, now root-caused to a concrete ordering bug rather than the AsyncLimiter rate limiter itself (confirmed via a background Explore survey this round: AsyncLimiter is a well-tested third-party library, not the actual risk)."
+success_signal: "tests/djen_backup/test_circuit_breaker_lock_interaction.py::test_item_busy_does_not_consume_half_open_probe fails RED on unmodified archive.py (breaker ends OPEN instead of staying HALF_OPEN after an ItemBusyError) and passes GREEN once upload_zip checks the per-item lock before calling circuit_breaker.allow_request(). Full tests/djen_backup/ suite and full Python suite stay green; ruff check/format stay clean; circuit-breaker behavior for the non-busy path (probe consumed, record_success/record_failure called around the real upload attempt) is unchanged."
+status: "achieved"
+---
+
+# Goal: circuit-breaker probe não deve ser gasto por contenção de lock
+
+`upload_zip` verifica o circuit breaker antes do lock por item. Quando o breaker está HALF_OPEN, `allow_request()` consome o único slot de teste e vira OPEN -- mas se o item estiver ocupado (`ItemBusyError`), essa chamada nunca chega a tentar o upload, e nenhum `record_success`/`record_failure` é registrado. O breaker fica OPEN por um `recovery_timeout` inteiro sem nenhum teste real ter sido feito.
