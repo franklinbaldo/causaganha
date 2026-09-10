@@ -4,6 +4,7 @@ import TribunalDetail from '../../components/TribunalDetail.svelte';
 import { TRIBUNAIS } from '../../lib/tribunais.js';
 import { loadContract } from '../../lib/data';
 import { readJson } from '../../lib/readJson';
+import { tribunalOgImagePath } from '../../lib/tribunalOgImage';
 import { css } from '../../../styled-system/css';
 import { badge, navLink } from '../../../styled-system/recipes';
 import fs from 'node:fs';
@@ -38,13 +39,14 @@ const ogDesc = zipCount > 0
   ? `${zipCount} ZIPs de diários arquivados (pares tribunal × dia) de ${earliestDate} a ${latestDate}`
   : `Publicações judiciais do ${tribunalCode} arquivadas no Internet Archive`;
 
-if (import.meta.env.PROD && zipCount > 0) {
+const ogImagePath = tribunalOgImagePath(tribunalCode, zipCount, import.meta.env.PROD);
+if (ogImagePath) {
   const ogSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630"><rect width="1200" height="630" fill="#17221f"/><rect x="48" y="48" width="1104" height="534" fill="#f4f0e6"/><rect x="48" y="48" width="260" height="534" fill="#d5f03f"/><text x="360" y="170" font-family="Arial,sans-serif" font-size="28" fill="#62665f">CausaGanha · DJEN</text><text x="360" y="280" font-family="Arial,sans-serif" font-size="92" font-weight="900" fill="#17221f">${tribunalCode}</text><text x="360" y="335" font-family="Arial,sans-serif" font-size="26" fill="#17221f">${fullName}</text><text x="360" y="430" font-family="monospace" font-size="38" font-weight="700" fill="#17221f">${zipCount.toLocaleString('pt-BR')} ZIPs arquivados</text><text x="360" y="482" font-family="Arial,sans-serif" font-size="22" fill="#62665f">${earliestDate ? earliestDate + ' → ' + latestDate : 'Internet Archive'}</text></svg>`;
   const ogDir = path.resolve('./public/og');
   fs.mkdirSync(ogDir, { recursive: true });
   fs.writeFileSync(path.join(ogDir, `${tribunalCode.toLowerCase()}.svg`), ogSvg);
 }
-const ogImage = new URL(`${BASE}og/${tribunalCode.toLowerCase()}.svg`, Astro.site).toString();
+const ogImage = ogImagePath ? new URL(`${BASE}${ogImagePath}`, Astro.site).toString() : undefined;
 ---
 
 <Layout title={`${tribunalCode} — Publicações — CausaGanha`} description={ogDesc} ogImage={ogImage} fullWidth={true}>
