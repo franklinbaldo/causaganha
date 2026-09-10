@@ -1,8 +1,8 @@
 ---
-checks: []
+checks: ["run-checks/20260910t002623z-do-the-best-useful-work-availab/check-full-validation"]
 decisions: []
-evidence: []
-goals: []
+evidence: ["run-evidence/20260910t002623z-do-the-best-useful-work-availab/evidence-red-green-test"]
+goals: ["run-goals/20260910t002623z-do-the-best-useful-work-availab/goal-remove-dead-data14-bound"]
 id: "runs/20260910T002623Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260910t002623z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260910t002623z-do-the-best-useful-work-availab/reading-active-skills"]
 run_spec: "run-specs/experience"

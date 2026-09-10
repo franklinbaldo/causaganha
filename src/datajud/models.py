@@ -26,7 +26,6 @@ __all__ = [
     "ComplementoTabelado",
     "Movimento",
     "ProcessoCapa",
-    "data14_bound",
     "formatar_cnj",
     "normalizar_cnj",
     "normalizar_data14",
@@ -36,8 +35,6 @@ __all__ = [
 # ``dataAjuizamento`` is a 14-digit string (AAAAMMDDHHMMSS); some records
 # truncate the time part, so hour/minute/second groups are optional.
 _DATA14_RE = re.compile(r"(\d{4})(\d{2})(\d{2})(\d{2})?(\d{2})?(\d{2})?")
-_DATE_BR_RE = re.compile(r"(\d{2})/(\d{2})/(\d{4})")
-_DATE_ISO_RE = re.compile(r"(\d{4})-(\d{2})-(\d{2})")
 
 
 def normalizar_data14(value: str | None) -> str | None:
@@ -53,27 +50,6 @@ def normalizar_data14(value: str | None) -> str | None:
         return None
     ano, mes, dia, hh, mm, ss = match.groups()
     return f"{ano}-{mes}-{dia}T{hh or '00'}:{mm or '00'}:{ss or '00'}"
-
-
-def data14_bound(value: str, *, fim: bool = False) -> str:
-    """Convert DD/MM/AAAA or AAAA-MM-DD to a 14-digit range bound.
-
-    Range queries on ``dataAjuizamento`` compare 14-digit strings, so a bound
-    must cover the whole day: 000000 for the start, 235959 for the end.
-    """
-    raw = value.strip()
-    match_br = _DATE_BR_RE.match(raw)
-    if match_br:
-        base = f"{match_br.group(3)}{match_br.group(2)}{match_br.group(1)}"
-    else:
-        match_iso = _DATE_ISO_RE.match(raw)
-        base = (
-            f"{match_iso.group(1)}{match_iso.group(2)}{match_iso.group(3)}"
-            if match_iso
-            else so_digitos(raw)[:8]
-        )
-    base = (base + "0" * 8)[:8]
-    return base + ("235959" if fim else "000000")
 
 
 class CodigoNome(BaseModel):
