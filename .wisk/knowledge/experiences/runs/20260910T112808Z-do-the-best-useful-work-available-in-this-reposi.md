@@ -1,7 +1,7 @@
 ---
-checks: []
+checks: ["run-checks/20260910t112808z-do-the-best-useful-work-availab/check-verification"]
 decisions: []
-evidence: []
+evidence: ["run-evidence/20260910t112808z-do-the-best-useful-work-availab/evidence-red-green-homepage-widgets"]
 goals: ["run-goals/20260910t112808z-do-the-best-useful-work-availab/goal-audit-scripts-long-tail"]
 id: "runs/20260910T112808Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260910t112808z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260910t112808z-do-the-best-useful-work-availab/reading-active-skills"]
