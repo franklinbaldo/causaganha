@@ -1,0 +1,11 @@
+---
+type: "RunEvidence"
+id: "run-evidence/20260910t165457z-do-the-best-useful-work-availab/evidence-red-green-cleanup-catalog"
+run: "runs/20260910T165457Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "execution"
+reference: "tests/test_except_exception_policy.py"
+summary: "RED: added scripts/dev/cleanup_deprecated_ia_items.py to _SCRIPTS_CHECKED and scripts/generate_catalog.py to _SCRIPTS_NARROWED (renaming the append_manifest-specific test to test_narrowed_scripts_have_no_bare_except_exception since it now covers 2 files generically). Both new assertions failed: cleanup_deprecated_ia_items.py's 3 sites uncited, generate_catalog.py's 4 sites present as bare except-Exception. Read each site: cleanup_deprecated_ia_items.py's get_item_metadata (line 32) and delete_ia_file (line 55) are each called from loops over independent IA items/files (the outer 'for item in items' search-results loop up to 1000 items, and nested per-file verification/deletion loops) -- genuine per-item bulkheads despite a narrow single-HTTP-call surface, so cited docs/adr/0011. Its third site (the one-shot initial IA advancedsearch query, not in any loop) narrowed to (httpx.HTTPError, httpx.RequestError, ValueError). generate_catalog.py's 4 sites (duckdb connect, duckdb table/view creation, save_parquet, a best-effort collect-progress metrics write) are each called at most twice from fixed call sites in main(), never inside a loop over independent units -- all narrowed: (duckdb.Error, OSError) for the three DuckDB-heavy sites, (OSError, TypeError) for the metrics-write site, matching this same file's own pre-existing narrowed-tuple style elsewhere (e.g. its already-narrowed (subprocess.SubprocessError, OSError) and (OSError, ValueError, TypeError) sites). GREEN: both tests pass -- cleanup_deprecated_ia_items.py has exactly 2 except-Exception lines left, both cited; generate_catalog.py has zero. ruff check + ruff format --check clean; tests/test_generate_catalog_progress.py (2 tests, the only existing coverage touching either file) unaffected; full uv run pytest -q green."
+goal: "run-goals/20260910t165457z-do-the-best-useful-work-availab/goal-except-audit-cleanup-catalog"
+---
+
+# RunEvidence
