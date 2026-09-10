@@ -51,6 +51,10 @@ def _relay_token(monkeypatch: pytest.MonkeyPatch) -> None:
         "tjro.jus.br",
         "juris-back.tjro.jus.br",
         "STJ.JUS.BR",
+        "tse.jus.br",
+        "cdn.tse.jus.br",
+        "dadosabertos.tse.jus.br",
+        "TSE.JUS.BR",
     ],
 )
 def test_host_allowed_accepts_allowlisted_hosts(hostname: str) -> None:
@@ -66,6 +70,9 @@ def test_host_allowed_accepts_allowlisted_hosts(hostname: str) -> None:
         "evilstj.jus.br",
         "stj.jus.br.attacker.com",
         "notstj.jus.br.evil.com",
+        "eviltse.jus.br",
+        "tse.jus.br.attacker.com",
+        "notse.jus.br.evil.com",
     ],
 )
 def test_host_allowed_rejects_everything_else(hostname: str | None) -> None:

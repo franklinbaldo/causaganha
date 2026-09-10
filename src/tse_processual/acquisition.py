@@ -10,7 +10,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import BinaryIO, Callable
 from urllib.parse import urlparse
-from urllib.request import urlopen
+
+import httpx
+
+from common.relay import relay_transport_from_env
 
 _ALLOWED_HOST = "cdn.tse.jus.br"
 _CHUNK_SIZE = 1024 * 1024
@@ -43,6 +46,50 @@ class DownloadEvidence:
 Opener = Callable[[str], BinaryIO]
 
 
+def _make_client() -> httpx.Client:
+    """Configured client for official TSE downloads.
+
+    Routes through the relay (see ``common.relay``) when ``RELAY_URL``/
+    ``RELAY_TOKEN`` are set — issue #985: TSE's Akamai front 403s every
+    path from this sandbox's egress, the same WAF-block class the relay
+    bypasses for STJ/TJRO. Direct connection otherwise (local/dev default).
+    """
+    return httpx.Client(timeout=120, follow_redirects=True, transport=relay_transport_from_env())
+
+
+_CLIENT = _make_client()
+
+
+class _StreamingResponse:
+    """Adapts an httpx streaming response to the ``urlopen``-style Opener contract."""
+
+    def __init__(self, response: httpx.Response) -> None:
+        self._response = response
+        self._iterator = response.iter_bytes(_CHUNK_SIZE)
+
+    def geturl(self) -> str:
+        """Return the true final URL — the real destination, even when relayed."""
+        return str(self._response.url)
+
+    def read(self, _size: int = _CHUNK_SIZE) -> bytes:
+        """Return the next chunk, or ``b""`` once the response is exhausted."""
+        return next(self._iterator, b"")
+
+    def __enter__(self) -> _StreamingResponse:
+        return self
+
+    def __exit__(self, *_exc_info: object) -> None:
+        self._response.close()
+
+
+def _default_opener(url: str) -> _StreamingResponse:
+    """Default Opener: GET via ``_CLIENT``, transparently relayed when configured."""
+    request = _CLIENT.build_request("GET", url)
+    response = _CLIENT.send(request, stream=True)
+    response.raise_for_status()
+    return _StreamingResponse(response)
+
+
 def validate_official_url(url: str) -> None:
     """Reject non-HTTPS and non-TSE CDN URLs."""
     parsed = urlparse(url)
@@ -62,7 +109,7 @@ def download_official_zip(
     url: str,
     destination: Path,
     *,
-    opener: Opener = urlopen,
+    opener: Opener = _default_opener,
     acquired_at: str | None = None,
 ) -> DownloadEvidence:
     """Download one official ZIP atomically and record size/checksum provenance."""

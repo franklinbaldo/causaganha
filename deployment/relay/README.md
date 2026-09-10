@@ -1,12 +1,20 @@
-# HTTP relay (STJ / TJRO)
+# HTTP relay (STJ / TJRO / TSE)
 
 Cloud Run function (gen2, Python 3.12, `southamerica-east1`) that forwards a
-single HTTP request to an allowlisted host (`*.stj.jus.br`, `*.tjro.jus.br`).
-Exists because GitHub-hosted runners are blocked at the network level for
-both sources — STJ's WAF returns 403 for runner IP ranges
+single HTTP request to an allowlisted host (`*.stj.jus.br`, `*.tjro.jus.br`,
+`*.tse.jus.br`). Exists because GitHub-hosted runners are blocked at the
+network level for STJ and TJRO — STJ's WAF returns 403 for runner IP ranges
 (`STJWAFBlockedError`), and TJRO's backend times out connecting from them —
 while this function's egress IP is not blocked (validated live, 2026-07-13,
 before any of this was built — see the Fase 0 note below).
+
+`*.tse.jus.br` was added to the allowlist for issue #985 (`cdn.tse.jus.br`
+returns an Akamai edgesuite.net 403 from the sandbox that discovered it) —
+the same WAF-block *class* this relay already bypasses for STJ/TJRO. That
+part is **not yet validated live**: nobody has redeployed this function
+with the wider allowlist and confirmed from `southamerica-east1` that
+Akamai doesn't also block this region. Do that before treating #985 as
+unblocked.
 
 Serverless platforms don't support proxy `CONNECT`, so the repo routes
 through this via a custom httpx transport (`src/common/relay.py`) instead of
@@ -91,8 +99,13 @@ the free tier by a wide margin — expected cost is $0/month.
 - `src/common/relay.py` — `RelayTransport`/`AsyncRelayTransport`, activated
   by `RELAY_URL`/`RELAY_TOKEN` env vars; falls back to a direct connection
   when either is unset (local/dev default, zero impact).
-- `src/stj_acordaos/client.py`, `src/tjro_juris/client.py` — pass
+- `src/stj_acordaos/client.py`, `src/tjro_juris/client.py`,
+  `src/tse_processual/acquisition.py` — pass
   `transport=relay_transport_from_env()` into their `httpx.Client`.
 - `.github/workflows/stj-sync.yml`, `tjro-sync.yml` — `RELAY_URL`/
   `RELAY_TOKEN` (GitHub Secrets) are exported **only** on the
-  download/crawl step, never on the IA upload step.
+  download/crawl step, never on the IA upload step. No TSE sync workflow
+  exists yet — `src/tse_processual` is currently exercised by
+  `scripts/inspect_tse_processual.py` / `scripts/profile_tse_processual.py`,
+  run by hand (see issue #985); wire `RELAY_URL`/`RELAY_TOKEN` into whatever
+  runs those once they're runnable from CI.

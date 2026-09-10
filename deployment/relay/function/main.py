@@ -4,8 +4,16 @@ Built because Cloud Run functions (gen2, southamerica-east1) can reach both
 scon.stj.jus.br and juris-back.tjro.jus.br with real content — validated in
 Fase 0 with a throwaway probe function before this was written (GitHub
 Actions runners are blocked; these serverless egress IPs are not, as of
-2026-07-13). This is not an open proxy: only *.stj.jus.br and *.tjro.jus.br
-are forwardable, and every request must carry a valid ``X-Relay-Token``.
+2026-07-13). This is not an open proxy: only *.stj.jus.br, *.tjro.jus.br and
+*.tse.jus.br are forwardable, and every request must carry a valid
+``X-Relay-Token``.
+
+``*.tse.jus.br`` (issue #985) is not validated the same way yet: the block
+observed there (an Akamai edgesuite.net 403 on cdn.tse.jus.br /
+dadosabertos.tse.jus.br) is the same WAF-block *class* the relay bypasses
+for STJ/TJRO, but nobody has redeployed this function with the wider
+allowlist and confirmed live that this region's egress isn't Akamai-blocked
+too. Confirm that before relying on it.
 
 Contract:
 - Destination URL comes in the ``X-Relay-Url`` request header.
@@ -36,8 +44,8 @@ if TYPE_CHECKING:
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("relay")
 
-_ALLOWED_SUFFIXES = (".stj.jus.br", ".tjro.jus.br")
-_ALLOWED_EXACT = frozenset({"stj.jus.br", "tjro.jus.br"})
+_ALLOWED_SUFFIXES = (".stj.jus.br", ".tjro.jus.br", ".tse.jus.br")
+_ALLOWED_EXACT = frozenset({"stj.jus.br", "tjro.jus.br", "tse.jus.br"})
 
 # Headers that must never be blindly forwarded: hop-by-hop headers (RFC 9110
 # §7.6.1) plus Content-Length (httpx recomputes it from the body it sends)
