@@ -26,6 +26,7 @@ evidence_ids:
   - "2026-09-10-exciting-mccarthy-yd5lu0-evidence-red-test"
   - "2026-09-10-exciting-mccarthy-yd5lu0-evidence-green-test"
   - "2026-09-10-exciting-mccarthy-yd5lu0-evidence-diff"
+  - "2026-09-10-exciting-mccarthy-yd5lu0-evidence-pr-1445-opened"
 check_ids:
   - "2026-09-10-exciting-mccarthy-yd5lu0-check-okf-parser-baseline"
   - "2026-09-10-exciting-mccarthy-yd5lu0-check-red-test"
