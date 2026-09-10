@@ -93,10 +93,14 @@ def _discover_parquet_urls(
     """Find all Parquet URLs for a given table (e.g. 'comunicacoes' or 'advogados').
 
     The manifest schema varies slightly between codepaths; we try the most common
-    columns and fall back gracefully. Filters by year on the `date` column when
-    provided.
+    columns and fall back gracefully. Filters by year when provided, matching
+    either the `date` column (legacy per-day items) or the year suffix of
+    `ia_item` (current djen-{tribunal}-{year} consolidated layout, where `date`
+    is NULL because the year lives in the item id, not per file).
     """
-    year_filter = f"AND date LIKE '{year}-%'" if year is not None else ""
+    year_filter = (
+        f"AND (date LIKE '{year}-%' OR ia_item LIKE '%-{year}')" if year is not None else ""
+    )
     candidate_sqls = [
         f"""
         SELECT DISTINCT ia_url
