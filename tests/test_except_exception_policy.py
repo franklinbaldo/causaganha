@@ -54,6 +54,18 @@ _SCRIPTS_CHECKED = {
     # (the initial IA search request) runs once per script invocation, not
     # in a loop, so it was narrowed instead (see _SCRIPTS_NARROWED).
     REPO_ROOT / "scripts" / "dev" / "cleanup_deprecated_ia_items.py",
+    # build_gold_benchmark.py and daily_benchmark_update.py: each wraps one
+    # LLMAnalyzer call inside a loop over many independent batches/documents
+    # (`for batch in track(batches, ...)`, `for ... in track(selected_for_labeling,
+    # ...)`) and continues to the next iteration on failure rather than
+    # aborting -- the same shape as the four sites ADR 0011 already blesses.
+    # Neither file uses structlog, so ruff's own `.exception(...)` BLE001
+    # exemption doesn't apply here; each keeps its `noqa: BLE001` alongside
+    # the ADR citation, and now also calls `console.print_exception()` to
+    # actually satisfy the ADR's full-traceback-logging condition instead of
+    # only printing the exception's string form.
+    REPO_ROOT / "scripts" / "build_gold_benchmark.py",
+    REPO_ROOT / "scripts" / "daily_benchmark_update.py",
 }
 
 # These scripts/ sites were read end-to-end and are single-shot CLI
@@ -65,6 +77,14 @@ _SCRIPTS_CHECKED = {
 _SCRIPTS_NARROWED = {
     REPO_ROOT / "scripts" / "append_manifest.py",
     REPO_ROOT / "scripts" / "generate_catalog.py",
+    # batch_embed_decisions.py's 3 sites (file upload, batch-job creation, one
+    # job's status poll) are each single-shot or poll-the-same-single-resource
+    # operations, not per-item work inside a loop over many independent units
+    # -- despite the file's own prior noqa comment implying otherwise, no site
+    # here is actually a bulkhead. Narrowed to google.genai.errors.APIError,
+    # importable unconditionally since the module already does
+    # `from google import genai` at load time (the "lab" dependency group).
+    REPO_ROOT / "scripts" / "batch_embed_decisions.py",
 }
 
 
@@ -104,11 +124,11 @@ def test_every_except_exception_in_src_cites_the_bulkhead_adr():
 def test_confirmed_scripts_bulkheads_cite_the_bulkhead_adr():
     offenders = _offenders(_except_exception_lines_in(_SCRIPTS_CHECKED))
     assert not offenders, (
-        "These scripts/ per-item bulkheads (annotate_with_llm.py's per-batch/"
-        "per-document LLM calls, embed_v2.py's per-date/tribunal IA upload) "
-        "already satisfy docs/adr/0011's substantive test (per-item work inside "
-        "a loop, full traceback logged via logger.exception) but are missing "
-        "the required citation:\n" + "\n".join(offenders)
+        "These scripts/ sites already satisfy docs/adr/0011's substantive test "
+        "(per-item work inside a loop over many independent units, with the "
+        "full exception surfaced for postmortem via logger.exception or, where "
+        "no logger exists, console.print_exception) but are missing the "
+        "required citation:\n" + "\n".join(offenders)
     )
 
 

@@ -22,6 +22,7 @@ from pathlib import Path
 
 import duckdb
 from google import genai
+from google.genai import errors as genai_errors
 from rich.console import Console
 from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
@@ -186,7 +187,7 @@ def main() -> None:
             },
         )
         console.print(f"[green]✓ Arquivo enviado: {uploaded_file.name}[/green]\n")
-    except Exception as e:  # noqa: BLE001 — google-genai raises SDK-specific errors that are not importable without the optional dependency installed
+    except genai_errors.APIError as e:
         console.print(f"[red]Erro no upload: {e}[/red]")
         return
 
@@ -202,7 +203,7 @@ def main() -> None:
             },
         )
         console.print(f"[green]✓ Batch job criado: {job.name}[/green]\n")
-    except Exception as e:  # noqa: BLE001 — google-genai raises SDK-specific errors that are not importable without the optional dependency installed
+    except genai_errors.APIError as e:
         console.print(f"[red]Erro ao criar job: {e}[/red]")
         return
 
@@ -250,7 +251,7 @@ def main() -> None:
                     f"[dim]Para verificar depois: client.batches.get(name='{job.name}')[/dim]\n",
                 )
                 return
-            except Exception as e:  # noqa: BLE001 — google-genai raises SDK-specific errors that are not importable without the optional dependency installed
+            except genai_errors.APIError as e:
                 console.print(f"\n[red]Erro ao verificar status: {e}[/red]")
                 time.sleep(check_interval)
 

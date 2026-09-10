@@ -221,8 +221,9 @@ def main() -> int:
                 console.print(
                     f"  [cyan]ID {int_id}[/cyan]: LLM={analysis.outcome} | Heurística={heur_outcome} (conf: {heur_conf:.2f})"  # noqa: E501
                 )
-            except Exception as e:  # noqa: BLE001 — LLMAnalyzer re-raises the provider's own exception (llm_analyzer.py), whose type depends on the LiteLLM backend in use
+            except Exception as e:  # noqa: BLE001 -- per-document bulkhead, see docs/adr/0011 (LLMAnalyzer re-raises the provider's own exception, whose type depends on the LiteLLM backend in use)
                 console.print(f"[red]Erro ao processar ID {int_id}: {e}[/red]")
+                console.print_exception()
 
     asyncio.run(process_all())
 
