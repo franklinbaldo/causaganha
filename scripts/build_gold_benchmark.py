@@ -305,8 +305,9 @@ def main() -> int:
                             console.print(
                                 f"[yellow]  Sem resultado para ID {int_id} no batch[/yellow]"
                             )
-                except Exception as e:  # noqa: BLE001 — LLMAnalyzer re-raises the provider's own exception (llm_analyzer.py), whose type depends on the LiteLLM backend in use
+                except Exception as e:  # noqa: BLE001 -- per-batch bulkhead, see docs/adr/0011 (LLMAnalyzer re-raises the provider's own exception, whose type depends on the LiteLLM backend in use)
                     console.print(f"[red]  Falha no batch: {e}[/red]")
+                    console.print_exception()
 
                 # Sleep to avoid hitting Gemini's strict 15 RPM (requests per minute) rate limit
                 await asyncio.sleep(5)
