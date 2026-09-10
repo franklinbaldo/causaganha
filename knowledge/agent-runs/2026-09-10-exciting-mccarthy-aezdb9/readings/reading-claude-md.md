@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-10-exciting-mccarthy-aezdb9-reading-claude-md"
+run_id: "2026-09-10-exciting-mccarthy-aezdb9"
+subject: "claude_md"
+reference: "CLAUDE.md"
+finding: "Read in full via the system-provided project instructions. Correctness rules unchanged from prior rounds' reads: djen_raw is the transport code (never a verdict on availability), 403 must never be treated as absent, genuine absent is 404/400/200-with-'Sem comunicações'-body, and the ~79K legacy-row false-positive issue is already closed via sync-manifest.parquet as sole source of truth (Fase 1-3 of docs/planning/manifest-source-of-truth.md). 'Rules of the road' also documents the per-item lock + circuit-breaker interaction in src/djen_backup/archive.py that the previous round (r3erpr, merged PR #1433 earlier today) fixed an ordering bug in. Also separately discovered while reading .claude/hourly-loop.md (not one of the four mandated readings, but adjacent OKF-runtime context): the repo has migrated its hourly loop to a Wisk-based runtime and explicitly marks knowledge/agent-runs/, .claude/agent-run-scaffold.md and the AgentRun/AgentReading/AgentGoal/AgentDecision/AgentEvidence/AgentCheck types as legacy, preserved for audit but not meant for new AgentRuns going forward. This session's own scheduled-task prompt, however, explicitly and specifically directs creating this run.md from the legacy scaffold in knowledge/agent-runs/ -- and a same-day prior round (2026-09-10-exciting-mccarthy-r3erpr) already did exactly that and successfully merged PR #1433 using this mechanism a few hours before this round started. Treated as: this scheduled-task track is a separate, still-active automation from the Wisk-based hourly loop hourly-loop.md describes, so the scaffold-based AgentRun flow this session's prompt asks for remains the correct mechanism to follow here -- flagged as an AgentDecision below rather than silently deviating from either document."
+---
+
+# Leitura de CLAUDE.md
+
+Releitura completa via as instruções de projeto fornecidas pelo sistema. Nenhuma divergência de correção encontrada em relação às rodadas anteriores. Achado adicional relevante para a rodada: `.claude/hourly-loop.md` marca `knowledge/agent-runs/` e os types `AgentRun`/... como legado do "loop horário" baseado em Wisk, mas o prompt desta própria sessão pede explicitamente o fluxo legado via `.claude/agent-run-scaffold.md` -- tratado como uma trilha de automação separada e ainda ativa (ver decisão registrada nesta rodada).
