@@ -1,0 +1,14 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260910t134021z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260910T134021Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "updated"
+work_status: "complete"
+summary: "Resumed handoffs/handoff-pr-1423-awaiting-ci from the prior Experience round. Revalidated repository state against the handoff baseline, confirmed PR #1423's 9/9 checks green (CodeQL x4, lint, tests (tjro), web, GitGuardian Security Checks) and mergeable_state clean with zero reviews/comments, merged it as squash commit 53608da78cf2eb3ad5b06ce6d83f244bb9834428, and archived the handoff. Extended wiki/continuous-loop-operational-invariants.md with a new pattern (a policy enforcement test scoped too narrowly -- tests/test_except_exception_policy.py's src/-only scan missed a structurally identical ADR-0011 bulkhead violation in scripts/annotate_with_llm.py) and lineage bullets. Both the .wisk/knowledge and legacy knowledge/ OKF bundles remain structurally conformant with zero diagnostics after the edits."
+next_move: "The repo-wide grep from this session's Experience round found ~23 more bare 'except Exception' sites across 8 other scripts/ files (append_manifest.py, batch_embed_decisions.py, build_gold_benchmark.py, daily_benchmark_update.py, dev/cleanup_deprecated_ia_items.py, generate_catalog.py, pipeline/consolidate.py, pipeline/embed_v2.py) that are still un-audited against ADR 0011 -- several already carry inline '# noqa: BLE001' reasoning instead of an ADR citation, others have no comment at all. A future round could pick one or two of these files, read them end-to-end, and classify each site as a genuine per-item bulkhead (cite the ADR, mirroring this round's fix) or a single-shot CLI top-level catch-all that should narrow to specific types instead -- this needs per-site judgment, not a mechanical blanket fix, so it's sized as a multi-round follow-on rather than one PR. Separately, the scripts/*.py long-tail audit named by PR #1408's original next_move still has analyze_with_rag.py, augment_segmenter_data.py, bootstrap_training_corpus.py, classify_from_batch_embeddings.py, evaluate_regex_segmenter.py, ia_practicality_probe.py, stress_test_djen.py, train_decision_segmenter.py, and vendor_pje_swagger.py left to read end-to-end. All 16 open GitHub issues remain the same blocked/deprioritized set verified in knowledge/backlog/issue-<n>.md."
+goals_advanced: ["run-goals/20260910t134021z-do-the-best-useful-work-availab/goal-consolidate-pr-1423"]
+evidence: ["run-evidence/20260910t134021z-do-the-best-useful-work-availab/evidence-wiki-extended"]
+checks: ["run-checks/20260910t134021z-do-the-best-useful-work-availab/check-handoff-environment,run-checks/20260910t134021z-do-the-best-useful-work-availab/check-handoff-disposition,run-checks/20260910t134021z-do-the-best-useful-work-availab/check-grounding"]
+---
+
+# RunOutcome
