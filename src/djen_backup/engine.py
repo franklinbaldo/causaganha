@@ -52,6 +52,8 @@ STAGING_DIR = Path("data/staging")
 MAX_STAGED_FILES = 15
 DJEN_SAFE_CONCURRENCY_FILE = Path("data/djen-safe-concurrency.json")
 DEFAULT_DJEN_CONCURRENCY = 4
+SAVE_INTERVAL_SECONDS = 180.0
+IA_UPLOAD_INTERVAL_SECONDS = 600.0
 
 
 def load_djen_safe_concurrency() -> int:
@@ -470,8 +472,15 @@ async def run_pipeline(
 
     circuit_breaker = CircuitBreaker()
     last_save = last_ia_upload = time.monotonic()
-    save_interval, ia_upload_interval = 180.0, 600.0
+    save_interval, ia_upload_interval = SAVE_INTERVAL_SECONDS, IA_UPLOAD_INTERVAL_SECONDS
     checkers_done = asyncio.Event()
+    # Fire-and-forget asyncio.create_task() calls keep no strong reference
+    # of their own -- per the asyncio docs the event loop only holds a weak
+    # one, so an unreferenced task may be garbage-collected mid-flight.
+    # Tracking every background upload task here and joining them before
+    # run_pipeline returns keeps the periodic-upload safety net (CLAUDE.md:
+    # "protects against crashes") from being silently abandoned at shutdown.
+    background_tasks: set[asyncio.Task[None]] = set()
 
     last_stats_log = last_notify = time.monotonic()
     stats_log_interval, notify_interval = 30.0, 0.5
@@ -586,7 +595,9 @@ async def run_pipeline(
                 manifest.save_to_disk(config.manifest_file)
             if time.monotonic() - last_ia_upload > ia_upload_interval and not config.dry_run:
                 last_ia_upload = time.monotonic()
-                asyncio.create_task(_upload_manifest_background())
+                bg_task = asyncio.create_task(_upload_manifest_background())
+                background_tasks.add(bg_task)
+                bg_task.add_done_callback(background_tasks.discard)
 
     async def download_worker(client: httpx.AsyncClient) -> None:
         while not abort_event.is_set() and not deadline_event.is_set():
@@ -717,6 +728,9 @@ async def run_pipeline(
             monitor_task.cancel()
             with contextlib.suppress(asyncio.CancelledError):
                 await monitor_task
+
+            if background_tasks:
+                await asyncio.gather(*background_tasks, return_exceptions=True)
 
             if circuit_breaker.was_opened:
                 log.warning(
