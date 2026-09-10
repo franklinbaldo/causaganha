@@ -330,13 +330,17 @@ def generate_collect_progress(
     }
 
 
-def generate_consolidate_progress(manifest: list[dict]) -> dict:
+def generate_consolidate_progress(manifest: list[dict], end_date: date) -> dict:
     """Generate consolidation progress metrics for dashboard.
 
     Based on manifest data (what parquets were consolidated and uploaded to IA).
+    ``end_date`` is the live upper bound of the target range (mirrors
+    ``generate_omission_stats``'s own ``end_date`` parameter) — a frozen date here
+    would stop the window from growing while real consolidated dates keep
+    accumulating past it, corrupting ``progress_pct``.
     """
     target_start = date(2024, 1, 1)
-    target_end = date(2026, 2, 3)
+    target_end = end_date
     target_days = (target_end - target_start).days + 1
 
     # Find dates with consolidated parquets or _consolidated.marker
@@ -1454,7 +1458,7 @@ def main() -> int:
         logger.exception("collect_progress_failed", error=str(e))
 
     # Generate consolidate progress (parquets)
-    consolidate_data = generate_consolidate_progress(manifest)
+    consolidate_data = generate_consolidate_progress(manifest, end_date)
 
     # Save current state (JSON)
     consolidate_progress_path = output_dir / "consolidate-progress.json"
