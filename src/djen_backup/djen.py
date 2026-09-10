@@ -199,9 +199,20 @@ async def download_zip(
     for i in range(DOWNLOAD_SEGMENTS):
         start = i * segment_size
         end = total_size - 1 if i == DOWNLOAD_SEGMENTS - 1 else (i + 1) * segment_size - 1
-        tasks.append(_download_segment(client, url, start, end))
+        tasks.append(asyncio.ensure_future(_download_segment(client, url, start, end)))
 
-    segments = await asyncio.gather(*tasks)
+    try:
+        segments = await asyncio.gather(*tasks)
+    except BaseException:
+        # asyncio.gather does not cancel sibling tasks when one fails --
+        # left alone they keep running in the background after this
+        # function has already propagated the failure, wasting DJEN
+        # rate-limit budget and connections on a download nobody awaits
+        # the result of anymore. Cancel and drain them before re-raising.
+        for task in tasks:
+            task.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
+        raise
 
     # Write all segments to temp file
     with tempfile.NamedTemporaryFile(suffix=".zip", delete=False) as tmp:
