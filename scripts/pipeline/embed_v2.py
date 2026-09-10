@@ -235,7 +235,7 @@ def upload_embeddings_to_ia(
                 time.sleep(5)
             logger.error("upload_failed", date=date)
             return False
-    except Exception as e:
+    except Exception as e:  # per-date/tribunal upload bulkhead, see docs/adr/0011
         logger.exception("upload_exception", date=date, error=str(e))
         return False
 

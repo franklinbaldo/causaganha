@@ -53,7 +53,7 @@ def download_existing_manifest() -> list[dict]:
                     return [json.loads(line) for line in content.splitlines() if line.strip()]
         except urllib.error.URLError as e:
             logger.info("no_existing_manifest_or_error", url=url, error=str(e))
-        except Exception as e:
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError) as e:
             logger.exception("error_downloading_manifest", url=url, error=str(e))
 
     return []
@@ -97,7 +97,7 @@ def get_new_uploads() -> list[dict]:
                     "downloaded_at": updated_at,
                 }
             )
-    except Exception as e:
+    except (OSError, csv.Error, UnicodeDecodeError) as e:
         logger.exception("error_reading_sync_manifest", error=str(e))
         return []
 
