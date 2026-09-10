@@ -446,7 +446,7 @@ def annotate_batch(
             if doc_id and isinstance(spans, list):
                 result[str(doc_id)] = spans
 
-    except Exception:
+    except Exception:  # per-batch bulkhead, see docs/adr/0011
         logger.exception("batch_llm_annotation_failed")
         return {}
     else:
@@ -486,7 +486,7 @@ def annotate_text(
             logger.error("llm_invalid_format", raw=content[:200])
             return []
 
-    except Exception:
+    except Exception:  # per-document bulkhead, see docs/adr/0011
         logger.exception("llm_annotation_failed")
         return []
     else:
