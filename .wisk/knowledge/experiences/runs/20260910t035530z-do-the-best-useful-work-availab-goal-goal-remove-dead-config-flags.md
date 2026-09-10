@@ -1,0 +1,12 @@
+---
+type: "RunGoal"
+id: "run-goals/20260910t035530z-do-the-best-useful-work-availab/goal-remove-dead-config-flags"
+run: "runs/20260910T035530Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "task-advance"
+goal: "Delete SyncConfig.skip_if_mostly_complete and SyncConfig.publish_live_status (and their PipelineRunConfig siblings) -- dead fields set at every construction site but never read anywhere, and never set to anything but their hardcoded False default by any CLI flag."
+rationale: "This round's own preceding Wiki consolidation (this session's runs/20260910T035023Z, extending the 19th wiki pattern) named SyncConfig's four unaudited booleans -- skip_if_mostly_complete, publish_live_status, dry_run, fail_fast -- as the concrete next lead after fixing check_only (#1397) and upload_only (#1403). Auditing found dry_run and fail_fast are both genuinely read and honored (engine.py:589/768 and 213/218/649 respectively). But grep -rn '.skip_if_mostly_complete' and '.publish_live_status' across src/ and tests/ showed each is assigned at every construction site (service.py, __main__.py's three subcommands) but never read as an attribute anywhere afterward; git log -S confirms both were introduced in the RFC 0013 Cyclopts migration (commit 63428b0) already hardcoded to False with no CLI flag ever exposing them. This is not the check_only/upload_only 'documented contract silently unenforced' bug shape (there is no promised behavior anywhere to honor) -- it is this repository's separate, equally well-precedented dead-code-deletion pattern (tests/consolidate/test_candidates_module_surface.py, PR #1332's Catalog surface, PR #1399's data14_bound): a field nothing calls and nothing reads delivers no product value to keep."
+success_signal: "tests/djen_backup/test_dead_config_fields_removed.py: two module-surface tests asserting dataclasses.fields(SyncConfig)/dataclasses.fields(PipelineRunConfig) no longer include skip_if_mostly_complete or publish_live_status. RED on unmodified code (fields present) -> GREEN after deleting both fields from SyncConfig (engine.py), PipelineRunConfig (service.py), their pass-through in service.run_pipeline, the three __main__.py subcommand call sites, and updating tests/cli_contract/test_semantic_argv_contract.py's full-equality PipelineRunConfig expectation. Full tests/djen_backup/ + tests/cli_contract/ suites and the broader repo suite stay green; ruff check/format stay clean."
+status: "achieved"
+---
+
+# RunGoal
