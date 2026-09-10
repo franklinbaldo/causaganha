@@ -1,0 +1,14 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260910t072709z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260910T072709Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "success"
+work_status: "complete"
+summary: "Extended the STJ/TJRO WAF-bypass relay (deployment/relay/, common/relay.py) to TSE for issue #985: deployment/relay/function/main.py now allowlists *.tse.jus.br (cdn.tse.jus.br, dadosabertos.tse.jus.br), with RED-then-GREEN coverage in tests/deployment/relay/test_main.py. src/tse_processual/acquisition.py's download_official_zip() now defaults to a relay-aware httpx opener (_make_client()/_default_opener(), mirroring src/stj_acordaos/client.py and src/tjro_juris/client.py's transport=relay_transport_from_env() pattern), with 6 new tests in tests/tse_processual/test_acquisition.py proving: relay picked up only when RELAY_URL/RELAY_TOKEN set, direct connection otherwise, correct chunked streaming, redirect-following, and -- the one that actually mattered here -- that geturl() reports the true TSE destination (not the relay's own URL) even when relayed, which download_official_zip()'s validate_official_url(final_url) check depends on. Full pytest suite, ruff check and ruff format --check all green. Updated deployment/relay/README.md and knowledge/backlog/issue-985.md's unblock_condition to describe this as a code-ready-but-not-live-verified third unblock path (last_verified_run_id/last_verified_at deliberately untouched, since no live TSE network check was redone this round). Committed as 1f481f9 on claude/exciting-mccarthy-gi6n71."
+next_move: "This code cannot be live-verified from this sandbox (same Akamai block that motivated it also blocks this session). Next natural step: a session with gcloud credentials should redeploy the Cloud Run relay function with the widened allowlist and run scripts/inspect_tse_processual.py / profile_tse_processual.py with RELAY_URL/RELAY_TOKEN set from that redeploy, confirming southamerica-east1 egress isn't Akamai-blocked the way this sandbox's is. If it works, issue #985 moves from 'blocked' to actually unblockable in one round; if Akamai blocks that region too, the backlog item should say so and this relay path should be marked a dead end for TSE specifically. Separately, no GitHub PR/issue in the 16-issue backlog was otherwise actionable this round (all pre-verified blocked/deprioritized per knowledge/backlog/); the one open PR (#1353) is an unrelated Dependabot bump."
+goals_advanced: ["run-goals/20260910t072709z-do-the-best-useful-work-availab/goal-tse-relay-wiring"]
+evidence: ["run-evidence/20260910t072709z-do-the-best-useful-work-availab/evidence-allowlist-red-green", "run-evidence/20260910t072709z-do-the-best-useful-work-availab/evidence-acquisition-relay-wiring"]
+checks: ["run-checks/20260910t072709z-do-the-best-useful-work-availab/check-full-suite"]
+---
+
+# RunOutcome
