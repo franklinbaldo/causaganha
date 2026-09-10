@@ -1,0 +1,15 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260910t114603z-do-the-best-useful-work-availab/outcome-final"
+run: "runs/20260910T114603Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "updated"
+work_status: "complete"
+summary: "Resumed handoffs/handoff-pr-1419-awaiting-ci from the prior Experience round. Revalidated repository state against the handoff baseline, confirmed PR #1419's 9/9 checks green (CodeQL x4, lint, tests (tjro), web, GitGuardian Security Checks) and mergeable_state clean with zero reviews/comments, merged it as squash commit e7366771f2481cf6a169230783c959123e59cb04, and archived the handoff. Extended wiki/continuous-loop-operational-invariants.md with the twenty-sixth pattern (generate_homepage_widgets.py's NULL-date year filter silently emptying the public homepage widgets, a fresh instance of the \"migration leaves a stale assumption behind\" family) and two lineage bullets. Both the .wisk/knowledge and legacy knowledge/ OKF bundles remain structurally conformant with zero diagnostics after the edits."
+next_move: "The next round should grep for the same defect class this round found -- a filter/query requiring a column the current djen-{tribunal}-{year} consolidated layout leaves NULL -- across the rest of scripts/*.py and web/src/queries/*.qmd, since generate_homepage_widgets.py is unlikely to be the only manifest consumer written before that layout migration landed. Separately, the audit agent that found this round's bug also flagged a second, not-yet-fixed issue in the same function: _activity_summary's \"last closed month\" query needs the previous month's data, which in January falls in the previous calendar year, but com_urls/adv_urls are only discovered for the single `year` CLI arg passed to build_widgets() -- so the January case will break independently of the NULL-date bug once it recurs (not urgent until January, but worth fixing proactively, e.g. by discovering both `year` and `year-1` when the current UTC month is January). Beyond that: the scripts/*.py long-tail audit (PR #1408's original next_move) still has analyze_with_rag.py, annotate_with_llm.py (two uncommented except Exception: blocks at lines 449/489 flagged for closer review), augment_segmenter_data.py, batch_embed_decisions.py, bootstrap_training_corpus.py, build_gold_benchmark.py, classify_from_batch_embeddings.py, evaluate_regex_segmenter.py, ia_practicality_probe.py, stress_test_djen.py, train_decision_segmenter.py, and vendor_pje_swagger.py left to read end-to-end."
+goals_advanced: ["run-goals/20260910t114603z-do-the-best-useful-work-availab/goal-consolidate-pr-1419"]
+evidence: ["run-evidence/20260910t114603z-do-the-best-useful-work-availab/evidence-wiki-extended"]
+checks: ["run-checks/20260910t114603z-do-the-best-useful-work-availab/check-handoff-environment,run-checks/20260910t114603z-do-the-best-useful-work-availab/check-handoff-disposition,run-checks/20260910t114603z-do-the-best-useful-work-availab/check-grounding"]
+experiences_recorded: []
+---
+
+# RunOutcome
