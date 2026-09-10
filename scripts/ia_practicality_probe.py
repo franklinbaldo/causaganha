@@ -82,7 +82,6 @@ def probe_parquet(item_id: str, filename: str) -> dict:
         "rows": 0,
         "columns": [],
         "errors": [],
-        "warnings": [],
     }
 
     con = duckdb.connect()
@@ -127,7 +126,6 @@ def main() -> None:
         "items_probed": 0,
         "tables_checked": 0,
         "hard_failures": 0,
-        "warnings": 0,
         "details": [],
     }
 
@@ -151,8 +149,6 @@ def main() -> None:
                     table=result["table"],
                     errors=result["errors"],
                 )
-            if result["warnings"]:
-                report["warnings"] += len(result["warnings"])
             item_results.append(result)
 
         report["details"].append({"item_id": item_id, "tables": item_results})
