@@ -153,12 +153,12 @@ def _activity_summary(
     com_urls: list[str],
     adv_urls: list[str],
     _year: int,
+    now: datetime,
 ) -> dict[str, Any]:
     """Widget 1: last closed month summary (intimations, OABs, processes, tribunals)."""
     if not com_urls or not adv_urls:
         return {}
     # Last closed month = previous calendar month relative to today (UTC).
-    now = datetime.now(UTC)
     if now.month == 1:
         period_year, period_month = now.year - 1, 12
     else:
@@ -312,16 +312,17 @@ def _top_advogados_atividade(
     return results
 
 
-def build_widgets(year: int) -> dict[str, Any]:
+def build_widgets(year: int, *, now: datetime | None = None) -> dict[str, Any]:
     """Build the full homepage-widgets payload.
 
     Always returns a valid envelope. Individual widgets may be empty if their
     underlying data isn't available yet.
     """
+    now = now or datetime.now(UTC)
     con = _connect()
     payload: dict[str, Any] = {
         "schema_version": SCHEMA_VERSION,
-        "generated_at": datetime.now(UTC).isoformat(),
+        "generated_at": now.isoformat(),
         "year": year,
         "activity_summary": {},
         "top_tribunais_30d": [],
@@ -334,8 +335,21 @@ def build_widgets(year: int) -> dict[str, Any]:
     com_urls = _discover_parquet_urls(con, "comunicacoes", year=year)
     adv_urls = _discover_parquet_urls(con, "advogados", year=year)
 
-    payload["activity_summary"] = _activity_summary(con, com_urls, adv_urls, year)
-    payload["top_tribunais_30d"] = _top_tribunais_30d(con, com_urls)
+    # activity_summary's last-closed-month window and top_tribunais_30d's rolling
+    # 30-day window both fall partly in year-1's djen-{tribunal}-{year-1} catalog
+    # item during the first weeks of each year -- widen discovery to include it so
+    # those widgets don't silently go empty at the boundary. Safe because both
+    # widgets re-filter by exact year/month or date inside their own SQL; extra
+    # prior-year candidate URLs are pruned there. top_advogados_atividade is an
+    # explicit "this year" ranking (not a rolling window) and stays scoped to
+    # `year` alone.
+    com_urls_window = com_urls + _discover_parquet_urls(con, "comunicacoes", year=year - 1)
+    adv_urls_window = adv_urls + _discover_parquet_urls(con, "advogados", year=year - 1)
+
+    payload["activity_summary"] = _activity_summary(
+        con, com_urls_window, adv_urls_window, year, now
+    )
+    payload["top_tribunais_30d"] = _top_tribunais_30d(con, com_urls_window)
     payload["top_advogados_atividade"] = _top_advogados_atividade(con, com_urls, adv_urls, year)
 
     return payload
