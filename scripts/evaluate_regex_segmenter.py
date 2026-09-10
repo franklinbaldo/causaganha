@@ -38,6 +38,23 @@ def _spans_to_char_labels(text_len: int, spans: dict[str, list]) -> list[str]:
     return labels
 
 
+def _process_row(texto: str, gold_spans: dict) -> tuple[list[str], list[str], bool]:
+    """Segment one text and compare it against its gold spans.
+
+    Returns (gold_chars, pred_chars, was_skipped) where ``was_skipped`` is
+    True only when the regex segmenter itself produced no result (``None``),
+    as opposed to a result that merely disagrees with the gold labels.
+    """
+    pred_spans = _segment(texto)
+    skipped = pred_spans is None
+    if pred_spans is None:
+        pred_spans = {}
+
+    gold_chars = _spans_to_char_labels(len(texto), gold_spans)
+    pred_chars = _spans_to_char_labels(len(texto), pred_spans)
+    return gold_chars, pred_chars, skipped
+
+
 def _compute_metrics(
     gold_chars: list[str],
     pred_chars: list[str],
@@ -114,16 +131,11 @@ def main() -> int:
     for _, row in df.iterrows():
         texto = row["texto"]
         gold_spans = json.loads(row["spans_json"])
-        pred_spans = _segment(texto)
-        if pred_spans is None:
-            pred_spans = {}
-
-        gold_chars = _spans_to_char_labels(len(texto), gold_spans)
-        pred_chars = _spans_to_char_labels(len(texto), pred_spans)
+        gold_chars, pred_chars, was_skipped = _process_row(texto, gold_spans)
         all_gold_chars.extend(gold_chars)
         all_pred_chars.extend(pred_chars)
 
-        if pred_spans is None:
+        if was_skipped:
             skipped += 1
 
     logger.info("evaluation_done", texts=len(df), skipped=skipped)
