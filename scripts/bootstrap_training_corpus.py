@@ -26,6 +26,7 @@ Full pipeline (Colab with GPU + API key):
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import random
@@ -341,6 +342,16 @@ def merge_spans(
 # ---------------------------------------------------------------------------
 
 
+def _stable_fallback_id(texto: str) -> str:
+    """Derive a stable id for a text lacking an explicit id/text_uuid.
+
+    Python's builtin hash() is randomized per-process (PYTHONHASHSEED), so it
+    cannot serve as a fallback id across separate runs of this two-stage
+    pipeline; use a real content hash instead.
+    """
+    return hashlib.sha256(texto[:200].encode("utf-8")).hexdigest()
+
+
 def load_texts(input_path: Path, limit: int | None = None) -> list[dict]:
     """Load texts from parquet or JSONL. Returns list of {"id": str, "texto": str}."""
     rows: list[dict] = []
@@ -351,7 +362,7 @@ def load_texts(input_path: Path, limit: int | None = None) -> list[dict]:
                 rec = json.loads(line)
                 texto = (rec.get("text") or rec.get("texto") or "").strip()
                 if len(texto) >= 200:
-                    uid = rec.get("id", str(hash(texto[:200])))
+                    uid = rec.get("id", _stable_fallback_id(texto))
                     rows.append({"id": str(uid), "texto": texto})
     else:
         import ibis
@@ -362,7 +373,7 @@ def load_texts(input_path: Path, limit: int | None = None) -> list[dict]:
         for _, row in df.iterrows():
             texto = (row.get("texto") or row.get("text") or "").strip()
             if len(texto) >= 200:
-                uid = row.get("id", row.get("text_uuid", str(hash(texto[:200]))))
+                uid = row.get("id", row.get("text_uuid", _stable_fallback_id(texto)))
                 rows.append({"id": str(uid), "texto": texto})
 
     if limit:
