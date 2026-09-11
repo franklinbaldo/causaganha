@@ -217,17 +217,35 @@ def _fetch_text(url_or_path: str) -> str:
     return Path(url_or_path).read_text(encoding="utf-8")
 
 
+def _fonte_cobertura(nome: str, fonte: object) -> FonteCobertura:
+    status = fonte.get("status") if isinstance(fonte, dict) else None
+    registros = fonte.get("rows") if isinstance(fonte, dict) else None
+    return FonteCobertura(
+        fonte=nome,
+        status=status if isinstance(status, str) else "unknown",
+        registros=registros if isinstance(registros, int) else 0,
+    )
+
+
 def _carregar_cobertura(report_url: str) -> tuple[list[FonteCobertura], str | None] | None:
-    """Carrega `indice_processual.report.json`; None quando indisponível/ilegível."""
+    """Carrega `indice_processual.report.json`; None quando indisponível/ilegível.
+
+    Um `sources[fonte]` sem `status`/`rows` (relatório sintaticamente válido mas
+    com forma errada) degrada por-fonte em vez de propagar KeyError/TypeError --
+    mesma defesa do gêmeo TypeScript `web/src/lib/processoCnj.ts::fetchCobertura`
+    (`info?.status ?? 'unknown'` / `Number(info?.rows ?? 0)`).
+    """
     try:
         raw = _fetch_text(report_url)
         data = json.loads(raw)
     except (OSError, httpx.HTTPError, json.JSONDecodeError):
         return None
-    cobertura = [
-        FonteCobertura(fonte=nome, status=fonte["status"], registros=fonte["rows"])
-        for nome, fonte in data.get("sources", {}).items()
-    ]
+    if not isinstance(data, dict):
+        return None
+    sources = data.get("sources")
+    if not isinstance(sources, dict):
+        sources = {}
+    cobertura = [_fonte_cobertura(nome, fonte) for nome, fonte in sources.items()]
     return cobertura, data.get("generated_at")
 
 

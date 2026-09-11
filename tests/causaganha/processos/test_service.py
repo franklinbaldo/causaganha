@@ -17,7 +17,7 @@ import pytest
 import respx
 
 from causaganha.processos import service
-from causaganha.processos.models import CnjInvalidoError
+from causaganha.processos.models import CnjInvalidoError, FonteCobertura
 from causaganha.processos.query_plan_fixtures import (
     CNJ_ALL,
     CNJ_DJEN_ONLY,
@@ -225,6 +225,34 @@ def test_missing_report_is_partial_not_fatal(fixtures: dict[str, Path]) -> None:
     assert result.cobertura_dataset == []
     assert result.dataset_gerado_em is None
     assert any("relatório de cobertura" in a.lower() for a in result.avisos)
+
+
+def test_malformed_report_is_partial_not_fatal(fixtures: dict[str, Path], tmp_path: Path) -> None:
+    """A syntactically-valid report whose `sources` entries lack `status`/`rows`.
+
+    Before the fix, `_carregar_cobertura`'s list comprehension read
+    `fonte["status"]`/`fonte["rows"]` outside its try/except, so a report that
+    parses as valid JSON but has the wrong shape raised an uncaught KeyError
+    instead of degrading -- contradicting the module docstring's "None quando
+    indisponível/ilegível" contract. Mirrors the Web twin
+    (`web/src/lib/processoCnj.ts::fetchCobertura`), which already defaults a
+    missing `status`/`rows` to `'unknown'`/`0` per-source rather than dropping
+    the whole report or raising.
+    """
+    malformed_report = tmp_path / "malformed.report.json"
+    malformed_report.write_text('{"sources": {"djen": {"status": "loaded_remote"}}}')
+
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(malformed_report),
+    )
+
+    assert result.encontrado is True  # the processo itself still resolves
+    assert result.cobertura_dataset == [
+        FonteCobertura(fonte="djen", status="loaded_remote", registros=0)
+    ]
+    assert result.avisos == []  # report itself loaded fine, just one field defaulted
 
 
 def test_one_source_parquet_unreachable_is_partial_not_fatal(
