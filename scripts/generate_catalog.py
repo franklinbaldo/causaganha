@@ -200,6 +200,8 @@ async def fetch_item_files(
 ) -> tuple[str, list[dict]]:
     """Fetch item files from IA metadata API concurrently."""
     url = f"https://archive.org/metadata/{item_id}"
+    if verified_inventory:
+        url += "/files"
 
     if not item_id or not item_id.startswith("djen-"):
         logger.warning("invalid_item_id", item_id=item_id)
@@ -211,6 +213,7 @@ async def fetch_item_files(
                 if response.status == HTTP_200_OK:
                     data = await response.json()
                     if verified_inventory:
+                        data = {"files": data.get("result")}
                         data = await verified_item_files(session, item_id, data)
                     files = []
                     for f in data.get("files", []):

@@ -17,6 +17,25 @@ ITEM = "djen-tre-ro-2026"
 FILES = [{"name": "djen-2026-09-04-TRE-RO.zip", "size": "123", "md5": "abc"}]
 
 
+def test_verification_waits_for_metadata_propagation_without_reupload(monkeypatch):
+    from scripts.pipeline import consolidate_partition as runner
+    from tenacity import stop_after_attempt, wait_none
+
+    before = {"fingerprint": "same", "files": FILES}
+    after = {**before, "files": FILES + [{"name": "comunicacoes.parquet", "md5": "output"}]}
+    read_inventory = Mock(side_effect=[before, after])
+    monkeypatch.setattr(runner, "inventory", read_inventory)
+    with httpx.Client(
+        transport=httpx.MockTransport(
+            lambda _: httpx.Response(206, content=b"PAR1"),
+        )
+    ) as client:
+        verify = runner.verify_outputs.retry_with(stop=stop_after_attempt(2), wait=wait_none())
+        result = verify(client, ITEM, before, {"comunicacoes.parquet": "output"})
+    assert result == [{"name": "comunicacoes.parquet", "md5": "output"}]
+    assert read_inventory.call_count == 2
+
+
 def test_index_prefers_annual_copy_without_duplicating_publications():
     from scripts.reconcile_processos import _INDICE_DJEN_SQL
 
@@ -99,7 +118,7 @@ def test_daily_rotation_does_not_starve_later_partitions(monkeypatch):
 def client_for(files, receipt=None):
     def handle(request):
         if "/metadata/" in request.url.path:
-            return httpx.Response(200, json={"files": files})
+            return httpx.Response(200, json={"result": files})
         return httpx.Response(200, json=receipt)
 
     return httpx.Client(transport=httpx.MockTransport(handle))
