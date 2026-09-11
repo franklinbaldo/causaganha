@@ -76,6 +76,13 @@ jobs:
           args=(--item "$ITEM")
           if [ "$DRY_RUN" = 'true' ]; then args+=(--dry-run); fi
           uv run python -m scripts.pipeline.consolidate_partition "${args[@]}"
+      - name: Preserve publication verification evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: publication-${{ matrix.item }}
+          path: data/partition-publication-candidate.json
+          if-no-files-found: ignore
 
   catalog:
     needs: [plan, consolidate]

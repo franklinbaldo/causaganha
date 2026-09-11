@@ -27,9 +27,9 @@ def inventory(client: httpx.Client, item: str) -> dict:
     if not match:
         message = f"Invalid tribunal/year item: {item}"
         raise ValueError(message)
-    response = client.get(f"https://archive.org/metadata/{item}")
+    response = client.get(f"https://archive.org/metadata/{item}/files")
     response.raise_for_status()
-    data = response.json()
+    data = {"files": response.json().get("result")}
     if not isinstance(data, dict) or not isinstance(data.get("files"), list):
         message = f"Incomplete Archive metadata: {item}"
         raise TypeError(message)

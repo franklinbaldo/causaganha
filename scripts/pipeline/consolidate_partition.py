@@ -9,6 +9,7 @@ import tempfile
 from pathlib import Path
 
 import httpx
+from tenacity import retry, retry_if_exception_type, stop_after_delay, wait_fixed
 
 from scripts.pipeline.archive_partitions import RECEIPT, inventory
 from scripts.pipeline.ia_s3 import create_upload_client, get_ia_s3_auth, upload_to_ia
@@ -46,8 +47,67 @@ async def publish_receipt(item: str, receipt: dict) -> None:
             raise RuntimeError(message)
 
 
+class PublicationPending(RuntimeError):
+    """Uploads accepted, but metadata or download replicas have not caught up."""
+
+
+@retry(
+    stop=stop_after_delay(600),
+    wait=wait_fixed(15),
+    retry=retry_if_exception_type((PublicationPending, httpx.HTTPError)),
+    reraise=True,
+    before_sleep=lambda _: print("Waiting for Archive publication metadata/read-back", flush=True),
+)
+def verify_outputs(client: httpx.Client, item: str, before: dict, checksums: dict) -> list[dict]:
+    from scripts.pipeline.consolidate import TABLES
+
+    after = inventory(client, item)
+    if after["fingerprint"] != before["fingerprint"]:
+        message = "ZIP inventory changed during consolidation; retry required"
+        raise RuntimeError(message)
+    outputs = []
+    stale = {
+        entry["name"]
+        for entry in after["files"]
+        if entry["name"] in {f"{table}.parquet" for table in TABLES}
+    } - checksums.keys()
+    if stale:
+        message = f"Obsolete Parquets must be resolved before certification: {sorted(stale)}"
+        raise RuntimeError(message)
+    for entry in after["files"]:
+        if entry["name"] not in checksums:
+            continue
+        if entry.get("md5") != checksums[entry["name"]]:
+            message = "Output checksum differs from the generated Parquet"
+            raise PublicationPending(message)
+        url = f"https://archive.org/download/{item}/{entry['name']}"
+        with client.stream("GET", url, headers={"Range": "bytes=0-3"}) as response:
+            if response.status_code != 206 or response.read() != b"PAR1":
+                message = f"Parquet read-back failed: {url}"
+                raise PublicationPending(message)
+        outputs.append({"name": entry["name"], "md5": entry["md5"]})
+    if len(outputs) != len(checksums) or not outputs:
+        message = "Published inventory does not contain all outputs"
+        raise PublicationPending(message)
+    return outputs
+
+
+@retry(
+    stop=stop_after_delay(600),
+    wait=wait_fixed(15),
+    retry=retry_if_exception_type((PublicationPending, httpx.HTTPError)),
+    reraise=True,
+)
+def verify_receipt(client: httpx.Client, item: str, receipt: dict) -> None:
+    response = client.get(f"https://archive.org/download/{item}/{RECEIPT}")
+    response.raise_for_status()
+    if response.json() != receipt:
+        message = "Receipt read-back mismatch"
+        raise PublicationPending(message)
+
+
 def run(item: str, *, dry_run: bool = False) -> None:
-    from scripts.pipeline.consolidate import TABLES, consolidate_tribunal_year
+    from scripts.pipeline.consolidate import consolidate_tribunal_year
 
     if not dry_run and not get_ia_s3_auth():
         message = "Archive credentials required"
@@ -68,42 +128,14 @@ def run(item: str, *, dry_run: bool = False) -> None:
         if dry_run:
             print(json.dumps(stats))
             return
-        after = inventory(client, item)
-        if after["fingerprint"] != before["fingerprint"]:
-            message = "ZIP inventory changed during consolidation; retry required"
-            raise RuntimeError(message)
-        outputs = []
-        stale = {
-            entry["name"]
-            for entry in after["files"]
-            if entry["name"] in {f"{table}.parquet" for table in TABLES}
-        } - checksums.keys()
-        if stale:
-            message = f"Obsolete Parquets must be resolved before certification: {sorted(stale)}"
-            raise RuntimeError(message)
-        for entry in after["files"]:
-            if entry["name"] not in checksums:
-                continue
-            if entry.get("md5") != checksums[entry["name"]]:
-                message = "Output checksum differs from the generated Parquet"
-                raise ValueError(message)
-            url = f"https://archive.org/download/{item}/{entry['name']}"
-            with client.stream("GET", url, headers={"Range": "bytes=0-3"}) as response:
-                if response.status_code != 206 or response.read() != b"PAR1":
-                    message = f"Parquet read-back failed: {url}"
-                    raise RuntimeError(message)
-            outputs.append({"name": entry["name"], "md5": entry["md5"]})
-        if len(outputs) < stats["uploaded"] or not outputs:
-            message = "Published inventory does not contain all outputs"
-            raise RuntimeError(message)
+        proof = Path("data/partition-publication-candidate.json")
+        proof.parent.mkdir(parents=True, exist_ok=True)
+        proof.write_text(json.dumps({"inputs": before, "outputs": checksums}), encoding="utf-8")
+        outputs = verify_outputs(client, item, before, checksums)
         receipt = {key: value for key, value in before.items() if key != "files"}
         receipt["outputs"] = outputs
         asyncio.run(publish_receipt(item, receipt))
-        response = client.get(f"https://archive.org/download/{item}/{RECEIPT}")
-        response.raise_for_status()
-        if response.json() != receipt:
-            message = "Receipt read-back mismatch"
-            raise RuntimeError(message)
+        verify_receipt(client, item, receipt)
         print(json.dumps(stats))
 
 
