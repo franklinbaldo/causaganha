@@ -220,12 +220,17 @@ export function normalizeExternalUrl(value: unknown): string | undefined {
     }
   } catch {
     // Relative path from the DJEN API — resolve against the public base.
-    // A leading "//" is a protocol-relative network-path reference, not a
-    // path: resolving it would let the attacker-supplied host override the
-    // DJEN base, so it must be rejected rather than treated as relative.
-    if (raw.startsWith("/") && !raw.startsWith("//")) {
+    // Values crafted as a protocol-relative "//host/path" or a backslash
+    // variant ("/\host/path", which WHATWG URL parsing treats the same as
+    // "//host/path" for special schemes) resolve onto the attacker-supplied
+    // host instead of staying on the DJEN base. Rejecting a literal "//"
+    // prefix isn't enough -- verify the *resolved* origin instead, which
+    // catches every such variant regardless of how it was spelled.
+    if (raw.startsWith("/")) {
+      const djenBase = "https://comunicaapi.pje.jus.br";
       try {
-        const resolved = new URL(raw, "https://comunicaapi.pje.jus.br");
+        const resolved = new URL(raw, djenBase);
+        if (resolved.origin !== djenBase) return undefined;
         return resolved.toString();
       } catch {
         return undefined;

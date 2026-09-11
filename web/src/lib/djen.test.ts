@@ -18,6 +18,12 @@ describe("normalizeExternalUrl", () => {
     expect(normalizeExternalUrl("//evil.example.com/malware")).toBeUndefined();
   });
 
+  it("rejects a backslash network-path variant of the same attack", () => {
+    // WHATWG URL parsing treats "\" the same as "/" for special schemes, so
+    // "/\host/path" is equivalent to "//host/path" once resolved.
+    expect(normalizeExternalUrl("/\\evil.example.com/malware")).toBeUndefined();
+  });
+
   it("rejects non-http(s) schemes", () => {
     expect(normalizeExternalUrl("javascript:alert(1)")).toBeUndefined();
   });
