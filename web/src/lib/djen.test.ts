@@ -15,8 +15,7 @@ describe("normalizeExternalUrl", () => {
   });
 
   it("rejects a protocol-relative value instead of resolving onto its host", () => {
-    const result = normalizeExternalUrl("//evil.example.com/malware");
-    expect(result === undefined || !result.includes("evil.example.com")).toBe(true);
+    expect(normalizeExternalUrl("//evil.example.com/malware")).toBeUndefined();
   });
 
   it("rejects non-http(s) schemes", () => {
