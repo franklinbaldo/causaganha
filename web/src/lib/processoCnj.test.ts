@@ -35,6 +35,20 @@ import {
   toIsoDate,
 } from './processoCnj';
 
+/** Runs `fn` under a given TZ, then restores the previous value -- deleting
+ * it (not assigning `undefined`, which Node coerces to the literal string
+ * "undefined" and silently falls back to a GMT default) when it was unset. */
+function withTz(tz: string, fn: () => void): void {
+  const original = process.env.TZ;
+  process.env.TZ = tz;
+  try {
+    fn();
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+}
+
 describe('stripCnjMask / isValidCnj / normalizeCnj', () => {
   it('strips a fully masked CNJ down to 20 digits', () => {
     expect(stripCnjMask('0000001-02.2024.8.22.0001')).toBe('00000010220248220001');
@@ -308,6 +322,38 @@ describe('toIsoDate', () => {
     expect(toIsoDate(undefined)).toBeNull();
     expect(toIsoDate('not-a-date')).toBeNull();
   });
+
+  it('does not shift the calendar day for a naive datetime string in a UTC+ timezone (#datajud-tz)', () => {
+    // datajud.models.normalizar_data14 always emits a naive
+    // 'YYYY-MM-DDTHH:MM:SS' (no 'Z'/offset) for data_ajuizamento -- the same
+    // shape toIsoTimestamp's own docstring warns would "corromper o
+    // instante" if reinterpreted via `new Date()` in a non-UTC timezone.
+    // Reproduce that exact failure mode: `new Date('2024-01-10T00:00:00')`
+    // is parsed as *local* midnight, so in any UTC+ timezone .toISOString()
+    // rolls it back to the previous UTC day.
+    withTz('Asia/Tokyo', () => {
+      expect(toIsoDate('2024-01-10T00:00:00')).toBe('2024-01-10');
+    });
+  });
+
+  it('rejects a digit-shaped but calendrically invalid naive date instead of returning it unchanged', () => {
+    // normalizar_data14 only extracts digit groups (AAAAMMDDHHMMSS) and can
+    // emit an out-of-range month/day unchanged for malformed upstream DataJud
+    // data. The fast path for naive strings must not expose that as an
+    // apparently-normalized date -- it should reject it exactly like the
+    // pre-existing new Date(...) fallback already does for a non-naive
+    // string (new Date('2024-13-01T12:00:00Z') is an Invalid Date -> null).
+    expect(toIsoDate('2024-13-01T12:00:00')).toBeNull();
+  });
+
+  it('rejects a naive string with a calendrically valid date but out-of-range time digits', () => {
+    // normalizar_data14('20240101999999') emits '2024-01-01T99:99:99': a
+    // valid date with malformed hour/minute/second. The pre-existing
+    // new Date(...) fallback rejected this (Invalid Date -> null); the fast
+    // path must not expose it as an apparently-normalized date just because
+    // the date portion alone is valid.
+    expect(toIsoDate('2024-01-01T99:99:99')).toBeNull();
+  });
 });
 
 describe('mapDjenRow', () => {
@@ -402,8 +448,26 @@ describe('mapDatajudRow', () => {
       ultima_atualizacao: '2024-06-01 14:23:05',
     });
     expect(view.ultimaAtualizacao).toBe('2024-06-01T14:23:05');
-    // data_ajuizamento is a genuine DATE column — no time-of-day to lose.
     expect(view.dataAjuizamento).toBe('2024-01-10');
+  });
+
+  it('does not roll dataAjuizamento back a day in a UTC+ timezone (#datajud-tz)', () => {
+    // data_ajuizamento is NOT a genuine DATE column: it's a pa.string() built
+    // by datajud.models.normalizar_data14, which always appends a synthetic
+    // 'T00:00:00' (or the true hour/minute/second, when DataJud reports
+    // them) -- a naive datetime string with no 'Z'/offset, exactly like
+    // ultima_atualizacao above. toIsoDate must not reinterpret that string
+    // via `new Date()` (local-time parsing), or the reported filing date
+    // shifts a day backward for every viewer in a UTC+ timezone.
+    withTz('Asia/Tokyo', () => {
+      const view = mapDatajudRow({
+        n: 1,
+        classe_oficial: 'Apelacao Civel',
+        data_ajuizamento: '2024-01-10T00:00:00',
+        ultima_atualizacao: '2024-06-01 14:23:05',
+      });
+      expect(view.dataAjuizamento).toBe('2024-01-10');
+    });
   });
 
   it('preserves a bare-date ultima_atualizacao unchanged', () => {

@@ -308,9 +308,46 @@ function toNullableString(value: unknown): string | null {
   return s.length > 0 ? s : null;
 }
 
-/** DATE/TIMESTAMP arbitrário (Date, string ISO, epoch numérico) → 'YYYY-MM-DD', ou null. */
+const BARE_ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2})(?:\.\d+)?)?$/;
+
+/**
+ * Valida que (ano, mês, dia) formam uma data de calendário real, sem
+ * depender de `new Date()` reinterpretar hora local: `Date.UTC` normaliza
+ * componentes fora de faixa (mês 13, dia 32, 29/02 em ano não-bissexto)
+ * rolando para o mês/ano seguinte, então o round-trip através dos
+ * componentes UTC só bate se a data de entrada já era válida.
+ */
+function isValidCalendarDate(year: number, month: number, day: number): boolean {
+  const asUtc = new Date(Date.UTC(year, month - 1, day));
+  return (
+    asUtc.getUTCFullYear() === year && asUtc.getUTCMonth() === month - 1 && asUtc.getUTCDate() === day
+  );
+}
+
+/**
+ * DATE/TIMESTAMP arbitrário (Date, string ISO, epoch numérico) → 'YYYY-MM-DD', ou null.
+ *
+ * Uma string 'YYYY-MM-DD[ T]HH:MM:SS' sem sufixo 'Z'/offset (ex.:
+ * datajud.models.normalizar_data14) é ingênua, não um instante absoluto: o
+ * componente de data é extraído diretamente, sem reinterpretar via `new
+ * Date()` -- que a tratamos como hora local e corromperia o dia em qualquer
+ * fuso UTC+ (mesmo raciocínio do docstring de `toIsoTimestamp`). Rejeita
+ * (retorna null) quando os dígitos extraídos não formam uma data de
+ * calendário real -- normalizar_data14 só extrai grupos de dígitos e pode
+ * emitir mês/dia (ou hora/minuto/segundo, quando presentes) fora de faixa
+ * sem validar.
+ */
 export function toIsoDate(value: unknown): string | null {
   if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    const bareMatch = BARE_ISO_DATE_RE.exec(value);
+    if (bareMatch) {
+      const [, y, m, d, hh, mm, ss] = bareMatch;
+      if (!isValidCalendarDate(Number(y), Number(m), Number(d))) return null;
+      if (hh !== undefined && (Number(hh) > 23 || Number(mm) > 59 || Number(ss) > 59)) return null;
+      return `${y}-${m}-${d}`;
+    }
+  }
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
   }
