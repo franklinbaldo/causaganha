@@ -345,6 +345,15 @@ describe('toIsoDate', () => {
     // string (new Date('2024-13-01T12:00:00Z') is an Invalid Date -> null).
     expect(toIsoDate('2024-13-01T12:00:00')).toBeNull();
   });
+
+  it('rejects a naive string with a calendrically valid date but out-of-range time digits', () => {
+    // normalizar_data14('20240101999999') emits '2024-01-01T99:99:99': a
+    // valid date with malformed hour/minute/second. The pre-existing
+    // new Date(...) fallback rejected this (Invalid Date -> null); the fast
+    // path must not expose it as an apparently-normalized date just because
+    // the date portion alone is valid.
+    expect(toIsoDate('2024-01-01T99:99:99')).toBeNull();
+  });
 });
 
 describe('mapDjenRow', () => {
