@@ -35,6 +35,20 @@ import {
   toIsoDate,
 } from './processoCnj';
 
+/** Runs `fn` under a given TZ, then restores the previous value -- deleting
+ * it (not assigning `undefined`, which Node coerces to the literal string
+ * "undefined" and silently falls back to a GMT default) when it was unset. */
+function withTz(tz: string, fn: () => void): void {
+  const original = process.env.TZ;
+  process.env.TZ = tz;
+  try {
+    fn();
+  } finally {
+    if (original === undefined) delete process.env.TZ;
+    else process.env.TZ = original;
+  }
+}
+
 describe('stripCnjMask / isValidCnj / normalizeCnj', () => {
   it('strips a fully masked CNJ down to 20 digits', () => {
     expect(stripCnjMask('0000001-02.2024.8.22.0001')).toBe('00000010220248220001');
@@ -317,13 +331,19 @@ describe('toIsoDate', () => {
     // Reproduce that exact failure mode: `new Date('2024-01-10T00:00:00')`
     // is parsed as *local* midnight, so in any UTC+ timezone .toISOString()
     // rolls it back to the previous UTC day.
-    const originalTz = process.env.TZ;
-    process.env.TZ = 'Asia/Tokyo';
-    try {
+    withTz('Asia/Tokyo', () => {
       expect(toIsoDate('2024-01-10T00:00:00')).toBe('2024-01-10');
-    } finally {
-      process.env.TZ = originalTz;
-    }
+    });
+  });
+
+  it('rejects a digit-shaped but calendrically invalid naive date instead of returning it unchanged', () => {
+    // normalizar_data14 only extracts digit groups (AAAAMMDDHHMMSS) and can
+    // emit an out-of-range month/day unchanged for malformed upstream DataJud
+    // data. The fast path for naive strings must not expose that as an
+    // apparently-normalized date -- it should reject it exactly like the
+    // pre-existing new Date(...) fallback already does for a non-naive
+    // string (new Date('2024-13-01T12:00:00Z') is an Invalid Date -> null).
+    expect(toIsoDate('2024-13-01T12:00:00')).toBeNull();
   });
 });
 
@@ -430,9 +450,7 @@ describe('mapDatajudRow', () => {
     // ultima_atualizacao above. toIsoDate must not reinterpret that string
     // via `new Date()` (local-time parsing), or the reported filing date
     // shifts a day backward for every viewer in a UTC+ timezone.
-    const originalTz = process.env.TZ;
-    process.env.TZ = 'Asia/Tokyo';
-    try {
+    withTz('Asia/Tokyo', () => {
       const view = mapDatajudRow({
         n: 1,
         classe_oficial: 'Apelacao Civel',
@@ -440,9 +458,7 @@ describe('mapDatajudRow', () => {
         ultima_atualizacao: '2024-06-01 14:23:05',
       });
       expect(view.dataAjuizamento).toBe('2024-01-10');
-    } finally {
-      process.env.TZ = originalTz;
-    }
+    });
   });
 
   it('preserves a bare-date ultima_atualizacao unchanged', () => {
