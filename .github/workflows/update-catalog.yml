@@ -13,9 +13,6 @@ on:
         description: 'Gerar e publicar indice_processual.parquet mesmo sem novos uploads'
         type: boolean
         default: false
-  workflow_run:
-    workflows: ["Consolidate Parquet"]
-    types: [completed]
 
 permissions:
   contents: write
@@ -61,10 +58,14 @@ jobs:
           uv run python scripts/validate_manifest.py data/manifest.jsonl
 
       - name: Generate reconstructible catalog
-        if: steps.append.outputs.has_new_uploads == 'true' || github.event_name == 'push'
+        if: steps.append.outputs.has_new_uploads == 'true' || github.event_name == 'push' || github.event.inputs.force_reconcile == 'true'
+        env:
+          FORCE_RECONCILE: ${{ inputs.force_reconcile }}
         run: |
           echo "Generating catalog from IA data..."
-          uv run python scripts/generate_catalog.py --output ./catalog
+          args=()
+          if [ "$FORCE_RECONCILE" = 'true' ]; then args+=(--full); fi
+          uv run python scripts/generate_catalog.py --output ./catalog "${args[@]}"
           cp docs/CATALOG.md catalog/README.md
 
           # The public manifest currently has no duration_s column. Preserve the

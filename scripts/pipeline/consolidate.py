@@ -16,6 +16,7 @@ Usage:
 import argparse
 import asyncio
 import decimal
+import hashlib
 import json
 import os
 import shutil
@@ -898,7 +899,7 @@ def _load_and_transform(
 
     # Derive _tribunal from filename and add item_id — pure Ibis, no Python loop.
     raw_expr = staging.mutate(
-        src_tribunal=staging.filename.split("/")[-1].split("__")[0],
+        src_tribunal=staging.filename.replace("\\", "/").split("/")[-1].split("__")[0],
         src_item_id=ibis.literal(item_id),
     )
     _create_or_replace_table(con, "raw_records", obj=raw_expr)
@@ -1590,6 +1591,7 @@ def consolidate_tribunal_year(
     local_zips: str | None = None,
     max_zips: int = 0,
     workers: int = 16,
+    output_checksums: dict[str, str] | None = None,
 ) -> dict[str, int | float]:
     """Consolidate all ZIPs for a (tribunal, year) pair into Parquet files.
 
@@ -1660,6 +1662,10 @@ def consolidate_tribunal_year(
                         error=str(e),
                     )
 
+        if stats["zips_processed"] != len(zips):
+            message = "Partition has failed ZIPs; refusing to replace published Parquets"
+            raise RuntimeError(message)
+
         non_empty_tables: set[str] = set()
         if stats["records"] > 0:
             ndjson_vr = validate_ndjson_sample(ndjson_dir)
@@ -1669,7 +1675,8 @@ def consolidate_tribunal_year(
                     errors=ndjson_vr.errors,
                     item_id=item_id,
                 )
-                return stats
+                message = "Partition NDJSON validation failed"
+                raise RuntimeError(message)
             if ndjson_vr.warnings:
                 logger.warning("ndjson_validation_warnings", warnings=ndjson_vr.warnings)
 
@@ -1755,6 +1762,18 @@ def consolidate_tribunal_year(
                     )
 
         asyncio.run(_run_upload_phase())
+        expected = len(non_empty_tables)
+        if not expected or export_failures or stats["parquets_created"] != expected:
+            message = "Partition export incomplete"
+            raise RuntimeError(message)
+        if not dry_run and stats["uploaded"] != expected:
+            message = "Partition upload incomplete"
+            raise RuntimeError(message)
+        if output_checksums is not None:
+            for table in non_empty_tables:
+                path = output_dir / f"{table}.parquet"
+                with path.open("rb") as stream:
+                    output_checksums[path.name] = hashlib.file_digest(stream, "md5").hexdigest()
 
     return stats
 
