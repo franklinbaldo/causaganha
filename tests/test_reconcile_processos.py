@@ -236,6 +236,25 @@ def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
     assert list(urls.values()) == [expected_url]
 
 
+def test_current_catalog_wins_over_stale_published_catalog(tmp_path, monkeypatch):
+    old = tmp_path / "old-comunicacoes.parquet"
+    new = tmp_path / "new-comunicacoes.parquet"
+    remote = _catalog_parquet(tmp_path / "remote.parquet", [old])
+    current = _catalog_parquet(tmp_path / "current.parquet", [old, new])
+    monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(remote))
+    monkeypatch.setenv("RECONCILE_CATALOG_MANIFEST", str(current))
+    with duckdb.connect() as con:
+        assert rp.comunicacoes_parquet_urls(con) == sorted([str(old), str(new)])
+
+
+def test_missing_pinned_catalog_does_not_fall_back_to_stale_remote(tmp_path, monkeypatch):
+    remote = _catalog_parquet(tmp_path / "remote.parquet", [tmp_path / "old.parquet"])
+    monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(remote))
+    monkeypatch.setenv("RECONCILE_CATALOG_MANIFEST", str(tmp_path / "missing.parquet"))
+    with duckdb.connect() as con:
+        assert rp.comunicacoes_parquet_urls(con) is None
+
+
 class TestFullReconcileWithoutLocalParquets:
     def test_all_sources_load_via_ia_fallback(
         self, isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch
