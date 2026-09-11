@@ -247,6 +247,21 @@ def test_current_catalog_wins_over_stale_published_catalog(tmp_path, monkeypatch
         assert rp.comunicacoes_parquet_urls(con) == sorted([str(old), str(new)])
 
 
+def test_index_upload_does_not_queue_derived_files(tmp_path, monkeypatch):
+    monkeypatch.setenv("IA_ACCESS_KEY", "test-key")
+    monkeypatch.setenv("IA_SECRET_KEY", "test-secret")
+    path = tmp_path / "indice_processual.parquet"
+    path.write_bytes(b"test-parquet-payload")
+    with respx.mock() as router:
+        upload = router.put(
+            "https://s3.us.archive.org/causaganha-dashboard/indice_processual.parquet"
+        ).respond(200)
+        rp.upload_to_ia(path, path.name)
+        request = upload.calls[0].request
+        assert request.headers["x-archive-queue-derive"] == "0"
+        assert request.content == path.read_bytes()
+
+
 def test_missing_pinned_catalog_does_not_fall_back_to_stale_remote(tmp_path, monkeypatch):
     remote = _catalog_parquet(tmp_path / "remote.parquet", [tmp_path / "old.parquet"])
     monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(remote))

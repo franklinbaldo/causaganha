@@ -445,6 +445,7 @@ def upload_to_ia(path: Path, remote_name: str) -> None:
     headers = {
         "Authorization": f"LOW {ia_key}",
         "x-archive-auto-make-bucket": "1",
+        "x-archive-queue-derive": "0",
         "x-archive-meta-mediatype": "data",
         "x-archive-meta-subject": "causaganha;reconciliacao;processos",
     }
