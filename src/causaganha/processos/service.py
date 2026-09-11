@@ -217,17 +217,46 @@ def _fetch_text(url_or_path: str) -> str:
     return Path(url_or_path).read_text(encoding="utf-8")
 
 
+def _fonte_cobertura(nome: str, fonte: object) -> FonteCobertura:
+    status = fonte.get("status") if isinstance(fonte, dict) else None
+    registros = fonte.get("rows") if isinstance(fonte, dict) else None
+    # bool is a subclass of int in Python -- exclude it explicitly, or "rows":
+    # true/false would survive as a fabricated count of 1/0 instead of the
+    # documented wrong-type fallback.
+    registros_valido = isinstance(registros, int) and not isinstance(registros, bool)
+    return FonteCobertura(
+        fonte=nome,
+        status=status if isinstance(status, str) else "unknown",
+        registros=registros if registros_valido else 0,
+    )
+
+
 def _carregar_cobertura(report_url: str) -> tuple[list[FonteCobertura], str | None] | None:
-    """Carrega `indice_processual.report.json`; None quando indisponível/ilegível."""
+    """Carrega `indice_processual.report.json`; None quando indisponível/ilegível.
+
+    Um `sources[fonte]` sem `status`/`rows` (relatório sintaticamente válido mas
+    com forma errada) degrada por-fonte em vez de propagar KeyError/TypeError --
+    mesma defesa do gêmeo TypeScript `web/src/lib/processoCnj.ts::fetchCobertura`
+    (`info?.status ?? 'unknown'` / `Number(info?.rows ?? 0)`).
+    """
     try:
         raw = _fetch_text(report_url)
         data = json.loads(raw)
     except (OSError, httpx.HTTPError, json.JSONDecodeError):
         return None
-    cobertura = [
-        FonteCobertura(fonte=nome, status=fonte["status"], registros=fonte["rows"])
-        for nome, fonte in data.get("sources", {}).items()
-    ]
+    if not isinstance(data, dict):
+        return None
+    if "sources" in data:
+        sources = data["sources"]
+        if not isinstance(sources, dict):
+            # Present but wrong-shaped (null/array/string, etc.) -- a genuinely
+            # empty coverage list would omit the key or use {}, so this is the
+            # same "indisponível/ilegível" case as a missing file, not zero
+            # real sources.
+            return None
+    else:
+        sources = {}
+    cobertura = [_fonte_cobertura(nome, fonte) for nome, fonte in sources.items()]
     return cobertura, data.get("generated_at")
 
 

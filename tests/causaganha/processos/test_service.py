@@ -17,7 +17,7 @@ import pytest
 import respx
 
 from causaganha.processos import service
-from causaganha.processos.models import CnjInvalidoError
+from causaganha.processos.models import CnjInvalidoError, FonteCobertura
 from causaganha.processos.query_plan_fixtures import (
     CNJ_ALL,
     CNJ_DJEN_ONLY,
@@ -222,6 +222,83 @@ def test_missing_report_is_partial_not_fatal(fixtures: dict[str, Path]) -> None:
     )
 
     assert result.encontrado is True  # the processo itself still resolves
+    assert result.cobertura_dataset == []
+    assert result.dataset_gerado_em is None
+    assert any("relatório de cobertura" in a.lower() for a in result.avisos)
+
+
+def test_malformed_report_is_partial_not_fatal(fixtures: dict[str, Path], tmp_path: Path) -> None:
+    """A syntactically-valid report whose `sources` entries lack `status`/`rows`.
+
+    Before the fix, `_carregar_cobertura`'s list comprehension read
+    `fonte["status"]`/`fonte["rows"]` outside its try/except, so a report that
+    parses as valid JSON but has the wrong shape raised an uncaught KeyError
+    instead of degrading -- contradicting the module docstring's "None quando
+    indisponível/ilegível" contract. Mirrors the Web twin
+    (`web/src/lib/processoCnj.ts::fetchCobertura`), which already defaults a
+    missing `status`/`rows` to `'unknown'`/`0` per-source rather than dropping
+    the whole report or raising.
+    """
+    malformed_report = tmp_path / "malformed.report.json"
+    malformed_report.write_text('{"sources": {"djen": {"status": "loaded_remote"}}}')
+
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(malformed_report),
+    )
+
+    assert result.encontrado is True  # the processo itself still resolves
+    assert result.cobertura_dataset == [
+        FonteCobertura(fonte="djen", status="loaded_remote", registros=0)
+    ]
+    assert result.avisos == []  # report itself loaded fine, just one field defaulted
+
+
+def test_report_rejects_boolean_rows_instead_of_counting_as_one(
+    fixtures: dict[str, Path], tmp_path: Path
+) -> None:
+    """`"rows": true` must default to 0, not survive as a fabricated count of 1.
+
+    `bool` is a subclass of `int` in Python, so a naive `isinstance(value, int)`
+    guard accepts `True`/`False` as valid row counts -- and the public Pydantic
+    contract then coerces `True` to `1`, publishing a fabricated record count
+    for a field that was never a real integer (#1454 review).
+    """
+    report = tmp_path / "boolean_rows.report.json"
+    report.write_text('{"sources": {"djen": {"status": "loaded_remote", "rows": true}}}')
+
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(report),
+    )
+
+    assert result.cobertura_dataset == [
+        FonteCobertura(fonte="djen", status="loaded_remote", registros=0)
+    ]
+
+
+def test_report_with_non_object_sources_is_unavailable_not_empty(
+    fixtures: dict[str, Path], tmp_path: Path
+) -> None:
+    """A present-but-wrong-typed `sources` (null/array/string) is unavailable.
+
+    Before this fix, a non-dict `sources` value silently became an empty
+    mapping and buscar_processo returned a *successful* empty coverage list
+    with no warning -- indistinguishable from a report that genuinely lists
+    zero sources. It must instead take the same 'relatório indisponível' path
+    as a missing file or invalid JSON syntax (#1454 review).
+    """
+    report = tmp_path / "non_object_sources.report.json"
+    report.write_text('{"sources": ["not", "a", "mapping"]}')
+
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(report),
+    )
+
     assert result.cobertura_dataset == []
     assert result.dataset_gerado_em is None
     assert any("relatório de cobertura" in a.lower() for a in result.avisos)
