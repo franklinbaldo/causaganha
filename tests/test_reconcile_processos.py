@@ -15,6 +15,7 @@ import duckdb
 import pytest
 import respx
 
+from causaganha.decisoes import published
 from datajud.archive import write_capa_parquet
 from scripts import reconcile_processos as rp
 
@@ -188,6 +189,51 @@ def _mock_stj_remote(
 ) -> None:
     stj = _stj_parquet(fixtures / "stj-acordaos.parquet", numero_processo=numero_processo)
     router.get(rp._STJ_IA_URL).respond(200, content=stj.read_bytes())
+
+
+def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
+    isolated_dirs: Path,
+) -> None:
+    """arquivo_ia_url stored for a JURIS shard must byte-for-byte match the
+    URL `causaganha.decisoes.published.discover_published_juris_datasets`
+    independently computes for the same (tipo, mes_ano) -- otherwise
+    `_narrow_juris_datasets_for_cnj`'s strict `item.url in resolved_urls`
+    comparison silently drops every JURIS result for a CNJ lookup. Every
+    real TJRO tipo (ACÓRDÃO, SENTENÇA, DECISÃO, DECISÃO DA PRESIDÊNCIA)
+    carries diacritics that `published._juris_url` percent-encodes -- the
+    IA item's actual file listing (`_ia_item_files`) returns the raw,
+    un-encoded name as uploaded (see tjro_juris.service.upload_pending's
+    `remote_name`), so this fixture uses that same raw diacritic name
+    rather than the ASCII placeholder `_mock_juris_remote` uses elsewhere
+    in this file (which never exercises the encoding path at all)."""
+    tmp_path = isolated_dirs
+    fixtures = tmp_path / "fixtures"
+    fixtures.mkdir()
+    raw_name = "2024-01-ACÓRDÃO.parquet"
+    juris = _juris_parquet(
+        fixtures / "juris.parquet",
+        f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+        " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+    )
+    with respx.mock() as router:
+        router.get(host="archive.org", path="/advancedsearch.php").respond(
+            200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
+        )
+        router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+            200, json={"files": [{"name": raw_name}]}
+        )
+        router.get(
+            host="archive.org",
+            path="/download/tjro-juris-2024/2024-01-ACÓRDÃO.parquet",
+        ).respond(200, content=juris.read_bytes())
+        _, urls, _ = rp.fetch_juris_from_ia()
+
+    manifest_csv = (
+        "tipo,mes_ano,ia_status,n_docs,updated_at\n"
+        "ACÓRDÃO,2024-01,uploaded,1,2024-02-01T00:00:00+00:00\n"
+    )
+    expected_url = published.discover_published_juris_datasets(manifest_csv)[0].url
+    assert list(urls.values()) == [expected_url]
 
 
 class TestFullReconcileWithoutLocalParquets:

@@ -66,6 +66,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import duckdb
 import httpx
@@ -316,6 +317,15 @@ def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
     index, since a shard's filename cannot be recovered from its content.
     Monthly shards can overlap between crawls, so they must be deduplicated
     by id_documento before aggregation.
+
+    The stored URL percent-encodes `name` (via `quote`) to match
+    `causaganha.decisoes.published._juris_url`'s convention exactly: every
+    real TJRO tipo (ACÓRDÃO, SENTENÇA, DECISÃO, DECISÃO DA PRESIDÊNCIA)
+    contains diacritics, and `_narrow_juris_datasets_for_cnj` compares this
+    stored `arquivo_ia_url` against `published`'s independently-computed URL
+    by strict string equality — a raw, un-encoded name here would silently
+    fail that comparison for every real shard and drop all JURIS results
+    for any CNJ lookup.
     """
     cache = _cache_dir() / "juris"
     paths: list[Path] = []
@@ -338,7 +348,7 @@ def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
             if not wanted:
                 print(f"  IA item {item}: no parquet files", file=sys.stderr)
             for name in wanted:
-                url = f"{_IA_BASE}/{item}/{name}"
+                url = f"{_IA_BASE}/{item}/{quote(name)}"
                 path = _fetch_cached(client, url, cache / item / name, f"JURIS {item}/{name}")
                 paths.append(path)
                 urls[path] = url
