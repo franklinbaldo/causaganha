@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-11-exciting-mccarthy-qpktqe-goal-isovalidcalendardate-year-pivot"
+run_id: "2026-09-11-exciting-mccarthy-qpktqe"
+goal: "Fix web/src/lib/processoCnj.ts::isValidCalendarDate so it stops rejecting genuinely valid calendar dates whose four-digit year falls in 0000-0099 (e.g. '0001-01-01'), by constructing its validation Date via setUTCFullYear(year, month-1, day) instead of Date.UTC(year, month-1, day) -- setUTCFullYear has no ECMA-262 legacy two-digit-year pivot, whereas Date.UTC(1, 0, 1) yields the year 1901, not 1, spuriously failing the round-trip check."
+rationale: "Automated Codex Code Review on the previous round's closing-report PR (#1457) flagged this as a real P2 regression introduced by the immediately preceding round's own toIsoDate fix (#1456): isValidCalendarDate is the shared calendar-validity gate for every DataJud/DJEN/STJ date field rendered through toIsoDate (data_ajuizamento, data_julgamento, data_decisao, data_publicacao, primeira/ultima_publicacao). An Explore-agent survey of the rest of web/src for the same 'naive datetime reinterpreted via new Date()' bug family (this round's reading-okf.md) found no other reproducible instance, confirming this year-pivot bug is the best remaining, concrete, previously-undiscovered correctness bug in that family to close this round."
+success_signal: "A new regression test in web/src/lib/processoCnj.test.ts (toIsoDate describe block) asserts toIsoDate('0001-01-01') === '0001-01-01' and toIsoDate('0099-12-31') === '0099-12-31'. RED on the unmodified isValidCalendarDate (both assertions fail with 'expected null to be ...'). GREEN once isValidCalendarDate constructs its probe Date via setUTCFullYear instead of Date.UTC. Full web/src/lib/processoCnj.test.ts (91/91), the full web vitest suite (518/518 across 72 files), and `npm run lint` (0 errors) stay green; `uv run ruff check`/`ruff format --check` stay green (Python untouched); a PR is opened against main."
+status: "achieved"
+---
+
+# Goal: corrigir o pivô de ano legado em isValidCalendarDate
+
+`isValidCalendarDate` rejeita datas de calendário genuinamente válidas com ano de quatro dígitos entre 0000 e 0099, porque valida via `Date.UTC(year, ...)`, que aplica a regra legada do ECMA-262 de reinterpretar qualquer `year` em `[0, 99]` como `1900+year`. Corrigido construindo a data de prova via `setUTCFullYear`, que não tem esse comportamento de pivô. Achado real do Code Review automático do Codex na PR #1457 (regressão introduzida pela própria correção da rodada anterior, #1456); confirmado como o melhor bug restante desta família após varredura de agente Explore não encontrar outra instância reproduzível.
