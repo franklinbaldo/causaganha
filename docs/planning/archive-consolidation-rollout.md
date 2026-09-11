@@ -1,6 +1,6 @@
 # Integração operacional da consolidação por tribunal/ano
 
-Implementação local em 11/09/2026; ativação no GitHub Actions e publicação do backlog ainda não realizadas. Implementa parte da [ADR 0012](../adr/0012-acervo-inventariado-no-internet-archive.md), reutilizando o conversor existente.
+Integração ativada na `main` em 11/09/2026 pelas PRs [#1463](https://github.com/franklinbaldo/causaganha/pull/1463) e [#1464](https://github.com/franklinbaldo/causaganha/pull/1464). Implementa parte da [ADR 0012](../adr/0012-acervo-inventariado-no-internet-archive.md), reutilizando o conversor existente. A ativação não significa que todo o backlog foi convertido; as evidências abaixo delimitam o lote validado.
 
 ## Caminho integrado
 
@@ -20,7 +20,7 @@ Após integrar a alteração à branch usada pelo workflow, executar primeiro:
 gh workflow run consolidate-parquet.yml -f item=djen-tjro-2026 -f dry_run=true
 ```
 
-Com a conversão validada, executar o mesmo item com `dry_run=false`. Esse segundo comando publica dados; não foi executado nesta implementação. Os antigos inputs `date`, `force` e `deadline_minutes` do workflow foram substituídos pelo item tribunal/ano; o CLI diário continua disponível para diagnóstico legado.
+Com a conversão validada, executar o mesmo item com `dry_run=false`. Esse segundo comando publica dados. Os antigos inputs `date`, `force` e `deadline_minutes` do workflow foram substituídos pelo item tribunal/ano; o CLI diário continua disponível para diagnóstico legado.
 
 Conferir o recibo público, a execução encadeada de catálogo/índice e a homepage para `7008332-16.2026.8.22.0007`. Só essa prova completa o rollout. O cron passa a descobrir outras partições pendentes; em caso de partições repetidamente lentas ou com falhas, usar o input `item` para avançar outras e investigar as falhas. Uma partição anual pode exceder memória ou o timeout de 180 minutos; não se deve publicar apenas um subconjunto como se substituísse o ano completo.
 
@@ -29,6 +29,13 @@ Conferir o recibo público, a execução encadeada de catálogo/índice e a home
 - Planejamento pela API real: `djen-tjro-2026` reconhecido como pendente.
 - Conversão sem upload do ZIP real `djen-2026-09-04-TJRO.zip`: 7.179 registros, 9 Parquets validados, 2 comunicações do CNJ de referência.
 - Testes de inventário, recibo, alterações de ZIP, erro de fonte, bloqueio antes de upload e gatilhos do catálogo; suites existentes de consolidação também executadas.
+
+## Evidência no GitHub Actions
+
+- [Dry-run anual do TJRO 2026](https://github.com/franklinbaldo/causaganha/actions/runs/34618341873): 158 ZIPs, 1.041.723 comunicações e 9 Parquets validados, sem upload.
+- A [primeira publicação](https://github.com/franklinbaldo/causaganha/actions/runs/34620026191) enviou os arquivos, mas falhou ao verificar metadata ainda desatualizada. Não produziu recibo. A PR #1464 passou a consultar o subrecurso `/metadata/{item}/files`, aguardar propagação e preservar checksums como artefato da execução.
+- A [publicação certificada](https://github.com/franklinbaldo/causaganha/actions/runs/34621485125) concluiu com sucesso e disparou o catálogo automaticamente. O [recibo público](https://archive.org/download/djen-tjro-2026/consolidation-inputs.json) foi lido novamente e comparado com o artefato da execução: mesmas 158 entradas e mesmos checksums dos 9 Parquets. Os nove URLs responderam a leitura HTTP Range com o cabeçalho Parquet esperado.
+- CI de Python, frontend, lint e CodeQL aprovou as PRs integradas.
 
 ## Limites ainda existentes
 
