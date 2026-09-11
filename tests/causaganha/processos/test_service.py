@@ -255,6 +255,55 @@ def test_malformed_report_is_partial_not_fatal(fixtures: dict[str, Path], tmp_pa
     assert result.avisos == []  # report itself loaded fine, just one field defaulted
 
 
+def test_report_rejects_boolean_rows_instead_of_counting_as_one(
+    fixtures: dict[str, Path], tmp_path: Path
+) -> None:
+    """`"rows": true` must default to 0, not survive as a fabricated count of 1.
+
+    `bool` is a subclass of `int` in Python, so a naive `isinstance(value, int)`
+    guard accepts `True`/`False` as valid row counts -- and the public Pydantic
+    contract then coerces `True` to `1`, publishing a fabricated record count
+    for a field that was never a real integer (#1454 review).
+    """
+    report = tmp_path / "boolean_rows.report.json"
+    report.write_text('{"sources": {"djen": {"status": "loaded_remote", "rows": true}}}')
+
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(report),
+    )
+
+    assert result.cobertura_dataset == [
+        FonteCobertura(fonte="djen", status="loaded_remote", registros=0)
+    ]
+
+
+def test_report_with_non_object_sources_is_unavailable_not_empty(
+    fixtures: dict[str, Path], tmp_path: Path
+) -> None:
+    """A present-but-wrong-typed `sources` (null/array/string) is unavailable.
+
+    Before this fix, a non-dict `sources` value silently became an empty
+    mapping and buscar_processo returned a *successful* empty coverage list
+    with no warning -- indistinguishable from a report that genuinely lists
+    zero sources. It must instead take the same 'relatório indisponível' path
+    as a missing file or invalid JSON syntax (#1454 review).
+    """
+    report = tmp_path / "non_object_sources.report.json"
+    report.write_text('{"sources": ["not", "a", "mapping"]}')
+
+    result = service.buscar_processo(
+        CNJ_ALL,
+        indice_url=str(fixtures["indice"]),
+        report_url=str(report),
+    )
+
+    assert result.cobertura_dataset == []
+    assert result.dataset_gerado_em is None
+    assert any("relatório de cobertura" in a.lower() for a in result.avisos)
+
+
 def test_one_source_parquet_unreachable_is_partial_not_fatal(
     fixtures: dict[str, Path], tmp_path: Path
 ) -> None:

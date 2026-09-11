@@ -220,10 +220,14 @@ def _fetch_text(url_or_path: str) -> str:
 def _fonte_cobertura(nome: str, fonte: object) -> FonteCobertura:
     status = fonte.get("status") if isinstance(fonte, dict) else None
     registros = fonte.get("rows") if isinstance(fonte, dict) else None
+    # bool is a subclass of int in Python -- exclude it explicitly, or "rows":
+    # true/false would survive as a fabricated count of 1/0 instead of the
+    # documented wrong-type fallback.
+    registros_valido = isinstance(registros, int) and not isinstance(registros, bool)
     return FonteCobertura(
         fonte=nome,
         status=status if isinstance(status, str) else "unknown",
-        registros=registros if isinstance(registros, int) else 0,
+        registros=registros if registros_valido else 0,
     )
 
 
@@ -242,8 +246,15 @@ def _carregar_cobertura(report_url: str) -> tuple[list[FonteCobertura], str | No
         return None
     if not isinstance(data, dict):
         return None
-    sources = data.get("sources")
-    if not isinstance(sources, dict):
+    if "sources" in data:
+        sources = data["sources"]
+        if not isinstance(sources, dict):
+            # Present but wrong-shaped (null/array/string, etc.) -- a genuinely
+            # empty coverage list would omit the key or use {}, so this is the
+            # same "indisponível/ilegível" case as a missing file, not zero
+            # real sources.
+            return None
+    else:
         sources = {}
     cobertura = [_fonte_cobertura(nome, fonte) for nome, fonte in sources.items()]
     return cobertura, data.get("generated_at")
