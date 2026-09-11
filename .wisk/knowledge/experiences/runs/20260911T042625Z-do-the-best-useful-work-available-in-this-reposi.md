@@ -1,7 +1,7 @@
 ---
-checks: ["run-checks/20260911t042625z-do-the-best-useful-work-availab/check-verification"]
+checks: ["run-checks/20260911t042625z-do-the-best-useful-work-availab/check-verification", "run-checks/20260911t042625z-do-the-best-useful-work-availab/check-verification-final"]
 decisions: []
-evidence: ["run-evidence/20260911t042625z-do-the-best-useful-work-availab/evidence-red", "run-evidence/20260911t042625z-do-the-best-useful-work-availab/evidence-green"]
+evidence: ["run-evidence/20260911t042625z-do-the-best-useful-work-availab/evidence-red", "run-evidence/20260911t042625z-do-the-best-useful-work-availab/evidence-green", "run-evidence/20260911t042625z-do-the-best-useful-work-availab/evidence-green-final"]
 goals: ["run-goals/20260911t042625z-do-the-best-useful-work-availab/goal-fix-normalize-external-url"]
 id: "runs/20260911T042625Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260911t042625z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260911t042625z-do-the-best-useful-work-availab/reading-active-skills"]
