@@ -308,9 +308,23 @@ function toNullableString(value: unknown): string | null {
   return s.length > 0 ? s : null;
 }
 
-/** DATE/TIMESTAMP arbitrário (Date, string ISO, epoch numérico) → 'YYYY-MM-DD', ou null. */
+const BARE_ISO_DATE_RE = /^(\d{4}-\d{2}-\d{2})(?:[T ]\d{2}:\d{2}:\d{2}(?:\.\d+)?)?$/;
+
+/**
+ * DATE/TIMESTAMP arbitrário (Date, string ISO, epoch numérico) → 'YYYY-MM-DD', ou null.
+ *
+ * Uma string 'YYYY-MM-DD[ T]HH:MM:SS' sem sufixo 'Z'/offset (ex.:
+ * datajud.models.normalizar_data14) é ingênua, não um instante absoluto: o
+ * componente de data é extraído diretamente, sem reinterpretar via `new
+ * Date()` -- que a tratamos como hora local e corromperia o dia em qualquer
+ * fuso UTC+ (mesmo raciocínio do docstring de `toIsoTimestamp`).
+ */
 export function toIsoDate(value: unknown): string | null {
   if (value === null || value === undefined) return null;
+  if (typeof value === 'string') {
+    const bareMatch = BARE_ISO_DATE_RE.exec(value);
+    if (bareMatch) return bareMatch[1];
+  }
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value.toISOString().slice(0, 10);
   }

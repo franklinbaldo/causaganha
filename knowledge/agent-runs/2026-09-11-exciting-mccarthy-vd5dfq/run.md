@@ -2,28 +2,42 @@
 type: AgentRun
 id: "2026-09-11-exciting-mccarthy-vd5dfq"
 started_at: "2026-09-11T02:26:38Z"
-completed_at: ""
+completed_at: "2026-09-11T02:43:50Z"
 branch_at_start: "claude/exciting-mccarthy-vd5dfq"
 commit_at_start: "f2ac6806f0f33e552138ffdc046ba2f9080e67cd"
 claude_md_reading_id: "2026-09-11-exciting-mccarthy-vd5dfq-reading-claude-md"
 issues_reading_id: "2026-09-11-exciting-mccarthy-vd5dfq-reading-issues"
 prs_reading_id: "2026-09-11-exciting-mccarthy-vd5dfq-reading-prs"
 okf_reading_id: "2026-09-11-exciting-mccarthy-vd5dfq-reading-okf"
-goal_ids: []
-primary_goal_id: ""
-considered_work: []
-selected_work: ""
-expected_behavior: ""
+goal_ids:
+  - "2026-09-11-exciting-mccarthy-vd5dfq-goal-datajud-timezone-date-shift"
+primary_goal_id: "2026-09-11-exciting-mccarthy-vd5dfq-goal-datajud-timezone-date-shift"
+considered_work:
+  - "16 open GitHub issues, identical set since 2026-09-05, all pre-verified blocked in knowledge/backlog/issue-*.md (segmenter/training-corpus cluster needs GPU/annotation infra; #1022 needs IAS3 credentials, re-confirmed absent via `env`; #985 blocked on a live Akamai 403 against *.tse.jus.br; #950/#951/#1093 need an infra/product decision). Not actionable."
+  - "Only other open PR was #1353, an unrelated Dependabot bump. The one agent-authored PR in flight (#1455, njkncp's closing-report follow-up) was clean and fully green with nothing left to review, so it was merged as this round's first action for continuity rather than left open with no purpose."
+  - "src/djen_backup/ and scripts/ have had 6 of the last 7 rounds' direct scrutiny (query_plan_fixtures.py, engine.py x2, render_manifest_parquet.py, archive.py x2, djen.py) and are reported thoroughly hardened; njkncp's own next_move recommended continuing the untouched-module survey strategy rather than re-treading that ground."
+  - "Dispatched an Explore-agent survey of causaganha_mcp/, tjro_juris/, stj_acordaos/, tcu_acordaos/, tse_processual/, datajud/, causaganha/analysis/, causaganha/decisoes/, causaganha/publicacoes/, scripts/render_queries.py, and web/src/lib/ for a concrete, previously-undiscovered correctness bug. It reported those areas unusually well-hardened but surfaced one confirmed real bug: web/src/lib/processoCnj.ts::toIsoDate reinterprets a naive (no 'Z'/offset) ISO date-time string via `new Date()`, which JS parses as local time -- shifting DatajudCapaView.dataAjuizamento back a UTC day for any viewer in a UTC+ timezone. Independently re-verified with a live `TZ=Asia/Tokyo node -e ...` repro and by reading the full chain (src/datajud/archive.py's pa.string() schema, src/datajud/models.py::normalizar_data14's always-naive output, and the SQL cast in buildDatajudSql) before adopting it as this round's goal."
+selected_work: "web/src/lib/processoCnj.ts::toIsoDate (line ~312) fed any string value straight into `new Date(value)` before slicing to 'YYYY-MM-DD'. data_ajuizamento (DataJud) is a pa.string() column populated by normalizar_data14, which always emits a naive 'YYYY-MM-DDTHH:MM:SS' (no zone marker, defaulting missing time fields to 00:00:00) -- exactly the shape toIsoTimestamp's own docstring already warns would 'corromper o instante' if reinterpreted via `new Date()` in a non-UTC timezone. toIsoDate had precisely that flaw for its sibling field."
+expected_behavior: "web/src/lib/processoCnj.test.ts adds two regression tests (in the toIsoDate describe block, and in mapDatajudRow's) that set process.env.TZ = 'Asia/Tokyo' and assert the calendar date is NOT shifted. RED on unmodified toIsoDate: both fail with 'expected 2024-01-09 to be 2024-01-10'. GREEN once toIsoDate short-circuits any naive 'YYYY-MM-DD[ T]HH:MM:SS' string (matched via a new BARE_ISO_DATE_RE) to its leading date digits, before ever constructing a Date from it -- a 'Z'/offset-bearing string, a Date instance, or an epoch number/bigint still go through the pre-existing new Date(...).toISOString() path unchanged. Full web/src/lib/processoCnj.test.ts (88 tests), the full web vitest suite (515 tests across 72 files), and `npm run lint` (0 errors) stay green; ruff check/format and the full Python pytest suite stay green (this round touches no Python file); a PR is opened."
 entry_state: "new"
-target_state: "red"
-decision_ids: []
-evidence_ids: []
-check_ids: []
-result_state: "red"
-result_summary: ""
-next_move: ""
+target_state: "review"
+decision_ids:
+  - "2026-09-11-exciting-mccarthy-vd5dfq-decision-extract-bare-date-vs-normalize-input"
+evidence_ids:
+  - "2026-09-11-exciting-mccarthy-vd5dfq-evidence-red-test"
+  - "2026-09-11-exciting-mccarthy-vd5dfq-evidence-green-test"
+  - "2026-09-11-exciting-mccarthy-vd5dfq-evidence-diff"
+check_ids:
+  - "2026-09-11-exciting-mccarthy-vd5dfq-check-okf-parser-baseline"
+  - "2026-09-11-exciting-mccarthy-vd5dfq-check-red-test"
+  - "2026-09-11-exciting-mccarthy-vd5dfq-check-green-and-suite"
+  - "2026-09-11-exciting-mccarthy-vd5dfq-check-ruff"
+  - "2026-09-11-exciting-mccarthy-vd5dfq-check-okf-parser-cli-vs-api-yaml-gap"
+result_state: "review"
+result_summary: "web/src/lib/processoCnj.ts::toIsoDate no longer reinterprets a naive (no 'Z'/offset) ISO date-time string through `new Date()` local-time parsing -- it now extracts the calendar-date prefix directly via a new BARE_ISO_DATE_RE regex, matching the policy toIsoTimestamp's own docstring already documents for the sibling field ultima_atualizacao. This fixes a real, independently-reproduced bug: DatajudCapaView.dataAjuizamento (the public /processo dossier's 'Data de ajuizamento' field) silently showed the wrong calendar day, one day earlier than the true filing date, for every viewer whose browser timezone is ahead of UTC (all of Europe, Asia, Australia, most of Africa) -- confirmed live with `TZ=Asia/Tokyo node -e \"console.log(new Date('2024-01-10T00:00:00').toISOString().slice(0,10))\"` printing 2024-01-09 before the fix. Also corrected a factually-wrong test comment ('data_ajuizamento is a genuine DATE column — no time-of-day to lose') that had encoded the false premise letting this bug go undetected; the column is actually a pa.string() built by src/datajud/models.py::normalizar_data14, which always appends a synthetic time-of-day. TDD: two new regression tests (web/src/lib/processoCnj.test.ts, tagged #datajud-tz) confirmed RED against the unmodified toIsoDate, then GREEN after the fix. Full web/src/lib/processoCnj.test.ts (88/88), the full web vitest suite (515/515 across 72 files), and `npm run lint` (0 errors, only pre-existing generated-file warnings) are green. Python side untouched by this change; `uv run ruff check`/`ruff format --check` clean repo-wide. Separately, while validating this report, found and fixed a real bug in this round's own reading-okf.md (an invalid-YAML blank line inside a quoted scalar) that `okf_parser.load_bundle(...).is_conformant` correctly rejected but the CLI `uv run okf-parser check` command did not -- see check-okf-parser-cli-vs-api-yaml-gap.md. That bad YAML made causaganha_mcp.knowledge.load_pipeline_metadata raise RuntimeError, failing 14 tests in tests/causaganha_mcp/; after the YAML fix, `uv run pytest -q` is 100% green repo-wide (confirmed on this run.md's own final, non-draft content). PR not yet opened at the time this run.md was written -- opening it is this session's next action immediately following this commit."
+next_move: "Open the PR for this round's fix (branch claude/exciting-mccarthy-vd5dfq), then watch it to green/merge per this session's standing PR-driving obligations. For a future round: toIsoDate's sibling toIsoTimestamp and the SQL casts in buildJurisSql/buildStjSql/buildDocumentosSql were read and found safe this round (they cast genuine DATE/TIMESTAMP columns to VARCHAR, which DuckDB renders without introducing a spurious zone-less-but-nonzero time-of-day on a DATE), so this exact bug class is now closed across web/src/lib/processoCnj.ts -- but the same 'naive datetime string reinterpreted via new Date() in non-UTC code' pattern is worth a targeted grep across any other TypeScript file that parses a DuckDB-sourced date/timestamp string outside this one shared helper. Separately, and more urgently: this round found that `uv run okf-parser check knowledge --relational-schema okf.schema.sql` (the exact command this scaffold instructs every round to run as its primary validation loop) reports conformant=true on a bundle that `okf_parser.load_bundle(...).is_conformant` -- the API causaganha_mcp.knowledge.load_pipeline_metadata actually depends on -- correctly rejects as invalid YAML (see check-okf-parser-cli-vs-api-yaml-gap.md). That gap let a bad AgentReading file sit undetected long enough to fail 14 unrelated tests in tests/causaganha_mcp/ before being root-caused. A future round should either fix the CLI `check` subcommand to catch YAML frontmatter errors the same way `load_bundle().is_conformant` does (they should never disagree), or -- if okf-parser is an external dependency this repo cannot patch directly -- add a cheap repo-side pytest/CI check that calls `load_bundle(Path('knowledge')).is_conformant` directly and fails loudly, so this class of error surfaces at write-time instead of via an opaque RuntimeError deep in an unrelated MCP test file."
 ---
 
 # Agent run
 
-Rodada iniciada a partir do scaffold `.claude/agent-run-scaffold.md`. Primeira ação: mesclar a PR de fechamento da rodada anterior (#1455, docs-only, `mergeable_state: clean`, 10/10 checks verdes) para restabelecer continuidade antes de escolher o trabalho desta rodada.
+Rodada corrige `web/src/lib/processoCnj.ts::toIsoDate`, que reinterpretava uma string de data/hora ingênua (sem `Z`/offset) via `new Date()` -- tratada como hora local, deslocando `DatajudCapaView.dataAjuizamento` um dia para trás em qualquer fuso UTC+ (a maior parte da Europa, Ásia, Austrália e África). Bug real, verificado de forma independente (`TZ=Asia/Tokyo node -e ...`) antes de virar o goal desta rodada. Corrigido extraindo a data diretamente via regex, igual à política já documentada em `toIsoTimestamp` para o campo irmão `ultima_atualizacao`. TDD RED→GREEN com dois novos testes de regressão; suíte web completa (515/515) e lint (0 erros) verdes.

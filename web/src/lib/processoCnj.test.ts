@@ -308,6 +308,23 @@ describe('toIsoDate', () => {
     expect(toIsoDate(undefined)).toBeNull();
     expect(toIsoDate('not-a-date')).toBeNull();
   });
+
+  it('does not shift the calendar day for a naive datetime string in a UTC+ timezone (#datajud-tz)', () => {
+    // datajud.models.normalizar_data14 always emits a naive
+    // 'YYYY-MM-DDTHH:MM:SS' (no 'Z'/offset) for data_ajuizamento -- the same
+    // shape toIsoTimestamp's own docstring warns would "corromper o
+    // instante" if reinterpreted via `new Date()` in a non-UTC timezone.
+    // Reproduce that exact failure mode: `new Date('2024-01-10T00:00:00')`
+    // is parsed as *local* midnight, so in any UTC+ timezone .toISOString()
+    // rolls it back to the previous UTC day.
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'Asia/Tokyo';
+    try {
+      expect(toIsoDate('2024-01-10T00:00:00')).toBe('2024-01-10');
+    } finally {
+      process.env.TZ = originalTz;
+    }
+  });
 });
 
 describe('mapDjenRow', () => {
@@ -402,8 +419,30 @@ describe('mapDatajudRow', () => {
       ultima_atualizacao: '2024-06-01 14:23:05',
     });
     expect(view.ultimaAtualizacao).toBe('2024-06-01T14:23:05');
-    // data_ajuizamento is a genuine DATE column — no time-of-day to lose.
     expect(view.dataAjuizamento).toBe('2024-01-10');
+  });
+
+  it('does not roll dataAjuizamento back a day in a UTC+ timezone (#datajud-tz)', () => {
+    // data_ajuizamento is NOT a genuine DATE column: it's a pa.string() built
+    // by datajud.models.normalizar_data14, which always appends a synthetic
+    // 'T00:00:00' (or the true hour/minute/second, when DataJud reports
+    // them) -- a naive datetime string with no 'Z'/offset, exactly like
+    // ultima_atualizacao above. toIsoDate must not reinterpret that string
+    // via `new Date()` (local-time parsing), or the reported filing date
+    // shifts a day backward for every viewer in a UTC+ timezone.
+    const originalTz = process.env.TZ;
+    process.env.TZ = 'Asia/Tokyo';
+    try {
+      const view = mapDatajudRow({
+        n: 1,
+        classe_oficial: 'Apelacao Civel',
+        data_ajuizamento: '2024-01-10T00:00:00',
+        ultima_atualizacao: '2024-06-01 14:23:05',
+      });
+      expect(view.dataAjuizamento).toBe('2024-01-10');
+    } finally {
+      process.env.TZ = originalTz;
+    }
   });
 
   it('preserves a bare-date ultima_atualizacao unchanged', () => {
