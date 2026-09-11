@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest.mock import Mock
 
 import httpx
+import duckdb
 import pytest
 import yaml
 
@@ -14,6 +15,20 @@ from scripts.pipeline.consolidate_partition import sync_entries
 
 ITEM = "djen-tre-ro-2026"
 FILES = [{"name": "djen-2026-09-04-TRE-RO.zip", "size": "123", "md5": "abc"}]
+
+
+def test_index_prefers_annual_copy_without_duplicating_publications():
+    from scripts.reconcile_processos import _INDICE_DJEN_SQL
+
+    with duckdb.connect() as con:
+        con.execute("""CREATE TABLE comunicacoes AS SELECT * FROM (VALUES
+            ('70083321620268220007', 'TJRO', 'same-id', DATE '2026-09-04', 'djen-2026-09-04'),
+            ('70083321620268220007', 'TJRO', 'same-id', DATE '2026-09-04', 'djen-tjro-2026'),
+            ('70083321620268220007', 'TJRO', 'other-id', DATE '2026-09-04', 'djen-tjro-2026')
+        ) t(numero_processo, tribunal, id, data_disponibilizacao, p_item_ia)""")
+        rows = con.execute(_INDICE_DJEN_SQL).fetchall()
+    assert len(rows) == 2
+    assert all(row[-1].endswith("/djen-tjro-2026/comunicacoes.parquet") for row in rows)
 
 
 def client_for(files, receipt=None):
