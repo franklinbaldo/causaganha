@@ -354,6 +354,18 @@ describe('toIsoDate', () => {
     // the date portion alone is valid.
     expect(toIsoDate('2024-01-01T99:99:99')).toBeNull();
   });
+
+  it('accepts a valid four-digit year below 100 instead of rejecting it as calendrically invalid', () => {
+    // isValidCalendarDate() round-trips (year, month, day) through
+    // Date.UTC(...) to reject out-of-range components. Date.UTC (like the
+    // legacy multi-arg Date constructor) applies the ECMA-262 two-digit-year
+    // rule to any year in [0, 99]: Date.UTC(1, 0, 1) actually produces the
+    // year 1901, not 1, so the round-trip's getUTCFullYear() check spuriously
+    // fails and a genuinely valid 'YYYY-MM-DD' input with year 0001-0099 is
+    // rejected as null instead of being returned unchanged.
+    expect(toIsoDate('0001-01-01')).toBe('0001-01-01');
+    expect(toIsoDate('0099-12-31')).toBe('0099-12-31');
+  });
 });
 
 describe('mapDjenRow', () => {

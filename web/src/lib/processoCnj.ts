@@ -312,13 +312,19 @@ const BARE_ISO_DATE_RE = /^(\d{4})-(\d{2})-(\d{2})(?:[T ](\d{2}):(\d{2}):(\d{2})
 
 /**
  * Valida que (ano, mês, dia) formam uma data de calendário real, sem
- * depender de `new Date()` reinterpretar hora local: `Date.UTC` normaliza
- * componentes fora de faixa (mês 13, dia 32, 29/02 em ano não-bissexto)
- * rolando para o mês/ano seguinte, então o round-trip através dos
- * componentes UTC só bate se a data de entrada já era válida.
+ * depender de `new Date()` reinterpretar hora local: construir a data via
+ * `setUTCFullYear` (em vez de `Date.UTC`/o construtor multi-argumento)
+ * normaliza componentes fora de faixa (mês 13, dia 32, 29/02 em ano
+ * não-bissexto) rolando para o mês/ano seguinte, então o round-trip através
+ * dos componentes UTC só bate se a data de entrada já era válida --
+ * `setUTCFullYear` também evita a regra legada do ECMA-262 que reinterpreta
+ * qualquer ano de 0 a 99 como 1900+ano quando passado a `Date.UTC`/ao
+ * construtor multi-argumento, o que rejeitaria datas reais de calendário
+ * anteriores ao ano 100.
  */
 function isValidCalendarDate(year: number, month: number, day: number): boolean {
-  const asUtc = new Date(Date.UTC(year, month - 1, day));
+  const asUtc = new Date(0);
+  asUtc.setUTCFullYear(year, month - 1, day);
   return (
     asUtc.getUTCFullYear() === year && asUtc.getUTCMonth() === month - 1 && asUtc.getUTCDate() === day
   );
