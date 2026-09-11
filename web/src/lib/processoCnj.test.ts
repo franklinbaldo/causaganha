@@ -354,6 +354,17 @@ describe('toIsoDate', () => {
     // the date portion alone is valid.
     expect(toIsoDate('2024-01-01T99:99:99')).toBeNull();
   });
+
+  it('accepts a valid ISO year below 100 instead of rejecting it via the legacy two-digit-year offset', () => {
+    // Date.UTC(year, ...) (and the numeric `new Date(year, ...)` form) apply
+    // a legacy rule that maps a 0-99 year argument onto 1900-1999 -- but
+    // `new Date(isoString)` does NOT apply that rule to an ISO date string.
+    // isValidCalendarDate's round-trip must not reintroduce that legacy
+    // offset (e.g. via Date.UTC) or it would reject a perfectly valid early
+    // year that the pre-existing new Date(...) fallback always accepted.
+    expect(toIsoDate('0001-01-01')).toBe('0001-01-01');
+    expect(toIsoDate('0099-12-31')).toBe('0099-12-31');
+  });
 });
 
 describe('mapDjenRow', () => {
