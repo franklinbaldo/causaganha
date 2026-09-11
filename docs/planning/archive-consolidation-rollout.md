@@ -5,8 +5,8 @@ Implementação local em 11/09/2026; ativação no GitHub Actions e publicação
 ## Caminho integrado
 
 - `archive_partitions.py` descobre itens pela API de busca do Archive, pagina os resultados e inventaria ZIPs pela API de metadata. Não consulta o manifesto de coleta para decidir completude.
-- `consolidate-parquet.yml` seleciona até 12 partições pendentes, anos recentes primeiro, com dois jobs simultâneos e sem cancelamento das outras partições quando uma falha. O limite evita disparar todo o backlog de uma vez.
-- `consolidate_partition.py` adapta o inventário ao conversor `consolidate_tribunal_year`. ZIPs com falha impedem substituir os Parquets da partição. Validações NDJSON e Parquet continuam obrigatórias.
+- `consolidate-parquet.yml` seleciona até 12 partições pendentes, com rotação diária sobre a lista ordenada por ano/item, dois jobs simultâneos e sem cancelamento das outras partições quando uma falha. A rotação impede que falhas persistentes monopolizem todos os lotes.
+- `consolidate_partition.py` adapta o inventário ao conversor `consolidate_tribunal_year`, incluindo tamanho e MD5 verificados sobre os bytes baixados. ZIPs com falha impedem substituir os Parquets da partição. Validações NDJSON e Parquet continuam obrigatórias. Saídas antigas que deixaram de ser geradas impedem a certificação até serem resolvidas.
 - Depois da conversão, compara checksums dos Parquets locais e publicados, testa leitura HTTP Range e grava `consolidation-inputs.json` no item. O recibo registra entradas, saídas, schema e revisão da transformação. ZIP novo/alterado, saída ausente/alterada ou mudança de revisão tornam a partição elegível novamente.
 - A consolidação dispara `update-catalog.yml` com `force_reconcile=true`. Esse modo agora reconstrói o catálogo com `--full` e o índice, mesmo sem ZIP novo. O gatilho duplicado por `workflow_run` foi removido.
 
@@ -34,4 +34,4 @@ Conferir o recibo público, a execução encadeada de catálogo/índice e a home
 
 Os uploads de tabelas de um item não são uma transação atômica: uma falha após alguns uploads pode deixar versões misturadas até a repetição. O recibo não certifica essa execução e o job falha, mas consumidores que leem diretamente os arquivos podem observar esse estado. Publicação por versões imutáveis com promoção atômica exige trabalho adicional.
 
-O catálogo legado também inclui artefatos sem recibo; esta mudança não converte o recibo em um gate universal de leitura nem atualiza toda a apresentação de cobertura no site. A descoberta pela busca do Archive pode ter atraso de indexação; o input explícito permite inventariar um item conhecido diretamente.
+O workflow usa `--verified-inventory`: falhas na descoberta ou metadata abortam a publicação do catálogo; Parquets anuais só entram quando todos os checksums do recibo correspondem aos arquivos publicados. Arquivos diários legados continuam aceitos. Consumidores diretos dos URLs não passam por esse gate. A descoberta pela busca do Archive pode ter atraso de indexação; o input explícito permite inventariar um item conhecido diretamente. A apresentação de cobertura no site ainda precisa de trabalho próprio.

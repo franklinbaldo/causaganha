@@ -1498,6 +1498,13 @@ def process_zip_entry(
             logger.warning("download_failed", filename=filename)
             return 0, 0
 
+    if "md5" in zip_entry:
+        with zip_path.open("rb") as stream:
+            actual_md5 = hashlib.file_digest(stream, "md5").hexdigest()
+        if actual_md5 != zip_entry["md5"] or zip_path.stat().st_size != zip_entry["size"]:
+            message = f"ZIP does not match Archive inventory: {filename}"
+            raise RuntimeError(message)
+
     # Extract
     records = extract_json_from_zip(zip_path)
     if not records:
@@ -1555,6 +1562,7 @@ def list_zips_for_tribunal_year(
                     "item_id": entry["item_id"],
                     "date": date_str,
                     "size": 0,
+                    **({"md5": entry["md5"], "size": entry["size"]} if "md5" in entry else {}),
                 },
             )
 

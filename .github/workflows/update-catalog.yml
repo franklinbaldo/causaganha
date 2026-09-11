@@ -63,7 +63,7 @@ jobs:
           FORCE_RECONCILE: ${{ inputs.force_reconcile }}
         run: |
           echo "Generating catalog from IA data..."
-          args=()
+          args=(--verified-inventory)
           if [ "$FORCE_RECONCILE" = 'true' ]; then args+=(--full); fi
           uv run python scripts/generate_catalog.py --output ./catalog "${args[@]}"
           cp docs/CATALOG.md catalog/README.md

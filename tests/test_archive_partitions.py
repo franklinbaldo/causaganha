@@ -31,6 +31,71 @@ def test_index_prefers_annual_copy_without_duplicating_publications():
     assert all(row[-1].endswith("/djen-tjro-2026/comunicacoes.parquet") for row in rows)
 
 
+def test_changed_zip_bytes_are_rejected_before_extraction(monkeypatch, tmp_path):
+    from scripts.pipeline import consolidate as module
+
+    def download(item, name, path):
+        path.write_bytes(b"stale ZIP bytes")
+        return True
+
+    monkeypatch.setattr(module, "download_zip", download)
+    extract = Mock()
+    monkeypatch.setattr(module, "extract_json_from_zip", extract)
+    with pytest.raises(RuntimeError, match="does not match"):
+        module.process_zip_entry(
+            {"filename": "test.zip", "tribunal": "TJRO", "md5": "different", "size": 15},
+            tmp_path,
+            tmp_path,
+            "djen-tjro-2026",
+            None,
+        )
+    extract.assert_not_called()
+
+
+def test_catalog_rejects_a_partially_replaced_output_set():
+    from scripts.generate_catalog import certified_parquet_names
+
+    files = [
+        {"name": "comunicacoes.parquet", "md5": "new"},
+        {"name": "textos.parquet", "md5": "old"},
+    ]
+    receipt = {
+        "outputs": [
+            {"name": "comunicacoes.parquet", "md5": "new"},
+            {"name": "textos.parquet", "md5": "new"},
+        ]
+    }
+    assert certified_parquet_names(files, receipt) == set()
+    files[1]["md5"] = "new"
+    assert certified_parquet_names(files, receipt) == {"comunicacoes.parquet", "textos.parquet"}
+
+
+def test_full_catalog_inventory_failure_propagates(monkeypatch):
+    from scripts import generate_catalog as catalog
+
+    async def failed(*args, **kwargs):
+        message = "upstream down"
+        raise OSError(message)
+
+    monkeypatch.setattr(catalog, "fetch_item_files", failed)
+    with pytest.raises(OSError, match="upstream down"):
+        catalog.generate_manifest([ITEM], verified_inventory=True)
+
+
+def test_daily_rotation_does_not_starve_later_partitions(monkeypatch):
+    from scripts.pipeline import archive_partitions as module
+
+    items = [f"djen-test{i}-2026" for i in range(5)]
+    monkeypatch.setattr(module, "discover", lambda _: items)
+    monkeypatch.setattr(module, "inventory", lambda _, item: {"item": item, "year": 2026})
+    monkeypatch.setattr(module, "needs_consolidation", lambda *_: True)
+    with client_for(FILES) as client:
+        selected = {
+            part["item"] for day in range(5) for part in module.plan(client, None, 2, day=day)
+        }
+    assert selected == set(items)
+
+
 def client_for(files, receipt=None):
     def handle(request):
         if "/metadata/" in request.url.path:

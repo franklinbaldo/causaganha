@@ -23,6 +23,8 @@ def sync_entries(snapshot: dict) -> dict:
                 "item_id": snapshot["item"],
                 "tribunal": snapshot["tribunal"],
                 "absent": False,
+                "md5": entry["md5"],
+                "size": entry["size"],
             }
         ]
         for entry in snapshot["inputs"]
@@ -45,7 +47,7 @@ async def publish_receipt(item: str, receipt: dict) -> None:
 
 
 def run(item: str, *, dry_run: bool = False) -> None:
-    from scripts.pipeline.consolidate import consolidate_tribunal_year
+    from scripts.pipeline.consolidate import TABLES, consolidate_tribunal_year
 
     if not dry_run and not get_ia_s3_auth():
         message = "Archive credentials required"
@@ -71,6 +73,14 @@ def run(item: str, *, dry_run: bool = False) -> None:
             message = "ZIP inventory changed during consolidation; retry required"
             raise RuntimeError(message)
         outputs = []
+        stale = {
+            entry["name"]
+            for entry in after["files"]
+            if entry["name"] in {f"{table}.parquet" for table in TABLES}
+        } - checksums.keys()
+        if stale:
+            message = f"Obsolete Parquets must be resolved before certification: {sorted(stale)}"
+            raise RuntimeError(message)
         for entry in after["files"]:
             if entry["name"] not in checksums:
                 continue

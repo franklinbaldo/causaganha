@@ -8,6 +8,7 @@ import json
 import re
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from datetime import UTC, datetime
 
 import httpx
 
@@ -100,7 +101,9 @@ def discover(client: httpx.Client) -> list[str]:
     return sorted(items)
 
 
-def plan(client: httpx.Client, item: str | None, limit: int) -> list[dict]:
+def plan(
+    client: httpx.Client, item: str | None, limit: int, *, day: int | None = None
+) -> list[dict]:
     items = [item] if item else discover(client)
     with ThreadPoolExecutor(max_workers=8) as pool:
         futures = {value: pool.submit(inventory, client, value) for value in items}
@@ -121,6 +124,11 @@ def plan(client: httpx.Client, item: str | None, limit: int) -> list[dict]:
         raise RuntimeError(message)
     # Missing/changed receipts remain eligible next run; no permanent 'done' marker.
     pending.sort(key=lambda snapshot: (-snapshot["year"], snapshot["item"]))
+    if pending and not item:
+        # Rotate daily so persistent failures cannot monopolize every scheduled batch.
+        ordinal = datetime.now(UTC).date().toordinal() if day is None else day
+        offset = ordinal * limit % len(pending)
+        pending = pending[offset:] + pending[:offset]
     return [{"item": snapshot["item"]} for snapshot in pending[:limit]]
 
 
