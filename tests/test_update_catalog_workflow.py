@@ -45,6 +45,21 @@ def test_reconcile_expects_every_source_now_publishing_data() -> None:
     assert _reconcile_expected_sources() == {"djen", "juris", "stj", "datajud"}
 
 
+def test_reconcile_pins_catalog_in_both_operational_modes() -> None:
+    workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    steps = workflow["jobs"]["catalog"]["steps"]
+    reconcile = next(s for s in steps if s.get("name") == _RECONCILE_STEP_NAME)
+    generate = next(s for s in steps if s.get("name") == _GENERATE_CATALOG_STEP_NAME)
+    download = next(
+        s for s in steps if s.get("name") == "Download published catalog for reconciliation"
+    )
+    assert reconcile["env"]["RECONCILE_CATALOG_MANIFEST"] == "catalog/manifest.parquet"
+    assert "reconcile_only == 'true'" in reconcile["if"]
+    assert "reconcile_only != 'true'" in generate["if"]
+    assert "reconcile_only == 'true'" in download["if"]
+    assert "--output catalog/manifest.parquet" in download["run"]
+
+
 def _generate_catalog_run_script() -> str:
     workflow = yaml.safe_load(WORKFLOW_PATH.read_text(encoding="utf-8"))
     steps = workflow["jobs"]["catalog"]["steps"]

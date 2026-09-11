@@ -45,6 +45,8 @@ Pipeline:
   8. Upload the parquet + report to IA item causaganha-dashboard.
 
 Environment knobs:
+  RECONCILE_CATALOG_MANIFEST   — local manifest from the current catalog run;
+                                 defaults to the published IA manifest
   RECONCILE_CACHE_DIR          — where IA-fetched source parquets are cached
                                  (default: data/reconcile-cache)
   RECONCILE_DATAJUD_TRIBUNAIS  — comma list of datajud-{tribunal} IA items to
@@ -257,7 +259,7 @@ def comunicacoes_parquet_urls(con: duckdb.DuckDBPyConnection) -> list[str] | Non
     try:
         rows = con.execute(
             "SELECT DISTINCT ia_url FROM read_parquet(?) WHERE table_name = 'comunicacoes'",
-            [_IA_CATALOG_MANIFEST_URL],
+            [os.environ.get("RECONCILE_CATALOG_MANIFEST") or _IA_CATALOG_MANIFEST_URL],
         ).fetchall()
     except duckdb.Error as exc:
         print(f"  WARNING: could not read IA catalog manifest — {exc}", file=sys.stderr)
