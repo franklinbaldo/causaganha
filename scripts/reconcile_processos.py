@@ -499,6 +499,11 @@ SELECT
     'https://archive.org/download/' || p_item_ia || '/comunicacoes.parquet' AS arquivo_ia_url
 FROM comunicacoes
 WHERE length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20
+QUALIFY row_number() OVER (
+    PARTITION BY tribunal, id
+    ORDER BY regexp_full_match(p_item_ia, 'djen-[a-z0-9-]+-[0-9]{4}') DESC,
+             p_item_ia
+) = 1
 """
 
 _INDICE_JURIS_SQL = """

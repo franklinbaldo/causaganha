@@ -192,7 +192,11 @@ def list_ia_items() -> list[str]:
 
 
 async def fetch_item_files(
-    session: aiohttp.ClientSession, item_id: str, sem: asyncio.Semaphore
+    session: aiohttp.ClientSession,
+    item_id: str,
+    sem: asyncio.Semaphore,
+    *,
+    verified_inventory: bool = False,
 ) -> tuple[str, list[dict]]:
     """Fetch item files from IA metadata API concurrently."""
     url = f"https://archive.org/metadata/{item_id}"
@@ -206,6 +210,8 @@ async def fetch_item_files(
             async with sem, session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
                 if response.status == HTTP_200_OK:
                     data = await response.json()
+                    if verified_inventory:
+                        data = await verified_item_files(session, item_id, data)
                     files = []
                     for f in data.get("files", []):
                         filename = f.get("name", "")
@@ -213,6 +219,8 @@ async def fetch_item_files(
                             files.append({"name": filename, "item": item_id})
                     return item_id, files
                 if response.status == 404:
+                    if verified_inventory:
+                        continue
                     logger.debug("no_files_for_item", item_id=item_id)
                     return item_id, []
         except TimeoutError:
@@ -225,7 +233,48 @@ async def fetch_item_files(
         if attempt < 2:
             await asyncio.sleep(2**attempt)  # exponential backoff
 
+    if verified_inventory:
+        message = f"Archive inventory failed; refusing to replace catalog: {item_id}"
+        raise RuntimeError(message)
     return item_id, []
+
+
+def certified_parquet_names(files: list[dict], receipt: dict) -> set[str]:
+    """Only expose annual outputs when the entire certified set is still intact."""
+    by_name = {entry["name"]: entry for entry in files}
+    outputs = receipt.get("outputs", [])
+    if not outputs or any(
+        not entry.get("md5") or by_name.get(entry["name"], {}).get("md5") != entry["md5"]
+        for entry in outputs
+    ):
+        return set()
+    return {entry["name"] for entry in outputs}
+
+
+async def verified_item_files(session: aiohttp.ClientSession, item_id: str, data: dict) -> dict:
+    """An unavailable inventory is fatal; uncertified annual Parquets remain unlisted."""
+    if not isinstance(data, dict) or not isinstance(data.get("files"), list):
+        message = f"Malformed metadata for {item_id}"
+        raise TypeError(message)
+    files = data["files"]
+    if not re.fullmatch(r"djen-[a-z0-9-]+-20\d{2}", item_id):
+        return data  # Existing daily archives predate the receipt protocol.
+    eligible = set()
+    if any(entry["name"] == "consolidation-inputs.json" for entry in files):
+        url = f"https://archive.org/download/{item_id}/consolidation-inputs.json"
+        async with session.get(url, timeout=aiohttp.ClientTimeout(total=30)) as response:
+            response.raise_for_status()
+            eligible = certified_parquet_names(files, await response.json(content_type=None))
+    if any(entry["name"].endswith(".parquet") and entry["name"] not in eligible for entry in files):
+        logger.warning("uncertified_parquets_excluded", item=item_id)
+    return {
+        **data,
+        "files": [
+            entry
+            for entry in files
+            if not entry["name"].endswith(".parquet") or entry["name"] in eligible
+        ],
+    }
 
 
 def list_item_files(item_id: str) -> list[dict]:
@@ -760,6 +809,8 @@ def generate_manifest(
     items: list[str],
     existing_manifest: list[dict] | None = None,
     completed_items: set[str] | None = None,
+    *,
+    verified_inventory: bool = False,
 ) -> list[dict]:
     """Generate manifest of all files in Internet Archive.
 
@@ -817,13 +868,20 @@ def generate_manifest(
     async def fetch_all(items_to_fetch: list[str]) -> list[tuple[str, list[dict]]]:
         sem = asyncio.Semaphore(10)
         async with aiohttp.ClientSession() as session:
-            tasks = [fetch_item_files(session, item_id, sem) for item_id in items_to_fetch]
+            tasks = [
+                fetch_item_files(session, item_id, sem, verified_inventory=True)
+                if verified_inventory
+                else fetch_item_files(session, item_id, sem)
+                for item_id in items_to_fetch
+            ]
             return await asyncio.gather(*tasks, return_exceptions=True)
 
     results = asyncio.run(fetch_all(items_to_list))
 
     for result in results:
         if isinstance(result, Exception):
+            if verified_inventory:
+                raise result
             logger.exception("manifest_item_task_failed", error=str(result))
             completed_count += 1
             continue
@@ -1308,6 +1366,11 @@ def main() -> int:
     parser.add_argument("--output", type=str, default="./catalog", help="Output directory")
     parser.add_argument("--upload", action="store_true", help="Upload to Internet Archive")
     parser.add_argument(
+        "--verified-inventory",
+        action="store_true",
+        help="Fail on incomplete inventory; certify annual Parquets by receipt",
+    )
+    parser.add_argument(
         "--full", action="store_true", help="Force full catalog rebuild (disable incremental)"
     )
     parser.add_argument(
@@ -1358,7 +1421,7 @@ def main() -> int:
     completed_items = None
     items = []
 
-    if not args.full:
+    if not args.full and not args.verified_inventory:
         existing_manifest = load_existing_manifest()
         completed_items = load_completed_items()
 
@@ -1377,7 +1440,12 @@ def main() -> int:
         items = list_ia_items()
 
     # 3. Generate manifest
-    manifest = generate_manifest(items, existing_manifest, completed_items)
+    if args.verified_inventory and not items:
+        logger.error("empty_discovery_refusing_catalog_replacement")
+        return 1
+    manifest = generate_manifest(
+        items, existing_manifest, completed_items, verified_inventory=args.verified_inventory
+    )
 
     # 3b. Determine newly completed items
     total_tribunals = len(TRIBUNAIS)
