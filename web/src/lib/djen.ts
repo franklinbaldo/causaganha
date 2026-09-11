@@ -219,8 +219,11 @@ export function normalizeExternalUrl(value: unknown): string | undefined {
       return url.toString();
     }
   } catch {
-    // Relative path from the DJEN API — resolve against the public base
-    if (raw.startsWith("/")) {
+    // Relative path from the DJEN API — resolve against the public base.
+    // A leading "//" is a protocol-relative network-path reference, not a
+    // path: resolving it would let the attacker-supplied host override the
+    // DJEN base, so it must be rejected rather than treated as relative.
+    if (raw.startsWith("/") && !raw.startsWith("//")) {
       try {
         const resolved = new URL(raw, "https://comunicaapi.pje.jus.br");
         return resolved.toString();
