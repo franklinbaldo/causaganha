@@ -1,5 +1,7 @@
 # Decisão: Fonte da verdade do manifesto — log append-only + compactação para Parquet
 
+> Escopo atualizado em 11/09/2026 pela [ADR 0012](../adr/0012-acervo-inventariado-no-internet-archive.md): este documento trata do **estado operacional da coleta**. O inventário dos arquivos preservados deve ser reconstruído pelas APIs do Internet Archive. O estado da coleta não deve bloquear ZIPs disponíveis por falta de completude nacional. A integração por tribunal/ano está implementada; o reprocessamento e a cobertura publicada devem ser conferidos no guia operacional.
+
 ## Status
 * **Proponente:** Franklin Baldo + Claude
 * **Data:** 2026-06-01

@@ -13,6 +13,8 @@ CausaGanha archives Brazilian judicial communications (DJEN) on Internet Archive
 
 ### djen-backup (sync engine)
 
+**Accepted strategy, operational integration merged:** [ADR 0012](docs/adr/0012-acervo-inventariado-no-internet-archive.md). Rebuild the physical archive inventory from Internet Archive APIs. Consolidate available ZIPs per tribunal/partition without nationwide daily completeness. A missing ZIP is an unknown gap, not evidence of no publication. Preserve verification events to reconstruct collection status. Distinguish preserved, converted and searchable coverage. The “single source of truth” below refers to collection state, not the physical archive inventory. The tribunal/year workflow is integrated; use the rollout guide for publication evidence and remaining coverage, never infer full backlog completion from deployment.
+
 The canonical sync engine is in `src/djen_backup/`. Key concepts:
 
 - **`sync-manifest.parquet`** on IA (`https://archive.org/download/causaganha-dashboard/sync-manifest.parquet`) is the single source of truth. One row per `(tribunal, date)` pair with `ia_status`, `djen_status`, `djen_raw`, `updated_at`. It is the compacted base of an append-only event log (`manifest-log/*.csv` segments, absorbed by `scripts/render_manifest_parquet.py`) — see `docs/planning/manifest-source-of-truth.md`. The legacy `sync-manifest.csv` is retired as a source; it can still be produced as a derived export on demand (`MANIFEST_COMPACT_WRITEBACK=1` when running the compactor), but nothing reads it as canonical anymore.

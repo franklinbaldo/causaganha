@@ -10,7 +10,14 @@ O site permite consultar um processo por número CNJ, pesquisar publicações po
 
 **Site público:** [franklinbaldo.github.io/causaganha](https://franklinbaldo.github.io/causaganha/)
 
+## Estratégia do acervo
+
+Antes das interfaces, a regra do acervo: **inventariar o que existe no Internet Archive e disponibilizar os dados preservados sem esperar completude nacional**. ZIPs disponíveis devem avançar para Parquet, catálogo e busca por tribunal/partição. A falta de um ZIP indica uma lacuna a investigar; não prova ausência de publicação. Registros de verificação preservados explicam ausências e falhas, sem bloquear o acervo existente.
+
+Essa estratégia está integrada ao pipeline por tribunal/ano. A [ADR 0012](docs/adr/0012-acervo-inventariado-no-internet-archive.md) define fontes de verdade e critérios de entrega; o [guia operacional](docs/planning/archive-consolidation-rollout.md) registra a ativação, validações e limites. Integração do código não implica que todo o backlog já esteja pesquisável.
+
 ## O produto em três perguntas
+
 
 Um processo deixa rastros diferentes em fontes diferentes. O CausaGanha evita fundi-los numa resposta opaca:
 

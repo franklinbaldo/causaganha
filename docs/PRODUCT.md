@@ -10,6 +10,8 @@ A unidade de confiança do produto não é “uma resposta unificada”. É uma 
 
 ## Três tipos de evidência
 
+A [ADR 0012](adr/0012-acervo-inventariado-no-internet-archive.md) define a distribuição: o inventário do Archive descreve o acervo físico; pendências de outros tribunais não bloqueiam sua disponibilização. A interface deve distinguir dados preservados, convertidos e pesquisáveis. A ausência de ZIP é uma lacuna, não uma conclusão sobre publicação. A integração por tribunal/ano não implica que todo o backlog já tenha sido convertido e indexado.
+
 ### Arquivo
 
 Responde: **o que foi publicado e preservado?**
