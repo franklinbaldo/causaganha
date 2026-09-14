@@ -16,7 +16,7 @@ import anyio
 import httpx
 import structlog
 
-from causaganha.consolidate.schema_registry import kv_metadata_sql_fragment
+from causaganha.consolidate.schema_registry import CNJ_LAYOUT_TABLES, kv_metadata_sql_fragment
 from causaganha.consolidate.validation import validate_parquet
 from causaganha.pipeline.ia_s3 import upload_to_ia
 
@@ -39,13 +39,15 @@ _CONSOLIDATION_META_OVERRIDES = {
 
 # Physical ordering for each table's Parquet export (A1 layout optimization).
 # Ordering by the primary filter key enables DuckDB min/max row-group pruning for
-# HTTP Range reads.  data_disponibilizacao is the dominant dashboard filter key
-# (time-range queries); verify with A0w workload measurement before changing.
+# HTTP Range reads. comunicacoes/processos are CNJ-first (numero_processo) per
+# issue #1469 — the site's dominant read path is a per-process lookup by CNJ;
+# these two tables are also normalized to 20-digit CNJ text on write (see
+# _CNJ_NORMALIZATION_EXPR) and certified via the causaganha.layout footer marker.
 # Every table in TRANSFORMS.TABLES must have an entry here (enforced at runtime
 # and by test_exporter.test_every_table_has_an_order_key).
 _TABLE_ORDER_KEYS: dict[str, str] = {
-    "comunicacoes": "data_disponibilizacao, p_mes",
-    "processos": "data, numero_processo",
+    "comunicacoes": "numero_processo, data_disponibilizacao, id",
+    "processos": "numero_processo, data",
     "destinatarios": "comunicacao_id",
     "comunicacao_advogados": "comunicacao_id",
     "representacoes": "comunicacao_id",
@@ -54,6 +56,18 @@ _TABLE_ORDER_KEYS: dict[str, str] = {
     "textos": "id",
     "partes": "id",
 }
+
+# Normalizes numero_processo to 20-digit text when — and only when — its digit
+# content round-trips to exactly 20 digits (a genuine CNJ number). Non-CNJ
+# values, NULLs and the numero_processo_mascara column are left untouched.
+_CNJ_NORMALIZATION_EXPR = (
+    "CASE "
+    "WHEN numero_processo IS NULL THEN numero_processo "
+    "WHEN length(regexp_replace(numero_processo, '[^0-9]', '', 'g')) = 20 "
+    "THEN regexp_replace(numero_processo, '[^0-9]', '', 'g') "
+    "ELSE numero_processo "
+    "END AS numero_processo"
+)
 
 
 def export_table_sync(
@@ -72,7 +86,7 @@ def export_table_sync(
     if count == 0:
         return None
     output_path = output_dir / f"{table_name}.parquet"
-    kv_clause = kv_metadata_sql_fragment(item_id) if item_id else ""
+    kv_clause = kv_metadata_sql_fragment(item_id, table_name=table_name) if item_id else ""
     copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
     if kv_clause:
         copy_opts = f"{copy_opts}, {kv_clause}"
@@ -82,7 +96,10 @@ def export_table_sync(
         msg = f"unknown table for export: {table_name!r}"
         raise ValueError(msg)
     order_keys = _TABLE_ORDER_KEYS[table_name]
-    copy_source = f"(SELECT * FROM {table_name} ORDER BY {order_keys})"
+    select_cols = (
+        f"* REPLACE ({_CNJ_NORMALIZATION_EXPR})" if table_name in CNJ_LAYOUT_TABLES else "*"
+    )
+    copy_source = f"(SELECT {select_cols} FROM {table_name} ORDER BY {order_keys})"
     con.raw_sql(
         f"COPY {copy_source} TO '{output_path}' ({copy_opts})",
     )

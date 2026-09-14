@@ -506,3 +506,38 @@ ajuda CNJ se o arquivo for ordenado por CNJ **e** houver repetição por row gro
   `scripts/pipeline/consolidate.py`; toda mudança de layout precisa estar lá
   *e* em `transforms.py`/`exporter.py` (hoje os schemas já são compartilhados via
   registry, mas a lógica de `ORDER BY`/serving é por-builder).
+
+## Atualização 2026-09-14 — A1 revisado para CNJ-first (issue #1469, parte de #1468)
+
+**[decision, não re-medição de A0w]** A chave primária de `comunicacoes` mudou de
+`data_disponibilizacao` (A1, PR #785) para `numero_processo, data_disponibilizacao,
+id`; `processos` mudou de `data, numero_processo` para `numero_processo, data`.
+Isto foi uma **decisão de produto explícita nas issues #1468/#1469** — priorizar a
+consulta humana por CNJ no site — e **não** uma confirmação do benchmark A0w
+(frequência de predicado data-range vs. lookup pontual), que continua pendente. Se
+A0w vier a mostrar que range-por-data domina o workload real, revisitar esta
+ordenação — ela troca o pruning de range-por-data (que A1/PR #785 habilitava) pelo
+pruning de lookup-por-CNJ.
+
+Junto com a reordenação, `numero_processo` passou a ser normalizado para texto de
+20 dígitos na escrita **somente** quando o conteúdo numérico da coluna já tem 20
+dígitos (preserva não-CNJ, `NULL` e `numero_processo_mascara` intactos — ver
+`_CNJ_NORMALIZATION_EXPR` em `exporter.py`), e os dois arquivos passaram a
+certificar isso no rodapé (`causaganha.layout=cnj-text-sorted-v1`,
+`causaganha.cnj_normalization=valid-20-digits-v1`) para a leitura no site poder
+decidir igualdade direta com segurança (subissue seguinte, ainda não feita). O
+gatilho de reconsolidação já existente (`CURRENT_LAYOUT_REVISION`, Problema
+0/A-rev) foi bumpado de `"1"` para `"2"` para alcançar o acervo existente.
+
+O code path legado (`scripts/pipeline/consolidate.py::_export_table_sync`) — que
+antes gravava sem `ORDER BY` nenhum, ver "Não esquecer o code path legado" acima —
+agora delega para `causaganha.consolidate.exporter.export_table_sync`, então os
+dois code paths compartilham a mesma lógica de `COPY` (ordenação, normalização,
+certificação) por construção, não por disciplina de manter os dois em sincronia.
+
+**Ainda não feito nesta rodada** (próximo avanço natural, issue #1469 restante):
+`web/src/lib/processoCnj.ts` continua no caminho compatível (`regexp_replace`) e
+ainda não lê os marcadores de certificação para habilitar igualdade direta;
+`ROW_GROUP_SIZE` continua implícito no default do DuckDB (não setado
+explicitamente); e a auditoria/rollout do acervo existente (#1470, #1471, #1472)
+não foi disparada — só a issue #1469 (unificação do writer) avançou.
