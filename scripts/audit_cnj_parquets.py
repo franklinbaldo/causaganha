@@ -50,11 +50,21 @@ VERIFY_VALUES = "verify_values"
 CONFORMANT = "conformant"
 NOT_APPLICABLE = "not_applicable"
 UNAVAILABLE = "unavailable"
+NATIONAL_INDEX = "national_index"
 
 CNJ_COLUMN = "numero_processo"
 CNJ_TABLES = frozenset({"comunicacoes", "processos"})
 CONFORMANT_MARKER_KEY = "causaganha.layout"
 CONFORMANT_MARKER_VALUE = "cnj-text-sorted-v1"
+
+# indice_processual.parquet (RFC 0014 M2, built by scripts/reconcile_processos.py)
+# is a thin cross-source index -- one row per (numero_processo, fonte, ...) --
+# not a per-tribunal comunicacoes/processos export. The reorder-candidate
+# contract this audit enforces does not apply to it, so it is enumerated and
+# classified separately (issue #1470: "nao regenera-lo so porque nao tem o
+# marcador novo").
+NATIONAL_INDEX_ITEM_ID = "causaganha-dashboard"
+NATIONAL_INDEX_TABLE = "indice_processual"
 
 IA_ADVANCED_SEARCH_URL = "https://archive.org/advancedsearch.php"
 IA_METADATA_URL = "https://archive.org/metadata/{item_id}"
@@ -104,9 +114,11 @@ def classify_file(
     row_group_ranges: list[tuple[str | None, str | None]],
     read_error: str | None,
 ) -> str:
-    """Classify one file per issue #1470's five buckets. See module docstring."""
+    """Classify one file per issue #1470's buckets. See module docstring."""
     if read_error:
         return UNAVAILABLE
+    if table_name == NATIONAL_INDEX_TABLE:
+        return NATIONAL_INDEX
     if table_name not in CNJ_TABLES:
         return NOT_APPLICABLE
     if has_conformant_marker:
@@ -223,9 +235,55 @@ def list_item_cnj_table_files(client: httpx.Client, item_id: str) -> list[tuple[
     return sorted(found)
 
 
+def list_national_index_file(client: httpx.Client) -> tuple[str, str] | None:
+    """Return (table_name, download_url) for indice_processual.parquet, if published.
+
+    `None` when the dashboard item exists but hasn't published the index yet --
+    an unknown gap, not evidence it needs regeneration (same "absent is not
+    unavailable" rule CLAUDE.md applies to DJEN checks).
+    """
+    response = client.get(IA_METADATA_URL.format(item_id=NATIONAL_INDEX_ITEM_ID), timeout=30)
+    response.raise_for_status()
+    files = response.json().get("files", [])
+    filename = f"{NATIONAL_INDEX_TABLE}.parquet"
+    if not any(entry.get("name") == filename for entry in files):
+        return None
+    url = IA_DOWNLOAD_URL.format(item_id=NATIONAL_INDEX_ITEM_ID, filename=filename)
+    return (NATIONAL_INDEX_TABLE, url)
+
+
 def audit_catalog(client: httpx.Client) -> list[dict]:
     """Run the full read-only audit and return one report entry per file."""
     report: list[dict] = []
+    national_index = list_national_index_file(client)
+    if national_index is not None:
+        table_name, url = national_index
+        stats = read_footer_stats(url, table_name=table_name)
+        classification = classify_file(
+            table_name=table_name,
+            has_conformant_marker=stats.kv_metadata.get(CONFORMANT_MARKER_KEY)
+            == CONFORMANT_MARKER_VALUE,
+            row_group_ranges=stats.row_group_ranges,
+            read_error=stats.read_error,
+        )
+        report.append(
+            {
+                "item_id": NATIONAL_INDEX_ITEM_ID,
+                "table": table_name,
+                "url": url,
+                "row_count": stats.row_count,
+                "row_group_count": len(stats.row_group_ranges),
+                "classification": classification,
+                "kv_metadata": stats.kv_metadata,
+                "read_error": stats.read_error,
+            }
+        )
+        log.info(
+            "audited_file",
+            item_id=NATIONAL_INDEX_ITEM_ID,
+            table=table_name,
+            classification=classification,
+        )
     for item_id in list_djen_items(client):
         for table_name, url in list_item_cnj_table_files(client, item_id):
             stats = read_footer_stats(url, table_name=table_name)
