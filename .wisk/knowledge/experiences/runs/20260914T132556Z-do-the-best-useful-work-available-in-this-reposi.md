@@ -1,7 +1,7 @@
 ---
-checks: []
+checks: ["run-checks/20260914t132556z-do-the-best-useful-work-availab/check-full-suite-and-lint"]
 decisions: []
-evidence: []
+evidence: ["run-evidence/20260914t132556z-do-the-best-useful-work-availab/evidence-red-green-tdd", "run-evidence/20260914t132556z-do-the-best-useful-work-availab/evidence-live-runtime-verification", "run-evidence/20260914t132556z-do-the-best-useful-work-availab/evidence-pr-1474-opened"]
 goals: ["run-goals/20260914t132556z-do-the-best-useful-work-availab/goal-audit-cnj-parquets"]
 id: "runs/20260914T132556Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260914t132556z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260914t132556z-do-the-best-useful-work-availab/reading-active-skills"]
@@ -10,11 +10,12 @@ run_spec_digest: "sha256:7977caf0ad732642e2bdad5190063109c91acbfa91fd1bf63f01467
 run_spec_snapshot: "{\"allowed_result_states\":[\"success\",\"partial\",\"blocked\",\"no-useful-change\"],\"completion_notes\":\"Do useful work when available, verify the observed result, and preserve truthful episodic evidence including the skill/version actually used.\",\"id\":\"run-specs/experience\",\"required_check_kinds\":[\"verification\"],\"required_evidence_kinds\":[\"execution\"],\"required_goal_kinds\":[\"task-advance\"],\"required_reading_kinds\":[\"active-handoffs\",\"active-skills\"],\"status\":\"experimental\",\"title\":\"Experience run\",\"type\":\"RunSpec\",\"version\":\"1.0.0\"}"
 run_spec_version: "1.0.0"
 session_type: "session-types/standard-experience"
-status: "in_progress"
+status: "closed"
 task: "Do the best useful work available in this repository."
 timestamp: "2026-09-14T13:25:56.416217Z"
 title: "Do the best useful work available in this repository."
 type: "LoopRun"
+outcome: "run-outcomes/20260914t132556z-do-the-best-useful-work-availab/outcome-final"
 ---
 
 # Live run
