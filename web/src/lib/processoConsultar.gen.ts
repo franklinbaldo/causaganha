@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const AgentCheckSchema = z.object({
   "command": z.string(),
   "description": z.string().optional(),
-  "evidence_id": z.string().describe("references AgentEvidence(id)").optional(),
+  "evidence_id": z.string().describe("references AgentEvidence(id)").nullable().optional(),
   "goal_id": z.string().describe("references AgentGoal(id)").optional(),
   "id": z.string(),
   "result": z.string(),
@@ -19,7 +19,7 @@ export const AgentCheckSchema = z.object({
 export const AgentDecisionSchema = z.object({
   "choice": z.string(),
   "description": z.string().optional(),
-  "goal_id": z.string().describe("references AgentGoal(id)").optional(),
+  "goal_id": z.string().describe("references AgentGoal(id)").nullable().optional(),
   "id": z.string(),
   "question": z.string(),
   "rationale": z.string(),

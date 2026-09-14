@@ -11,13 +11,18 @@ and never triggering a re-upload:
 - `reorder_candidate` — no certifying marker, and the `numero_processo`
                        row-group ranges overlap, proving the file is NOT
                        sorted by CNJ.
-- `verify_values`   — no certifying marker and the footer stats are
-                       inconclusive (a single row group, or any row group
-                       whose bounds are unreadable/null). Per the issue's own
-                       acceptance criteria, non-overlapping ranges alone do
-                       NOT prove normalization or internal ordering, so this
-                       bucket is the safe default whenever overlap cannot be
-                       positively confirmed.
+- `verify_values`   — footer stats were inconclusive AND a follow-up read of
+                       the actual row values (see `read_value_order`) could
+                       not settle it either (read failure). An unknown gap,
+                       never guessed.
+- `verified_sorted` — footer stats were inconclusive, but reading the real
+                       `numero_processo` values in physical file order found
+                       them non-decreasing -- genuinely CNJ-ordered even
+                       without the certifying KV marker.
+- `verified_unsorted` — footer stats were inconclusive, and reading the real
+                       values found a genuine adjacent-row inversion -- a
+                       true reorder candidate, same rollout track as
+                       `reorder_candidate`.
 - `not_applicable`  — the table has no CNJ column (e.g. `destinatarios`).
 - `unavailable`     — the footer could not be read (network/IO error). This
                        is an unknown gap, not evidence either way — mirrors
@@ -47,6 +52,8 @@ log = structlog.get_logger()
 
 REORDER_CANDIDATE = "reorder_candidate"
 VERIFY_VALUES = "verify_values"
+VERIFIED_SORTED = "verified_sorted"
+VERIFIED_UNSORTED = "verified_unsorted"
 CONFORMANT = "conformant"
 NOT_APPLICABLE = "not_applicable"
 UNAVAILABLE = "unavailable"
@@ -131,6 +138,57 @@ def classify_file(
     if ranges_overlap(clean_ranges):
         return REORDER_CANDIDATE
     return VERIFY_VALUES
+
+
+def resolve_verify_values(classification: str, order_result: bool | None) -> str:
+    """Refine a `VERIFY_VALUES` classification using an actual value-order read.
+
+    Every other classification already came from a decisive footer-stats
+    fact (a certifying marker, a proven overlap, an unrelated table, a read
+    error) and is never re-litigated here -- this only tightens the one
+    bucket footer stats alone could not decide.
+    """
+    if classification != VERIFY_VALUES:
+        return classification
+    if order_result is True:
+        return VERIFIED_SORTED
+    if order_result is False:
+        return VERIFIED_UNSORTED
+    return VERIFY_VALUES
+
+
+def read_value_order(path_or_url: str) -> bool | None:
+    """Read the real `numero_processo` values in physical file order.
+
+    Unlike `read_footer_stats`, this scans actual row data (still via HTTP
+    range requests for a remote URL, never triggering a re-upload) to settle
+    what footer stats alone could not: whether a single-row-group (or
+    null-bound) file is, in fact, already sorted by CNJ. `SET threads TO 1`
+    forces a single-threaded sequential scan so row order reflects physical
+    file order, not an arbitrary parallel interleaving.
+
+    Returns `True` if the column is non-decreasing, `False` if a real
+    adjacent-row inversion is found, `None` if the values could not be read
+    at all -- an unknown gap, never guessed either way.
+    """
+    con = duckdb.connect(":memory:")
+    try:
+        con.execute("SET threads TO 1")
+        row = con.execute(
+            f"SELECT count(*) FROM ("
+            f"  SELECT {CNJ_COLUMN}, lag({CNJ_COLUMN}) OVER () AS prev_value "
+            f"  FROM read_parquet(?)"
+            f") WHERE prev_value IS NOT NULL AND {CNJ_COLUMN} < prev_value",
+            [path_or_url],
+        ).fetchone()
+    except duckdb.Error as exc:
+        log.warning("audit_value_order_read_failed", path=path_or_url, error=str(exc))
+        return None
+    else:
+        (inversions,) = row
+        return inversions == 0
+    finally:
+        con.close()
 
 
 def _read_row_count(con: duckdb.DuckDBPyConnection, path_or_url: str) -> int:
@@ -252,63 +310,41 @@ def list_national_index_file(client: httpx.Client) -> tuple[str, str] | None:
     return (NATIONAL_INDEX_TABLE, url)
 
 
+def _audit_file(item_id: str, table_name: str, url: str) -> dict:
+    """Audit one Parquet file: footer stats, classify, then resolve verify_values."""
+    stats = read_footer_stats(url, table_name=table_name)
+    has_marker = stats.kv_metadata.get(CONFORMANT_MARKER_KEY) == CONFORMANT_MARKER_VALUE
+    classification = classify_file(
+        table_name=table_name,
+        has_conformant_marker=has_marker,
+        row_group_ranges=stats.row_group_ranges,
+        read_error=stats.read_error,
+    )
+    if classification == VERIFY_VALUES:
+        classification = resolve_verify_values(classification, read_value_order(url))
+    log.info("audited_file", item_id=item_id, table=table_name, classification=classification)
+    return {
+        "item_id": item_id,
+        "table": table_name,
+        "url": url,
+        "row_count": stats.row_count,
+        "row_group_count": len(stats.row_group_ranges),
+        "classification": classification,
+        "kv_metadata": stats.kv_metadata,
+        "read_error": stats.read_error,
+    }
+
+
 def audit_catalog(client: httpx.Client) -> list[dict]:
     """Run the full read-only audit and return one report entry per file."""
     report: list[dict] = []
     national_index = list_national_index_file(client)
     if national_index is not None:
         table_name, url = national_index
-        stats = read_footer_stats(url, table_name=table_name)
-        classification = classify_file(
-            table_name=table_name,
-            has_conformant_marker=stats.kv_metadata.get(CONFORMANT_MARKER_KEY)
-            == CONFORMANT_MARKER_VALUE,
-            row_group_ranges=stats.row_group_ranges,
-            read_error=stats.read_error,
-        )
-        report.append(
-            {
-                "item_id": NATIONAL_INDEX_ITEM_ID,
-                "table": table_name,
-                "url": url,
-                "row_count": stats.row_count,
-                "row_group_count": len(stats.row_group_ranges),
-                "classification": classification,
-                "kv_metadata": stats.kv_metadata,
-                "read_error": stats.read_error,
-            }
-        )
-        log.info(
-            "audited_file",
-            item_id=NATIONAL_INDEX_ITEM_ID,
-            table=table_name,
-            classification=classification,
-        )
+        report.append(_audit_file(NATIONAL_INDEX_ITEM_ID, table_name, url))
     for item_id in list_djen_items(client):
         for table_name, url in list_item_cnj_table_files(client, item_id):
-            stats = read_footer_stats(url, table_name=table_name)
-            has_marker = stats.kv_metadata.get(CONFORMANT_MARKER_KEY) == CONFORMANT_MARKER_VALUE
-            classification = classify_file(
-                table_name=table_name,
-                has_conformant_marker=has_marker,
-                row_group_ranges=stats.row_group_ranges,
-                read_error=stats.read_error,
-            )
-            report.append(
-                {
-                    "item_id": item_id,
-                    "table": table_name,
-                    "url": url,
-                    "row_count": stats.row_count,
-                    "row_group_count": len(stats.row_group_ranges),
-                    "classification": classification,
-                    "kv_metadata": stats.kv_metadata,
-                    "read_error": stats.read_error,
-                }
-            )
-            log.info(
-                "audited_file", item_id=item_id, table=table_name, classification=classification
-            )
+            report.append(_audit_file(item_id, table_name, url))
     return report
 
 

@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-14T21:48:31.573056+00:00",
+  "generated_at": "2026-09-14T23:38:00.064558+00:00",
   "conformant_marker": "causaganha.layout=cnj-text-sorted-v1",
   "file_count": 24,
   "files": [
@@ -19,7 +19,7 @@
       "url": "https://archive.org/download/djen-cjf-2021/comunicacoes.parquet",
       "row_count": 14298,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-cjf-2021"
@@ -32,7 +32,7 @@
       "url": "https://archive.org/download/djen-cjf-2021/processos.parquet",
       "row_count": 14298,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-cjf-2021"
@@ -45,7 +45,7 @@
       "url": "https://archive.org/download/djen-tjam-2021/comunicacoes.parquet",
       "row_count": 20188,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-tjam-2021"
@@ -58,7 +58,7 @@
       "url": "https://archive.org/download/djen-tjam-2021/processos.parquet",
       "row_count": 20188,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-tjam-2021"
@@ -71,7 +71,7 @@
       "url": "https://archive.org/download/djen-tjap-2021/comunicacoes.parquet",
       "row_count": 39701,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-tjap-2021"
@@ -84,7 +84,7 @@
       "url": "https://archive.org/download/djen-tjap-2021/processos.parquet",
       "row_count": 39701,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-tjap-2021"
@@ -97,7 +97,7 @@
       "url": "https://archive.org/download/djen-tjdft-2021/comunicacoes.parquet",
       "row_count": 13625,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-tjdft-2021"
@@ -110,7 +110,7 @@
       "url": "https://archive.org/download/djen-tjdft-2021/processos.parquet",
       "row_count": 13625,
       "row_group_count": 1,
-      "classification": "verify_values",
+      "classification": "verified_unsorted",
       "kv_metadata": {
         "causaganha.schema_version": "3.0.0",
         "causaganha.item_id": "djen-tjdft-2021"

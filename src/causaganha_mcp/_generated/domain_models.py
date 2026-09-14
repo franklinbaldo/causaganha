@@ -16,7 +16,7 @@ class AgentCheckConcept(BaseModel):
 
     command: str
     description: str = Field(default=None)
-    evidence_id: str = Field(
+    evidence_id: str | None = Field(
         default=None,
         json_schema_extra={
             "x-okf-references": {
@@ -62,7 +62,7 @@ class AgentDecisionConcept(BaseModel):
 
     choice: str
     description: str = Field(default=None)
-    goal_id: str = Field(
+    goal_id: str | None = Field(
         default=None,
         json_schema_extra={
             "x-okf-references": {
