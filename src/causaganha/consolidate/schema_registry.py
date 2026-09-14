@@ -169,7 +169,16 @@ CURRENT_VERSION = "3.0.0"
 # logical schema.  Items whose manifest carries an older revision are
 # reconsolidated automatically by `reconsolidate` without a schema bump.
 # Bump this string when rolling out new layout settings.
-CURRENT_LAYOUT_REVISION = "1"
+#
+# "2": comunicacoes/processos reordered CNJ-first (numero_processo primary sort
+# key) and numero_processo normalized to 20-digit text on write — see issue
+# #1469 and docs/planning/parquet-storage-optimization-plan.md.
+CURRENT_LAYOUT_REVISION = "2"
+
+# Tables whose numero_processo column is normalized to 20-digit text and
+# ordered CNJ-first on write (issue #1469). Only these tables carry the
+# causaganha.layout / causaganha.cnj_normalization footer markers below.
+CNJ_LAYOUT_TABLES = frozenset({"comunicacoes", "processos"})
 
 # ── SCHEMA_V4 (parked — NOT active) ──────────────────────────────────────────
 # Gated on A0e measurement: only activate when encoding_comparison.py confirms
@@ -312,16 +321,26 @@ def get_current_schema() -> SchemaVersion:
     return SCHEMA_REGISTRY[CURRENT_VERSION]
 
 
-def kv_metadata_for_export(item_id: str) -> dict[str, str]:
-    """Return KV metadata dict to embed in Parquet footer via DuckDB."""
-    return {
+def kv_metadata_for_export(item_id: str, *, table_name: str = "") -> dict[str, str]:
+    """Return KV metadata dict to embed in Parquet footer via DuckDB.
+
+    ``table_name`` in :data:`CNJ_LAYOUT_TABLES` adds the CNJ layout/normalization
+    certification markers — only set on tables that actually got that treatment
+    at write time (see :data:`_TABLE_ORDER_KEYS` and the export SELECT in
+    ``causaganha.consolidate.exporter``).
+    """
+    meta = {
         "causaganha.schema_version": CURRENT_VERSION,
         "causaganha.item_id": item_id,
     }
+    if table_name in CNJ_LAYOUT_TABLES:
+        meta["causaganha.layout"] = "cnj-text-sorted-v1"
+        meta["causaganha.cnj_normalization"] = "valid-20-digits-v1"
+    return meta
 
 
-def kv_metadata_sql_fragment(item_id: str) -> str:
+def kv_metadata_sql_fragment(item_id: str, *, table_name: str = "") -> str:
     """Return the KV_METADATA clause for a DuckDB COPY statement."""
-    meta = kv_metadata_for_export(item_id)
+    meta = kv_metadata_for_export(item_id, table_name=table_name)
     pairs = ", ".join(f"'{k}': '{v}'" for k, v in meta.items())
     return f"KV_METADATA {{{pairs}}}"

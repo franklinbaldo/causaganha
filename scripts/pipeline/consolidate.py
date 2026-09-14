@@ -64,11 +64,11 @@ from causaganha.consolidate.consolidation_manifest import (
     collect_table_stats,
     update_consolidation_manifest,
 )
+from causaganha.consolidate.exporter import export_table_sync
 from causaganha.consolidate.ndjson_validator import validate_ndjson_sample
 from causaganha.consolidate.schema_registry import (
     CURRENT_VERSION,
     get_current_schema,
-    kv_metadata_sql_fragment,
 )
 from causaganha.consolidate.validation import validate_parquet
 from causaganha.storage.connection import get_connection
@@ -1385,22 +1385,15 @@ def _export_table_sync(
 
     Returns (output_path, size_mb, row_count) or None when table is empty.
     Intended to be called via asyncio.to_thread so it doesn't block the loop.
+
+    Delegates to causaganha.consolidate.exporter.export_table_sync so this
+    pipeline entrypoint and the modular exporter share one COPY implementation
+    (ORDER BY layout, CNJ normalization, footer certification) — see issue
+    #1469. The lock preserves this module's existing serialization of
+    concurrent DuckDB exports on the same connection.
     """
     with _duckdb_export_lock:
-        t = con.table(table_name)
-        count = t.count().execute()
-        if count == 0:
-            return None
-        output_path = output_dir / f"{table_name}.parquet"
-        kv_clause = kv_metadata_sql_fragment(item_id) if item_id else ""
-        copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
-        if kv_clause:
-            copy_opts = f"{copy_opts}, {kv_clause}"
-        con.raw_sql(
-            f"COPY {table_name} TO '{output_path}' ({copy_opts})",
-        )
-        size_mb = output_path.stat().st_size / (1024 * 1024)
-        return output_path, size_mb, int(count)
+        return export_table_sync(table_name, con, output_dir, item_id)
 
 
 async def _export_and_upload_table(
