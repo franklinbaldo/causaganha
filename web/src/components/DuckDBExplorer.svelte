@@ -134,6 +134,19 @@
     return `Não foi possível verificar o dataset ${itemId || '(sem seleção)'} no Internet Archive agora — isso indica instabilidade temporária do serviço, não que o dataset não exista. Tente novamente em instantes.`;
   }
 
+  function describeCorsBlockedDataset() {
+    return `O Internet Archive não envia cabeçalhos CORS para downloads diretos de ${itemId || 'este dataset'} — o navegador bloqueia a leitura do arquivo Parquet por segurança (issue #1482). Essa é uma limitação permanente e conhecida do serviço: repetir a consulta não resolve.`;
+  }
+
+  async function probeDownloadCorsAccess(baseUrl, fileName) {
+    try {
+      await fetch(`${baseUrl}/${fileName}`, { headers: { Range: 'bytes=0-0' } });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   function classifyQueryError(message, id) {
     if (!message) return null;
 
@@ -190,6 +203,11 @@
 
     if (files.length === 0) {
       return { status: 'missing', files: [], error: describeMissingDataset(), cacheable: true };
+    }
+
+    const downloadReachable = await probeDownloadCorsAccess(`${IA_BASE}/${id}`, files[0].name);
+    if (!downloadReachable) {
+      return { status: 'cors-blocked', files, error: describeCorsBlockedDataset(), cacheable: true };
     }
 
     return { status: 'ready', files, error: null, cacheable: true };
@@ -300,6 +318,11 @@
 
     if (datasetStatus === 'unavailable') {
       error = datasetError ?? describeUnavailableDataset();
+      return;
+    }
+
+    if (datasetStatus === 'cors-blocked') {
+      error = datasetError ?? describeCorsBlockedDataset();
       return;
     }
 
@@ -452,6 +475,11 @@
         <button class="secondary outline" onclick={retryDatasetCheck}>
           Tentar verificar novamente
         </button>
+      </article>
+    {/if}
+    {#if datasetStatus === 'cors-blocked'}
+      <article role="alert" data-tone="error">
+        <p>{datasetError}</p>
       </article>
     {/if}
 
