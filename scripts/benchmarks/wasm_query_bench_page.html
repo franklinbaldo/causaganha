@@ -1,0 +1,98 @@
+<!doctype html>
+<title>duckdb-wasm query-cost bench</title>
+<script type="importmap">
+  {
+    "imports": {
+      "apache-arrow": "/_duckdb/apache-arrow/Arrow.dom.mjs",
+      "tslib": "/_duckdb/tslib/tslib.es6.mjs",
+      "flatbuffers": "/_duckdb/flatbuffers/mjs/flatbuffers.js"
+    }
+  }
+</script>
+<script type="module">
+  const params = new URLSearchParams(location.search);
+  const targetUrl = params.get("url");
+  const start = params.get("start");
+  const end = params.get("end");
+  const warmIterations = Number(params.get("warmIterations") || "5");
+  const base = location.origin;
+
+  const duckdb = await import(base + "/_duckdb/duckdb-browser.mjs");
+
+  const resetStats = () => fetch(base + "/__reset__", { method: "POST" });
+  const getStats = () => fetch(base + "/__stats__").then((r) => r.json());
+
+  function median(values) {
+    const sorted = [...values].sort((a, b) => a - b);
+    const mid = Math.floor(sorted.length / 2);
+    return sorted.length % 2 === 0 ? (sorted[mid - 1] + sorted[mid]) / 2 : sorted[mid];
+  }
+
+  async function run() {
+    await resetStats();
+    const initStart = performance.now();
+    const MANUAL_BUNDLES = {
+      mvp: {
+        mainModule: base + "/_duckdb/duckdb-mvp.wasm",
+        mainWorker: base + "/_duckdb/duckdb-browser-mvp.worker.js",
+      },
+      eh: {
+        mainModule: base + "/_duckdb/duckdb-eh.wasm",
+        mainWorker: base + "/_duckdb/duckdb-browser-eh.worker.js",
+      },
+    };
+    const bundle = await duckdb.selectBundle(MANUAL_BUNDLES);
+    const worker = new Worker(bundle.mainWorker);
+    const logger = new duckdb.VoidLogger();
+    const db = new duckdb.AsyncDuckDB(logger, worker);
+    await db.instantiate(bundle.mainModule, bundle.pthreadWorker);
+    const conn = await db.connect();
+    await conn.query("INSTALL httpfs; LOAD httpfs;");
+    await conn.query("SET enable_http_metadata_cache=true;");
+    await conn.query("SET enable_object_cache=true;");
+    const engineInitMs = performance.now() - initStart;
+    const engineInitStats = await getStats();
+
+    const sql =
+      `SELECT count(*) AS n FROM read_parquet('${targetUrl}') ` +
+      `WHERE data_disponibilizacao BETWEEN DATE '${start}' AND DATE '${end}'`;
+
+    await resetStats();
+    const coldStart = performance.now();
+    const coldResult = await conn.query(sql);
+    const coldQueryMs = performance.now() - coldStart;
+    const coldRowCount = Number(coldResult.toArray()[0].toJSON().n);
+    const coldStats = await getStats();
+
+    await resetStats();
+    const warmDurations = [];
+    let warmRowCount = null;
+    for (let i = 0; i < warmIterations; i += 1) {
+      const warmStart = performance.now();
+      const warmResult = await conn.query(sql);
+      warmDurations.push(performance.now() - warmStart);
+      warmRowCount = Number(warmResult.toArray()[0].toJSON().n);
+    }
+    const warmStats = await getStats();
+
+    await conn.close();
+    await db.terminate();
+    worker.terminate();
+
+    return {
+      engine_init_ms: engineInitMs,
+      engine_init_requests: engineInitStats.requests,
+      engine_init_bytes: engineInitStats.bytes,
+      cold_query_ms: coldQueryMs,
+      cold_row_count: coldRowCount,
+      cold_requests: coldStats.requests,
+      cold_bytes: coldStats.bytes,
+      warm_query_ms_median: median(warmDurations),
+      warm_row_count: warmRowCount,
+      warm_requests: warmStats.requests,
+      warm_bytes: warmStats.bytes,
+    };
+  }
+
+  window.__BENCH_RESULT__ = run().catch((err) => ({ error: String((err && err.stack) || err) }));
+</script>
