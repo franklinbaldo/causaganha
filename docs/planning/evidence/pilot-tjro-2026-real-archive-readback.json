@@ -1,0 +1,58 @@
+{
+  "environment": "real-archive.org",
+  "note": "Real HTTPS requests against archive.org for the currently published (pre-reorder) comunicacoes.parquet. Covers the 'old file' half of issue #1471/#1472's real Archive read-back proof; the candidate (reordered) file's half needs IA write credentials to publish first.",
+  "item_id": "djen-tjro-2026",
+  "download_url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+  "metadata_endpoint": {
+    "url": "https://archive.org/metadata/djen-tjro-2026/files",
+    "ok": true,
+    "status_code": 200,
+    "attempts": 1,
+    "duration_ms": 700.567202000002,
+    "bytes_received": 62834,
+    "cors_enabled": true,
+    "transient_retry_reason": null,
+    "error": null
+  },
+  "download_head_range": {
+    "url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+    "ok": true,
+    "status_code": 206,
+    "attempts": 1,
+    "duration_ms": 969.087029000093,
+    "bytes_received": 16,
+    "cors_enabled": false,
+    "transient_retry_reason": null,
+    "error": null
+  },
+  "download_tail_range": {
+    "url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+    "ok": true,
+    "status_code": 206,
+    "attempts": 1,
+    "duration_ms": 240.8671169999934,
+    "bytes_received": 16,
+    "cors_enabled": false,
+    "transient_retry_reason": null,
+    "error": null
+  },
+  "parquet_magic_verified": true,
+  "cors": {
+    "metadata_endpoint_cors_enabled": true,
+    "download_endpoint_cors_enabled": false,
+    "implication": "download_endpoint_cors_enabled=false means a cross-origin browser fetch (DuckDB-WASM's httpfs, as DuckDBExplorer.svelte issues it) cannot read the response body from archive.org's file-download endpoint. Confirmed with curl and Python's urllib against three real archive.org endpoints (this metadata endpoint and advancedsearch.php both send Access-Control-Allow-Origin; the file-download endpoint does not), as a positive control against this environment's forced HTTPS MITM proxy stripping the header uniformly. NOT yet confirmed in a real browser: archive_cors_probe.mjs's Playwright/Chromium check hit net::ERR_CERT_AUTHORITY_INVALID against the same proxy's re-terminating CA in this sandbox before it could reach the network layer -- that is this environment's TLS trust configuration, not evidence about archive.org."
+  },
+  "native_engine_query_cost": {
+    "sample_date": "2026-09-01",
+    "cold_query_ms": 2627.1097510000345,
+    "cold_row_count": 8945,
+    "warm_query_ms_each": [
+      5.849378999982946,
+      1.7072100000632418,
+      1.5281319999758125,
+      1.7027880001023732,
+      1.5758800000185147
+    ],
+    "warm_row_count": 8945
+  }
+}

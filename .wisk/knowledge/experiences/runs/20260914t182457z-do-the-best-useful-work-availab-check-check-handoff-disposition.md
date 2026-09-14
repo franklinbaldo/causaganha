@@ -1,0 +1,11 @@
+---
+type: "RunCheck"
+id: "run-checks/20260914t182457z-do-the-best-useful-work-availab/check-handoff-disposition"
+run: "runs/20260914T182457Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "handoff-disposition"
+procedure: "Evaluate handoffs/handoff-issue-1471-perf-and-readback (resumed) against the now-current bundle state, and handoffs/handoff-issue-1471-archive-readback (the handoff its own status:archived field and wisk handoff list point to) against what one round can responsibly complete."
+result: "reframed: handoffs/handoff-issue-1471-perf-and-readback is rejected as moot -- it was already fully resolved and archived by the PR #1480 round before this session fetched that state; its content duplicates, word for word, part of handoffs/handoff-issue-1471-archive-readback's own history. Of that live handoff's three-part next_action (1: publish candidate to IA; 2: real read-back proof; 3: advance/revise/hold decision), part 1 is accepted as blocked, not attempted: no IA_ACCESS_KEY/IA_SECRET_KEY are present in this environment (env -i grep found none, unlike ~/workspace/.env referenced in CLAUDE.md), and publishing to a live production IA item is exactly the kind of hard-to-reverse, shared-system action that should not be taken by an unattended session without those credentials in any case. Part 2 is reframed to its achievable half: a real read-back proof for the currently-published (old) file only, since the candidate cannot be published in this environment -- this is genuine, real (not simulated) archive.org evidence, not the full apples-to-apples proof the issue wants once a candidate exists. Part 3 (advance/revise/hold) is rejected for this round: it explicitly depends on the candidate's real read-back, which is still blocked. A related but independent finding surfaced during part 2's real network probing (archive.org's file-download endpoint sends no Access-Control-Allow-Origin header, unlike its metadata/advancedsearch endpoints -- confirmed with two independent HTTP clients against three real endpoints) affects the *currently published* file regardless of the reorder pilot, so it was filed as its own issue (#1482) rather than folded into #1471/#1472's decision."
+status: "pass"
+---
+
+# RunCheck
