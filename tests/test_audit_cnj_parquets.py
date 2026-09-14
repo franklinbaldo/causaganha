@@ -7,6 +7,9 @@ import httpx
 
 from scripts.audit_cnj_parquets import (
     CONFORMANT,
+    NATIONAL_INDEX,
+    NATIONAL_INDEX_ITEM_ID,
+    NATIONAL_INDEX_TABLE,
     NOT_APPLICABLE,
     REORDER_CANDIDATE,
     UNAVAILABLE,
@@ -14,6 +17,7 @@ from scripts.audit_cnj_parquets import (
     classify_file,
     is_tribunal_year_item,
     list_djen_items,
+    list_national_index_file,
     ranges_overlap,
     read_footer_stats,
 )
@@ -111,6 +115,31 @@ class TestClassifyFile:
         )
         assert result == UNAVAILABLE
 
+    def test_national_index_table_is_its_own_bucket_even_without_marker(self) -> None:
+        # Issue #1470: "Classificar o indice nacional separadamente; nao
+        # regenera-lo so porque nao tem o marcador novo." indice_processual
+        # is a thin cross-source index (RFC 0014 M2), not a per-tribunal
+        # comunicacoes/processos export -- the reorder-candidate contract
+        # does not apply to it, so it must never fall into the generic
+        # not_applicable or reorder_candidate buckets just because it lacks
+        # the marker or has overlapping numero_processo ranges by design.
+        result = classify_file(
+            table_name=NATIONAL_INDEX_TABLE,
+            has_conformant_marker=False,
+            row_group_ranges=[("001", "090"), ("005", "099")],
+            read_error=None,
+        )
+        assert result == NATIONAL_INDEX
+
+    def test_national_index_read_error_is_still_unavailable(self) -> None:
+        result = classify_file(
+            table_name=NATIONAL_INDEX_TABLE,
+            has_conformant_marker=False,
+            row_group_ranges=[],
+            read_error="timeout",
+        )
+        assert result == UNAVAILABLE
+
     def test_a_range_with_a_null_bound_forces_verify_values(self) -> None:
         # An all-null-CNJ row group has no derivable min/max; we cannot prove
         # or disprove overlap against it, so don't guess either way.
@@ -154,6 +183,39 @@ class TestListDjenItems:
 
         assert items == sorted(["djen-tjro-2025", "djen-tre-ac-2024"])
         assert "djen-2026-01-15" not in items
+
+
+class TestListNationalIndexFile:
+    def test_returns_the_indice_processual_file_from_the_dashboard_item(self) -> None:
+        payload = {
+            "files": [
+                {"name": "sync-manifest.parquet"},
+                {"name": "indice_processual.parquet"},
+                {"name": "indice_processual.report.json"},
+            ]
+        }
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert NATIONAL_INDEX_ITEM_ID in str(request.url)
+            return httpx.Response(200, json=payload)
+
+        transport = httpx.MockTransport(handler)
+        with httpx.Client(transport=transport) as client:
+            result = list_national_index_file(client)
+
+        assert result is not None
+        table_name, url = result
+        assert table_name == NATIONAL_INDEX_TABLE
+        assert url.endswith("indice_processual.parquet")
+        assert NATIONAL_INDEX_ITEM_ID in url
+
+    def test_returns_none_when_the_index_has_not_been_published_yet(self) -> None:
+        payload = {"files": [{"name": "sync-manifest.parquet"}]}
+        transport = httpx.MockTransport(lambda request: httpx.Response(200, json=payload))
+        with httpx.Client(transport=transport) as client:
+            result = list_national_index_file(client)
+
+        assert result is None
 
 
 class TestReadFooterStats:
