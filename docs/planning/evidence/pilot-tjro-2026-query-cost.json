@@ -1,0 +1,125 @@
+{
+  "environment": "local-http-range-server-simulation",
+  "note": "Both engines query the same local Range-serving HTTP server, not the real archive.org endpoint. This isolates the effect of physical row ordering from network/CDN variance; it is NOT the real-Archive read-back proof the issue's publish criterion separately requires.",
+  "old_url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+  "old_sha256": "fa4a72035194c273a46447e7fd876c65f3d03f480f29e569dca6890eeb00fb51",
+  "sample": {
+    "kind": "busiest_single_day",
+    "date": "2026-09-01",
+    "row_count": 8945
+  },
+  "row_groups_touched": {
+    "old": 2,
+    "candidate": 9
+  },
+  "measurements": [
+    {
+      "engine": "duckdb-native",
+      "file_label": "old",
+      "phase": "engine_init",
+      "duration_ms": 10.161713999877975,
+      "requests": 0,
+      "bytes": 0,
+      "row_count": null
+    },
+    {
+      "engine": "duckdb-native",
+      "file_label": "old",
+      "phase": "cold_query",
+      "duration_ms": 9.897589000047446,
+      "requests": 4,
+      "bytes": 77207842,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-native",
+      "file_label": "old",
+      "phase": "warm_cache",
+      "duration_ms": 5.764571000327123,
+      "requests": 15,
+      "bytes": 656775,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-wasm",
+      "file_label": "old",
+      "phase": "engine_init",
+      "duration_ms": 1813.7000000001863,
+      "requests": 2,
+      "bytes": 35021730,
+      "row_count": null
+    },
+    {
+      "engine": "duckdb-wasm",
+      "file_label": "old",
+      "phase": "cold_query",
+      "duration_ms": 728.5,
+      "requests": 4,
+      "bytes": 77207842,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-wasm",
+      "file_label": "old",
+      "phase": "warm_cache",
+      "duration_ms": 6.7000000001862645,
+      "requests": 0,
+      "bytes": 0,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-native",
+      "file_label": "candidate",
+      "phase": "engine_init",
+      "duration_ms": 13.942129000042769,
+      "requests": 0,
+      "bytes": 0,
+      "row_count": null
+    },
+    {
+      "engine": "duckdb-native",
+      "file_label": "candidate",
+      "phase": "cold_query",
+      "duration_ms": 19.62963400001172,
+      "requests": 11,
+      "bytes": 82648813,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-native",
+      "file_label": "candidate",
+      "phase": "warm_cache",
+      "duration_ms": 18.192283999724168,
+      "requests": 50,
+      "bytes": 5369975,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-wasm",
+      "file_label": "candidate",
+      "phase": "engine_init",
+      "duration_ms": 1922.7000000001863,
+      "requests": 2,
+      "bytes": 35021730,
+      "row_count": null
+    },
+    {
+      "engine": "duckdb-wasm",
+      "file_label": "candidate",
+      "phase": "cold_query",
+      "duration_ms": 748.6999999997206,
+      "requests": 11,
+      "bytes": 82648813,
+      "row_count": 8945
+    },
+    {
+      "engine": "duckdb-wasm",
+      "file_label": "candidate",
+      "phase": "warm_cache",
+      "duration_ms": 15.800000000279397,
+      "requests": 0,
+      "bytes": 0,
+      "row_count": 8945
+    }
+  ]
+}
