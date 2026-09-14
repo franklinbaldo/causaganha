@@ -1,0 +1,31 @@
+{
+  "item_id": "djen-tjro-2026",
+  "table_name": "comunicacoes",
+  "old_url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+  "old_sha256": "fa4a72035194c273a46447e7fd876c65f3d03f480f29e569dca6890eeb00fb51",
+  "old_row_count": 1041723,
+  "candidate_row_count": 1041723,
+  "row_count_matches": true,
+  "id_set_matches": true,
+  "normalized_value_count": 0,
+  "normalization_contract_violations": 0,
+  "other_fields_untouched": true,
+  "candidate_footer_boundary_ties": true,
+  "candidate_sort_violations": 0,
+  "candidate_compression_codecs": [
+    "ZSTD"
+  ],
+  "candidate_kv_metadata": {
+    "causaganha.schema_version": "3.0.0",
+    "causaganha.item_id": "djen-tjro-2026",
+    "causaganha.layout": "cnj-text-sorted-v1",
+    "causaganha.cnj_normalization": "valid-20-digits-v1"
+  },
+  "kv_metadata_matches_expected": true,
+  "spot_check_cnj": "7008332-16.2026.8.22.0007",
+  "spot_check_old_matches": 5,
+  "spot_check_candidate_matches": 5,
+  "spot_check_agrees": true,
+  "passed": true,
+  "errors": []
+}
