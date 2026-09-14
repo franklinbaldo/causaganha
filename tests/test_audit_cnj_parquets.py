@@ -13,6 +13,8 @@ from scripts.audit_cnj_parquets import (
     NOT_APPLICABLE,
     REORDER_CANDIDATE,
     UNAVAILABLE,
+    VERIFIED_SORTED,
+    VERIFIED_UNSORTED,
     VERIFY_VALUES,
     classify_file,
     is_tribunal_year_item,
@@ -20,6 +22,8 @@ from scripts.audit_cnj_parquets import (
     list_national_index_file,
     ranges_overlap,
     read_footer_stats,
+    read_value_order,
+    resolve_verify_values,
 )
 
 
@@ -150,6 +154,66 @@ class TestClassifyFile:
             read_error=None,
         )
         assert result == VERIFY_VALUES
+
+
+class TestResolveVerifyValues:
+    def test_passes_through_every_non_verify_values_classification_unchanged(self) -> None:
+        # resolve_verify_values must never re-litigate a classification
+        # classify_file already settled from footer stats -- it only ever
+        # tightens the one bucket (VERIFY_VALUES) that footer stats alone
+        # could not decide.
+        for classification in (
+            CONFORMANT,
+            REORDER_CANDIDATE,
+            NOT_APPLICABLE,
+            UNAVAILABLE,
+            NATIONAL_INDEX,
+        ):
+            assert resolve_verify_values(classification, order_result=True) == classification
+            assert resolve_verify_values(classification, order_result=False) == classification
+            assert resolve_verify_values(classification, order_result=None) == classification
+
+    def test_confirmed_sorted_order_resolves_to_verified_sorted(self) -> None:
+        assert resolve_verify_values(VERIFY_VALUES, order_result=True) == VERIFIED_SORTED
+
+    def test_confirmed_inversion_resolves_to_verified_unsorted(self) -> None:
+        assert resolve_verify_values(VERIFY_VALUES, order_result=False) == VERIFIED_UNSORTED
+
+    def test_unreadable_order_stays_verify_values(self) -> None:
+        # A failed value read is an unknown gap, not evidence either way --
+        # same "never guess" rule classify_file already applies to a footer
+        # read_error.
+        assert resolve_verify_values(VERIFY_VALUES, order_result=None) == VERIFY_VALUES
+
+
+class TestReadValueOrder:
+    def test_detects_values_that_are_sorted_in_physical_file_order(self, tmp_path) -> None:
+        path = tmp_path / "comunicacoes.parquet"
+        con = duckdb.connect(":memory:")
+        con.execute(
+            "CREATE TABLE t AS "
+            "SELECT lpad(i::VARCHAR, 4, '0') AS numero_processo FROM range(1, 3001) t(i)"
+        )
+        # Single row group by construction (no ROW_GROUP_SIZE override), the
+        # exact shape that leaves classify_file unable to decide from footer
+        # stats alone.
+        con.execute(f"COPY t TO '{path}' (FORMAT PARQUET)")
+
+        assert read_value_order(str(path)) is True
+
+    def test_detects_a_real_inversion_in_physical_file_order(self, tmp_path) -> None:
+        path = tmp_path / "comunicacoes.parquet"
+        con = duckdb.connect(":memory:")
+        con.execute(
+            "CREATE TABLE t (numero_processo VARCHAR); "
+            "INSERT INTO t VALUES ('001'), ('002'), ('000'), ('003')"
+        )
+        con.execute(f"COPY t TO '{path}' (FORMAT PARQUET)")
+
+        assert read_value_order(str(path)) is False
+
+    def test_missing_file_returns_none_not_a_crash(self, tmp_path) -> None:
+        assert read_value_order(str(tmp_path / "does-not-exist.parquet")) is None
 
 
 class TestIsTribunalYearItem:
