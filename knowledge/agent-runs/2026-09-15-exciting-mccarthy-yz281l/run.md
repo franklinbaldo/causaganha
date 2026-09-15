@@ -29,6 +29,7 @@ evidence_ids:
   - "2026-09-15-exciting-mccarthy-yz281l-evidence-production-benchmark-borderline-item"
   - "2026-09-15-exciting-mccarthy-yz281l-evidence-red-test"
   - "2026-09-15-exciting-mccarthy-yz281l-evidence-green-test"
+  - "2026-09-15-exciting-mccarthy-yz281l-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-yz281l-check-okf-parser-after-readings-goal-decision"
   - "2026-09-15-exciting-mccarthy-yz281l-check-full-suite-mid-round"
