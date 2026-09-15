@@ -2,8 +2,8 @@
   import { onMount } from 'svelte';
   import { getDuckDB } from '../lib/duckdbSingleton';
   import { buildExplorerRecipes, recipeIsAvailable } from '../lib/explorerRecipes';
+  import { resolveArchiveDownloadBase } from '../lib/archiveProxyBase';
 
-  const IA_BASE = 'https://archive.org/download';
   const CURRENT_YEAR = new Date().getUTCFullYear();
   const DEFAULT_YEARS = [CURRENT_YEAR, CURRENT_YEAR - 1, CURRENT_YEAR - 2].filter((year) => year >= 2020);
 
@@ -28,7 +28,7 @@
     },
   ];
 
-  let { publicBase = '/' } = $props();
+  let { publicBase = '/', archiveProxyBase = '' } = $props();
 
   let sql = $state('');
   let result = $state(null);
@@ -52,6 +52,7 @@
   let cancelled = false;
   const datasetCache = new Map();
 
+  const IA_BASE = $derived(resolveArchiveDownloadBase(archiveProxyBase));
   const normalizedBase = $derived(publicBase.replace(/\/?$/, '/'));
   const tribunals = $derived(Object.keys(startDates).sort((a, b) => a.localeCompare(b, 'pt-BR')));
   const hasDatasetSelection = $derived(Boolean(selectedTribunal && selectedYear));

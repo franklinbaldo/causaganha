@@ -5,6 +5,7 @@ import { css } from '../../styled-system/css';
 import { alert, badge } from '../../styled-system/recipes';
 
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
+const ARCHIVE_PROXY_BASE = import.meta.env.PUBLIC_ARCHIVE_PROXY_BASE ?? '';
 ---
 
 <Layout
@@ -30,7 +31,7 @@ const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
     </div>
 
     <div class={css({ minW: '0', background: 'surface', border: '1px solid', borderColor: 'text', p: { base: '4', md: '6' } })}>
-      <DuckDBExplorer client:only="svelte" publicBase={BASE} />
+      <DuckDBExplorer client:only="svelte" publicBase={BASE} archiveProxyBase={ARCHIVE_PROXY_BASE} />
     </div>
   </section>
 </Layout>
