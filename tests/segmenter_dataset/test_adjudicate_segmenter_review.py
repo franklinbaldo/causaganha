@@ -139,6 +139,60 @@ def test_build_review_mechanical_validation_failure_raises() -> None:
         )
 
 
+def test_main_passes_allowed_unmatched_through_cli(tmp_path: Path) -> None:
+    """The CLI must expose ``--allowed-unmatched`` like its sibling script does.
+
+    Without it, a resolution with a genuinely unmatched pair (guideline-valid
+    when no closing cue exists in the source) has no way to declare that
+    reason, and ``build_review`` raises ``MechanicalValidationError`` even
+    though the same resolution would be accepted with the reason attached.
+    """
+    store = SegmenterDatasetStore(tmp_path / "store")
+    document = make_document(text="CABEÇALHO texto sem fechamento.")
+    store.write_document(document)
+    annotation_a = make_annotation(document, annotator_id="ann-a", model_family="family-a")
+    annotation_b = make_annotation(document, annotator_id="ann-b", model_family="family-b")
+    store.write_annotation(annotation_a)
+    store.write_annotation(annotation_b)
+    resolution_path = tmp_path / "resolution.txt"
+    resolution_path.write_text(
+        "<cabecalho><inicio>CABEÇALHO</inicio></cabecalho> texto sem fechamento.",
+        encoding="utf-8",
+    )
+    label_space_path = tmp_path / "label_space.json"
+    label_space_path.write_text(
+        '{"span_class_names": ["cabecalho_inicio", "cabecalho_fim"]}', encoding="utf-8"
+    )
+
+    _MODULE.main(
+        [
+            "--data-root",
+            str(tmp_path / "store"),
+            "--document-id",
+            document.document_id,
+            "--annotation-a",
+            annotation_a.annotation_id,
+            "--annotation-b",
+            annotation_b.annotation_id,
+            "--resolution-file",
+            str(resolution_path),
+            "--reviewers",
+            "reviewer1",
+            "--resolution",
+            "cabecalho sem cue de fechamento; unmatched declarado",
+            "--approved-at",
+            "2026-09-15T09:00:00Z",
+            "--label-space",
+            str(label_space_path),
+            "--allowed-unmatched",
+            '{"cabecalho": "sem cue de fechamento no documento"}',
+        ]
+    )
+
+    [review] = store.list_reviews(document.document_id)
+    assert review.allowed_unmatched == {"cabecalho": "sem cue de fechamento no documento"}
+
+
 def test_store_rejects_non_independent_pair_at_write_time(tmp_path: Path) -> None:
     """``build_review`` itself doesn't re-check independence -- the store does.
 
