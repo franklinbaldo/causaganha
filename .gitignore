@@ -110,6 +110,8 @@ data/segmenter_work/
 .dev.vars*
 deployment/relay-cf/node_modules/
 deployment/relay-cf/dist/
+deployment/archive-cors-proxy/node_modules/
+deployment/archive-cors-proxy/dist/
 
 # Wisk state is versioned under .wisk/knowledge/{local,experiences,wiki,skills}.
 # `wisk init .` may add generated, nested gitignored state such as manifest.json,
