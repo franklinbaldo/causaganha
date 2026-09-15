@@ -33,6 +33,7 @@ evidence_ids:
   - "2026-09-15-exciting-mccarthy-virf8r-evidence-review-doc2"
   - "2026-09-15-exciting-mccarthy-virf8r-evidence-doc3-abandoned-haiku-verbatim-failure"
   - "2026-09-15-exciting-mccarthy-virf8r-evidence-review-doc4"
+  - "2026-09-15-exciting-mccarthy-virf8r-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-virf8r-check-okf-parser-after-readings-goal"
   - "2026-09-15-exciting-mccarthy-virf8r-check-full-segmenter-suite-mid-round"
