@@ -1,0 +1,172 @@
+"""Tests for scripts/adjudicate_segmenter_review.py (RFC 0012 §8/§9, issue #1050/#1051).
+
+Builds a :class:`~segmenter_dataset.schemas.ReviewRecord` from a pair of
+annotations plus a reviewer's own fully tagged resolution — the review's
+independence requirement (RFC 0012 §5.3) is deliberately *not* re-checked
+here: it already lives at persistence time in
+``SegmenterDatasetStore.write_review`` (its ``NonIndependentReviewError``
+guard), so this module's job is only to build a well-formed candidate and
+let that existing guard be the actual enforcement point (see
+``test_store_rejects_non_independent_pair_at_write_time`` below).
+"""
+
+from __future__ import annotations
+
+import importlib.util
+import sys
+from pathlib import Path
+
+import pytest
+from conftest import make_annotation, make_document
+
+from segmenter_dataset.schemas import Label
+from segmenter_dataset.store import NonIndependentReviewError, SegmenterDatasetStore
+
+
+def load_script(module_name: str, path: str) -> object:
+    spec = importlib.util.spec_from_file_location(module_name, path)
+    module = importlib.util.module_from_spec(spec)  # type: ignore[arg-type]
+    sys.modules[module_name] = module
+    spec.loader.exec_module(module)  # type: ignore[union-attr]
+    return module
+
+
+_MODULE = load_script("adjudicate_segmenter_review", "scripts/adjudicate_segmenter_review.py")
+
+_ONTOLOGY_CATEGORIES = {"cabecalho_inicio", "cabecalho_fim", "resultado"}
+
+
+def test_diff_labels_partitions_matched_only_a_only_b() -> None:
+    labels_a = [
+        Label(start=0, end=9, category="cabecalho_inicio"),
+        Label(start=10, end=20, category="resultado"),
+    ]
+    labels_b = [
+        Label(start=0, end=9, category="cabecalho_inicio"),
+        Label(start=10, end=25, category="resultado"),  # different end -> disagreement
+    ]
+
+    diff = _MODULE.diff_labels(labels_a, labels_b)
+
+    assert diff.matched == (Label(start=0, end=9, category="cabecalho_inicio"),)
+    assert diff.only_a == (Label(start=10, end=20, category="resultado"),)
+    assert diff.only_b == (Label(start=10, end=25, category="resultado"),)
+
+
+def test_build_review_happy_path_independent_pair() -> None:
+    document = make_document(text="CABEÇALHO texto julgo procedente fim.")
+    annotation_a = make_annotation(
+        document,
+        annotator_id="ann-a",
+        model_family="family-a",
+        labels=[
+            Label(start=0, end=9, category="cabecalho_inicio"),
+            Label(start=16, end=33, category="resultado"),
+        ],
+        covered_categories=("cabecalho_inicio", "resultado"),
+    )
+    annotation_b = make_annotation(
+        document,
+        annotator_id="ann-b",
+        model_family="family-b",
+        labels=[Label(start=0, end=9, category="cabecalho_inicio")],
+        covered_categories=("cabecalho_inicio", "resultado"),
+    )
+    resolution_tagged = (
+        "<cabecalho><inicio>CABEÇALHO</inicio> texto "
+        "<resultado>julgo procedente</resultado> <fim>fim.</fim></cabecalho>"
+    )
+
+    review = _MODULE.build_review(
+        document,
+        annotation_a,
+        annotation_b,
+        resolution_tagged,
+        reviewers=("segmenter_dataset_agent_review:v1",),
+        resolution="adopted annotation_a's resultado span; both agreed on cabecalho",
+        approved_at="2026-09-15T09:00:00Z",
+        ontology_categories=_ONTOLOGY_CATEGORIES,
+    )
+
+    assert review.review_id.startswith("rev_")
+    assert review.status == "accepted"
+    assert review.input_annotation_ids == (annotation_a.annotation_id, annotation_b.annotation_id)
+    assert {label.category for label in review.final_labels} == {
+        "cabecalho_inicio",
+        "cabecalho_fim",
+        "resultado",
+    }
+    assert review.notes  # diff summary recorded
+
+
+def test_build_review_verbatim_mismatch_raises() -> None:
+    document = make_document(text="CABEÇALHO texto fim.")
+    annotation_a = make_annotation(document, annotator_id="ann-a", model_family="family-a")
+    annotation_b = make_annotation(document, annotator_id="ann-b", model_family="family-b")
+    wrong_resolution = "<cabecalho_inicio>CABEÇALHO</cabecalho_inicio> outro texto fim."
+
+    with pytest.raises(_MODULE.VerbatimFidelityError):
+        _MODULE.build_review(
+            document,
+            annotation_a,
+            annotation_b,
+            wrong_resolution,
+            reviewers=("reviewer1",),
+            resolution="n/a",
+            approved_at="2026-09-15T09:00:00Z",
+            ontology_categories=_ONTOLOGY_CATEGORIES,
+        )
+
+
+def test_build_review_mechanical_validation_failure_raises() -> None:
+    document = make_document(text="julgo procedente e julgo improcedente.")
+    annotation_a = make_annotation(document, annotator_id="ann-a", model_family="family-a")
+    annotation_b = make_annotation(document, annotator_id="ann-b", model_family="family-b")
+    resolution_tagged = (
+        "<resultado>julgo procedente</resultado> e <resultado>julgo improcedente</resultado>."
+    )
+
+    with pytest.raises(_MODULE.MechanicalValidationError):
+        _MODULE.build_review(
+            document,
+            annotation_a,
+            annotation_b,
+            resolution_tagged,
+            reviewers=("reviewer1",),
+            resolution="n/a",
+            approved_at="2026-09-15T09:00:00Z",
+            ontology_categories={"resultado"},
+        )
+
+
+def test_store_rejects_non_independent_pair_at_write_time(tmp_path: Path) -> None:
+    """``build_review`` itself doesn't re-check independence -- the store does.
+
+    A pair seeded from one another (or same-family) should still fail, but
+    at ``store.write_review``, via its existing ``NonIndependentReviewError``
+    guard -- not silently succeed here.
+    """
+    store = SegmenterDatasetStore(tmp_path / "store")
+    document = make_document(text="CABEÇALHO texto fim.")
+    store.write_document(document)
+    annotation_a = make_annotation(document, annotator_id="ann-a", model_family="family-a")
+    annotation_b = make_annotation(
+        document, annotator_id="ann-b", model_family="family-a"
+    )  # same family -> not independent
+    store.write_annotation(annotation_a)
+    store.write_annotation(annotation_b)
+    resolution_tagged = "<cabecalho><inicio>CABEÇALHO</inicio> texto <fim>fim.</fim></cabecalho>"
+
+    review = _MODULE.build_review(
+        document,
+        annotation_a,
+        annotation_b,
+        resolution_tagged,
+        reviewers=("reviewer1",),
+        resolution="n/a",
+        approved_at="2026-09-15T09:00:00Z",
+        ontology_categories=_ONTOLOGY_CATEGORIES,
+    )
+
+    with pytest.raises(NonIndependentReviewError):
+        store.write_review(review)

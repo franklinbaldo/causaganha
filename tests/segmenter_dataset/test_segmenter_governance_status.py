@@ -131,19 +131,25 @@ def test_evaluation_eligible_count_reflects_accepted_reviews(tmp_path: Path) -> 
     assert status["blocked_on_reviews"] is False
 
 
-def test_real_store_has_zero_evaluation_eligible_documents() -> None:
-    """Regression guard documenting the #1051 blocker's current, real state.
+def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
+    """Regression guard documenting #1051's first real, adjudicated review.
 
-    As of this test's introduction, ``data/segmenter`` has 61 documents and
-    74 annotations but zero ``ReviewRecord``s, so #1047's whole roadmap
-    (which requires a real validation split, #1051) cannot be advanced by
-    running ``assign-splits`` today -- it silently returns an empty val/test
-    split (RFC 0012 §10: that role requires an *accepted* review, not just
-    an annotation). This is a data/process gap, not a code bug: fixing it
-    means adjudicating real reviews (#1051), not touching this diagnostic.
-    If this test starts seeing ``blocked_on_reviews is False``, #1051 has
-    made real progress -- update/remove this regression guard instead of
-    treating a flip here as a failure.
+    Originally this test asserted ``review_count == 0`` /
+    ``blocked_on_reviews is True`` — a snapshot of the store the day this
+    diagnostic was introduced (61 documents, 74 annotations, zero
+    ``ReviewRecord``s). That snapshot's own docstring already called for
+    this update: "If this test starts seeing ``blocked_on_reviews is
+    False``, #1051 has made real progress -- update/remove this regression
+    guard instead of treating a flip here as a failure." It has: this store
+    now carries the first accepted ``ReviewRecord``
+    (``data/segmenter/reviews/doc_57d1c65ce480854290dc81fd59d4827d/``, built
+    by ``scripts/adjudicate_segmenter_review.py`` from a second, genuinely
+    independent annotation produced by ``scripts/annotate_second_independent.py``
+    — see ``docs/planning/evidence/first-real-review-2026-09-15.json``), so
+    ``assign-splits`` can produce a non-empty val/test manifest for the first
+    time. #1051's remaining work is scaling this from 1 document to the
+    RFC 0012 §5.4 targets (>= 30 val, >= 30 test adjudicated), not making the
+    mechanism exist in the first place.
     """
     store_dir = Path("data/segmenter")
     if not store_dir.exists():
@@ -153,9 +159,9 @@ def test_real_store_has_zero_evaluation_eligible_documents() -> None:
     status = mod.compute_governance_status(store_dir)  # type: ignore[attr-defined]
 
     assert status["document_count"] > 0
-    assert status["review_count"] == 0
-    assert status["evaluation_eligible_count"] == 0
-    assert status["blocked_on_reviews"] is True
+    assert status["review_count"] >= 1
+    assert status["evaluation_eligible_count"] >= 1
+    assert status["blocked_on_reviews"] is False
 
 
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
