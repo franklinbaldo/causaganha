@@ -157,7 +157,16 @@ export function buildIndiceSql(url: string = INDICE_PROCESSUAL_URL): string {
   `;
 }
 
-export function buildDjenSql(urls: string[]): string {
+/**
+ * "direct" is only safe when every DJEN file in the search certifies the
+ * CNJ-text-sorted layout (see `resolveDjenEqualityMode`) — otherwise a
+ * masked/legacy `numero_processo` value would silently fail to match.
+ */
+export type DjenEqualityMode = 'direct' | 'compatible';
+
+export function buildDjenSql(urls: string[], equalityMode: DjenEqualityMode = 'compatible'): string {
+  const whereClause =
+    equalityMode === 'direct' ? 'numero_processo = ?' : "regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?";
   return `
     SELECT
       COUNT(*)::INTEGER AS n_publicacoes,
@@ -165,8 +174,59 @@ export function buildDjenSql(urls: string[]): string {
       MAX(data_disponibilizacao)::VARCHAR AS ultima_publicacao,
       list(DISTINCT tribunal) AS tribunais
     FROM read_parquet([${urlListSql(urls)}], union_by_name=true)
-    WHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?
+    WHERE ${whereClause}
   `;
+}
+
+// ── Certificação do rodapé (#1469) ─────────────────────────────────────────
+// `exporter.py` normaliza numero_processo para texto de 20 dígitos e ordena
+// CNJ-first apenas nas tabelas em CNJ_LAYOUT_TABLES, certificando isso no
+// rodapé Parquet (causaganha.layout, causaganha.cnj_normalization). Só então
+// a leitura pode trocar o `regexp_replace` (por linha, nunca podado por
+// estatísticas de row-group) por igualdade direta — o motivo inteiro de
+// reordenar por CNJ na escrita.
+
+const LAYOUT_MARKER_KEY = 'causaganha.layout';
+const LAYOUT_MARKER_VALUE = 'cnj-text-sorted-v1';
+const CNJ_NORMALIZATION_MARKER_KEY = 'causaganha.cnj_normalization';
+const CNJ_NORMALIZATION_MARKER_VALUE = 'valid-20-digits-v1';
+
+export interface DjenKvMetadataRow {
+  file_name: string;
+  key: string;
+  value: string;
+}
+
+/** Lê os pares chave/valor do rodapé Parquet de cada arquivo DJEN descoberto. */
+export function buildDjenCertificationSql(urls: string[]): string {
+  return `
+    SELECT file_name, key, value
+    FROM parquet_kv_metadata([${urlListSql(urls)}])
+  `;
+}
+
+/**
+ * Igualdade direta só é segura quando TODOS os arquivos da busca certificam
+ * os dois marcadores com o valor exato -- um arquivo sem marcador nenhum
+ * (legado), com só um dos dois, ou com um valor diferente do esperado
+ * (versão futura do layout) volta para o caminho compatível, exatamente como
+ * uma busca que mistura um arquivo certificado com um legado (#1469).
+ */
+export function resolveDjenEqualityMode(urls: string[], kvRows: DjenKvMetadataRow[]): DjenEqualityMode {
+  if (urls.length === 0) return 'compatible';
+  const markersByFile = new Map<string, Map<string, string>>();
+  for (const row of kvRows) {
+    if (!markersByFile.has(row.file_name)) markersByFile.set(row.file_name, new Map());
+    markersByFile.get(row.file_name)!.set(row.key, row.value);
+  }
+  const allCertified = urls.every((url) => {
+    const markers = markersByFile.get(url);
+    return (
+      markers?.get(LAYOUT_MARKER_KEY) === LAYOUT_MARKER_VALUE &&
+      markers?.get(CNJ_NORMALIZATION_MARKER_KEY) === CNJ_NORMALIZATION_MARKER_VALUE
+    );
+  });
+  return allCertified ? 'direct' : 'compatible';
 }
 
 export function buildJurisSql(urls: string[]): string {
@@ -743,6 +803,26 @@ async function queryRowSafe(
   }
 }
 
+/**
+ * Live counterpart of `resolveDjenEqualityMode`: queries the footer of every
+ * discovered DJEN file and decides the equality mode. A failing query
+ * (network error, older DuckDB-WASM build without `parquet_kv_metadata`)
+ * degrades to the always-safe compatible path rather than surfacing a
+ * "fonte indisponível" aviso -- this is a capability probe, not a data
+ * source, and the DJEN query itself still runs normally right after.
+ */
+async function resolveDjenEqualityModeLive(conn: DuckDBConnectionLike, djenUrls: string[]): Promise<DjenEqualityMode> {
+  try {
+    const rows = await queryRows(conn, buildDjenCertificationSql(djenUrls), []);
+    return resolveDjenEqualityMode(
+      djenUrls,
+      rows.map((r) => ({ file_name: String(r.file_name), key: String(r.key), value: String(r.value) })),
+    );
+  } catch {
+    return 'compatible';
+  }
+}
+
 export interface ProcessoResultado {
   encontrado: boolean;
   nrProcesso: string;
@@ -829,7 +909,10 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
   const stjUrls = fonteUrls(rowPairs, 'stj');
   const datajudUrls = fonteUrls(rowPairs, 'datajud');
 
-  const djenRaw = djenUrls.length ? await queryRowSafe(conn, 'djen', buildDjenSql(djenUrls), [digits], avisos) : null;
+  const djenEqualityMode = djenUrls.length ? await resolveDjenEqualityModeLive(conn, djenUrls) : 'compatible';
+  const djenRaw = djenUrls.length
+    ? await queryRowSafe(conn, 'djen', buildDjenSql(djenUrls, djenEqualityMode), [digits], avisos)
+    : null;
   const jurisRaw = jurisUrls.length
     ? await queryRowSafe(conn, 'juris', buildJurisSql(jurisUrls), [digits], avisos)
     : null;

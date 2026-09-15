@@ -5,6 +5,7 @@ import {
   ALL_FONTES,
   buildCnjSearchParams,
   buildDatajudSql,
+  buildDjenCertificationSql,
   buildDjenSql,
   buildDocumentosSql,
   buildHeroSearchRedirect,
@@ -31,6 +32,7 @@ import {
   normalizeCnj,
   paginate,
   readCnjParam,
+  resolveDjenEqualityMode,
   stripCnjMask,
   toIsoDate,
 } from './processoCnj';
@@ -231,6 +233,75 @@ describe('SQL builders never use SELECT * and filter by parameter', () => {
     expect(sql).not.toMatch(/select\s+\*/i);
     expect(sql).toContain("read_parquet(['https://a/comunicacoes.parquet', 'https://b/comunicacoes.parquet']");
     expect(sql).toContain('= ?');
+  });
+
+  it('djen query defaults to the regexp_replace-based compatible path (#1469)', () => {
+    const sql = buildDjenSql(['https://a/comunicacoes.parquet']);
+    expect(sql).toContain("WHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?");
+  });
+
+  it('djen query uses direct equality only when explicitly asked (equalityMode="direct")', () => {
+    const sql = buildDjenSql(['https://a/comunicacoes.parquet'], 'direct');
+    expect(sql).toContain('WHERE numero_processo = ?');
+    expect(sql).not.toContain('regexp_replace');
+  });
+
+  it('djen query keeps the compatible path when equalityMode="compatible" is explicit', () => {
+    const sql = buildDjenSql(['https://a/comunicacoes.parquet'], 'compatible');
+    expect(sql).toContain("WHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?");
+  });
+
+  it('certification query reads parquet_kv_metadata over every discovered DJEN URL', () => {
+    const sql = buildDjenCertificationSql(['https://a/comunicacoes.parquet', 'https://b/comunicacoes.parquet']);
+    expect(sql).not.toMatch(/select\s+\*/i);
+    expect(sql).toContain(
+      "FROM parquet_kv_metadata(['https://a/comunicacoes.parquet', 'https://b/comunicacoes.parquet'])",
+    );
+    expect(sql).toContain('file_name');
+  });
+});
+
+describe('resolveDjenEqualityMode (#1469 — direct equality only when every DJEN file certifies)', () => {
+  const URL_A = 'https://a/comunicacoes.parquet';
+  const URL_B = 'https://b/comunicacoes.parquet';
+  const CERTIFIED_ROWS = (url: string) => [
+    { file_name: url, key: 'causaganha.layout', value: 'cnj-text-sorted-v1' },
+    { file_name: url, key: 'causaganha.cnj_normalization', value: 'valid-20-digits-v1' },
+  ];
+
+  it('is "direct" when the single file certifies both markers', () => {
+    expect(resolveDjenEqualityMode([URL_A], CERTIFIED_ROWS(URL_A))).toBe('direct');
+  });
+
+  it('is "direct" when every file in a multi-file search certifies both markers', () => {
+    expect(resolveDjenEqualityMode([URL_A, URL_B], [...CERTIFIED_ROWS(URL_A), ...CERTIFIED_ROWS(URL_B)])).toBe(
+      'direct',
+    );
+  });
+
+  it('is "compatible" when the footer has no KV metadata at all (older/legacy file)', () => {
+    expect(resolveDjenEqualityMode([URL_A], [])).toBe('compatible');
+  });
+
+  it('is "compatible" when only one of the two required markers is present', () => {
+    const rows = [{ file_name: URL_A, key: 'causaganha.layout', value: 'cnj-text-sorted-v1' }];
+    expect(resolveDjenEqualityMode([URL_A], rows)).toBe('compatible');
+  });
+
+  it('is "compatible" when a marker is present with an unexpected value', () => {
+    const rows = [
+      { file_name: URL_A, key: 'causaganha.layout', value: 'cnj-text-sorted-v1' },
+      { file_name: URL_A, key: 'causaganha.cnj_normalization', value: 'some-future-version' },
+    ];
+    expect(resolveDjenEqualityMode([URL_A], rows)).toBe('compatible');
+  });
+
+  it('is "compatible" for a mixed search — one certified file, one legacy file without markers', () => {
+    expect(resolveDjenEqualityMode([URL_A, URL_B], CERTIFIED_ROWS(URL_A))).toBe('compatible');
+  });
+
+  it('is "compatible" when there are no DJEN files at all', () => {
+    expect(resolveDjenEqualityMode([], [])).toBe('compatible');
   });
 
   it('juris query cross-joins agg and principal over the discovered URLs', () => {
@@ -804,6 +875,77 @@ describe('buscarProcesso', () => {
       expect(result.datajud.present).toBe(true); // unaffected by JURIS failing
       expect(result.juris.present).toBe(false); // the failed source degrades to absent
       expect(result.avisos.some((a) => a.includes('juris') && a.includes('indisponível'))).toBe(true);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('uses direct equality against DJEN when the discovered file certifies the CNJ layout (#1469)', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      const conn = fakeConn([
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [{ fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2026.parquet' }],
+        ],
+        [
+          'FROM parquet_kv_metadata',
+          [
+            { file_name: 'https://ia/djen-2026.parquet', key: 'causaganha.layout', value: 'cnj-text-sorted-v1' },
+            {
+              file_name: 'https://ia/djen-2026.parquet',
+              key: 'causaganha.cnj_normalization',
+              value: 'valid-20-digits-v1',
+            },
+          ],
+        ],
+        ['COUNT(*)::INTEGER AS n_publicacoes', [{ n_publicacoes: 1, primeira_publicacao: '2026-01-01', ultima_publicacao: '2026-01-01', tribunais: ['TJRO'] }]],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.djen.present).toBe(true);
+      const djenCall = conn.calls.find((c) => c.sql.includes('COUNT(*)::INTEGER AS n_publicacoes'));
+      expect(djenCall?.sql).toContain('WHERE numero_processo = ?');
+      expect(djenCall?.sql).not.toContain('regexp_replace');
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps the compatible DJEN path when the discovered file has no certification footer', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      const conn = fakeConn([
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [{ fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' }],
+        ],
+        // No route registered for `parquet_kv_metadata` -- fakeConn returns [] for
+        // any unmatched query, exactly like a real legacy file with no KV footer.
+        ['COUNT(*)::INTEGER AS n_publicacoes', [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }]],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.djen.present).toBe(true);
+      const djenCall = conn.calls.find((c) => c.sql.includes('COUNT(*)::INTEGER AS n_publicacoes'));
+      expect(djenCall?.sql).toContain("WHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('keeps the compatible DJEN path when the certification query itself fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      const conn = fakeConnWithFailure('FROM parquet_kv_metadata', [
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [{ fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' }],
+        ],
+        ['COUNT(*)::INTEGER AS n_publicacoes', [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }]],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.djen.present).toBe(true);
+      const djenCall = conn.calls.find((c) => c.sql.includes('COUNT(*)::INTEGER AS n_publicacoes'));
+      expect(djenCall?.sql).toContain("WHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?");
     } finally {
       vi.unstubAllGlobals();
     }
