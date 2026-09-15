@@ -1,0 +1,45 @@
+{
+  "source_file": "/tmp/claude-0/-home-user-causaganha/scratch/comunicacoes-2025-12-23.parquet",
+  "total_rows": 95783,
+  "sample_cnj": "00662078620258160000",
+  "sample_cnj_occurrences": 1691,
+  "row_group_size": 122880,
+  "measurements": [
+    {
+      "ordering": "cnj_first",
+      "order_by": "numero_processo, data_disponibilizacao, id",
+      "row_group_count": 1,
+      "row_groups_with_bloom_filter": 0,
+      "distinct_encodings": [
+        "PLAIN"
+      ],
+      "row_groups_touched_for_cnj_lookup_minmax": 1,
+      "per_row_group": [
+        {
+          "row_group_id": 0,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        }
+      ]
+    },
+    {
+      "ordering": "date_first",
+      "order_by": "data_disponibilizacao, numero_processo, id",
+      "row_group_count": 1,
+      "row_groups_with_bloom_filter": 0,
+      "distinct_encodings": [
+        "PLAIN"
+      ],
+      "row_groups_touched_for_cnj_lookup_minmax": 1,
+      "per_row_group": [
+        {
+          "row_group_id": 0,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        }
+      ]
+    }
+  ],
+  "covering_index_needed": false,
+  "covering_index_rationale": "ORDER BY numero_processo (cnj_first, o layout real de exporter.py) j\u00e1 poda o point-lookup por CNJ a 1 row group via min/max stats sozinho, com ou sem bloom filter -- o \u00edndice covering aditivo n\u00e3o traria ganho de pruning mensur\u00e1vel para este acesso."
+}

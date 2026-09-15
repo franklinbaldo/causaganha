@@ -1,0 +1,125 @@
+{
+  "source_file": "/tmp/claude-0/-home-user-causaganha/scratch/comunicacoes-tjro-2026.parquet",
+  "total_rows": 1041723,
+  "sample_cnj": "70058285020258220014",
+  "sample_cnj_occurrences": 64,
+  "row_group_size": 122880,
+  "measurements": [
+    {
+      "ordering": "cnj_first",
+      "order_by": "numero_processo, data_disponibilizacao, id",
+      "row_group_count": 9,
+      "row_groups_with_bloom_filter": 0,
+      "distinct_encodings": [
+        "PLAIN"
+      ],
+      "row_groups_touched_for_cnj_lookup_minmax": 1,
+      "per_row_group": [
+        {
+          "row_group_id": 0,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 1,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 2,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 3,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 4,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 5,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 6,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 7,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 8,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        }
+      ]
+    },
+    {
+      "ordering": "date_first",
+      "order_by": "data_disponibilizacao, numero_processo, id",
+      "row_group_count": 9,
+      "row_groups_with_bloom_filter": 0,
+      "distinct_encodings": [
+        "PLAIN"
+      ],
+      "row_groups_touched_for_cnj_lookup_minmax": 9,
+      "per_row_group": [
+        {
+          "row_group_id": 0,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 1,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 2,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 3,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 4,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 5,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 6,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 7,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        },
+        {
+          "row_group_id": 8,
+          "encodings": "PLAIN",
+          "has_bloom_filter": false
+        }
+      ]
+    }
+  ],
+  "covering_index_needed": false,
+  "covering_index_rationale": "ORDER BY numero_processo (cnj_first, o layout real de exporter.py) j\u00e1 poda o point-lookup por CNJ a 1 row group via min/max stats sozinho, com ou sem bloom filter -- o \u00edndice covering aditivo n\u00e3o traria ganho de pruning mensur\u00e1vel para este acesso."
+}
