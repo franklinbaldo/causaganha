@@ -99,6 +99,39 @@ def test_build_review_happy_path_independent_pair() -> None:
     assert review.notes  # diff summary recorded
 
 
+def test_build_review_drops_ref_normativa_before_validation() -> None:
+    """A reviewer's resolution may carry ``ref_normativa`` spans copied from an input
+
+    annotation (``ref_normativa`` is excluded from the trainable ontology, RFC 0012 §5
+    decision 1). ``annotate_second_independent.py`` already drops it automatically before
+    persisting an annotation; a resolution file built from one of those annotations'
+    tagged text can still carry the tag verbatim, so ``build_review`` must apply the same
+    drop instead of failing mechanical validation on a category the caller never intended
+    to keep (found live in agent-run 2jz691: two of three resolutions this round needed a
+    manual tag strip for exactly this).
+    """
+    document = make_document(text="julgo procedente nos termos do art. 5 fim.")
+    annotation_a = make_annotation(document, annotator_id="ann-a", model_family="family-a")
+    annotation_b = make_annotation(document, annotator_id="ann-b", model_family="family-b")
+    resolution_tagged = (
+        "<resultado>julgo procedente</resultado> nos termos do "
+        "<ref_normativa>art. 5</ref_normativa> fim."
+    )
+
+    review = _MODULE.build_review(
+        document,
+        annotation_a,
+        annotation_b,
+        resolution_tagged,
+        reviewers=("segmenter_dataset_agent_review:v1",),
+        resolution="kept resultado only; ref_normativa is out of scope for v8",
+        approved_at="2026-09-15T09:00:00Z",
+        ontology_categories={"resultado"},
+    )
+
+    assert [label.category for label in review.final_labels] == ["resultado"]
+
+
 def test_build_review_verbatim_mismatch_raises() -> None:
     document = make_document(text="CABEÇALHO texto fim.")
     annotation_a = make_annotation(document, annotator_id="ann-a", model_family="family-a")
