@@ -30,7 +30,7 @@ export const AgentDecisionSchema = z.object({
 
 export const AgentEvidenceSchema = z.object({
   "description": z.string().optional(),
-  "goal_id": z.string().describe("references AgentGoal(id)").optional(),
+  "goal_id": z.string().describe("references AgentGoal(id)").nullable().optional(),
   "id": z.string(),
   "kind": z.string(),
   "reference": z.string(),
