@@ -31,6 +31,7 @@ evidence_ids:
   - "2026-09-15-exciting-mccarthy-2jz691-evidence-red-test"
   - "2026-09-15-exciting-mccarthy-2jz691-evidence-green-test"
   - "2026-09-15-exciting-mccarthy-2jz691-evidence-governance-status-after"
+  - "2026-09-15-exciting-mccarthy-2jz691-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-2jz691-check-okf-parser-after-readings-goal"
   - "2026-09-15-exciting-mccarthy-2jz691-check-segmenter-suite-and-lint"
