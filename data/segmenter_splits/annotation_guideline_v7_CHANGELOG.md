@@ -79,3 +79,21 @@ Matches `segmenter_dataset/store.py`'s corresponding writer/reader rewrite
 (RFC 0012 §8) — reading is fully backward compatible with the pre-v7.3 flat
 format, so annotations produced under v7.1/v7.2 didn't need re-annotation,
 only the on-disk corpus was regenerated (same content, new serialization).
+
+## v7.4 (`ementa` row only — no ontology or category semantics change)
+
+Three separate #1051 adjudication rounds (2026-09-15) hit the same
+`ementa_fim` disagreement on TJRO's "capa+ementa-estruturada" acórdão
+exports (Ementa: directly followed by I. CASO EM EXAME / II. QUESTÃO(ÕES)
+EM DISCUSSÃO / III. RAZÕES DE DECIDIR / IV. DISPOSITIVO E TESE, with no
+separate RELATÓRIO or VOTO): one annotator read the four numbered sections
+as part of the published ementa (extends to EOD, unmatched), the other
+fabricated a closing cue somewhere later in the document (once at the
+paragraph right after the topic sentence, once deep inside a trailing
+"Jurisprudência relevante citada" block). Adjudication resolved all three
+occurrences the same way — unmatched/extends-to-EOD — because no real
+closing cue exists in this format by construction, and the guideline
+already treats a fabricated closing tag as an anti-pattern. The `ementa`
+row now states this reading directly so future annotators (LLM or human)
+converge on it without needing a fourth adjudication round to rediscover
+it.
