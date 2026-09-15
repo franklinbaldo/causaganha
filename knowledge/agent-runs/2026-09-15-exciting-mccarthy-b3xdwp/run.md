@@ -33,6 +33,7 @@ evidence_ids:
   - "2026-09-15-exciting-mccarthy-b3xdwp-evidence-review-doc-dd458d79"
   - "2026-09-15-exciting-mccarthy-b3xdwp-evidence-doc-e26a555b-abandoned-zero-tag"
   - "2026-09-15-exciting-mccarthy-b3xdwp-evidence-governance-status-after"
+  - "2026-09-15-exciting-mccarthy-b3xdwp-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-b3xdwp-check-okf-parser-after-readings-goal"
   - "2026-09-15-exciting-mccarthy-b3xdwp-check-segmenter-suite-and-lint-mid-round"
