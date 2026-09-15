@@ -29,6 +29,7 @@ evidence_ids:
   - "2026-09-15-exciting-mccarthy-2cjjig-evidence-review-doc-613907cc"
   - "2026-09-15-exciting-mccarthy-2cjjig-evidence-review-doc-69b98539"
   - "2026-09-15-exciting-mccarthy-2cjjig-evidence-governance-status-after"
+  - "2026-09-15-exciting-mccarthy-2cjjig-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-2cjjig-check-okf-parser-after-readings-goal"
   - "2026-09-15-exciting-mccarthy-2cjjig-check-segmenter-suite-and-lint"
