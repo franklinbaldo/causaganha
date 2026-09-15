@@ -28,9 +28,12 @@ decision_ids:
 evidence_ids:
   - "2026-09-15-exciting-mccarthy-f0q3d4-evidence-red-nonindependent-pair"
   - "2026-09-15-exciting-mccarthy-f0q3d4-evidence-1469-comment-posted"
+  - "2026-09-15-exciting-mccarthy-f0q3d4-evidence-governance-status-after"
+  - "2026-09-15-exciting-mccarthy-f0q3d4-evidence-adjudication-decisions"
 check_ids:
   - "2026-09-15-exciting-mccarthy-f0q3d4-check-okf-parser-after-readings-goal-decision"
   - "2026-09-15-exciting-mccarthy-f0q3d4-check-segmenter-suite-baseline"
+  - "2026-09-15-exciting-mccarthy-f0q3d4-check-okf-parser-after-adjudication"
 result_state: "red"
 result_summary: ""
 next_move: ""
