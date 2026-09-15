@@ -1,0 +1,64 @@
+{
+  "issue": "https://github.com/franklinbaldo/causaganha/issues/1051",
+  "root_cause_reference": "docs/planning/evidence/segmenter-governance-status-2026-09-15.json (previous round, wvzu11: 0 ReviewRecords -> evaluation_eligible_count=0)",
+  "document_id": "doc_57d1c65ce480854290dc81fd59d4827d",
+  "annotation_a": {
+    "annotation_id": "ann_26e86264539fbbae1cf4c429b1b440f3",
+    "model_family": "historical_migration_unspecified",
+    "seeded_with": "none",
+    "note": "pre-existing annotation, already in the store before this round"
+  },
+  "annotation_b": {
+    "annotation_id": "ann_b155b45af373525a533612ecc984cdfe",
+    "model_family": "prompt_subagents:general-purpose",
+    "seeded_with": "none",
+    "note": "produced this round via a subagent (Technique 1, RFC 0012 SS8/SS9), reading only the plain document text and the annotation guideline -- never shown annotation_a"
+  },
+  "independence_check": "mechanical.annotations_are_independent(annotation_a, annotation_b) == True (distinct model_family, both seeded_with='none'); confirmed live by SegmenterDatasetStore.write_review not raising NonIndependentReviewError",
+  "review_id": "rev_64d8f456961843aa3c90ab0ab822fd1c",
+  "review_status": "accepted",
+  "diff_before_adjudication": {
+    "matched_spans": 8,
+    "only_in_a": 2,
+    "only_in_b": 4,
+    "categories_only_in_a": ["custas_fim", "custas_inicio"],
+    "categories_only_in_b": ["custas_fim", "custas_inicio", "fundamentacao_legal"]
+  },
+  "governance_status_before": {
+    "document_count": 61,
+    "annotation_count": 74,
+    "review_count": 0,
+    "train_eligible_count": 61,
+    "evaluation_eligible_count": 0,
+    "blocked_on_reviews": true
+  },
+  "governance_status_after": {
+    "document_count": 61,
+    "annotation_count": 75,
+    "review_count": 1,
+    "train_eligible_count": 61,
+    "evaluation_eligible_count": 1,
+    "blocked_on_reviews": false
+  },
+  "second_document_same_round": {
+    "document_id": "doc_e3835a09bb2e497a0407ca9d669a3723",
+    "annotation_a": "ann_e03654ac44795a79534e22c199bf822b (historical_migration_unspecified)",
+    "annotation_b": "ann_25d28e06a6fee4293893cb07d078693e (prompt_subagents:general-purpose, produced this round)",
+    "review_id": "rev_232c7adf1196e0b4ee48ac90df9087df",
+    "disagreements_resolved": "fundamentacao_legal (A tagged 1 of 2 distinct legal citations), dispositivo_abertura (A tagged none; B found a formulaic opener the guideline's own examples match)"
+  },
+  "governance_status_final": {
+    "document_count": 61,
+    "annotation_count": 76,
+    "review_count": 2,
+    "train_eligible_count": 61,
+    "evaluation_eligible_count": 2,
+    "blocked_on_reviews": false
+  },
+  "assign_splits_cli_limitation_found": "With only 2 evaluation-eligible documents, `python -m segmenter_dataset assign-splits` still refuses to produce a manifest: both eligible documents landed in the same role (val) under seed 771, leaving test empty. This is a pre-existing splitter limitation (RFC 0012 SS10, PR #838 review finding #2: no fallback to a smaller group when an eligible group exceeds the remaining target size), not a defect introduced this round -- the governance-status success signal (evaluation_eligible_count >= 1) is unaffected. Scaling toward RFC 0012 SS5.4's targets (>= 30 val, >= 30 test adjudicated) will make this limitation moot in practice.",
+  "tools_added_this_round": [
+    "scripts/annotate_second_independent.py",
+    "scripts/adjudicate_segmenter_review.py"
+  ],
+  "next_step": "Scale from 2 adjudicated documents to RFC 0012 SS5.4's targets (>= 30 val, >= 30 test adjudicated) by repeating this same mechanism (subagent Technique 1 second annotation + adjudicate_segmenter_review.py) over the remaining 43 documents that already have exactly one unseeded annotation."
+}
