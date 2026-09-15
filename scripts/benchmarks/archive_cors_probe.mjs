@@ -22,9 +22,17 @@
 // Usage:
 //   node scripts/benchmarks/archive_cors_probe.mjs \
 //     --item djen-tjro-2026 --file comunicacoes.parquet \
-//     --origin https://example.org
+//     --origin https://example.org --output docs/planning/evidence/archive-cors-probe.json
+//
+// Launches Chromium with --ignore-certificate-errors / ignoreHTTPSErrors so the
+// probe also runs inside a sandbox that terminates HTTPS through a forced
+// MITM egress proxy (the proxy's certificate is not in Chromium's trust
+// store); this widens what TLS errors are ignored, so a run against a real
+// archive.org host outside such a sandbox gets the same result without the
+// flag doing anything unsafe there.
 import { createRequire } from "node:module";
 import http from "node:http";
+import { writeFileSync } from "node:fs";
 
 const require = createRequire(import.meta.url);
 const { chromium } = require(
@@ -32,12 +40,18 @@ const { chromium } = require(
 );
 
 function parseArgs(argv) {
-  const args = { item: "djen-tjro-2026", file: "comunicacoes.parquet", origin: "https://cors-probe.invalid" };
+  const args = {
+    item: "djen-tjro-2026",
+    file: "comunicacoes.parquet",
+    origin: "https://cors-probe.invalid",
+    output: null,
+  };
   for (let i = 0; i < argv.length; i += 1) {
     const key = argv[i];
     if (key === "--item") args.item = argv[++i];
     else if (key === "--file") args.file = argv[++i];
     else if (key === "--origin") args.origin = argv[++i];
+    else if (key === "--output") args.output = argv[++i];
   }
   return args;
 }
@@ -85,9 +99,11 @@ async function main() {
   const { server, url: pageUrl } = await serveBlankPage();
 
   const proxyServer = process.env.HTTPS_PROXY || process.env.https_proxy;
-  const browser = await chromium.launch(proxyServer ? { proxy: { server: proxyServer } } : {});
+  const launchOptions = { args: ["--ignore-certificate-errors"] };
+  if (proxyServer) launchOptions.proxy = { server: proxyServer };
+  const browser = await chromium.launch(launchOptions);
   try {
-    const page = await browser.newPage();
+    const page = await browser.newPage({ ignoreHTTPSErrors: true });
     await page.goto(pageUrl);
 
     const metadataUrl = `https://archive.org/metadata/${args.item}/files`;
@@ -104,7 +120,9 @@ async function main() {
       metadata_endpoint: { url: metadataUrl, ...metadataResult },
       download_endpoint_range_request: { url: downloadUrl, ...downloadRangeResult },
     };
-    console.log(JSON.stringify(result, null, 2));
+    const output = JSON.stringify(result, null, 2);
+    console.log(output);
+    if (args.output) writeFileSync(args.output, output);
   } finally {
     await browser.close();
     server.close();
