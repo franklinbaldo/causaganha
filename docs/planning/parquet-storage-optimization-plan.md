@@ -571,10 +571,48 @@ agora delega para `causaganha.consolidate.exporter.export_table_sync`, então os
 dois code paths compartilham a mesma lógica de `COPY` (ordenação, normalização,
 certificação) por construção, não por disciplina de manter os dois em sincronia.
 
-**Ainda não feito** (próximo avanço natural, issue #1469 restante):
-`web/src/lib/processoCnj.ts` continua no caminho compatível (`regexp_replace`) e
-ainda não lê os marcadores de certificação para habilitar igualdade direta; e a
-auditoria/rollout do acervo existente (#1470 auditado, #1471 pilotado localmente,
-#1472 bloqueado por credenciais IA) segue sem publicação real. `ROW_GROUP_SIZE`
-foi decidido e pinado explicitamente em 2026-09-15 (ver §1b) — não é mais uma
-lacuna.
+`ROW_GROUP_SIZE` foi decidido e pinado explicitamente em 2026-09-15 (ver §1b) —
+não é mais uma lacuna.
+
+## Atualização 2026-09-15 — leitura com igualdade direta em `processoCnj.ts` (issue #1469)
+
+**[feito]** `web/src/lib/processoCnj.ts` deixou de aplicar `regexp_replace`
+incondicionalmente na consulta DJEN. Antes de montar a query, `buscarProcesso`
+agora lê o rodapé de cada arquivo DJEN descoberto via uma nova função pura
+`buildDjenCertificationSql` (`SELECT file_name, key, value FROM
+parquet_kv_metadata([...])`) e decide o modo de igualdade com
+`resolveDjenEqualityMode`: só troca para `numero_processo = ?` quando **todos**
+os arquivos da busca certificam os dois marcadores
+(`causaganha.layout=cnj-text-sorted-v1`,
+`causaganha.cnj_normalization=valid-20-digits-v1`) com o valor exato — um
+arquivo sem marcador (legado), com só um dos dois, com um valor inesperado
+(versão futura), ou uma busca que mistura um arquivo certificado com um
+legado, mantém o caminho compatível para a busca inteira, nunca por arquivo
+(`buildDjenSql(urls, equalityMode)`). Uma falha na própria consulta de
+certificação (rede, build antigo de DuckDB-WASM sem `parquet_kv_metadata`)
+degrada para o caminho compatível em vez de propagar como "fonte
+indisponível" — é uma sondagem de capacidade, não uma fonte de dados.
+
+Custo extra medido contra o arquivo de produção real já publicado
+(`djen-tjro-2026/comunicacoes.parquet`, ainda não certificado — mesmo arquivo
+usado pelo benchmark de ROW_GROUP_SIZE), via
+`scripts/benchmarks/djen_certification_probe.py`
+(`docs/planning/evidence/djen-certification-probe.json`): com conexão nova a
+cada chamada (o caso real de uma primeira busca por sessão do navegador), o
+custo marginal da checagem de rodapé ficou dentro do ruído de rede
+(`-0.03s`, ou seja, imperceptível frente aos ~3-6s de variação natural de
+cada chamada de rede neste ambiente); com conexão reutilizada e cache de
+objeto do DuckDB ligado (repetição da mesma sessão), o custo marginal medido
+foi de `~0.63s` por chamada — indício de que `parquet_kv_metadata` não
+compartilha o cache de metadados de `read_parquet` no mesmo arquivo. Como o
+fluxo real do site faz exatamente uma checagem de certificação por busca (não
+chamadas repetidas na mesma conexão), o cenário de conexão nova é o
+representativo; o de conexão reutilizada fica registrado por completude.
+
+Ainda não feito (próximo avanço natural, issue #1469 restante):
+`scripts/reconcile_processos.py` ainda não explicita ordem física/grupos na
+escrita do índice; e a auditoria/rollout do acervo existente (#1470 auditado,
+#1471 pilotado localmente, #1472 bloqueado por credenciais IA) segue sem
+publicação real — nenhum arquivo de produção certifica o layout ainda, então
+a igualdade direta implementada aqui permanece dormente (caminho compatível
+sempre ativo) até a publicação real de #1472 acontecer.

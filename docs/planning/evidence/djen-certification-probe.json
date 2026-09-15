@@ -1,0 +1,95 @@
+{
+  "url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+  "cnj": "70058285020258220014",
+  "repeats": 5,
+  "results": [
+    {
+      "label": "lookup_only",
+      "object_cache": false,
+      "repeats": 5,
+      "seconds_per_call": [
+        6.327642002999994,
+        3.6071537330000183,
+        4.101002557000015,
+        3.9108757860000196,
+        3.605261975000019
+      ],
+      "mean_seconds": 4.310387210800013,
+      "median_seconds": 3.9108757860000196
+    },
+    {
+      "label": "footer_check_only",
+      "object_cache": false,
+      "repeats": 5,
+      "seconds_per_call": [
+        1.1397966840000322,
+        1.2556550720000246,
+        1.2784915650000244,
+        1.0205943230000116,
+        1.3009066140000414
+      ],
+      "mean_seconds": 1.1990888516000269,
+      "median_seconds": 1.2556550720000246
+    },
+    {
+      "label": "footer_check_then_lookup",
+      "object_cache": false,
+      "repeats": 5,
+      "seconds_per_call": [
+        4.370670749999988,
+        4.103810586999998,
+        4.45097690099999,
+        4.221983962000024,
+        4.257681699999978
+      ],
+      "mean_seconds": 4.281024779999996,
+      "median_seconds": 4.257681699999978
+    },
+    {
+      "label": "lookup_only",
+      "object_cache": true,
+      "repeats": 5,
+      "seconds_per_call": [
+        3.9139219720000256,
+        0.7784057460000327,
+        0.8093825029999948,
+        0.7872114830000214,
+        0.6870834160000072
+      ],
+      "mean_seconds": 1.3952010240000163,
+      "median_seconds": 0.7872114830000214
+    },
+    {
+      "label": "footer_check_only",
+      "object_cache": true,
+      "repeats": 5,
+      "seconds_per_call": [
+        1.2014149679999946,
+        0.6824127689999955,
+        0.6643300650000015,
+        0.6368644730000028,
+        0.5978864879999719
+      ],
+      "mean_seconds": 0.7565817525999933,
+      "median_seconds": 0.6643300650000015
+    },
+    {
+      "label": "footer_check_then_lookup",
+      "object_cache": true,
+      "repeats": 5,
+      "seconds_per_call": [
+        4.19414551899996,
+        1.4537368399999764,
+        1.387462410000012,
+        1.4831430690000502,
+        1.6026943619999656
+      ],
+      "mean_seconds": 2.024236439999993,
+      "median_seconds": 1.4831430690000502
+    }
+  ],
+  "marginal_footer_cost_seconds": {
+    "object_cache_off_cold_connection_per_call": -0.02936243080001777,
+    "object_cache_on_reused_connection": 0.6290354159999767
+  }
+}
