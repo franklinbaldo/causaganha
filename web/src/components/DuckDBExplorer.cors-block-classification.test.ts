@@ -28,7 +28,12 @@ async function selectTribunalAndYear() {
  * headers for), and the IA download endpoint (`/download/{id}/...`, which
  * archive.org does NOT send CORS headers for -- see issue #1482). A real
  * cross-origin browser fetch against the download endpoint rejects with a
- * TypeError; it never resolves with a readable response.
+ * TypeError; it never resolves with a readable response. This is not an
+ * assumption: `docs/planning/evidence/archive-cors-probe-real-browser.json`
+ * is a real Chromium run (`scripts/benchmarks/archive_cors_probe.mjs`)
+ * against the live archive.org host reproducing exactly this outcome --
+ * metadata endpoint resolves (`type: "cors"`), download endpoint rejects
+ * with `TypeError: Failed to fetch`.
  */
 function mockArchiveFetch({
   downloadOutcome,

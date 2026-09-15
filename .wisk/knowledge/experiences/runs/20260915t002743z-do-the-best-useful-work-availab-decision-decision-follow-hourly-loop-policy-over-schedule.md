@@ -1,0 +1,11 @@
+---
+type: "RunDecision"
+id: "run-decisions/20260915t002743z-do-the-best-useful-work-availab/decision-follow-hourly-loop-policy-over-schedule"
+run: "runs/20260915T002743Z-do-the-best-useful-work-available-in-this-reposi"
+question: "This session's own scheduled-task prompt instructs creating a new AgentRun report from .claude/agent-run-scaffold.md under knowledge/agent-runs/ -- the legacy mechanism. The repo's own committed .claude/hourly-loop.md explicitly says 'não crie novos AgentRuns' and mandates the Wisk runtime exclusively for the hourly loop. At least 3 prior AgentRun rounds (njkncp/vd5dfq, bueov4, to0ars) already found and flagged this exact conflict in run.md prose without it being resolved. Which mechanism should this round actually use?"
+decision: "Followed .claude/hourly-loop.md (repo policy) over the scheduled prompt's literal instruction: ran uv run wisk start instead of scaffolding knowledge/agent-runs/<id>/run.md. Also found and fixed the concrete reason wisk start looked broken on first try in this fresh container: no-eligible-session/candidates:[] because .wisk/knowledge/system/ (SessionType/RunSpec/CadencePolicy, gitignored by design) does not exist until wisk init . runs once per checkout -- exactly the failure mode .wisk/knowledge/wiki/continuous-loop-operational-invariants.md already documented from 2026-09-08's runs 20260907T222723Z/20260908T002654Z. Ran wisk init . (idempotent, 54 managed files, 1220 preserved), then wisk start succeeded and resumed handoffs/handoff-issue-1471-archive-readback-v2."
+rationale: "A written project instruction (hourly-loop.md, committed and authoritative) overrides a stale automation prompt that a human hasn't yet updated; escalating via notification is more honest than silently complying with an instruction the repo's own policy forbids, especially after 3 prior silent flags in run.md prose changed nothing. Not creating a 4th AgentRun scaffold also avoids adding more OKF surface area to a mechanism the repo has already decided to retire."
+alternatives: ["Comply literally with the scheduled prompt and create knowledge/agent-runs/<id>/run.md as instructed, ignoring hourly-loop.md -- rejected: directly contradicts a checked-in, explicit repo policy for no clear benefit, and would be the 4th round to do so since the conflict was first flagged."]
+---
+
+# RunDecision
