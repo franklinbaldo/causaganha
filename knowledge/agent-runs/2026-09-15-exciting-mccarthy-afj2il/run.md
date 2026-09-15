@@ -29,6 +29,7 @@ evidence_ids:
   - "2026-09-15-exciting-mccarthy-afj2il-evidence-review-doc-c7724144"
   - "2026-09-15-exciting-mccarthy-afj2il-evidence-review-doc-4125f9aa"
   - "2026-09-15-exciting-mccarthy-afj2il-evidence-governance-status-after"
+  - "2026-09-15-exciting-mccarthy-afj2il-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-afj2il-check-okf-parser-after-readings-goal"
   - "2026-09-15-exciting-mccarthy-afj2il-check-segmenter-suite-mid-round"
