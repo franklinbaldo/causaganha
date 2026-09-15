@@ -25,6 +25,7 @@ decision_ids:
 evidence_ids:
   - "2026-09-15-exciting-mccarthy-cdee4f-evidence-red-test"
   - "2026-09-15-exciting-mccarthy-cdee4f-evidence-green-test"
+  - "2026-09-15-exciting-mccarthy-cdee4f-evidence-pr-opened"
 check_ids:
   - "2026-09-15-exciting-mccarthy-cdee4f-check-okf-parser-after-readings-goal"
   - "2026-09-15-exciting-mccarthy-cdee4f-check-full-suite-mid-round"
