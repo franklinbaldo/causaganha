@@ -1,0 +1,13 @@
+---
+type: AgentGoal
+id: "2026-09-15-exciting-mccarthy-cdee4f-goal-explicit-index-layout-reconcile"
+run_id: "2026-09-15-exciting-mccarthy-cdee4f"
+goal: "Explicitar ordem física e ROW_GROUP_SIZE na escrita de indice_processual.parquet em scripts/reconcile_processos.py, espelhando o padrão já em produção em src/causaganha/consolidate/exporter.py (ORDER BY numero_processo-first + ROW_GROUP_SIZE 122880 pinado) -- fechando o critério de aceite textual restante de #1469 que não depende de credenciais IA."
+rationale: "Dos 10 critérios de aceite de #1469, só um segue sem PR em voo e sem depender de #1472 (bloqueada por IA_ACCESS_KEY/IA_SECRET_KEY, ausentes nesta sessão): 'Explicitar ordem física e grupos na escrita do índice em scripts/reconcile_processos.py'. O COPY atual (COPY indice_processual TO ... (FORMAT PARQUET, COMPRESSION ZSTD)) já ordena por numero_processo, fonte via _INDICE_SQL, mas depende do ROW_GROUP_SIZE implícito do DuckDB e não documenta a intenção de pruning -- exatamente a lacuna que exporter.py já fechou para comunicacoes/processos em PR #1493 (A1b, medido contra dado real de produção). Reaproveitar essa mesma decisão medida (122880) em vez de inventar um novo valor não medido é a leitura mais direta de 'sem tuning não medido' no corpo da issue."
+success_signal: "reconcile_processos.py fixa ROW_GROUP_SIZE 122880 explicitamente no COPY de indice_processual.parquet (mesmo valor decidido e medido em exporter.py/A1b, citando a mesma evidência), com comentário explicando a ordem física (numero_processo, fonte) e o motivo do valor -- não implícito. Teste TDD novo (RED antes, GREEN depois) verifica via spy em con.raw_sql/execute que a cláusula ROW_GROUP_SIZE 122880 está presente no COPY final, mesmo padrão de tests/test_exporter.py::TestRowGroupSize::test_export_pins_row_group_size_explicitly. tests/test_reconcile_processos.py inteiro permanece verde. uv run ruff check/format limpos. Issue #1469 recebe comentário fechando esse critério de aceite."
+status: "achieved"
+---
+
+# Goal: ordem física e ROW_GROUP_SIZE explícitos na escrita do índice cross-fonte
+
+O único critério de aceite textual de #1469 sem PR em voo e sem dependência de credenciais IA é a escrita de `indice_processual.parquet` em `scripts/reconcile_processos.py`: a ordenação física já existe implicitamente (`ORDER BY numero_processo, fonte` dentro de `_INDICE_SQL`), mas o `COPY` final não fixa `ROW_GROUP_SIZE` -- ao contrário de `exporter.py`, que pinou `122880` explicitamente após medir contra dois arquivos Parquet reais de produção (PR #1493, A1b). Fechar esse item completa a parte de escrita do epic #1468/#1469 sem exigir nenhuma nova medição (reaproveita a decisão já medida) e sem depender da publicação bloqueada de #1472.

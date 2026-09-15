@@ -609,10 +609,38 @@ fluxo real do site faz exatamente uma checagem de certificação por busca (não
 chamadas repetidas na mesma conexão), o cenário de conexão nova é o
 representativo; o de conexão reutilizada fica registrado por completude.
 
-Ainda não feito (próximo avanço natural, issue #1469 restante):
+Ainda não feito na época deste parágrafo (fechado no parágrafo seguinte):
 `scripts/reconcile_processos.py` ainda não explicita ordem física/grupos na
-escrita do índice; e a auditoria/rollout do acervo existente (#1470 auditado,
-#1471 pilotado localmente, #1472 bloqueado por credenciais IA) segue sem
-publicação real — nenhum arquivo de produção certifica o layout ainda, então
-a igualdade direta implementada aqui permanece dormente (caminho compatível
-sempre ativo) até a publicação real de #1472 acontecer.
+escrita do índice. Continua sem publicação real: a auditoria/rollout do
+acervo existente (#1470 auditado, #1471 pilotado localmente, #1472 bloqueado
+por credenciais IA) segue sem publicação real — nenhum arquivo de produção
+certifica o layout ainda, então a igualdade direta implementada aqui
+permanece dormente (caminho compatível sempre ativo) até a publicação real de
+#1472 acontecer.
+
+## Atualização 2026-09-15 (2) — ordem física/grupos explícitos em `indice_processual.parquet` (issue #1469)
+
+**[feito]** `scripts/reconcile_processos.py`'s `COPY indice_processual TO
+... (FORMAT PARQUET, COMPRESSION ZSTD)` não fixava `ROW_GROUP_SIZE`,
+diferente de `exporter.py`. A query `_INDICE_SQL` já ordena fisicamente por
+`ORDER BY numero_processo, fonte` (mesma chave CNJ-first do restante do
+epic), mas o tamanho do row group dependia do default implícito do DuckDB.
+Em vez de rodar um novo benchmark, reaproveitei a decisão já medida contra
+dado real de produção em A1b (`ROW_GROUP_SIZE 122880`,
+`docs/planning/evidence/row-group-size-a1b-production*.json`) — o índice
+cross-fonte compartilha exatamente o mesmo padrão de acesso dominante
+(point-lookup por `numero_processo`) que esse benchmark já cobre, então
+inventar um segundo valor não medido seria contrariar a própria regra de
+"sem tuning não medido" da issue. `COPY` passou a ser `(FORMAT PARQUET,
+COMPRESSION ZSTD, ROW_GROUP_SIZE 122880)`, com comentário citando a mesma
+evidência. TDD: `tests/test_reconcile_processos.py::TestIndexPhysicalLayout`
+— um teste via spy em `duckdb.DuckDBPyConnection.execute` confirmando a
+cláusula `ROW_GROUP_SIZE 122880` no COPY final (RED antes, GREEN depois) e
+um teste direto sobre `_INDICE_SQL` confirmando a ordenação física.
+
+Fecha o último critério de aceite textual de #1469 sem dependência de
+credenciais IA. Restam apenas: (a) a igualdade direta em `processoCnj.ts`
+seguir dormente até a publicação real do acervo reordenado (#1472,
+bloqueada), e (b) os critérios de teste mais amplos (leitura real
+DuckDB-WASM contra um arquivo efetivamente certificado) que também dependem
+dessa mesma publicação.

@@ -390,6 +390,56 @@ class TestFullReconcileWithoutLocalParquets:
         assert download.call_count == 1  # second run served from cache
 
 
+class TestIndexPhysicalLayout:
+    """#1469's last open textual criterion: explicit physical order + groups.
+
+    `_INDICE_SQL` already `ORDER BY numero_processo, fonte`, but the COPY
+    writing `indice_processual.parquet` relied on DuckDB's implicit default
+    row-group size — unlike `exporter.py`, which pins `ROW_GROUP_SIZE 122880`
+    explicitly (A1b, issue #1469, measured against two real production
+    files — see `tests/test_exporter.py::TestRowGroupSize`). Reusing that
+    same already-measured value here (rather than inventing a new one) is
+    the direct reading of the issue's own "sem tuning não medido" rule: the
+    physical shape of `indice_processual.parquet` (CNJ-first ordering) is
+    the same access pattern exporter.py's benchmark already covers.
+    """
+
+    def test_index_copy_pins_row_group_size_explicitly(
+        self, isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        import duckdb as duckdb_module
+
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        comunicacoes = _comunicacoes_parquet(fixtures / "comunicacoes.parquet")
+        catalog = _catalog_parquet(fixtures / "catalog.parquet", [comunicacoes])
+        monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
+
+        executed_sql: list[str] = []
+        real_execute = duckdb_module.DuckDBPyConnection.execute
+
+        def spy_execute(self, *args, **kwargs):
+            if args and isinstance(args[0], str):
+                executed_sql.append(args[0])
+            return real_execute(self, *args, **kwargs)
+
+        monkeypatch.setattr(duckdb_module.DuckDBPyConnection, "execute", spy_execute)
+
+        with respx.mock() as router:
+            _mock_stj_remote(router, fixtures, numero_processo=STJ_NUMERO_PROCESSO_REALISTA)
+            _mock_juris_remote(router, fixtures)
+            _mock_datajud_remote(router, fixtures)
+            rp.reconcile(upload=False)
+
+        copy_statements = [sql for sql in executed_sql if "COPY indice_processual TO" in sql]
+        assert len(copy_statements) == 1
+        assert "ROW_GROUP_SIZE 122880" in copy_statements[0]
+
+    def test_index_ordered_by_numero_processo_then_fonte(self) -> None:
+        assert "ORDER BY numero_processo, fonte" in rp._INDICE_SQL
+
+
 class TestUnavailableSources:
     @pytest.fixture
     def unavailable_env(self, isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
