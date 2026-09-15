@@ -2,7 +2,7 @@
 type: AgentEvidence
 id: "2026-09-15-exciting-mccarthy-6d5vnd-evidence-production-benchmark-borderline-item"
 run_id: "2026-09-15-exciting-mccarthy-6d5vnd"
-kind: "runtime_behavior"
+kind: "runtime"
 reference: "docs/planning/evidence/bloom-filter-a1c-production-borderline-item.json (scripts/benchmarks/bloom_filter_production.py contra djen-2025-12-23/comunicacoes.parquet real, 95.783 linhas)"
 summary: "Item de fronteira (1 row group total com ROW_GROUP_SIZE 122880) confirma o mesmo resultado do item grande: nenhuma ordenação ganha bloom filter (PLAIN), e ambas as ordenações trivialmente tocam 1 row group (o arquivo inteiro é 1 grupo) -- covering_index_needed=false, consistente com o item grande."
 ---

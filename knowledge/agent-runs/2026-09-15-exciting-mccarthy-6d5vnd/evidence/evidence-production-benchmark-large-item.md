@@ -2,7 +2,7 @@
 type: AgentEvidence
 id: "2026-09-15-exciting-mccarthy-6d5vnd-evidence-production-benchmark-large-item"
 run_id: "2026-09-15-exciting-mccarthy-6d5vnd"
-kind: "runtime_behavior"
+kind: "runtime"
 reference: "docs/planning/evidence/bloom-filter-a1c-production.json (scripts/benchmarks/bloom_filter_production.py contra djen-tjro-2026/comunicacoes.parquet real, 1.041.723 linhas)"
 summary: "CNJ mais repetido (70058285020258220014, 64 ocorrências) reescrito sob os dois layouts candidatos com WRITE_BLOOM_FILTER true e ROW_GROUP_SIZE 122880: ordenação cnj_first (produção) e date_first ambas ficam 100% PLAIN (0/9 row groups com bloom filter) -- a repetição real por CNJ é baixa demais para dictionary-encoding num grupo de ~115K linhas, confirmando o caso 'quase único' já previsto pela matriz sintética. Mas cnj_first ainda poda o point-lookup a 1 row group via min/max stats sozinho (mesmo resultado que A1b já havia medido), enquanto date_first toca todos os 9. Decisão resultante: índice covering aditivo não é necessário."
 ---
