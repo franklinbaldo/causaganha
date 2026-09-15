@@ -177,10 +177,23 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     its two extra ``R$`` mentions are the disputed cautelar-de-arresto
     target value, not a condemnation amount, so the single existing
     ``valor_condenacao`` tag is already correct and the heuristic's
-    ``>2`` threshold is a known false positive there. If this test starts
-    seeing *more* than that one finding, a new real omission was
-    introduced and needs the same triage — repair it, or extend this
-    allowlist with a documented reason, never silence the assertion.
+    ``>2`` threshold is a known false positive there.
+
+    ``doc_3cffd7961e9fc910f6ae628f5aaa6c40`` (RFC 0012 §9 scale-up,
+    2026-09-15) is the same shape of false positive for
+    ``fundamentacao_legal_collapsed``: its adjudicated annotation has one
+    real ``fundamentacao_legal`` span (the CDC art. 42 restitution
+    reasoning), while the rest of its "art."/"artigo" mentions sit in a
+    TJRO "Dispositivos relevantes citados" bibliography list (CF art. 5º,
+    CPC art. 373, CC arts. 398/406, plus jurisprudence) — genuinely
+    ``ref_normativa`` citations, not reasoning phrases, and
+    ``ref_normativa`` is excluded from the trainable label space
+    (RFC 0012 §5, ``ontology.EXCLUDED_CATEGORIES``) so it never reaches the
+    annotation the heuristic scans. The heuristic's ``>3`` threshold counts
+    those excluded citations anyway. If this test starts seeing *more* than
+    these two findings, a new real omission was introduced and needs the
+    same triage — repair it, or extend this allowlist with a documented
+    reason, never silence the assertion.
     """
     store_dir = Path("data/segmenter")
     if not store_dir.exists():
@@ -195,4 +208,7 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         if any(f["type"].endswith("_collapsed") for f in doc_findings)
     }
 
-    assert collapsed_doc_ids == {"doc_d61aecbf08b525a26f908f655285fe6c"}
+    assert collapsed_doc_ids == {
+        "doc_d61aecbf08b525a26f908f655285fe6c",
+        "doc_3cffd7961e9fc910f6ae628f5aaa6c40",
+    }

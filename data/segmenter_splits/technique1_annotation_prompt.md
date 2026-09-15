@@ -50,6 +50,12 @@ Do this in explicit, separate steps. Do not skip ahead to the final answer.
    nest under a wrapper element with generic `<inicio>`/`<fim>` children
    (see the guideline for the exact shape and a worked example).
 5. Before finalizing, check your own draft:
+   - Count your total tags. Fewer than 8 tags for a document longer than
+     3000 characters is almost certainly wrong, even if it passes the
+     other checks below — go back and re-read the document rather than
+     finalize. This is a hard floor, not a suggestion: it exists because
+     drafts with 1-2 tags have passed every other checkpoint in this list
+     while still being severely under-annotated.
    - Does every category from your step 3 list actually appear as a tag?
      If you dropped one, go back and add it — don't finalize without it.
    - Mentally strip every tag from your draft and compare what's left to
