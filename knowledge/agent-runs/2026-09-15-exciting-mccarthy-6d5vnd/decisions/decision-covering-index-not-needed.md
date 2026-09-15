@@ -1,0 +1,12 @@
+---
+type: AgentDecision
+id: "2026-09-15-exciting-mccarthy-6d5vnd-decision-covering-index-not-needed"
+run_id: "2026-09-15-exciting-mccarthy-6d5vnd"
+question: "O plano de storage (§1c, item A1c) pergunta se o layout CNJ-first já decidido para `comunicacoes` precisa de um índice covering aditivo (dataset novo, bump 3.1.0) para o acesso quente por `numero_processo`, ou se a própria ordenação já basta -- e pede confirmação em dados reais, não só no benchmark sintético `bloom_cardinality.py`."
+choice: "Não construir o índice covering aditivo. A ordenação `numero_processo, data_disponibilizacao, id` já em produção (exporter.py) poda o point-lookup por CNJ a 1 row group via min/max stats sozinho, medido contra dois arquivos Parquet reais (item grande e de fronteira) -- com ou sem bloom filter presente."
+rationale: "scripts/benchmarks/bloom_filter_production.py mediu, contra dado real, que nenhuma das duas ordenações candidatas (`numero_processo` nem `data_disponibilizacao`) ganha bloom filter no item grande -- a repetição real por CNJ (64 ocorrências em 1.041.723 linhas) é baixa demais para dictionary-encoding num row group de ~115K linhas, confirmando o caso 'quase único' que a matriz sintética já sinalizava como possível. Isso poderia sugerir a necessidade do índice covering (o cenário que §1c descreve como 'sem bloom → precisa do índice'), mas a mesma medição mostrou que o min/max pruning da própria ordenação já isola o CNJ a 1 row group -- o resultado ideal -- independentemente do bloom filter. Construir um dataset aditivo novo (schema, contrato de consumidor, bump 3.1.0, manutenção contínua) para obter um ganho que a ordenação já entrega seria custo sem payoff medido. Evidência: docs/planning/evidence/bloom-filter-a1c-production.json e bloom-filter-a1c-production-borderline-item.json."
+---
+
+# Decisão: índice covering aditivo não é necessário (A1c)
+
+A pergunta do plano de storage tinha duas saídas possíveis: bloom filter presente (ordenação já resolve) ou ausente (precisa do índice covering). O resultado real caiu numa terceira leitura que o próprio plano já havia previsto como possível mas não confirmado: bloom filter ausente, mas o min/max pruning da ordenação já é suficiente sozinho. A decisão é não construir o índice covering aditivo -- ele adicionaria complexidade (novo dataset, schema, bump major aditivo, manutenção) sem ganho de pruning mensurável sobre o que `ORDER BY numero_processo` (já em produção) entrega.

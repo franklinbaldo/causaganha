@@ -226,6 +226,40 @@ processo espalhadas no ano). Script reproduzível:
 > roadmap pode prescrever um índice covering desnecessário (se na verdade a ordem
 > por data **já** rendesse bloom em produção) — ou deixar de prescrevê-lo.
 
+✅ **Confirmado em dados reais (2026-09-15, A1c).** Script reproduzível
+`scripts/benchmarks/bloom_filter_production.py`: baixa um `comunicacoes.parquet`
+real já publicado, reescreve-o sob os dois candidatos de ordenação
+(`numero_processo, data_disponibilizacao, id` — o layout real de `exporter.py` —
+e `data_disponibilizacao, numero_processo, id`) com `ROW_GROUP_SIZE 122880` e
+`WRITE_BLOOM_FILTER true`, e inspeciona `parquet_metadata()` por
+`bloom_filter_offset`/`encodings` da coluna `numero_processo`, além de
+min/max pruning para o mesmo point-lookup. Rodado contra os dois arquivos reais
+de A1b (item grande `djen-tjro-2026`, 1.041.723 linhas, CNJ mais repetido 64
+ocorrências; item de fronteira `djen-2025-12-23`, 95.783 linhas, 1691
+ocorrências — evidência em
+`docs/planning/evidence/bloom-filter-a1c-production.json` e
+`bloom-filter-a1c-production-borderline-item.json`):
+
+| item | ordenação | row groups | c/ bloom | encoding | row groups tocados (min/max) |
+|---|---|---:|---:|---|---:|
+| `djen-tjro-2026` (grande) | `numero_processo` (cnj_first) | 9 | **0** | PLAIN | **1** |
+| `djen-tjro-2026` (grande) | `data_disponibilizacao` (date_first) | 9 | 0 | PLAIN | 9 |
+| `djen-2025-12-23` (fronteira) | `numero_processo` (cnj_first) | 1 | 0 | PLAIN | 1 |
+| `djen-2025-12-23` (fronteira) | `data_disponibilizacao` (date_first) | 1 | 0 | PLAIN | 1 |
+
+**O caso real é o "CNJ quase único" da matriz sintética, não o caso
+CNJ-dominant.** Mesmo ordenado por `numero_processo`, o item grande **não** ganha
+bloom filter em nenhum row group — a repetição real por CNJ (64 ocorrências em
+1.041.723 linhas, muito abaixo do necessário para virar dictionary num grupo de
+~115K linhas) não é suficiente, exatamente como a matriz sintética já previa para
+cardinalidade quase-única. **Isso não muda a decisão do índice covering**: o
+`ORDER BY numero_processo` já pruna o point-lookup a **1 row group via min/max
+sozinho**, com ou sem bloom filter (mesmo resultado que A1b já havia medido
+separadamente) — o bloom filter seria redundante, não um gap. Decisão registrada:
+**índice covering aditivo NÃO é necessário** para o acesso por CNJ no layout de
+produção atual. Substitui a extrapolação do benchmark sintético para este
+critério de aceite de #1469; A1c deixa de ser `[speculative]`.
+
 Leitura correta:
 
 - **Arquivo ordenado por data** (caso date-dominant em A0w): `numero_processo`
@@ -455,7 +489,7 @@ ainda não existe — não fica no caminho crítico de storage.
 | A1 | ✅ **DONE (PR #785)** Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante — `data_disponibilizacao` para `comunicacoes` (A0w pending, assumed dominant). `exporter.py` `_TABLE_ORDER_KEYS` dict covers all 9 tables; whitelist guard enforces completeness. | não | P | **Grande** (itens grandes) |
 | A-rev | ✅ **DONE (PR #785)** `layout_revision` field in `ManifestItem` + `CURRENT_LAYOUT_REVISION = "1"` in `schema_registry.py`. `dates_needing_reconsolidation()` catches stale layout. `reconsolidate --force` added as escape hatch (`all_consolidated_dates()`). | não | P-M | **Habilita A1 retroativo** |
 | A1b | ✅ **DECIDIDO + IMPLEMENTADO (2026-09-15)** Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) rodado contra dois arquivos Parquet reais de produção (`scripts/benchmarks/row_group_size_production.py`, item grande e item de fronteira — ver §1b). CNJ point-lookup já toca 1 row group em todo tamanho testado; encolher só piora full-scan e tamanho de arquivo. **`ROW_GROUP_SIZE 122880` pinado explicitamente em `exporter.py`** (critério de aceite de #1469). | não | — (feito) | Nenhum ganho adicional medido |
-| A1c | **Gate da decisão de §1c** (índice covering): em **dados reais**, escrever os layouts candidatos (`ORDER BY data` e `ORDER BY numero_processo`) e inspecionar `parquet_metadata` por **encoding e `bloom_filter_offset` por row group** + provar com byte-count httpfs de um lookup pontual por `numero_processo`. Confirma se a ordem por data realmente não rende bloom (→ precisa do índice covering) ou se rende (→ índice dispensável). Substitui a extrapolação do benchmark sintético. [speculative até medir em produção] | não | P | **Gate do índice covering** |
+| A1c | ✅ **DECIDIDO (2026-09-15)** Gate da decisão de §1c (índice covering) medido contra dois arquivos Parquet reais de produção (`scripts/benchmarks/bloom_filter_production.py`, itens grande e de fronteira — ver §1c). Escreveu os dois layouts candidatos e inspecionou `parquet_metadata` por encoding e `bloom_filter_offset` por row group: nenhum dos dois ganha bloom filter no item grande (cardinalidade real quase-única por row group), mas o layout `numero_processo` (real, em produção) já poda o point-lookup a 1 row group via **min/max sozinho** — mesmo resultado que A1b havia medido. **Índice covering NÃO é necessário.** Medição via `parquet_metadata` (mesmo método de A1b), não byte-count httpfs real: o arquivo publicado no IA ainda não tem o layout novo (bloqueado por #1472/credenciais), então não há URL real para medir bytes transferidos sob o layout candidato — só a reescrita local. | não | — (feito) | Índice covering descartado com evidência real |
 | A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **SCHEMA_V4 parked** in `schema_registry.py` (not active). **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ✅ `scripts/snapshot_parquets_for_rollback.py` written | major `4.0.0` | M | Grande |
 | A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. **SCHEMA_V4 parked** — `numero_processo decimal(20,0)` in `schema_registry.py`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; DECIMAL preserva valor mas **perde zeros à esquerda**]. **Só ganha bytes, não pruning.** Exige LPAD + round-trip + fallback. **Pré-req de rollback (A-pré):** ✅ snapshot script written | major `4.0.0` | M | Médio |
 | A4 | (se auditoria de consumidores liberar) remover `p_item_ia`. **SCHEMA_V4 parked** — `p_item_ia` already absent from `SCHEMA_V4` definition | major `4.0.0` | P | Pequeno |

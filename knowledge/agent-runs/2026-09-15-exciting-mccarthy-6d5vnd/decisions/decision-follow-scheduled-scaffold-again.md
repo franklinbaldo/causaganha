@@ -1,0 +1,12 @@
+---
+type: AgentDecision
+id: "2026-09-15-exciting-mccarthy-6d5vnd-decision-follow-scheduled-scaffold-again"
+run_id: "2026-09-15-exciting-mccarthy-6d5vnd"
+question: "Pela primeira vez há evidência observável (não só declaração de política) de que o Wisk está rodando em paralelo no mesmo repositório, com PR própria já mesclada nesta mesma janela (#1499/#1500). Isso muda a decisão de seguir o scaffold AgentRun agendado, ou justifica uma quinta notificação proativa sobre o conflito?"
+choice: "Seguir a instrução explícita do prompt agendado e criar este AgentRun (feito). Não enviar nova notificação proativa: o fato novo (evidência observada em vez de só declaração) confirma a predição já escalada, não introduz uma decisão nova que dependa do usuário agora. Verifiquei que não há PR nem handoff Wisk em voo que compita com o trabalho escolhido nesta rodada -- o round Wisk mais recente já fechou sua fatia (#1470) e seu próprio handoff ativo (#1471, publicação real no IA) está bloqueado pelo mesmo motivo que bloqueia #1472 para este mecanismo."
+rationale: "O ritual de notificação existe para trazer atenção humana a uma condição nova que precise de decisão -- não para repetir, com mais evidência, um fato cuja implicação prática (dois mecanismos escolhendo trabalho independentemente, ambos verificando o estado real do GitHub antes de agir) já foi comunicada e não mudou de categoria. O próprio round Wisk mais recente (20260915T052720Z) registrou o raciocínio simétrico: 'an 8th consecutive round to hit this same conflict, so no new escalation needed'. Escolhi trabalho de domínio genuíno e desbloqueado (A1c -- gate do índice covering, ver goal-bloom-filter-a1c) em vez de reavaliar apenas a tensão de mecanismo, seguindo o padrão de continuidade das rodadas anteriores (yz281l, rt6d4o, cdee4f)."
+---
+
+# Decisão: manter o scaffold AgentRun, sem nova notificação, trabalho de domínio genuíno
+
+Mesma linha das rodadas anteriores. A diferença desta vez é que a coexistência com o Wisk deixou de ser hipotética -- há uma PR Wisk real mesclada na mesma janela (#1499/#1500). Ainda assim, não é uma condição nova que exija decisão humana agora: os dois lados já convergiram, de forma independente, para "sem nova escalada sem informação nova", e não há conflito de trabalho nesta janela. Sigo a instrução explícita do prompt agendado e escolho o item A1c (gate do índice covering, §1c do plano de storage), que segue aberto e desbloqueado.
