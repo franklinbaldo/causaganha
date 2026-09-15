@@ -1,0 +1,10 @@
+{
+  "document_count": 61,
+  "annotation_count": 74,
+  "review_count": 0,
+  "train_eligible_count": 61,
+  "evaluation_eligible_count": 0,
+  "blocked_on_reviews": true
+}
+
+WARNING: 0 evaluation-eligible documents (no accepted ReviewRecord in data/segmenter/reviews/) despite 61 documents in the store. `assign-splits` will produce an empty val/test split until adjudicated reviews exist -- see issue #1051.
