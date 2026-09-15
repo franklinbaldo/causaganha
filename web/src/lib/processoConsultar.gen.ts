@@ -7,7 +7,7 @@ export const AgentCheckSchema = z.object({
   "command": z.string(),
   "description": z.string().optional(),
   "evidence_id": z.string().describe("references AgentEvidence(id)").nullable().optional(),
-  "goal_id": z.string().describe("references AgentGoal(id)").optional(),
+  "goal_id": z.string().describe("references AgentGoal(id)").nullable().optional(),
   "id": z.string(),
   "result": z.string(),
   "run_id": z.string().describe("references AgentRun(id)"),

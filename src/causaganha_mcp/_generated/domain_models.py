@@ -27,7 +27,7 @@ class AgentCheckConcept(BaseModel):
             },
         },
     )
-    goal_id: str = Field(
+    goal_id: str | None = Field(
         default=None,
         json_schema_extra={
             "x-okf-references": {
