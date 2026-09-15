@@ -1,16 +1,24 @@
 {
-  "probe_origin": "http://127.0.0.1:45073/",
+  "probe_origin": "http://127.0.0.1:34981/",
   "metadata_endpoint": {
     "url": "https://archive.org/metadata/djen-tjro-2026/files",
     "ok": true,
     "status": 200,
     "type": "cors",
-    "bodyBytes": 62834
+    "body_bytes": 63097,
+    "error_name": null,
+    "error_message": null
   },
   "download_endpoint_range_request": {
     "url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
     "ok": false,
-    "errorName": "TypeError",
-    "errorMessage": "Failed to fetch"
-  }
+    "status": null,
+    "type": null,
+    "body_bytes": null,
+    "error_name": "TypeError",
+    "error_message": "Failed to fetch"
+  },
+  "verdict": "expected_blocked",
+  "passed": true,
+  "message": "archive.org's /download endpoint is still CORS-blocked cross-origin, as issue #1482 documented."
 }

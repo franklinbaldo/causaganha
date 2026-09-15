@@ -8,8 +8,8 @@
     "ok": true,
     "status_code": 200,
     "attempts": 1,
-    "duration_ms": 700.567202000002,
-    "bytes_received": 62834,
+    "duration_ms": 641.9008400000621,
+    "bytes_received": 63097,
     "cors_enabled": true,
     "transient_retry_reason": null,
     "error": null
@@ -19,7 +19,7 @@
     "ok": true,
     "status_code": 206,
     "attempts": 1,
-    "duration_ms": 969.087029000093,
+    "duration_ms": 869.7487389999878,
     "bytes_received": 16,
     "cors_enabled": false,
     "transient_retry_reason": null,
@@ -30,7 +30,7 @@
     "ok": true,
     "status_code": 206,
     "attempts": 1,
-    "duration_ms": 240.8671169999934,
+    "duration_ms": 675.4585120000911,
     "bytes_received": 16,
     "cors_enabled": false,
     "transient_retry_reason": null,
@@ -40,18 +40,18 @@
   "cors": {
     "metadata_endpoint_cors_enabled": true,
     "download_endpoint_cors_enabled": false,
-    "implication": "download_endpoint_cors_enabled=false means a cross-origin browser fetch (DuckDB-WASM's httpfs, as DuckDBExplorer.svelte issues it) cannot read the response body from archive.org's file-download endpoint. Confirmed with curl and Python's urllib against three real archive.org endpoints (this metadata endpoint and advancedsearch.php both send Access-Control-Allow-Origin; the file-download endpoint does not), as a positive control against this environment's forced HTTPS MITM proxy stripping the header uniformly. NOT yet confirmed in a real browser: archive_cors_probe.mjs's Playwright/Chromium check hit net::ERR_CERT_AUTHORITY_INVALID against the same proxy's re-terminating CA in this sandbox before it could reach the network layer -- that is this environment's TLS trust configuration, not evidence about archive.org."
+    "implication": "download_endpoint_cors_enabled=false means a cross-origin browser fetch (DuckDB-WASM's httpfs, as DuckDBExplorer.svelte issues it) cannot read the response body from archive.org's file-download endpoint. Confirmed with curl and Python's urllib against three real archive.org endpoints (this metadata endpoint and advancedsearch.php both send Access-Control-Allow-Origin; the file-download endpoint does not), as a positive control against this environment's forced HTTPS MITM proxy stripping the header uniformly. Also confirmed in a real browser: archive_cors_probe.py drives a real headless Chromium page against live archive.org and reproduces the same block (docs/planning/evidence/archive-cors-probe-real-browser.json), now re-run on a schedule by .github/workflows/archive-cors-probe.yml."
   },
   "native_engine_query_cost": {
     "sample_date": "2026-09-01",
-    "cold_query_ms": 2627.1097510000345,
+    "cold_query_ms": 2363.4763750000047,
     "cold_row_count": 8945,
     "warm_query_ms_each": [
-      5.849378999982946,
-      1.7072100000632418,
-      1.5281319999758125,
-      1.7027880001023732,
-      1.5758800000185147
+      9.457012999973813,
+      2.704450999999608,
+      2.0480190000853327,
+      1.9260479999729796,
+      1.917674000083025
     ],
     "warm_row_count": 8945
   }

@@ -1,0 +1,61 @@
+# ============================================================================
+# ARCHIVE CORS PROBE — Real-browser regression check for issue #1482
+# ============================================================================
+#
+# archive.org's file-download endpoint sends no Access-Control-Allow-Origin
+# header, so DuckDBExplorer.svelte's in-browser read_parquet() cannot read it
+# cross-origin (the /metadata endpoint, used as a positive control, does send
+# the header). This runs the real Playwright/Chromium probe
+# (scripts/benchmarks/archive_cors_probe.py) on a schedule so a future change
+# in archive.org's CORS behavior -- in either direction -- is caught
+# automatically instead of silently.
+# ============================================================================
+
+name: Archive CORS Probe
+
+on:
+  schedule:
+    - cron: '0 10 * * 1'  # Every Monday at 10:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Probe archive.org CORS behavior
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "true"
+
+      - name: Install Playwright Chromium
+        run: uv run playwright install --with-deps chromium
+
+      - name: Run CORS probe against live archive.org
+        run: |
+          uv run python -m scripts.benchmarks.archive_cors_probe \
+            --output /tmp/archive-cors-probe-result.json
+
+      - name: Probe Summary
+        if: always()
+        run: |
+          echo "## Archive CORS Probe" >> $GITHUB_STEP_SUMMARY
+          if [ -f /tmp/archive-cors-probe-result.json ]; then
+            uv run python -c "
+          import json
+          report = json.load(open('/tmp/archive-cors-probe-result.json'))
+          print('| Field | Value |')
+          print('|-------|-------|')
+          print(f\"| Verdict | {report.get('verdict')} |\")
+          print(f\"| Passed | {report.get('passed')} |\")
+          print(f\"| Message | {report.get('message')} |\")
+          " >> $GITHUB_STEP_SUMMARY
+          else
+            echo "No probe report generated" >> $GITHUB_STEP_SUMMARY
+          fi
