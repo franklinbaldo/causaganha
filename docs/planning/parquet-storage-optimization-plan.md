@@ -120,7 +120,43 @@ abaixo).
 - `advogados` / `advogado_nomes` → `.order_by(nome)` ou `(uf_oab, numero_oab)`
 - `textos` → `.order_by(id)` (acesso é por join em `id`)
 
-### 1b — `ROW_GROUP_SIZE` explícito (tuning de granularidade, **não** pré-requisito) — [speculative, precisa benchmark]
+### 1b — `ROW_GROUP_SIZE` explícito (tuning de granularidade, **não** pré-requisito) — [decidido: manter default, medido em produção real]
+
+**Decisão (2026-09-15):** manter o `ROW_GROUP_SIZE` no valor default do
+DuckDB (`122_880`), agora **pinado explicitamente** em `exporter.py`
+(`COPY ... ROW_GROUP_SIZE 122880`, per o critério de aceite de #1469) em
+vez de depender do default implícito — mesmo comportamento medido, mas
+protegido contra uma futura mudança do default do DuckDB. Medido com
+`scripts/benchmarks/row_group_size_production.py` contra dois arquivos
+Parquet **reais** já publicados no Internet Archive, reescritos sob o
+layout candidato do exporter atual (`ORDER BY numero_processo,
+data_disponibilizacao, id`):
+
+- **Item grande** (`djen-tjro-2026/comunicacoes.parquet`, 1.041.723 linhas,
+  9 row groups no default) — evidência em
+  `docs/planning/evidence/row-group-size-a1b-production.json`.
+- **Item na fronteira** (`djen-2025-12-23/comunicacoes.parquet`, 95.783
+  linhas, 1 único row group no default — o cenário exato que este item da
+  seção previa como "pequeno") — evidência em
+  `docs/planning/evidence/row-group-size-a1b-production-borderline-item.json`.
+
+Em **ambos**, um point-lookup pelo CNJ mais repetido do arquivo tocou
+exatamente **1 row group** em **todos** os tamanhos testados (`16_384`,
+`32_768`, `65_536`, `122_880`) — o `ORDER BY` (A1) já poda perfeitamente
+sozinho, então encolher `ROW_GROUP_SIZE` não rende ganho adicional de
+pruning para o caso de uso central do epic (lookup por CNJ). O custo,
+porém, é real e mensurável: no item grande, uma consulta de 1 dia passa de
+tocar 9 row groups (default) para até 64 (`16_384`); o tamanho do arquivo
+também cresce ligeiramente com row groups menores (mais overhead de
+footer) em ambos os itens. Conclusão: **não fixar um `ROW_GROUP_SIZE`
+explícito** — o default do DuckDB já é o ponto ótimo medido para este
+layout e esta carga real. `exporter.py` documenta essa decisão inline
+(comentário acima de `copy_opts`) e `tests/test_exporter.py::TestRowGroupSize`
+trava o comportamento (RED confirmado ao reintroduzir um
+`ROW_GROUP_SIZE` explícito, GREEN no estado atual).
+
+Texto original da seção (mantido como contexto histórico da dúvida que
+motivou a medição):
 
 ⚠️ **`ORDER BY` sozinho já habilita pruning em arquivos com >1 row group.** Não
 gate A1 nisto. O default do DuckDB é `ROW_GROUP_SIZE = 122_880` linhas: qualquer
@@ -280,7 +316,7 @@ materializar em Python.
 **Schema bump:** não (A1/A1b). **Esforço:** P (`ORDER BY`) + P-M (benchmark de
 row-group); índice aditivo por `numero_processo` é M. **Payoff:** Grande **para
 itens grandes**; neutro para itens pequenos de 1 row group. **[A1 verified como
-faltante; A1b speculative até benchmarkar.]**
+faltante; A1b decidido em 2026-09-15 — manter default, ver §1b.]**
 
 ---
 
@@ -418,7 +454,7 @@ ainda não existe — não fica no caminho crítico de storage.
 | A0e | ✅ **Script written** (`scripts/benchmarks/encoding_comparison.py`) Benchmark **de encoding** (gate de A2/A3): compare v3 strings vs v4 binary candidates (UUID→blob, CNJ→DECIMAL(20,0), hash→bytes). Synthetic mode available without IA access; run `--real-file` against production Parquets before deciding. | não | P-M | **Gate de A2/A3** |
 | A1 | ✅ **DONE (PR #785)** Layout físico no `COPY` (ambos os code paths): **1a** `ORDER BY` pela chave dominante — `data_disponibilizacao` para `comunicacoes` (A0w pending, assumed dominant). `exporter.py` `_TABLE_ORDER_KEYS` dict covers all 9 tables; whitelist guard enforces completeness. | não | P | **Grande** (itens grandes) |
 | A-rev | ✅ **DONE (PR #785)** `layout_revision` field in `ManifestItem` + `CURRENT_LAYOUT_REVISION = "1"` in `schema_registry.py`. `dates_needing_reconsolidation()` catches stale layout. `reconsolidate --force` added as escape hatch (`all_consolidated_dates()`). | não | P-M | **Habilita A1 retroativo** |
-| A1b | ✅ **Script written** (`scripts/benchmarks/row_group_size.py`) Benchmark de `ROW_GROUP_SIZE` (8K/16K/32K/64K/default) in synthetic small/medium/large item classes. Run against production files before setting a non-default value. [speculative até medir em produção] | não | P-M | Grande se confirmado |
+| A1b | ✅ **DECIDIDO + IMPLEMENTADO (2026-09-15)** Benchmark de `ROW_GROUP_SIZE` (16K/32K/64K/default) rodado contra dois arquivos Parquet reais de produção (`scripts/benchmarks/row_group_size_production.py`, item grande e item de fronteira — ver §1b). CNJ point-lookup já toca 1 row group em todo tamanho testado; encolher só piora full-scan e tamanho de arquivo. **`ROW_GROUP_SIZE 122880` pinado explicitamente em `exporter.py`** (critério de aceite de #1469). | não | — (feito) | Nenhum ganho adicional medido |
 | A1c | **Gate da decisão de §1c** (índice covering): em **dados reais**, escrever os layouts candidatos (`ORDER BY data` e `ORDER BY numero_processo`) e inspecionar `parquet_metadata` por **encoding e `bloom_filter_offset` por row group** + provar com byte-count httpfs de um lookup pontual por `numero_processo`. Confirma se a ordem por data realmente não rende bloom (→ precisa do índice covering) ou se rende (→ índice dispensável). Substitui a extrapolação do benchmark sintético. [speculative até medir em produção] | não | P | **Gate do índice covering** |
 | A2 | (se **A0e** confirmar economia, não só dominância em A0) UUID `string → 16-byte` no registry. **SCHEMA_V4 parked** in `schema_registry.py` (not active). **Contrato WASM:** ler `BLOB`/`UUID` 16-byte → `uuid.stringify`. **Pré-req de rollback (A-pré):** ✅ `scripts/snapshot_parquets_for_rollback.py` written | major `4.0.0` | M | Grande |
 | A3 | (se **A0e** confirmar economia, não só dominância em A0) CNJ `string → DECIMAL(20,0)`. **SCHEMA_V4 parked** — `numero_processo decimal(20,0)` in `schema_registry.py`. [verified: BLOB é no-op; HUGEINT vira DOUBLE/perde precisão; DECIMAL preserva valor mas **perde zeros à esquerda**]. **Só ganha bytes, não pruning.** Exige LPAD + round-trip + fallback. **Pré-req de rollback (A-pré):** ✅ snapshot script written | major `4.0.0` | M | Médio |
@@ -535,9 +571,10 @@ agora delega para `causaganha.consolidate.exporter.export_table_sync`, então os
 dois code paths compartilham a mesma lógica de `COPY` (ordenação, normalização,
 certificação) por construção, não por disciplina de manter os dois em sincronia.
 
-**Ainda não feito nesta rodada** (próximo avanço natural, issue #1469 restante):
+**Ainda não feito** (próximo avanço natural, issue #1469 restante):
 `web/src/lib/processoCnj.ts` continua no caminho compatível (`regexp_replace`) e
-ainda não lê os marcadores de certificação para habilitar igualdade direta;
-`ROW_GROUP_SIZE` continua implícito no default do DuckDB (não setado
-explicitamente); e a auditoria/rollout do acervo existente (#1470, #1471, #1472)
-não foi disparada — só a issue #1469 (unificação do writer) avançou.
+ainda não lê os marcadores de certificação para habilitar igualdade direta; e a
+auditoria/rollout do acervo existente (#1470 auditado, #1471 pilotado localmente,
+#1472 bloqueado por credenciais IA) segue sem publicação real. `ROW_GROUP_SIZE`
+foi decidido e pinado explicitamente em 2026-09-15 (ver §1b) — não é mais uma
+lacuna.

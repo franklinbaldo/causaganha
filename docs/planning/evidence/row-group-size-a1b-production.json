@@ -1,0 +1,50 @@
+{
+  "source_file": "/tmp/claude-0/-home-user-causaganha/b87ce950-3852-543f-a7f0-02c97e1379c1/scratchpad/djen-tjro-2026-comunicacoes.parquet",
+  "total_rows": 1041723,
+  "sample_cnj": "70058285020258220014",
+  "sample_cnj_occurrences": 64,
+  "sample_date": "2026-09-01",
+  "total_row_groups_for_sample_date": 9,
+  "measurements": [
+    {
+      "row_group_size": 16384,
+      "is_default": false,
+      "row_group_count": 64,
+      "file_bytes": 82520632,
+      "uncompressed_bytes": 311852140,
+      "compression_pct": 26.5,
+      "row_groups_touched_for_cnj_lookup": 1,
+      "row_groups_touched_for_one_day": 64
+    },
+    {
+      "row_group_size": 32768,
+      "is_default": false,
+      "row_group_count": 32,
+      "file_bytes": 82011817,
+      "uncompressed_bytes": 311750123,
+      "compression_pct": 26.3,
+      "row_groups_touched_for_cnj_lookup": 1,
+      "row_groups_touched_for_one_day": 32
+    },
+    {
+      "row_group_size": 65536,
+      "is_default": false,
+      "row_group_count": 16,
+      "file_bytes": 81783524,
+      "uncompressed_bytes": 306220261,
+      "compression_pct": 26.7,
+      "row_groups_touched_for_cnj_lookup": 1,
+      "row_groups_touched_for_one_day": 16
+    },
+    {
+      "row_group_size": 122880,
+      "is_default": true,
+      "row_group_count": 9,
+      "file_bytes": 81574653,
+      "uncompressed_bytes": 305722604,
+      "compression_pct": 26.7,
+      "row_groups_touched_for_cnj_lookup": 1,
+      "row_groups_touched_for_one_day": 9
+    }
+  ]
+}

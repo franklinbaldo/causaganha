@@ -87,7 +87,15 @@ def export_table_sync(
         return None
     output_path = output_dir / f"{table_name}.parquet"
     kv_clause = kv_metadata_sql_fragment(item_id, table_name=table_name) if item_id else ""
-    copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD"
+    # ROW_GROUP_SIZE pinned explicitly to DuckDB's own default (A1b, issue
+    # #1469's acceptance criterion): benchmarked against two real production
+    # files (docs/planning/evidence/row-group-size-a1b-production*.json) — a
+    # CNJ point lookup already touches exactly 1 row group at every candidate
+    # size because ORDER BY alone (A1) already prunes; shrinking the row
+    # group only increases row groups touched per date-range query and file
+    # size. Pinned (not left implicit) so a future DuckDB default change
+    # can't silently alter this measured layout.
+    copy_opts = "FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 122880"
     if kv_clause:
         copy_opts = f"{copy_opts}, {kv_clause}"
     # Whitelist guard: table_name must be a known schema table and order_keys

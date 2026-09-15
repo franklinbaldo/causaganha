@@ -176,6 +176,104 @@ class TestCnjNormalization:
         assert row == ("TJSP", "orig-1")
 
 
+class TestRowGroupSize:
+    """A1b decision: pin ROW_GROUP_SIZE to DuckDB's own default (122_880).
+
+    `docs/planning/parquet-storage-optimization-plan.md` marked an explicit,
+    smaller ROW_GROUP_SIZE as `[speculative]` until measured against real
+    production data. `scripts/benchmarks/row_group_size_production.py`, run
+    against two real, published files —
+    `djen-tjro-2026/comunicacoes.parquet` (1,041,723 rows, evidence in
+    `docs/planning/evidence/row-group-size-a1b-production.json`) and
+    `djen-2025-12-23/comunicacoes.parquet` (95,783 rows, one row group at
+    the default — evidence in
+    `docs/planning/evidence/row-group-size-a1b-production-borderline-item.json`)
+    — showed a CNJ point lookup already touches exactly 1 row group at
+    every candidate size (16_384 through the 122_880 default) in both. A1
+    (ORDER BY) already gives perfect pruning for the target use case, so a
+    smaller ROW_GROUP_SIZE buys nothing there while strictly increasing row
+    groups touched for a single-day query (9 at default vs. up to 64 at
+    16_384 in the large item) and file size. Per issue #1469's own
+    acceptance criterion, the value is pinned explicitly (`ROW_GROUP_SIZE
+    122880`) rather than left implicit, so a future DuckDB default change
+    can't silently alter this measured layout. These tests lock that
+    decision in: don't drop or shrink the explicit ROW_GROUP_SIZE without
+    re-running that benchmark.
+    """
+
+    def test_export_pins_row_group_size_explicitly(self, tmp_path) -> None:
+        import ibis
+
+        from causaganha.consolidate.exporter import export_table_sync
+        from causaganha.consolidate.transforms import init_tables
+
+        con = ibis.duckdb.connect(":memory:")
+        init_tables(con)
+        _insert_comunicacao(con, numero_processo="0001234-56.2026.8.26.0100", i=1)
+
+        executed_sql: list[str] = []
+        real_raw_sql = con.raw_sql
+
+        def spy_raw_sql(sql, *args, **kwargs):
+            executed_sql.append(sql)
+            return real_raw_sql(sql, *args, **kwargs)
+
+        con.raw_sql = spy_raw_sql
+        export_table_sync("comunicacoes", con, tmp_path, "djen-tjsp-2026")
+
+        copy_statements = [sql for sql in executed_sql if sql.strip().startswith("COPY")]
+        assert len(copy_statements) == 1
+        assert "ROW_GROUP_SIZE 122880" in copy_statements[0]
+
+    def test_export_relies_on_duckdb_default_row_group_size(self, tmp_path) -> None:
+        import ibis
+
+        from causaganha.consolidate.exporter import export_table_sync
+        from causaganha.consolidate.transforms import init_tables
+
+        con = ibis.duckdb.connect(":memory:")
+        init_tables(con)
+        con.raw_sql("""
+            INSERT INTO comunicacoes
+            SELECT
+                gen_random_uuid()::VARCHAR AS id,
+                'orig-' || CAST(i AS VARCHAR) AS original_id,
+                'TJSP' AS tribunal,
+                printf('%020d', i) AS numero_processo,
+                '' AS numero_processo_mascara,
+                DATE '2026-01-01' AS data_disponibilizacao,
+                '' AS tipo_comunicacao,
+                '' AS nome_orgao,
+                '' AS meio,
+                '' AS link,
+                '' AS tipo_documento,
+                '' AS nome_classe,
+                '' AS codigo_classe,
+                '' AS numero_comunicacao,
+                '' AS hash,
+                NOW() AS processed_at,
+                gen_random_uuid()::VARCHAR AS texto_id,
+                2026 AS p_ano,
+                1 AS p_mes,
+                'djen-tjsp-2026' AS p_item_ia
+            FROM range(130_000) AS t(i)
+        """)
+
+        export_table_sync("comunicacoes", con, tmp_path, "djen-tjsp-2026")
+
+        path = tmp_path / "comunicacoes.parquet"
+        (rg_count,) = duckdb.execute(
+            f"SELECT COUNT(DISTINCT row_group_id) FROM parquet_metadata('{path}')"
+        ).fetchone()
+        # 130_000 rows / DuckDB's default 122_880-row groups == 2 groups.
+        # A non-default ROW_GROUP_SIZE (e.g. 16_384) would split this into 8+.
+        assert rg_count == 2, (
+            f"expected 2 row groups from DuckDB's default ROW_GROUP_SIZE=122_880, got {rg_count} "
+            "— did exporter.py start passing an explicit ROW_GROUP_SIZE? "
+            "Re-run scripts/benchmarks/row_group_size_production.py against real data first."
+        )
+
+
 class TestCnjLayoutCertification:
     """Only CNJ-normalized/sorted tables carry the layout footer markers."""
 
