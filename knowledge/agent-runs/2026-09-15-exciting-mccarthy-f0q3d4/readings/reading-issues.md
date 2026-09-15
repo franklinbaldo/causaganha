@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-15-exciting-mccarthy-f0q3d4-reading-issues"
 run_id: "2026-09-15-exciting-mccarthy-f0q3d4"
-source: "GitHub issues abertas (franklinbaldo/causaganha, 22 abertas)"
+subject: "open_issues"
+reference: "GitHub issues abertas (franklinbaldo/causaganha, 22 abertas)"
 finding: "#1469 (unificar escrita/leitura CNJ) está com o código de produção já completo e mergeado (exporter.py, processoCnj.ts, reconcile_processos.py) exceto o que depende de #1472 (publicação real no IA, bloqueada por credenciais ausentes); as checkboxes do corpo da issue seguem desatualizadas porque edição do corpo é do dono. #1051 (segmenter: validation set independente) segue sendo a única frente de domínio real, desbloqueada e não esgotada: 27 ReviewRecords adjudicados sobre 61 documentos, meta inicial de 30-50 documentos, 27 candidatos remanescentes com exatamente uma anotação unseeded e nenhuma review."
 ---
 

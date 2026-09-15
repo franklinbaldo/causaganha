@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-15-exciting-mccarthy-f0q3d4-reading-claude-md"
 run_id: "2026-09-15-exciting-mccarthy-f0q3d4"
-source: "CLAUDE.md"
+subject: "claude_md"
+reference: "CLAUDE.md (repo root)"
 finding: "Regras de correção do djen-backup (403 != absent, 200 sem URL = absent), fronteira Panda/CSS legado, e estilo (ruff estrito, TRY300/301/401, sem except Exception amplo) seguem valendo como sempre. Nenhuma mudança de política desde a última rodada que li isto."
 ---
 

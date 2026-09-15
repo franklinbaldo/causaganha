@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-15-exciting-mccarthy-f0q3d4-reading-okf"
 run_id: "2026-09-15-exciting-mccarthy-f0q3d4"
-source: "knowledge/agent-runs/index.md, .claude/hourly-loop.md, knowledge/agent-runs/2026-09-15-exciting-mccarthy-yz281l/run.md (rodada anterior mais recente)"
+subject: "okf_knowledge"
+reference: "knowledge/agent-runs/index.md, .claude/hourly-loop.md, knowledge/agent-runs/2026-09-15-exciting-mccarthy-yz281l/run.md (rodada anterior mais recente)"
 finding: "index.md e hourly-loop.md continuam, sem ressalva, declarando o mecanismo AgentRun como legado em favor do runtime Wisk; `uv run wisk start` nesta janela retornou state=blocked/no-eligible-session (nenhum LoopRun ativo, nenhum candidato elegível). O prompt agendado desta sessão continua instruindo literalmente o scaffold AgentRun. A tensão já foi escalada uma vez via notificação proativa (to0ars, 14/09); nenhuma rodada desde então encontrou evidência de resposta do mantenedor ou de atualização do schedule."
 ---
 

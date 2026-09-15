@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-15-exciting-mccarthy-f0q3d4-reading-prs"
 run_id: "2026-09-15-exciting-mccarthy-f0q3d4"
-source: "GitHub pull requests abertas (franklinbaldo/causaganha)"
+subject: "open_prs"
+reference: "GitHub pull requests abertas (franklinbaldo/causaganha)"
 finding: "Apenas duas PRs abertas: #1528 (docs(agent-run) de uma sessão concorrente, bc9ae6, fechando seu próprio relatório -- não é meu, CI ainda pending, não requer ação minha) e #1353 (dependabot, stale desde 09/09, fora do escopo de domínio). Nenhum trabalho de domínio em voo para retomar nesta janela."
 ---
 
