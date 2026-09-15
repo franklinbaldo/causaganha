@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-15-exciting-mccarthy-pxa8pi-reading-okf"
+run_id: "2026-09-15-exciting-mccarthy-pxa8pi"
+subject: "okf_knowledge"
+reference: "knowledge/agent-runs/index.md, .claude/hourly-loop.md, knowledge/agent-runs/2026-09-15-exciting-mccarthy-q4zn8q/run.md (rodada anterior mais recente), knowledge/agent-runs/2026-09-14-exciting-mccarthy-{bueov4,to0ars}/decisions/*"
+finding: "Tensao AgentRun-vs-Wisk confirmada, inalterada desde a ultima avaliacao (q4zn8q, mesma tarde de hoje): `knowledge/agent-runs/index.md` e `.claude/hourly-loop.md` (commitados ha dias) declaram o mecanismo AgentRun legado e instruem usar exclusivamente o runtime Wisk para o loop horario, proibindo novos AgentRuns. O prompt desta sessao agendada continua, sem ressalva, instruindo o scaffold AgentRun legado. to0ars (2026-09-14) ja escalou isso via notificacao proativa ao dono do repositorio; nenhuma rodada desde entao (>15 rodadas so hoje) recebeu evidencia de que o schedule foi atualizado ou que o dono respondeu. Nada mudou desde a ultima reconfirmacao (q4zn8q, 16:28-16:55 de hoje) -- decisao desta rodada: seguir a instrucao explicita do prompt agendado (mesmo padrao de toda a linhagem desde bueov4), sem reenviar notificacao (ver decision-follow-scheduled-scaffold-again). O trabalho de dominio real (front #1051) segue identico ao next_move de q4zn8q: review_count=19/evaluation_eligible_count=19 de 61 documentos, rumo a >=30/>=30 (RFC 0012 Sec 5.4); cluster #1468-1472 esgotado exceto pela publicacao real no IA (#1472), bloqueada por IA_ACCESS_KEY/IA_SECRET_KEY ausentes desde 11/09."
+---
+
+# Leitura: conhecimento OKF relevante
+
+Lido `knowledge/agent-runs/index.md` e `.claude/hourly-loop.md` na integra: confirmam que o mecanismo `AgentRun`/scaffold e legado e que o loop horario do CausaGanha migrou para o Wisk (`.wisk/`), com instrucao explicita de nao criar novos `AgentRun`. Essa tensao ja foi identificada e registrada por rodadas anteriores (njkncp, vd5dfq em 11/09; bueov4, to0ars em 14/09) e escalada uma vez via notificacao proativa (to0ars). Reconfirmado ao vivo nesta rodada: nada mudou desde a ultima reconfirmacao feita por q4zn8q nesta mesma tarde -- a decisao desta rodada (ver `decision-follow-scheduled-scaffold-again`) e continuar seguindo o prompt agendado como instruido, sem reenviar a mesma notificacao sem fato novo, e escolher trabalho de dominio real e desbloqueado: continuar a escala de ReviewRecords de #1051 a partir do estado exato deixado por q4zn8q (review_count=19).

@@ -1,0 +1,12 @@
+---
+type: AgentReading
+id: "2026-09-15-exciting-mccarthy-pxa8pi-reading-issues"
+run_id: "2026-09-15-exciting-mccarthy-pxa8pi"
+subject: "open_issues"
+reference: "mcp__github__list_issues(owner=franklinbaldo, repo=causaganha, state=OPEN, orderBy=UPDATED_AT desc)"
+finding: "22 issues abertas. #1482 (proxy CORS do archive.org) acabou de ser fechada em efeito por q4zn8q (PR #1521 mesclada as 16:53); resta apenas confirmar deploy real com credenciais Cloudflare, que este ambiente nao tem. Cluster #1468/#1469/#1470/#1471/#1472 (Parquet nativo por CNJ) segue com os itens de codigo prontos; #1472 (publicacao real no IA) bloqueado por IA_ACCESS_KEY/IA_SECRET_KEY ausentes, inalterado desde 11/09 (reconfirmado ao vivo: `env | grep -i 'IA_\\|ARCHIVE'` vazio). #1051 (validation set independente do segmentador, filha de #1047) e a unica frente de dominio desbloqueada e ainda nao esgotada: review_count=19/evaluation_eligible_count=19 sobre 61 documentos, rumo a meta de RFC 0012 Sec 5.4 (>=30 val + >=30 test). #950/#951/#1093/#1022/#985 e o cluster #884/#886/#887/#1047/#1053-1057 seguem gated por infra GPU/deploy/dados que este ambiente nao tem."
+---
+
+# Leitura: issues abertas
+
+`mcp__github__list_issues` (22 issues abertas, ordenadas por atualizacao). Verificado ao vivo com `uv run python scripts/segmenter_governance_status.py --store data/segmenter`: document_count=61, annotation_count=94, review_count=19, evaluation_eligible_count=19, blocked_on_reviews=false. Inventario adicional (script python ad-hoc contra `SegmenterDatasetStore` + `mechanical.annotations_are_independent`) confirmou que **nenhum** dos documentos com 2+ anotacoes e review pendente forma hoje um par genuinamente independente -- os 10 pares "prontos" na superficie sao na verdade bloqueados estruturalmente (uma das duas anotacoes tem `seeded_with != "none"`, geralmente `claude_agent_repair`/`semantic_audit_missing_anchor_repair`, entao nunca pode contar como membro de um par independente). Existem 25 documentos com exatamente uma anotacao unseeded e nenhuma review, candidatos genuinos a uma segunda anotacao nova. Escolhidos os dois menores (doc_9c45d216d09c12dbe0b743e0cff5f139, 3344 chars, sentenca; doc_8dfe37bb8f3a6d0990cf1a74329f4d1a, 3567 chars, sentenca), ambos com a unica anotacao unseeded existente na familia `historical_migration_unspecified` -- qualquer familia de subagente serve para preservar independencia de familia.
