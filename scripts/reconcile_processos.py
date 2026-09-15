@@ -1061,10 +1061,20 @@ def reconcile(*, upload: bool = True) -> dict[str, Any]:
         ).fetchall()
     )
 
-    # Write indice_processual.parquet
+    # Write indice_processual.parquet, physically ordered by numero_processo
+    # (then fonte) via _INDICE_SQL's own ORDER BY — the index's dominant read
+    # path is the same per-CNJ point lookup exporter.py's tables are ordered
+    # for. ROW_GROUP_SIZE is pinned explicitly to the same value (122880)
+    # exporter.py already measured against real production data (A1b, issue
+    # #1469's acceptance criterion) rather than left implicit: reusing that
+    # measured decision here, instead of inventing a new one, is what "sem
+    # tuning não medido" requires for the same CNJ-first access pattern.
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     print(f"Writing {_PARQUET_INDICE}")
-    con.execute(f"COPY indice_processual TO '{_PARQUET_INDICE}' (FORMAT PARQUET, COMPRESSION ZSTD)")
+    con.execute(
+        f"COPY indice_processual TO '{_PARQUET_INDICE}' "
+        "(FORMAT PARQUET, COMPRESSION ZSTD, ROW_GROUP_SIZE 122880)"
+    )
 
     # Source coverage report — printed, and persisted next to the output
     sources = {s.name: s for s in (djen_load, juris_load, stj_load, datajud_load)}

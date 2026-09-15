@@ -1,0 +1,13 @@
+---
+type: AgentDecision
+id: "2026-09-15-exciting-mccarthy-cdee4f-decision-reuse-measured-row-group-size"
+run_id: "2026-09-15-exciting-mccarthy-cdee4f"
+goal_id: "2026-09-15-exciting-mccarthy-cdee4f-goal-explicit-index-layout-reconcile"
+question: "Ao explicitar ROW_GROUP_SIZE na escrita de indice_processual.parquet, preciso rodar um novo benchmark contra esse arquivo especificamente, ou posso reaproveitar o valor já medido por exporter.py (A1b, 122880)?"
+choice: "Reaproveitar 122880, o mesmo valor já medido e pinado em exporter.py -- sem rodar um novo benchmark dedicado a indice_processual.parquet."
+rationale: "docs/planning/parquet-storage-optimization-plan.md e a issue #1469 exigem 'sem tuning não medido', mas isso não implica que cada COPY precise do seu próprio benchmark isolado. indice_processual.parquet é fisicamente ordenado por numero_processo (mesma chave CNJ-first, mesmo ORDER BY numero_processo, fonte) e serve o mesmo padrão de acesso dominante (point-lookup por CNJ) que o benchmark de A1b (scripts/benchmarks/row_group_size_production.py, contra dois arquivos Parquet reais publicados) já mediu para comunicacoes.parquet/processos.parquet: nesse padrão, o ORDER BY sozinho já poda para 1 row group em todo tamanho testado, e encolher o ROW_GROUP_SIZE só piora consultas de intervalo e aumenta o tamanho do arquivo. Não existe ainda uma publicação real de indice_processual.parquet com volume suficiente para um segundo benchmark significativo (rejeitado como alternativa), e deixar ROW_GROUP_SIZE implícito também foi rejeitado -- o texto do critério de #1469 pede 'ordem física e grupos' (as duas coisas), e exporter.py já estabeleceu o precedente de fixar o valor explicitamente na mesma seção da issue (ZSTD + ROW_GROUP_SIZE 122880); deixar implícito aqui seria inconsistente com esse precedente já aceito. Rodar um segundo benchmark custaria tempo sem gerar informação nova; reaproveitar a decisão já medida é a leitura mais direta e honesta da regra 'sem tuning não medido' (o valor É medido, só que contra outro arquivo com o mesmo layout físico relevante)."
+---
+
+# Decisão: reaproveitar ROW_GROUP_SIZE 122880 já medido, em vez de medir de novo
+
+A pergunta natural ao fechar este critério era: preciso rodar um novo benchmark de ROW_GROUP_SIZE especificamente contra `indice_processual.parquet`, ou o benchmark que já existe (A1b, contra `comunicacoes.parquet`) já responde à pergunta? Como o padrão físico (Parquet ZSTD ordenado por CNJ-first) e o padrão de acesso dominante (point-lookup por `numero_processo`) são os mesmos, decidi que sim -- reaproveitar o valor já medido é a decisão correta, documentada explicitamente em código e no plano para não parecer um valor arbitrário.
