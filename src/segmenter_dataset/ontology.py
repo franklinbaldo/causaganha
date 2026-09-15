@@ -32,6 +32,8 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from pathlib import Path
 
+    from segmenter_dataset.schemas import Label
+
 
 _SEMVER_RE = re.compile(r"^segmenter-ontology-v(\d+)\.(\d+)\.(\d+)$")
 
@@ -56,6 +58,25 @@ ONTOLOGY_V8 = "segmenter-ontology-v8.0.0"
 # call across the pipeline (release gate, both ingestion scripts) must pass
 # this set, not decide independently, or the policy drifts.
 ALLOW_MULTIPLE_SINGLE_ANCHOR = frozenset({"fundamentacao_legal", "valor_condenacao"})
+
+# RFC 0012 §5 decision 1: ref_normativa stays out of the trainable label space
+# (handled by a regex pre-pass at inference instead, RFC 0001) even though the
+# annotation guideline still lists it as a category to mark. A subagent
+# following the guideline verbatim, or a reviewer copying spans from one of
+# its annotations into a resolution file, legitimately produces this tag —
+# every caller that accepts freeform tagged text and validates it against the
+# trainable ontology must drop it first, not treat it as an error. Shared
+# here (rather than duplicated per script) because two independent call
+# sites need the identical drop: annotate_second_independent.py (an
+# annotation) and adjudicate_segmenter_review.py (a reviewer's resolution) —
+# found live in agent-run 2jz691 when only the first of the two applied it.
+EXCLUDED_CATEGORIES = frozenset({"ref_normativa"})
+
+
+def drop_excluded_categories(labels: list[Label]) -> list[Label]:
+    """Filter out :data:`EXCLUDED_CATEGORIES` labels, preserving order."""
+    return [label for label in labels if label.category not in EXCLUDED_CATEGORIES]
+
 
 # RFC 0012 §5 point 6 / §16.2: the model-release floor for v8.1, fixed by
 # this RFC rather than left for a release to declare. These four categories

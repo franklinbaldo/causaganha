@@ -41,7 +41,11 @@ from xml.etree import ElementTree as ET
 
 from segmenter_dataset.ids import review_id as build_review_id
 from segmenter_dataset.mechanical import validate_record
-from segmenter_dataset.ontology import ALLOW_MULTIPLE_SINGLE_ANCHOR, load_categories
+from segmenter_dataset.ontology import (
+    ALLOW_MULTIPLE_SINGLE_ANCHOR,
+    drop_excluded_categories,
+    load_categories,
+)
 from segmenter_dataset.schemas import AnnotationRecord, DocumentRecord, Label, ReviewRecord
 from segmenter_dataset.store import SegmenterDatasetStore, _text_element_to_labels
 
@@ -134,6 +138,7 @@ def build_review(
         )
         raise VerbatimFidelityError(message)
 
+    final_labels = drop_excluded_categories(final_labels)
     allowed_unmatched = allowed_unmatched or {}
     problems = validate_record(
         document.text,

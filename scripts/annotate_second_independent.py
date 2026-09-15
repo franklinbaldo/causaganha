@@ -42,12 +42,14 @@ from xml.etree import ElementTree as ET
 
 from segmenter_dataset.ids import annotation_id as build_annotation_id
 from segmenter_dataset.mechanical import validate_record
-from segmenter_dataset.ontology import ALLOW_MULTIPLE_SINGLE_ANCHOR, ONTOLOGY_V8, load_categories
+from segmenter_dataset.ontology import (
+    ALLOW_MULTIPLE_SINGLE_ANCHOR,
+    ONTOLOGY_V8,
+    drop_excluded_categories,
+    load_categories,
+)
 from segmenter_dataset.schemas import AnnotationRecord, AnnotatorConfig, DocumentRecord
 from segmenter_dataset.store import SegmenterDatasetStore, _text_element_to_labels
-
-
-EXCLUDED_CATEGORIES = frozenset({"ref_normativa"})
 
 
 class VerbatimFidelityError(ValueError):
@@ -61,10 +63,6 @@ class MechanicalValidationError(ValueError):
 def _parse_tagged(tagged_text: str) -> tuple[str, list]:
     root = ET.fromstring(f"<text>{tagged_text.strip()}</text>")  # noqa: S314 -- own trusted subagent output, verified below
     return _text_element_to_labels(root)
-
-
-def _drop_excluded_categories(labels: list) -> list:
-    return [label for label in labels if label.category not in EXCLUDED_CATEGORIES]
 
 
 def build_second_annotation(
@@ -95,7 +93,7 @@ def build_second_annotation(
         )
         raise VerbatimFidelityError(message)
 
-    labels = _drop_excluded_categories(labels)
+    labels = drop_excluded_categories(labels)
     allowed_unmatched = allowed_unmatched or {}
     problems = validate_record(
         document.text,
