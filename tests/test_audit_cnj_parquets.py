@@ -16,6 +16,7 @@ from scripts.audit_cnj_parquets import (
     VERIFIED_SORTED,
     VERIFIED_UNSORTED,
     VERIFY_VALUES,
+    _aggregate_cnj_column_details,
     classify_file,
     is_tribunal_year_item,
     list_djen_items,
@@ -23,6 +24,7 @@ from scripts.audit_cnj_parquets import (
     ranges_overlap,
     read_footer_stats,
     read_value_order,
+    regeneration_plan_for,
     resolve_verify_values,
 )
 
@@ -346,6 +348,7 @@ class TestReadFooterStats:
 
         assert stats.read_error is None
         assert stats.row_group_ranges == []
+        assert stats.cnj_column_details is None
         assert (
             classify_file(
                 table_name="destinatarios",
@@ -355,3 +358,117 @@ class TestReadFooterStats:
             )
             == NOT_APPLICABLE
         )
+
+    def test_unsorted_fixture_reports_cnj_column_physical_details(self, tmp_path) -> None:
+        # Issue #1470 criterion 2: "Inspecionar tipo da coluna CNJ,
+        # estatisticas min/max, grupos, tamanhos, compressao, encodings,
+        # Bloom filters" -- these are purely descriptive footer facts, never
+        # used to decide the classification bucket itself.
+        path = tmp_path / "comunicacoes.parquet"
+        con = duckdb.connect(":memory:")
+        con.execute(
+            "CREATE TABLE t AS "
+            "SELECT lpad(((i * 37) % 1000)::VARCHAR, 3, '0') AS numero_processo "
+            "FROM range(1, 3001) t(i)"
+        )
+        con.execute(f"COPY t TO '{path}' (FORMAT PARQUET, ROW_GROUP_SIZE 500, COMPRESSION ZSTD)")
+
+        stats = read_footer_stats(str(path), table_name="comunicacoes")
+
+        assert stats.cnj_column_details is not None
+        details = stats.cnj_column_details
+        assert details.column_type == "BYTE_ARRAY"
+        assert details.compression_codecs == ["ZSTD"]
+        assert details.encodings
+        assert details.total_compressed_size > 0
+        assert details.total_uncompressed_size > 0
+        assert details.has_bloom_filter is False
+
+
+class TestAggregateCnjColumnDetails:
+    def test_returns_none_when_the_column_is_absent(self) -> None:
+        assert _aggregate_cnj_column_details([]) is None
+
+    def test_aggregates_a_single_row_group(self) -> None:
+        rows = [("BYTE_ARRAY", "SNAPPY", "PLAIN", 100, 300, None)]
+
+        details = _aggregate_cnj_column_details(rows)
+
+        assert details is not None
+        assert details.column_type == "BYTE_ARRAY"
+        assert details.compression_codecs == ["SNAPPY"]
+        assert details.encodings == ["PLAIN"]
+        assert details.total_compressed_size == 100
+        assert details.total_uncompressed_size == 300
+        assert details.has_bloom_filter is False
+
+    def test_sums_sizes_and_unions_codecs_across_row_groups(self) -> None:
+        rows = [
+            ("BYTE_ARRAY", "SNAPPY", "PLAIN", 100, 300, None),
+            ("BYTE_ARRAY", "SNAPPY", "PLAIN_DICTIONARY", 50, 150, None),
+        ]
+
+        details = _aggregate_cnj_column_details(rows)
+
+        assert details is not None
+        assert details.compression_codecs == ["SNAPPY"]
+        assert details.encodings == ["PLAIN", "PLAIN_DICTIONARY"]
+        assert details.total_compressed_size == 150
+        assert details.total_uncompressed_size == 450
+
+    def test_reports_a_bloom_filter_when_any_row_group_has_one(self) -> None:
+        rows = [
+            ("BYTE_ARRAY", "ZSTD", "PLAIN", 100, 300, None),
+            ("BYTE_ARRAY", "ZSTD", "PLAIN", 80, 220, 4096),
+        ]
+
+        details = _aggregate_cnj_column_details(rows)
+
+        assert details is not None
+        assert details.has_bloom_filter is True
+
+    def test_mixed_types_across_row_groups_are_all_reported(self) -> None:
+        # A logical-type migration mid-file (rare, but not impossible for a
+        # long-lived file) must be visible in the report, never silently
+        # collapsed to one arbitrary value.
+        rows = [
+            ("BYTE_ARRAY", "SNAPPY", "PLAIN", 100, 300, None),
+            ("FIXED_LEN_BYTE_ARRAY", "SNAPPY", "PLAIN", 50, 150, None),
+        ]
+
+        details = _aggregate_cnj_column_details(rows)
+
+        assert details is not None
+        assert details.column_type == "BYTE_ARRAY, FIXED_LEN_BYTE_ARRAY"
+
+
+class TestRegenerationPlanFor:
+    def test_every_classification_bucket_has_a_plan(self) -> None:
+        for classification in (
+            CONFORMANT,
+            REORDER_CANDIDATE,
+            VERIFIED_SORTED,
+            VERIFIED_UNSORTED,
+            VERIFY_VALUES,
+            NOT_APPLICABLE,
+            NATIONAL_INDEX,
+            UNAVAILABLE,
+        ):
+            plan = regeneration_plan_for(classification)
+            assert isinstance(plan, str)
+            assert plan
+
+    def test_reorder_candidate_and_verified_unsorted_share_the_same_actionable_plan(self) -> None:
+        # Both buckets are the same rollout track (module docstring): footer
+        # stats proved it for one, real values proved it for the other, but
+        # the fix -- regenerate with the certifying layout -- is identical.
+        assert regeneration_plan_for(REORDER_CANDIDATE) == regeneration_plan_for(VERIFIED_UNSORTED)
+
+    def test_conformant_files_need_no_action(self) -> None:
+        assert regeneration_plan_for(CONFORMANT) == "no_action_already_certified"
+
+    def test_unavailable_is_a_retry_not_a_verdict(self) -> None:
+        # Mirrors classify_file's UNAVAILABLE rule: an unread file is an
+        # unknown gap, so its plan must say "try again", never assert
+        # anything about whether it needs reordering.
+        assert regeneration_plan_for(UNAVAILABLE) == "retry_read_unknown_gap"

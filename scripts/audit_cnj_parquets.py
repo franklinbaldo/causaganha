@@ -90,6 +90,25 @@ def is_tribunal_year_item(item_id: str) -> bool:
 
 
 @dataclass(frozen=True)
+class CnjColumnDetails:
+    """Aggregated per-row-group physical detail for the CNJ column.
+
+    Populated for issue #1470 criterion 2 ("Inspecionar tipo da coluna CNJ,
+    estatisticas min/max, grupos, tamanhos, compressao, encodings, Bloom
+    filters") -- purely descriptive footer facts, never used to decide the
+    classification bucket itself (that stays `classify_file`'s job, driven
+    only by the certifying marker and the min/max ranges).
+    """
+
+    column_type: str | None
+    compression_codecs: list[str]
+    encodings: list[str]
+    total_compressed_size: int
+    total_uncompressed_size: int
+    has_bloom_filter: bool
+
+
+@dataclass(frozen=True)
 class FooterStats:
     """Footer-only facts read from one Parquet file, never the row data."""
 
@@ -98,6 +117,7 @@ class FooterStats:
     row_group_ranges: list[tuple[str | None, str | None]]
     kv_metadata: dict[str, str]
     read_error: str | None = None
+    cnj_column_details: CnjColumnDetails | None = None
 
 
 def ranges_overlap(ranges: list[tuple[str, str]]) -> bool:
@@ -209,6 +229,49 @@ def _read_cnj_row_group_ranges(
     return [(lo, hi) for lo, hi in rows]
 
 
+def _aggregate_cnj_column_details(
+    rows: list[tuple[str | None, str | None, str | None, int | None, int | None, int | None]],
+) -> CnjColumnDetails | None:
+    """Aggregate raw `parquet_metadata()` rows for the CNJ column across row groups.
+
+    Pure aggregation, kept separate from the DuckDB query itself so it can be
+    tested directly against synthetic rows (a Bloom filter, in particular, is
+    not something DuckDB's own Parquet writer currently produces, so a real
+    fixture can only cover the absent case).
+    """
+    if not rows:
+        return None
+    types = sorted({t for t, *_ in rows if t is not None})
+    compressions = sorted({c for _, c, *_ in rows if c is not None})
+    encodings: set[str] = set()
+    for _, _, encoding, *_ in rows:
+        if encoding:
+            encodings.update(part.strip() for part in encoding.split(","))
+    total_compressed = sum(compressed or 0 for _, _, _, compressed, _, _ in rows)
+    total_uncompressed = sum(uncompressed or 0 for _, _, _, _, uncompressed, _ in rows)
+    has_bloom_filter = any((bloom_length or 0) > 0 for *_, bloom_length in rows)
+    return CnjColumnDetails(
+        column_type=", ".join(types) if types else None,
+        compression_codecs=compressions,
+        encodings=sorted(encodings),
+        total_compressed_size=total_compressed,
+        total_uncompressed_size=total_uncompressed,
+        has_bloom_filter=has_bloom_filter,
+    )
+
+
+def _read_cnj_column_details(
+    con: duckdb.DuckDBPyConnection, path_or_url: str
+) -> CnjColumnDetails | None:
+    rows = con.execute(
+        "SELECT type, compression, encodings, total_compressed_size, "
+        "total_uncompressed_size, bloom_filter_length "
+        "FROM parquet_metadata(?) WHERE path_in_schema = ?",
+        [path_or_url, CNJ_COLUMN],
+    ).fetchall()
+    return _aggregate_cnj_column_details(rows)
+
+
 def _read_kv_metadata(con: duckdb.DuckDBPyConnection, path_or_url: str) -> dict[str, str]:
     rows = con.execute(f"SELECT key, value FROM parquet_kv_metadata('{path_or_url}')").fetchall()
     return {
@@ -233,6 +296,7 @@ def read_footer_stats(path_or_url: str, *, table_name: str) -> FooterStats:
             _read_cnj_row_group_ranges(con, path_or_url) if table_name in CNJ_TABLES else []
         )
         kv_metadata = _read_kv_metadata(con, path_or_url)
+        cnj_column_details = _read_cnj_column_details(con, path_or_url)
     except duckdb.Error as exc:
         log.warning("audit_footer_read_failed", path=path_or_url, error=str(exc))
         return FooterStats(
@@ -248,6 +312,7 @@ def read_footer_stats(path_or_url: str, *, table_name: str) -> FooterStats:
             row_count=row_count,
             row_group_ranges=row_group_ranges,
             kv_metadata=kv_metadata,
+            cnj_column_details=cnj_column_details,
         )
     finally:
         con.close()
@@ -310,6 +375,29 @@ def list_national_index_file(client: httpx.Client) -> tuple[str, str] | None:
     return (NATIONAL_INDEX_TABLE, url)
 
 
+_REGENERATION_PLANS: dict[str, str] = {
+    CONFORMANT: "no_action_already_certified",
+    REORDER_CANDIDATE: "regenerate_with_cnj_text_sorted_v1_layout",
+    VERIFIED_UNSORTED: "regenerate_with_cnj_text_sorted_v1_layout",
+    VERIFIED_SORTED: "certify_marker_only_no_data_rewrite_needed",
+    VERIFY_VALUES: "retry_value_order_check_before_deciding",
+    NOT_APPLICABLE: "no_action_no_cnj_column",
+    NATIONAL_INDEX: "handled_by_reconcile_processos_not_this_audit",
+    UNAVAILABLE: "retry_read_unknown_gap",
+}
+
+
+def regeneration_plan_for(classification: str) -> str:
+    """Map one classification bucket to its per-file regeneration plan.
+
+    Issue #1470 criterion 7 ("Salvar relatorio JSON e plano por arquivo"):
+    the plan is a pure function of the classification bucket already
+    decided by `classify_file`/`resolve_verify_values` -- it never
+    re-inspects footer stats or row data itself.
+    """
+    return _REGENERATION_PLANS[classification]
+
+
 def _audit_file(item_id: str, table_name: str, url: str) -> dict:
     """Audit one Parquet file: footer stats, classify, then resolve verify_values."""
     stats = read_footer_stats(url, table_name=table_name)
@@ -330,7 +418,9 @@ def _audit_file(item_id: str, table_name: str, url: str) -> dict:
         "row_count": stats.row_count,
         "row_group_count": len(stats.row_group_ranges),
         "classification": classification,
+        "regeneration_plan": regeneration_plan_for(classification),
         "kv_metadata": stats.kv_metadata,
+        "cnj_column_details": stats.cnj_column_details,
         "read_error": stats.read_error,
     }
 
