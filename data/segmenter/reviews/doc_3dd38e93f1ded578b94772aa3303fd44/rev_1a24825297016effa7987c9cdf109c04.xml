@@ -1,0 +1,17 @@
+<review id="rev_1a24825297016effa7987c9cdf109c04" document_id="doc_3dd38e93f1ded578b94772aa3303fd44">
+  <input_annotations>
+    <annotation_id>ann_60e8f479655fd05df92e903426dc79fc</annotation_id>
+    <annotation_id>ann_bf8f82f8dbfcb79df44ae21f39d9f033</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched />
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>Adotada anotação B integralmente: A (historical_migration) omitiu por completo as duas citações de fundamentacao_legal (art. 924 II CPC; arts. 924/925 CPC) que sustentam a extinção -- mesmo padrão de sub-anotação de migração histórica já documentado em rodadas anteriores (5crg57, virf8r). Demais 7 spans já concordavam exatamente.</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 7 span(s) agreed by both annotators, 0 only in annotation A, 2 only in annotation B — categories in A-only: []; categories in B-only: ['fundamentacao_legal']</note>
+  </notes>
+  <approved_at>2026-09-15T10:33:28Z</approved_at>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RONDÔNIA Tribunal de Justiça de Rondônia Buritis - 2ª Vara Genérica AC Buritis, nº 1380, Bairro Setor 3, CEP 76880-000, Buritis, Rua Taguatinga Processo: <ref_processual ord="1">7006539-44.2019.8.22.0021</ref_processual> Classe: Procedimento do Juizado Especial Cível Assunto: Indenização por Dano Material, Incorporação Imobiliária, Obrigação de Fazer / Não Fazer REQUERENTE: JOSE OLIVEIRA MOTTA ADVOGADO DO REQUERENTE: LEVI GUSTAVO ALVES DE FREITAS, OAB nº RO4634 REQUERIDO: CENTRAIS ELETRICAS DE RONDONIA S/A - CERON ADVOGADOS DO REQUERIDO: MARCIO MELO NOGUEIRA, OAB nº RO2827, <fim ord="2">ENERGISA RONDÔNIA</fim></cabecalho> SENTENÇA <fundamentacao_legal ord="3">Conforme art. 924, inciso II, do CPC</fundamentacao_legal>, extingue-se a execução quando satisfeita a obrigação e pelo que consta nos autos, a Executada cumpriu a obrigação conforme comprovante acostado aos autos, razão pela qual, a extinção do feito pelo total adimplemento da obrigação é medida que se impõe. <dispositivo_abertura ord="4">Ante ao exposto</dispositivo_abertura>, <resultado ord="5">JULGO EXTINTA A PRESENTE AÇÃO</resultado>, considerando a satisfação da obrigação por meio do cumprimento noticiado e comprovado nos autos, <fundamentacao_legal ord="6">com fulcro nos arts. 924 e 925, ambos do Código de Processo Civil</fundamentacao_legal>. Considerando que a parte requerida foi devidamente intimada para recolher as custas finais, face o retorno dos autos da Turma Recursal, mantendo-se inerte (Id. 48753767). Determino que seja inscrito o nome do requerido na Dívida Ativa, após arquivem-se o feito. Disposições ao Cartório: a) inscrever o nome do requerido CENTRAIS ELETRICAS DE RONDONIA S/A - CERON, inscrito no CNPJ sob o n. 05.914.650/0001.66, na dívida ativa. b) arquivar o feito. <encerramento><inicio ord="7">SERVE A PRESENTE COMO MANDADO DE INTIMAÇÃO.</inicio> Buritis/RO, quarta-feira, 14 de outubro de 2020 Michiely Aparecida Cabrera Valezi Benedeti <fim ord="8">Juíza de Direito</fim></encerramento> REQUERENTE: JOSE OLIVEIRA MOTTA, CPF nº 55522122900, BR 421 S/N ZONA RURAL - 76887-000 - CAMPO NOVO DE RONDÔNIA - RONDÔNIA REQUERIDO: CENTRAIS ELETRICAS DE RONDONIA S/A - CERON , AC ARIQUEMES, AVENIDA TANCREDO NEVES 1620 SETOR INSTITUCIONAL - 76870-970 - ARIQUEMES - RONDÔNIA</text>
+</review>
