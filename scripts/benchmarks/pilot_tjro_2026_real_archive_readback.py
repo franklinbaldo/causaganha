@@ -35,12 +35,11 @@ today:
   Python's `urllib`) against three real archive.org endpoints, with the two
   CORS-enabled ones as a positive control ruling out this session's
   MITM-style egress proxy stripping the header uniformly. A definitive
-  real-*browser* confirmation (`archive_cors_probe.mjs`, same directory)
-  was attempted but blocked in this sandbox by a TLS-trust gap between
-  Playwright's ephemeral Chromium profile and that proxy's re-terminating
-  CA (`net::ERR_CERT_AUTHORITY_INVALID`) — an environment limitation, not
-  evidence about archive.org itself. That confirmation is left to a session
-  that can resolve the trust gap or that runs without a forced MITM proxy.
+  real-*browser* confirmation now exists too: `archive_cors_probe.py`
+  (same directory) drives a real headless Chromium page against live
+  archive.org and reproduces exactly this outcome, and
+  `.github/workflows/archive-cors-probe.yml` re-runs it on a schedule so a
+  future change in archive.org's CORS behavior is caught automatically.
 
 Usage:
     uv run python -m scripts.benchmarks.pilot_tjro_2026_real_archive_readback \\
@@ -264,12 +263,12 @@ def run() -> dict:
                 "advancedsearch.php both send Access-Control-Allow-Origin; the "
                 "file-download endpoint does not), as a positive control against "
                 "this environment's forced HTTPS MITM proxy stripping the header "
-                "uniformly. NOT yet confirmed in a real browser: "
-                "archive_cors_probe.mjs's Playwright/Chromium check hit "
-                "net::ERR_CERT_AUTHORITY_INVALID against the same proxy's "
-                "re-terminating CA in this sandbox before it could reach the "
-                "network layer -- that is this environment's TLS trust "
-                "configuration, not evidence about archive.org."
+                "uniformly. Also confirmed in a real browser: "
+                "archive_cors_probe.py drives a real headless Chromium page "
+                "against live archive.org and reproduces the same block "
+                "(docs/planning/evidence/archive-cors-probe-real-browser.json), "
+                "now re-run on a schedule by "
+                ".github/workflows/archive-cors-probe.yml."
             )
             if not head_probe.cors_enabled
             else "download endpoint sent Access-Control-Allow-Origin.",
