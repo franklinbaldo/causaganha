@@ -26,6 +26,7 @@ decision_ids:
 evidence_ids:
   - "2026-09-16-exciting-mccarthy-imy2ed-evidence-dedup-bug-caught-and-reverted"
   - "2026-09-16-exciting-mccarthy-imy2ed-evidence-batch10-ingested"
+  - "2026-09-16-exciting-mccarthy-imy2ed-evidence-pr-opened"
 check_ids:
   - "2026-09-16-exciting-mccarthy-imy2ed-check-segmenter-suite-and-governance"
 result_state: "review"
