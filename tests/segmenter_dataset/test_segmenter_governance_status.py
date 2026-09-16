@@ -418,6 +418,86 @@ def test_real_store_reflects_batch13_corpus_growth() -> None:
     assert any(h.startswith("eed26aff") for h in hashes), "TJRS batch13 document missing"
 
 
+def test_real_store_reflects_batch14_corpus_growth() -> None:
+    """Regression guard for #1050's fourteenth real DJEN sample batch.
+
+    Snapshot before this batch: 123 documents (after batches 1-13 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). This
+    batch's own live scan (run before batch13/PR #1565 merged) independently
+    selected TJPI/22443810, TJRS/458637070, TJSE/578949084, TRF5/349055692
+    and TST/237077355 as its five lowest-``store_count`` candidates --
+    a genuine concurrent-session collision (not a tooling bug): TJRS and
+    TJSE were selected and annotated independently by *both* this batch
+    and batch13/PR #1565 from the same live scan, since neither session's
+    base commit yet had the other's write. TJRS/458637070 landed on the
+    same deterministic ``(tribunal, id_documento)`` document id in both
+    annotation attempts (``doc_cfa06dbce6009c921f4f66a5126c2056``), so the
+    merge only produced a second, redundant annotation on an
+    already-existing document (no new document, no corpus inflation);
+    that duplicate annotation was dropped rather than kept, matching
+    ``knowledge/backlog/issue-1050.md``'s established precedent for a
+    same-``annotator_config`` duplicate with no independent-annotation
+    value. TJSE/578949084 is a different case: each session's independent
+    annotation attempt produced a *distinct* document id and a
+    *different* transcription (this batch's copy diverged from the source
+    by one punctuation character), so keeping both would have double-
+    counted one real document under two hashes -- this batch's TJSE
+    document/annotation pair was dropped entirely, keeping only batch13's
+    already-merged instance (source_hash prefix ``c002c5d5``, asserted by
+    ``test_real_store_reflects_batch13_corpus_growth`` above). Net new
+    documents contributed by this batch: three -- TJPI/22443810 (prefix
+    ``d6ee41ce``), TRF5/349055692 (prefix ``dfbd4832``), TST/237077355
+    (prefix ``fe3392b2``, source had raw ``<br>`` HTML markup, cleaned
+    with the batch3 HTML-to-text helper).
+
+    A sixth candidate, TJSC/587254906, was selected, annotated, and
+    ingested by this same batch, then reverted before this commit:
+    ``SegmenterDatasetStore`` reported it as a genuinely new document
+    write (a new ``documents/`` XML file), but ``git status`` after
+    ingestion showed no new ``documents/doc_5aec514e....xml`` file for
+    it -- only a new annotation under an *existing*
+    ``annotations/doc_5aec514e.../`` directory. That document (source_uri
+    ``djen_sample_technique1:batch1:TJSC:587254906``) was already ingested
+    by batch4 (PR #1545); this batch's own dedup scan missed it because
+    ``data/segmenter_samples/tjsc_acordao.jsonl``'s ``info.tribunal``
+    field is an empty string for every record in that file (a
+    source-data quirk, not a store bug), so the (tribunal, id) dedup
+    check compared ``('', '587254906')`` against the store's
+    ``('TJSC', '587254906')`` and never matched. The redundant annotation
+    was not kept: both it and the pre-existing one share the identical
+    ``annotator_id``/``annotator_config`` (same ``model_family``, both
+    ``seeded_with: none``), so per
+    ``segmenter_dataset.mechanical.annotations_are_independent`` it would
+    not count as a second independent annotation for IAA purposes either
+    -- pure duplicate cost with no adjudication value, matching
+    ``knowledge/backlog/issue-1050.md``'s risk class 9 (a document already
+    ingested by a concurrent/earlier batch silently produces a redundant,
+    not-independent annotation instead of an ``ImmutabilityError``,
+    because ``write_document`` is deliberately idempotent per RFC 0012
+    §3.1). Mitigation for a future batch selecting from a
+    ``*_acordao.jsonl``/``*.jsonl`` file with a blank ``info.tribunal``
+    field: derive the tribunal from the filename instead of trusting the
+    record's own field when building the dedup key.
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the three specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 126
+    assert any(h.startswith("d6ee41ce") for h in hashes), "TJPI batch14 document missing"
+    assert any(h.startswith("dfbd4832") for h in hashes), "TRF5 batch14 document missing"
+    assert any(h.startswith("fe3392b2") for h in hashes), "TST batch14 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
