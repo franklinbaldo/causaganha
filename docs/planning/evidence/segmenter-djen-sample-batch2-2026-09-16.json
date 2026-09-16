@@ -1,0 +1,16 @@
+{
+  "document_count": 74,
+  "annotation_count": 121,
+  "review_count": 31,
+  "train_eligible_count": 74,
+  "evaluation_eligible_count": 31,
+  "blocked_on_reviews": false,
+  "val_count": 11,
+  "test_count": 11,
+  "val_ceiling_at_full_adjudication": 11,
+  "test_ceiling_at_full_adjudication": 11,
+  "meets_rfc_0012_split_floor": false,
+  "corpus_scale_blocks_floor": true
+}
+
+WARNING: RFC 0012 Sec 5 item 4's per-split floor (>= 30 val, >= 30 test, each adjudicated) cannot be reached with the current corpus size (74 documents), even at 100% adjudication: val_ceiling=11, test_ceiling=11. Adjudicating more of the existing pool (#1051) cannot cross this ceiling -- growing the total corpus is required (#1050).

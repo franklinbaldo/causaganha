@@ -9,5 +9,11 @@
     "capitulo_merito": "TJBA sentenca: 'Decido' opens the merit chapter but the source text has no explicit closing cue before the dispositivo -- reasoning runs directly into 'CONCEDO A SEGURANCA' with no delimiting phrase, same class as batch1's dangling capitulo_merito cases.",
     "custas": "TJBA sentenca: 'Custas recolhidas.' has no closing cue -- it is a single terminal clause immediately followed by 'Sem honorarios.', not a bounded region with its own end marker.",
     "honorarios": "TJBA sentenca: 'Sem honorarios.' has no closing cue -- it is a single terminal clause immediately followed by the mandado/oficio clause, not a bounded region with its own end marker."
+  },
+  "568207813": {
+    "relatorio": "TJRR sentenca: 'Relatorio dispensado' is a single waiver clause (art. 38, Lei 9.099/95) with no closing cue -- it does not describe a bounded region, unlike a narrated relatorio.",
+    "capitulo_merito": "TJRR sentenca: 'DECIDO' opens the merit chapter but the source text has no explicit closing cue before the dispositivo -- reasoning runs directly into the resultado clause with no delimiting phrase, same class as batch1/batch2's other dangling capitulo_merito cases.",
+    "custas": "TJRR sentenca: 'Sem condenacao em custas processuais' has no closing cue -- it is a single clause immediately followed by the honorarios clause in the same sentence, not a bounded region with its own end marker.",
+    "honorarios": "TJRR sentenca: 'honorarios advocaticios' has no closing cue -- it is part of the same single sentence as the custas clause, ending mid-sentence with no delimiting phrase."
   }
 }
