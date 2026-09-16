@@ -143,6 +143,35 @@ def test_ingest_maps_acordao_document_type(tmp_path) -> None:
     assert len(ingested) == 1
 
 
+def test_ingest_preserves_leading_nbsp_and_blank_lines(tmp_path) -> None:
+    """A source document opening with a non-breaking space (U+00A0)
+    followed by blank lines -- a real DJEN export artifact (#1050 batch7,
+    TJGO) -- must survive the tagged-text -> ``DocumentRecord`` round-trip.
+    ``str.strip()`` treats U+00A0 as whitespace (``"\\xa0".isspace()`` is
+    ``True``), so a naive ``.strip()`` on the raw tagged text before XML
+    parsing silently drops it, making the verbatim-fidelity check fail for
+    an otherwise correctly annotated document.
+    """
+    text = "\xa0\n\n\nRelatado o feito, fundamento e decido. JULGO PROCEDENTE o pedido."
+    tagged = (
+        "\xa0\n\n\nRelatado o feito, fundamento e decido. "
+        "<dispositivo_abertura>JULGO PROCEDENTE</dispositivo_abertura> o pedido."
+    )
+    _write_candidate(tmp_path, key="doc6", tribunal="TJGO", tipo_documento="Sentença", text=text)
+    _write_tagged(tmp_path, key="doc6", tagged_text=tagged)
+
+    ingested, skipped = module.ingest(
+        tmp_path / "candidates.json",
+        tmp_path / "tagged",
+        tmp_path / "store",
+        _LABEL_SPACE,
+        completed_at="2026-09-16T00:00:00Z",
+    )
+
+    assert skipped == {}
+    assert len(ingested) == 1
+
+
 def test_ingest_skips_unsupported_document_type(tmp_path) -> None:
     _write_candidate(
         tmp_path, key="doc3", tribunal="TJCE", tipo_documento="Decisão", text="algum texto"

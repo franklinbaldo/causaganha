@@ -1,0 +1,18 @@
+{
+  "285707753": {
+    "ementa": "TJRO-style capa+ementa-estruturada acordao format (I-IV numbered sections) with no dedicated ementa closing phrase in the source text -- same defect class as prior batches' overrides.",
+    "relatorio": "no RELATORIO heading in this document; 'Trata-se de' used as the functional opening cue per guideline fallback, but no distinct closing phrase exists before the merito discussion begins."
+  },
+  "327511452": {
+    "custas": "custas pronouncement is a single embedded clause in the dispositivo prose ('condeno cada uma das partes ao pagamento de metade das despesas processuais') with no separate closing cue distinguishing it from the immediately following honorarios clause.",
+    "honorarios": "honorarios pronouncement is a single embedded clause in the dispositivo prose ('Condeno as partes ao pagamento de honorarios advocaticios, reciprocamente, no percentual de 10%...') with no separate closing cue in the source text."
+  },
+  "42728714": {
+    "honorarios": "custas and honorarios share one sentence ('Custas e honorarios de 10% sobre o valor atualizado da causa...'); honorarios is nested inside the custas region as a single anchor word with no closing cue distinct from custas' own fim."
+  },
+  "568328096": {
+    "capitulo_merito": "capitulo_merito opens on the single-word heading 'DECIDO.' with the merito discussion continuing as plain prose with no distinct closing cue before the dispositivo.",
+    "custas": "custas and honorarios share one sentence ('Sem custas e honorarios advocaticios, conforme arts. 54 e 55 da Lei 9.099/95.') with no separate closing cue for custas alone.",
+    "honorarios": "custas and honorarios share one sentence with no separate closing cue for honorarios alone."
+  }
+}

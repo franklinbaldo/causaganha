@@ -110,7 +110,12 @@ def _load_candidates(path: Path) -> dict[str, dict]:
 
 
 def _parse_tagged(tagged_text: str) -> tuple[str, list]:
-    root = ET.fromstring(f"<text>{tagged_text.strip()}</text>")  # noqa: S314 -- own trusted batch dir
+    # Strip only ASCII whitespace a subagent might append/prepend around its
+    # answer -- not " ".strip()'s full unicode whitespace set, which also
+    # matches U+00A0 (non-breaking space) and would silently swallow a
+    # leading/trailing NBSP that is genuine source content (#1050 batch7).
+    stripped = tagged_text.strip("\n\r\t ")
+    root = ET.fromstring(f"<text>{stripped}</text>")  # noqa: S314 -- own trusted batch dir
     return _text_element_to_labels(root)
 
 

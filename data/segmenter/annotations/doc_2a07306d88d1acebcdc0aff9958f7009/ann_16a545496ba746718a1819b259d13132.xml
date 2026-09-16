@@ -1,0 +1,149 @@
+<annotation id="ann_16a545496ba746718a1819b259d13132" document_id="doc_2a07306d88d1acebcdc0aff9958f7009">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="capitulo_merito" reason="capitulo_merito opens on the single-word heading 'DECIDO.' with the merito discussion continuing as plain prose with no distinct closing cue before the dispositivo." />
+    <entry base="custas" reason="custas and honorarios share one sentence ('Sem custas e honorarios advocaticios, conforme arts. 54 e 55 da Lei 9.099/95.') with no separate closing cue for custas alone." />
+    <entry base="honorarios" reason="custas and honorarios share one sentence with no separate closing cue for honorarios alone." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T11:36:41Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> DO ESTADO DE RORAIMA
+COMARCA DE BOA VISTA
+1º JUIZADO ESPECIAL CÍVEL DE BOA VISTA - PROJUDI
+Av. Glaycon de Paiva - Fórum da Cidadania - Palácio Latife Salomão, 550 - Centro - Boa Vista/RR - CEP: 69.301-250 - Fone:
+(95) 3198-4702 - E-mail: sada@tjrr.jus.br
+ 
+ 
+Processo: <ref_processual ord="1">0804667-42.2026.8.23.0010</ref_processual>
+Classe Processual: Procedimento do Juizado Especial Cível
+Assunto Principal: Alienação Fiduciária
+Valor da Causa: : R$2.450,30
+ 
+Polo Ativo(s)
+ARMANDO PAZ MORAIS
+Rua Engenheiro Carlos Geraldo, 6891 - Centenário - BOA VISTA/RR - CEP: 69.312-521
+ 
+Polo Passivo(s)
+BANCO BRADESCO FINANCIAMENTOS S/A
+NÚCLEO CIDADE DE DEUS - NUC, S/Nº (PRÉDIO PRATA, 4° ANDAR) - Vila Yara -
+OSASCO/SP - <fim ord="2">CEP: 06.029-000</fim></cabecalho>
+ 
+ 
+SENTENÇA
+Vistos, etc.
+<relatorio><inicio ord="3">Relatório</inicio> dispensado, <fundamentacao_legal ord="4">nos termos do art. 38</fundamentacao_legal>, 
+, da Lei 9.099/95.
+caput
+Conforme Tema 339 da Repercussão Geral e Enunciado FONAJE n. 162, em vista,
+ainda, dos princípios fundamentais que norteiam o sistema dos Juizados Especiais
+(oralidade, simplicidade, informalidade, economia processual e celeridade), passo à análise
+tão somente das questões cuja resolução, em tese, influenciem no convencimento do
+julgador.
+<capitulo_merito><inicio ord="5">DECIDO.</inicio></capitulo_merito>
+Trata-se de Ação Revisional de Contrato ajuizada por ARMANDO PAZ MORAIS
+ 
+em face de BANCO BRADESCO FINANCIAMENTOS S/A, ambos devidamente
+qualificados nos autos.
+Em síntese, a parte autora alega ter celebrado com o réu um contrato de
+financiamento para aquisição de um veículo, no qual identifica supostas abusividades.
+Aponta que a taxa de juros remuneratórios (1,48% a.m.) seria superior à média de mercado
+e questiona a legalidade da cobrança da "Tarifa de Registro da Alienação Fiduciária", no
+valor de R$ 843,47. Ao final, pleiteia a revisão contratual com a restituição de valores.
+A parte ré apresentou contestação tempestiva (EP. 16), arguindo, preliminarmente, a
+ausência de interesse de agir e impugnação à gratuidade da justiça. No mérito, defendeu a
+legalidade das taxas de juros e das tarifas contratadas. Realizada audiência de conciliação
+(EP 18), as partes compareceram, mas não houve acordo.
+<fim ord="6">É o breve resumo dos fatos.</fim></relatorio> Passo a decidir.
+O feito comporta julgamento antecipado, <fundamentacao_legal ord="7">nos termos do art. 355, I, do Código de
+Processo Civil</fundamentacao_legal>.
+De início, <preliminar><inicio ord="8">afasto as preliminares arguidas</inicio>. O interesse de agir do autor é evidente na
+medida em que busca a tutela jurisdicional para revisar um contrato que entende ser
+abusivo. A impugnação à gratuidade da justiça também não prospera, pois a simples
+declaração de hipossuficiência, não desconstituída por provas robustas em contrário, é
+suficiente para a concessão do benefício, especialmente <fim ord="9">no âmbito dos Juizados Especiais.</fim></preliminar>
+O autor alega que a taxa de juros remuneratórios pactuada (1,48% a.m.) é abusiva. O
+Superior Tribunal de Justiça (STJ) possui entendimento consolidado (Tema Repetitivo 27)
+de que a revisão de juros remuneratórios é medida excepcional, admitida apenas quando
+demonstrada, no caso concreto, uma abusividade capaz de colocar o consumidor em
+desvantagem exagerada (art. 51, § 1º, do CDC). O parâmetro para essa aferição é a taxa
+média de mercado divulgada pelo Banco Central (BACEN).
+No caso dos autos, a tese autoral não apenas carece de comprovação, como é
+contrariada pelas provas apresentadas pelo próprio réu. Conforme demonstrado na
+contestação, a taxa média de mercado para operações da mesma espécie, na época da
+contratação, era de 1,96% a.m., ou seja, superior à taxa de 1,48% a.m. efetivamente
+contratada.
+Dessa forma, não há qualquer abusividade a ser declarada, sendo a manutenção da
+taxa de juros contratada medida que se impõe.
+Outrossim, o autor questiona a legalidade da cobrança da "Tarifa de Registro da
+Alienação Fiduciária" no valor de R$ 843,47. Sobre o tema, o STJ, em julgamento de
+recurso repetitivo (Tema 958), fixou a validade da cláusula que prevê o ressarcimento de
+despesa com o registro do contrato, ressalvando, contudo, a "abusividade da cobrança por
+serviço não efetivamente prestado".
+No presente caso, embora o Banco Réu defenda a legalidade da tarifa em sua
+contestação, não colacionou aos autos o comprovante do efetivo repasse do valor de R$
+843,47 ao órgão de trânsito ou prestador de serviço, ônus que lhe competia <fundamentacao_legal ord="10">nos termos do
+art. 373, II, do CPC</fundamentacao_legal> e do Tema 958 do STJ. Assim, a cobrança deve ser considerada
+indevida por ausência de prova da prestação do serviço.
+Quanto à forma de restituição, embora o STJ tenha firme entendimento de que a
+repetição em dobro prescinde de má-fé, no caso concreto, a cobrança da tarifa de registro
+encontrava previsão contratual e amparo em tese jurídica que admitia sua validade sob
+condição (Tema 958 STJ). Tal cenário configura "engano justificável", <fundamentacao_legal ord="11">na forma do art. 42,
+parágrafo único, parte final, do CDC</fundamentacao_legal>, razão pela qual a devolução deve ocorrer de forma
+simples.
+<dispositivo_abertura ord="12">Diante o exposto</dispositivo_abertura>, <resultado ord="13">julgo PARCIALMENTE PROCEDENTES</resultado>os pedidos
+formulados na inicial, extinguindoo processo com resolução do mérito, <fundamentacao_legal ord="14">nos termos do art.
+ 
+487, I, do Código de Processo Civil</fundamentacao_legal>, para 
+ 
+CONDENARo réu, BANCO BRADESCO
+ 
+FINANCIAMENTOS S/A, a restituir ao autor, ARMANDO PAZ MORAIS, a quantia
+ 
+de <valor_condenacao ord="15">R$ 843,47</valor_condenacao> (oitocentos e quarenta e três reais e quarenta e sete centavos), referente à
+Tarifa de Registro de Contrato, de forma simples. Tal valor deverá ser corrigido
+ 
+monetariamente pelo IPCA desde a data do pagamentoacrescido de juros de mora pela taxa
+SELIC desde a citação, deduzido o índice de atualização monetária, <fundamentacao_legal ord="16">nos termos dos arts.
+389 e 406 do Código Civil</fundamentacao_legal>.
+Julgo IMPROCEDENTESos demais pedidos.
+<custas><inicio ord="17">Sem custas</inicio></custas> e <honorarios><inicio ord="18">honorários advocatícios</inicio></honorarios>, <fundamentacao_legal ord="19">conforme arts. 54 e 55 da Lei 9.099/95</fundamentacao_legal>.
+Após o trânsito em julgado, aguarde-se o pedido de execução dos credores e,
+havendo, intime-se a devedora para o cumprimento voluntário pelo prazo de 15 (quinze)
+dias, sob pena de multa de 10% (dez por cento), <fundamentacao_legal ord="20">nos termos do art. 52, da Lei n° 9.099/95
+combinado com art. 523 e seguintes do CPC</fundamentacao_legal>.
+Caso contrário, arquivem-se os autos com as baixas necessárias, sem prejuízo de seu
+posterior desarquivamento a pedido da parte.
+<encerramento><inicio ord="21">Intimem-se e cumpra-se.</inicio>
+Boa Vista/RR, data constante no sistema.
+(Assinado eletronicamente - Lei 11419/2006)
+ERASMO HALLYSSON SOUZA DE CAMPOS
+<fim ord="22">Juiz de Direito</fim></encerramento></text>
+</annotation>
