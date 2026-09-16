@@ -1,0 +1,6 @@
+{
+  "543562390": {
+    "capitulo_merito": "sem cue de fechamento distinto no texto-fonte -- 'Decido.' abre o merito e o texto segue direto para a analise da preliminar sem nenhuma frase de transicao marcando o fim do capitulo (verificado contra o texto-fonte bruto em batch12_raw/543562390.txt)",
+    "custas": "sem cue de fechamento distinto no texto-fonte -- 'custas processuais' e 'honorarios advocaticios' sao fixados na mesma frase, com apenas a determinacao de honorarios recebendo um encerramento textual proprio; nao ha frase separada marcando o fim da determinacao de custas (verificado contra o texto-fonte bruto)"
+  }
+}

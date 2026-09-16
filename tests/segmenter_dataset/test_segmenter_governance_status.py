@@ -349,6 +349,38 @@ def test_real_store_reflects_batch11_corpus_growth() -> None:
     assert any(h.startswith("766e2846") for h in hashes), "TJMA batch11 document missing"
 
 
+def test_real_store_reflects_batch12_corpus_growth() -> None:
+    """Regression guard for #1050's twelfth real DJEN sample batch.
+
+    Snapshot before this batch: 119 documents (after batches 1-11 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). A live
+    scan of every ``data/segmenter_samples/*.jsonl`` record (excluding TJRO,
+    filtering 2500-18000 chars, Sentenca/Acordao, deduped against the
+    current store's ``source_uri``s) found TJES and TJGO tied for the
+    lowest non-singleton ``store_count`` (2 each), each with a real unused
+    Sentenca candidate carrying a ``preliminar`` rare-category cue:
+    TJES/577054686 (clean text, no HTML entities) and TJGO/543562390 (364
+    raw HTML entities in ``texto_limpo``, resolved with ``html.unescape()``
+    before annotation -- the same fix batch2/batch7 established). Neither
+    candidate's raw text contains embedded HTML markup (no ``<tag>``
+    matches), so the batch3 HTML-to-text cleaner was not needed. If corpus
+    growth from a later concurrent batch changes the exact total, update
+    the count here rather than treating a higher number as a failure -- the
+    two specific document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 121
+    assert any(h.startswith("57ea4a68") for h in hashes), "TJES batch12 document missing"
+    assert any(h.startswith("b04a0802") for h in hashes), "TJGO batch12 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
