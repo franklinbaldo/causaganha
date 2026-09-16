@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-16-exciting-mccarthy-zrek2s-reading-prs"
 run_id: "2026-09-16-exciting-mccarthy-zrek2s"
-source: "github pull requests (list_pull_requests, state=open, franklinbaldo/causaganha)"
+subject: "open_prs"
+reference: "github pull requests (list_pull_requests, state=open, franklinbaldo/causaganha)"
 finding: "3 PRs abertas: #1550 (docs(wisk): confirm PR #1549 merge -- closeout de uma rodada Wisk concorrente, branch claude/exciting-mccarthy-ee9q6i, nao e minha e nao devo tocar), #1528 (docs(agent-run): confirm PR #1527 merge -- closeout antigo de 2026-09-15, ja reconfirmado como nao-meu por rodadas anteriores bc9ae6/to0ars), #1353 (dependabot bump @vitest/mocker em deployment/relay-cf, sem relacao com trabalho de dominio). Nenhuma PR aberta precisa da minha revisao/merge nesta rodada -- nenhum trabalho pendente de continuidade fica represado em PR."
 ---
 

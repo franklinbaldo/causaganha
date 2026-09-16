@@ -1,0 +1,30 @@
+{
+  "round_id": "2026-09-16-exciting-mccarthy-zrek2s",
+  "before": {
+    "document_count": 96,
+    "annotation_count": 145,
+    "val_ceiling_at_full_adjudication": 14,
+    "test_ceiling_at_full_adjudication": 14
+  },
+  "after": {
+    "document_count": 102,
+    "annotation_count": 154,
+    "val_ceiling_at_full_adjudication": 15,
+    "test_ceiling_at_full_adjudication": 15
+  },
+  "documents_ingested": [
+    {"tribunal": "TJRJ", "id_documento": "327511452", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJGO", "id_documento": "543565881", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJTO", "id_documento": "285707753", "tipoDocumento": "Acórdão"},
+    {"tribunal": "TJPB", "id_documento": "578865769", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJMA", "id_documento": "42728714", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJRR", "id_documento": "568328096", "tipoDocumento": "Sentença"}
+  ],
+  "selection_strategy": "Mined data/segmenter_samples/*.jsonl for unused Sentença/Acórdão candidates (2500-18000 chars) with a heuristic hit for the corpus's scarcest category (preliminar, 16/16 instances pre-batch), preferring tribunals already represented but with low store_count (volume growth per la7bsl's next_move) over brand-new tribunals (diversity nearly exhausted).",
+  "defects_hit": [
+    "TJGO/TJTO: HTML entities in texto_limpo (html.unescape applied); TJTO additionally needed the batch3 HTML->text cleaner for embedded raw markup.",
+    "TJGO: NEW defect class -- str.strip() in scripts/ingest_djen_sample_technique1_batch.py's _parse_tagged treats U+00A0 (non-breaking space) as whitespace and silently drops a leading '\\xa0\\n\\n\\n\\n\\n\\n' from the source text before XML parsing, causing a false verbatim-fidelity mismatch. Fixed at the root (scripts/ingest_djen_sample_technique1_batch.py, tagged_text.strip('\\n\\r\\t ') instead of tagged_text.strip()), with a RED->GREEN regression test (tests/segmenter_dataset/test_ingest_djen_sample_technique1_batch.py::test_ingest_preserves_leading_nbsp_and_blank_lines).",
+    "TJTO/TJRJ/TJMA/TJRR: dangling capitulo_merito/custas/honorarios/relatorio/ementa pairs with no closing cue in the source text (same recurring class documented since batch4) -- resolved via reviewed --allowed-unmatched-overrides, docs/planning/evidence/segmenter-djen-sample-batch7-overrides.json.",
+    "TJRR: valor_condenacao_collapsed false positive in scripts/segmenter_semantic_audit.py's heuristic (R$ occurs 5x, 1 genuine valor_condenacao correctly tagged) -- same shape as the pre-existing doc_d61aecbf08b525a26f908f655285fe6c allowlist entry; extended tests/segmenter_dataset/test_segmenter_audit_scripts.py's allowlist with a documented reason rather than silencing the assertion."
+  ]
+}

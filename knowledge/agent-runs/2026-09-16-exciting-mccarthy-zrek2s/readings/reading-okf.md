@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-16-exciting-mccarthy-zrek2s-reading-okf"
 run_id: "2026-09-16-exciting-mccarthy-zrek2s"
-source: "knowledge/backlog/issue-1050.md, knowledge/agent-runs/2026-09-16-exciting-mccarthy-{uyx7xc,mg2tp1,la7bsl}/run.md, knowledge/agent-runs/index.md, .claude/hourly-loop.md"
+subject: "okf_knowledge"
+reference: "knowledge/backlog/issue-1050.md, knowledge/agent-runs/2026-09-16-exciting-mccarthy-{uyx7xc,mg2tp1,la7bsl}/run.md, knowledge/agent-runs/index.md, .claude/hourly-loop.md"
 finding: "Tensao AgentRun-vs-Wisk confirmada viva e reconhecida por 4+ decisoes anteriores (to0ars, bueov4, 6kxfkh, ez5wkn): knowledge/agent-runs/index.md e .claude/hourly-loop.md declaram o mecanismo AgentRun legado/deprecated em favor do Wisk, mas o prompt desta sessao agendada continua instruindo -- literal e explicitamente -- o scaffold AgentRun. Precedente consistente: seguir a instrucao explicita do prompt agendado (que tem precedencia conforme o proprio system-reminder desta sessao), mas escolher trabalho de dominio que nao compita com rodadas Wisk ativas. Achado NOVO desta leitura: a rodada mais recente que tocou #1050 (batch6, commit 1f1ef1d/PR #1549) rodou sob o mecanismo Wisk, nao AgentRun -- confirma que os dois mecanismos agora se alternam na MESMA linhagem de issue, nao apenas coexistem em dominios distintos. Isso nao muda a decisao (nenhum fato novo torna a tensao mais urgente para o dono humano; ja foi escalada uma vez, 2026-09-14, com contexto completo), mas exige verificar o estado real do corpus ao vivo (nao confiar no ultimo numero registrado por uma rodada AgentRun) antes de escolher candidatos do lote 7, para nao duplicar o que o lote Wisk 6 ja fez. knowledge/backlog/issue-1050.md esta desatualizado (para no lote 4, nao reflete lotes 5 e 6) -- inconsistencia entre knowledge e codigo real que esta rodada deve corrigir ao final."
 ---
 

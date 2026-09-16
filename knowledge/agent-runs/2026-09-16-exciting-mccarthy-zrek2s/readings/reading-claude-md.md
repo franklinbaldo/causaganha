@@ -2,7 +2,8 @@
 type: AgentReading
 id: "2026-09-16-exciting-mccarthy-zrek2s-reading-claude-md"
 run_id: "2026-09-16-exciting-mccarthy-zrek2s"
-source: "CLAUDE.md"
+subject: "claude_md"
+reference: "CLAUDE.md"
 finding: "Repo has two runtime surfaces (Python backend src/causaganha + src/djen_backup, web frontend em web/). djen_backup usa sync-manifest.parquet como fonte unica de verdade para status de coleta DJEN/IA; nao e area tocada por este round. As regras de estilo relevantes (Ruff estrito, TRY300/301/401, sem except Exception amplo fora de bulkhead documentado por ADR 0011, python 3.12+ com | unions) se aplicam a qualquer script novo escrito neste round."
 ---
 

@@ -200,7 +200,18 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     stored annotation the same way, leaving the heuristic's raw text scan
     to count all 4 and flag a false collapse.
 
-    If this test starts seeing *more* than these three findings, a new
+    ``doc_2a07306d88d1acebcdc0aff9958f7009`` (djen_sample batch7, TJRR,
+    2026-09-16) is the same shape of false positive as
+    ``doc_d61aecbf08b525a26f908f655285fe6c`` above, for
+    ``valor_condenacao_collapsed``: the restitution amount (R$ 843,47) is
+    genuinely mentioned 4 times before the dispositivo (case value R$
+    2.450,30 once, then the same disputed tariff figure R$ 843,47 three
+    times across the relatorio and fundamentacao narrative) before the
+    single correct condemnation tag in the dispositivo -- one real
+    ``valor_condenacao``, five raw "R$" occurrences, the heuristic's ``>2``
+    threshold flags it anyway.
+
+    If this test starts seeing *more* than these four findings, a new
     real omission was introduced and needs the same triage — repair it, or
     extend this allowlist with a documented reason, never silence the
     assertion.
@@ -222,4 +233,5 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_d61aecbf08b525a26f908f655285fe6c",
         "doc_3cffd7961e9fc910f6ae628f5aaa6c40",
         "doc_f985597a64cc7b5ad06731c072915a7a",
+        "doc_2a07306d88d1acebcdc0aff9958f7009",
     }

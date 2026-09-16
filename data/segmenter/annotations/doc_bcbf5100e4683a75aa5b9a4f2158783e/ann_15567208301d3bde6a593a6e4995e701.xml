@@ -1,0 +1,274 @@
+<annotation id="ann_15567208301d3bde6a593a6e4995e701" document_id="doc_bcbf5100e4683a75aa5b9a4f2158783e">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-16T11:36:41Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text> 
+
+
+
+
+
+<cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio>
+
+
+ESTADO DE GOIÁS
+
+
+COMARCA DE APARECIDA DE GOIÂNIA
+
+
+4º Vara Cível
+
+
+FÓRUM- RUA VERSALES QD. 03, LT 08/14 RESIDENCIAL MARIA LUIZA  TEL: 3238-5100 FAX: (62)3238-5153 APARECIDA DE GOIÂNIA Goiás CEP: 74968970
+
+
+
+PROTOCOLO Nº: <ref_processual ord="1">5600852-54.2025.8.09.0011</ref_processual>
+
+
+Natureza: PROCESSO CÍVEL E DO TRABALHO -&gt; Processo de Conhecimento -&gt; Procedimento de Conhecimento -&gt; Procedimento Comum Cível
+
+
+Requerente: Claudia De Lirio Nascimento
+
+
+<fim ord="2">Requerido: Nu Financeira S.a. - Sociedade De Credito, Financiamento E Investimento</fim></cabecalho>
+
+
+
+SENTENÇA
+
+
+
+          
+
+
+<relatorio><inicio ord="3">CLAUDIA DE LIRIO NASCIMENTO propôs a presente</inicio> Ação de Obrigação de Fazer c/c Indenização por Danos Morais em face de NU FINANCEIRA S.A. - SOCIEDADE DE CREDITO, FINANCIAMENTO E INVESTIMENTO, ambos qualificados nos autos.
+
+
+Aduz a autora, em síntese, ter seu nome indevidamente inserido no Sistema de Informações de Crédito (SCR) do Banco Central do Brasil (SISBACEN) pela instituição financeira requerida, sem prévia notificação. Assevera que tal anotação, especialmente a classificação de operações como "prejuízo", possui natureza restritiva e causa dano moral in re ipsa. Pugna, liminarmente, pela exclusão do registro e, no mérito, pela confirmação da tutela, além da condenação da ré ao pagamento de indenização por danos morais no valor de R$ 35.000,00. A petição inicial foi instruída com documentos 
+
+
+Deferidos os benefícios da gratuidade da justiça à autora, bem como a tutela de urgência para determinar a exclusão do apontamento em seu nome no SCR/SISBACEN, sob pena de multa (evento 8). 
+
+
+A audiência de conciliação restou infrutífera (ev. 27).
+
+
+Regularmente citada, a parte requerida compareceu espontaneamente aos autos (ev. 6) e apresentou contestação (ev. 7). Em sede preliminar, arguiu a falta de interesse de agir, ao argumento de que a autora não comprovou a recusa de crédito em decorrência do registro no SCR. No mérito, sustentou a legalidade de sua conduta, discorrendo ser a alimentação de dados no SCR um dever legal imposto pelo Banco Central, e não um cadastro restritivo de crédito. Enfatizou que a autora anuiu com o compartilhamento de suas informações ao aderir aos contratos de cartão de crédito e conta de pagamento, os quais preveem expressamente a comunicação dos dados ao SCR. Apontou a inexistência de ato ilícito e, por conseguinte, de dever de indenizar, requerendo a improcedência total dos pedidos.
+
+
+A parte autora apresentou impugnação à contestação (ev. 28).
+
+
+Instadas a especificarem as provas que pretendiam produzir (ev. 29), a parte ré informa não possuir interesse na produção e outras provas (evento 34) e a autora pela juntada de documentos para que o réu comprove a notificação prévia, objeto dos autos, e expedição de ofício ao Banco Central para esclarecimentos sobre o Sistema de informação ao Crédito (ev. 36).
+
+
+Vieram os autos conclusos.
+
+
+<fim ord="4">É o relatório.</fim></relatorio> 
+
+
+<capitulo_merito><inicio ord="5">DECIDO</inicio>.
+
+
+1. DAS QUESTÕES PENDENTES
+
+
+Não merece acolhimento o pedido formulado pela parte autora em evento 39 uma vez que a comprovação da notificação prévia é ônus que compete ao réu, faculdade probatória preclusa, sendo certo que as regras normativas do Sistema de Informações de Crédito (SCR) são de conhecimento público, desnecessário os esclarecimentos pelo Banco Central.
+
+
+Trata-se de Ação de obrigação de fazer na qual as questões de fundo versam exclusivamente sobre matéria de direito, circunstância que comporta o julgamento antecipado da lide, <fundamentacao_legal ord="6">nos termos do art. 355, inciso II do Código de Processo Civil</fundamentacao_legal>.
+
+
+ 
+
+
+2. <preliminar><inicio ord="7">PRELIMINAR</inicio>
+
+
+2.1. Do defeito de representação - Assinatura digital
+
+
+A parte ré alega a nulidade da assinatura eletrônica utilizada nos documentos da inicial, por ter sido realizada pela plataforma Zapsign, que não seria credenciada pela ICP-Brasil. Contudo, a Medida Provisória nº 2.200-2/2001 e a Lei nº 14.063/2020 admitem outras formas de assinatura eletrônica, desde que capazes de comprovar a autoria e a integridade do documento. A autora, em sua impugnação, defende a validade da ferramenta, que inclusive utiliza recursos como QRCode, link de verificação e selfie para atestar a validade. O Superior Tribunal de Justiça tem admitido a validade de assinaturas eletrônicas não certificadas pela ICP-Brasil, desde que haja acordo entre as partes ou outros meios de comprovação de autoria e integridade. Diante disso, rejeito a preliminar.
+
+
+ 
+
+
+2.2. Da Falta de Interesse de Agir
+
+
+A parte requerida suscita a preliminar de falta de interesse de agir, sob o fundamento de que a autora não demonstrou ter sofrido negativa de crédito em razão da anotação no SCR. Todavia, a pretensão autoral fundamenta-se na suposta ilegalidade da inscrição sem prévia comunicação, o que, em tese, violaria direitos da personalidade e configuraria o dano moral. O interesse processual, nesse contexto, manifesta-se pela necessidade e utilidade do provimento jurisdicional para resolver o conflito de interesses, independentemente da prova de um prejuízo material específico, como a recusa de crédito. Dessa forma, rejeito a preliminar.
+
+
+ 
+
+
+2.3. Da impugnação a gratuidade da justiça
+
+
+Deferida a gratuidade da justiça com base nos elementos probatórios constante dos autos, notadamente por se tratar de pessoa física, em cujo favor milita presunção de hipossuficiência, a qual não foi desconstituída pela parte adversa, <fundamentacao_legal ord="8">nos termos do art. 99, § 3º, CPC</fundamentacao_legal>, razão porque <fim ord="9">indefiro a preliminar arguida</fim></preliminar>.
+
+
+Superadas questões processuais pendentes, passo ao exame do mérito.
+
+
+ 
+
+
+3. MÉRITO.
+
+
+3.1. Do registro no Sistema de Informações de Crédito – SCR
+
+
+Induvidosa a inserção do nome da parte autora nos registros do Sistema de Informações de Crédito – SCR em razão de relação contratual firmado com o banco requerido. 
+
+
+Cinge-se a controvérsia em analisar se a ausência de notificação prévia ao consumidor é suficiente para justificar a exclusão de informação constante do SCR, mantido pelo Banco Central do Brasil, e se estão presentes os requisitos legais à condenação por danos morais.
+
+
+ 
+
+
+3.2. Da obrigatoriedade da informação e da natureza restritiva da anotação
+
+
+O Sistema de Informações de Créditos (SCR) é um constituído por informações remetidas ao Banco Central do Brasil sobre operações de crédito, que tem por finalidade o monitoramento do crédito no sistema financeiro, a fiscalização das atividades bancárias, bem como propiciar o intercâmbio de informações entre instituições financeiras, acerca do montante da responsabilidade de seus clientes. 
+
+
+A alimentação do referido Sistema, pelas instituições financeiras é de natureza compulsória, conforme critérios estabelecidos pelo Banco Central. 
+
+
+Nesse aspecto, verifica-se que a instituição financeira não atua com discricionariedade, mas em cumprimento a dever legal de informação obrigatória, independentemente dos clientes estarem adimplentes ou inadimplentes, <fundamentacao_legal ord="10">nos termos do parágrafo único do art. 3º da Resolução nº 5037 DE 29/09/2022</fundamentacao_legal>:
+
+
+Art. 3º - Parágrafo único.  As informações sobre as operações de que trata este artigo devem ser remetidas ao Banco Central do Brasil independentemente do adimplemento de tais operações. 
+
+
+Em que pese a obrigatoriedade estabelecida, o certo é que a jurisprudência do Superior Tribunal de Justiça e do Tribunal de Justiça de Goiás,  é firme, no sentido de que as informações fornecidas ao SISBACEN possuem natureza restritiva de crédito, equiparando-se à inscrição em cadastros de proteção ao crédito, uma vez que as instituições financeiras o utilizam para consulta prévia de operações de crédito realizadas pelos consumidores, a fim de avaliar a capacidade de pagamento e diminuir os riscos da tomada de crédito, de forma que, a despeito de sua natureza híbrida, as informações ali lançadas possuem, sim, a capacidade de, eventualmente, inviabilizar a concessão de crédito ao consumidor. 
+
+
+Assim, considerando a capacidade de restrição creditícia do Sistema de Informações de Créditos (SCR), é impositiva a prévia notificação do consumidor quanto a inclusão dos dados do seu negócio jurídico no aludido cadastro, <fundamentacao_legal ord="11">conforme do artigo 13, caput, da Resolução nº 5037 DE 29/09/2022</fundamentacao_legal>
+
+
+ 
+
+
+3.3. Da anotação e da notificação prévia
+
+
+No caso em apreço, vê-se que a parte autora não debate a existência do débito, limita-se a arguir a ausência de notificação prévia acerca da inscrição dos dados de sua operação de crédito no SISBACEN/SCR.
+
+
+É responsabilidade exclusiva das instituições financeiras as inclusões, correções e exclusões dos registros constantes do SCR, bem como a prévia comunicação ao cliente da inscrição dos dados de suas operações no aludido sistema, <fundamentacao_legal ord="12">conforme Resolução nº 4.571/2017 do Banco Central do Brasil</fundamentacao_legal>, atualmente, regulamentada pela Resolução CMN nº 5037 DE 29/09/2022, a qual dispõe:
+
+
+Art. 13. As instituições originadoras das operações de crédito ou que tenham adquirido tais operações de entidades não integrantes do Sistema Financeiro Nacional devem comunicar previamente ao cliente que os dados de suas respectivas operações serão registrados no SCR.
+
+
+§ 1º Na comunicação referida no caput devem constar as orientações e os esclarecimentos relacionados no art. 16.
+
+
+§ 2º A comunicação de que trata o caput deve ocorrer anteriormente à remessa das informações para o SCR.
+
+
+§ 3º As instituições referidas no caput devem manter a guarda da comunicação de que trata este artigo, em meio físico ou eletrônico que permita comprovar a sua autenticidade, por um período de cinco anos, contado da data de emissão do documento, sem prejuízo de outras disposições que fixem prazo maior para a sua guarda.
+
+
+Do contrato firmado pelas partes, vê-se pactuada cláusula contratual conferindo ciência da parte autora e autorizando a remessa dos dados ao SCR (evento 07, doc. 1), o que derrui a alegada ilicitude, tratando-se de mero desdobramento da autorização conferida à instituição financeira para consulta e compartilhamento de informações com sistemas de cadastro, públicos ou privados, voltados à análise de crédito, o que inclui o Banco Central. 
+
+
+A notificação prévia para inclusão dos dados no SCR, é tema em discussão no STJ, mas a jurisprudência recente tem se inclinado para a desnecessidade da notificação específica a cada atualização, por considerar que o consentimento do consumidor ao contratar e a possibilidade de acesso aos dados já cumprem o dever de informar.
+
+
+Nesse cenário, evidencia-se a ciência e a autorização da parte autora quanto a remessa de seus dados ao SCR, de modo que não há se exigir envio de notificação por qualquer outro meio de comunicação, seja por AR, e-mail ou mensagens por aplicativo.
+
+
+Portanto, extrai-se dos autos que o banco requerido se desincumbiu do ônus probatório de comprovar a comunicação prévia acerca da anotação dos dados no SCR, <fundamentacao_legal ord="13">nos termos do disposto no art. 373, inciso II, do CPC</fundamentacao_legal>, razão porque deve ser mantida a anotação questionada nos autos.
+
+
+Não bastasse isso, a exclusão da anotação no SCR demanda prova da ilegalidade da informação prestada, o que não foi demonstrado nos autos, uma vez que não se discute a inadimplência da parte autora com o contrato firmado perante a instituição ré.
+
+
+“(…) Não se tratando de um cadastro privado com a simples função de anotar eventuais restrições creditícias, é evidente que a exclusão/alteração das anotações no Sistema de Informações de Créditos (SCR), vinculado ao Banco Central do Brasil, somente pode ser efetuada em razão de erros na alimentação ou, ainda, em caso de contratação fraudulenta/não comprovada ou de quitação do débito, mas jamais pelos motivos defendidos pelo autor, ora apelante, a saber, alegação de que não houve a prévia notificação. (TJGO, Apelação Cível 5708747-22.2023.8.09.0051, Rel. Des(a). MARIA ANTONIA DE FARIA, 4ª Câmara Cível, julgado em 15/07/2024, DJe de 15/07/2024)
+
+
+Com efeito, em que pese a obrigatoriedade de prévia comunicação por parte das instituições financeiras, não se pode perder de vista que a finalidade precípua do aludido sistema é subsidiar o Banco Central do Brasil em suas atividades de fiscalização e de monitoramento do sistema financeiro, motivo pelo qual, não havendo provas do pagamento ou da nulidade da contratação, inviável a exclusão/alteração do cadastro, notadamente em virtude de suposta falta de notificação.
+
+
+ 
+
+
+3.5. Da inocorrência do dano moral 
+
+
+Para o acolhimento do pedido indenizatório é imprescindível a demonstração cumulativa dos seguintes requisitos: conduta ilícita (dolo ou culpa em sentido estrito), dano e nexo de causalidade (artigos 186 do Código Civil).
+
+
+Considerando a regularidade da notificação, conforme já assentado, não prospera a pretensão de indenização por danos morais, tendo em vista a ausência de requisito legal, qual seja a ausência de conduta ilícita do réu.
+
+
+ 
+
+
+<fim ord="14">DISPOSITIVO</fim></capitulo_merito>
+
+
+<dispositivo_abertura ord="15">Ante o exposto</dispositivo_abertura>, <resultado ord="16">JULGO IMPROCEDENTES</resultado> os pedidos formulados na inicial, resolvendo o mérito da causa <fundamentacao_legal ord="17">nos termos do art. 487, inciso I, do CPC</fundamentacao_legal>.
+
+
+REVOGO a tutela de urgência concedida na decisão de evento 8.
+
+
+Em razão da sucumbência, condeno a parte autora ao pagamento das custas processuais e dos honorários advocatícios, os quais fixo em 10% (dez por cento) sobre o valor atualizado da causa, <fundamentacao_legal ord="18">em conformidade com o art. 85, § 2º, do Código de Processo Civil</fundamentacao_legal>. A exigibilidade de tais verbas fica suspensa, <fundamentacao_legal ord="19">nos termos do art. 98, § 3º, do mesmo diploma legal</fundamentacao_legal>, por ser a autora beneficiária da gratuidade da justiça.
+
+
+<encerramento><inicio ord="20">Publique-se.</inicio> Registre-se. Intimem-se.
+
+
+Aparecida de Goiânia, data da assinatura eletrônica.
+
+
+ 
+
+
+Christiane Gomes Falcão Wayne
+
+<fim ord="21">Juíza de Direito</fim></encerramento>
+
+
+LB</text>
+</annotation>
