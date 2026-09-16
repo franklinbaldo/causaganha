@@ -21,6 +21,7 @@ from pathlib import Path
 
 TAG_RE = re.compile(r"</?[a-zA-Z_][a-zA-Z0-9_]*(?:\s+[^>]*)?>")
 
+
 def strip_tags_with_map(tagged: str):
     """Return (stripped_text, map) where map[i] = index in `tagged` of the
     character that produced stripped_text[i]."""
@@ -38,9 +39,14 @@ def strip_tags_with_map(tagged: str):
         i += 1
     return "".join(out_chars), out_map
 
+
 def fix_document(doc_id: str) -> bool:
-    src_path = Path(f"/tmp/claude-0/-home-user-causaganha/cf063d62-1c40-5ace-a8a9-1dd0e1e71690/scratchpad/batch15_docs/{doc_id}.txt")
-    tagged_path = Path(f"/tmp/claude-0/-home-user-causaganha/cf063d62-1c40-5ace-a8a9-1dd0e1e71690/scratchpad/batch15_tagged/{doc_id}.txt")
+    src_path = Path(
+        f"/tmp/claude-0/-home-user-causaganha/cf063d62-1c40-5ace-a8a9-1dd0e1e71690/scratchpad/batch15_docs/{doc_id}.txt"
+    )
+    tagged_path = Path(
+        f"/tmp/claude-0/-home-user-causaganha/cf063d62-1c40-5ace-a8a9-1dd0e1e71690/scratchpad/batch15_tagged/{doc_id}.txt"
+    )
     src = src_path.read_text(encoding="utf-8")
     tagged = tagged_path.read_text(encoding="utf-8")
     reconstructed, pos_map = strip_tags_with_map(tagged)
@@ -63,7 +69,12 @@ def fix_document(doc_id: str) -> bool:
         else:
             ok = False
         if not ok:
-            print(f"{doc_id}: UNEXPECTED non-NBSP diff, aborting auto-fix:", tag, repr(src_chunk), repr(recon_chunk))
+            print(
+                f"{doc_id}: UNEXPECTED non-NBSP diff, aborting auto-fix:",
+                tag,
+                repr(src_chunk),
+                repr(recon_chunk),
+            )
             return False
 
     # Apply fixes to the tagged string, from the end backwards so earlier
@@ -97,6 +108,7 @@ def fix_document(doc_id: str) -> bool:
     tagged_path.write_text(fixed_tagged, encoding="utf-8")
     print(f"{doc_id}: fixed and verified byte-identical to source ({len(src)} chars)")
     return True
+
 
 for doc_id in ["285693071", "301247724"]:
     fix_document(doc_id)
