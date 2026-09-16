@@ -1,0 +1,53 @@
+<annotation id="ann_1f8950baba762b841511bdc795050f47" document_id="doc_bbf8d42e93289ef4c2368bb207793096">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-16T09:30:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Apelação Cível nº <ref_processual ord="0">0816489-08.2019.8.12.0001</ref_processual>
+Comarca de Campo Grande - 10ª Vara Cível
+Relator(a): Juiz Lúcio R. da Silveira
+Apelante: Valmir Neto
+Advogado: Susane Louise Fernandes Prado (OAB: 14840/MS)
+Advogado: Gabriel Antônio Moura do Vale (OAB: 24241/MS)
+Advogado: Paula Nélly Moura do Vale (OAB: 21674/MS)
+Advogado: Antônio Gomes do Vale (OAB: 17706/MS)
+Apelante: Energisa Mato Grosso do Sul - Distribuidora de Energia S.A
+Advogada: Nayra Martins Vilalba (OAB: 14047/MS)
+Apelado: Energisa Mato Grosso do Sul - Distribuidora de Energia S.A
+Advogada: Nayra Martins Vilalba (OAB: 14047/MS)
+Apelado: Valmir Neto
+Advogado: Susane Louise Fernandes Prado (OAB: 14840/MS)
+Advogado: Gabriel Antônio Moura do Vale (OAB: 24241/MS)
+Advogado: Paula Nélly Moura do Vale (OAB: 21674/MS)
+Advogado: Antônio Gomes do Vale (OAB: 17706/MS)
+
+<ementa><inicio ord="1">EMENTA</inicio> - RECURSOS DE APELAÇÃO (CONCESSIONÁRIA E AUTOR)- AÇÃO REVISIONAL DE CONSUMO DE ENERGIA ELÉTRICA, C/C DANOS MORAIS - SENTENÇA DE PARCIAL PROCEDÊNCIA - INSURGÊNCIA QUANTO AO CÁLCULO A SER APLICADO PARA FINS DE RECUPERAÇÃO DE RECEITA - MEDIDOR DE ENERGIA COM DEFEITO - APLICABILIDADE DO ART. 115, II, DA RESOLUÇÃO 414/2010 - DANOS MORAIS CONFIGURADOS - MANUTENÇÃO DO VALOR ARBITRADO - RECURSOS CONHECIDOS E DESPROVIDOS. I. Ainda que não seja possível realização de vistoria/manutenção mensal em todas as unidades consumidoras, no caso específico do relógio medidor existente na residência do Autor, o aparelho encontrava-se "danificado/destruído" e, apesar de tal circunstância ser de conhecimento da Apelante, a situação se estendeu por vários meses, sem que fosse tomada qualquer providência por parte da concessionária. II. Assim, a cobrança das diferenças de retroativos de consumo deverá ser realizada respeitando a legislação de regência, o que, no caso em tela, corresponde às disposições contidas no art. 115, II, da Resolução n. 414/2010, que trata da deficiência no medidor. III. Pelo que se vislumbra dos autos, além de não proceder à substituição/regularização do relógio medidor, a concessionária utilizou-se de procedimento equivocado que acabou por onerar a diferença não faturada. Afora isso, procedeu ao corte do fornecimento do serviço e inscreveu o nome do Autor nos órgãos de restrição ao crédito. IV. Assim, levando-se em conta que o Autor trata-se de pessoa idosa, assegurado do INSS com renda de 01 (um) salário mínimo, tem-se como devido os danos morais, sendo razoável e proporcional o valor indenizatório fixado em <valor_condenacao ord="2">R$ 5.000,00</valor_condenacao>, não havendo se falar na sua redução como pleiteado pela concessionária e muito menos na sua majoração como pretendido pelo Autor. V. <fim ord="3">Sentença mantida.</fim></ementa> A C Ó R D Ã O <acordao_decisorio><inicio ord="4">Vistos, relatados e discutidos estes autos</inicio>, ACORDAM, em sessão permanente e virtual, os(as) magistrados(as) do(a) 4ª Câmara Cível do Tribunal de Justiça de Mato Grosso do Sul, na conformidade da ata de julgamentos, a seguinte decisão: <fim ord="5">Por unanimidade</fim></acordao_decisorio>, <resultado ord="6">negaram provimento</resultado> aos recursos, nos termos do voto do Relator.</text>
+</annotation>
