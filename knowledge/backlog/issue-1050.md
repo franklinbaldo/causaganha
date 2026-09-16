@@ -3,16 +3,16 @@ type: BacklogItem
 issue_number: 1050
 title: "segmenter: repair and scale the real training corpus with agent annotation"
 category: "ml_data_work"
-blocking_reason: "Not blocked. Four real batches now proven through scripts/ingest_djen_sample_technique1_batch.py: batch1 (round 0iuk22) ingested 7 documents across 7 tribunals; batch2 (round jyqinl) ingested 6 more across 6 further tribunals (TJPB, TJRN, TJRJ, TJMA, TJBA, TJRR); batch3 (round uyx7xc) ingested 7 more across 7 further tribunals (TJGO, TJPI, TJMG, TJRS, TJTO, TRF2, TST); batch4 (this round, mg2tp1) ingested 5 more across 3 further tribunals (TJSC, TRF4 x3, TRF6), for 23/23 selected tribunals now represented beyond TJRO (24 total). document_count moved 61->68->74->81->86, val/test ceiling moved 9->10->11->12->13 -- still far below RFC 0012 Sec 5 item 4's >=30/>=30 floor (needs roughly 200 total documents). Only 8 tribunals remain in the sample pool with no usable candidate yet (STM, TJAC, TJAM, TJAP, TJMS, TJPE, TJSP, TRF1) -- all previously and again this round confirmed to hold only 'Decisão'-type or sub-4000-char candidates, outside what the v7.1 guideline's document_type_hint covers."
-unblock_condition: "Already unblocked and now has four rounds of proof that the ingestion path scales across tribunals without code changes. A future round should keep running batches through scripts/ingest_djen_sample_technique1_batch.py toward ~200 total documents -- see docs/planning/evidence/segmenter-djen-sample-batch4-2026-09-16.json for this round's before/after numbers. New-tribunal diversity is nearly exhausted in the current sample pool (only 8 tribunals left, all without usable Sentenca/Acordao candidates) -- a future round mining more volume should widen the search past 'new tribunal only' and also pick additional, still-unused Sentenca/Acordao candidates from tribunals already represented (document_count growth, not just tribunal diversity, is what raises the RFC 0012 floor from here). Budget for four known defect/risk classes before trusting a batch's first pass: (1) dangling capitulo_merito/custas/honorarios/relatorio/ementa pairs with no closing cue in the source text -- every batch so far has needed a manually reviewed --allowed-unmatched-overrides entry for at least some documents (see docs/planning/evidence/segmenter-djen-sample-batch4-overrides.json for this round's reasons; this round's 3 dangling cases were all the same shape: a numbered-section 'capa+ementa-estruturada' export with no separate RELATORIO/VOTO to close the ementa against); (2) some candidates' texto_limpo is NOT HTML-entity-decoded -- fix by applying html.unescape() (or reuse the batch3 cleaner below, which decodes as a side effect of HTMLParser(convert_charrefs=True)); (3) some candidates' texto_limpo retains raw, sometimes-malformed embedded HTML markup that breaks the XML-based tagging pipeline regardless of annotation quality -- always pre-check a raw candidate's own XML-parseability (ET.fromstring(f'<text>{texto}</text>')) before assigning it to a subagent, and reuse docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py (reused unmodified again this round on all 5 batch4 candidates, all of which hit this exact defect) rather than writing a new cleaner; (4) NEW this round: a subagent can silently normalize a single non-breaking space (U+00A0) to a regular space during transcription -- caught by the ingestion script's own verbatim-fidelity check (reconstructed length matched source length exactly, 3977==3977, masking a same-length single-character substitution), confirmed by a programmatic char-by-char diff rather than eyeballing, and fixed by directly patching the one substring in the subagent's tagged output (safe here because the diff fell in plain text between tags, not near a tag boundary) rather than re-running the subagent -- a future round should diff programmatically on any verbatim-fidelity skip even when lengths already match, since a same-length substitution is invisible to a bare length check."
-last_verified_run_id: "2026-09-16-exciting-mccarthy-mg2tp1"
-last_verified_at: "2026-09-16T06:45:00Z"
+blocking_reason: "Not blocked. Six real batches now proven through scripts/ingest_djen_sample_technique1_batch.py: batch1 (round 0iuk22) 7 docs/7 tribunals; batch2 (jyqinl) 6 docs/6 tribunals; batch3 (uyx7xc) 7 docs/7 tribunals; batch4 (mg2tp1) 5 docs/3 tribunals; batch5 (la7bsl) 7 docs, 1 new tribunal (TJMS, a 25th tribunal surfaced by widening the candidate-length filter to 2500-18000 chars) + 3 more in already-represented tribunals; batch6 (this round, 83kr8s) 8 docs, all in already-represented tribunals (TRF5, TJMT, TJRR, TJPA, TRF3, TJRJ, TJPB, TJES) -- tribunal diversity is now confirmed exhausted (25 tribunals beyond TJRO, 26 total), document_count growth is the only remaining lever. document_count moved 61->68->74->81->86->93->101, val/test ceiling moved 9->10->11->12->13->14->15 -- still far below RFC 0012 Sec 5 item 4's >=30/>=30 floor (needs roughly 200 total documents)."
+unblock_condition: "Already unblocked and now has six rounds of proof that the ingestion path scales without code changes. A future round should keep running batches through scripts/ingest_djen_sample_technique1_batch.py toward ~200 total documents -- see docs/planning/evidence/segmenter-djen-sample-batch6-2026-09-16.json for this round's before/after numbers. Tribunal-diversity mining is exhausted (confirmed twice, by la7bsl and again by this round's live scan finding zero new tribunals under a 2500-18000 char filter) -- every future round should draw additional Sentenca/Acordao candidates from already-represented tribunals; a live scan this round found 250 more unused in-range candidates remaining after this batch (258 pre-batch minus 8 consumed), a large majority already XML-clean. Budget for the known defect/risk classes before trusting a batch's first pass: (1) dangling capitulo_merito/custas/honorarios/relatorio/ementa pairs with no closing cue in the source text -- every batch so far has needed at least one manually reviewed --allowed-unmatched-overrides entry (see docs/planning/evidence/segmenter-djen-sample-batch6-overrides.json for this round's 6 cases: all Juizado-Especial 'relatorio dispensado' sentencas with no closing cue, or short custas/honorarios clauses with no separate closing phrase -- confirm by inspecting the raw tagged text directly before declaring an override, per decision-accept-dangling-pairs-as-overrides in the 83kr8s run report, not by trusting the annotating subagent's own self-report); (2) some candidates' texto_limpo is NOT HTML-entity-decoded -- fix with html.unescape(); (3) some candidates' texto_limpo retains raw, sometimes-malformed embedded HTML markup that breaks the XML-based tagging pipeline -- always pre-check ET.fromstring(f'<text>{texto}</text>') before assigning to a subagent, reuse docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py; (4) a subagent can silently normalize a non-breaking space (U+00A0) to a regular space -- diff programmatically on any verbatim-fidelity skip, even when lengths already match; (5) CRLF-sourced candidates need line-ending normalization to LF before becoming a candidate, since XML's mandatory end-of-line normalization makes the existing verbatim-fidelity check structurally unable to preserve \\r\\n (batch5 finding)."
+last_verified_run_id: "2026-09-16-exciting-mccarthy-83kr8s"
+last_verified_at: "2026-09-16T13:00:00Z"
 status: "unblocked"
 ---
 
 # Issue #1050: segmenter: repair and scale the real training corpus with agent annotation
 
-Não está bloqueada. Quatro rodadas reais já provaram o mecanismo de
+Não está bloqueada. Seis rodadas reais já provaram o mecanismo de
 ingestão (`scripts/ingest_djen_sample_technique1_batch.py`) sem precisar
 de nenhuma mudança de código de produção entre elas:
 
@@ -26,20 +26,33 @@ de nenhuma mudança de código de produção entre elas:
   TJPI, TJMG, TJRS, TJTO, TRF2, TST). `document_count` 74->81, teto de
   val/test 11->12
   (`docs/planning/evidence/segmenter-djen-sample-batch3-2026-09-16.json`).
-- **Lote 4** (esta rodada, mg2tp1): 5 documentos, 3 tribunais novos (TJSC,
+- **Lote 4** (rodada mg2tp1): 5 documentos, 3 tribunais novos (TJSC,
   TRF4 x3, TRF6). `document_count` 81->86, teto de val/test 12->13
   (`docs/planning/evidence/segmenter-djen-sample-batch4-2026-09-16.json`).
+- **Lote 5** (rodada la7bsl): 7 documentos, 1 tribunal novo (TJMS x4,
+  25o tribunal, so visivel apos ampliar o filtro de tamanho para
+  2500-18000 chars) + 3 em tribunais ja representados (TJPA x2, TJPI
+  x1). `document_count` 86->93, teto de val/test 13->14
+  (`docs/planning/evidence/segmenter-djen-sample-batch5-2026-09-16.json`).
+- **Lote 6** (esta rodada, 83kr8s): 8 documentos, todos em tribunais ja
+  representados (TRF5, TJMT, TJRR, TJPA, TRF3, TJRJ, TJPB, TJES) --
+  diversidade de tribunal confirmada esgotada (nenhum tribunal novo no
+  pool mesmo com filtro ampliado). `document_count` 93->101, teto de
+  val/test 14->15
+  (`docs/planning/evidence/segmenter-djen-sample-batch6-2026-09-16.json`).
 
-**Por que continua aberta:** 23 tribunais além de TJRO já representados
-(24 no total), mas o piso de RFC 0012 §5 item 4 (>=30 val, >=30 teste,
+**Por que continua aberta:** 25 tribunais além de TJRO já representados
+(26 no total), mas o piso de RFC 0012 §5 item 4 (>=30 val, >=30 teste,
 cada um adjudicado) continua exigindo algo perto de 200 documentos
-totais. Restam apenas 8 tribunais no pool de amostras sem candidato
-usável (STM, TJAC, TJAM, TJAP, TJMS, TJPE, TJSP, TRF1) -- diversidade de
-tribunal está próxima do esgotamento no pool atual; uma rodada futura
-minerando mais volume deve também considerar candidatos adicionais em
-tribunais já representados, não só tribunais novos.
+totais. Diversidade de tribunal está confirmada esgotada no pool atual
+(nenhum tribunal novo restante mesmo com filtro de 2500-18000 chars);
+uma rodada futura minerando mais volume deve extrair candidatos
+Sentenca/Acordao adicionais em tribunais já representados -- um scan ao
+vivo desta rodada encontrou 250 candidatos nao usados restantes no
+filtro apos este lote (258 antes do lote, menos 8 consumidos), a
+maioria ja XML-limpa.
 
-**Quatro classes de risco/defeito já mapeadas para o próximo lote:**
+**Cinco classes de risco/defeito já mapeadas para o próximo lote:**
 
 1. Pares pendentes sem cue de fechamento (`capitulo_merito`/`custas`/
    `honorarios`/`relatorio`/`ementa`) — toda rodada até agora precisou de
@@ -75,3 +88,18 @@ tribunais já representados, não só tribunais novos.
    rodar o subagente de novo. Uma rodada futura deve sempre diffar
    programaticamente qualquer skip por fidelidade verbatim, mesmo quando
    os comprimentos já batem.
+5. **Achado do lote 5**: candidatos com `texto_limpo` contendo quebras
+   de linha CRLF (`\r\n`) quebram o check de fidelidade verbatim de
+   forma estrutural — a normalização obrigatória de fim de linha da
+   especificação XML (seção 2.11) torna `\r\n` irrecuperável pelo
+   mecanismo de reconstrução existente independentemente da qualidade
+   da anotação. Normalizar `texto_limpo` para LF antes de virar
+   candidato, não pedir ao subagente para preservar CRLF.
+6. **Achado do lote 6**: pares pendentes (`relatorio`/`capitulo_merito`/
+   `custas`/`honorarios`) continuam a causa mais comum de falha na
+   primeira passada (6 de 8 candidatos deste lote) — sempre confirmar
+   pelo texto bruto (não pelo auto-relato do subagente) que o par
+   realmente não tem cue de fechamento antes de declarar o override; as
+   duas formas recorrentes são "relatório dispensado" em Juizado
+   Especial e cláusulas curtas de custas/honorários sem frase de
+   fechamento própria.

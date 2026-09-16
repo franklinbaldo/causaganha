@@ -21,10 +21,14 @@ selected_work: "Run a sixth real batch through the already-proven scripts/ingest
 expected_behavior: "See success_signal in goal-djen-sample-batch6."
 entry_state: "new"
 target_state: "merged"
-decision_ids: []
-evidence_ids: []
+decision_ids:
+  - "2026-09-16-exciting-mccarthy-83kr8s-decision-accept-dangling-pairs-as-overrides"
+evidence_ids:
+  - "2026-09-16-exciting-mccarthy-83kr8s-evidence-batch6-ingested"
+  - "2026-09-16-exciting-mccarthy-83kr8s-evidence-no-new-semantic-findings"
 check_ids:
   - "2026-09-16-exciting-mccarthy-83kr8s-check-okf-parser-after-readings-goal"
+  - "2026-09-16-exciting-mccarthy-83kr8s-check-okf-parser-after-evidence-decision"
 result_state: "red"
 result_summary: ""
 next_move: ""

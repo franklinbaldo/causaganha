@@ -1,0 +1,42 @@
+{
+  "before": {
+    "document_count": 93,
+    "annotation_count": 142,
+    "review_count": 31,
+    "train_eligible_count": 93,
+    "evaluation_eligible_count": 31,
+    "blocked_on_reviews": false,
+    "val_count": 14,
+    "test_count": 14,
+    "val_ceiling_at_full_adjudication": 14,
+    "test_ceiling_at_full_adjudication": 14,
+    "meets_rfc_0012_split_floor": false,
+    "corpus_scale_blocks_floor": true
+  },
+  "after": {
+    "document_count": 101,
+    "annotation_count": 150,
+    "review_count": 31,
+    "train_eligible_count": 101,
+    "evaluation_eligible_count": 31,
+    "blocked_on_reviews": false,
+    "val_count": 15,
+    "test_count": 15,
+    "val_ceiling_at_full_adjudication": 15,
+    "test_ceiling_at_full_adjudication": 15,
+    "meets_rfc_0012_split_floor": false,
+    "corpus_scale_blocks_floor": true
+  },
+  "tribunals_added": [],
+  "candidates_ingested": [
+    {"tribunal": "TRF5", "id": "349054311", "tipo": "Sentença"},
+    {"tribunal": "TJMT", "id": "74430637", "tipo": "Sentença"},
+    {"tribunal": "TJRR", "id": "568330788", "tipo": "Sentença"},
+    {"tribunal": "TJPA", "id": "576803784", "tipo": "Sentença"},
+    {"tribunal": "TRF3", "id": "42490813", "tipo": "Sentença"},
+    {"tribunal": "TJRJ", "id": "327511452", "tipo": "Sentença"},
+    {"tribunal": "TJPB", "id": "578948205", "tipo": "Sentença"},
+    {"tribunal": "TJES", "id": "577039275", "tipo": "Sentença"}
+  ],
+  "note": "No brand-new tribunal this round -- all 8 candidates are additional Sentenca documents in tribunals already represented (per la7bsl's finding that tribunal diversity in the sample pool is exhausted). document_count growth is the only remaining lever toward RFC 0012 Sec 5 item 4's >=30/>=30 val/test floor."
+}
