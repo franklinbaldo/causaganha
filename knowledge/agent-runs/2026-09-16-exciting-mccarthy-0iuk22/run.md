@@ -28,6 +28,7 @@ evidence_ids:
   - "2026-09-16-exciting-mccarthy-0iuk22-evidence-red-test"
   - "2026-09-16-exciting-mccarthy-0iuk22-evidence-green-test"
   - "2026-09-16-exciting-mccarthy-0iuk22-evidence-real-batch-ingested"
+  - "2026-09-16-exciting-mccarthy-0iuk22-evidence-pr-opened"
 check_ids:
   - "2026-09-16-exciting-mccarthy-0iuk22-check-okf-parser-after-readings-goal-decisions"
   - "2026-09-16-exciting-mccarthy-0iuk22-check-full-suite"
