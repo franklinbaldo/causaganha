@@ -238,6 +238,38 @@ def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
     assert status["meets_rfc_0012_split_floor"] is False
 
 
+def test_real_store_reflects_batch8_corpus_growth() -> None:
+    """Regression guard for #1050 batch8 (2026-09-16, 6 docs: TJBA, TJMG,
+    TJRS, TJSE, TRF2, TJCE -- see
+    ``docs/planning/evidence/segmenter-djen-sample-batch8-2026-09-16.json``).
+
+    Before this batch: document_count=109, val_ceiling=16, test_ceiling=16
+    (last-verified live snapshot per ``knowledge/backlog/issue-1050.md``).
+    After: document_count=115, val_ceiling=17, test_ceiling=17. RED before
+    ingestion (109 < 115), GREEN after (this test only passes once the
+    batch's 6 documents are actually present in the store) -- same
+    RED->GREEN shape as every prior batch's regression guard in this file.
+
+    If this test starts seeing a *lower* document_count than 115, a
+    concurrent session's ingestion this file's own numbers were checked
+    against was rolled back or the store was reset -- investigate before
+    assuming this guard is simply stale (corpus size should only grow,
+    never shrink, per #1050's whole premise). If it is genuinely stale
+    because a later batch grew the corpus further, update the thresholds
+    forward rather than deleting the guard.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    mod = load_script("segmenter_governance_status", "scripts/segmenter_governance_status.py")
+    status = mod.compute_governance_status(store_dir)  # type: ignore[attr-defined]
+
+    assert status["document_count"] >= 115
+    assert status["val_ceiling_at_full_adjudication"] >= 17
+    assert status["test_ceiling_at_full_adjudication"] >= 17
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)

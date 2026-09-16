@@ -1,0 +1,26 @@
+{
+  "574462536": {
+    "custas": "TJBA sentença criminal: 'Sem custas.' is a standalone one-line dispositivo clause (item 24) with no separate closing cue before 'Publique-se.' starts the encerramento region -- same recurring shape as prior batches' bare custas clause with no closing determination text."
+  },
+  "442359222": {
+    "custas": "TJMG: 'Sem custas e honorários.' shares one sentence between custas and honorarios with no closing cue for either -- the recurring shared-sentence shape documented since batch4/batch7.",
+    "honorarios": "TJMG: same shared sentence as the custas override above -- 'Sem custas e honorários.' has no separate closing cue for honorarios either.",
+    "relatorio": "TJMG: short comum-cível sentença has 'Trata-se de' as the relatorio opening but no explicit 'e o relatorio.' style closing cue before the dispositivo ('Posto que...'); the relatorio region has no real closing phrase in this texto_limpo, same shape as documented for short Juizado/comum-civel exports in prior batches."
+  },
+  "458627811": {
+    "encerramento": "TJRS: texto_limpo captures only section 'III. DISPOSITIVO' of the sentença (no I/II sections, no judge-title signature present at all); 'Publique-se.' has no encerramento_fim cue anywhere in the captured excerpt -- the document simply continues with further dispositivo prose and then ends without a signature line."
+  },
+  "578946476": {
+    "custas": "TJSE acordao (Turma Recursal): 'SEM CONDENAÇÃO DO RECORRENTE EM CUSTAS E HONORÁRIOS ADVOCATÍCIOS, NOS TERMOS DO ART. 55...' shares one clause between custas and honorarios with no separate closing cue for either -- same recurring shared-clause shape as batch4/7's custas+honorarios pattern, here inside the acordao_decisorio region rather than a sentença dispositivo.",
+    "honorarios": "TJSE: same shared clause as the custas override above."
+  },
+  "301223489": {
+    "custas": "TRF2/JEF sentença: 'Sem custas nem honorários advocatícios (art. 55...)' shares one parenthetical-qualified clause between custas and honorarios with no separate closing cue for either -- same recurring shared-clause shape as batch4/7.",
+    "honorarios": "TRF2: same shared clause as the custas override above."
+  },
+  "363647741": {
+    "relatorio": "TJCE Juizado Especial sentença: 'Dispensado o relatório, nos termos do art. 38...' is a relatorio-dispensado clause with no heading word and no closing cue -- same documented shape as the guideline's own worked example (waiver clause is not a closing cue; the art. 38 citation is tagged fundamentacao_legal separately, not relatorio_fim).",
+    "custas": "TJCE: 'Sem custas e sem honorários (art. 55, da Lei nº 9.099/95).' shares one clause between custas and honorarios with no separate closing cue for either -- same recurring shared-clause shape as batch4/7.",
+    "honorarios": "TJCE: same shared clause as the custas override above."
+  }
+}

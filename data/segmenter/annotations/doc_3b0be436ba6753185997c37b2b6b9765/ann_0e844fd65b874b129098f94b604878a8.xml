@@ -1,0 +1,38 @@
+<annotation id="ann_0e844fd65b874b129098f94b604878a8" document_id="doc_3b0be436ba6753185997c37b2b6b9765">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="custas" reason="TJSE acordao (Turma Recursal): 'SEM CONDENAÇÃO DO RECORRENTE EM CUSTAS E HONORÁRIOS ADVOCATÍCIOS, NOS TERMOS DO ART. 55...' shares one clause between custas and honorarios with no separate closing cue for either -- same recurring shared-clause shape as batch4/7's custas+honorarios pattern, here inside the acordao_decisorio region rather than a sentença dispositivo." />
+    <entry base="honorarios" reason="TJSE: same shared clause as the custas override above." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T18:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">RECURSO INOMINADO NO.</inicio> ACORDÃO........: 7515/2026 ESCRIVANIA.........: ESCRIVANIA DA TURMA RECURSAL NO. PROCESSO.......202601100630 NÚMERO ÚNICO: <ref_processual ord="1">0003081-87.2025.8.25.0040</ref_processual> PROCESSO ORIGEM....202555500990 PROCEDÊNCIA........JUIZADO ESPECIAL CÍVEL E CRIMINAL DE LAGARTO GRUPO..............: I RELATOR - DR.ALDO DE ALBUQUERQUE MELLO (GABINETE 1 DA 2ª TURMA RECURSAL) 1º MEMBRO - DRA.ISABELA SAMPAIO ALVES SANTANA (GABINETE 2 DA 2ª TURMA RECURSAL) (EM SUBSTITUIÇÃO AO DR(A) DAUQUÍRIA DE MELO FERREIRA) 2º MEMBRO - DR.MARCELO AUGUSTO COSTA CAMPOS (GABINETE 3 DA 2ª TURMA RECURSAL) RECORRENTE - DEMESIO DOS SANTOS ADVOGADO - TALITA DA SILVA COSTA - OAB: 10822/SE RECORRIDO - BANCO BRADESCO S.A <fim ord="2">ADVOGADO - CARLOS AUGUSTO MONTEIRO NASCIMENTO - OAB: 1600/SE</fim></cabecalho> <ementa><inicio ord="3">EMENTA:</inicio> RECURSO INOMINADO INTERPOSTO PELA PARTE AUTORAL. DIREITO DO CONSUMIDOR E PROCESSUAL CIVIL. PARTE IDOSA E ANALFABETA. AÇÃO DE COBRANÇA INDEVIDA C/C INDENIZAÇÃO POR DANOS MORAIS. DESCONTOS INDEVIDOS EM CONTA DE RECEBIMENTO DE BENEFÍCIO PREVIDENCIÁRIO NÃO AUTORIZADO SOB A RUBRICA "PAGTO COBRANÇA ASPECIR". AUSÊNCIA DE COMPROVAÇÃO DE AUTORIZAÇÃO DE DESCONTOS. FALHA NA PRESTAÇÃO DO SERVIÇO EVIDENCIADA. DEMANDADA NÃO DESINCUMBIU DO ÔNUS PROBATÓRIO QUE LHE COMPETIA. ART. 373, II. DANOS MATERIAIS E MORAIS CONFIGURADOS. ART. 42, PARÁGRAFO ÚNICO, DO CDC. RESTITUIÇÃO EM DOBRO. QUANTUM INDENIZATÓRIO MAJORADO PARA <valor_condenacao ord="4">R$ 3.000,00</valor_condenacao> (TRÊS MIL REAIS), POSTO QUE CONDIZENTE COM OS PARÂMETROS DA COMPOSIÇÃO ATUAL DA TURMA EM SITUAÇÕES ANÁLOGAS. SENTENÇA MODIFICADA. <fim ord="5">RECURSO CONHECIDO E PARCIALMENTE PROVIDO.</fim></ementa> CONCLUSÃO: <acordao_decisorio><inicio ord="6">VISTOS, RELATADOS E DISCUTIDOS ESTES AUTOS.</inicio> ACORDAM OS JUÍZES DE DIREITO INTEGRANTES DA 2ª TURMA RECURSAL DO ESTADO DE SERGIPE, À UNANIMIDADE, EM CONHECER DO RECURSO INOMINADO INTERPOSTO PARA DAR-LHE PARCIAL PROVIMENTO. VENCIDO O JUIZ RELATOR APENAS NO VALOR INDENIZATÓRIO FIXADO. MANTIDA A RELATORIA ORIGINÁRIA <fundamentacao_legal ord="7">NOS TERMOS DO ART. 142, §2º, I DO RITJSE.</fundamentacao_legal> <custas><inicio ord="8">SEM CONDENAÇÃO DO RECORRENTE EM CUSTAS</inicio></custas> E <honorarios><inicio ord="9">HONORÁRIOS ADVOCATÍCIOS</inicio></honorarios>, <fim ord="10">NOS TERMOS DO ART. 55, 2ª PARTE, DA LEI 9.099/95.</fim></acordao_decisorio></text>
+</annotation>

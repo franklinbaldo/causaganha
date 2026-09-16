@@ -1,0 +1,39 @@
+{
+  "round_id": "2026-09-16-exciting-mccarthy-hv2ep2",
+  "before": {
+    "document_count": 109,
+    "annotation_count": 162,
+    "val_ceiling_at_full_adjudication": 16,
+    "test_ceiling_at_full_adjudication": 16
+  },
+  "after": {
+    "document_count": 115,
+    "annotation_count": 168,
+    "val_ceiling_at_full_adjudication": 17,
+    "test_ceiling_at_full_adjudication": 17
+  },
+  "documents_ingested": [
+    {"tribunal": "TJBA", "id_documento": "574462536", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJMG", "id_documento": "442359222", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJRS", "id_documento": "458627811", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJSE", "id_documento": "578946476", "tipoDocumento": "Acórdão"},
+    {"tribunal": "TRF2", "id_documento": "301223489", "tipoDocumento": "Sentença"},
+    {"tribunal": "TJCE", "id_documento": "363647741", "tipoDocumento": "Sentença"}
+  ],
+  "selection_strategy": "Tribunal-diversity mining is exhausted per knowledge/backlog/issue-1050.md (only STM/TJAC/TJAM/TJAP/TJPE/TJSP/TRF1 have no candidate); mined data/segmenter_samples/*.jsonl for unused Sentença/Acórdão candidates (2000-9000 chars, i.e. shorter/cheaper-to-annotate than recent batches) from the 7 already-represented tribunals with the lowest store document count (TJBA/TJMG/TJRS/TJSE/TRF2/TRF6/TST each had exactly 1 document pre-batch), preferring lower store_count over cue_score/preliminar this round since the goal was breadth-of-volume growth toward the ~200-document RFC 0012 floor rather than another rare-category push.",
+  "defects_hit": [
+    "TJMG/TJRS/TRF2/TRF6(dropped, see below): full or partial raw HTML markup embedded in texto_limpo (risk class 3) -- cleaned via the batch3 HTML->text extractor (docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py) before annotation, verified with a byte-for-byte tag-stripped reconstruction check rather than manual retyping.",
+    "TJBA/TRF2: NBSP (U+00A0) substituted for a plain space mid-sentence in two places ('inciso III\\xa0, do' and 'exposto,\\xa0ACOLHO\\xa0O') -- a length-preserving substitution invisible on read-through (risk class 4); caught only because exact-substring anchoring (see mechanism note below) fails loudly on any character mismatch, forcing an explicit repr() dump to find it, rather than a silent verbatim-fidelity false mismatch.",
+    "TJSE: two literal ASCII control characters (U+001C/U+001D, file/group separator) embedded mid-sentence as ad-hoc quote marks ('RUBRICA \\x1cPAGTO COBRANÇA ASPECIR\\x1d') -- not one of the 6 previously-documented risk classes; XML 1.0 forbids these code points outright (regardless of _parse_tagged's whitespace-only strip fix from batch7), so ET.fromstring fails with 'not well-formed (invalid token)' pointing at the literal byte, not at any tagging mistake. Replaced with plain ASCII double-quotes (a length-preserving substitution, same spirit as the NBSP fix) before annotating; flagging this as a 7th risk class for the backlog file.",
+    "TJCE: classic 'relatório dispensado' Juizado Especial clause with no heading word and no closing cue (risk class 1's documented Juizado shape) -- declared via --allowed-unmatched-overrides rather than fabricating a closing tag.",
+    "TJMG/TJRS(partial)/TJSE/TRF2/TJCE: custas+honorarios sharing a single dispositivo clause with no separate closing cue for either (risk class 1's most common recurring shape, hit in 4 of 6 documents this batch) -- all via reviewed --allowed-unmatched-overrides, docs/planning/evidence/segmenter-djen-sample-batch8-overrides.json.",
+    "TJRS: texto_limpo captured only the sentença's 'III. DISPOSITIVO' section (no relatorio/merito text at all, and no judge-title signature at the end) -- a partial-export shape not previously documented; left relatorio untagged entirely (zero instances is valid per the guideline) and declared encerramento's dangling inicio via override rather than fabricating a signature line.",
+    "TJBA: an over-long fundamentacao_legal anchor (156 chars, over the guideline's ~120-char ceiling) covering three distinct code citations in one clause -- caught by scripts/segmenter_semantic_audit.py's long_anchor heuristic post-ingestion, not by the mechanical validator (which has no hard length cap); fixed by re-tagging as three separate, genuinely distinct fundamentacao_legal spans (one per code), which is also the more guideline-correct reading ('tag every distinct citation').",
+    "TJSE: segmenter_semantic_audit.py flagged fundamentacao_legal_collapsed (1 tag vs. 4 raw 'art.'/'ART.' mentions) -- verified against source: the extra mentions sit inside the EMENTA's caps-lock keyword-citation style (not reasoning prose) or are the acordao_decisorio's own _fim anchor text (already boundary-tagged, not double-tagged to avoid an overlap anti-pattern). A genuine, verified false positive of the same documented shape as the 4 prior allowlist entries -- extended tests/segmenter_dataset/test_segmenter_audit_scripts.py's allowlist with doc_3b0be436ba6753185997c37b2b6b9765 and a documented reason, not silenced.",
+    "Concurrency collision (not a defect in this batch's own work, but load-bearing for the selection process): the first-picked TRF6/593231752 candidate turned out to already be in the live store (doc_0db5fffa04141a164fb9c48f11bb8c01, source_uri djen_sample_technique1:batch1:TRF6:593231752) -- ingested by a concurrent session between this round's initial store scan and its dry-run ingest attempt. The pre-ingestion dedup check itself had a latent gap (it hashed the RAW jsonl 'text' field for candidates needing HTML cleanup, not the post-clean_html plain text actually stored, so content_hash didn't match even though the underlying document was identical) -- confirmed via direct document_id/text equality check against the real store, then dropped the candidate and picked a fresh one (TJCE/363647741) instead of investigating further, per the backlog's own guidance that this dedup shape is harmless."
+  ],
+  "annotation_mechanism_note": "Every tag was inserted via an offset-based helper (str.find on the ORIGINAL source text, insertions applied back-to-front by offset) rather than hand-retyping the tagged reproduction -- this makes a verbatim-fidelity mismatch structurally impossible for any anchor the helper accepts, and turned each of the whitespace-substitution defects above into a loud, immediate ValueError (marker not found) instead of a silent corruption caught only by the mechanical validator afterward.",
+  "tribunal_counts_after": {
+    "TJBA": 2, "TJMG": 2, "TJRS": 2, "TJSE": 2, "TRF2": 2, "TJCE": 3
+  }
+}
