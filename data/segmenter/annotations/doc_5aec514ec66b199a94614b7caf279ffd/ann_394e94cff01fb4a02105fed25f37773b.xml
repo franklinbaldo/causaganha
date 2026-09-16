@@ -1,0 +1,93 @@
+<annotation id="ann_394e94cff01fb4a02105fed25f37773b" document_id="doc_5aec514ec66b199a94614b7caf279ffd">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="ementa" reason="TJSC acordao (structured ementa export): the EMENTA section heading opens the ementa but the source text has no explicit closing cue before the following ACORDAO section -- same class as prior batches' dangling ementa cases (e.g. TJRS in batch3, both TRF4 candidates in this batch)." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T06:40:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">Apelação</inicio>  Nº <ref_processual ord="1">5005682-21.2023.8.24.0026/SC</ref_processual>
+
+ RELATOR : Desembargador RICARDO ROESLER
+
+ APELANTE : NEOENERGIA VALE DO ITAJAI TRANSMISSAO DE ENERGIA S.A. (AUTOR)
+
+ ADVOGADO(A) : ALEXANDRE DOS SANTOS PEREIRA VECCHIO (OAB SC012049)
+
+ APELADO : GIOVANNA CRISTINA FIAMONCINI (RÉU)
+
+ ADVOGADO(A) : VINICIUS MONTEIRO VIDOLIN (OAB SC042066)
+
+ APELADO : LEANDRO ERVIN FIAMONCINI (RÉU)
+
+ ADVOGADO(A) : <fim ord="2">VINICIUS MONTEIRO VIDOLIN (OAB SC042066)</fim></cabecalho>
+
+<ementa><inicio ord="3">EMENTA</inicio></ementa>
+
+DIREITO PROCESSUAL CIVIL. EMBARGOS DE DECLARAÇÃO EM APELAÇÃO. OMISSÃO INEXISTENTE. EMBARGOS REJEITADOS.
+
+I. CASO EM EXAME
+
+Trato de embargos de declaração opostos contra acórdão proferido em apelação cível, no qual esta Câmara deu parcial provimento ao recurso apenas para afastar a multa por litigância de má-fé e determinar a atualização monetária do depósito prévio. A embargante sustenta a existência de omissões quanto (i) à definição da natureza do imóvel, se rural ou urbano, diante de sua destinação e (ii) à metodologia adotada no laudo pericial, especialmente quanto à utilização de critérios próprios de imóveis urbanos e à aplicação das normas da ABNT. Requer o saneamento dos vícios apontados, com efeitos infringentes, ou, subsidiariamente, o prequestionamento de dispositivos legais.
+
+II. QUESTÃO EM DISCUSSÃO
+
+Há duas questões em discussão: (i) saber se o acórdão é omisso quanto à definição da natureza do imóvel objeto da demanda, considerando a alegação de que a classificação deveria observar a sua destinação fática, e não a localização e o zoneamento urbanístico; e (ii) saber se houve omissão quanto à análise da metodologia pericial adotada, notadamente no que se refere à observância da NBR 14.653-3 e à utilização de parâmetros de avaliação de imóveis urbanos.
+
+III. RAZÕES DE DECIDIR
+
+1. Os embargos de declaração possuem fundamentação vinculada e destinam-se exclusivamente a sanar obscuridade, contradição, omissão ou erro material, não se prestando à rediscussão do mérito já apreciado.
+
+2. O acórdão enfrentou de forma expressa a controvérsia relativa à natureza do imóvel, consignando que, embora a matrícula o classifique como rural, a área está inserida em zoneamento urbano, comercial e industrial, sendo relevante, para fins de avaliação, o potencial de aproveitamento econômico do bem.
+
+3. A decisão embargada também examinou adequadamente a metodologia do laudo pericial, reconhecendo que o expert observou as normas técnicas aplicáveis, utilizou método comparativo direto de dados de mercado, com amostragem suficiente e fundamentação compatível, inexistindo vício capaz de macular a prova.
+
+4. As alegações deduzidas revelam inconformismo com as conclusões adotadas pelo órgão julgador, o que não configura omissão sanável por meio de embargos de declaração.
+
+5. O prequestionamento não exige manifestação expressa sobre todos os dispositivos legais invocados, sendo suficiente o efetivo enfrentamento da matéria, o que ocorreu no caso concreto.
+
+IV. DISPOSITIVO E TESE
+
+Embargos de declaração rejeitados.
+
+Tese de julgamento:
+1. Não há omissão quando o acórdão enfrenta de forma expressa e fundamentada a definição da natureza do imóvel, considerando sua localização, zoneamento e vocação econômica para fins de avaliação.
+2. A discordância da parte com a metodologia pericial validamente reconhecida pelo julgador configura inconformismo com o mérito, insuscetível de correção pela via dos embargos de declaração.
+
+Dispositivos relevantes citados: CPC, art. 1.022.
+
+Jurisprudência relevante citada: TJSC, Segunda Câmara de Direito Público, AC n. 5003912-90.2023.8.24.0026, Rel. Des. Carlos Adilson Silva j. 16.12.2025.
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="4">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 2ª Câmara de Direito Público do Tribunal de Justiça do Estado de Santa Catarina decidiu, <fim ord="5">por unanimidade</fim></acordao_decisorio>, <resultado ord="6">rejeitar os embargos de declaração</resultado>, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Florianópolis, 14 de abril de 2026.</text>
+</annotation>
