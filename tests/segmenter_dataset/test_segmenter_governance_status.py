@@ -238,6 +238,41 @@ def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
     assert status["meets_rfc_0012_split_floor"] is False
 
 
+def test_real_store_reflects_batch10_corpus_growth() -> None:
+    """Regression guard for #1050's tenth real DJEN sample batch.
+
+    Snapshot before this batch: 109 documents (after batches 1-8 merged;
+    a concurrent session's ninth batch, PR #1557, was still open with CI
+    pending and therefore not yet reflected here). This batch adds two
+    previously-unused real Sentença documents targeting the ``preliminar``
+    cue (still the scarcest category at 21 instances) from tribunals
+    already represented but with only one document each: TJRN/72797727
+    (``source.source_hash`` prefix ``e9cd07f4``, i.e.
+    ``segmenter_dataset.dedup.content_hash`` of the document's own text —
+    not DJEN's own ``sha256`` field, a different hash space entirely, per
+    knowledge/backlog/issue-1050.md's risk class 7) and TJBA/574460089
+    (prefix ``d91719f4``). An initial selection of TJRN/72798564 and
+    TJBA/574460090 was ingested and reverted mid-round after `git status`
+    showed zero new ``documents/`` files — both had already been ingested
+    by an earlier batch under the same (tribunal, id_documento) pair; see
+    that risk class entry and this round's AgentDecision record. If corpus
+    growth from a later concurrent batch changes the exact total, update
+    the count here rather than treating a higher number as a failure — the
+    two specific document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 111
+    assert any(h.startswith("e9cd07f4") for h in hashes), "TJRN batch10 document missing"
+    assert any(h.startswith("d91719f4") for h in hashes), "TJBA batch10 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)

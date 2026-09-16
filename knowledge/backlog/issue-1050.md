@@ -114,3 +114,26 @@ perseguir tribunais novos.
    2.11) torna `\r\n` irrecuperável pelo mecanismo de reconstrução
    existente independentemente da qualidade da anotação (achado do lote
    5). Normalizar `texto_limpo` para LF antes de virar candidato.
+7. **Deduplicar candidatos comparando o hash ERRADO não detecta nada**
+   (achado do lote 10): o `sha256` que vem em `data/segmenter_samples/*.jsonl`'s
+   `info` é o hash da DJEN sobre o artefato bruto original — um espaço de
+   hash completamente diferente de `SegmenterDatasetStore`'s próprio
+   `source.source_hash`, que é `segmenter_dataset.dedup.content_hash(text)`
+   (SHA-256 sobre o texto normalizado). Comparar um contra o outro nunca
+   detecta um duplicado real. `segmenter_dataset.ids.document_id()` deriva o
+   ID a partir de `(source_system, source_uri, source_hash=content_hash(text))`
+   — a única checagem correta antes de gastar uma chamada de subagente é
+   recalcular `content_hash(text)` com a mesma função que o store usa, **e**
+   verificar `(tribunal, id_documento)` diretamente contra os `source_uri`
+   já existentes (formato `djen_sample_technique1:batch1:{tribunal}:{id}` —
+   o literal `"batch1"` é uma constante fixa em todo lote, não o número real
+   do lote). Como `store.write_document()` é deliberadamente idempotente
+   (RFC 0012 §3.1, `ImmutabilityError` só dispara se o conteúdo diferir), um
+   candidato já ingerido some silenciosamente da mensagem "Ingested N
+   document(s)" — ela reporta sucesso de escrita da *anotação*, não se o
+   documento era novo. A unica forma confiavel de pegar isso é checar
+   `git status --short data/segmenter` depois de ingerir: se nenhum arquivo
+   novo aparecer em `documents/`, o "novo" documento já existia e a
+   anotação recém-criada é redundante (mesmo `annotator_id` fixo de sempre,
+   sem valor de segunda anotação independente para #1051) e deve ser
+   revertida, não mantida.
