@@ -1,7 +1,7 @@
 ---
 checks: ["run-checks/20260916t162542z-do-the-best-useful-work-availab/check-handoff-environment", "run-checks/20260916t162542z-do-the-best-useful-work-availab/check-handoff-disposition"]
 decisions: ["run-decisions/20260916t162542z-do-the-best-useful-work-availab/check-handoff-disposition"]
-evidence: ["run-evidence/20260916t162542z-do-the-best-useful-work-availab/evidence-ia-creds-still-absent"]
+evidence: ["run-evidence/20260916t162542z-do-the-best-useful-work-availab/evidence-ia-creds-still-absent", "run-evidence/20260916t162542z-do-the-best-useful-work-availab/evidence-batch11-ingested"]
 goals: ["run-goals/20260916t162542z-do-the-best-useful-work-availab/goal-segmenter-batch11"]
 id: "runs/20260916T162542Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260916t162542z-do-the-best-useful-work-availab/reading-handoffs", "run-readings/20260916t162542z-do-the-best-useful-work-availab/reading-skills"]
