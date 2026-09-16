@@ -28,6 +28,7 @@ decision_ids:
 evidence_ids:
   - "2026-09-16-exciting-mccarthy-la7bsl-evidence-batch5-ingested"
   - "2026-09-16-exciting-mccarthy-la7bsl-evidence-no-new-semantic-findings"
+  - "2026-09-16-exciting-mccarthy-la7bsl-evidence-pr-opened"
 check_ids:
   - "2026-09-16-exciting-mccarthy-la7bsl-check-okf-parser-after-readings-goal"
   - "2026-09-16-exciting-mccarthy-la7bsl-check-full-suite"
