@@ -1,20 +1,10 @@
 {
-  "22443810": {
-    "ementa": "sem cue de fechamento no texto-fonte -- este acordao TJPI e um export capa+ementa-estruturada: a EMENTA segue direto para a secao ACORDAO (\"Vistos, relatados e discutidos estes autos...\") sem nenhum RELATORIO/VOTO intermediario que forneca uma frase de transicao para fechar a ementa (verificado contra o texto-fonte bruto)."
-  },
-  "237077355": {
-    "capitulo_merito": "sem cue de fechamento distinto no texto-fonte -- '2. MERITO' abre a secao e o texto segue direto pela analise de cada questao ate 'CONCLUSAO' / 'ISTO POSTO' / ACORDAM, sem nenhuma frase de transicao marcando o fim do capitulo de merito (verificado contra o texto-fonte bruto, mesmo padrao documentado para outros acordaos TST/estaduais).",
-    "voto": "sem cue de fechamento distinto no texto-fonte -- 'V O T O' abre a secao e o texto do voto do relator segue ininterrupto (1. CONHECIMENTO, 2. MERITO, analise de cada questao) ate a abertura do acordao_decisorio colegiado ('ISTO POSTO... ACORDAM'), sem nenhuma frase tipo 'e o voto' fechando o voto individual (verificado contra o texto-fonte bruto)."
-  },
-  "349055692": {
-    "relatorio": "sem cue de fechamento distinto no texto-fonte -- 'Trata-se de acao proposta...' abre o relatorio e o texto segue direto para as preliminares (AFASTO...) e o merito sem nenhuma frase tipo 'e o relatorio' fechando a secao (verificado contra o texto-fonte bruto).",
-    "custas": "custas e honorarios sao negados na mesma frase ('Sem condenacao no pagamento das custas processuais e dos honorarios advocaticios (art. 55 da Lei no 9.099/1995)'), sem cue de fechamento distinto para custas isoladamente (verificado contra o texto-fonte bruto, mesmo padrao documentado em batches anteriores).",
-    "honorarios": "custas e honorarios sao negados na mesma frase ('Sem condenacao no pagamento das custas processuais e dos honorarios advocaticios (art. 55 da Lei no 9.099/1995)'), sem cue de fechamento distinto para honorarios isoladamente (verificado contra o texto-fonte bruto, mesmo padrao documentado em batches anteriores)."
-  },
   "578949084": {
-    "custas": "custas e honorarios sao definidos na mesma frase colegiada final ('... PARA LHE DAR PROVIMENTO... SEM CUSTAS E HONORARIOS ADVOCATICIOS'), sem cue de fechamento textual distinto isolando apenas a mencao a custas (verificado contra o texto-fonte bruto)."
+    "custas": "TJSE acordao ends with 'SEM CUSTAS E HONORARIOS ADVOCATICIOS, ANTE O PROVIMENTO DO RECURSO (ART. 55 DA LEI 9.099/95).' -- custas and honorarios open together in the same clause and the document ends immediately after (only a statute citation follows before EOD); there is no distinct closing cue for custas separate from honorarios. Verified against the raw source text (tail of the document) before declaring -- same shape as risk class 1 in knowledge/backlog/issue-1050.md (custas+honorarios sharing one dispositivo sentence, e.g. batch7/batch8 overrides).",
+    "honorarios": "Same clause as custas above ('SEM CUSTAS E HONORARIOS ADVOCATICIOS...') -- both open and close together at EOD with no separate closing phrase for honorarios."
   },
   "458637070": {
-    "custas": "custas e honorarios sao definidos na mesma frase final (\"Custas processuais e honorarios advocaticios serao definidos oportunamente, apos a homologacao do valor final da liquidacao.\"), sem cue de fechamento distinto isolando apenas a mencao a custas -- honorarios e a ultima secao rotulada do documento (extends-to-EOD auto-excusado), mas custas nao e a ultima, entao precisa de override explicito (verificado contra o texto-fonte bruto)."
+    "custas": "TJRS sentenca excerpt ends with 'Custas processuais e honorarios advocaticios serao definidos oportunamente, apos a homologacao do valor final da liquidacao.' -- custas and honorarios open together in the same sentence and the excerpt ends immediately after (no further text). No distinct closing cue for custas separate from honorarios. Verified against the raw source text (this is the literal last sentence of the document) before declaring -- same shape as risk class 1.",
+    "honorarios": "Same sentence as custas above -- both open and close together at EOD with no separate closing phrase for honorarios."
   }
 }
