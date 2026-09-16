@@ -381,6 +381,43 @@ def test_real_store_reflects_batch12_corpus_growth() -> None:
     assert any(h.startswith("b04a0802") for h in hashes), "TJGO batch12 document missing"
 
 
+def test_real_store_reflects_batch13_corpus_growth() -> None:
+    """Regression guard for #1050's thirteenth real DJEN sample batch.
+
+    Snapshot before this batch: 121 documents (after batches 1-12 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). A live
+    scan of every ``data/segmenter_samples/*.jsonl`` record (excluding
+    TJRO and the ``*_annotation_gold``/``*_annotation_raw`` auxiliary
+    files, filtering 2500-18000 chars, Sentenca/Acordao, deduped against
+    the current store's ``source_uri``s and ``source_hash``es) found eight
+    tribunals tied at the lowest non-singleton ``store_count`` (2 each):
+    TJPI, TJRJ, TJSE, TJMG, TRF5, TJRS, TRF2, TJTO. TJSE and TJRS each had
+    exactly one eligible unused candidate left, so both were used rather
+    than risk losing them to a concurrent session: TJSE/578949084 (an
+    Acordao carrying three raw ASCII control characters -- U+001C/U+001D
+    used as improvised quotes around a STF citation, U+0013 used as an
+    opening parenthesis before a page reference -- the same defect shape
+    as risk class 7 in ``knowledge/backlog/issue-1050.md``, resolved with
+    a length-preserving substitution to ASCII `"`/`(`) and TJRS/458637070
+    (a Sentenca with embedded raw HTML markup -- `<b>`/<table>`/`<tr>`/
+    `<td>` -- resolved with the batch3 HTML-to-text cleaner). If corpus
+    growth from a later concurrent batch changes the exact total, update
+    the count here rather than treating a higher number as a failure --
+    the two specific document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 123
+    assert any(h.startswith("c002c5d5") for h in hashes), "TJSE batch13 document missing"
+    assert any(h.startswith("eed26aff") for h in hashes), "TJRS batch13 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
