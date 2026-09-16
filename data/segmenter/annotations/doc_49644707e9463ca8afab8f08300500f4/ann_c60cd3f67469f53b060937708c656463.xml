@@ -1,0 +1,38 @@
+<annotation id="ann_c60cd3f67469f53b060937708c656463" document_id="doc_49644707e9463ca8afab8f08300500f4">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="custas" reason="djen_sample_batch1 review: source text ('Sem custas') has no distinct closing cue separating it from the following honorarios clause before encerramento -- region left open per Technique 1 annotator's analysis" />
+    <entry base="honorarios" reason="djen_sample_batch1 review: source text ('honorários') has no distinct closing cue before encerramento -- region left open per Technique 1 annotator's analysis" />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T01:40:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>ESTADO DO CEARÁ - <cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio>1ª UNIDADE DO JUIZADO ESPECIAL CÍVEL E CRIMINAL DE SOBRALCAMPUS FACULDADE LUCIANO FEIJÃORua José Lopes Ponte, 400, Dom Expedito, CEP.: 62050-215, Sobral/CETelefone (88) 3112-1023 - WhatsApp (85) 98106 6121 - E-mail: sobral.jecc1@tjce.jus.br   PROCESSO N. º: <ref_processual ord="1">3007035-28.2025.8.06.0167</ref_processual> REQUERENTE(S): Nome: JACIRA GONCALVES DE SOUSAEndereço: júlio hilário, 230, casa, Edmundo Rodrigues, FORQUILHA - CE - CEP: 62115-000 REQUERIDO(A)(S): Nome: BANCO BRADESCO S.A.Endereço: AV CIDADE DE DEUS S/N, Inexistente, OSASCO - SP - <fim ord="2">CEP: 06029-900</fim></cabecalho>       SENTENÇA/CARTA/MANDADO DE INTIMAÇÃO A SECRETARIA, POR MEIO DE ATOS ORDINATÓRIOS CERTIFICADOS NOS AUTOS, DEVERÁ UTILIZAR CÓPIA DESTE DOCUMENTO PARA DAR SEQUÊNCIA AOS COMANDOS A SEGUIR ESPECIFICADOS, INDEPENDENTEMENTE DE NOVO DESPACHO. AS INTIMAÇÕES SERÃO EFETIVADAS POR QUALQUER MEIO IDÔNEO, SEGUINDO-SE PREFERENCIALMENTE A SEGUINTE ORDEM: SISTEMA, TELEFONE (LIGAÇÃO/MENSAGEM POR WHATSAPP), CARTA/OFÍCIO COM AR, MANDADO.          SENTENÇA        <relatorio><inicio ord="3">I - RELATÓRIO</inicio> Dispensado o relatório detalhado, <fundamentacao_legal ord="4">nos termos do art. 38 da Lei nº 9.099/95</fundamentacao_legal>. Trata-se de Execução de Título Extrajudicial ajuizada por Jacira Gonçalves de Sousa em face de Banco Bradesco S.A., no valor de R$ 12.216,31 (doze mil, duzentos e dezesseis reais e trinta e um centavos), referente a descontos em benefício previdenciário decorrentes de empréstimo consignado tido por inexistente em demanda anterior. A exequente fundamenta a execução em sentença proferida nos autos nº 3000649-21.2021.8.06.0167, confirmada em grau recursal, que declarou a inexistência da contratação, condenou o banco à restituição em dobro dos valores descontados e fixou indenização por danos morais. <fim ord="5">É o essencial.</fim></relatorio> <capitulo_merito><inicio ord="6">Decido.</inicio> II - FUNDAMENTAÇÃO   O feito comporta julgamento antecipado, pois a matéria é exclusivamente de direito e prescinde de dilação probatória. A questão controvertida restringe-se à adequação da via eleita. O processo de origem (3000649-21.2021.8.06.0167) já formou título executivo judicial, que se encontra em fase de cumprimento de sentença. <fundamentacao_legal ord="7">Nos termos do art. 52 da Lei nº 9.099/95</fundamentacao_legal> e dos arts. 513 e seguintes do CPC, a forma adequada de buscar a satisfação da obrigação reconhecida em juízo é o cumprimento de sentença, e não a instauração de nova execução de título extrajudicial. Portanto, a presente execução não pode prosperar, restando à parte autora a via própria do cumprimento de sentença, que já ocorreu e já foi extinta. <fim ord="8">III - DISPOSITIVO</fim></capitulo_merito>   <dispositivo_abertura ord="9">Ante o exposto</dispositivo_abertura>, <resultado ord="10">JULGO EXTINTO O PROCESSO</resultado>, SEM RESOLUÇÃO DO MÉRITO, <fundamentacao_legal ord="11">com fundamento no art. 485, VI, do CPC</fundamentacao_legal>, em razão da inadequação da via eleita e da coisa julgada formal. <custas><inicio ord="12">Sem custas</inicio></custas> e <honorarios><inicio ord="13">honorários</inicio></honorarios>, <fundamentacao_legal ord="14">nos termos do art. 55 da Lei nº 9.099/95</fundamentacao_legal>. <encerramento><inicio ord="15">Publique-se.</inicio> Registre-se. Intimem-se. Após o trânsito em julgado, arquivem-se os autos. Sobral, data da assinatura eletrônica.  Carlos Augusto Machado de Aguiar JúniorJuiz Leigo   Pelo MM. Juiz de Direito foi proferida a seguinte sentença: <fundamentacao_legal ord="16">Nos termos do art. 40 da Lei 9.099/95</fundamentacao_legal>, HOMOLOGO o projeto de sentença elaborado pelo Juiz Leigo, para que surta seus jurídicos e legais efeitos. Publique-se. Registre-se. Intime-se. Expedientes necessários.   Bruno dos Anjos<fim ord="17">Juiz de Direito</fim></encerramento></text>
+</annotation>
