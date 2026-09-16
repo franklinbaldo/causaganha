@@ -1,0 +1,44 @@
+{
+  "batch": 11,
+  "run_id": "runs/20260916T162542Z-do-the-best-useful-work-available-in-this-reposi",
+  "documents_ingested": [
+    {
+      "tribunal": "TJRN",
+      "id_documento": "72796443",
+      "tipoDocumento": "Sentença",
+      "document_id": "doc_82152f401d043b283afe979c22665b19",
+      "notes": "19078 chars. Clean text (no CRLF/NBSP/control chars/HTML). Ingested cleanly, no overrides needed."
+    },
+    {
+      "tribunal": "TJMA",
+      "id_documento": "42728353",
+      "tipoDocumento": "Sentença",
+      "document_id": "doc_c8e8fed1aa63fab1538a9893a3b0b280",
+      "notes": "9462 chars. Clean text. relatorio and capitulo_merito dangling pairs overridden (risk class 1) -- both open on a bare heading ('Trata-se de' / 'Decido.') with the surrounding prose continuing straight through with no distinct closing cue."
+    }
+  ],
+  "rejected_candidates": [
+    {
+      "tribunal": "TST",
+      "id_documento": "237077355 / 237077375",
+      "reason": "both reproduce the identical judgment for the same case (TST-AIRR-0094800-39.1997.5.20.0003), differing only in the Intimado(s)/Citado(s) footer party name -- would pad document_count without real training diversity, never annotated."
+    }
+  ],
+  "process_defect_caught_and_reverted": {
+    "document_id": "doc_c8e8fed1aa63fab1538a9893a3b0b280",
+    "reason": "first ingestion attempt used a single directory for both raw source .txt files and subagent tagged-output .txt files (named <id>.tagged.txt); the ingest script's tagged_dir.glob('*.txt') + Path.stem keying matched the RAW source text for TJRN/72796443 instead of its tagged annotation, silently ingesting a zero-label annotation. Caught via git status --short data/segmenter showing the new document/annotation before any git add; reverted with a plain rm, then re-run with tagged files in a separate directory. See knowledge/backlog/issue-1050.md risk class 10."
+  },
+  "governance_status_before": {
+    "document_count": 117,
+    "annotation_count": 170,
+    "val_ceiling_at_full_adjudication": 18,
+    "test_ceiling_at_full_adjudication": 18
+  },
+  "governance_status_after": {
+    "document_count": 119,
+    "annotation_count": 172,
+    "val_ceiling_at_full_adjudication": 18,
+    "test_ceiling_at_full_adjudication": 18
+  },
+  "semantic_audit_new_findings": 0
+}

@@ -309,6 +309,46 @@ def test_real_store_reflects_batch10_corpus_growth() -> None:
     assert any(h.startswith("d91719f4") for h in hashes), "TJBA batch10 document missing"
 
 
+def test_real_store_reflects_batch11_corpus_growth() -> None:
+    """Regression guard for #1050's eleventh real DJEN sample batch.
+
+    Snapshot before this batch: 117 documents (after batches 1-10 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). Unlike
+    batches 6/7/10, no unused ``preliminar``-cue candidate remains in any
+    already-represented tribunal (a fresh scan over every
+    ``data/segmenter_samples/*.jsonl`` record, excluding every
+    ``(tribunal, id_documento)`` pair already present in the store, found
+    zero); this batch follows batch9's volume strategy instead, picking the
+    two least-represented tribunals (both at ``store_count=2``) with a
+    genuinely new, non-duplicate, markup-free candidate available: TJRN and
+    TJMA. TJRN/72796443 (``source.source_hash`` prefix ``2ed02f57``) is a
+    clean-text Sentença; TJMA/42728353 (prefix ``766e2846``) is a Sentença
+    hitting ``acordao_decisorio``/``custas``/``honorarios``/``voto`` cues. A
+    TST Acórdão candidate pair was scanned and rejected first: both
+    ``237077355`` and ``237077375`` in ``tst_acordao.jsonl`` reproduce the
+    identical judgment body for the same case
+    (``TST-AIRR-0094800-39.1997.5.20.0003``), differing only in the
+    ``Intimado(s)/Citado(s)`` footer party name -- ingesting both would pad
+    ``document_count`` without adding real training diversity, the same
+    anti-pattern the corpus-scale floor (RFC 0012 Sec 5 item 4) is meant to
+    guard against. If corpus growth from a later concurrent batch changes
+    the exact total, update the count here rather than treating a higher
+    number as a failure -- the two specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 119
+    assert any(h.startswith("2ed02f57") for h in hashes), "TJRN batch11 document missing"
+    assert any(h.startswith("766e2846") for h in hashes), "TJMA batch11 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
