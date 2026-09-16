@@ -1,0 +1,10 @@
+{
+  "578949084": {
+    "custas": "TJSE acordao ends with 'SEM CUSTAS E HONORARIOS ADVOCATICIOS, ANTE O PROVIMENTO DO RECURSO (ART. 55 DA LEI 9.099/95).' -- custas and honorarios open together in the same clause and the document ends immediately after (only a statute citation follows before EOD); there is no distinct closing cue for custas separate from honorarios. Verified against the raw source text (tail of the document) before declaring -- same shape as risk class 1 in knowledge/backlog/issue-1050.md (custas+honorarios sharing one dispositivo sentence, e.g. batch7/batch8 overrides).",
+    "honorarios": "Same clause as custas above ('SEM CUSTAS E HONORARIOS ADVOCATICIOS...') -- both open and close together at EOD with no separate closing phrase for honorarios."
+  },
+  "458637070": {
+    "custas": "TJRS sentenca excerpt ends with 'Custas processuais e honorarios advocaticios serao definidos oportunamente, apos a homologacao do valor final da liquidacao.' -- custas and honorarios open together in the same sentence and the excerpt ends immediately after (no further text). No distinct closing cue for custas separate from honorarios. Verified against the raw source text (this is the literal last sentence of the document) before declaring -- same shape as risk class 1.",
+    "honorarios": "Same sentence as custas above -- both open and close together at EOD with no separate closing phrase for honorarios."
+  }
+}
