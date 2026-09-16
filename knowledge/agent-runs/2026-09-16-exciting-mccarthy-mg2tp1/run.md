@@ -24,9 +24,13 @@ entry_state: "new"
 target_state: "merged"
 decision_ids:
   - "2026-09-16-exciting-mccarthy-mg2tp1-decision-reuse-batch3-html-cleaner"
-evidence_ids: []
+  - "2026-09-16-exciting-mccarthy-mg2tp1-decision-patch-nbsp-instead-of-redo"
+evidence_ids:
+  - "2026-09-16-exciting-mccarthy-mg2tp1-evidence-batch4-ingested"
+  - "2026-09-16-exciting-mccarthy-mg2tp1-evidence-collapsed-heuristic-regression-red-green"
 check_ids:
   - "2026-09-16-exciting-mccarthy-mg2tp1-check-okf-parser-after-readings-goal-decision"
+  - "2026-09-16-exciting-mccarthy-mg2tp1-check-okf-parser-after-evidence-decision"
 result_state: "red"
 result_summary: ""
 next_move: ""

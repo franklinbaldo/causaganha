@@ -1,0 +1,51 @@
+<annotation id="ann_6e44a398a1cef93f6aad808ff23f63dc" document_id="doc_0db5fffa04141a164fb9c48f11bb8c01">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-16T06:40:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">RECURSO CÍVEL</inicio>  Nº <ref_processual ord="1">1000372-39.2021.4.01.3812/MG</ref_processual>
+
+ RELATOR : Juiz Federal ATANAIR NASSER RIBEIRO LOPES
+
+ RECORRENTE : ALESSANDER TADEU COSTA
+
+ ADVOGADO(A) : HUMBERTO MARCIAL FONSECA (OAB MG055867)
+
+ ADVOGADO(A) : NASSER AHMAD ALLAN (OAB PR028820)
+
+ ADVOGADO(A) : JANAINA CONCEICAO DE SOUSA BRAGA (<fim ord="2">OAB MG168113</fim></cabecalho>)
+
+ACÓRDÃO
+
+A 4ª Turma Recursal dos Juizados Especiais Federais de Minas Gerais <acordao_decisorio><inicio ord="3">decidiu, por unanimidade</inicio>, negar provimento ao recurso do autor, condenando-o ao pagamento das custas e dos honorários sucumbenciais fixados em 10% sobre o <fim ord="4">valor corrigido da causa</fim></acordao_decisorio>." E destacou que a TNU firmou a tese: "As contribuições do assistido destinadas ao saneamento das finanças da entidade fechada de previdência privada podem ser deduzidas da base de cálculo do imposto sobre a renda, mas dentro do limite legalmente previsto (art. 11 da Lei n° 9.532/97)."Observa-se que a decisão embargada apreciou integralmente a controvérsia jurídica posta em julgamento, enfrentando a tese referente ao limite legal de 12% e concluindo pela improcedência do pedido de dedução sem limitação.Quanto ao alegado pedido de suspensão do processo, verifica-se que a controvérsia já se encontrava pacificada no âmbito da Turma Nacional de Uniformização (Tema 171), com trânsito em julgado indicado tanto na sentença quanto no voto . O acórdão aplicou diretamente a tese uniformizada. Não há elemento nos autos que demonstre que a eventual afetação posterior no STJ tivesse o condão de afastar a aplicação do precedente já consolidado e vinculante no âmbito dos Juizados Especiais Federais.Além disso, o pedido de suspensão não constitui ponto central da controvérsia de mérito, mas medida processual acessória. A ausência de menção expressa não caracteriza omissão quando o órgão julgador resolve integralmente a questão principal submetida à apreciação, aplicando precedente uniformizador pertinente.O voto enfrentou a tese jurídica discutida, aplicou o entendimento da TNU e concluiu de forma fundamentada. Não há obscuridade, contradição ou omissão quanto ao mérito efetivamente devolvido à Turma Recursal. O embargante demonstra inconformismo com a conclusão adotada, buscando rediscutir matéria já apreciada. Portanto, se a embargante deseja rediscutir as razões do acórdão, o recurso adequado não são os embargos de declaração.<dispositivo_abertura ord="5">Posto isso</dispositivo_abertura>, <resultado ord="6">voto por rejeitar os embargos</resultado>. Ressalto que a interposição de novos embargos pode, se for o caso, sujeitar o recorrente às sanções processuais pertinentes (art. 1.025, parágrafos segundo e terceiro, do CPC), nos termos do voto do(a) Relator(a).
+
+Belo Horizonte, 20 de abril de 2026.</text>
+</annotation>

@@ -190,10 +190,20 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     ``ref_normativa`` is excluded from the trainable label space
     (RFC 0012 §5, ``ontology.EXCLUDED_CATEGORIES``) so it never reaches the
     annotation the heuristic scans. The heuristic's ``>3`` threshold counts
-    those excluded citations anyway. If this test starts seeing *more* than
-    these two findings, a new real omission was introduced and needs the
-    same triage — repair it, or extend this allowlist with a documented
-    reason, never silence the assertion.
+    those excluded citations anyway.
+
+    ``doc_f985597a64cc7b5ad06731c072915a7a`` (djen_sample batch4, TRF4,
+    2026-09-16) is the identical shape of false positive: one real
+    ``fundamentacao_legal`` span ("conforme art. 447 do CC") plus 3 further
+    "art." mentions (CPC art. 886, CPC art. 903, CC art. 182) that were
+    correctly tagged ``ref_normativa`` and therefore dropped from the
+    stored annotation the same way, leaving the heuristic's raw text scan
+    to count all 4 and flag a false collapse.
+
+    If this test starts seeing *more* than these three findings, a new
+    real omission was introduced and needs the same triage — repair it, or
+    extend this allowlist with a documented reason, never silence the
+    assertion.
     """
     store_dir = Path("data/segmenter")
     if not store_dir.exists():
@@ -211,4 +221,5 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     assert collapsed_doc_ids == {
         "doc_d61aecbf08b525a26f908f655285fe6c",
         "doc_3cffd7961e9fc910f6ae628f5aaa6c40",
+        "doc_f985597a64cc7b5ad06731c072915a7a",
     }
