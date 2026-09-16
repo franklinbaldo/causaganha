@@ -3,10 +3,10 @@ type: BacklogItem
 issue_number: 1050
 title: "segmenter: repair and scale the real training corpus with agent annotation"
 category: "ml_data_work"
-blocking_reason: "Not blocked. Twelve real batches now proven through scripts/ingest_djen_sample_technique1_batch.py, run under alternating report mechanisms (legacy AgentRun scaffold and the current Wisk runtime) without needing a production-code change for most of them: batch1 (0iuk22) 7 docs/7 tribunals; batch2 (jyqinl) 6 docs/6 tribunals; batch3 (uyx7xc) 7 docs/7 tribunals; batch4 (mg2tp1) 5 docs/3 tribunals; batch5 (la7bsl) 7 docs (4 TJMS + 2 TJPA + 1 TJPI), first round to widen the candidate-length floor to 2500 chars and surface TJMS as a 25th tribunal; batch6 (Wisk round, PR #1549) 3 docs across TRF3/TJCE/TJMT (already-represented tribunals), targeting the 'preliminar' cue; batch7 (round zrek2s, PR #1553) 6 docs across TJRJ/TJGO/TJTO/TJPB/TJMA/TJRR, also targeting 'preliminar', and fixed a real production bug (see risk class 5 below); batch8 (round 83kr8s, PR #1552) 8 docs across TRF5/TJMT/TJRR/TJPA/TRF3/TJRJ/TJPB/TJES; batch9 (round hv2ep2, PR #1557) 6 docs across TJBA/TJMG/TJRS/TJSE/TRF2/TJCE (all already-represented tribunals, chosen for lowest store document-count rather than rare-category cue; hit a real concurrency collision of its own, see risk class 8 below); batch10 (round imy2ed, PR #1559) 2 docs targeting 'preliminar' (TJBA/574460089, TJRN/72797727) -- an initial selection (TJRN/72798564, TJBA/574460090) was reverted mid-round after discovering both were already-ingested duplicates (see risk class 9 below); batch11 (Wisk round, PR #1562) 2 docs, TJRN/72796443 and TJMA/42728353, both already-represented tribunals at the lowest store_count tier (2 each) -- no unused 'preliminar'-cue candidate remained anywhere in an already-represented tribunal after a fresh full scan, so this batch followed batch9's volume strategy instead; hit a new process defect, see risk class 10 below; batch12 (round 5lvbii, this merge) 2 docs, TJES/577054686 and TJGO/543562390, tied for the lowest non-singleton store_count (2 each) with a 'preliminar' cue each -- TJGO needed html.unescape() (364 raw HTML entities, no embedded markup) and a reviewed override for two pairs with no closing cue in the source (capitulo_merito, custas), verified against the raw text before declaring; batch13 (round 96cgqx) 2 docs, TJSE/578949084 (Acordao) and TJRS/458637070 (Sentenca), both the ONLY remaining eligible candidate for their respective tribunal (store_count=2 each, tied with TJPI/TJMG/TRF5/TRF2/TJTO) -- ingested both rather than risk losing them to a concurrent session. Contrary to batch11's finding that the 'preliminar' cue was exhausted among already-represented tribunals, a fresh live scan restricted to the 8 tribunals tied at store_count=2 found PLENTY of unused 'preliminar'-cue candidates still available in that specific slice (TJPI 5, TJRJ 10, TJSE 1, TRF5 20, TJRS 1, TRF2 22, TJTO 28) -- batch11's exhaustion finding was scoped to the tribunals it checked at the time, not a permanent property of the whole pool; always re-scan live rather than trusting a prior batch's exhaustion claim without checking the specific tribunal set in front of you. TJSE had 3 raw ASCII control characters (U+001C/U+001D as improvised quotes, U+0013 as an opening parenthesis) -- resolved with a length-preserving ASCII substitution (risk class 7); TJRS had embedded raw HTML markup (<b>/<table>/<tr>/<td>) -- resolved with the batch3 cleaner (risk class 3). Both hit the same dangling custas+honorarios pair (shared closing sentence, no distinct cue) already documented as risk class 1; verified against each raw source text before declaring the override. document_count moved 61->68->74->81->86->93->96->102->109->115->117->119->121->123, val/test ceiling 17/17 (batch9, 115 docs) ->18/18 (117 docs, unchanged through 123 -- no batch since batch9 has crossed the next ceiling step) -- recheck scripts/segmenter_governance_status.py live rather than trusting any cached number in this file, including this one. Still far below RFC 0012 Sec 5 item 4's >=30/>=30 floor (needs roughly 200 total documents)."
-unblock_condition: "Already unblocked, twelve rounds of proof the ingestion path scales without code changes (one real production bug found and fixed along the way by batch7 -- see risk class 5). A future round should keep running batches through scripts/ingest_djen_sample_technique1_batch.py against the remaining pool in data/segmenter_samples/*.jsonl. Always verify document_count/tribunal distribution LIVE via scripts/segmenter_governance_status.py and SegmenterDatasetStore.list_documents() before selecting a batch's candidates -- this backlog file's own numbers have repeatedly lagged real state between concurrent rounds (multiple independent sessions picked up the same next_move within the same day for batches 6-12); do not trust last_verified_run_id's snapshot without a live re-check, and expect another concurrent session to be working this same issue at any given moment. Before spawning an annotation subagent for a candidate, dedupe it correctly per risk class 9 below (content_hash(text) + (tribunal, id_documento)-vs-source_uri, NOT any externally-sourced hash field). After a dry-run ingest, always verify each returned document_id against the real store's documents/<id>.xml before writing for real, AND keep the tagged-annotation directory passed to --tagged-dir free of any file that shares a bare `<id_documento>.txt` name with a source/candidate file -- see risk class 10 below, a real batch11 near-miss. Tribunal-diversity mining is exhausted (only STM, TJAC, TJAM, TJAP, TJPE, TJSP, TRF1 remain without a usable candidate -- re-confirmed live by batch12 as still exhausted after excluding *_annotation_gold/*_annotation_raw auxiliary files from the scan) -- the path forward is picking more unused Sentenca/Acordao candidates from already-represented tribunals by volume (lowest store_count first), not chasing new tribunals. batch11's claim that the 'preliminar' rare-category cue was exhausted among already-represented tribunals turned out to be scoped to the tribunals it happened to check, not a permanent property of the whole pool: batch13's live scan of just the 8 tribunals tied at store_count=2 found dozens of unused 'preliminar' candidates (TRF2 22, TJTO 28, TRF5 20, TJRJ 10, TJPI 5) -- always re-scan live for the specific tribunal set in front of you rather than trusting a prior batch's exhaustion claim at face value. As of batch13 (live, verified via the store_counts scan above), TJPI/TJRJ/TJMG/TRF5/TRF2/TJTO are the lowest tier (store_count=2, TJSE/TJRS moved to 3); TRF6/TST/TJSC remain singletons (store_count=1) but are exhausted (no unused candidate) per batch11/batch12. When a start/end pair has no closing cue in the source text (a recurring, expected shape, not a bug -- see risk classes 4/6), verify against the raw source text before declaring a --allowed-unmatched-overrides reason, same as every prior batch that hit this. IMPORTANT for whichever mechanism picks this up next: knowledge/agent-runs/index.md and .claude/hourly-loop.md declare the legacy AgentRun mechanism (this file's own historical updates through batch10 came from that mechanism) deprecated in favor of the Wisk runtime (.wisk/knowledge/) for the CausaGanha hourly loop -- batches 6, 7 and 11 ran under Wisk, batch12 ran under the legacy AgentRun scaffold again (its scheduled prompt still hard-codes it; the conflict was escalated once via notification on 2026-09-14/to0ars and reconfirmed unchanged by every AgentRun round since, including this one -- no need to re-escalate again absent a real change). This BacklogItem type is not itself named in the deprecation list (only AgentRun/AgentReading/AgentGoal/AgentDecision/AgentEvidence/AgentCheck are), so it is kept updated here regardless of which mechanism a future round uses, but check .wisk/knowledge/ too before assuming this file alone is current. Budget for ten known defect/risk classes before trusting a batch's first pass -- see the numbered list below, including risk class 5 (a real production fix, already merged) and risk classes 7-10 (candidate-selection/concurrency/tooling process bugs, not production-code bugs)."
-last_verified_run_id: "2026-09-16-exciting-mccarthy-96cgqx"
-last_verified_at: "2026-09-16T18:45:00Z"
+blocking_reason: "Not blocked. Fourteen real batches now proven through scripts/ingest_djen_sample_technique1_batch.py, run under alternating report mechanisms (legacy AgentRun scaffold and the current Wisk runtime) without needing a production-code change for most of them: batch1 (0iuk22) 7 docs/7 tribunals; batch2 (jyqinl) 6 docs/6 tribunals; batch3 (uyx7xc) 7 docs/7 tribunals; batch4 (mg2tp1) 5 docs/3 tribunals; batch5 (la7bsl) 7 docs (4 TJMS + 2 TJPA + 1 TJPI), first round to widen the candidate-length floor to 2500 chars and surface TJMS as a 25th tribunal; batch6 (Wisk round, PR #1549) 3 docs across TRF3/TJCE/TJMT (already-represented tribunals), targeting the 'preliminar' cue; batch7 (round zrek2s, PR #1553) 6 docs across TJRJ/TJGO/TJTO/TJPB/TJMA/TJRR, also targeting 'preliminar', and fixed a real production bug (see risk class 5 below); batch8 (round 83kr8s, PR #1552) 8 docs across TRF5/TJMT/TJRR/TJPA/TRF3/TJRJ/TJPB/TJES; batch9 (round hv2ep2, PR #1557) 6 docs across TJBA/TJMG/TJRS/TJSE/TRF2/TJCE (all already-represented tribunals, chosen for lowest store document-count rather than rare-category cue; hit a real concurrency collision of its own, see risk class 8 below); batch10 (round imy2ed, PR #1559) 2 docs targeting 'preliminar' (TJBA/574460089, TJRN/72797727) -- an initial selection (TJRN/72798564, TJBA/574460090) was reverted mid-round after discovering both were already-ingested duplicates (see risk class 9 below); batch11 (Wisk round, PR #1562) 2 docs, TJRN/72796443 and TJMA/42728353, both already-represented tribunals at the lowest store_count tier (2 each) -- no unused 'preliminar'-cue candidate remained anywhere in an already-represented tribunal after a fresh full scan, so this batch followed batch9's volume strategy instead; hit a new process defect, see risk class 10 below; batch12 (round 5lvbii, PR #1563) 2 docs, TJES/577054686 and TJGO/543562390, tied for the lowest non-singleton store_count (2 each) with a 'preliminar' cue each -- TJGO needed html.unescape() (364 raw HTML entities, no embedded markup) and a reviewed override for two pairs with no closing cue in the source (capitulo_merito, custas), verified against the raw text before declaring; batch13 (round 96cgqx, PR #1565) 2 docs, TJSE/578949084 (Acordao) and TJRS/458637070 (Sentenca), both the ONLY remaining eligible candidate for their respective tribunal (store_count=2 each, tied with TJPI/TJMG/TRF5/TRF2/TJTO) -- TJSE had 3 raw ASCII control characters (U+001C/U+001D as improvised quotes, U+0013 as an opening parenthesis), resolved with a length-preserving ASCII substitution (risk class 7); TJRS had embedded raw HTML markup, resolved with the batch3 cleaner (risk class 3); batch14 (this Wisk round) 3 docs, TST/237077355, TJPI/22443810, TRF5/349055692 -- a genuinely independent, concurrent session (this same round) picked the identical starting snapshot (121 documents) and the same volume-tier strategy as batch13, landing on TJSE/578949084 and TJRS/458637070 as well before either PR merged; discovered only as a merge conflict against origin/main after batch13 had already merged as PR #1565 (see risk class 12 below). Reconciled by keeping PR #1565's TJSE/TJRS as canonical and dropping this round's own re-ingestion of both (TJRS was a byte-identical duplicate document_id, no data loss; TJSE differed only in one substituted control character, so both sessions' TJSE ingestion could not both be kept without producing a true near-duplicate in the corpus). A sixth candidate this round selected before the merge, TJSC/587254906, was also reverted for an unrelated reason: it already existed in the store from batch4 (PR #1545), because data/segmenter_samples/tjsc_acordao.jsonl's own info.tribunal field is blank for every record in that file, silently breaking the (tribunal, id) dedup check against the store's real tribunal value (see risk class 11 below). document_count moved 61->68->74->81->86->93->96->102->109->115->117->119->121->123 (batch13)->126 (batch14), val/test ceiling 17/17 (batch9, 115 docs) ->18/18 (117-121 docs) ->19/19 (126 docs, after batch14) -- recheck scripts/segmenter_governance_status.py live rather than trusting any cached number in this file, including this one. Still far below RFC 0012 Sec 5 item 4's >=30/>=30 floor (needs roughly 200 total documents)."
+unblock_condition: "Already unblocked, fourteen rounds of proof the ingestion path scales without code changes (one real production bug found and fixed along the way by batch7 -- see risk class 5). A future round should keep running batches through scripts/ingest_djen_sample_technique1_batch.py against the remaining pool in data/segmenter_samples/*.jsonl. Always verify document_count/tribunal distribution LIVE via scripts/segmenter_governance_status.py and SegmenterDatasetStore.list_documents() before selecting a batch's candidates -- this backlog file's own numbers have repeatedly lagged real state between concurrent rounds (multiple independent sessions picked up the same next_move within the same day for batches 6-14, batches 13 and 14 even picking the exact same two candidates independently -- see risk class 12); do not trust last_verified_run_id's snapshot without a live re-check, and expect another concurrent session to be working this same issue at any given moment. Before spawning an annotation subagent for a candidate, dedupe it correctly per risk class 9 below (content_hash(text) + (tribunal, id_documento)-vs-source_uri, NOT any externally-sourced hash field) -- AND per risk class 11, derive the tribunal side of that pair from the jsonl FILENAME, not from the candidate record's own info.tribunal field, since at least one file (tjsc_acordao.jsonl) has that field blank for every record. After a dry-run ingest, always verify each returned document_id against the real store's documents/<id>.xml before writing for real (git status --short data/segmenter after a REAL ingest is the reliable tell: a candidate that produces only a new annotations/<id>/ann_*.xml with no matching new documents/<id>.xml was already in the store -- revert that annotation file, it adds no independence value if its annotator_config matches the pre-existing one), AND keep the tagged-annotation directory passed to --tagged-dir free of any file that shares a bare `<id_documento>.txt` name with a source/candidate file -- see risk class 10 below, a real batch11 near-miss. Before opening a PR, fetch and diff against the current origin/main tip (not just the branch's own stale base) to catch a same-candidate collision with a concurrent session's already-merged batch before it becomes a merge conflict -- see risk class 12. Tribunal-diversity mining is exhausted (only STM, TJAC, TJAM, TJAP, TJPE, TJSP, TRF1 remain without a usable candidate) -- the path forward is picking more unused Sentenca/Acordao candidates from already-represented tribunals by volume (lowest store_count first), not chasing new tribunals or a specific rare category; after batch14, TJMG/TJRJ/TJTO/TRF2/TJGO/TJES are the lowest non-exhausted tier (2-3 each) -- TJSC/TRF6/TST (the tier batches 13/14 drew from) are now exhausted below the 2500-char floor or fully ingested. When a start/end pair has no closing cue in the source text (a recurring, expected shape, not a bug -- see risk classes 4/6), verify against the raw source text before declaring a --allowed-unmatched-overrides reason, same as every prior batch that hit this. A source jsonl with raw HTML markup (<b>/<table>/<br>/etc, not just entities) needs the batch3 HTML-to-text cleaner (docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py) BEFORE handing the text to an annotation subagent, not just html.unescape() -- batch13/14 found this the hard way for TJSC, TJRS and TST, each requiring a redo after the first annotation attempt silently reproduced the markup or hit malformed-XML. IMPORTANT for whichever mechanism picks this up next: knowledge/agent-runs/index.md and .claude/hourly-loop.md declare the legacy AgentRun mechanism (this file's own historical updates through batch10 came from that mechanism) deprecated in favor of the Wisk runtime (.wisk/knowledge/) for the CausaGanha hourly loop -- batches 6, 7, 11 and 14 ran under Wisk, batch12/13 ran under the legacy AgentRun scaffold again (its scheduled prompt still hard-codes it; the conflict was escalated once via notification on 2026-09-14/to0ars and reconfirmed unchanged by every AgentRun round since). This BacklogItem type is not itself named in the deprecation list (only AgentRun/AgentReading/AgentGoal/AgentDecision/AgentEvidence/AgentCheck are), so it is kept updated here regardless of which mechanism a future round uses, but check .wisk/knowledge/ too before assuming this file alone is current. Budget for twelve known defect/risk classes before trusting a batch's first pass -- see the numbered list below, including risk class 5 (a real production fix, already merged) and risk classes 7-12 (candidate-selection/concurrency/tooling process bugs, not production-code bugs)."
+last_verified_run_id: "wisk:20260916T192702Z-do-the-best-useful-work-available-in-this-reposi"
+last_verified_at: "2026-09-16T20:35:00Z"
 status: "unblocked"
 ---
 
@@ -163,22 +163,34 @@ exigir mudança de código de produção na maioria delas:
   Audit semântico não encontrou nenhum achado novo nos dois documentos
   (9 achados totais, todos pré-existentes e já na allowlist). Nenhuma
   classe de risco nova.
+- **Lote 14** (esta rodada, Wisk): 3 documentos, TST/237077355,
+  TJPI/22443810, TRF5/349055692 -- a parte não sobreposta do que esta
+  sessão originalmente selecionou como 6 candidatos, depois que um
+  merge contra `origin/main` revelou colisão com o lote 13 (mesclado
+  concorrentemente como PR #1565 a partir do mesmo snapshot de 121
+  documentos) para TJRS e TJSE, e com o lote 4 para TJSC (ver classes de
+  risco 11 e 12, a última nova nesta rodada). `document_count`
+  123->126 (após o lote 13), teto de val/test 18/18->19/19. TST tinha
+  markup HTML bruto na fonte (tags `<br>`) -- limpo com o cleaner do
+  lote 3. Nenhum achado novo do audit semântico nos 3 documentos.
 
 **Por que continua aberta:** o piso de RFC 0012 §5 item 4 (>=30 val,
 >=30 teste, cada um adjudicado) continua exigindo algo perto de 200
-documentos totais; estamos em 123 apos mesclar o lote 13 (recheque
+documentos totais; estamos em 126 apos mesclar os lotes 13 e 14 (recheque
 ao vivo antes de confiar neste número, dado o ritmo de rodadas
-concorrentes neste mesmo dia). A mineração por diversidade de tribunal
-está praticamente esgotada (restam apenas STM, TJAC, TJAM, TJAP, TJPE,
-TJSP, TRF1 sem candidato usável, reconfirmado pelo lote 12) -- os lotes
-6-13 confirmam que o caminho daqui em diante é escolher mais candidatos
-não usados em tribunais já representados por volume (menor
-`store_count` primeiro): TJPI/TJRJ/TJMG/TRF5/TRF2/TJTO estão no menor
-nível (2 cada) apos o lote 13. A categoria rara `preliminar` **não**
-está esgotada nesse universo -- o lote 13 encontrou dezenas de
-candidatos não usados nos próprios tribunais do menor nível (ver acima);
-o "esgotamento" relatado pelo lote 11 era escopo apenas dos tribunais
-checados naquele momento.
+concorrentes neste mesmo dia -- duas sessões já colidiram no mesmo
+candidato uma vez, ver classe de risco 12). A mineração por diversidade
+de tribunal está praticamente esgotada (restam apenas STM, TJAC, TJAM,
+TJAP, TJPE, TJSP, TRF1 sem candidato usável, reconfirmado pelo lote 12)
+-- os lotes 6-14 confirmam que o caminho daqui em diante é escolher mais
+candidatos não usados em tribunais já representados por volume (menor
+`store_count` primeiro): TJMG/TJRJ/TJTO/TRF2/TJGO/TJES estão no menor
+nível não esgotado apos o lote 14 (TJSC/TRF6/TST, o nível usado pelos
+lotes 13/14, estão esgotados ou abaixo do piso de tamanho). A categoria
+rara `preliminar` **não** está esgotada nesse universo -- o lote 13
+encontrou dezenas de candidatos não usados nos próprios tribunais do
+menor nível (ver acima); o "esgotamento" relatado pelo lote 11 era
+escopo apenas dos tribunais checados naquele momento.
 
 **Nove classes de risco/defeito já mapeadas para o próximo lote:**
 
@@ -303,3 +315,81 @@ checados naquele momento.
     (`cat data/segmenter/annotations/<id>/ann_*.xml | grep -c '<label'`)
     antes de confiar na mensagem "Ingested N document(s)" -- ela não
     distingue uma anotação real de uma vazia.
+11. **NOVO (lote 13)**: o campo `info.tribunal` de um `data/segmenter_samples/*.jsonl`
+    pode estar em branco para TODOS os registros de um arquivo (confirmado
+    para `tjsc_acordao.jsonl`), mesmo quando o nome do arquivo deixa o
+    tribunal óbvio. Se o dedup de seleção (classe 9) usar esse campo em vez
+    do nome do arquivo, a chave `(tribunal, id_documento)` fica `('',
+    id_documento)` e nunca bate contra a chave real do store
+    (`('TJSC', id_documento)`), deixando passar um candidato já ingerido.
+    Pego só depois da anotação e ingestão real: `git status --short
+    data/segmenter` mostrou uma nova `annotations/<id>/ann_*.xml` sem a
+    correspondente `documents/<id>.xml` nova (mitigação da classe 9,
+    generalizada de novo) -- o documento (TJSC/587254906) já existia desde
+    o lote 4 (PR #1545). A anotação nova foi revertida (`rm` direto,
+    arquivo não rastreado) em vez de mantida, porque seu
+    `annotator_config` (mesmo `model_family`, `seeded_with: none`) era
+    idêntico ao da anotação pré-existente -- não conta como segunda
+    anotação independente para #1051/IAA (`annotations_are_independent`),
+    então era puro custo de duplicata sem nenhum valor de adjudicação.
+    Mitigação: ao montar a chave de dedup, derivar o tribunal do NOME DO
+    ARQUIVO jsonl (já conhecido pela convenção `<tribunal_lower>[_tipo].jsonl`),
+    não do campo `info.tribunal` do registro -- e depois de qualquer
+    ingestão real, sempre conferir `git status --short data/segmenter`
+    inteiro (não só a lista de IDs retornada pelo script) antes do primeiro
+    `git add`.
+12. **NOVO (lote 14)**: duas sessões independentes podem escanear o mesmo
+    pool ao vivo, empatar no mesmo tribunal de menor `store_count`, e
+    escolher o **mesmo** candidato -- sem que o dedup de nenhuma das duas
+    detecte nada, porque cada sessão trabalha em sua própria branch local
+    e o candidato só existe no store da OUTRA sessão depois que ela faz
+    merge. Diferente das classes 8-10 (uma sessão descobre que seu próprio
+    scan ficou desatualizado por uma escrita concorrente), aqui é a
+    *seleção* de duas sessões que colide, e só aparece como um merge
+    conflict (ou pior, um merge silencioso) depois que a primeira PR já
+    mesclou. Neste caso (lote 13 vs lote 14, mesmo snapshot de 121
+    documentos): TJRS/458637070 -- ambas sessões rodaram o mesmo limpador
+    HTML->texto sobre o mesmo texto-fonte bruto e produziram texto limpo
+    byte-a-byte idêntico, então o `document_id` (hash do texto limpo)
+    bateu exatamente e o merge foi um no-op silencioso para o documento
+    (mas a segunda anotação, com `annotator_config` idêntico à primeira,
+    não teve valor de independência e foi revertida). TJSE/578949084 --
+    as duas sessões escolheram substituições ASCII *diferentes* para o
+    mesmo caractere de controle bruto (uma usou `-`, a outra usou `(`),
+    produzindo `document_id`s genuinamente diferentes para o mesmo
+    documento real -- manter os dois teria sido um near-duplicate real no
+    corpus (mesmo anti-padrão que o lote 11 rejeitou para um par TST quase
+    idêntico), então a versão da sessão cujo PR mesclou primeiro foi
+    mantida como canônica e a da outra sessão foi revertida antes do
+    commit final. Mitigação: antes de abrir a PR (não só antes de
+    selecionar candidatos), buscar e comparar contra o `origin/main` atual
+    -- um `mergeable_state` sujo é o sinal mais cedo de uma colisão de
+    seleção como esta; ao resolver, escolher UMA versão canônica por
+    documento (normalmente a que já mesclou) e reverter a anotação
+    redundante da outra sessão se o `annotator_config` for idêntico.
+
+## Lote 14 (esta rodada, Wisk)
+
+3 documentos reais, novos e não sobrepostos com o lote 13 (PR #1565, que
+mesclou concorrentemente): TST/237077355, TJPI/22443810, TRF5/349055692.
+`document_count` 121->126 (via 123 do lote 13 já mesclado + 3 deste lote),
+teto de val/test 18/18->19/19. Esta sessão originalmente selecionou 6
+candidatos (os 3 acima, mais TJSC/587254906, TJRS/458637070 e
+TJSE/578949084) antes de descobrir, ao tentar abrir a PR, que main já
+tinha avançado: TJSC já existia desde o lote 4 (ver classe de risco 11);
+TJRS e TJSE colidiram com o lote 13, mesclado concorrentemente enquanto
+esta sessão trabalhava (ver classe de risco 12, nova). TJRS foi um no-op
+(texto limpo idêntico, mesmo `document_id`); TJSE precisou reverter esta
+sessão's própria ingestão e manter a do lote 13 (documents_id diferentes
+por uma substituição de caractere de controle distinta). TST tinha markup
+HTML bruto na fonte (apenas tags `<br>`) e precisou do limpador
+`docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py` antes
+da anotação. Três overrides `--allowed-unmatched-overrides` foram
+necessários (ementa em TJPI; capitulo_merito+voto em TST;
+relatorio+custas+honorarios em TRF5), todos verificados contra o
+texto-fonte bruto antes de declarar. `uv run pytest -q
+tests/segmenter_dataset/` verde (391 testes, incluindo os novos testes de
+regressão `test_real_store_reflects_batch13_corpus_growth` -- do lote 13,
+já mesclado -- e `test_real_store_reflects_batch14_corpus_growth`, deste
+lote); `uv run pytest -q` completo (repo inteiro) também verde; audit
+semântico sem novos achados para os 3 documentos deste lote.

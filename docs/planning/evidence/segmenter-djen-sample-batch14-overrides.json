@@ -1,0 +1,14 @@
+{
+  "22443810": {
+    "ementa": "sem cue de fechamento no texto-fonte -- este acordao TJPI e um export capa+ementa-estruturada: a EMENTA segue direto para a secao ACORDAO (\"Vistos, relatados e discutidos estes autos...\") sem nenhum RELATORIO/VOTO intermediario que forneca uma frase de transicao para fechar a ementa (verificado contra o texto-fonte bruto)."
+  },
+  "237077355": {
+    "capitulo_merito": "sem cue de fechamento distinto no texto-fonte -- '2. MERITO' abre a secao e o texto segue direto pela analise de cada questao ate 'CONCLUSAO' / 'ISTO POSTO' / ACORDAM, sem nenhuma frase de transicao marcando o fim do capitulo de merito (verificado contra o texto-fonte bruto, mesmo padrao documentado para outros acordaos TST/estaduais).",
+    "voto": "sem cue de fechamento distinto no texto-fonte -- 'V O T O' abre a secao e o texto do voto do relator segue ininterrupto (1. CONHECIMENTO, 2. MERITO, analise de cada questao) ate a abertura do acordao_decisorio colegiado ('ISTO POSTO... ACORDAM'), sem nenhuma frase tipo 'e o voto' fechando o voto individual (verificado contra o texto-fonte bruto)."
+  },
+  "349055692": {
+    "relatorio": "sem cue de fechamento distinto no texto-fonte -- 'Trata-se de acao proposta...' abre o relatorio e o texto segue direto para as preliminares (AFASTO...) e o merito sem nenhuma frase tipo 'e o relatorio' fechando a secao (verificado contra o texto-fonte bruto).",
+    "custas": "custas e honorarios sao negados na mesma frase ('Sem condenacao no pagamento das custas processuais e dos honorarios advocaticios (art. 55 da Lei no 9.099/1995)'), sem cue de fechamento distinto para custas isoladamente (verificado contra o texto-fonte bruto, mesmo padrao documentado em batches anteriores).",
+    "honorarios": "custas e honorarios sao negados na mesma frase ('Sem condenacao no pagamento das custas processuais e dos honorarios advocaticios (art. 55 da Lei no 9.099/1995)'), sem cue de fechamento distinto para honorarios isoladamente (verificado contra o texto-fonte bruto, mesmo padrao documentado em batches anteriores)."
+  }
+}

@@ -1,0 +1,11 @@
+---
+type: "RunEvidence"
+id: "run-evidence/20260916t192702z-do-the-best-useful-work-availab/evidence-batch14-reconciliation"
+run: "runs/20260916T192702Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "runtime"
+reference: "https://github.com/franklinbaldo/causaganha/pull/1567"
+summary: "Apos empurrar o commit inicial do lote 13 (5 documentos), a PR #1567 mostrou mergeable_state=dirty: uma sessao concorrente ja havia mesclado um lote13 identico como PR #1565 (mesmo snapshot de 121 documentos, mesma estrategia de volume). git fetch + merge revelou conflito real em 4 arquivos (candidates.json, overrides.json, issue-1050.md, o teste de regressao). Investigacao: TJRS/458637070 produziu document_id byte-identico nas duas sessoes (mesmo limpador HTML aplicado ao mesmo texto-fonte) -- merge no-op, anotacao redundante desta sessao revertida (mesmo annotator_config, sem valor de independencia). TJSE/578949084 teve substituicoes ASCII diferentes para o mesmo caractere de controle bruto entre as duas sessoes, produzindo document_ids diferentes -- mantida a versao ja mesclada (PR #1565), revertida a desta sessao para evitar near-duplicate real no corpus. O terceiro candidato original, TJSC/587254906, ja havia sido revertido antes por duplicar o lote 4 (classe de risco 11). Contribuicao liquida desta sessao renumerada para 'lote 14': TST/237077355, TJPI/22443810, TRF5/349055692 (nenhum tocado pela PR #1565). Nova classe de risco 12 documentada em knowledge/backlog/issue-1050.md: duas sessoes podem escolher o mesmo candidato empatado em store_count antes de qualquer uma mesclar, so aparecendo como merge conflict. document_count final 126 (123 do lote 13 + 3 do lote 14), confirmado ao vivo. uv run pytest -q tests/segmenter_dataset/ verde (391 testes); ruff/okf-parser/backlog tests/full suite local todos verdes. Merge commit fb8961e empurrado; PR #1567 atualizada (titulo e corpo) para refletir a reconciliacao. CI disparada no novo head: 10/11 checks verdes (CodeQL, Analyze x4, lint, web, validate, archive-cors-proxy, GitGuardian), apenas 'tests (tjro)' ainda em andamento no momento deste registro (confirmado ativo via list_workflow_jobs, nao travado em setup)."
+goal: "run-goals/20260916t192702z-do-the-best-useful-work-availab/goal-segmenter-batch13"
+---
+
+# RunEvidence

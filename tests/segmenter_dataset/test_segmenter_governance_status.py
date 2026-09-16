@@ -418,6 +418,69 @@ def test_real_store_reflects_batch13_corpus_growth() -> None:
     assert any(h.startswith("eed26aff") for h in hashes), "TJRS batch13 document missing"
 
 
+def test_real_store_reflects_batch14_corpus_growth() -> None:
+    """Regression guard for #1050's fourteenth real DJEN sample batch.
+
+    A genuinely independent, concurrent session (PR #1565) picked the same
+    "batch13" label and landed the identical volume-tier strategy on the
+    same starting snapshot (121 documents) -- it ingested TJSE/578949084
+    and TJRS/458637070, the exact two documents this round also selected
+    from the same eight-tribunal tied tier. Discovered via a merge conflict
+    against ``origin/main`` after this round had already annotated and
+    ingested five documents locally (TST/237077355, TJPI/22443810,
+    TJRS/458637070, TJSE/578949084, TRF5/349055692, plus a sixth,
+    TJSC/587254906, already reverted for an unrelated batch4 duplicate --
+    see the risk class 11 note on ``test_real_store_reflects_batch13_corpus_growth``
+    above).
+
+    Reconciled as follows: TJRS/458637070 -- both sessions independently
+    ran the raw source text through the identical batch3 HTML-to-text
+    cleaner and produced byte-identical cleaned text, so ``document_id``
+    (a hash of the cleaned text) matched exactly and the merge was a
+    silent no-op for that document; this round's own second, redundant
+    annotation of it was deleted (same ``annotator_config`` as the
+    pre-existing one -- no independence value, same reasoning as the
+    TJSC/batch4 case). TJSE/578949084 -- the two sessions chose *different*
+    length-preserving substitutions for the same raw control character
+    (this round: ASCII ``-``; PR #1565: ASCII ``(``), so the cleaned text
+    differed and produced two genuinely different ``document_id``s for the
+    same underlying real document -- keeping both would have been a true
+    near-duplicate in the corpus (the same anti-pattern batch11 rejected
+    for a near-identical TST pair), so this round's TJSE document and its
+    annotation were deleted, keeping only PR #1565's already-merged
+    version. The three documents PR #1565 did not touch --
+    TST/237077355, TJPI/22443810, TRF5/349055692 -- are this batch's real,
+    non-overlapping contribution: TST had raw ``<br>`` HTML markup in its
+    source (cleaned with the batch3 helper), TJPI needed an
+    ``ementa``-unmatched override (capa+ementa-estruturada export with no
+    RELATORIO/VOTO to close against), TRF5 needed
+    relatorio/custas/honorarios-unmatched overrides (all verified against
+    the raw source text). New risk class 12 for
+    ``knowledge/backlog/issue-1050.md``: two independent sessions can pick
+    the *same* volume-tier candidate from a tied ``store_count`` scan and
+    both ingest it before either merges -- unlike risk classes 8-10 (a
+    session's own scan racing a concurrent *write*), this is two sessions'
+    *read-time* candidate selection colliding, only surfacing as a merge
+    conflict rather than a live dedup-check miss, because both sessions
+    worked from disjoint local branches. If corpus growth from a later
+    concurrent batch changes the exact total, update the count here rather
+    than treating a higher number as a failure -- the three specific
+    document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 126
+    assert any(h.startswith("d6ee41ce") for h in hashes), "TJPI batch14 document missing"
+    assert any(h.startswith("dfbd4832") for h in hashes), "TRF5 batch14 document missing"
+    assert any(h.startswith("fe3392b2") for h in hashes), "TST batch14 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
