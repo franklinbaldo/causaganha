@@ -381,6 +381,77 @@ def test_real_store_reflects_batch12_corpus_growth() -> None:
     assert any(h.startswith("b04a0802") for h in hashes), "TJGO batch12 document missing"
 
 
+def test_real_store_reflects_batch13_corpus_growth() -> None:
+    """Regression guard for #1050's thirteenth real DJEN sample batch.
+
+    Snapshot before this batch: 121 documents (after batches 1-12 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). A live
+    scan of every ``data/segmenter_samples/*.jsonl`` record (excluding TJRO,
+    filtering 2500-18000 chars, Sentenca/Acordao, deduped against the
+    current store's ``source_uri``s) found the three lowest-tier tribunals
+    (store_count=1 each: TJSC, TRF6, TST) plus the next tier
+    (store_count=2: TJMG, TJPI, TJRJ, TJRS, TJSE, TJTO, TRF2, TRF5).
+    TRF6's remaining pool was exhausted below the 2500-char floor, and
+    TJMG's two Sentenca candidates were both already ingested, so this
+    batch picked one candidate each from TJPI, TJRS, TJSE, TRF5 (next
+    tier) plus TST (lowest tier): TJPI/22443810 (source_hash prefix
+    ``d6ee41ce``), TJRS/458637070 (prefix ``eed26aff``), TJSE/578949084
+    (prefix ``1d59d889``, source text had literal ASCII control characters
+    -- 0x13/0x1c/0x1d -- used as improvised quote marks, replaced with
+    ASCII ``"`` before annotation, same length-preserving substitution
+    already established for NBSP), TRF5/349055692 (prefix ``dfbd4832``),
+    TST/237077355 (prefix ``fe3392b2``, source had raw ``<br>`` HTML
+    markup, cleaned with the batch3 HTML-to-text helper).
+
+    A sixth candidate, TJSC/587254906, was selected, annotated, and
+    ingested, then reverted before this commit: ``SegmenterDatasetStore``
+    reported it as a genuinely new document write (a new ``documents/``
+    XML file), but ``git status`` after ingestion showed no new
+    ``documents/doc_5aec514e....xml`` file for it -- only a new annotation
+    under an *existing* ``annotations/doc_5aec514e.../`` directory. That
+    document (source_uri ``djen_sample_technique1:batch1:TJSC:587254906``)
+    was already ingested by batch4 (PR #1545); this batch's own dedup scan
+    missed it because ``data/segmenter_samples/tjsc_acordao.jsonl``'s
+    ``info.tribunal`` field is an empty string for every record in that
+    file (a source-data quirk, not a store bug), so the (tribunal, id)
+    dedup check compared ``('', '587254906')`` against the store's
+    ``('TJSC', '587254906')`` and never matched. The redundant annotation
+    was not kept: both it and the pre-existing one share the identical
+    ``annotator_id``/``annotator_config`` (same ``model_family``, both
+    ``seeded_with: none``), so per
+    ``segmenter_dataset.mechanical.annotations_are_independent`` it would
+    not count as a second independent annotation for IAA purposes either
+    -- pure duplicate cost with no adjudication value, matching
+    ``knowledge/backlog/issue-1050.md``'s risk class 9 (a document already
+    ingested by a concurrent/earlier batch silently produces a redundant,
+    not-independent annotation instead of an ``ImmutabilityError``,
+    because ``write_document`` is deliberately idempotent per RFC 0012
+    §3.1). Mitigation for a future batch selecting from a
+    ``*_acordao.jsonl``/``*.jsonl`` file with a blank ``info.tribunal``
+    field: derive the tribunal from the filename instead of trusting the
+    record's own field when building the dedup key.
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the five specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 126
+    assert any(h.startswith("d6ee41ce") for h in hashes), "TJPI batch13 document missing"
+    assert any(h.startswith("eed26aff") for h in hashes), "TJRS batch13 document missing"
+    assert any(h.startswith("1d59d889") for h in hashes), "TJSE batch13 document missing"
+    assert any(h.startswith("dfbd4832") for h in hashes), "TRF5 batch13 document missing"
+    assert any(h.startswith("fe3392b2") for h in hashes), "TST batch13 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)

@@ -1,0 +1,38 @@
+<annotation id="ann_e00b82bd4f28b113a4cf2f47dfb751bd" document_id="doc_d0ba3e47db571bfb7e963cb4212c3aaf">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
+    <entry base="ementa" reason="sem cue de fechamento no texto-fonte -- este acordao TJPI e um export capa+ementa-estruturada: a EMENTA segue direto para a secao ACORDAO (&quot;Vistos, relatados e discutidos estes autos...&quot;) sem nenhum RELATORIO/VOTO intermediario que forneca uma frase de transicao para fechar a ementa (verificado contra o texto-fonte bruto)." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T20:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>APELAÇÃO CRIMINAL Nº <ref_processual ord="0">0000401-41.2017.8.18.0029</ref_processual> APELAÇÃO CRIMINAL Nº 0000401-41.2017.8.18.0029 ÓRGÃO: 2ª Câmara Especializada Criminal ORIGEM: José de Freitas / Vara Única RELATOR: Des. Erivan Lopes APELANTE: Francisco Klebert Rego ADVOGADO: Francisco Lucas Fontinele Lima (OAB/PI n. 13.574) e Luiz Eduardo das Neves Silva (OAB/PI n. 12.324) APELADO: Ministério Público do Estado do Piauí       <ementa><inicio ord="1">EMENTA</inicio></ementa>           APELAÇÃO CRIMINAL. TRÁFICO DE DROGAS. CONDENAÇÃO. RECURSO DA DEFESA. TESE ABSOLUTÓRIA. ENTRADA FORÇADA EM DOMICÍLIO SEM AUTORIZAÇÃO JUDICIAL. AUSÊNCIA DE ELEMENTOS INDICATIVOS DE CRIME NO INTERIOR DA RESIDÊNCIA. NULIDADE DA BUSCA E APREENSÃO DOMICILIAR. ILICITUDE DAS PROVAS DE MATERIALIDADE DELITIVA. ABSOLVIÇÃO QUE SE IMPÕE. RECURSO PROVIDO. 1. O Supremo Tribunal Federal, em sede de recurso extraordinário, submetido à sistemática da repercussão geral (tema 0280), fixou a tese de que "a entrada forçada em domicílio sem mandado judicial só é lícita, mesmo em período noturno, quando amparada em fundadas razões, devidamente justificadas a posteriori, que indiquem que dentro da casa ocorre situação de flagrante delito, sob pena de responsabilidade disciplinar, civil e penal do agente ou da autoridade e de nulidade dos atos praticados” (RE 603.616/TO). 2. o ingresso dos policiais militares na residência do acusado foi motivado tão somente pelo conhecimento prévio dos policiais acerca do envolvimento do acusado com o comércio de drogas. Nesse cenário, observa-se que não havia elementos objetivos, seguros e racionais que justificassem a invasão de domicílio do apelado, porquanto o conhecimento do histórico criminal do acusado pelos policiais era insuficiente para conduzir a diligência de ingresso na residência. 3. Em não havendo referência a diligências investigativas, a exemplo da monitoração do local, a simples existência de denúncia anônima, desacompanhada de outros elementos indicativos da ocorrência de crime, não configura o elemento "fundadas razões" a autorizar o ingresso no domicílio do envolvido, o que torna ilícita a busca realizada no interior da residência do apelante. 4. reconhecida a ilicitude das provas obtidas por meio da invasão de domicílio, bem como as delas derivadas, impõe-se a anulação da sentença condenatória e a absolvição da apelante, por ausência de provas de materialidade delitiva. 5. Recurso conhecido e provido.           ACÓRDÃO                             <acordao_decisorio><inicio ord="2">Vistos, relatados e discutidos</inicio> estes autos, "acordam os componentes da Egrégia 2ª Câmara Especializada Criminal, <fim ord="3">à unanimidade</fim></acordao_decisorio>, conhecer do recurso para <resultado ord="4">DAR-LHE PROVIMENTO</resultado>, para declarar a ilicitude das provas obtidas por meio de invasão de domicílio, e, assim, ABSOLVER o acusado FRANCISCO KLEBERT REGO, <fundamentacao_legal ord="5">nos termos do art. 386, inciso II, do CPP</fundamentacao_legal>".                                <encerramento><inicio ord="6">SALA DAS SESSÕES VIRTUAIS</inicio></encerramento> DO EGRÉGIO TRIBUNAL DE JUSTIÇA DO ESTADO DO PIAUÍ, em Teresina/PI, de vinte aos vinte e sete dias do mês de junho do ano de dois mil e vinte e dois (20 a 27/06/2022).</text>
+</annotation>
