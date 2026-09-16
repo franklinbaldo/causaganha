@@ -3,8 +3,9 @@ type: AgentCheck
 id: "2026-09-16-exciting-mccarthy-j2t668-check-okf-parser-after-readings-goal-decision"
 run_id: "2026-09-16-exciting-mccarthy-j2t668"
 command: "uv run okf-parser check knowledge --relational-schema okf.schema.sql"
-result: "conformant=true, diagnostics=[], concept_count=1953, markdown_count=1956, reserved_count=3"
+result: "passed"
 evidence_id: null
+summary: "conformant=true, diagnostics=[], concept_count=1953, markdown_count=1956, reserved_count=3"
 ---
 
 # Check: okf-parser apos scaffold + 4 leituras + goal + decisao
