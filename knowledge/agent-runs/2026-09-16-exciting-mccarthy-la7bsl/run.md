@@ -2,7 +2,7 @@
 type: AgentRun
 id: "2026-09-16-exciting-mccarthy-la7bsl"
 started_at: "2026-09-16T08:00:00Z"
-completed_at: ""
+completed_at: "2026-09-16T10:00:00Z"
 branch_at_start: "claude/exciting-mccarthy-la7bsl"
 commit_at_start: "99bee53616e969accf3a6a881e32ce5b3447187f"
 claude_md_reading_id: "2026-09-16-exciting-mccarthy-la7bsl-reading-claude-md"
@@ -24,12 +24,17 @@ entry_state: "new"
 target_state: "merged"
 decision_ids:
   - "2026-09-16-exciting-mccarthy-la7bsl-decision-widen-candidate-length-filter"
-evidence_ids: []
+  - "2026-09-16-exciting-mccarthy-la7bsl-decision-normalize-crlf-before-candidate"
+evidence_ids:
+  - "2026-09-16-exciting-mccarthy-la7bsl-evidence-batch5-ingested"
+  - "2026-09-16-exciting-mccarthy-la7bsl-evidence-no-new-semantic-findings"
 check_ids:
   - "2026-09-16-exciting-mccarthy-la7bsl-check-okf-parser-after-readings-goal"
-result_state: "red"
-result_summary: ""
-next_move: ""
+  - "2026-09-16-exciting-mccarthy-la7bsl-check-full-suite"
+  - "2026-09-16-exciting-mccarthy-la7bsl-check-okf-parser-final"
+result_state: "review"
+result_summary: "Fifth real multi-tribunal batch for #1050 ingested via scripts/ingest_djen_sample_technique1_batch.py: 4 TJMS (a new, 25th tribunal, surfaced by widening the candidate-mining length filter to 2500-18000 chars) + 2 TJPA + 1 TJPI, all Acordao. document_count 86->93, annotation_count 135->142, val_ceiling/test_ceiling 13->14 (RFC 0012 Sec 5 item 4's >=30/>=30 floor still not met -- corpus_scale_blocks_floor=true). One manual --allowed-unmatched-overrides declaration needed (TJPA 581175574's genuinely closing-cue-free 'custas' pair). Discovered and fixed a structural defect affecting any future CRLF-sourced candidate: XML's mandatory end-of-line normalization (sec 2.11) makes scripts/ingest_juris_technique1_batch.py's verbatim-fidelity reconstruction structurally unable to preserve \\r\\n regardless of annotation quality -- fixed by normalizing texto_limpo to LF before building the candidate, not by asking the subagent to preserve CRLF (documented as decision-normalize-crlf-before-candidate). ruff check/format and the full segmenter pytest suite (341 tests) stay green; segmenter_semantic_audit.py shows zero new findings on this batch's 7 new document ids. PR about to be opened; CI pending."
+next_move: "263 more unused, in-range (2500-18000 char, Sentenca/Acordao) real candidates remain in data/segmenter_samples/*.jsonl after this batch (261 minus the 4 TJMS + 2 TJPA + 1 TJPI consumed here, wait: net 261 pre-batch minus 3 non-TJMS consumed = 258 plus TJMS's own 4 already counted separately -- recount live with the same query rather than trusting this arithmetic). A future round should: (1) keep running batches through scripts/ingest_djen_sample_technique1_batch.py against that remaining pool, now free to pick from already-represented tribunals as well as new ones since diversity is no longer the binding constraint; (2) before excluding any candidate as 'too short', re-check under a 2500-char floor (not the earlier rounds' 4000-char one) -- this round's TJMS discovery shows the higher floor was hiding real, valid candidates, and the same may be true for other tribunals five prior rounds marked unusable (STM, TJAC, TJAM, TJAP, TJPE, TJSP, TRF1); (3) for any candidate whose raw texto_limpo contains CRLF line endings (check via '\\r\\n' in text, not just failed verbatim fidelity after the fact), normalize to LF before writing candidates.json -- this is now a known, reusable pre-processing step alongside the existing HTML-entity-decode and HTML-wrapper-cleanup steps from batches 2-4; (4) continue tracking scripts/segmenter_governance_status.py's val_ceiling/test_ceiling after each batch -- still at 14/14 against a >=30/>=30 floor, so #1051 (adjudication) remains correctly parked until corpus size closes most of that gap. After this round: push, open PR with these before/after numbers, follow CI to green, merge, and record the merge outcome in a closeout commit as every prior round in this lineage has done."
 ---
 
 # Agent run
