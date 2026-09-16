@@ -1,0 +1,14 @@
+{
+  "document_count": 132,
+  "annotation_count": 185,
+  "review_count": 31,
+  "train_eligible_count": 132,
+  "evaluation_eligible_count": 31,
+  "blocked_on_reviews": false,
+  "val_count": 20,
+  "test_count": 11,
+  "val_ceiling_at_full_adjudication": 20,
+  "test_ceiling_at_full_adjudication": 20,
+  "meets_rfc_0012_split_floor": false,
+  "corpus_scale_blocks_floor": true
+}

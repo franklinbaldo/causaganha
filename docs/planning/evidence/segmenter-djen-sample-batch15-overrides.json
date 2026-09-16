@@ -1,0 +1,17 @@
+{
+  "237077375": {
+    "capitulo_merito": "No closing cue for 'capitulo_merito' in the source text -- the merit-chapter heading (2. MERITO) is followed directly by the next subsection heading with no explicit closing phrase before the acordao's own dispositivo, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md."
+  },
+  "285710292": {
+    "encerramento": "No closing cue for 'encerramento' in the source text -- 'PRI.' opens the closing but the document ends shortly after with procedural instructions and no distinct closing phrase, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md."
+  },
+  "285693071": {
+    "capitulo_merito": "No closing cue for 'capitulo_merito' in the source text -- same dangling-pair defect class as other documents in this batch, verified against the raw source text.",
+    "custas": "No closing cue for 'custas' in the source text -- mentioned only inline in the dispositivo without a distinct closing phrase, matching the established dangling-pair defect class.",
+    "honorarios": "No closing cue for 'honorarios' in the source text -- mentioned only inline in the dispositivo without a distinct closing phrase, matching the established dangling-pair defect class."
+  },
+  "301247724": {
+    "custas": "No closing cue for 'custas' in the source text -- mentioned only inline in the dispositivo without a distinct closing phrase, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md.",
+    "honorarios": "No closing cue for 'honorarios' in the source text -- mentioned only inline in the dispositivo without a distinct closing phrase, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md."
+  }
+}
