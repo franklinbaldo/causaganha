@@ -1,0 +1,11 @@
+{
+  "500069234": {
+    "ementa": "TRF4 acordao (capa+ementa-estruturada export): the structured ementa with numbered I-IV sections has no separate RELATORIO/VOTO section to provide a closing cue -- it runs directly into the ACORDAO section with no delimiting phrase, same class as prior batches' dangling ementa cases (e.g. TJRS in batch3)."
+  },
+  "574643532": {
+    "ementa": "TRF4 acordao (capa+ementa-estruturada export): the structured ementa with numbered I-IV sections has no separate RELATORIO/VOTO section to provide a closing cue -- it runs directly into the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases (e.g. TJRS in batch3)."
+  },
+  "587254906": {
+    "ementa": "TJSC acordao (structured ementa export): the EMENTA section heading opens the ementa but the source text has no explicit closing cue before the following ACORDAO section -- same class as prior batches' dangling ementa cases (e.g. TJRS in batch3, both TRF4 candidates in this batch)."
+  }
+}

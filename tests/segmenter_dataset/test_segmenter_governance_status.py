@@ -87,6 +87,67 @@ def test_reports_zero_evaluation_eligible_when_store_has_no_reviews(tmp_path: Pa
     assert status["train_eligible_count"] == 2
     assert status["evaluation_eligible_count"] == 0
     assert status["blocked_on_reviews"] is True
+    assert status["val_count"] == 0
+    assert status["test_count"] == 0
+    assert status["meets_rfc_0012_split_floor"] is False
+    assert status["corpus_scale_blocks_floor"] is True
+
+
+def test_val_test_ceiling_reflects_full_adjudication_of_current_corpus(tmp_path: Path) -> None:
+    """RFC 0012 Sec 5 item 4's per-split floor (>=30 val, >=30 test) is a function of
+    *total corpus size*, not just review coverage: assign_splits' val/test targets
+    are `round(total_eligible * ratio)`, where total_eligible counts every annotated
+    document, not only the reviewed ones. A store can have every single document
+    adjudicated and still fall short of the floor if the corpus itself is too small
+    -- that is the fact this diagnostic must surface (issue #1050 vs #1051)."""
+    store = SegmenterDatasetStore(tmp_path / "store")
+    doc_ids = [f"doc_{i:032x}" for i in range(4)]
+    first_ann_ids = [f"ann_{i:032x}" for i in range(4)]
+    for doc_id, ann_id in zip(doc_ids, first_ann_ids, strict=True):
+        _write_document_and_annotation(store, doc_id, ann_id)
+
+    # Adjudicate every single document in this tiny 4-document corpus.
+    for i, (doc_id, first_ann_id) in enumerate(zip(doc_ids, first_ann_ids, strict=True)):
+        second_ann_id = f"ann_{i + 100:032x}"
+        store.write_annotation(
+            AnnotationRecord(
+                annotation_id=second_ann_id,
+                document_id=doc_id,
+                annotator_id="annotator2",
+                annotator_config=AnnotatorConfig(
+                    model_family="other_model", guideline_version="test_v1"
+                ),
+                ontology_version="test_v1",
+                covered_categories=("resultado",),
+                completed_at="2023-01-02T00:00:00Z",
+                annotation_method="method1",
+                labels=[Label(category="resultado", start=0, end=1)],
+            )
+        )
+        store.write_review(
+            ReviewRecord(
+                review_id=f"rev_{i:032x}",
+                document_id=doc_id,
+                input_annotation_ids=(first_ann_id, second_ann_id),
+                status="accepted",
+                final_labels=[Label(category="resultado", start=0, end=1)],
+                reviewers=("reviewer1", "reviewer2"),
+                resolution="agreement",
+                approved_at="2023-01-03T00:00:00Z",
+            )
+        )
+
+    mod = load_script("segmenter_governance_status", "scripts/segmenter_governance_status.py")
+    status = mod.compute_governance_status(tmp_path / "store")  # type: ignore[attr-defined]
+
+    # 100% adjudicated (4/4 documents) -- but the corpus itself is far too small.
+    assert status["evaluation_eligible_count"] == 4
+    assert status["val_count"] == status["val_ceiling_at_full_adjudication"]
+    assert status["test_count"] == status["test_ceiling_at_full_adjudication"]
+    assert status["val_count"] < 30
+    assert status["test_count"] < 30
+    assert status["meets_rfc_0012_split_floor"] is False
+    assert status["corpus_scale_blocks_floor"] is True
 
 
 def test_evaluation_eligible_count_reflects_accepted_reviews(tmp_path: Path) -> None:
@@ -162,6 +223,90 @@ def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
     assert status["review_count"] >= 1
     assert status["evaluation_eligible_count"] >= 1
     assert status["blocked_on_reviews"] is False
+
+    # New regression guard (introduced c4y4rc): RFC 0012 Sec 5 item 4's per-split
+    # floor (>=30 val, >=30 test, each adjudicated) is a function of *total corpus
+    # size* (val_target = round(total_eligible * val_ratio)), not just review
+    # coverage. As of 0iuk22 (68 documents, first non-TJRO batch via
+    # ingest_djen_sample_technique1_batch.py) even simulating 100% adjudication of
+    # every document, assign_splits' own ratio math still caps val/test at ~10
+    # each -- far short of 30. If this assertion ever starts failing because
+    # corpus_scale_blocks_floor is False, issue #1050 (corpus scale-up) has made
+    # enough real progress to lift this structural ceiling -- update/remove this
+    # guard instead of treating a flip here as a failure.
+    assert status["corpus_scale_blocks_floor"] is True
+    assert status["meets_rfc_0012_split_floor"] is False
+
+
+def test_real_store_reflects_batch9_corpus_growth() -> None:
+    """Regression guard for #1050 batch9 (2026-09-16, 6 docs: TJBA, TJMG,
+    TJRS, TJSE, TRF2, TJCE -- see
+    ``docs/planning/evidence/segmenter-djen-sample-batch8-2026-09-16.json``,
+    named "batch8" in its evidence filename due to a numbering collision
+    documented in ``knowledge/backlog/issue-1050.md``; the prose there
+    numbers this round "lote 9" in the real historical sequence).
+
+    Before this batch: document_count=109, val_ceiling=16, test_ceiling=16
+    (last-verified live snapshot per ``knowledge/backlog/issue-1050.md``).
+    After: document_count=115, val_ceiling=17, test_ceiling=17. RED before
+    ingestion (109 < 115), GREEN after (this test only passes once the
+    batch's 6 documents are actually present in the store) -- same
+    RED->GREEN shape as every prior batch's regression guard in this file.
+
+    If this test starts seeing a *lower* document_count than 115, a
+    concurrent session's ingestion this file's own numbers were checked
+    against was rolled back or the store was reset -- investigate before
+    assuming this guard is simply stale (corpus size should only grow,
+    never shrink, per #1050's whole premise). If it is genuinely stale
+    because a later batch grew the corpus further, update the thresholds
+    forward rather than deleting the guard.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    mod = load_script("segmenter_governance_status", "scripts/segmenter_governance_status.py")
+    status = mod.compute_governance_status(store_dir)  # type: ignore[attr-defined]
+
+    assert status["document_count"] >= 115
+    assert status["val_ceiling_at_full_adjudication"] >= 17
+    assert status["test_ceiling_at_full_adjudication"] >= 17
+
+
+def test_real_store_reflects_batch10_corpus_growth() -> None:
+    """Regression guard for #1050's tenth real DJEN sample batch.
+
+    Snapshot before this batch: 109 documents (after batches 1-8 merged;
+    a concurrent session's ninth batch, PR #1557, was still open with CI
+    pending when this batch was selected and is merged separately as
+    ``test_real_store_reflects_batch9_corpus_growth`` above). This batch
+    adds two previously-unused real Sentença documents targeting the
+    ``preliminar`` cue (still the scarcest category at 21 instances) from
+    tribunals already represented but with only one document each:
+    TJRN/72797727 (``source.source_hash`` prefix ``e9cd07f4``, i.e.
+    ``segmenter_dataset.dedup.content_hash`` of the document's own text —
+    not DJEN's own ``sha256`` field, a different hash space entirely, per
+    knowledge/backlog/issue-1050.md's risk class 9) and TJBA/574460089
+    (prefix ``d91719f4``). An initial selection of TJRN/72798564 and
+    TJBA/574460090 was ingested and reverted mid-round after `git status`
+    showed zero new ``documents/`` files — both had already been ingested
+    by an earlier batch under the same (tribunal, id_documento) pair; see
+    that risk class entry and this round's AgentDecision record. If corpus
+    growth from a later concurrent batch changes the exact total, update
+    the count here rather than treating a higher number as a failure — the
+    two specific document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 117
+    assert any(h.startswith("e9cd07f4") for h in hashes), "TJRN batch10 document missing"
+    assert any(h.startswith("d91719f4") for h in hashes), "TJBA batch10 document missing"
 
 
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:

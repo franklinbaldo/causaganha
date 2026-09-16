@@ -1,0 +1,51 @@
+{
+  "before": {
+    "document_count": 86,
+    "annotation_count": 135,
+    "review_count": 31,
+    "train_eligible_count": 86,
+    "evaluation_eligible_count": 31,
+    "blocked_on_reviews": false,
+    "val_count": 13,
+    "test_count": 13,
+    "val_ceiling_at_full_adjudication": 13,
+    "test_ceiling_at_full_adjudication": 13,
+    "meets_rfc_0012_split_floor": false,
+    "corpus_scale_blocks_floor": true
+  },
+  "after": {
+    "document_count": 93,
+    "annotation_count": 142,
+    "review_count": 31,
+    "train_eligible_count": 93,
+    "evaluation_eligible_count": 31,
+    "blocked_on_reviews": false,
+    "val_count": 14,
+    "test_count": 14,
+    "val_ceiling_at_full_adjudication": 14,
+    "test_ceiling_at_full_adjudication": 14,
+    "meets_rfc_0012_split_floor": false,
+    "corpus_scale_blocks_floor": true
+  },
+  "tribunals_added": ["TJMS"],
+  "tribunals_gaining_documents": ["TJPA", "TJPI"],
+  "tribunals_in_store_after": [
+    "TJBA", "TJCE", "TJES", "TJGO", "TJMA", "TJMG", "TJMS", "TJMT", "TJPA",
+    "TJPB", "TJPI", "TJRJ", "TJRN", "TJRO", "TJRR", "TJRS", "TJSC", "TJSE",
+    "TJTO", "TRF2", "TRF3", "TRF4", "TRF5", "TRF6", "TST"
+  ],
+  "candidates_selected": [
+    {"id_documento": "32000358", "tribunal": "TJMS", "tipoDocumento": "Acórdão", "chars": 2706},
+    {"id_documento": "32009610", "tribunal": "TJMS", "tipoDocumento": "Acórdão", "chars": 2980},
+    {"id_documento": "32021195", "tribunal": "TJMS", "tipoDocumento": "Acórdão", "chars": 2927},
+    {"id_documento": "32021228", "tribunal": "TJMS", "tipoDocumento": "Acórdão", "chars": 2516},
+    {"id_documento": "581167448", "tribunal": "TJPA", "tipoDocumento": "Acórdão", "chars": 15994},
+    {"id_documento": "581175574", "tribunal": "TJPA", "tipoDocumento": "Acórdão", "chars": 11382},
+    {"id_documento": "22443805", "tribunal": "TJPI", "tipoDocumento": "Acórdão", "chars": 3990}
+  ],
+  "finding_crlf_xml_normalization": "The 4 TJMS candidates' raw texto_limpo uses CRLF (\\r\\n) line endings exclusively. XML 1.0's mandatory end-of-line handling (sec 2.11) normalizes all \\r\\n and \\r to \\n during parsing, so scripts/ingest_juris_technique1_batch.py's reconstruction (ET.fromstring on the subagent's tagged text) can never byte-for-byte match a CRLF source string, regardless of annotation quality -- confirmed by first patching the tagged files (LF->CRLF) with no effect, since the parser strips the \\r right back out. Fix applied: normalize texto_limpo to LF before building the candidate/document record (not by asking subagents to preserve CRLF, which XML parsing structurally cannot round-trip). This is a store-wide implication for any future CRLF-sourced candidate, not specific to TJMS.",
+  "finding_new_tribunal_from_wider_filter": "Widening the candidate-mining length filter from 4000-17000 to 2500-18000 raw chars (matching the shortest already-ingested batch4 document, 2451 chars) surfaced TJMS as a 25th tribunal with usable Acordao candidates that all five same-day prior rounds' narrower filter had missed entirely.",
+  "one_manual_override_needed": "581175574 (TJPA): 'custas' start/end pair left unmatched by the subagent with no closing cue (the voto states the isencao reasoning and moves directly to the operative dispositive language) -- correctly wrapped per guideline Rule 6's unmatched-pair shape, but not positionally last in the document, so _detect_allowed_unmatched did not auto-excuse it; declared via --allowed-unmatched-overrides after confirming the text genuinely has no closing phrase.",
+  "semantic_audit": "scripts/segmenter_semantic_audit.py run after ingestion: 7 pre-existing findings, none referencing any of this batch's 7 new document ids (053d49b451c676060bfa8bcd8e601a34, 3f6fbeed801469206bd017a34cec4d15, bbf8d42e93289ef4c2368bb207793096, 372fbafbf83b374da59608c69eb2a3ce, c41321b105269252919a5d4d730800a2, 246d157bf2c416ed78340710b74ed1cb, 35f2734cfbf51c80667f5fc689a45ae0) -- no new semantic anomaly introduced by this batch.",
+  "note": "RFC 0012 Sec 5 item 4's per-split floor (>= 30 val, >= 30 test, each adjudicated) still cannot be reached at the current corpus size (93 documents), even at 100% adjudication: val_ceiling=14, test_ceiling=14. Growing the total corpus (#1050) remains the blocking factor, not adjudicating the existing pool (#1051). 261 more unused, in-range candidates remain in data/segmenter_samples/*.jsonl for future batches."
+}

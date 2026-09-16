@@ -1,0 +1,37 @@
+{
+  "before": {
+    "document_count": 81,
+    "annotation_count": 130,
+    "review_count": 31,
+    "train_eligible_count": 81,
+    "evaluation_eligible_count": 31,
+    "blocked_on_reviews": false,
+    "val_count": 12,
+    "test_count": 12,
+    "val_ceiling_at_full_adjudication": 12,
+    "test_ceiling_at_full_adjudication": 12,
+    "meets_rfc_0012_split_floor": false,
+    "corpus_scale_blocks_floor": true
+  },
+  "after": {
+    "document_count": 86,
+    "annotation_count": 135,
+    "review_count": 31,
+    "train_eligible_count": 86,
+    "evaluation_eligible_count": 31,
+    "blocked_on_reviews": false,
+    "val_count": 13,
+    "test_count": 13,
+    "val_ceiling_at_full_adjudication": 13,
+    "test_ceiling_at_full_adjudication": 13,
+    "meets_rfc_0012_split_floor": false,
+    "corpus_scale_blocks_floor": true
+  },
+  "tribunals_added": ["TJSC", "TRF4", "TRF6"],
+  "tribunals_in_store_after": [
+    "TJBA", "TJCE", "TJES", "TJGO", "TJMA", "TJMG", "TJMT", "TJPA", "TJPB",
+    "TJPI", "TJRJ", "TJRN", "TJRO", "TJRR", "TJRS", "TJSC", "TJSE", "TJTO",
+    "TRF2", "TRF3", "TRF4", "TRF5", "TRF6", "TST"
+  ],
+  "note": "RFC 0012 Sec 5 item 4's per-split floor (>= 30 val, >= 30 test, each adjudicated) still cannot be reached at the current corpus size (86 documents), even at 100% adjudication: val_ceiling=13, test_ceiling=13. Growing the total corpus (#1050) remains the blocking factor, not adjudicating the existing pool (#1051)."
+}

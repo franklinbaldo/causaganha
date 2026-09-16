@@ -54,6 +54,25 @@ jobs:
         with:
           tribunal: ${{ matrix.tribunal }}
 
+  archive-cors-proxy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: deployment/archive-cors-proxy
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: deployment/archive-cors-proxy/package-lock.json
+      - run: npm ci
+      - name: Test
+        run: npm test
+      - name: Check bundle (dry-run, no deploy)
+        run: npm run check
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 10

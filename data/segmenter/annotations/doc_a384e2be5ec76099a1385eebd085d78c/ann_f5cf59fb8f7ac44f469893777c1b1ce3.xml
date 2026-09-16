@@ -1,0 +1,40 @@
+<annotation id="ann_f5cf59fb8f7ac44f469893777c1b1ce3" document_id="doc_a384e2be5ec76099a1385eebd085d78c">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="relatorio" reason="'Trata-se de' abre o relatorio de cumprimento de sentenca e segue direto para a narrativa processual sem uma frase de fechamento distinta." />
+    <entry base="capitulo_merito" reason="O merito se estende ate o encerramento (assinatura do juiz) sem marcador de fechamento textual proprio." />
+    <entry base="custas" reason="'Custas' e uma clausula curta (&quot;Custas e honorarios indevidos&quot;) sem frase de fechamento propria." />
+    <entry base="honorarios" reason="'honorarios indevidos' segue na mesma clausula curta de custas, sem cue de fechamento proprio." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T13:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Erro de intepretao na linha: '': Error Parsing: Erro de intepretao na linha: ' ': Error Parsing: ESTADO DO ESPÍRITO SANTO <cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> Juízo de Cariacica - Comarca da Capital - 3º Juizado Especial Cível Rua São João Batista, 1000, Fórum Doutor Américo Ribeiro Coelho, Alto Laje, CARIACICA - ES - CEP: 29151-230 Telefone:(27) 32465678 PROCESSO Nº <ref_processual ord="1">5014725-34.2024.8.08.0012</ref_processual> EXEQUENTE Nome: EDIMAR ROMAO DA SILVA Endereço: desconhecido EXECUTADO(A) Nome: TELEFONICA BRASIL S.A. Endereço: Avenida Getúlio Vargas, 219, Térreo, Serra Sede, SERRA - ES - CEP: 29176-090 Advogados do(a) INTERESSADO: CLISSIA PENA ALVES DE CARVALHO - ES28669, <fim ord="2">GILBERTO DE AGUIAR CARVALHO - ES7918</fim></cabecalho> SENTENÇA/OFÍCIO <relatorio><inicio ord="3">Trata-se de</inicio></relatorio> cumprimento de sentença requerido por INTERESSADO: EDIMAR ROMAO DA SILVA em face de INTERESSADO: TELEFONICA BRASIL S.A. O título executivo judicial, mantido integralmente pela 4ª Turma Recursal, determinou à ré: a) o cancelamento dos "Serviços Digitais" do plano de telefonia móvel da linha (28) 99961-7243; b) a abstenção de cobranças relativas a tais serviços; c) a restituição do valor de <valor_condenacao ord="4">R$ 80,00</valor_condenacao> (dobra); e d) o pagamento de <valor_condenacao ord="5">R$ 2.000,00</valor_condenacao> a título de danos morais . Em sede recursal, houve ainda a condenação da ré ao pagamento de honorários advocatícios fixados em 15% sobre o valor da condenação. Após o trânsito em julgado ocorrido em 10/02/2026, a executada efetuou o depósito judicial da quantia de R$ 2.871,20 em 25/02/2026 . Instado a se manifestar, o exequente concordou com o valor depositado, pleiteando a expedição de alvará. Contudo, alegou o descumprimento da obrigação de fazer, aduzindo que a ré não restabeleceu um plano de 90GB pelo valor de R$ 87,00, além de requerer danos morais supervenientes. <capitulo_merito><inicio ord="6">Decido</inicio></capitulo_merito>. Compulsando o comando sentencial de ID 51084972, verifica-se que este Juízo limitou-se a determinar o cancelamento dos serviços digitais e a abstenção de cobranças a eles inerentes. Não houve, em momento algum, ordem judicial para restabelecimento de plano específico de "90GB" ou fixação de tarifa mensal de "R$ 87,00". É cediço que o cumprimento de sentença deve estrita observância aos limites objetivos da coisa julgada. Pretensões que extrapolam o comando do título executivo ou que visam a reparação por fatos novos (danos supervenientes) devem ser objeto de ação própria, sendo inadmissível a inovação fática ou ampliação objetiva nesta fase processual estritamente executiva . A executada comprovou, mediante telas sistêmicas, o efetivo cancelamento dos serviços digitais objeto da lide, mantendo a linha ativa. Portanto, as obrigações de fazer foram devidamente satisfeitas conforme os exatos termos da condenação. Quanto à obrigação de pagar, o depósito judicial abrangeu o principal atualizado e a verba honorária, havendo anuência expressa da parte credora quanto ao montante. Destarte, resta configurada a satisfação integral do débito e das obrigações impostas. <dispositivo_abertura ord="7">Pelo exposto</dispositivo_abertura>, satisfeita a obrigação, <resultado ord="8">JULGO EXTINTA A EXECUÇÃO</resultado>, <fundamentacao_legal ord="9">na forma do disposto no art. 924, inc. II do CPC</fundamentacao_legal>. <custas><inicio ord="10">Custas</inicio></custas> e <honorarios><inicio ord="11">honorários indevidos</inicio></honorarios>. Proceda-se à transferência do valor depositado para a conta judicial vinculada ao processo no Banestes. Após, expeça-se alvará em favor da parte exequente, para levantamento do valor depositado judicialmente. <encerramento><inicio ord="12">Publique-se.</inicio> Registre-se. Intimem-se. Após o trânsito em julgado, arquive-se com as cautelas de lei. Cariacica/ES, assinado na data de registro no sistema. <fim ord="13">Juiz de direito assinado eletronicamente</fim></encerramento> ADVERTÊNCIAS: 1. Serve a presente como ofício/mandado. 2. Em caso de oposição de embargos de declaração, a serventia deste juízo deverá intimar a parte contrária, se for o caso, para se manifestar, <fundamentacao_legal ord="14">no prazo e forma do art. 1.023, §2º do CPC</fundamentacao_legal>; 3. Contra a Sentença, caberá recurso no prazo de 10 (dez) dias (art. 42 da Lei 9.099/95), sendo indispensável a representação por advogado (art. 41, §2º, da Lei 9.099/95).</text>
+</annotation>

@@ -1,0 +1,49 @@
+<annotation id="ann_021026064a26fc5698c6ab3d4c23e16a" document_id="doc_372fbafbf83b374da59608c69eb2a3ce">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-16T09:30:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Apelação Cível nº <ref_processual ord="0">0820795-49.2021.8.12.0001</ref_processual>
+Comarca de Campo Grande - 1ª Vara Cível
+Relator(a): Juiz Lúcio R. da Silveira
+Apelante: Banco Bradesco S.A.
+Advogado: Renato Chagas Correa da Silva (OAB: 5871/MS)
+Apelante: Roselene Souza dos Santos Silva
+Advogado: Guilherme Oliveira da Silva (OAB: 21127/MS)
+Apelada: Roselene Souza dos Santos Silva
+Advogado: Guilherme Oliveira da Silva (OAB: 21127/MS)
+Apelado: Banco Bradesco S.A.
+Advogado: Renato Chagas Correa da Silva (OAB: 5871/MS)
+Apelada: Zurich Minas Brasil Seguros S/A
+Advogado: Jacó Carlos Silva Coelho (OAB: 15155A/MS)
+
+<ementa><inicio ord="1">E M E N T A</inicio> - APELAÇÃO CÍVEL - RECURSOS DO BANCO BRADESCO E DA AUTORA - AÇÃO DECLARATÓRIA DE INEXISTÊNCIA DE DÉBITO C/C INDENIZAÇÃO POR DANOS MORAIS E MATERIAIS - DESCONTOS EM CONTA-CORRENTE A TÍTULO DE SEGURO - PRELIMINAR DE ILEGITIMIDADE PASSIVA ARGUIDA PELO BANCO-APELANTE - INSUBSISTENTE - MÉRITO - AUSÊNCIA DE PROVA DA CONTRATAÇÃO - COBRANÇA INDEVIDA - LEGITIMIDADE PASSIVA DO BANCO-RÉU - AUTORIZAÇÃO PARA DESCONTO EM CONTA - DANO MORAL INDEVIDO - PEQUENO VALOR DO DESCONTO - RESTITUIÇÃO DE VALORES NA FORMA SIMPLES - AUSÊNCIA DE DEMONSTRAÇÃO DA MÁ-FÉ - RECURSOS CONHECIDOS E DESPROVIDOS. I. As declarações feitas de forma hipotética pela parte Autora amparam a posição da parte Ré como demandada de maneira que a legitimidade deverá ser analisada no âmbito do mérito da causa. Aplicação da teoria da asserção. Preliminar de ilegitimidade passiva rejeitada. II. Verificando-se que os descontos a título de seguro na conta bancária da Autora não poderiam ter sido viabilizados sem que o Banco oportunizasse o débito automático, serviço esse que, no caso em tela, mostrou-se falho, uma vez que a Autora sustenta não ter firmado qualquer seguro e muito menos autorizado seu desconto em conta, inarredável a legitimidade passiva da instituição financeira para figurar no polo passivo da presente lide. Além disso, ainda que sustente ter atuado como mera prestadora de serviços financeiros, não se pode olvidar da responsabilização da instituição bancária <fundamentacao_legal ord="2">nos termos do dispõe o art. 14 do Código de Defesa do Consumidor</fundamentacao_legal>. III. É iterativa a jurisprudência deste Tribunal de Justiça no sentido de que o desconto de pequeno valor em benefício previdenciário não enseja indenização por danos morais. No caso, houve comprovação de descontos no singelo valor de <valor_condenacao ord="3">R$ 19,60</valor_condenacao>. IV. Os valores indevidamente descontados devem ser restituídos, porém, de forma simples, pois ausentes os requisitos do artigo 42, do CDC, que autorizam a restituição em dobro. <fim ord="4">V. Recursos conhecidos e desprovidos.</fim></ementa> A C Ó R D Ã O <acordao_decisorio><inicio ord="5">Vistos, relatados e discutidos</inicio> estes autos, ACORDAM, em sessão permanente e virtual, os Magistrados da 4ª Câmara Cível do Tribunal de Justiça de Mato Grosso do Sul, na conformidade da ata de julgamentos, a seguinte decisão: <fim ord="6">Por unanimidade, afastaram a preliminar e, no mérito, negaram provimento aos recursos, nos termos do voto do Relator.</fim></acordao_decisorio></text>
+</annotation>
