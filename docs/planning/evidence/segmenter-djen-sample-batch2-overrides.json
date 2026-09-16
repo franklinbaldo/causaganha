@@ -1,0 +1,13 @@
+{
+  "327514682": {
+    "capitulo_merito": "TJRJ sentenca: 'Decido.' opens the merit chapter but the source text has no explicit closing cue before the dispositivo/encerramento -- the merit reasoning runs directly into 'Publique-se.' with no delimiting phrase, same class as batch1's dangling capitulo_merito cases."
+  },
+  "42728512": {
+    "capitulo_merito": "TJMA sentenca: 'Decido.' opens the merit chapter but the source text has no explicit closing cue before the encerramento -- reasoning runs directly into 'Publique-se.' with no delimiting phrase, same class as batch1's dangling capitulo_merito cases."
+  },
+  "574460090": {
+    "capitulo_merito": "TJBA sentenca: 'Decido' opens the merit chapter but the source text has no explicit closing cue before the dispositivo -- reasoning runs directly into 'CONCEDO A SEGURANCA' with no delimiting phrase, same class as batch1's dangling capitulo_merito cases.",
+    "custas": "TJBA sentenca: 'Custas recolhidas.' has no closing cue -- it is a single terminal clause immediately followed by 'Sem honorarios.', not a bounded region with its own end marker.",
+    "honorarios": "TJBA sentenca: 'Sem honorarios.' has no closing cue -- it is a single terminal clause immediately followed by the mandado/oficio clause, not a bounded region with its own end marker."
+  }
+}
