@@ -481,6 +481,65 @@ def test_real_store_reflects_batch14_corpus_growth() -> None:
     assert any(h.startswith("fe3392b2") for h in hashes), "TST batch14 document missing"
 
 
+def test_real_store_reflects_batch15_corpus_growth() -> None:
+    """Regression guard for #1050's fifteenth real DJEN sample batch.
+
+    Snapshot before this batch: 126 documents (after batch14 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). This
+    batch selected 6 never-used candidates from the lowest-``store_count``
+    tribunals already represented in the corpus (TST, TJRJ x2, TJTO x2,
+    TRF2), following the volume-over-diversity strategy documented for
+    prior batches: TST/237077375 (prefix ``be29c768``), TJRJ/327497197
+    (prefix ``bc5c53e9``), TJRJ/327515150 (prefix ``c6ea13e4``),
+    TJTO/285693071 (prefix ``a808bd4b``), TJTO/285710292 (prefix
+    ``f4321405``), TRF2/301247724 (prefix ``c7034ee0``).
+
+    Four candidates (TST, TJTO x2, TRF2) had raw HTML markup embedded in
+    ``texto_limpo`` (bare ``<br>``, ``<b>``/``<table>``/``</br>``, a full
+    ``<html><head>...<body>`` wrapper) and needed the already-validated
+    batch3 HTML-to-text cleaner (``docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py``)
+    before annotation.
+
+    Two candidates (TJTO/285693071, TRF2/301247724) hit the known
+    same-length NBSP (U+00A0) -to-regular-space substitution defect first
+    documented in batch4/batch13, but pervasively this time (12 and 33
+    occurrences respectively across the whole document, not a single
+    isolated instance) -- fixed programmatically by diffing the
+    reconstructed (tags-stripped) text against the source character by
+    character and reinserting the correct NBSP bytes into the tagged XML
+    at the mapped positions, then re-verifying byte-identical
+    reconstruction before ingesting. No subagent redo was needed.
+
+    Four ``--allowed-unmatched-overrides`` entries were needed for
+    dangling start/end pairs with no closing cue in the source text
+    (``capitulo_merito`` x2, ``custas`` x2, ``honorarios`` x2,
+    ``encerramento`` x1) -- each verified against the raw source text
+    before declaring, the same established defect class as prior batches
+    (a formulaic mention like "Sem custas nem honorários advocatícios"
+    inline in the dispositivo, with no distinct closing phrase).
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the six specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 132
+    assert any(h.startswith("be29c768") for h in hashes), "TST batch15 document missing"
+    assert any(h.startswith("bc5c53e9") for h in hashes), "TJRJ/327497197 batch15 document missing"
+    assert any(h.startswith("c6ea13e4") for h in hashes), "TJRJ/327515150 batch15 document missing"
+    assert any(h.startswith("a808bd4b") for h in hashes), "TJTO/285693071 batch15 document missing"
+    assert any(h.startswith("f4321405") for h in hashes), "TJTO/285710292 batch15 document missing"
+    assert any(h.startswith("c7034ee0") for h in hashes), "TRF2 batch15 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
