@@ -1,0 +1,49 @@
+{
+  "batch": 10,
+  "run_id": "2026-09-16-exciting-mccarthy-imy2ed",
+  "documents_ingested": [
+    {
+      "tribunal": "TJBA",
+      "id_documento": "574460089",
+      "tipoDocumento": "Sentença",
+      "document_id": "doc_87afa7070d7c22542af5323c1788ba4e",
+      "notes": "20800 chars. NBSP-to-space substitution (21 positions) found and patched programmatically via offset mapping before ingestion (same defect class as risk class 4). capitulo_merito dangling pair overridden (risk class 1)."
+    },
+    {
+      "tribunal": "TJRN",
+      "id_documento": "72797727",
+      "tipoDocumento": "Sentença",
+      "document_id": "doc_7dcab9f1fc3d7f659d7eea4002782a09",
+      "notes": "13791 chars. Ingested cleanly, no overrides needed."
+    }
+  ],
+  "reverted_candidates": [
+    {
+      "tribunal": "TJRN",
+      "id_documento": "72798564",
+      "reason": "already ingested by an earlier batch under the same (tribunal, id_documento) source_uri; write_document no-op'd, only a redundant same-annotator annotation was added, then reverted."
+    },
+    {
+      "tribunal": "TJBA",
+      "id_documento": "574460090",
+      "reason": "same as above -- already ingested by an earlier batch."
+    }
+  ],
+  "governance_status_before": {
+    "document_count": 109,
+    "annotation_count": 162,
+    "val_ceiling_at_full_adjudication": 16,
+    "test_ceiling_at_full_adjudication": 16
+  },
+  "governance_status_after": {
+    "document_count": 111,
+    "annotation_count": 164,
+    "val_ceiling_at_full_adjudication": 17,
+    "test_ceiling_at_full_adjudication": 17
+  },
+  "category_support_after": {
+    "preliminar_inicio": 23,
+    "preliminar_fim": 23
+  },
+  "semantic_audit_new_findings": 0
+}
