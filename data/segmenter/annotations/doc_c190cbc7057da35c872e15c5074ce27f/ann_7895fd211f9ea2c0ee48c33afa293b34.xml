@@ -1,0 +1,129 @@
+<annotation id="ann_7895fd211f9ea2c0ee48c33afa293b34" document_id="doc_c190cbc7057da35c872e15c5074ce27f">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
+    <entry base="custas" reason="TJMG sentenca (JEFP incompetencia territorial): the custas clause has no closing cue -- it is a single terminal clause immediately followed by the honorarios clause, not a bounded region with its own end marker." />
+    <entry base="honorarios" reason="TJMG sentenca (JEFP incompetencia territorial): the honorarios clause has no closing cue -- it ends mid-sentence directly into the encerramento, with no delimiting phrase." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T06:30:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO DO JUIZADO ESPECIAL DA FAZENDA PÚBLICA</inicio>  Nº <ref_processual ord="1">1068123-50.2025.8.13.0024</ref_processual>/MG
+
+ REQUERENTE : KLEBER FLORENTINO DE BARROS SILVA
+
+ ADVOGADO(A) : <fim ord="2">SEBASTIAO PRUDENTE DE OLIVEIRA NETO (OAB GO042212)</fim></cabecalho>
+
+Local: Belo Horizonte
+
+ Data:  16/10/2025
+
+SENTENÇA
+
+ 
+
+Vistos etc.,
+
+ 
+
+Como sabido, a Lei nº 12.153 de 2009 autoriza a utilização subsidiária da Lei 9.099 de 1995, pelo que <fundamentacao_legal ord="3">se aplica o art. 38</fundamentacao_legal>, dispensando-se o relatório.
+
+O art. 27, da Lei nº 12.153/2009, disciplina a aplicação subsidiária do Código de Processo Civil e da Lei n. 9.099/95 aos processos de competência do Juizado Especial da Fazenda Pública.
+
+Pois bem. O Código de Processo Civil, em seu art. 4º e art. 6º, que versam sobre o princípio da razoável duração do processo, bem aponta:
+
+Art. 4º As partes têm o direito de obter em prazo razoável a solução integral do mérito, incluída a atividade satisfativa.
+[...]
+Art. 6º Todos os sujeitos do processo devem cooperar entre si para que se obtenha, em tempo razoável, decisão de mérito justa e efetiva.
+
+A Constituição Federal, por seu turno, em seu art. 5º, LXXVIII, trata sobre a celeridade processual, o qual é um direito fundamental de todos os litigantes, bem como um dos princípios norteadores dos Juizados Especiais:
+
+Art. 5º Todos são iguais perante a lei, sem distinção de qualquer natureza, garantindo-se aos brasileiros e aos estrangeiros residentes no País a inviolabilidade do direito à vida, à liberdade, à igualdade, à segurança e à propriedade, nos termos seguintes: […]
+
+LXXVIII - a todos, no âmbito judicial e administrativo, são assegurados a razoável duração do processo e os meios que garantam a celeridade de sua tramitação. […]
+
+ 
+
+O art. 2º da Lei n. 9.099/95, aponta quais são os princípios norteadores dos Juizados Especiais, conforme se verifica: 
+
+“Art. 2º O processo orientar-se-á pelos critérios da oralidade, simplicidade, informalidade, economia processual e celeridade, buscando, sempre que possível, a conciliação ou a transação”.
+
+ 
+
+Assim, em atenção aos princípios supracitados, em especial o direito fundamental à celeridade processual (<fundamentacao_legal ord="4">art. 5º, LXXVIII, CRFB/88</fundamentacao_legal>), analiso, de ofício, a competência do Juizado da Fazenda Pública de Belo Horizonte para o processamento e julgamento da causa.
+
+Depreende-se do comprovante de endereço acostado aos autos, o endereço de domicílio da parte autora, para fins de discussão litigiosa, encontra-se em cidade diversa da comarca de Belo Horizonte/MG.
+
+Está pacificado nos nossos Tribunais Superiores não haver privilégios ao Estado, ou as suas autarquias, não sendo exigido que as ações em face deles sejam propostas na sua Capital, uma vez que se deve respeito às demais regras de competências legalmente estabelecidas, notadamente no tocante à competência territorial.
+
+Nesse sentido, vejamos a decisão do STJ:
+
+CONFLITO NEGATIVO DE COMPETÊNCIA – AÇÃO DE INDENIZAÇÃO MOVIDA CONTRA UNIDADE DA FEDERAÇÃO – INCOMPETÊNCIA RELATIVA DECLARADA DE OFÍCIO IMPOSSIBILIDADE – SÚMULA 33/STJ. 1. O STJ firmou entendimento de que o Estado-Membro não possui foro privilegiado, estando submetido às regras de competência previstas no art. 100, IV e ratione locci V, do CPC. Precedentes. 2. Relativa a competência territorial, a declaração de incompetência não pode ser feita de ofício, incidindo o enunciado 33 da súmula deste Tribunal. 3. Agravo regimental não provido. (STJ, AGRG nº 110.242/RJ , 1ª Seção, Rel. Min. Eliana DJ-e 21/05/2010) - destaquei
+
+Ademais, destaca-se o princípio constitucional do juiz natural, que orienta a mens legislatoris no tocante à definição de competência para o feito em atenção à proximidade do julgador com os fatos e as partes, eis que relevante para o escorreito julgamento das demandas judiciais, visando a adequada produção e valoração probatórias.
+
+Assim, é entendido que, se estabelecida a parte autora em outra comarca, imprópria a propositura da presente demanda perante esta Comarca de Belo Horizonte, sob pena de violação ao princípio constitucional do juiz natural.
+
+Acresço, ademais, que o elevado número de ajuizamentos envolvendo fatos ocorridos em outra localidade, por autores e réus que possuem domicílio ou estabelecimento fora desta Capital, vem ensejando dificuldades na apuração probatória e gastos em demasia pelo Poder Público, gerando, lado outro, evidentes prejuízos aos jurisdicionados desta Comarca, causando atraso na prestação jurisdicional em desfavor da coletividade local, podendo inviabilizá-la.
+
+Salienta-se que a incompetência territorial, embora qualificada pela doutrina como sendo de natureza relativa, pode ser reconhecida até mesmo de ofício no âmbito dos Juizados Especiais, que possui regras especiais àquelas gerais previstas no Código de Processo Civil.
+
+No caso específico dos autos, a parte autora, conforme informado na própria exordial, reside em outra cidade, o que importa, por conseguinte, em ser este o município o seu domicílio necessário, <fundamentacao_legal ord="5">nos termos do art. 76, parágrafo único, do Código Civil</fundamentacao_legal>, sendo, portanto, competência daquele Juízo para o julgamento da presente ação.
+
+Nestes termos, jurisprudências do e. TJMG:
+
+RECURSO INOMINADO – INCOMPETÊNCIA TERRITORIAL – SERVIDOR PÚBLICO – DOMICÍLIO NECESSÁRIO – PROCESSO EXTINTO SEM RESOLUÇÃO DE MÉRITO – SENTENÇA MANTIDA. (TJ-MG 5011237-65.2023.8.13.0433, Relator: ELISEU SILVA LEITE FONSECA, Data de Publicação: 18/03/2024)
+
+JUIZADO ESPECIAL DA FAZENDA PÚBLICA. AÇÃO AJUIZADA POR SERVIDOR PÚBLICO RESIDENTE NOUTRA COMARCA. COMPETÊNCIA ABSOLUTA QUE NÃO ADMITE PRORROGAÇÃO. EXTINÇÃO DO PROCESSO SEM RESOLUÇÃO DE MÉRITO. RECURSO CONHECIDO E NÃO PROVIDO. […] verifica-se que a parte autora exerce suas funções públicas no interior. Como é sabido, o servidor público tem domicílio necessário, ou seja, o lugar em que exerce permanentemente suas funções, a teor do art. 76, parágrafo único, do Código Civil. […] (TJ-MG 51728390720188130024, Relator: NICOLAU LUPIANHES NETO, Data de Publicação: 28/05/2019)
+
+JUIZADO ESPECIAL DA FAZENDA PÚBLICA. AÇÃO AJUIZADA POR SERVIDOR PÚBLICO RESIDENTE NOUTRA COMARCA. COMPETÊNCIA ABSOLUTA QUE NÃO ADMITE PRORROGAÇÃO. EXTINÇÃO DO PROCESSO SEM RESOLUÇÃO DE MÉRITO. RECURSO CONHECIDO E NÃO PROVIDO. […] verifica-se que a parte autora exerce suas funções públicas no interior. Como é sabido, o servidor público tem domicílio necessário, ou seja, o lugar em que exerce permanentemente suas funções, a teor do art. 76, parágrafo único, do Código Civil. […] (TJ-MG 50246549020198130024, Relator: SILVEMAR JOSE HENRIQUES SALGADO, Data de Publicação: 17/05/2019)
+
+EXCEÇÃO DE INCOMPETÊNCIA - AÇÃO REVISIONAL DE CONTRATO - CONTRATO DE ADESÃO - FORO DE ELEIÇÃO - COMARCA DIVERSA DO DOMICÍLIO DO CONSUMIDOR - NULIDADE - SERVIDOR PÚBLICO - DOMICÍLIO NECESSÁRIO. A liberdade de se contratar ou não com determinada empresa não se confunde com a liberdade de se discutir cláusulas específicas do contrato celebrado, sendo que ausente esta, caracteriza-se o contrato de adesão; A cláusula de eleição de foro em contrato de adesão é nula sempre que for diversa do domicílio do consumidor e prejudicar o exercício de seu direito de defesa, sendo que, tratando-se de servidor público, seu domicílio necessário é o local onde exerce suas funções. 
+
+(TJMG - Agravo de Instrumento 1.0481.07.074329-1/001, Relator(a): Des.(a) Mota e Silva , 15ª CÂMARA CÍVEL, julgamento em 01/02/2008, publicação da súmula em 18/03/2008) (grifa-se)
+
+Por tudo isso, de se concluir que o Juízo territorialmente competente para conhecer e julgar a lide posta nestes autos não é o de Belo Horizonte.
+
+Cumpre ressaltar, ainda, que, conforme supracitado, o art. 27, da Lei 12.153/09, determina a aplicação subsidiária do Código de Processo Civil e da Lei dos Juizados Especiais Cíveis e Criminais, lei n. 9.099/95, ao Juizado Especial da Fazenda Pública.
+
+Assim, ao presente caso, deve-se <fundamentacao_legal ord="6">aplicar o comando processual do art. 51, III, da Lei n. 9.099/95</fundamentacao_legal>, lastreando-se a presente decisão de extinção nos termos da legislação vigente.
+
+Em relação ao pedido de gratuidade judiciária, a parte carece de interesse de agir neste grau de jurisdição, tendo em vista a <fundamentacao_legal ord="7">isenção de custas e honorários prevista no art. 55, da Lei 9.099/95</fundamentacao_legal>, ressalvando o direito de reiterá-lo em preliminar de eventual recurso.
+
+<dispositivo_abertura ord="8">Pelo exposto</dispositivo_abertura>, <resultado ord="9">JULGO EXTINTO SEM RESOLUÇÃO DO MÉRITO</resultado>, <fundamentacao_legal ord="10">nos termos do art. 27, da Lei 12.153/09, conjuntamente ao art. 51, III, da Lei 9.099/95</fundamentacao_legal>.
+
+<custas><inicio ord="11">Sem custas</inicio></custas> e <honorarios><inicio ord="12">honorários</inicio></honorarios>, nos termos do <fundamentacao_legal ord="13">art. 55, da Lei 9.099/95</fundamentacao_legal>.
+
+Após o trânsito em julgado, não havendo requerimentos, remetam-se os autos ao arquivo.
+
+Registre-se. <encerramento><inicio ord="14">Publique-se.</inicio></encerramento> Intimem-se.
+
+Belo Horizonte, data da assinatura eletrônica.</text>
+</annotation>

@@ -1,0 +1,25 @@
+{
+  "543565569": {
+    "relatorio": "TJGO sentenca: 'Trata-se de' opens the relatorio but the source text has no explicit closing cue -- it runs directly into the merit narrative with no delimiting phrase, same class as prior batches' dangling relatorio cases (e.g. TJRR in batch2).",
+    "custas": "TJGO sentenca: 'Sem custas' has no closing cue -- it is a single terminal clause immediately followed by 'e honorarios advocaticios (...)' in the same sentence, not a bounded region with its own end marker, same class as prior batches' dangling custas cases."
+  },
+  "237077345": {
+    "capitulo_merito": "TST acordao: 'MERITO' opens the merit chapter but the source text has no 'DISPOSITIVO' heading or other closing cue before the acordao_decisorio -- reasoning runs directly into the collegiate decision with no delimiting phrase, same class as prior batches' dangling capitulo_merito cases."
+  },
+  "285645419": {
+    "capitulo_merito": "TJTO sentenca: 'Decido' opens the merit chapter but the source text has no explicit closing cue before the dispositivo -- reasoning runs directly into 'Ante o exposto' with no delimiting phrase, same class as prior batches' dangling capitulo_merito cases.",
+    "custas": "TJTO sentenca: 'despesas processuais' has no closing cue -- it is part of the same clause as the honorarios waiver, not a bounded region with its own end marker.",
+    "honorarios": "TJTO sentenca: 'honorarios advocaticios' has no closing cue -- it is part of the same single clause as the custas waiver, ending mid-sentence with no delimiting phrase."
+  },
+  "301247496": {
+    "custas": "TRF2 sentenca: the custas waiver clause has no closing cue -- it is immediately followed by the honorarios clause in the same sentence, not a bounded region with its own end marker.",
+    "honorarios": "TRF2 sentenca: the honorarios clause has no closing cue -- it ends mid-sentence directly into the encerramento, with no delimiting phrase."
+  },
+  "442360960": {
+    "custas": "TJMG sentenca (JEFP incompetencia territorial): the custas clause has no closing cue -- it is a single terminal clause immediately followed by the honorarios clause, not a bounded region with its own end marker.",
+    "honorarios": "TJMG sentenca (JEFP incompetencia territorial): the honorarios clause has no closing cue -- it ends mid-sentence directly into the encerramento, with no delimiting phrase."
+  },
+  "458630339": {
+    "ementa": "TJRS acordao (Incidente de Uniformizacao de Jurisprudencia): the structured ementa has no explicit closing cue before the fundamentacao_legal/acordao_decisorio that follows -- same class as prior batches' dangling ementa cases (e.g. TJRJ-style structured ementas without a delimiting phrase)."
+  }
+}

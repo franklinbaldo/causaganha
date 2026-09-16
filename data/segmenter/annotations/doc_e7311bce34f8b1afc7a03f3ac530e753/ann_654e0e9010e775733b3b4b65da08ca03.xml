@@ -1,0 +1,48 @@
+<annotation id="ann_654e0e9010e775733b3b4b65da08ca03" document_id="doc_e7311bce34f8b1afc7a03f3ac530e753">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
+    <entry base="custas" reason="TRF2 sentenca: the custas waiver clause has no closing cue -- it is immediately followed by the honorarios clause in the same sentence, not a bounded region with its own end marker." />
+    <entry base="honorarios" reason="TRF2 sentenca: the honorarios clause has no closing cue -- it ends mid-sentence directly into the encerramento, with no delimiting phrase." />
+  </allowed_unmatched>
+  <completed_at>2026-09-16T06:30:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO DO JUIZADO ESPECIAL CÍVEL</inicio>  Nº <ref_processual ord="1">5000883-13.2025.4.02.5004</ref_processual>/ES
+
+ AUTOR : ANA PAULA SANTANA DA FONSECA VIEIRA
+
+ ADVOGADO(A) : RICARDO CARLOS MACHADO BERGAMIN (OAB ES016627)
+
+ ADVOGADO(A) : <fim ord="2">FELIPE BERGAMASCHI (OAB RS068101)</fim></cabecalho>
+
+SENTENÇA
+<dispositivo_abertura ord="3">Ante o exposto</dispositivo_abertura>, <resultado ord="4">JULGO PROCEDENTE</resultado> O PEDIDO, com resolução de mérito, <fundamentacao_legal ord="5">na forma do art. 487, inciso I, do Código de Processo Civil</fundamentacao_legal>, para condenar o INSS na obrigação de fazer consistente em conceder o benefício de salário-maternidade à parte autora, a partir de 10/05/2022, data do requerimento administrativo ( Evento 1, PROCADM9 , até 06/09/2022 (120 dias). CONDENO, ainda, o INSS a pagar à parte autora as prestações em atraso desde 22/07/2024 até 06/09/2022, acrescidas de atualização monetária e juros de mora. Sobre as parcelas vencidas, no período anterior à publicação da EC 113/2021, deverá incidir, respeitada a prescrição quinquenal e o valor do teto dos Juizados Especiais Federais, correção monetária desde a data de vencimento de cada parcela, pelo INPC, bem como juros segundo a remuneração oficial da caderneta de poupança (art. 1º-F da Lei 9.494/97, com a redação dada pela Lei nº 11.960/2009), tudo <fundamentacao_legal ord="6">conforme decidido no RE nº 870.947 (Tema 810) e REsp nº 1.495.144/RS (repetitivo, Tema 905)</fundamentacao_legal>. A partir da publicação da EC 113/2021 (09/12/2021), para fins de correção monetária e juros de mora deverá incidir unicamente a SELIC. Caso o INSS tenha concedido o benefício administrativamente, comprovado nos autos, autorizo a compensação dos valores já recebidos pela parte autora. <custas><inicio ord="7">Sem custas</inicio></custas> nem <honorarios><inicio ord="8">honorários advocatícios</inicio></honorarios>, <fundamentacao_legal ord="9">conforme art. 55 da Lei n.° 9.099/95 c/c art. 1º da Lei n.° 10.259/2001</fundamentacao_legal>. Interposto recurso (art. 5º, da Lei 10.259/2001), em analogia e <fundamentacao_legal ord="10">em observância ao disposto no artigo 1.010, §§ 1º e 3º, do Código de Processo Civil</fundamentacao_legal>, intime-se o recorrido para apresentar contrarrazões, no prazo de 10 (dez) dias. DO CUMPRIMENTO DO JULGADO I- Certificado o trânsito em julgado e mantida na íntegra esta sentença INTIME-SE a ELAB-DJ/CEAB-DJ para que, no prazo de 20 (vinte) dias, comprove nos autos o cumprimento da obrigação de fazer, referente à IMPLANTAÇÃO DO BENEFICIO.  Advirto à parte requerente que eventual controvérsia quanto à fixação da RMI por parte da autarquia previdenciária não é objeto da presente ação e configura nova causa de pedir. Questão que poderá ser submetida à revisão judicial por meio de ação própria. II - À Secretaria para que promova a retificação da classe processual de forma que passe a constar "CUMPRIMENTO DE SENTENÇA CONTRA A FAZENDA PÚBLICA (JEF)". III - Sem prejuízo, INTIME-SE o advogado, para que, no prazo de 5 (cinco) dias, sob pena de preclusão, requeira o destaque de honorários advocatícios contratuais, que serão requisitados de forma vinculada ao principal, e seguindo a mesma natureza deste.  IV - Cumprido,  INTIME-SE a Procuradoria Federal Especializada do INSS para que, no prazo de 40 (quarenta) dias, promova a juntada da planilha de cálculos do valor dos atrasados, <fundamentacao_legal ord="11">nos termos do Enunciado 52 das Turmas Recursais do RJ</fundamentacao_legal>.  V - Com a vinda da planilha de cálculos,  REMETA-SE à DAG para cadastramento da requisição e dê-se vista às partes da minuta de cadastramento para eventual impugnação no prazo de 5 (cinco) dias, contados  da juntada da requisição. Advirto que eventual impugnação aos valores requisitados deverá ser formulada, no prazo de 5 (cinco) dias, em planilha única na qual deverá constar  com clareza o erro contido no cadastramento da requisição suso. Ficam cientes de que não havendo impugnação devidamente fundamentada, no prazo supramencionado, restará preclusa qualquer discussão sobre os cálculos.  SEM PREJUÍZO, no mesmo prazo da impugnação, caso o valor apurado supere o teto dos 60 (sessenta) salários mínimos, deverá a parte exequente manifestar-se expressamente se renuncia o montante que sobejar, informando que pretende levantamento por meio de RPV. Na hipótese de silêncio ou recusa, será cadastrada requisição de precatório. VI - Findo o prazo de 5 (cinco) dias, sem manifestação contrária, à Secretaria para providenciar a conferência da RPV/Precatório, voltando-me os autos conclusos para a transmissão à DIPRE /TRF.  VII - Fica ciente a parte autora de que, no caso de RPV, o depósito dos valores será efetuado no prazo de até 60 (sessenta) dias, a contar do envio da requisição, em conta corrente a ser aberta pelo TRF em nome do beneficiário, cujos dados estarão disponibilizados no  endereço eletrônico do TRF - Tribunal Regional Federal da 2ª Região (https://eproc.trf2.jus.br/eproc/), no campo ?Consulta Pública de Processos?, pelo CPF do beneficiário.  Para recebimento dos valores, deverá(ão) o(s) beneficiário(s) comparecer diretamente à agência da Caixa Econômica Federal ou do Banco do Brasil, conforme o caso, e apresentar, no ato, demonstrativo do depósito impresso, bem como os originais da carteira de identidade e CPF.  <fundamentacao_legal ord="12">Conforme o disposto na Lei 10.833, de 29/12/2003, em seu artigo 27, parágrafo primeiro</fundamentacao_legal>, caso o autor esteja isento de IRRF, poderá apresentar declaração de isenção do IRRF, que deverá ser apresentada na referida Instituição Bancária, por ocasião do levantamento da RPV.  VIII - Tudo feito,  BAIXEM-SE os autos. <encerramento><inicio ord="13">Publique-se.</inicio></encerramento> Intimem-se.</text>
+</annotation>
