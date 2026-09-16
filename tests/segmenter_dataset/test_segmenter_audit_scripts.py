@@ -211,7 +211,25 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     ``valor_condenacao``, five raw "R$" occurrences, the heuristic's ``>2``
     threshold flags it anyway.
 
-    If this test starts seeing *more* than these four findings, a new
+    ``doc_3b0be436ba6753185997c37b2b6b9765`` (djen_sample batch8, TJSE,
+    2026-09-16) is the same shape of false positive again for
+    ``fundamentacao_legal_collapsed``: this is a compact Turma Recursal
+    ementa+acordao export where the EMENTA block enumerates several
+    "ART." citations in its caps-lock keyword-abstract style (art. 373,
+    II do CPC; art. 42, parágrafo único, do CDC) -- an ementa's citations
+    are boundary content inside ``ementa_inicio``/``ementa_fim``, not
+    reasoning prose, and the guideline never asks for per-citation tagging
+    inside an ementa. The one real ``fundamentacao_legal`` span
+    ("NOS TERMOS DO ART. 142, §2º, I DO RITJSE.") sits in the
+    acordao_decisorio region; a second "ART. 55, 2ª PARTE, DA LEI
+    9.099/95." citation was deliberately left untagged because it is
+    identical, verbatim, to the acordao_decisorio's own ``_fim`` anchor
+    text (tagging it twice would overlap two categories on the same span,
+    the guideline's own anti-pattern). Four raw "art."/"ART." mentions,
+    one real reasoning-authority tag -- the heuristic's ``>3`` threshold
+    flags it anyway.
+
+    If this test starts seeing *more* than these five findings, a new
     real omission was introduced and needs the same triage — repair it, or
     extend this allowlist with a documented reason, never silence the
     assertion.
@@ -234,4 +252,5 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_3cffd7961e9fc910f6ae628f5aaa6c40",
         "doc_f985597a64cc7b5ad06731c072915a7a",
         "doc_2a07306d88d1acebcdc0aff9958f7009",
+        "doc_3b0be436ba6753185997c37b2b6b9765",
     }
