@@ -1,8 +1,8 @@
 ---
 type: AgentRun
 id: "2026-09-16-exciting-mccarthy-mg2tp1"
-started_at: "2026-09-16T09:00:00Z"
-completed_at: ""
+started_at: "2026-09-16T06:20:00Z"
+completed_at: "2026-09-16T07:05:00Z"
 branch_at_start: "claude/exciting-mccarthy-mg2tp1"
 commit_at_start: "9891e68ec4ab1ba0adfed25f9a29b1e5a83a7034"
 claude_md_reading_id: "2026-09-16-exciting-mccarthy-mg2tp1-reading-claude-md"
@@ -27,13 +27,16 @@ decision_ids:
   - "2026-09-16-exciting-mccarthy-mg2tp1-decision-patch-nbsp-instead-of-redo"
 evidence_ids:
   - "2026-09-16-exciting-mccarthy-mg2tp1-evidence-batch4-ingested"
-  - "2026-09-16-exciting-mccarthy-mg2tp1-evidence-collapsed-heuristic-regression-red-green"
+  - "2026-09-16-exciting-mccarthy-mg2tp1-evidence-collapsed-heuristic-red"
+  - "2026-09-16-exciting-mccarthy-mg2tp1-evidence-collapsed-heuristic-green"
 check_ids:
   - "2026-09-16-exciting-mccarthy-mg2tp1-check-okf-parser-after-readings-goal-decision"
   - "2026-09-16-exciting-mccarthy-mg2tp1-check-okf-parser-after-evidence-decision"
-result_state: "red"
-result_summary: ""
-next_move: ""
+  - "2026-09-16-exciting-mccarthy-mg2tp1-check-full-suite"
+  - "2026-09-16-exciting-mccarthy-mg2tp1-check-okf-parser-final"
+result_state: "review"
+result_summary: "Fourth real multi-tribunal batch for #1050, continuing the proven mechanism from three prior rounds (61->68->74->81 documents so far): 5 candidates in 3 tribunals not yet represented (TJSC, TRF4 x3, TRF6), selected from data/segmenter_samples/*.jsonl, annotated independently by 5 subagents via the canonical Technique 1 prompt. All 5 needed the same raw-HTML-markup cleanup batch3 already wrote and validated (docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py, reused unmodified); 3 needed a reviewed --allowed-unmatched-overrides entry for the established dangling-ementa defect class. One candidate (TJSC 587254906) hit a new, narrower defect: the ingestion script's verbatim-fidelity check flagged a mismatch despite equal reconstructed/source lengths (3977==3977) -- a programmatic char-by-char diff found a single non-breaking space silently normalized to a regular space during transcription; fixed by patching that one substring rather than re-running the subagent (decision-patch-nbsp-instead-of-redo). scripts/segmenter_governance_status.py confirms document_count 81->86, val/test ceiling 12->13, 24 tribunals total (up from 21) -- see docs/planning/evidence/segmenter-djen-sample-batch4-2026-09-16.json. Ingesting the batch also surfaced a genuine regression (RED) in tests/segmenter_dataset/test_segmenter_audit_scripts.py's collapsed-heuristic guard: one new document triggered the same known fundamentacao_legal_collapsed false-positive shape already documented for a prior document (ref_normativa citations correctly excluded from the trainable label space but still counted by the heuristic's raw-text scan) -- fixed (GREEN) by extending the test's allowlist with the same documented reasoning, never silencing the assertion (evidence-collapsed-heuristic-red/-green). No production code changed; scripts/ingest_djen_sample_technique1_batch.py and its test suite reused as-is. uv run ruff check/format and uv run pytest -q are green (0 failures) after this round's own run.md completeness fields are filled in this commit. knowledge/backlog/issue-1050.md updated with this round's numbers, the near-exhaustion of new-tribunal diversity in the sample pool (only 8 tribunals left, all without usable candidates), and a 4th documented defect/risk class (same-length verbatim mismatches). PR to be opened next; CI status and merge will be confirmed in a follow-up commit to this same run.md before the round is considered done."
+next_move: "A proxima rodada deve continuar o mesmo padrao geral, mas com uma mudanca de foco: diversidade de tribunal esta quase esgotada no pool de amostras atual (so restam 8 tribunais sem candidato usavel -- STM, TJAC, TJAM, TJAP, TJMS, TJPE, TJSP, TRF1 -- todos so com candidatos tipo Decisao ou curtos demais, fora do que a guideline v7.1 cobre). Uma rodada futura deve ampliar a selecao para tambem incluir candidatos Sentenca/Acordao adicionais, ainda nao usados, em tribunais JA representados (nao so tribunais novos), ja que crescer document_count -- nao diversidade de tribunal -- e o que aproxima o piso de RFC 0012 Sec 5 item 4 (>=30 val, >=30 teste; hoje em 13/13, precisa chegar a 30/30, o que exige algo perto de 200 documentos totais). Reusar sem alteracao o limpador docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py (validado em 4 rodadas seguidas) e sempre checar ET.fromstring(f'<text>{texto}</text>') no texto bruto antes de anotar. Ao revisar qualquer skip por fidelidade verbatim, diffar programaticamente caractere-a-caractere mesmo quando os comprimentos ja batem (achado desta rodada: uma substituicao de mesmo tamanho, como NBSP->espaco comum, e invisivel a um check de comprimento). Se o audit semantico (scripts/segmenter_semantic_audit.py) sinalizar um novo falso-positivo de categoria _collapsed causado por citacoes ref_normativa descartadas, tratar como a mesma classe ja documentada (estender a allowlist do teste com razao documentada) em vez de investigar do zero. Apos esta rodada: abrir PR com os numeros deste relatorio, acompanhar CI ate verde, e mesclar -- registrar o resultado final num commit de fechamento como as rodadas anteriores desta linhagem."
 ---
 
 # Agent run
