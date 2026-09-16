@@ -4,7 +4,7 @@ id: "2026-09-16-exciting-mccarthy-j2t668-check-okf-parser-after-readings-goal-de
 run_id: "2026-09-16-exciting-mccarthy-j2t668"
 command: "uv run okf-parser check knowledge --relational-schema okf.schema.sql"
 result: "conformant=true, diagnostics=[], concept_count=1953, markdown_count=1956, reserved_count=3"
-evidence_id: ""
+evidence_id: null
 ---
 
 # Check: okf-parser apos scaffold + 4 leituras + goal + decisao
