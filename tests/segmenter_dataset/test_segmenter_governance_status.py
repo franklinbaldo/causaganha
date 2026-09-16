@@ -238,10 +238,13 @@ def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
     assert status["meets_rfc_0012_split_floor"] is False
 
 
-def test_real_store_reflects_batch8_corpus_growth() -> None:
-    """Regression guard for #1050 batch8 (2026-09-16, 6 docs: TJBA, TJMG,
+def test_real_store_reflects_batch9_corpus_growth() -> None:
+    """Regression guard for #1050 batch9 (2026-09-16, 6 docs: TJBA, TJMG,
     TJRS, TJSE, TRF2, TJCE -- see
-    ``docs/planning/evidence/segmenter-djen-sample-batch8-2026-09-16.json``).
+    ``docs/planning/evidence/segmenter-djen-sample-batch8-2026-09-16.json``,
+    named "batch8" in its evidence filename due to a numbering collision
+    documented in ``knowledge/backlog/issue-1050.md``; the prose there
+    numbers this round "lote 9" in the real historical sequence).
 
     Before this batch: document_count=109, val_ceiling=16, test_ceiling=16
     (last-verified live snapshot per ``knowledge/backlog/issue-1050.md``).
@@ -268,6 +271,42 @@ def test_real_store_reflects_batch8_corpus_growth() -> None:
     assert status["document_count"] >= 115
     assert status["val_ceiling_at_full_adjudication"] >= 17
     assert status["test_ceiling_at_full_adjudication"] >= 17
+
+
+def test_real_store_reflects_batch10_corpus_growth() -> None:
+    """Regression guard for #1050's tenth real DJEN sample batch.
+
+    Snapshot before this batch: 109 documents (after batches 1-8 merged;
+    a concurrent session's ninth batch, PR #1557, was still open with CI
+    pending when this batch was selected and is merged separately as
+    ``test_real_store_reflects_batch9_corpus_growth`` above). This batch
+    adds two previously-unused real Sentença documents targeting the
+    ``preliminar`` cue (still the scarcest category at 21 instances) from
+    tribunals already represented but with only one document each:
+    TJRN/72797727 (``source.source_hash`` prefix ``e9cd07f4``, i.e.
+    ``segmenter_dataset.dedup.content_hash`` of the document's own text —
+    not DJEN's own ``sha256`` field, a different hash space entirely, per
+    knowledge/backlog/issue-1050.md's risk class 9) and TJBA/574460089
+    (prefix ``d91719f4``). An initial selection of TJRN/72798564 and
+    TJBA/574460090 was ingested and reverted mid-round after `git status`
+    showed zero new ``documents/`` files — both had already been ingested
+    by an earlier batch under the same (tribunal, id_documento) pair; see
+    that risk class entry and this round's AgentDecision record. If corpus
+    growth from a later concurrent batch changes the exact total, update
+    the count here rather than treating a higher number as a failure — the
+    two specific document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 117
+    assert any(h.startswith("e9cd07f4") for h in hashes), "TJRN batch10 document missing"
+    assert any(h.startswith("d91719f4") for h in hashes), "TJBA batch10 document missing"
 
 
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
