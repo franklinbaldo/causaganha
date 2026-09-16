@@ -43,6 +43,8 @@ _LABEL_SPACE = frozenset(
         "ref_processual",
         "valor_condenacao",
         "fundamentacao_legal",
+        "custas_inicio",
+        "custas_fim",
     }
 )
 
@@ -180,6 +182,46 @@ def test_ingest_skips_verbatim_fidelity_mismatch(tmp_path) -> None:
 
     assert ingested == []
     assert "verbatim-fidelity mismatch" in skipped["doc4"]
+
+
+def test_ingest_applies_manual_allowed_unmatched_override(tmp_path) -> None:
+    """A dangling ``_inicio`` that is NOT positionally last (e.g. a trailing
+    single-anchor citation lands after it) is not auto-excused by
+    ``_detect_allowed_unmatched`` -- same design as
+    ``ingest_juris_technique1_batch``'s own regression test. Real Technique 1
+    batches hit this often (a closing cue absent from the source text, not an
+    annotation defect), so this script accepts the same kind of manually
+    reviewed override ``annotate_second_independent.py`` already supports,
+    keyed by candidate id.
+    """
+    text = "Sem custas processuais. JULGO PROCEDENTE o pedido."
+    tagged_dangling = (
+        "<custas><inicio>Sem custas</inicio></custas> processuais. "
+        "<dispositivo_abertura>JULGO PROCEDENTE</dispositivo_abertura> o pedido."
+    )
+    _write_candidate(tmp_path, key="doc5", tribunal="TJBA", tipo_documento="Sentença", text=text)
+    _write_tagged(tmp_path, key="doc5", tagged_text=tagged_dangling)
+
+    ingested, skipped = module.ingest(
+        tmp_path / "candidates.json",
+        tmp_path / "tagged",
+        tmp_path / "store",
+        _LABEL_SPACE,
+        completed_at="2026-09-16T00:00:00Z",
+    )
+    assert ingested == []
+    assert "custas" in skipped["doc5"]
+
+    ingested, skipped = module.ingest(
+        tmp_path / "candidates.json",
+        tmp_path / "tagged",
+        tmp_path / "store2",
+        _LABEL_SPACE,
+        completed_at="2026-09-16T00:00:00Z",
+        allowed_unmatched_overrides={"doc5": {"custas": "no closing cue in source text"}},
+    )
+    assert skipped == {}
+    assert len(ingested) == 1
 
 
 def test_ingest_reports_tagged_file_with_no_matching_candidate(tmp_path) -> None:

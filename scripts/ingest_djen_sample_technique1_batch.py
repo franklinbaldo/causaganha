@@ -153,10 +153,23 @@ def ingest(
     ontology_categories: set[str],
     *,
     completed_at: str,
+    allowed_unmatched_overrides: dict[str, dict[str, str]] | None = None,
 ) -> tuple[list[str], dict[str, str]]:
-    """Returns (ingested doc_ids, {doc_id_key: skip_reason})."""
+    """Returns (ingested doc_ids, {doc_id_key: skip_reason}).
+
+    ``allowed_unmatched_overrides`` (keyed by candidate id, same shape as
+    ``annotate_second_independent.py``'s ``--allowed-unmatched``) is for a
+    dangling ``_inicio`` that ``_detect_allowed_unmatched`` doesn't
+    auto-excuse because it isn't positionally last -- a real Technique 1
+    batch hits this whenever the source text genuinely has no closing cue
+    for a region that isn't the last thing labeled (RFC 0012 §9's "risk
+    signal, not auto-rejected" principle applies here too: a human/reviewing
+    agent judges and declares the reason deliberately, rather than the
+    script guessing at a text boundary that was never marked).
+    """
     store = SegmenterDatasetStore(output_dir)
     candidates = _load_candidates(candidates_path)
+    overrides = allowed_unmatched_overrides or {}
     ingested: list[str] = []
     skipped: dict[str, str] = {}
 
@@ -190,7 +203,7 @@ def ingest(
             continue
 
         labels = _dedupe_single_anchor(_drop_excluded_categories(labels))
-        allowed_unmatched = _detect_allowed_unmatched(labels)
+        allowed_unmatched = _detect_allowed_unmatched(labels) | overrides.get(key, {})
         mechanical_problems = validate_record(
             source_text,
             labels,
@@ -244,15 +257,28 @@ def main() -> None:
         default=Path("data/segmenter_splits/label_space.json"),
     )
     parser.add_argument("--completed-at", type=str, required=True)
+    parser.add_argument(
+        "--allowed-unmatched-overrides",
+        type=Path,
+        default=None,
+        help="JSON file: {candidate_id: {base: reason}} for a manually reviewed "
+        "dangling pair _detect_allowed_unmatched doesn't auto-excuse",
+    )
     args = parser.parse_args()
 
     ontology_categories = load_categories(args.label_space)
+    overrides = (
+        json.loads(args.allowed_unmatched_overrides.read_text(encoding="utf-8"))
+        if args.allowed_unmatched_overrides
+        else {}
+    )
     ingested, skipped = ingest(
         args.candidates,
         args.tagged_dir,
         args.output,
         ontology_categories,
         completed_at=args.completed_at,
+        allowed_unmatched_overrides=overrides,
     )
 
     print(f"Ingested {len(ingested)} document(s):")

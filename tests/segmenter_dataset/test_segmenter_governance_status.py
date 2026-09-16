@@ -224,15 +224,16 @@ def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
     assert status["evaluation_eligible_count"] >= 1
     assert status["blocked_on_reviews"] is False
 
-    # New regression guard (this round, c4y4rc): RFC 0012 Sec 5 item 4's per-split
+    # New regression guard (introduced c4y4rc): RFC 0012 Sec 5 item 4's per-split
     # floor (>=30 val, >=30 test, each adjudicated) is a function of *total corpus
     # size* (val_target = round(total_eligible * val_ratio)), not just review
-    # coverage. This store has 61 documents; even simulating 100% adjudication of
-    # every one of them, assign_splits' own ratio math caps val/test at ~9 each.
-    # If this assertion ever starts failing because corpus_scale_blocks_floor is
-    # False, issue #1050 (corpus scale-up) has made enough real progress to lift
-    # this structural ceiling -- update/remove this guard instead of treating a
-    # flip here as a failure.
+    # coverage. As of 0iuk22 (68 documents, first non-TJRO batch via
+    # ingest_djen_sample_technique1_batch.py) even simulating 100% adjudication of
+    # every document, assign_splits' own ratio math still caps val/test at ~10
+    # each -- far short of 30. If this assertion ever starts failing because
+    # corpus_scale_blocks_floor is False, issue #1050 (corpus scale-up) has made
+    # enough real progress to lift this structural ceiling -- update/remove this
+    # guard instead of treating a flip here as a failure.
     assert status["corpus_scale_blocks_floor"] is True
     assert status["meets_rfc_0012_split_floor"] is False
 
