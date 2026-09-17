@@ -4,7 +4,7 @@ id: "2026-09-17-exciting-mccarthy-726qh5-check-okf-parser-after-readings-goal-de
 run_id: "2026-09-17-exciting-mccarthy-726qh5"
 command: "uv run okf-parser check knowledge --relational-schema okf.schema.sql"
 result: "pass"
-evidence_id: ""
+evidence_id: null
 ---
 
 # Check: okf-parser apos leituras, goal e decisao
