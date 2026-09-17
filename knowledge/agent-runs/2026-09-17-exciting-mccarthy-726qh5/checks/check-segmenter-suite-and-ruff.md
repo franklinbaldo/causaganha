@@ -3,7 +3,7 @@ type: AgentCheck
 id: "2026-09-17-exciting-mccarthy-726qh5-check-segmenter-suite-and-ruff"
 run_id: "2026-09-17-exciting-mccarthy-726qh5"
 command: "uv run ruff check . && uv run ruff format --check . && uv run pytest -q tests/segmenter_dataset"
-result: "pass"
+result: "passed"
 evidence_id: "2026-09-17-exciting-mccarthy-726qh5-evidence-batch18-ingested"
 summary: "ruff check: All checks passed. ruff format --check: 1 file (the new fix-missing-spaces.py evidence script) needed reformatting, reformatted then re-checked clean (453 files formatted). pytest -q tests/segmenter_dataset: 361 tests, 100% green, no failures."
 ---
