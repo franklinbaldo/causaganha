@@ -1,7 +1,7 @@
 ---
-checks: ["run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-environment-check", "run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-disposition-reframed", "run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-disposition-reframed-v2"]
+checks: ["run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-environment-check", "run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-disposition-reframed", "run-checks/20260917t082642z-do-the-best-useful-work-availab/handoff-disposition-reframed-v2", "run-checks/20260917t082642z-do-the-best-useful-work-availab/batch21-verification"]
 decisions: ["run-decisions/20260917t082642z-do-the-best-useful-work-availab/pivot-from-1471-to-1050"]
-evidence: ["run-evidence/20260917t082642z-do-the-best-useful-work-availab/handoff-environment-recheck"]
+evidence: ["run-evidence/20260917t082642z-do-the-best-useful-work-availab/handoff-environment-recheck", "run-evidence/20260917t082642z-do-the-best-useful-work-availab/batch21-ingestion"]
 goals: ["run-goals/20260917t082642z-do-the-best-useful-work-availab/batch21-trf2"]
 id: "runs/20260917T082642Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260917t082642z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260917t082642z-do-the-best-useful-work-availab/reading-active-skills"]
