@@ -1,0 +1,12 @@
+{
+  "237077448": {
+    "voto": "No closing cue for 'voto' in the source text -- the VOTO section (heading 'V O T O') runs directly into the numbered merit sections with no explicit 'e o voto'/'e assim decido' closing phrase before the acordao's own dispositivo, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text.",
+    "capitulo_merito": "No closing cue for 'capitulo_merito' in the source text -- the merit-chapter heading ('2. MERITO') is followed directly by the numbered subsections and runs to 'CONCLUSAO Denego seguimento.' with no distinct closing phrase before the acordao's collegiate dispositivo, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  },
+  "578832621": {
+    "capitulo_merito": "No closing cue for 'capitulo_merito' in the source text -- the merit-chapter heading ('PASSO A DECIDIR.') is followed directly by the reasoning and runs to the dispositivo_abertura with no distinct closing phrase, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  },
+  "543516662": {
+    "custas": "No closing cue for 'custas' in the source text -- 'Sem custas.' is a single standalone sentence with no distinct closing phrase before the next paragraph (encerramento), matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  }
+}
