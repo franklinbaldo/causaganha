@@ -1,5 +1,5 @@
 ---
-checks: ["run-checks/20260917t062515z-do-the-best-useful-work-availab/handoff-environment", "run-checks/20260917t062515z-do-the-best-useful-work-availab/handoff-disposition"]
+checks: ["run-checks/20260917t062515z-do-the-best-useful-work-availab/handoff-environment", "run-checks/20260917t062515z-do-the-best-useful-work-availab/handoff-disposition", "run-checks/20260917t062515z-do-the-best-useful-work-availab/batch20-verification"]
 decisions: ["run-decisions/20260917t062515z-do-the-best-useful-work-availab/pivot-from-1471-to-1050"]
 evidence: ["run-evidence/20260917t062515z-do-the-best-useful-work-availab/batch20-ingestion"]
 goals: ["run-goals/20260917t062515z-do-the-best-useful-work-availab/batch20-trf2"]
