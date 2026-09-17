@@ -1,7 +1,7 @@
 ---
 checks: ["run-checks/20260917t032539z-do-the-best-useful-work-availab/check-handoff-environment", "run-checks/20260917t032539z-do-the-best-useful-work-availab/check-handoff-disposition"]
 decisions: ["run-decisions/20260917t032539z-do-the-best-useful-work-availab/decision-handoff-disposition"]
-evidence: []
+evidence: ["run-evidence/20260917t032539z-do-the-best-useful-work-availab/evidence-batch18-ingested"]
 goals: ["run-goals/20260917t032539z-do-the-best-useful-work-availab/goal-segmenter-batch18"]
 id: "runs/20260917T032539Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260917t032539z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260917t032539z-do-the-best-useful-work-availab/reading-active-skills"]
