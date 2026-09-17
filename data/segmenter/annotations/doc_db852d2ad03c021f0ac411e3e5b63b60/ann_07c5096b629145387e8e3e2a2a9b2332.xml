@@ -1,0 +1,98 @@
+<annotation id="ann_07c5096b629145387e8e3e2a2a9b2332" document_id="doc_db852d2ad03c021f0ac411e3e5b63b60">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="ementa" reason="TRF2 acordao (capa+ementa-estruturada export): the EMENTA heading opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through to the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases. Verified against the raw source text." />
+  </allowed_unmatched>
+  <completed_at>2026-09-17T07:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Apelação Cível  Nº <ref_processual ord="0">5001807-56.2023.4.02.5113/RJ</ref_processual>
+
+ RELATORA : Desembargadora Federal CLAUDIA FRANCO CORREA
+
+ APELANTE : HISSATAE DE FREITAS VALLE (AUTOR)
+
+ ADVOGADO(A) : MARCELLO FRANCISCO SAMPAIO RAYBOLT (OAB RJ187350)
+
+ ADVOGADO(A) : MARCOS VINICIUS SAMPAIO RAYBOLT (OAB RJ164613)
+
+<ementa><inicio ord="1">EMENTA</inicio></ementa>
+
+DIREITO PREVIDENCIÁRIO. APELAÇÃO CÍVEL. APOSENTADORIA POR TEMPO DE CONTRIBUIÇÃO. RECOLHIMENTO PREVIDENCIÁRIO COM NIT DIVERGENTE. CONCESSÃO DO BENEFÍCIO. RECONHECIMENTO DE TEMPO DE CONTRIBUIÇÃO. RECURSO PARCIALMENTE PROVIDO.
+
+I. CASO EM EXAME
+
+1. Apelação interposta pela parte autora contra sentença que julgou parcialmente procedente o pedido de concessão de aposentadoria por tempo de contribuição, reconhecendo apenas o período de 02/03/2016 a 23/09/2016 como tempo de contribuição. O autor alegou possuir mais de 35 anos de contribuição, incluindo os períodos de 01/07/1983 a 31/03/1988 (como contribuinte individual) e de 01/07/2005 a 30/06/2008 (como servidor estadual), não reconhecidos pelo INSS nem pela sentença. Postula o reconhecimento desses períodos e a concessão do benefício desde a DER (02/12/2019).
+
+II. QUESTÃO EM DISCUSSÃO
+
+2. Há duas questões em discussão: (i) definir se as contribuições realizadas entre 01/07/1983 e 31/03/1988 com NIT divergente podem ser computadas para fins de tempo de contribuição; (ii) estabelecer se as competências relativas ao vínculo com o Governo do Estado do Rio de Janeiro entre 01/07/2005 e 30/06/2008 podem ser reconhecidas judicialmente como tempo de contribuição no Regime Próprio.
+
+III. RAZÕES DE DECIDIR
+
+3. A divergência entre os números de identificação do trabalhador (NIT) não pode impedir o cômputo do tempo de contribuição quando os carnês apresentados comprovam os recolhimentos em nome do autor, sem qualquer indício de fraude.
+
+4. Não obstante a divergência, os carnês apresentados estão com o nome do autor e comprovam o efetivo recolhimento das contribuições, não havendo nenhum indício de fraude que justifique a desconsideração do respectivo tempo de contribuição. Se a discrepânica não foi intencionalmente provocada pelo segurado, não lhe pode trazer prejuízos.
+
+5. A existência de recolhimentos válidos entre 01/07/1983 e 31/03/1988 implica o acréscimo de 04 anos e 08 meses ao tempo de contribuição, totalizando 36 anos, 09 meses e 07 dias, o que autoriza a concessão da aposentadoria por tempo de contribuição antes da entrada em vigor da EC nº 103/2019.
+
+6. O interesse de agir está presente, pois o autor comprovou documentalmente os recolhimentos e não pode ser responsabilizado por eventual falha cadastral do INSS.
+
+7. Quanto ao vínculo com o Governo Estadual entre 2005 e 2008 os contracheques acostados não comprovam o alegado pelo autor, ou seja, que as contribuições foram recolhidas acima acima ou no mínimo legal. Como os contracheques não foram acostados no âmbito administrativo, o processo deve ser extinto sem resolução do mérito, assegurando ao autor a possibilidade de nova propositura da ação após a análise extrajudicial.
+
+8. Constatado o direito ao benefício, é devida a antecipação da tutela para determinar a imediata implantação da aposentadoria.
+
+9. Invertem-se os ônus da sucumbência para condenar o INSS ao pagamento dos honorários advocatícios, <fundamentacao_legal ord="2">conforme art. 85, §3º, do CPC</fundamentacao_legal>, e Súmula 111 do STJ.
+
+10. Aplicam-se às parcelas vencidas os critérios de correção monetária e juros previstos no Tema 810 do STF e no Tema 905 do STJ.
+
+IV. DISPOSITIVO E TESE
+
+12 Recurso parcialmente provido.
+
+Teses de julgamento:
+
+1. O recolhimento de contribuições previdenciárias sob NIT diverso não impede o reconhecimento do tempo de contribuição, desde que comprovado o efetivo recolhimento em nome do segurado.
+
+2. A falha cadastral no sistema da autarquia previdenciária não pode ser imputada ao segurado quando este apresenta documentação idônea.
+
+3. O reconhecimento do tempo de contribuição suficiente antes da EC nº 103/2019 garante o direito adquirido à aposentadoria por tempo de contribuição conforme regras anteriores à reforma.
+
+Dispositivos relevantes citados: CF/1988, art. 201, § 9º; Lei nº 8.213/1991, arts. 94 a 99; Lei nº 9.494/1997, art. 1º-F; CPC, art. 85, §3º e art. 300.
+
+Jurisprudência relevante citada:
+TRF-4, AC 5056159-11.2019.4.04.7000, Rel. Des. Fed. Eliana Paggiarin Marinho, j. 28.08.2024; TRF-4, AC 5024175-29.2021.4.04.7110, Rel. Des. Fed. Altair Antônio Gregório, j. 20.06.2023; STF, RE 870.947/SE, Rel. Min. Luiz Fux, j. 20.09.2017 (Tema 810); STJ, REsp 1.495.146/MG, Rel. Min. Mauro Campbell Marques, j. 22.02.2018 (Tema 905).
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="3">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 9ª Turma Especializada do Tribunal Regional Federal da 2ª Região decidiu, por unanimidade, <resultado ord="4">DAR PARCIAL PROVIMENTO à apelação</resultado>, para, reconhecendo como tempo de contribuição o período de 01/07/1983 a 31/03/1988, condenar o INSS a conceder o benefício de aposentadoria por tempo de contribuição ao autor desde a data do requerimento administrativo (02/12/2019), nos termos do relatório, votos e notas de julgamento <fim ord="5">que ficam fazendo parte integrante do presente julgado</fim></acordao_decisorio>.
+
+Rio de Janeiro, 10 de junho de 2025.</text>
+</annotation>

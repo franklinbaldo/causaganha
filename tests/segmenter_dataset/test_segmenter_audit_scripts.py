@@ -229,7 +229,19 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     one real reasoning-authority tag -- the heuristic's ``>3`` threshold
     flags it anyway.
 
-    If this test starts seeing *more* than these five findings, a new
+    ``doc_db852d2ad03c021f0ac411e3e5b63b60`` (djen_sample batch20, TRF2,
+    2026-09-17) is the same shape of false positive again for
+    ``fundamentacao_legal_collapsed``: a capa+ementa-estruturada acordao
+    whose "Dispositivos relevantes citados" list bare-cites CF/1988 art.
+    201 §9º, Lei nº 9.494/1997 art. 1º-F, and CPC art. 85 §3º/art. 300 --
+    all correctly tagged ``ref_normativa`` and excluded from the
+    trainable label space the same way as the other entries above. The
+    one real ``fundamentacao_legal`` span ("conforme art. 85, §3º, do
+    CPC") sits in the reasoning prose proper. Four raw "art." mentions,
+    one real reasoning-authority tag -- the heuristic's ``>3`` threshold
+    flags it anyway.
+
+    If this test starts seeing *more* than these six findings, a new
     real omission was introduced and needs the same triage — repair it, or
     extend this allowlist with a documented reason, never silence the
     assertion.
@@ -253,4 +265,5 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_f985597a64cc7b5ad06731c072915a7a",
         "doc_2a07306d88d1acebcdc0aff9958f7009",
         "doc_3b0be436ba6753185997c37b2b6b9765",
+        "doc_db852d2ad03c021f0ac411e3e5b63b60",
     }
