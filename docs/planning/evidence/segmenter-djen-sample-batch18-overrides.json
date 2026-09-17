@@ -1,0 +1,21 @@
+{
+  "42490548": {
+    "preliminar": "batch18: bare 'Sem preliminares' single-clause absence pattern (same shape as guideline-sanctioned 'Sem custas'/'Sem honorários'), no distinct closing cue, verified against raw source text",
+    "relatorio": "batch18: 'I. Relatório' with no 'É o relatório.' or equivalent closing phrase anywhere in the source, verified by direct search",
+    "custas": "batch18: bare 'Custas na forma da lei' single-clause statement, no distinct closing cue, verified against raw source text",
+    "honorarios": "batch18: bare 'Sem honorários' single-clause statement, no distinct closing cue, verified against raw source text"
+  },
+  "568208030": {
+    "relatorio": "batch18: 'Relatório dispensado, nos termos do art. 38, caput, da Lei 9.099/95' waiver clause -- guideline explicitly states a waiver clause is not a closing cue, no distinct 'É o relatório.' phrase exists anywhere in the source, verified by direct search",
+    "honorarios": "batch18: shares custas' single closing parenthetical ('(arts. 54 e 55 da Lei 9.099/95)') in one combined clause 'Sem custas processuais e honorários advocatícios nesta instância (...)' -- custas' own <fim> already claims that shared closing text, honorarios has no distinct closing of its own, verified against raw source text"
+  },
+  "577039281": {
+    "custas": "batch18: bare 'Sem custas' single-clause statement followed immediately by a separate honorarios clause, no distinct closing cue, verified against raw source text",
+    "honorarios": "batch18: bare 'honorários' single-clause statement, no distinct closing cue (next text is encerramento), verified against raw source text"
+  },
+  "74428001": {
+    "relatorio": "batch18: 'Relatório dispensado (art. 38 da Lei 9.099/95)' waiver clause -- guideline explicitly states a waiver clause is not a closing cue and no 'É o relatório.' phrase exists anywhere in the source, verified by direct search",
+    "custas": "batch18: bare 'Sem custas nem honorários' combined single-clause statement, no distinct closing cue for custas, verified against raw source text",
+    "honorarios": "batch18: same combined single-clause statement as custas above, no distinct closing cue for honorarios, verified against raw source text"
+  }
+}

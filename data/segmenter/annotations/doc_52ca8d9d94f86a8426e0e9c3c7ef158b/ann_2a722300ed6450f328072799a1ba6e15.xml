@@ -1,0 +1,38 @@
+<annotation id="ann_2a722300ed6450f328072799a1ba6e15" document_id="doc_52ca8d9d94f86a8426e0e9c3c7ef158b">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="custas" reason="batch18: bare 'Sem custas' single-clause statement followed immediately by a separate honorarios clause, no distinct closing cue, verified against raw source text" />
+    <entry base="honorarios" reason="batch18: bare 'honorários' single-clause statement, no distinct closing cue (next text is encerramento), verified against raw source text" />
+  </allowed_unmatched>
+  <completed_at>2026-09-17T03:45:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>ESTADO DO ESPÍRITO SANTO <cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> Juízo de Cariacica - Comarca da Capital - 3º Juizado Especial Cível Rua São João Batista, 1000, Fórum Doutor Américo Ribeiro Coelho, Alto Laje, CARIACICA - ES - CEP: 29151-230 Telefone:(27) 32465678 PROCESSO Nº <ref_processual ord="1">5024071-72.2025.8.08.0012</ref_processual> PROCEDIMENTO DO JUIZADO ESPECIAL CÍVEL (436) REQUERENTE: FLAVIA GOMES LEAL LIMA, DOUGLAS ADALTO SILVEIRA DA COSTA REQUERIDO: HURB TECHNOLOGIES S.A Advogado do(a) REQUERENTE: FLAVIA GOMES LEAL LIMA - <fim ord="2">ES36301</fim></cabecalho> SENTENÇA Seguem os elementos de convicção deste juiz, dispensados o relatório e o esgotamento dos argumentos deduzidos pelas partes, <fundamentacao_legal ord="3">na forma que determina o art. 38 da Lei n.º 9.099/95 (LJE)</fundamentacao_legal>. Analisando os autos, verifica-se que a diligência citatória via Aviso de Recebimento (AR) restou infrutífera. Ato contínuo, este Juízo intimou a parte autora para fornecer o endereço correto e atualizado da requerida, sob pena de extinção do feito por abandono ou ausência de pressuposto processual. Em resposta, a requerente peticionou nos autos indicando, simultaneamente, três endereços distintos situados em Belo Horizonte-MG, São Paulo-SP e Rio de Janeiro-RJ, além de endereços eletrônicos. Tal conduta processual evidencia que a parte autora não detém conhecimento real e preciso da localização da sede ou filial da requerida, valendo-se de múltiplas indicações na tentativa de êxito fortuito da diligência. Ressalte-se que a citação válida é pressuposto processual de existência e validade, sem a qual a relação jurídica processual não se aperfeiçoa e o contraditório não se estabelece. No rito específico dos Juizados Especiais Cíveis, a citação deve ser pessoal e não se admite a citação por edital, <fundamentacao_legal ord="4">conforme inteligência do art. 18, § 2º, da Lei nº 9.099/95</fundamentacao_legal>. A incerteza quanto à localização do réu é incompatível com os princípios da celeridade e economia processual que regem este microssistema. Caso a parte autora desconheça o paradeiro exato da requerida, deve renovar sua pretensão perante o Juízo Comum (Vara Cível), via procedimento ordinário, onde é admitida a citação editalícia para suprir a ausência de localização do réu. Dessa forma, a persistência do desconhecimento do endereço correto após a intimação específica configura ausência de pressuposto de constituição e desenvolvimento válido do processo. <dispositivo_abertura ord="5">Ante o exposto</dispositivo_abertura>, <resultado ord="6">indefiro a inicial e extingo o processo</resultado>, sem resolução do mérito, <fundamentacao_legal ord="7">na forma do art. 485, I do CPC</fundamentacao_legal>. <custas><inicio ord="8">Sem custas</inicio></custas> e <honorarios><inicio ord="9">honorários</inicio></honorarios>. <encerramento><inicio ord="10">P. R. I.</inicio> Arquivem-se. Cariacica/ES, assinado na data de registro no sistema. ADEMAR JOÃO BERMOND <fim ord="11">Juiz de Direito</fim></encerramento> assinado eletronicamente</text>
+</annotation>
