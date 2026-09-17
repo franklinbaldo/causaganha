@@ -1,0 +1,35 @@
+<annotation id="ann_c9b1c6ed82ceb46cf7abfaf662e67db3" document_id="doc_a13ae72c126446c8525cc1508e1345a1">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-17T01:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">APELAÇÃO CRIMINAL Nº</inicio> <ref_processual ord="1">0000330-17.2020.8.18.0067</ref_processual> APELAÇÃO CRIMINAL Nº 0000330-17.2020.8.18.0067 ÓRGÃO: 2ª Câmara Especializada Criminal RELATOR: Des. Erivan Lopes ORIGEM: Piracuruca/ Vara Única APELANTE: Marcos Anselmo Bezerra de Araújo ADVOGADO: Luís Alvino Marques Pereira (Defensor Público) <fim ord="2">APELADO: Ministério Público do Estado do Piauí</fim></cabecalho>     <ementa><inicio ord="3">EMENTA</inicio>   APELAÇÃO CRIMINAL. TRÁFICO DE DROGAS. 1. TESE DE ABSOLVIÇÃO POR INSUFICIÊNCIA PROBATÓRIA. NÃO CONFIGURAÇÃO. AUTORIA E MATERIALIDADE COMPROVADAS. 2. PEDIDO DE DESCLASSIFICAÇÃO DO CRIME DE TRÁFICO PARA O DELITO DE USO PRÓPRIO. INVIABILIDADE. MERCANCIA VISLUMBRADA. 3. PENA-BASE. NECESSIDADE DE NEUTRALIZAÇÃO DA CIRCUNSTÂNCIA JUDICIAL REFERENTE AOS MOTIVOS DO CRIME. 4. PEDIDO DE ISENÇÃO OU REDUÇÃO DA PENA DE MULTA. INVIABILIDADE. 5. RECURSO CONHECIDO E PARCIALMENTE PROVIDO. 1. A materialidade e a autoria do crime de tráfico (art. 33 da Lei 11.343/06) são incontestáveis, conforme se extrai do auto de prisão em flagrante, onde consta o auto de exibição e apreensão, auto de exame de constatação, laudo de exame pericial definitivo e pela prova oral colhida no inquérito e na instrução judicial, dentre elas os depoimentos das testemunhas de acusação, onde é possível verificar a configuração do crime de tráfico na modalidade “ter em depósito”. 2. O acusado era conhecido como traficante na cidade, sendo, ainda, encontrado entorpecentes dentro da sua residência. Assim, tendo em vista que o conjunto probatório acostado aos autos e as circunstâncias que envolveram a dinâmica da prisão em flagrante apontam a mercancia da droga apreendida, resta inviabilizada a pretendida desclassificação para o delito de uso próprio. 3. Os motivos do crime foram negativados sob fundamento de que “o réu praticou a infração penal compelido pela ganância, pelo desejo de obtenção de lucro fácil”. A justificativa não se mostra idônea, vez que “a intenção de lucro fácil é elemento inerente ao delito de tráfico de drogas, não autorizando a negativação dos motivos do crime”. Afasta-se, portanto, a valoração da referida circunstância. 4. Não pode este Tribunal afastar a pena de multa prevista no preceito secundário do tipo penal. Digo isso por dois motivos. Primeiro, porque inexiste previsão legal para a concessão deste benefício. Depois, compete ao juízo das execuções resolver os incidentes relativos ao cumprimento das penas. Ademais, o valor de cada dia-multa não excedeu o mínimo (no valor de 1/30 do salário-mínimo), não havendo como reduzi-la, <fundamentacao_legal ord="4">conforme inteligência do art. 49, §1º, do Código Penal</fundamentacao_legal>, e a quantidade de dias-multa foi fixada em proporcionalidade com a pena privativa de liberdade. Inexistindo reparo a ser feito, mantém-se a pena de multa estabelecida. <fim ord="5">5. Recurso conhecido e parcialmente provido.</fim></ementa>   ACÓRDÃO                           <acordao_decisorio><inicio ord="6">Vistos, relatados e discutidos estes autos,</inicio> "acordam os componentes da Egrégia 2ª Câmara Especializada Criminal, à unanimidade, conhecer do recurso e dar-lhe parcial provimento, apenas para afastar a valoração negativa da circunstância judicial referente aos motivos do crime, redimensionando a pena do réu Marcos Anselmo Bezerra de Araújo, tornando-a definitiva em 05 (cinco) anos, 02 (dois) meses e 15 dias (quinze dias) e 500 dias-multa, <fim ord="7">mantendo-se os demais termos da sentença condenatória</fim></acordao_decisorio>".                                   SALA DAS SESSÕES VIRTUAIS DO EGRÉGIO TRIBUNAL DE JUSTIÇA DO ESTADO DO PIAUÍ, em Teresina/PI, de vinte aos vinte e sete dias do mês de junho do ano de dois mil e vinte e dois (20 a 27/06/2022).</text>
+</annotation>
