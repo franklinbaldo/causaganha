@@ -1,0 +1,71 @@
+<annotation id="ann_59b5097e3992c181d5a996f1786305c2" document_id="doc_b29f0e7cc55f6648facd11c506463df7">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="ementa" reason="TRF2 acordao (capa+ementa-estruturada export): the EMENTA heading opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through to the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases (e.g. batch20's 301222642/655/733/762/819). Verified against the raw source text." />
+  </allowed_unmatched>
+  <completed_at>2026-09-17T08:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Apelação Cível  Nº <ref_processual ord="0">5001927-10.2024.4.02.5002</ref_processual>/ESPROCESSO ORIGINÁRIO:  Nº 5001927-10.2024.4.02.5002/ES
+
+ RELATORA : Desembargadora Federal CLAUDIA FRANCO CORREA
+
+ APELADO : JOSE ANTONIO ALVES DOS SANTOS (AUTOR)
+
+ ADVOGADO(A) : Lorrayne Guisso Zorzal (OAB ES025373)
+
+<ementa><inicio ord="1">EMENTA</inicio></ementa>
+
+DIREITO PREVIDENCIÁRIO. APELAÇÃO CÍVEL. APOSENTADORIA POR TEMPO DE CONTRIBUIÇÃO. RECONHECIMENTO DE TEMPO DE SERVIÇO ESPECIAL. CATEGORIA PROFISSIONAL. EXPOSIÇÃO A AGENTES NOCIVOS. SOLDADOR E LANTERNEIRO. RUÍDO. RECURSO DESPROVIDO.
+
+1. Apelação cível interposta pelo Instituto Nacional do Seguro Social (INSS) contra sentença que julgou procedente o pedido de concessão de aposentadoria por tempo de contribuição, mediante o reconhecimento de períodos de labor em condições especiais, exercidos pelo autor nas funções de soldador e lanterneiro, <fundamentacao_legal ord="2">com fundamento nos Decretos nºs 53.831/64 e 83.080/79</fundamentacao_legal> e exposição habitual a ruído acima dos limites legais.2.A atividade de soldador/lanterneiro permite o enquadramento por categoria profissional até 28/04/1995, <fundamentacao_legal ord="3">nos termos dos códigos 2.5.3 dos Anexos dos Decretos nº 53.831/64 e nº 83.080/79</fundamentacao_legal>, independentemente da comprovação do tipo específico de solda utilizada, conforme precedentes das Turmas Recursais da Seção Judiciária.
+
+2. O Tribunal Regional Federal da 2ª Região reconhece a similitude entre as atividades de funileiro, lanterneiro e soldador, considerando-as passíveis de enquadramento como especiais com base em presunção legal de exposição a agentes nocivos, enquanto vigente a redação original do art. 57 da Lei nº 8.213/91.
+
+3. A exposição habitual e permanente ao agente nocivo ruído, em níveis superiores aos limites legalmente admitidos (superiores a 85 dB(A)), como demonstrado nos PPPs constantes dos autos, autoriza o reconhecimento da especialidade dos períodos laborados após 1995, nos termos da legislação e da jurisprudência consolidada.
+
+4. A legislação de regência não exige apresentação de histogramas ou medições contínuas ao longo de todo o período laboral para o reconhecimento da atividade especial (TRF2, AC 0119298-98.2015.4.02.5001).
+
+5. A utilização de metodologia diversa de medição de ruído não impede o reconhecimento da especialidade se o PPP contiver as informações exigidas, como a descrição das atividades, o agente nocivo e o técnico responsável (TRF2, AC 5011719-30.2020.4.02.5001).
+
+6. A declaração de eficácia de EPI no PPP não é suficiente para descaracterizar a especialidade do tempo de serviço quando o agente nocivo for o ruído, <fundamentacao_legal ord="4">conforme decidido pelo STF no Tema 555 da Repercussão Geral (ARE 664.335)</fundamentacao_legal> e reiterado por diversos julgados do TRF2 e TRF4.
+
+7. A habitualidade e permanência exigidas pelo art. 57, § 3º, da Lei 8.213/91 não pressupõem exposição contínua durante toda a jornada, mas sim que a nocividade seja ínsita às atividades habituais do segurado (STJ, REsp 1.578.404/PR; TRF1, AC 0006598-85.2013.4.01.3803).
+
+8. Recurso desprovido.
+
+ 
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="5">Vistos e relatados</inicio> estes autos em que são partes as acima indicadas, a Egrégia 9ª Turma Especializada do Tribunal Regional Federal da 2ª Região decidiu, <fim ord="6">por unanimidade, NEGAR PROVIMENTO à apelação do INSS</fim></acordao_decisorio>, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Rio de Janeiro, 10 de junho de 2025.</text>
+</annotation>
