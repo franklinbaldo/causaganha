@@ -688,3 +688,61 @@ arquivo de amostra TRF4 com documentos mais longos apareca no pool, se
 algum dia aparecer -- nao tentar reusar `trf4_acordao.jsonl` sem antes
 confirmar que algum candidato novo la sobrevive a limpeza HTML acima do
 piso de 2500 caracteres.
+
+## Lote 19 (rodada AgentRun 91jobr, resgate da PR #1576)
+
+**Contexto do resgate.** A corrida AgentRun-vs-Wisk (mapeada desde
+2026-09-14, ainda sem reconciliacao do dono humano) produziu duas PRs
+concorrentes reivindicando o mesmo "lote 18" quase simultaneamente:
+#1576 (sessao AgentRun 726qh5, branch `claude/exciting-mccarthy-726qh5`)
+e #1577 (Wisk, run `20260917T032539Z`). O Wisk mesclou primeiro
+(`0a831be`, documentado acima como "Lote 18"), deixando #1576
+organicamente stale contra o `main` atual. Os 6 documentos de #1576 nao
+se sobrepoem com os do lote 18 e ja tinham fidelidade verbatim
+verificada pela sessao 726qh5 -- descarta-los desperdicaria trabalho
+real de subagente sem necessidade. Esta rodada resgatou o payload de
+`origin/claude/exciting-mccarthy-726qh5` (apenas os pares
+`data/segmenter/documents/*.xml` + `data/segmenter/annotations/*/*.xml`,
+que sao adicoes puras sem conflito de dominio contra o `main` atual,
+confirmado via `git merge-tree`) aplicando-o sobre uma branch propria a
+partir do `main` pos-lote-18, e renomeou os artefatos de auditoria de
+`segmenter-djen-sample-batch18-*` para `-batch19-*` para eliminar a
+colisao de nome com os arquivos ja commitados pelo lote 18 (colisao
+puramente de nomenclatura entre as duas PRs, nao de conteudo).
+
+**Conteudo do lote** (inalterado em relacao ao que #1576 ja validara):
+6 documentos, TJMT/74430633, TJRR/568209392, TJRR/568328945,
+TRF3/42490599, TRF5/349186353 (Sentenca), TRF5/463264301 (Acordao) --
+selecionados pela sessao 726qh5 excluindo deliberadamente os
+`document_id` do lote 17 (PR #1574), ainda aberta e sem CI reportado no
+momento daquela selecao. TJRR/568328945 teve um defeito de transcricao
+(11 espacos ASCII isolados omitidos ao redor de quebras de linha em
+branco) corrigido com uma tecnica de diff-e-remapeamento generalizada
+(`docs/planning/evidence/segmenter-djen-sample-batch19-fix-missing-spaces.py`,
+resgatada com o mesmo nome renumerado). Nove overrides
+`--allowed-unmatched-overrides` foram declarados pela sessao 726qh5
+para pares sem cue de fechamento, todos verificados contra o
+texto-fonte bruto: `custas` x4, `honorarios` x3, `relatorio` x3 (duas
+correspondencias exatas ao padrao "waiver clause is not a closing cue"
+ja documentado no guideline), `capitulo_merito` x1 (fronteira ambigua
+causada por um precedente citado verbatim na fundamentacao de
+TRF3/42490599).
+
+`scripts/segmenter_governance_status.py` confirma `document_count`
+149->155, `annotation_count` 202->208 apos o resgate (lote train-only,
+sem segunda anotacao independente -- teto de val/test permanece 22/22).
+`git status --short data/segmenter` confirma exatamente 6 novos
+`documents/*.xml` e 6 novos `annotations/<id>/`, sem write no-op
+silencioso. `uv run ruff check`/`format --check` limpos, `uv run pytest
+-q tests/segmenter_dataset` 100% verde apos o resgate.
+
+**Licao operacional (nao uma nova classe de risco de anotacao, mas de
+processo multi-agente):** quando duas sessoes automatizadas concorrentes
+podem escolher o mesmo numero de lote para a mesma issue, o numero do
+lote em si nao e uma chave de coordenacao confiavel -- apenas o conjunto
+de `document_id` ja usados no store (`data/segmenter/documents/*.xml`)
+e. Uma PR que perde a corrida de numero mas nao tem overlap de
+`document_id` com a que venceu deve ser resgatada (renumerada e
+reaplicada), nao descartada como duplicata -- o trabalho real de
+anotacao verificado por subagente independente e o recurso caro desta
+linhagem, o numero do lote e so um rotulo de conveniencia.

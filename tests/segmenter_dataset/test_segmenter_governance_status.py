@@ -607,6 +607,46 @@ def test_real_store_reflects_batch17_corpus_growth() -> None:
     assert any(h.startswith("ef286086") for h in hashes), "TJCE/363657243 batch17 document missing"
 
 
+def test_real_store_reflects_batch19_corpus_growth() -> None:
+    """Regression guard for #1050's nineteenth real DJEN sample batch.
+
+    This batch is a *rescue*, not a fresh selection: the AgentRun-vs-Wisk
+    concurrency in this lineage produced two competing PRs both claiming
+    "batch 18" for #1050 (PR #1576 from this mechanism, PR #1577 from
+    Wisk). Wisk merged first; PR #1576's six real, non-overlapping,
+    already-verbatim-verified documents were rescued and reapplied on top
+    of the post-batch18 ``main`` under the batch19 label instead of being
+    discarded, since ``git merge-tree`` confirmed they are pure additions
+    with no ``document_id`` overlap against what batch18 already merged.
+
+    Six documents: TJMT/74430633 (prefix ``9aaf99ce``),
+    TJRR/568209392 (prefix ``0c30c433``), TJRR/568328945 (prefix
+    ``8ae9c060``), TRF3/42490599 (prefix ``4dc2c40b``), TRF5/349186353
+    Sentenca (prefix ``d4435ee9``), TRF5/463264301 Acordao (prefix
+    ``0fd41fbe``).
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the six specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 155
+    assert any(h.startswith("9aaf99ce") for h in hashes), "TJMT/74430633 batch19 document missing"
+    assert any(h.startswith("0c30c433") for h in hashes), "TJRR/568209392 batch19 document missing"
+    assert any(h.startswith("8ae9c060") for h in hashes), "TJRR/568328945 batch19 document missing"
+    assert any(h.startswith("4dc2c40b") for h in hashes), "TRF3/42490599 batch19 document missing"
+    assert any(h.startswith("d4435ee9") for h in hashes), "TRF5/349186353 batch19 document missing"
+    assert any(h.startswith("0fd41fbe") for h in hashes), "TRF5/463264301 batch19 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
