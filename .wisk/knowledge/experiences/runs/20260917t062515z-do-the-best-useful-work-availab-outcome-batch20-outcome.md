@@ -1,0 +1,14 @@
+---
+type: "RunOutcome"
+id: "run-outcomes/20260917t062515z-do-the-best-useful-work-availab/batch20-outcome"
+run: "runs/20260917T062515Z-do-the-best-useful-work-available-in-this-reposi"
+result_state: "success"
+work_status: "complete"
+summary: "Batch 20 for issue #1050 ingested and merged: PR #1581 (squash commit cde463a74bffc391ef929cac8c25e4b6aa407a1e on main). 6 real TRF2 documents (5 Acordaos + 1 Sentenca) added to the segmenter training corpus via scripts/ingest_djen_sample_technique1_batch.py, exhausting TRF2's live-eligible pool from 21 to 15. document_count 155->161, annotation_count 208->214, val/test ceiling 23/23->24/24. All 11 CI checks green (CodeQL, archive-cors-proxy, lint, web, validate, tests (tjro), Analyze x4, GitGuardian), Codex security review completed with no findings, no merge conflicts, no unresolved review threads. One follow-up fix needed and pushed mid-round: tests/segmenter_dataset/test_segmenter_audit_scripts.py's collapsed-false-positive allowlist required extending for the new TRF2/301222762 document (reviewed and confirmed a genuine false positive, same documented shape as 5 pre-existing corpus entries) -- ruff clean, full pytest suite green (391 passed) after the fix. This round also revalidated the resumed handoff for issue #1471 live: its baseline commit is unreachable in this repo's history and IA credentials remain absent for a 7th consecutive round -- disposition recorded as reframed, handoff left active for a future round with IA write access. knowledge/backlog/issue-1050.md updated with the batch20 writeup and corrected live tier state (TRF2 now store_count=4, 15 eligible remaining; TRF5 no longer lowest tier since batch19)."
+next_move: "After document_count 161, next real tier is TRF2 (15 eligible remaining, not yet exhausted) before advancing to the store_count=4 tribunals (TJPA/TJGO/TJPB/TJRJ/TJMS/TJBA/TJTO). TRF4 remains fully excluded (risk class 16) until a new sample file with longer documents appears. Corpus still needs to reach roughly 200+ total documents before RFC 0012 Sec 5 item 4's >=30/>=30 val/test floor becomes reachable (currently 24/24 ceiling at 161 documents) -- issue #1051 (adjudication) is not yet the right next step. Separately, issue #1471 remains blocked on missing IA_ACCESS_KEY/IA_SECRET_KEY; a future round with those credentials should treat it as immediately actionable per the existing handoff's next_action, but should NOT re-diagnose the same gap an 8th time without new information. A future round should also continue verifying live pool state before selecting candidates, since the AgentRun-vs-Wisk lineage overlap risk (documented in knowledge/backlog/issue-1050.md) means a concurrent session may pick up the same tribunal/tier between rounds."
+goals_advanced: ["run-goals/20260917t062515z-do-the-best-useful-work-availab/batch20-trf2"]
+evidence: ["batch20-ingestion"]
+checks: ["batch20-verification"]
+---
+
+# RunOutcome
