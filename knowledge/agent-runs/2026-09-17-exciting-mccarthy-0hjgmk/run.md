@@ -1,0 +1,43 @@
+---
+type: AgentRun
+id: "2026-09-17-exciting-mccarthy-0hjgmk"
+started_at: "2026-09-17T01:20:00Z"
+completed_at: "2026-09-17T02:10:00Z"
+branch_at_start: "claude/exciting-mccarthy-0hjgmk"
+commit_at_start: "9fb999babacbce36ee3b0b51e5d745617bf57e38"
+claude_md_reading_id: "2026-09-17-exciting-mccarthy-0hjgmk-reading-claude-md"
+issues_reading_id: "2026-09-17-exciting-mccarthy-0hjgmk-reading-issues"
+prs_reading_id: "2026-09-17-exciting-mccarthy-0hjgmk-reading-prs"
+okf_reading_id: "2026-09-17-exciting-mccarthy-0hjgmk-reading-okf"
+goal_ids:
+  - "2026-09-17-exciting-mccarthy-0hjgmk-goal-djen-sample-batch17"
+primary_goal_id: "2026-09-17-exciting-mccarthy-0hjgmk-goal-djen-sample-batch17"
+considered_work:
+  - "#1482 (CORS em archive.org para DuckDBExplorer.read_parquet()): aberta e sem rodada dedicada, mas sem contexto acumulado nem caminho de execucao provado; deixada de lado em favor da continuidade de #1050."
+  - "#1050 (decimo setimo lote real multi-tribunal via scripts/ingest_djen_sample_technique1_batch.py): selecionado -- continuacao direta do next_move explicito da rodada anterior (epgxv2), mecanismo ja provado por 16 lotes, 163 candidatos elegiveis e nunca usados confirmados ao vivo no pool."
+selected_work: "Selecionar 6 candidatos reais e nunca usados de data/segmenter_samples/*.jsonl nos tribunais de menor store_count ja representados (TJBA x2, TJMA x2, TJCE x2), anotar cada um via subagente independente com o prompt canonico Technique 1, verificar fidelidade verbatim byte-a-byte (incluindo NBSP genuino) e ingerir via scripts/ingest_djen_sample_technique1_batch.py. Um dos 6 (TJBA/574460088) foi descartado antes da anotacao por ser near-duplicate (ratio=0.98) de TJBA/574460085, reduzindo o lote para 5 documentos."
+expected_behavior: "Ver success_signal em goal-djen-sample-batch17."
+entry_state: "new"
+target_state: "merged"
+decision_ids:
+  - "2026-09-17-exciting-mccarthy-0hjgmk-decision-follow-scaffold-verified-live-state"
+  - "2026-09-17-exciting-mccarthy-0hjgmk-decision-drop-near-duplicate-and-fix-diff-remap-bug"
+evidence_ids:
+  - "2026-09-17-exciting-mccarthy-0hjgmk-evidence-batch17-ingested"
+check_ids:
+  - "2026-09-17-exciting-mccarthy-0hjgmk-check-okf-parser-after-readings-goal-decision"
+  - "2026-09-17-exciting-mccarthy-0hjgmk-check-segmenter-suite-and-ruff"
+  - "2026-09-17-exciting-mccarthy-0hjgmk-check-okf-parser-final"
+result_state: "review"
+result_summary: "Decimo setimo lote real multi-tribunal para #1050 (RFC 0012) ingerido: 5 documentos (TJBA/574460085, TJMA/42736393, TJMA/42730832, TJCE/363647616, TJCE/363657243). document_count 138->143, annotation_count 191->196 (confirmado ao vivo via scripts/segmenter_governance_status.py; val/test ceiling inalterado em 21/21, ja que lote train-only sem segunda anotacao independente). Um sexto candidato originalmente selecionado (TJBA/574460088) foi descartado ANTES da anotacao por ser near-duplicate real do template de TJBA/574460085 (difflib.SequenceMatcher.ratio()=0.98 no texto-fonte bruto, mesmo juizo/juiz/tipo de decisao) -- violaria o proprio criterio de aceite de #1050 contra leakage de near-duplicates. Dois defeitos reais de processo/ferramenta encontrados e corrigidos durante a anotacao (nenhum em codigo de producao do djen_backup/web): (1) TJCE/363657243 tinha um par relatorio sem NENHUMA cue de abertura (nem heading, nem o fallback 'Trata-se de' citado no guideline, porque a fonte genuinamente nao usa nenhuma das duas) -- corrigido marcando o primeiro nome proprio do relato como cue de abertura de fato; documentado como classe de risco 14 em knowledge/backlog/issue-1050.md (o lote 16 tinha prometido essa classe mas nunca a escreveu -- corrigido tambem esse forward-reference pendente). (2) A propria tecnica de diff-e-remapeamento de NBSP (reusada desde o lote 15) tinha um bug real: um op replace/delete multi-caractere do difflib.SequenceMatcher mapeava o fim do intervalo para a posicao RAW do PROXIMO caractere strippado em vez do fim do ULTIMO caractere efetivamente substituido, apagando silenciosamente qualquer tag XML entre os dois -- a verificacao existente ('texto strippado bate com a fonte') nao detecta essa classe de corrupcao porque remover uma tag nao muda o texto strippado. Descoberto quando TJBA/574460085 perdeu as tags <ref_processual> e <capitulo_merito><inicio> durante uma correcao com 16 diffs adjacentes; corrigido no proprio script (usar mapping[i2-1]+1 como fim do intervalo para ops nao-insert) e reforcado com uma segunda checagem de multiconjunto de tags antes/depois da correcao. Documentado como classe de risco 15 (nova) em knowledge/backlog/issue-1050.md. Quatro overrides --allowed-unmatched-overrides foram declarados para pares genuinamente sem cue de fechamento (relatorio em TJCE/363647616 -- padrao 'relatorio dispensado' ja documentado no proprio guideline; capitulo_merito/custas/honorarios em TJMA/42730832), todos verificados contra o texto-fonte bruto antes de declarar. Novo teste de regressao test_real_store_reflects_batch17_corpus_growth adicionado a tests/segmenter_dataset/test_segmenter_governance_status.py e confirmado verde. uv run ruff check/format --check limpos (repo inteiro). uv run pytest -q tests/segmenter_dataset 100% verde (todos os testes, incluindo o novo). uv run pytest -q completo (repo inteiro) foi iniciado mas nao concluiu dentro do tempo desta rodada (ambiente lento, >6min de CPU sem terminar); a validacao do escopo afetado (segmenter_dataset + ruff repo inteiro) e suficiente para este commit, e o CI da PR roda a suite completa antes do merge. knowledge/backlog/issue-1050.md atualizado com os numeros do lote 17, a classe de risco 14 (finalizando o forward-reference pendente do lote 16) e a classe de risco 15 (nova), alem de last_verified_run_id/last_verified_at."
+next_move: "Apos este commit, abrir a PR para claude/exciting-mccarthy-0hjgmk, acompanhar o CI ate verde (incluindo a suite completa, que nao terminou localmente dentro do tempo desta rodada) e mesclar, registrando o outcome final num commit de fechamento -- seguindo a mesma cadencia das 16 rodadas anteriores desta linhagem. Depois do merge: verificar ao vivo scripts/segmenter_governance_status.py (document_count esperado >=143) antes de selecionar o proximo lote. Pool elegivel restante (verificado ao vivo nesta rodada, antes da selecao): TJBA agora esgotado (0 candidatos elegiveis apos este lote); TJMA e TJCE ainda tem candidatos restantes (2 e 3 respectivamente); o proximo tier de menor store_count inclui TJMT(16)/TRF5(19)/TJRR(13)/TRF3(10)/TJES(7) com bom volume disponivel. document_count esta em 143/~200 necessarios para o piso combinado de RFC 0012 Sec 5 item 4 (val_ceiling/test_ceiling em 21, precisa chegar a >=30 cada) -- ainda trabalho de escala significativo antes de #1051 (adjudicacao) voltar a ser o proximo passo real. Ao selecionar candidatos do mesmo tribunal no mesmo lote, comparar seus textos-fonte brutos entre si com difflib.SequenceMatcher.ratio() ANTES de anotar (nova mitigacao desta rodada, classe de risco no backlog) -- um ratio acima de ~0.9 e sinal de template compartilhado (near-duplicate), nao de diversidade real, e exige trocar o candidato antes de gastar um subagente na anotacao. Ao usar a tecnica de diff-e-remapeamento para NBSP, usar a versao corrigida do script (mapping[i2-1]+1, nao mapping[i2], como fim do intervalo para ops replace/delete) e verificar tambem o multiconjunto de tags XML antes/depois, nao apenas o texto strippado -- ver classe de risco 15. Ao revisar um par unmatched com cue de abertura ausente (nao apenas cue de fechamento ausente), verificar se ha um fallback razoavel (ex: primeiro nome proprio do relato) antes de assumir que o campo deve ficar vazio -- ver classe de risco 14. A tensao AgentRun-vs-Wisk continua sem reconciliacao do dono humano (ja escalada uma vez, 2026-09-14); uma rodada futura deve continuar verificando o estado real do repositorio ao vivo antes de selecionar candidatos, ja que os dois mecanismos seguem se alternando na mesma linhagem #1050. Tambem verificar se a PR #1573 (fechamento do lote 16, aberta pela rodada anterior) ja foi mesclada -- estava com 10/11 checks verdes e apenas 'tests (tjro)' pendente no inicio desta rodada."
+---
+
+# Agent run
+
+Decima setima rodada de continuidade sobre a linhagem #1050 (corpus real
+do segmentador, RFC 0012). As 16 rodadas anteriores (0iuk22, jyqinl,
+uyx7xc, mg2tp1, la7bsl, Wisk/1549, zrek2s, 83kr8s, hv2ep2, imy2ed,
+Wisk/1562, 5lvbii, 96cgqx, Wisk/1567, j2t668, epgxv2) ja levaram
+document_count de 61 a 138, val/test ceiling de 9/9 a 21/21. Esta rodada
+leva document_count a 143.

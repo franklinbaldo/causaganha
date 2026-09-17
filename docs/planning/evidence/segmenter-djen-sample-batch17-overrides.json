@@ -1,0 +1,13 @@
+{
+  "363647616": {
+    "relatorio": "No closing cue for 'relatorio' in the source text -- 'Dispensado o relatorio, nos termos do art. 38 da Lei no 9.099/95' is the guideline's own documented waiver-clause pattern (relatorio dispensado): the waiver explains why there is no report, it does not close one, so there is no distinct closing phrase to tag as relatorio_fim. Matches the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  },
+  "42730832": {
+    "capitulo_merito": "No closing cue for 'capitulo_merito' in the source text -- the merit-chapter heading ('Do merito.') is followed directly by the reasoning and runs to the dispositivo_abertura ('ISTO POSTO') with no distinct closing phrase, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text.",
+    "custas": "No closing cue for 'custas' in the source text -- 'custas do processo' is a single formulaic phrase inside the dispositivo sentence with no distinct closing phrase before the honorarios clause, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text.",
+    "honorarios": "No closing cue for 'honorarios' in the source text -- 'honorarios advocaticios de 10%' is a single formulaic phrase inside the dispositivo sentence with no distinct closing phrase before the isencao clause, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  },
+  "42736393": {
+    "custas": "No closing cue for 'custas' in the source text -- 'Isento de custas' is a single formulaic phrase with no distinct closing phrase before the gratuidade-judiciaria clause, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  }
+}

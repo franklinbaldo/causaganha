@@ -540,6 +540,73 @@ def test_real_store_reflects_batch15_corpus_growth() -> None:
     assert any(h.startswith("c7034ee0") for h in hashes), "TRF2 batch15 document missing"
 
 
+def test_real_store_reflects_batch17_corpus_growth() -> None:
+    """Regression guard for #1050's seventeenth real DJEN sample batch.
+
+    Snapshot before this batch: 138 documents (after batch16 merged,
+    confirmed live via ``scripts/segmenter_governance_status.py``). This
+    batch selected 5 never-used candidates from the lowest-``store_count``
+    tribunals already represented in the corpus (TJBA, TJMA x2, TJCE x2),
+    following the volume-over-diversity strategy documented for prior
+    batches: TJBA/574460085 (prefix ``391d30a3``), TJMA/42730832 (prefix
+    ``853f47df``), TJMA/42736393 (prefix ``6f0cf54f``), TJCE/363647616
+    (prefix ``40940035``), TJCE/363657243 (prefix ``ef286086``).
+
+    A sixth originally-selected candidate, TJBA/574460088, was dropped
+    before annotation: its raw source text scored
+    ``difflib.SequenceMatcher.ratio()=0.98`` against TJBA/574460085 (same
+    court, same judge, same embargos-de-declaracao template), a
+    near-duplicate that would have violated #1050's own leakage-prevention
+    acceptance criterion.
+
+    TJBA/574460085 and both TJCE candidates had genuine NBSP (U+00A0)
+    embedded in the source text stripped by the annotating subagent
+    during "verbatim" transcription -- the same defect class first
+    documented in batch13/15/16, fixed with the established diff-and-remap
+    technique. Fixing it this time also caught and fixed a real bug in
+    that technique's own script: a multi-character ``replace``/``delete``
+    diff op mapped its end boundary to the *next* stripped character's raw
+    position instead of the end of the *last* replaced character, which
+    silently deleted any XML tag sitting exactly between the two (the
+    existing "stripped text matches source" self-check cannot detect this,
+    since removing a tag does not change the stripped text) -- caught only
+    by adding a before/after XML-tag-multiset equality check.
+
+    TJCE/363657243 also had a genuine annotation gap distinct from the
+    already-documented "no closing cue at all" dangling-pair class: its
+    ``relatorio`` pair had no ``_inicio`` at all, because the source has
+    neither a heading nor the guideline's own "Trata-se de" fallback
+    phrase -- fixed by tagging the report's first proper name as the de
+    facto opening cue.
+
+    Four ``--allowed-unmatched-overrides`` entries were needed for
+    dangling start/end pairs with no closing cue in the source text
+    (``relatorio`` in TJCE/363647616 -- the guideline's own documented
+    "relatorio dispensado" waiver-clause pattern; ``capitulo_merito``,
+    ``custas``, ``honorarios`` in TJMA/42730832) -- each verified against
+    the raw source text before declaring.
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the five specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 143
+    assert any(h.startswith("391d30a3") for h in hashes), "TJBA/574460085 batch17 document missing"
+    assert any(h.startswith("853f47df") for h in hashes), "TJMA/42730832 batch17 document missing"
+    assert any(h.startswith("6f0cf54f") for h in hashes), "TJMA/42736393 batch17 document missing"
+    assert any(h.startswith("40940035") for h in hashes), "TJCE/363647616 batch17 document missing"
+    assert any(h.startswith("ef286086") for h in hashes), "TJCE/363657243 batch17 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)

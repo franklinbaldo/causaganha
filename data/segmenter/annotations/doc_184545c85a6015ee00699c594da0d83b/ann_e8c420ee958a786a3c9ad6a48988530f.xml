@@ -1,0 +1,39 @@
+<annotation id="ann_e8c420ee958a786a3c9ad6a48988530f" document_id="doc_184545c85a6015ee00699c594da0d83b">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="capitulo_merito" reason="No closing cue for 'capitulo_merito' in the source text -- the merit-chapter heading ('Do merito.') is followed directly by the reasoning and runs to the dispositivo_abertura ('ISTO POSTO') with no distinct closing phrase, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text." />
+    <entry base="custas" reason="No closing cue for 'custas' in the source text -- 'custas do processo' is a single formulaic phrase inside the dispositivo sentence with no distinct closing phrase before the honorarios clause, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text." />
+    <entry base="honorarios" reason="No closing cue for 'honorarios' in the source text -- 'honorarios advocaticios de 10%' is a single formulaic phrase inside the dispositivo sentence with no distinct closing phrase before the isencao clause, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text." />
+  </allowed_unmatched>
+  <completed_at>2026-09-17T02:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>ESTADO DO MARANHÃO <cabecalho><inicio ord="0">PODER JUDICIÁRIO</inicio> COMARCA DE BURITICUPU 2ª VARA Processo nº <ref_processual ord="1">0800118-97.2023.8.10.0028</ref_processual> PROCEDIMENTO COMUM CÍVEL (7) Autor (a): FRANCISCO BARTOLOMEU LOPES VIEIRA Advogado: Francisco Raimundo Correa (OAB/MA 5415) Réu: BANCO BRADESCO S.A. Advogado: <fim ord="2">Diego Monteiro Baptista (OAB/MA 19.142-A)</fim></cabecalho> SENTENÇA LEONORA NASCIMENTO DA SILVA ajuizou Ação de Nulidade de Cobrança de Tarifas Ilegais c/c Repetição de Indébito e Indenização por Danos Morais e Materiais c/c pedido de Tutela de Urgência em face de BANCO BRADESCO S/A, ambos qualificados na exordial. Não concedida a antecipação de tutela e determinada a citação do réu (ID 83838687). Citado, o réu apresentou contestação e termo de adesão (IDs 86642598 e 86642599). Réplica ao ID 87598599. Decido. <preliminar><inicio ord="3">Das preliminares.</inicio> Inicialmente, rejeito toda matéria preliminar e prejudicial, em atenção ao princípio da primazia do juízo de mérito, <fundamentacao_legal ord="4">previsto no art. 4o do CPC</fundamentacao_legal>, até por ser mais favorável a quem aproveitaria eventual extinção do processo sem resolução do mérito. A justiça gratuita, por sua vez, só se afasta mediante prova apta a refutar a <fim ord="5">presunção de hipossuficiência.</fim></preliminar> <capitulo_merito><inicio ord="6">Do mérito.</inicio></capitulo_merito> A controvérsia posta resolve-se através do regramento legal e regulamentar, e da prova documental já existente ao tempo da demanda, especialmente o contrato e extrato de conta com o registro dos descontos. A distribuição do ônus dessa prova foi inclusive objeto de IRDRs envolvendo empréstimos consignados e cobranças de tarifas, cujas razões de decidir se aplicam de modo geral aos contratos bancários consumeristas. Sendo, portanto, desnecessária a produção de outras provas, passo a enfrentar o mérito, <fundamentacao_legal ord="7">nos termos do art. 355, I do CPC</fundamentacao_legal>. Narra a parte autora que a conta que possui junto ao banco demandado destina-se apenas ao recebimento de benefício junto ao INSS, e que, apesar disso, o réu, unilateralmente, passou a realizar descontos de produto não contratado. De acordo com a tese fixada no IRDR nº 3.043/2017: "É ilícita a cobrança de tarifas bancárias para o recebimento de proventos e/ou benefícios previdenciários, por meio de cartão magnético do INSS e através de tarifas bancárias na contratação de pacote remunerado de serviços de conta de depósito com pacote essencial, sendo, entretanto, possível a cobrança (na contratação) ou quando excedidos os limites de gratuidade previstos na Res. 3.919/2010 do BACEN, desde que o aposentado seja prévia e efetivamente informado pela instituição financeira". Compulsando os autos, observo que o banco se desincumbiu do ônus da prova acerca da adesão da parte autora ao pacote de servidos , ao juntar o contrato por ela assinado (id 86642599). A parte autora foi, portanto, prévia e efetivamente informada acerca das cobranças e dos serviços oferecidos (tese firmada no IRDR nº 3.043/2017), constando o pacote padronizado devidamente indicada no termo de adesão, como prevê o <fundamentacao_legal ord="8">art. 4º, inciso IX, da Lei 4.595/64</fundamentacao_legal> e <fundamentacao_legal ord="9">art. 6º, III, do CDC</fundamentacao_legal>. <dispositivo_abertura ord="10">ISTO POSTO</dispositivo_abertura>, REJEITO os pedidos da parte autora, e consequentemente <resultado ord="11">JULGO EXTINTO</resultado> o processo com resolução do mérito, <fundamentacao_legal ord="12">nos termos do art. 487, I, do CPC</fundamentacao_legal>. Condeno a parte autora nas <custas><inicio ord="13">custas do processo</inicio></custas> e <honorarios><inicio ord="14">honorários advocatícios de 10%</inicio></honorarios> sobre o valor atualizado da causa, verbas das quais, entretanto, fica isenta, <fundamentacao_legal ord="15">nas condições do art. 98 do CPC</fundamentacao_legal>, em virtude da justiça gratuita. <encerramento><inicio ord="16">Intimem-se.</inicio> Serve como mandado. Com o trânsito em julgado, arquivem-se. Buriticupu - MA, data da assinatura eletrônica. <fim ord="17">Juiz Bruno Barbosa Pinheiro Titular da 2a Vara</fim></encerramento></text>
+</annotation>
