@@ -1,0 +1,21 @@
+{
+  "301222642": {
+    "ementa": "TRF2 acordao (capa+ementa-estruturada export): the EMENTA heading opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through to the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases (e.g. TJRS in batch3, TRF4 in batch4, TJPI in batch14). Verified against the raw source text."
+  },
+  "301222655": {
+    "ementa": "TRF2 acordao (capa+ementa-estruturada export, embargos de declaracao): 'EMENTA:' heading is immediately followed by the ementa body text with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through numbered I-IV sections into the ACORDAO section with no delimiting phrase, same class as prior batches' dangling ementa cases. Verified against the raw source text."
+  },
+  "301222733": {
+    "ementa": "TRF2 acordao (capa+ementa-estruturada export): the EMENTA heading opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through to the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases. Verified against the raw source text."
+  },
+  "301222762": {
+    "ementa": "TRF2 acordao (capa+ementa-estruturada export): the EMENTA heading opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through to the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases. Verified against the raw source text."
+  },
+  "301222819": {
+    "ementa": "TRF2 acordao (capa+ementa-estruturada export): the EMENTA heading opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section to provide a closing cue -- it runs straight through to the ACORDAO section's collegiate decisorio with no delimiting phrase, same class as prior batches' dangling ementa cases. Verified against the raw source text."
+  },
+  "301248486": {
+    "custas": "No closing cue for 'custas' in the source text -- 'Sem custas' is a single standalone micro-phrase immediately followed by 'e' and the honorarios clause, with no distinct closing phrase of its own, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text.",
+    "honorarios": "No closing cue for 'honorarios' in the source text -- 'honorarios advocaticios' is a short standalone phrase immediately followed by the combined 'na forma do art. 55 da Lei n. 9099/95' legal-basis clause, with no distinct closing phrase of its own, matching the established dangling-pair defect class documented in knowledge/backlog/issue-1050.md. Verified against the raw source text."
+  }
+}
