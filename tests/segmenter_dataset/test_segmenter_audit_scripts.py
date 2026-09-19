@@ -241,7 +241,23 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     one real reasoning-authority tag -- the heuristic's ``>3`` threshold
     flags it anyway.
 
-    If this test starts seeing *more* than these six findings, a new
+    ``doc_12f989ac213c5eadf857aacc69b33ad2`` (djen_sample batch22, TJTO,
+    2026-09-19) is the same shape of false positive again for
+    ``fundamentacao_legal_collapsed``: this sentença quotes an STJ
+    precedent's ementa verbatim (REsp 1.804.804/MS, already covered by
+    one ``ref_normativa`` tag on the citation itself) whose own numbered
+    items cite "art. 278" (Lei 6.404/1976) and "art. 265" (CC), plus a
+    literal transcription of Lei 11.101/2005 arts. 50/59 and CPC art. 584
+    already covered by ``fundamentacao_legal``+``ref_normativa`` on the
+    introductory sentence ("com fundamento no artigo 59..."). None of
+    those quoted-block citations are this document's own
+    reasoning-with-connector language, so they were correctly left
+    untagged the same way ``ref_normativa`` citations are elsewhere in
+    this allowlist. Seven raw "art." mentions, one real
+    reasoning-authority tag -- the heuristic's ``>3`` threshold flags it
+    anyway.
+
+    If this test starts seeing *more* than these seven findings, a new
     real omission was introduced and needs the same triage — repair it, or
     extend this allowlist with a documented reason, never silence the
     assertion.
@@ -266,4 +282,5 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_2a07306d88d1acebcdc0aff9958f7009",
         "doc_3b0be436ba6753185997c37b2b6b9765",
         "doc_db852d2ad03c021f0ac411e3e5b63b60",
+        "doc_12f989ac213c5eadf857aacc69b33ad2",
     }
