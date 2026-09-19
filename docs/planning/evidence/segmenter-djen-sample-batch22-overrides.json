@@ -1,0 +1,13 @@
+{
+  "576803379": {
+    "capitulo_merito": "no closing cue in source text: merit reasoning transitions directly into dispositivo_abertura ('Ante o exposto') with no distinct closing phrase, same recurring pattern as prior batches' capitulo_merito overrides -- verified against raw source text before declaring"
+  },
+  "327508788": {
+    "custas": "no closing cue in source text: 'Custas antecipadas.' is a single terse enunciado with no distinct opening/closing markers, same recurring pattern as prior batches -- verified against raw source text before declaring",
+    "honorarios": "no closing cue in source text: 'Honorários na forma da lei.' is a single terse enunciado with no distinct opening/closing markers, same recurring pattern as prior batches -- verified against raw source text before declaring"
+  },
+  "578900185": {
+    "custas": "no closing cue in source text: 'Sem custas e honorários advocatícios, nos termos do artigo 55 da Lei nº 9.099/95.' is a single combined clause covering both custas and honorarios with no distinct closing cue for either, same recurring pattern as prior batches -- verified against raw source text before declaring",
+    "honorarios": "no closing cue in source text: same combined clause as custas above, no distinct closing cue -- verified against raw source text before declaring"
+  }
+}
