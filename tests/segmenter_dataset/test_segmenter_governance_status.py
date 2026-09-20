@@ -647,6 +647,62 @@ def test_real_store_reflects_batch19_corpus_growth() -> None:
     assert any(h.startswith("0fd41fbe") for h in hashes), "TRF5/463264301 batch19 document missing"
 
 
+def test_real_store_reflects_batch23_corpus_growth() -> None:
+    """Regression guard for #1050's twenty-third real DJEN sample batch.
+
+    Six real TRF2 acordaos (9a Turma Especializada), all disjoint from the
+    concurrent batch22 PR's tribunals (TJGO/TJPB/TJPA/TJRJ/TJTO) to avoid
+    any document_id collision risk regardless of merge order: 301222629
+    (prefix ``1d6350c1``), 301222677 (prefix ``33322a21``), 301222685
+    (prefix ``aba71370``), 301222713 (prefix ``b8976111``), 301222792
+    (prefix ``79891751``), 301228222 (prefix ``8744eb61``).
+
+    This batch also found and fixed a real, previously-undocumented
+    structural bug: nesting a single-anchor tag (``resultado``) directly
+    inside a start/end pair's ``<inicio>``/``<fim>`` child is silently
+    dropped by ``_text_element_to_labels`` (the ``_PAIR_ROLES`` branch in
+    ``segmenter_dataset.store`` only emits the wrapper's own
+    ``{base}_{role}`` label and never splices in that child's own nested
+    items) -- round-trip text reconstruction still matches byte-for-byte,
+    so naive verbatim-fidelity verification alone does not catch it. Two
+    of three subagents in this batch (301222629, 301222792) had already
+    tagged the operative ``resultado`` phrase but nested it inside
+    ``<fim>...</fim>``; a third (301222713) did the same in its original
+    output. All three were fixed by moving ``<resultado>`` to be a sibling
+    of ``<inicio>``/``<fim>`` (still inside the pair's own wrapper
+    element, or immediately after it closes) rather than a child of
+    ``<fim>`` itself -- pure tag repositioning, no retyped content,
+    reverified byte-for-byte after each fix. A fourth document
+    (301222685) had a genuine risk-class-14 shape: its subagent declared
+    ``acordao_decisorio`` unmatched (inicio-only) claiming "por
+    unanimidade" appeared "mid-sentence rather than at the true close",
+    but the raw source text has the identical boilerplate structure
+    already used successfully as a closing cue by two sibling documents
+    in this same batch -- fixed by adding the missing ``<fim>por
+    unanimidade</fim>``, not by accepting an unverified override.
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the six specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 173
+    assert any(h.startswith("1d6350c1") for h in hashes), "TRF2/301222629 batch23 document missing"
+    assert any(h.startswith("33322a21") for h in hashes), "TRF2/301222677 batch23 document missing"
+    assert any(h.startswith("aba71370") for h in hashes), "TRF2/301222685 batch23 document missing"
+    assert any(h.startswith("b8976111") for h in hashes), "TRF2/301222713 batch23 document missing"
+    assert any(h.startswith("79891751") for h in hashes), "TRF2/301222792 batch23 document missing"
+    assert any(h.startswith("8744eb61") for h in hashes), "TRF2/301228222 batch23 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
