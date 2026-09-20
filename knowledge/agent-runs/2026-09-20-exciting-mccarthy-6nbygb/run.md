@@ -9,16 +9,27 @@ claude_md_reading_id: "2026-09-20-exciting-mccarthy-6nbygb-reading-claude-md"
 issues_reading_id: "2026-09-20-exciting-mccarthy-6nbygb-reading-issues"
 prs_reading_id: "2026-09-20-exciting-mccarthy-6nbygb-reading-prs"
 okf_reading_id: "2026-09-20-exciting-mccarthy-6nbygb-reading-okf"
-goal_ids: []
-primary_goal_id: ""
-considered_work: []
-selected_work: ""
-expected_behavior: ""
+goal_ids:
+  - "2026-09-20-exciting-mccarthy-6nbygb-goal-verify-and-merge-1590-1591"
+  - "2026-09-20-exciting-mccarthy-6nbygb-goal-djen-sample-batch25"
+primary_goal_id: "2026-09-20-exciting-mccarthy-6nbygb-goal-verify-and-merge-1590-1591"
+considered_work:
+  - "#1050 lote 25 (novo tier apos esgotamento de TJMG/TJRN/TJRS/TJSE): selecionado, unico item com caminho de execucao provado nesta rodada."
+  - "#1482 (CORS): bloqueada por credenciais Cloudflare ausentes neste ambiente, ja confirmado em rodadas anteriores."
+  - "#1468-#1472 (Parquet/CNJ): bloqueadas por credenciais IA ausentes, fato ja estabelecido."
+  - "#1051 (validation set independente): depende do piso RFC 0012 >=30/30 ainda nao alcancado; fora de escopo desta rodada."
+selected_work: "Reverificar e mesclar PRs #1590/#1591 (ja verdes, com achados de review ja endereçados), depois ingerir lote 25 de #1050 apos descobrir que o proximo tier de tribunais (TJMG/TJRN/TJRS/TJSE) esta esgotado para Sentenca/Acordao."
+expected_behavior: "Ver success_signal em cada goal."
 entry_state: "new"
-target_state: "red"
-decision_ids: []
-evidence_ids: []
-check_ids: []
+target_state: "green"
+decision_ids:
+  - "2026-09-20-exciting-mccarthy-6nbygb-decision-follow-scaffold-continue-1050"
+  - "2026-09-20-exciting-mccarthy-6nbygb-decision-self-merge-after-independent-verification"
+evidence_ids:
+  - "2026-09-20-exciting-mccarthy-6nbygb-evidence-1590-merged"
+  - "2026-09-20-exciting-mccarthy-6nbygb-evidence-1591-merged"
+check_ids:
+  - "2026-09-20-exciting-mccarthy-6nbygb-check-independent-verification-1590"
 result_state: "red"
 result_summary: ""
 next_move: ""
