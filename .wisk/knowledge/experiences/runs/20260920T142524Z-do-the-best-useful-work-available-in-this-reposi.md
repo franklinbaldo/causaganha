@@ -1,5 +1,5 @@
 ---
-checks: ["run-checks/20260920t142524z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260920t142524z-do-the-best-useful-work-availab/handoff-disposition-reframed"]
+checks: ["run-checks/20260920t142524z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260920t142524z-do-the-best-useful-work-availab/handoff-disposition-reframed", "run-checks/20260920t142524z-do-the-best-useful-work-availab/verification-pr-1594-merged"]
 decisions: []
 evidence: ["run-evidence/20260920t142524z-do-the-best-useful-work-availab/evidence-pr-1594-merged"]
 goals: ["run-goals/20260920t142524z-do-the-best-useful-work-availab/goal-land-ready-prs"]
