@@ -1,0 +1,1677 @@
+{
+  "generated_at": "2026-09-20T10:40:26.001300+00:00",
+  "conformant_marker": "causaganha.layout=cnj-text-sorted-v1",
+  "file_count": 61,
+  "files": [
+    {
+      "item_id": "causaganha-dashboard",
+      "table": "indice_processual",
+      "url": "https://archive.org/download/causaganha-dashboard/indice_processual.parquet",
+      "row_count": 49203723,
+      "row_group_count": 0,
+      "classification": "national_index",
+      "regeneration_plan": "handled_by_reconcile_processos_not_this_audit",
+      "kv_metadata": {},
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN",
+          "PLAIN_DICTIONARY"
+        ],
+        "total_compressed_size": 123504408,
+        "total_uncompressed_size": 1151411288,
+        "has_bloom_filter": true
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2021",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-cjf-2021/comunicacoes.parquet",
+      "row_count": 14298,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 91885,
+        "total_uncompressed_size": 343183,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2021",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-cjf-2021/processos.parquet",
+      "row_count": 14298,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 91885,
+        "total_uncompressed_size": 343183,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-cjf-2022/comunicacoes.parquet",
+      "row_count": 19089,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 105194,
+        "total_uncompressed_size": 458167,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-cjf-2022/processos.parquet",
+      "row_count": 19089,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 105194,
+        "total_uncompressed_size": 458167,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2024",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-cjf-2024/comunicacoes.parquet",
+      "row_count": 18457,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 105263,
+        "total_uncompressed_size": 442999,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2024",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-cjf-2024/processos.parquet",
+      "row_count": 18457,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 105263,
+        "total_uncompressed_size": 442999,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-cjf-2025/comunicacoes.parquet",
+      "row_count": 44682,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 127902,
+        "total_uncompressed_size": 1072400,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-cjf-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-cjf-2025/processos.parquet",
+      "row_count": 44682,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-cjf-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 127902,
+        "total_uncompressed_size": 1072400,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-pjecor-2024",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-pjecor-2024/comunicacoes.parquet",
+      "row_count": 3340,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-pjecor-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 10674,
+        "total_uncompressed_size": 80189,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-pjecor-2024",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-pjecor-2024/processos.parquet",
+      "row_count": 3340,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-pjecor-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 10674,
+        "total_uncompressed_size": 80189,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-pjecor-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-pjecor-2025/comunicacoes.parquet",
+      "row_count": 5406,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-pjecor-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 19361,
+        "total_uncompressed_size": 129773,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-pjecor-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-pjecor-2025/processos.parquet",
+      "row_count": 5406,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-pjecor-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 19361,
+        "total_uncompressed_size": 129773,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-stj-2024",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-stj-2024/comunicacoes.parquet",
+      "row_count": 232622,
+      "row_group_count": 2,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-stj-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 1019319,
+        "total_uncompressed_size": 5582992,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-stj-2024",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-stj-2024/processos.parquet",
+      "row_count": 232622,
+      "row_group_count": 2,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-stj-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 1019319,
+        "total_uncompressed_size": 5582992,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-stj-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-stj-2025/comunicacoes.parquet",
+      "row_count": 2330195,
+      "row_group_count": 19,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-stj-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 5085368,
+        "total_uncompressed_size": 55925288,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-stj-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-stj-2025/processos.parquet",
+      "row_count": 2330195,
+      "row_group_count": 19,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-stj-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 5085368,
+        "total_uncompressed_size": 55925288,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-stm-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-stm-2025/comunicacoes.parquet",
+      "row_count": 8499,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-stm-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 20922,
+        "total_uncompressed_size": 204007,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-stm-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-stm-2025/processos.parquet",
+      "row_count": 8499,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-stm-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 20922,
+        "total_uncompressed_size": 204007,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjac-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjac-2025/comunicacoes.parquet",
+      "row_count": 252912,
+      "row_group_count": 3,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjac-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 510707,
+        "total_uncompressed_size": 6069981,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjac-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjac-2025/processos.parquet",
+      "row_count": 252912,
+      "row_group_count": 3,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjac-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 510707,
+        "total_uncompressed_size": 6069981,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjal-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjal-2025/comunicacoes.parquet",
+      "row_count": 1743866,
+      "row_group_count": 15,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjal-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 2831053,
+        "total_uncompressed_size": 41853263,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjal-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjal-2025/processos.parquet",
+      "row_count": 1743866,
+      "row_group_count": 15,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjal-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 2831053,
+        "total_uncompressed_size": 41853263,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjam-2021",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjam-2021/comunicacoes.parquet",
+      "row_count": 20188,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjam-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 116348,
+        "total_uncompressed_size": 484543,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjam-2021",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjam-2021/processos.parquet",
+      "row_count": 20188,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjam-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 116348,
+        "total_uncompressed_size": 484543,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjam-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjam-2022/comunicacoes.parquet",
+      "row_count": 82271,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjam-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 293969,
+        "total_uncompressed_size": 1974536,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjam-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjam-2022/processos.parquet",
+      "row_count": 82271,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjam-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 293969,
+        "total_uncompressed_size": 1974536,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjap-2021",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjap-2021/comunicacoes.parquet",
+      "row_count": 39701,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjap-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 213230,
+        "total_uncompressed_size": 952855,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjap-2021",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjap-2021/processos.parquet",
+      "row_count": 39701,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjap-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 213230,
+        "total_uncompressed_size": 952855,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjap-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjap-2022/comunicacoes.parquet",
+      "row_count": 27002,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjap-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 105904,
+        "total_uncompressed_size": 648079,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjap-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjap-2022/processos.parquet",
+      "row_count": 27002,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjap-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 105904,
+        "total_uncompressed_size": 648079,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjce-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjce-2022/comunicacoes.parquet",
+      "row_count": 48538,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjce-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 188476,
+        "total_uncompressed_size": 1164944,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjce-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjce-2022/processos.parquet",
+      "row_count": 48538,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjce-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 188476,
+        "total_uncompressed_size": 1164944,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjdft-2021",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjdft-2021/comunicacoes.parquet",
+      "row_count": 13625,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjdft-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 77048,
+        "total_uncompressed_size": 327031,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjdft-2021",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjdft-2021/processos.parquet",
+      "row_count": 13625,
+      "row_group_count": 1,
+      "classification": "verified_unsorted",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjdft-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 77048,
+        "total_uncompressed_size": 327031,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjdft-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjdft-2022/comunicacoes.parquet",
+      "row_count": 4774,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjdft-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 23911,
+        "total_uncompressed_size": 114605,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjdft-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjdft-2022/processos.parquet",
+      "row_count": 4774,
+      "row_group_count": 1,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjdft-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 23911,
+        "total_uncompressed_size": 114605,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjma-2021",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjma-2021/comunicacoes.parquet",
+      "row_count": 1242412,
+      "row_group_count": 11,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjma-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 8073951,
+        "total_uncompressed_size": 29818237,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjma-2021",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjma-2021/processos.parquet",
+      "row_count": 1242412,
+      "row_group_count": 11,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjma-2021"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 8073951,
+        "total_uncompressed_size": 29818237,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjma-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjma-2022/comunicacoes.parquet",
+      "row_count": 1562057,
+      "row_group_count": 13,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjma-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 4269350,
+        "total_uncompressed_size": 37489784,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjma-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjma-2022/processos.parquet",
+      "row_count": 1562057,
+      "row_group_count": 13,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjma-2022",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 4269350,
+        "total_uncompressed_size": 37489784,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjro-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjro-2025/comunicacoes.parquet",
+      "row_count": 1634023,
+      "row_group_count": 14,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjro-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 2590972,
+        "total_uncompressed_size": 39216999,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjro-2026",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjro-2026/comunicacoes.parquet",
+      "row_count": 1041723,
+      "row_group_count": 9,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjro-2026"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 6796956,
+        "total_uncompressed_size": 25001640,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjro-2026",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjro-2026/processos.parquet",
+      "row_count": 1041723,
+      "row_group_count": 9,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjro-2026"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 6796956,
+        "total_uncompressed_size": 25001640,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjrr-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjrr-2025/comunicacoes.parquet",
+      "row_count": 1265223,
+      "row_group_count": 11,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjrr-2025"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN",
+          "PLAIN_DICTIONARY"
+        ],
+        "total_compressed_size": 3091902,
+        "total_uncompressed_size": 14790519,
+        "has_bloom_filter": true
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjrr-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjrr-2025/processos.parquet",
+      "row_count": 1265223,
+      "row_group_count": 11,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjrr-2025"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN",
+          "PLAIN_DICTIONARY"
+        ],
+        "total_compressed_size": 3091902,
+        "total_uncompressed_size": 14790519,
+        "has_bloom_filter": true
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjsc-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjsc-2022/comunicacoes.parquet",
+      "row_count": 296206,
+      "row_group_count": 3,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjsc-2022"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 1957397,
+        "total_uncompressed_size": 7109040,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjsc-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjsc-2022/processos.parquet",
+      "row_count": 296206,
+      "row_group_count": 3,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjsc-2022"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 1957397,
+        "total_uncompressed_size": 7109040,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjsc-2023",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjsc-2023/comunicacoes.parquet",
+      "row_count": 134877,
+      "row_group_count": 2,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjsc-2023",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 652908,
+        "total_uncompressed_size": 3237111,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjsc-2023",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjsc-2023/processos.parquet",
+      "row_count": 134877,
+      "row_group_count": 2,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjsc-2023",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 652908,
+        "total_uncompressed_size": 3237111,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjse-2022",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjse-2022/comunicacoes.parquet",
+      "row_count": 966244,
+      "row_group_count": 8,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjse-2022"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 5809482,
+        "total_uncompressed_size": 23190112,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjse-2022",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjse-2022/processos.parquet",
+      "row_count": 966244,
+      "row_group_count": 8,
+      "classification": "reorder_candidate",
+      "regeneration_plan": "regenerate_with_cnj_text_sorted_v1_layout",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjse-2022"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 5809482,
+        "total_uncompressed_size": 23190112,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjse-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjse-2025/comunicacoes.parquet",
+      "row_count": 2470522,
+      "row_group_count": 21,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjse-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 3872290,
+        "total_uncompressed_size": 59293199,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjse-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjse-2025/processos.parquet",
+      "row_count": 2470522,
+      "row_group_count": 21,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjse-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 3872290,
+        "total_uncompressed_size": 59293199,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjto-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tjto-2025/comunicacoes.parquet",
+      "row_count": 813012,
+      "row_group_count": 7,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjto-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 1897621,
+        "total_uncompressed_size": 19512512,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tjto-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tjto-2025/processos.parquet",
+      "row_count": 813012,
+      "row_group_count": 7,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tjto-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 1897621,
+        "total_uncompressed_size": 19512512,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tst-2024",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tst-2024/comunicacoes.parquet",
+      "row_count": 874017,
+      "row_group_count": 8,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tst-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 2185461,
+        "total_uncompressed_size": 20976663,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tst-2024",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tst-2024/processos.parquet",
+      "row_count": 874017,
+      "row_group_count": 8,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tst-2024",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 2185461,
+        "total_uncompressed_size": 20976663,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tst-2025",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tst-2025/comunicacoes.parquet",
+      "row_count": 2386030,
+      "row_group_count": 20,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tst-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 5248027,
+        "total_uncompressed_size": 57265360,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tst-2025",
+      "table": "processos",
+      "url": "https://archive.org/download/djen-tst-2025/processos.parquet",
+      "row_count": 2386030,
+      "row_group_count": 20,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tst-2025",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 5248027,
+        "total_uncompressed_size": 57265360,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    },
+    {
+      "item_id": "djen-tst-2026",
+      "table": "comunicacoes",
+      "url": "https://archive.org/download/djen-tst-2026/comunicacoes.parquet",
+      "row_count": 2027871,
+      "row_group_count": 17,
+      "classification": "conformant",
+      "regeneration_plan": "no_action_already_certified",
+      "kv_metadata": {
+        "causaganha.schema_version": "3.0.0",
+        "causaganha.item_id": "djen-tst-2026",
+        "causaganha.layout": "cnj-text-sorted-v1",
+        "causaganha.cnj_normalization": "valid-20-digits-v1"
+      },
+      "cnj_column_details": {
+        "column_type": "BYTE_ARRAY",
+        "compression_codecs": [
+          "ZSTD"
+        ],
+        "encodings": [
+          "PLAIN"
+        ],
+        "total_compressed_size": 4308747,
+        "total_uncompressed_size": 48669448,
+        "has_bloom_filter": false
+      },
+      "read_error": null
+    }
+  ]
+}
