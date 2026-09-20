@@ -1,0 +1,134 @@
+<annotation id="ann_c72d594661d5afc80e6aa3c535f3ea73" document_id="doc_d236f18d65a9a3ab59c0b02ecafc9ba5">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
+    <entry base="capitulo_merito" reason="batch25: 'Fundamento e decido.' opens capitulo_merito, reasoning flows directly into 'Ex positis,' (dispositivo_abertura) with no intervening 'DISPOSITIVO' heading or other closing cue -- same 'flows directly to dispositivo' pattern already sanctioned in batch24 (TJGO/543517919, TJMA/42725100), verified against raw source text" />
+  </allowed_unmatched>
+  <completed_at>2026-09-20T09:50:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Procedimento Comum Cível  Nº <ref_processual ord="0">0006934-74.2023.8.27.2706/TO</ref_processual>
+
+ AUTOR : ARAGUAINA COM. DE ROUPAS MEGA  STORE LTDA
+
+ ADVOGADO(A) : ROGÉRIO BONIEK LOPES SANTANA (OAB TO006132)
+
+ RÉU : LETICIA QUEZADO ANDRADE
+
+ ADVOGADO(A) : JAQUELINE DE ARAÚJO SANTOS (OAB TO005981)
+
+SENTENÇA
+
+<relatorio><inicio ord="1">VISTO O PROCESSO.</inicio>
+
+ARAGUAÍNA COMÉRCIO DE ROUPAS MEGA STORE LIMITADA ajuizou ação de cobrança em face de LETÍCIA QUEZADO ANDRADE, pleiteando a condenação desta ao pagamento da quantia de <valor_condenacao ord="2">R$ 13.489,61</valor_condenacao> (treze mil quatrocentos e oitenta e nove reais e sessenta e um centavos), valor este atualizado com juros de mora de 1% ao mês e honorários advocatícios de 15%, conforme demonstrativo de débito e cupons fiscais anexados aos autos.
+
+A dívida decorre da compra de roupas e acessórios realizada pela Requerida na empresa autora, sem que tenha havido, até o momento, o adimplemento do valor contratado, não obstante tentativas de acordo extrajudiciais frustradas.
+
+A Requerente fundamenta seu direito no princípio da força obrigatória dos contratos (pacta sunt servanda), alegando que a ausência de pagamento configura enriquecimento ilícito por parte da Requerida, que se apropriou dos bens adquiridos sem a devida contraprestação.
+
+Afirma que a ação de cobrança é o meio adequado, por inexistir título executivo, e que a pretensão está amparada pelo prazo prescricional de cinco anos, <fundamentacao_legal ord="3">previsto no artigo 206, parágrafo 5º, inciso I, do Código Civil</fundamentacao_legal>, não havendo, portanto, qualquer impedimento à sua propositura.
+
+Diante da inadimplência, pleiteia a condenação da Requerida ao pagamento do débito atualizado, acrescido de juros, correção monetária e honorários advocatícios, com o consequente reconhecimento judicial da obrigação, convertendo-se a sentença em título executivo judicial. Requer também o de praxe.
+
+LETÍCIA QUEZADO ANDRADE, no evento 38, apresentou manifestação nos autos por meio de sua advogada, requerendo, <fundamentacao_legal ord="4">nos termos do artigo 319, inciso VII, do Código de Processo Civil</fundamentacao_legal>, a realização de audiência de conciliação ou mediação, demonstrando expressamente seu interesse na tentativa de composição consensual.
+
+Ademais, requereu que lhe seja facultada a apresentação da contestação apenas após a realização da audiência de conciliação, <fundamentacao_legal ord="5">nos termos do artigo 335, inciso I, do Código de Processo Civil</fundamentacao_legal>, o qual estabelece que o prazo de quinze dias para a apresentação da contestação tem início a partir da data da audiência, ou da última sessão de conciliação, caso não haja composição entre as partes.
+
+Assim, ao final, formulou os seguintes pedidos:
+
+a) A designação de audiência de conciliação ou mediação;
+b) A concessão do prazo legal para apresentação da contestação após a audiência designada.
+
+Realizada a audiência, as partes não se conciliaram (evento 61).
+
+A parte autora, no evento 65, informou que, conforme se verifica no evento 61, foi realizada audiência de conciliação aos 16 de fevereiro de 2024, com a presença das partes, restando inexitosa a tentativa de composição. Na ocasião, a Requerida foi informada sobre o prazo de 15 dias para apresentação de contestação.
+
+Contudo, a Requerida manteve-se inerte, não tendo apresentado qualquer resposta ou impugnado os fatos e direitos narrados na petição inicial.
+
+A autora destacou que, <fundamentacao_legal ord="6">nos termos do artigo 344 do Código de Processo Civil</fundamentacao_legal>, a ausência de contestação acarreta a revelia e a consequente presunção de veracidade das alegações de fato formuladas pelo autor, sendo desnecessária a produção de outras provas sobre tais pontos.
+
+Sustentou que os documentos juntados aos autos são suficientes para demonstrar a verossimilhança e a procedência do pedido formulado na inicial.
+
+Invocou jurisprudência para reforçar que, declarada a revelia, presume-se verdadeira a narrativa fática apresentada, sendo cabível o julgamento antecipado da lide, <fundamentacao_legal ord="7">nos termos do artigo 355, inciso I, do Código de Processo Civil</fundamentacao_legal>, dada a desnecessidade de dilação probatória.
+
+Ao final, requereu a decretação da revelia da Requerida, em razão da ausência de apresentação de contestação no prazo legal e o julgamento antecipado da lide, com a procedência integral dos pedidos formulados na exordial.
+
+A revelia foi decretada no evento 66.
+
+A autora, no evento 70, reiterou que, após a regular citação da Requerida e a realização de audiência de conciliação (evento 61), a parte adversa não apresentou defesa, tendo sido decretada a revelia com a aplicação de todos os seus efeitos (evento 66).
+
+Diante disso, alegou que, pela natureza da ação de cobrança e pela suficiência da instrução documental já apresentada, não há necessidade de dilação probatória, requerendo, assim, o julgamento antecipado da lide, com o deferimento integral dos pedidos, <fundamentacao_legal ord="8">nos termos do artigo 355, incisos I e II, do Código de Processo Civil</fundamentacao_legal>.
+
+A Requerida informou no evento 71 que tentou, sem êxito, realizar o pagamento do débito de forma amigável. Alegou que se encontra desempregada, sem fonte de renda, vivendo com ajuda de familiares, e que a dívida foi contraída por um familiar que utilizou seu nome para realizar as compras na empresa autora, não tendo assumido o pagamento.
+
+Diante de sua situação financeira, requereu o fracionamento do débito em parcelas mensais de até R$ 200,00 (duzentos reais), proposta esta que foi recusada pela empresa autora no evento 78.
+
+Decisão de saneamento e de organização do processo proferida no evento 80.
+
+<fim ord="9">É o relatório.</fim></relatorio>
+
+<capitulo_merito><inicio ord="10">Fundamento e decido.</inicio></capitulo_merito>
+
+Trata-se de ação de cobrança proposta por Araguaína Comércio de Roupas Mega Store Limitada em face de Letícia Quezado Andrade, objetivando a condenação da Requerida ao pagamento da quantia de <valor_condenacao ord="11">R$ 13.489,61</valor_condenacao> (treze mil quatrocentos e oitenta e nove reais e sessenta e um centavos), decorrente da aquisição de mercadorias junto à parte autora, conforme documentos acostados aos autos.
+
+Regularmente citada, a Requerida compareceu à audiência de conciliação, a qual restou infrutífera, e, intimada a apresentar contestação, permaneceu inerte, tendo sido decretada sua revelia, com a aplicação dos efeitos <fundamentacao_legal ord="12">previstos no artigo 344 do Código de Processo Civil</fundamentacao_legal>, segundo o qual:
+
+Se o réu não contestar a ação, será considerado revel e presumir-se-ão verdadeiras as alegações de fato formuladas pelo autor.
+
+A ausência de impugnação aos fatos narrados na inicial implica a sua presunção de veracidade, inexistindo, no presente caso, qualquer das hipóteses de afastamento dos efeitos da revelia, <fundamentacao_legal ord="13">conforme disciplinado pelo artigo 345 do Código de Processo Civil</fundamentacao_legal>.
+
+O pedido formulado pela autora <fundamentacao_legal ord="14">encontra respaldo no artigo 389 do Código Civil</fundamentacao_legal>, que estabelece:
+
+Não cumprida a obrigação, responde o devedor por perdas e danos, mais juros e atualização monetária segundo índices oficiais regularmente estabelecidos, e honorários de advogado.
+
+Ademais, <fundamentacao_legal ord="15">nos termos do artigo 397 do Código Civil</fundamentacao_legal>, configura-se a mora do devedor quando este não cumpre a obrigação no tempo, lugar e forma convencionados, circunstância plenamente verificada nos autos, uma vez que, não obstante regularmente notificada, a Requerida não adimpliu o valor devido.
+
+O direito da parte autora também encontra amparo no princípio da força obrigatória dos contratos, <fundamentacao_legal ord="16">conforme dispõe o artigo 421 do Código Civil</fundamentacao_legal>, segundo o qual:
+
+A liberdade de contratar será exercida em razão e nos limites da função social do contrato.
+
+Restando configurado o inadimplemento, faz-se legítima a pretensão da autora em exigir judicialmente o pagamento da dívida, via ação de cobrança, meio adequado para a constituição de título executivo judicial, <fundamentacao_legal ord="17">nos termos do artigo 515, inciso I, do Código de Processo Civil</fundamentacao_legal>.
+
+Verificada a existência do débito e a ausência de impugnação, bem como a suficiência da instrução documental apresentada, não se vislumbra a necessidade de dilação probatória, razão pela qual é cabível o julgamento antecipado da lide, <fundamentacao_legal ord="18">nos termos do artigo 355, inciso I, do Código de Processo Civil</fundamentacao_legal>, in verbis:
+
+O juiz julgará antecipadamente o pedido, proferindo sentença com resolução de mérito, quando:
+                       I – não houver necessidade de produção de outras provas.
+
+                   <dispositivo_abertura ord="19">Ex positis</dispositivo_abertura>, <fundamentacao_legal ord="20">com fundamento no artigo 487, inciso I, do Código de Processo Civil</fundamentacao_legal>, <resultado ord="21">julgo procedente</resultado> o pedido formulado na petição inicial, para:
+
+a) Condenar Letícia Quezado Andrade ao pagamento do valor de <valor_condenacao ord="22">R$ 13.489,61</valor_condenacao> (treze mil quatrocentos e oitenta e nove reais e sessenta e um centavos), acrescido de juros moratórios de 1% (um por cento) ao mês, conforme pactuado, desde o vencimento da dívida, bem como correção monetária com base nos índices oficiais, <fundamentacao_legal ord="23">nos termos do artigo 389 do Código Civil</fundamentacao_legal>;
+
+b) Condenar a Requerida ao pagamento das custas processuais e honorários advocatícios, que fixo em 10% (dez por cento) sobre o valor atualizado da condenação, <fundamentacao_legal ord="24">com fundamento no artigo 85, parágrafo 2º, do Código de Processo Civil</fundamentacao_legal>.
+
+Transitada em julgado, expeça-se o mandado de pagamento ou, caso não haja quitação voluntária, prossiga-se <fundamentacao_legal ord="25">na forma do artigo 513 e seguintes do Código de Processo Civil</fundamentacao_legal>, como cumprimento de sentença.
+
+<encerramento><inicio ord="26">Publique-se.</inicio></encerramento> Intimem-se. Cumpra-se.</text>
+</annotation>

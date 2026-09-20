@@ -1,0 +1,24 @@
+{
+  "22537155": {
+    "capitulo_merito": "batch25: 'DECIDO.' opens capitulo_merito, reasoning flows directly into 'Ante o exposto,' (dispositivo_abertura) with no intervening 'DISPOSITIVO' heading or other closing cue -- same 'flows directly to dispositivo' pattern already sanctioned in batch24 (TJGO/543517919, TJMA/42725100), verified against raw source text"
+  },
+  "285641901": {
+    "capitulo_merito": "batch25: 'Fundamento e decido.' opens capitulo_merito, reasoning flows directly into 'Ex positis,' (dispositivo_abertura) with no intervening 'DISPOSITIVO' heading or other closing cue -- same 'flows directly to dispositivo' pattern already sanctioned in batch24 (TJGO/543517919, TJMA/42725100), verified against raw source text"
+  },
+  "42491442": {
+    "relatorio": "batch25: 'I. Relatório' heading opens the section, reasoning proceeds directly into 'II. Fundamentos' with no 'É o relatório.' or equivalent closing phrase anywhere in the source, verified by direct search",
+    "custas": "batch25: bare 'Custas na forma da lei.' single-clause statement immediately followed by a separate honorarios clause and then 'Publique-se.' (encerramento), no distinct closing cue, verified against raw source text",
+    "honorarios": "batch25: bare 'Sem honorários advocatícios.' single-clause statement, no distinct closing cue (next text is encerramento), verified against raw source text"
+  },
+  "463264368": {
+    "relatorio": "batch25: bare 'RELATÓRIO Dispensado.' waiver clause -- guideline explicitly states a waiver clause is not a closing cue, no distinct 'É o relatório.' phrase exists anywhere in the source, verified by direct search",
+    "ementa": "batch25: this document has an early placeholder 'EMENTA Dispensada. RELATÓRIO Dispensado.' pair, then a real 'EMENTA:' with substantive content further down that is immediately followed by 'VOTO' (not a second RELATÓRIO) -- no distinct ementa-closing cue exists anywhere after it, verified against raw source text"
+  },
+  "488920434": {
+    "ementa": "batch25: TJRJ 'capa+ementa-estruturada' export -- 'EMENTA' followed directly by numbered sections (I. CASO EM EXAME / II. QUESTAO EM DISCUSSAO / III. RAZOES DE DECIDIR / IV. DISPOSITIVO), with no separate RELATORIO or VOTO section -- exactly the format the guideline's own ementa row documents as having no real closing cue (originally documented for TJRO exports; same structural pattern confirmed here for TJRJ), verified against raw source text"
+  },
+  "74432048": {
+    "custas": "batch25: shares one combined clause with honorarios -- 'Sem custas processuais e honorários advocatícios, conforme inteligência dos artigos 54 e 55 da Lei nº. 9.099/95.' -- no distinct closing cue for custas on its own, verified against raw source text",
+    "honorarios": "batch25: same combined single-clause statement as custas above, no distinct closing cue for honorarios on its own, verified against raw source text"
+  }
+}
