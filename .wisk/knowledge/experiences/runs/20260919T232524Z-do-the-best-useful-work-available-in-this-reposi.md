@@ -1,5 +1,5 @@
 ---
-checks: ["run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-disposition-reframed"]
+checks: ["run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-disposition-reframed", "run-checks/20260919t232524z-do-the-best-useful-work-availab/verification-batch22-batch23-merged"]
 decisions: ["run-decisions/20260919t232524z-do-the-best-useful-work-availab/pivot-from-1471-merge-concurrent-prs"]
 evidence: ["run-evidence/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-recheck", "run-evidence/20260919t232524z-do-the-best-useful-work-availab/merge-verification-batch22-batch23"]
 goals: ["run-goals/20260919t232524z-do-the-best-useful-work-availab/goal-land-batch22-batch23"]
@@ -11,11 +11,12 @@ run_spec_digest: "sha256:7977caf0ad732642e2bdad5190063109c91acbfa91fd1bf63f01467
 run_spec_snapshot: "{\"allowed_result_states\":[\"success\",\"partial\",\"blocked\",\"no-useful-change\"],\"completion_notes\":\"Do useful work when available, verify the observed result, and preserve truthful episodic evidence including the skill/version actually used.\",\"id\":\"run-specs/experience\",\"required_check_kinds\":[\"verification\"],\"required_evidence_kinds\":[\"execution\"],\"required_goal_kinds\":[\"task-advance\"],\"required_reading_kinds\":[\"active-handoffs\",\"active-skills\"],\"status\":\"experimental\",\"title\":\"Experience run\",\"type\":\"RunSpec\",\"version\":\"1.0.0\"}"
 run_spec_version: "1.0.0"
 session_type: "session-types/standard-experience"
-status: "in_progress"
+status: "closed"
 task: "Do the best useful work available in this repository."
 timestamp: "2026-09-19T23:25:24.818779Z"
 title: "Do the best useful work available in this repository."
 type: "LoopRun"
+outcome: "run-outcomes/20260919t232524z-do-the-best-useful-work-availab/outcome-batch22-batch23-merged"
 ---
 
 # Live run
