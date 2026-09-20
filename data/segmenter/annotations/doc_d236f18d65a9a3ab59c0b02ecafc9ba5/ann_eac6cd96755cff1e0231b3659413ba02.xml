@@ -1,4 +1,4 @@
-<annotation id="ann_c72d594661d5afc80e6aa3c535f3ea73" document_id="doc_d236f18d65a9a3ab59c0b02ecafc9ba5">
+<annotation id="ann_eac6cd96755cff1e0231b3659413ba02" document_id="doc_d236f18d65a9a3ab59c0b02ecafc9ba5">
   <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
   <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
   <covered_categories>
@@ -31,8 +31,9 @@
   <allowed_unmatched>
     <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
     <entry base="capitulo_merito" reason="batch25: 'Fundamento e decido.' opens capitulo_merito, reasoning flows directly into 'Ex positis,' (dispositivo_abertura) with no intervening 'DISPOSITIVO' heading or other closing cue -- same 'flows directly to dispositivo' pattern already sanctioned in batch24 (TJGO/543517919, TJMA/42725100), verified against raw source text" />
+    <entry base="custas" reason="batch25 (Codex review fix): 'Condenar a Requerida ao pagamento das custas processuais' shares one combined clause with honorarios ('e honorários advocatícios, que fixo em 10%...') -- no distinct closing cue for custas on its own, honorarios gets the shared continuation instead (non-overlapping split, same pattern as batch18), verified against raw source text" />
   </allowed_unmatched>
-  <completed_at>2026-09-20T09:50:00Z</completed_at>
+  <completed_at>2026-09-20T10:45:00Z</completed_at>
   <annotation_method>independent_full_read</annotation_method>
   <text>Procedimento Comum Cível  Nº <ref_processual ord="0">0006934-74.2023.8.27.2706/TO</ref_processual>
 
@@ -126,9 +127,9 @@ O juiz julgará antecipadamente o pedido, proferindo sentença com resolução d
 
 a) Condenar Letícia Quezado Andrade ao pagamento do valor de <valor_condenacao ord="22">R$ 13.489,61</valor_condenacao> (treze mil quatrocentos e oitenta e nove reais e sessenta e um centavos), acrescido de juros moratórios de 1% (um por cento) ao mês, conforme pactuado, desde o vencimento da dívida, bem como correção monetária com base nos índices oficiais, <fundamentacao_legal ord="23">nos termos do artigo 389 do Código Civil</fundamentacao_legal>;
 
-b) Condenar a Requerida ao pagamento das custas processuais e honorários advocatícios, que fixo em 10% (dez por cento) sobre o valor atualizado da condenação, <fundamentacao_legal ord="24">com fundamento no artigo 85, parágrafo 2º, do Código de Processo Civil</fundamentacao_legal>.
+b) <custas><inicio ord="24">Condenar a Requerida ao pagamento das custas processuais</inicio></custas> e <honorarios><inicio ord="25">honorários advocatícios</inicio>, que fixo em 10% (dez por cento) sobre o valor atualizado da condenação, <fundamentacao_legal ord="26">com fundamento no artigo 85, parágrafo 2º, do Código de Processo Civil</fundamentacao_legal><fim ord="27">.</fim></honorarios>
 
-Transitada em julgado, expeça-se o mandado de pagamento ou, caso não haja quitação voluntária, prossiga-se <fundamentacao_legal ord="25">na forma do artigo 513 e seguintes do Código de Processo Civil</fundamentacao_legal>, como cumprimento de sentença.
+Transitada em julgado, expeça-se o mandado de pagamento ou, caso não haja quitação voluntária, prossiga-se <fundamentacao_legal ord="28">na forma do artigo 513 e seguintes do Código de Processo Civil</fundamentacao_legal>, como cumprimento de sentença.
 
-<encerramento><inicio ord="26">Publique-se.</inicio></encerramento> Intimem-se. Cumpra-se.</text>
+<encerramento><inicio ord="29">Publique-se.</inicio></encerramento> Intimem-se. Cumpra-se.</text>
 </annotation>
