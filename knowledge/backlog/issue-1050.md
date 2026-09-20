@@ -1034,7 +1034,16 @@ como irmao de `<inicio>`/`<fim>`, nunca como filho literal de `<fim>`
 ou `<inicio>` -- ver classe de risco 17 (nova). Ao revisar uma
 declaracao de "par sem cue de fechamento", sempre comparar contra
 documentos irmaos do mesmo lote que usem a mesma estrutura boilerplate
-antes de aceitar -- ver classe de risco 14 (reconfirmada).
+antes de aceitar -- ver classe de risco 14 (reconfirmada). A classe de
+risco 17 (label singleton descartado quando aninhado dentro do papel
+`<inicio>`/`<fim>` de um par) foi corrigida na propria causa raiz em
+`segmenter_dataset.store._text_element_to_labels` pela PR #1588
+(RED->GREEN,
+`tests/segmenter_dataset/test_store.py::test_singleton_label_nested_inside_pair_role_survives_round_trip`),
+mesclada logo apos a PR #1586 (lote 23) que a descobriu -- lotes
+futuros nao precisam mais do workaround de reposicionar tags
+single-anchor como irmas de `<inicio>`/`<fim>`, o parser agora recupera
+o label corretamente aninhado.
 
 ## Lote 24 (rodada AgentRun fv62kx)
 
