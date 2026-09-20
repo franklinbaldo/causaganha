@@ -1,7 +1,7 @@
 ---
-checks: ["run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-disposition-reframed"]
+checks: ["run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260919t232524z-do-the-best-useful-work-availab/handoff-disposition-reframed", "run-checks/20260919t232524z-do-the-best-useful-work-availab/merge-verification-batch22-batch23"]
 decisions: ["run-decisions/20260919t232524z-do-the-best-useful-work-availab/pivot-from-1471-merge-concurrent-prs"]
-evidence: ["run-evidence/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-recheck"]
+evidence: ["run-evidence/20260919t232524z-do-the-best-useful-work-availab/handoff-environment-recheck", "run-evidence/20260919t232524z-do-the-best-useful-work-availab/merge-verification-batch22-batch23"]
 goals: ["run-goals/20260919t232524z-do-the-best-useful-work-availab/goal-land-batch22-batch23"]
 id: "runs/20260919T232524Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260919t232524z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260919t232524z-do-the-best-useful-work-availab/reading-active-skills"]
