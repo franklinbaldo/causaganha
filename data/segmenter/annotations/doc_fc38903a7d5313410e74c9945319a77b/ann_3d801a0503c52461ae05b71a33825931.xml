@@ -1,0 +1,39 @@
+<annotation id="ann_3d801a0503c52461ae05b71a33825931" document_id="doc_fc38903a7d5313410e74c9945319a77b">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="custas" reason="TJPB/578906897: single combined clause 'Sem custas ou honorarios advocaticios nesta fase, conforme o artigo 55 da Lei no 9.099/95' has no distinct closing phrase for custas alone -- same sanctioned pattern as prior batches (identical art. 55/9099-95 citation), verified against the raw source text." />
+    <entry base="honorarios" reason="TJPB/578906897: same combined clause as custas above -- no distinct closing phrase for honorarios alone, verified against the raw source text." />
+    <entry base="relatorio" reason="TJPB/578906897: 'RELATORIO' followed immediately by 'Relatorio dispensado, nos termos do art. 38 da Lei 9.099/95' -- guideline-sanctioned pattern (waiver clause is not a closing cue; relatorio_fim left unmatched, declared reason 'relatorio dispensado, sem cue de fechamento'), verified against the raw source text." />
+  </allowed_unmatched>
+  <completed_at>2026-09-20T02:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">Poder Judiciário</inicio> da Paraíba Vara Única de Santa Luzia PROCEDIMENTO DO JUIZADO ESPECIAL CÍVEL (436) <ref_processual ord="1">0802097-79.2025.8.15.0321</ref_processual> [Indenização por Dano Material, Indenização por Dano Material, Indenização por Dano Moral, Indenização por Dano Moral, Responsabilidade do Fornecedor, Irregularidade no atendimento, Rescisão do contrato e devolução do dinheiro, Contratos de Consumo, Cobrança indevida de ligações, Assinatura Básica Mensal, Abatimento proporcional do preço] AUTOR: JOAO PAULO OLIVEIRA CABRAL <fim ord="2">REU: TIM S.A.</fim></cabecalho> SENTENÇA Vistos etc. <relatorio><inicio ord="3">RELATÓRIO</inicio></relatorio> Relatório dispensado, <fundamentacao_legal ord="4">nos termos do art. 38 da Lei 9.099/95</fundamentacao_legal>. FUNDAMENTAÇÃO <preliminar><inicio ord="5">Das Questões Preliminares</inicio> A ré questionou a competência deste Juizado, alegando necessidade de perícia técnica. No entanto, o caso trata de relação de consumo e a prova documental anexada — como os ofícios da Câmara Municipal e protocolos de reclamação — é suficiente para o julgamento da causa. Portanto, <fim ord="6">rejeito a preliminar de incompetência</fim></preliminar>. <capitulo_merito><inicio ord="7">Do Mérito</inicio> A relação entre as partes é de consumo, aplicando-se o Código de Defesa do Consumidor. A responsabilidade da operadora de telefonia é objetiva, ou seja, ela responde pelos danos causados pela falha no serviço, independentemente de ter agido com culpa, <fundamentacao_legal ord="8">conforme estabelece o artigo 14 da lei consumerista</fundamentacao_legal>. Da Falha na Prestação do Serviço As provas apresentadas pelo autor são convincentes. O Procedimento de Gestão Administrativa nº 001.2025.096365 do Ministério Público da Paraíba (ID 129478401) e o Ofício nº 113/2025 da Câmara Municipal de Junco do Seridó confirmam que a cidade enfrenta problemas graves com o sinal da TIM desde o início de 2025. Além disso, o protocolo na ANATEL nº 202512235250003 (ID 129476548) reforça a tentativa frustrada de resolver o problema administrativamente. Ficou demonstrado que o serviço foi prestado de forma precária e ineficiente, descumprindo o dever de continuidade e qualidade <fundamentacao_legal ord="9">previsto no artigo 22 do Código de Defesa do Consumidor</fundamentacao_legal>. Da Inexistência de Débito e da Restituição em Dobro Embora o serviço tenha sido de má qualidade, as provas de consumo e as recargas efetuadas (ID 129476547) indicam que o autor manteve a utilização da linha, ainda que com dificuldades. O serviço, mesmo precário, foi oferecido e estava disponível para uso em patamares mínimos, não havendo prova de interrupção total e absoluta que justificasse o cancelamento integral das cobranças. Como o serviço foi usufruído, não é possível declarar a inexistência dos débitos referentes às recargas e planos contratados. Pela mesma razão, o pedido de restituição em dobro deve ser julgado improcedente, pois os pagamentos realizados correspondem a uma contraprestação por um serviço que, embora defeituoso, foi colocado à disposição e utilizado pelo consumidor. Do Dano Moral O dano moral está configurado. A privação ou a prestação deficiente de um serviço essencial como a telefonia móvel e internet, por período prolongado, ultrapassa o mero aborrecimento. O descaso da empresa em solucionar um problema que afeta toda uma comunidade, ignorando inclusive apelos de órgãos públicos, demonstra violação aos direitos da personalidade do consumidor. Para fixar o valor, considero a capacidade econômica da ré, o transtorno sofrido pelo autor e o caráter educativo da medida. Assim, fixo a indenização em <valor_condenacao ord="10">R$ 1.000,00 (mil reais)</valor_condenacao>, valor que se mostra razoável diante das circunstâncias do caso. <fim ord="11">DISPOSITIVO</fim></capitulo_merito> <dispositivo_abertura ord="12">Diante do exposto</dispositivo_abertura>, <resultado ord="13">JULGO PARCIALMENTE PROCEDENTES</resultado> os pedidos formulados na inicial, <fundamentacao_legal ord="14">com base no artigo 487, inciso I, do Código de Processo Civil</fundamentacao_legal>, para: a) CONDENAR a ré, TIM S/A, ao pagamento de <valor_condenacao ord="15">R$ 1.000,00 (mil reais)</valor_condenacao> a título de indenização por danos morais. Sobre este valor, deverão incidir juros de mora pela Taxa Selic desde a data do evento danoso (janeiro de 2025), devendo ser deduzido o índice IPCA do período para evitar a duplicidade de atualização. A correção monetária (pelo índice oficial do TJ/PB ou IPCA) incidirá a partir desta data (arbitramento). b) JULGAR IMPROCEDENTE o pedido de declaração de inexistência de débito, reconhecendo que o serviço foi oferecido, ainda que de forma precária. c) JULGAR IMPROCEDENTE o pedido de restituição em dobro dos valores pagos. <custas><inicio ord="16">Sem custas</inicio></custas> ou <honorarios><inicio ord="17">honorários advocatícios</inicio></honorarios> nesta fase, <fundamentacao_legal ord="18">conforme o artigo 55 da Lei nº 9.099/95</fundamentacao_legal>. <encerramento><inicio ord="19">Publique-se.</inicio> Registre-se. Intimem-se. Santa Luzia/PB, data do sistema. ROSSINI AMORIM BASTOS <fim ord="20">Juiz de Direito</fim></encerramento></text>
+</annotation>
