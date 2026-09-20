@@ -1106,14 +1106,100 @@ no-op silencioso. `document_count` 179->185, `annotation_count`
 (`scripts/segmenter_governance_status.py`, confirmado ao vivo antes e
 depois; lote train-only, sem segunda anotacao independente).
 
+**CORRECAO POS-PR (mesma rodada, apos revisao automatizada do Codex).**
+O bot `chatgpt-codex-connector` revisou a PR #1590 e sinalizou 7
+achados inline. Verificacao ao vivo (nao aceitar nenhum as-is)
+confirmou 4 como reais e 3 como julgamento defensavel ja documentado:
+
+- **TJBA/574460088 era um near-duplicate ja conhecido e previamente
+  rejeitado.** `knowledge/backlog/issue-1050.md` ja documentava (lote
+  17) que TJBA/574460088 fora descartado por `SequenceMatcher.ratio()
+  =0.98` contra TJBA/574460085 (ja no store desde o lote 17). A
+  verificacao de near-duplicate desta rodada comparou os 6 candidatos
+  do lote SO entre si, nunca contra o corpus existente -- lacuna de
+  processo real, nao apenas deste lote (nenhum lote anterior parece ter
+  comparado candidatos novos contra o corpus inteiro). Confirmado ao
+  vivo: `difflib.SequenceMatcher.ratio()` entre os dois textos-fonte
+  brutos = 0.9801, batendo com o numero ja documentado. **Revertido**:
+  `doc_5bd67f4cebf27315a9ba792b4f0ab89d.xml` e sua anotacao removidos
+  do store. Licao para lotes futuros: o passo de dedup por
+  near-duplicate precisa comparar cada candidato novo contra TODO o
+  corpus existente (nao so contra os outros candidatos do mesmo lote),
+  idealmente reamostrando `data/segmenter/documents/*.xml` de
+  tribunais ja usados antes de cada lote.
+- **TJGO/543517919 tinha `Decido.` (capitulo_merito_inicio) e a
+  citacao `(art. 508, CPC)` (fundamentacao_legal) genuinamente
+  ausentes.** Confirmado lendo o texto-fonte: `Decido.` e exatamente o
+  cue do guideline para `capitulo_merito_inicio`, e nenhuma tag cobria
+  esse trecho; `(art. 508, CPC)` e uma citacao distinta de autoridade
+  legal nao coberta por nenhuma das duas `fundamentacao_legal`
+  ja tageadas (art. 485, art. 98). **Corrigido**: reingerido com
+  `<capitulo_merito><inicio>Decido.</inicio></capitulo_merito>` (override
+  declarado, mesmo padrao "flui direto para o dispositivo" de
+  TJMA/TJBA) e `<fundamentacao_legal>(art. 508, CPC)</fundamentacao_legal>`
+  adicionados; fidelidade verbatim contra o texto-fonte original
+  reverificada antes de reingerir (reconstrucao identica, so as novas
+  tags inseridas).
+- **TJPI/22443826 nao tinha nenhum par `cabecalho`, ao contrario de um
+  documento irmao do mesmo formato de exportacao (TJPI/22443818, lote
+  16) que tageia exatamente o mesmo bloco de cabecalho com sucesso.**
+  Confirmado comparando as duas anotacoes lado a lado. **Corrigido**:
+  reingerido com `<cabecalho><inicio>APELACAO CRIMINAL No</inicio>...<fim>
+  APELADO: Ministerio Publico do Estado do Piaui</fim></cabecalho>`
+  envolvendo o mesmo trecho que o documento irmao usa.
+- **TJES/577051509**: a mencao a `Emenda Constitucional no 66/2010`
+  (que fundamenta a mudanca de paradigma do divorcio, logo antes de uma
+  citacao ja tageada do art. 226 da Constituicao) nao tinha
+  `fundamentacao_legal` proprio. Caso limitrofe (e mais uma frase
+  narrativa/contextual do que um conector classico "nos termos de"),
+  mas dado que a regra do guideline pede tagear toda citacao distinta e
+  o documento ja tem 8 outras instancias de `fundamentacao_legal`,
+  **corrigido** por consistencia: `<fundamentacao_legal>Com o advento da
+  Emenda Constitucional no 66/2010</fundamentacao_legal>` adicionado.
+- **TJMA/42725100 -- achado misto, corrigido parcialmente.** O Codex
+  sinalizou como um so achado tanto a citacao `Tema 03 do IRDR`
+  (aparece na propria reasoning da sentenca: "Esclareço, desde já, que,
+  de acordo com o Tema 03 do IRDR, foi firmada a seguinte tese...")
+  quanto citacoes de precedentes (RE 873.311/PI, RE 598.099, Sumula 15,
+  RE 837.311/PI, RMS 62.637/PE) que vivem inteiramente dentro de uma
+  nota de rodape ("[1] PROCESSUAL CIVIL...") que reproduz VERBATIM a
+  ementa de um precedente de OUTRO tribunal, referenciada por um
+  marcador "[1]" apos o encerramento da propria sentenca. Sao dois
+  casos distintos: o Tema 03 IRDR estava genuinamente sem tag na
+  reasoning propria do documento -- **corrigido**, `fundamentacao_legal`
+  adicionado. As citacoes da nota de rodape nao sao a fundamentacao
+  PROPRIA desta sentenca -- **mantidas sem tag**, por analogia a regra
+  do proprio guideline para `ref_processual` ("Leave every other case's
+  number untagged... a cited precedent's process number"); resposta
+  registrada na thread do Codex explicando a distincao.
+- **TJBA/574460088 -- achado sobre EC113/Lei9494 tornou-se sem objeto**
+  apos a reversao do documento por near-duplicate acima.
+
+Apos a correcao: `document_count` 185->184 (TJBA revertido, sem
+substituto neste commit), `annotation_count` recalculado ao vivo antes
+do push final. `scripts/segmenter_semantic_audit.py` continuou sem
+achados novos; `uv run pytest -q tests/segmenter_dataset` e
+`uv run ruff check`/`format --check` reconfirmados verdes apos a
+correcao.
+
 Ainda por continuar: falta aproximadamente document_count>=~200 para o
 piso RFC 0012 Sec 5 item 4 (>=30/>=30) se tornar alcancavel -- cerca de
-2-3 lotes deste tamanho no ritmo atual. Uma futura rodada deve
-reescanear ao vivo `data/segmenter_samples/*.jsonl` (com o limpador
-real, nao apenas `html.unescape()`) para achar o proximo tier de menor
-`store_count` com pool efetivamente disponivel -- TJBA provavelmente
-esgotado apos este lote (era 1 elegivel), TJMA/TJPI/TJES/TJGO/TJPB
-subiram de `store_count`=5 para 6. PR concorrente #1588 (fix em codigo
-da classe de risco 17) permanecia aberta e nao mesclada ao fim desta
-rodada -- uma rodada futura deve verificar seu estado antes de assumir
-que o workaround de posicionamento de tag ainda e necessario.
+2-3 lotes deste tamanho no ritmo atual (a correcao acima deixou o lote
+24 com 5 documentos liquidos, nao 6). Uma futura rodada deve reescanear
+ao vivo `data/segmenter_samples/*.jsonl` (com o limpador real, nao
+apenas `html.unescape()`) para achar o proximo tier de menor
+`store_count` com pool efetivamente disponivel -- TJBA permanece
+esgotado (seu unico candidato nao-duplicata ja foi usado, o outro e o
+near-duplicate rejeitado duas vezes agora), TJMA/TJPI/TJES/TJGO/TJPB
+subiram de `store_count`=5 para 6, TJPB permanece intocado por esta
+correcao (nenhum achado real). PR concorrente #1588 (fix em codigo da
+classe de risco 17) foi mesclada durante esta rodada -- confirmado e
+incorporado via merge de `origin/main` na branch desta PR antes do
+push final. **NOVA LICAO DE PROCESSO**: antes de declarar um lote
+"verificado", rodar (ou aguardar) uma revisao automatizada de codigo
+(Codex/Claude Code Review) sobre a PR e tratar cada achado como um bug
+report a ser verificado ao vivo -- a verificacao verbatim-fidelity e a
+auditoria semantica programaticas NAO capturam omissoes de cobertura
+de categoria (uma citacao ou cue esperada que simplesmente nunca foi
+tageada), so capturam texto alterado/duplicado ou padroes estruturais
+especificos ja conhecidos.
