@@ -1,7 +1,7 @@
 ---
-checks: ["run-checks/20260920t002530z-do-the-best-useful-work-availab/check-handoff-environment", "run-checks/20260920t002530z-do-the-best-useful-work-availab/check-handoff-disposition"]
-decisions: ["run-decisions/20260920t002530z-do-the-best-useful-work-availab/decision-pivot-from-1471-to-1050"]
-evidence: ["run-evidence/20260920t002530z-do-the-best-useful-work-availab/handoff-environment-recheck"]
+checks: ["run-checks/20260920t002530z-do-the-best-useful-work-availab/check-handoff-environment", "run-checks/20260920t002530z-do-the-best-useful-work-availab/check-handoff-disposition", "run-checks/20260920t002530z-do-the-best-useful-work-availab/check-verification-parser-fix"]
+decisions: ["run-decisions/20260920t002530z-do-the-best-useful-work-availab/decision-pivot-from-1471-to-1050", "run-decisions/20260920t002530z-do-the-best-useful-work-availab/decision-substitute-batch24-with-parser-fix"]
+evidence: ["run-evidence/20260920t002530z-do-the-best-useful-work-availab/handoff-environment-recheck", "run-evidence/20260920t002530z-do-the-best-useful-work-availab/batch23-merged", "run-evidence/20260920t002530z-do-the-best-useful-work-availab/store-py-parser-fix"]
 goals: ["run-goals/20260920t002530z-do-the-best-useful-work-availab/goal-batch23-merge-and-batch24"]
 id: "runs/20260920T002530Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260920t002530z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260920t002530z-do-the-best-useful-work-availab/reading-active-skills"]
