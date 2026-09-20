@@ -1420,3 +1420,43 @@ que uma decisão de "falso positivo" registrada durante a própria sessão
 também precisa ser verificada contra o texto-fonte com a mesma cautela
 que qualquer achado do Codex -- a primeira leitura do TRF3 errou a
 fronteira exata de um bloco citado.
+
+**SEGUNDA CORREÇÃO PÓS-PR (PR #1597, revisão automatizada do Codex sobre
+a própria correção).** O Codex revisou a PR #1597 (que já continha a
+primeira correção acima) e sinalizou mais 3 achados P2, todos em
+documentos já tocados pela correção anterior:
+
+- **TJCE/363676235**: o valor de R$ 10.000,00 pleiteado a título de
+  danos morais foi incorretamente tageado como `valor_condenacao` na
+  primeira correção. Verificação ao vivo confirma que o pedido foi
+  **totalmente rejeitado** ("JULGO TOTALMENTE IMPROCEDENTES os pedidos
+  formulados na petição inicial") -- não existe condenação alguma neste
+  documento, então um valor pleiteado-e-negado não é `valor_condenacao`
+  ("amount in A CONDEMNATION", não qualquer valor mencionado). Lição:
+  a regra "valor_condenacao é multivalorado, tageie também valores
+  restated" (guideline) se aplica a RESTATEMENTS de um valor
+  efetivamente condenado, não a um valor pleiteado num caso julgado
+  improcedente -- generalização incorreta da primeira correção.
+  **Corrigido**: tag removida.
+- **TJCE/363676235 e TJTO/285641901**: `honorarios_fim` fechava apenas
+  no ponto final ("."), um token de pontuação ubíquo sem valor
+  distintivo como cue de fechamento. **Corrigido**: fechamento movido
+  para a frase "valor atualizado da causa"/"valor atualizado da
+  condenação", que já existia no texto imediatamente antes da citação
+  de `fundamentacao_legal` (agora fora do wrapper `honorarios`, o que é
+  permitido já que citações de categoria single-anchor não precisam
+  estar dentro do par que as motiva).
+
+Após esta segunda correção: `document_count`/`annotation_count`
+inalterados (191/244). `scripts/segmenter_semantic_audit.py`
+reconfirmado sem achados novos. `uv run ruff check`/`format --check`
+limpos.
+
+**LIÇÃO DE PROCESSO ACUMULADA**: duas rodadas consecutivas de revisão
+automatizada sobre a MESMA PR (a segunda revisando a correção da
+primeira) encontraram defeitos reais em ambas as vezes -- incluindo um
+defeito introduzido pela PRÓPRIA correção anterior (o valor_condenacao
+mal generalizado). Uma correção "verificada ao vivo" ainda pode
+introduzir um novo defeito por generalização incorreta de um padrão
+correto em outro contexto; a verificação de uma correção merece o
+mesmo escrutínio da anotação original, não menos.
