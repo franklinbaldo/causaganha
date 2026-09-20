@@ -1,0 +1,75 @@
+<annotation id="ann_64856f1f0b19a03161fe5b91db6ec1a3" document_id="doc_453771fb58f7fce6803f434dc327f8e1">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="ementa" reason="TRF2 capa+ementa-estruturada format: EMENTA opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section -- guideline's documented exception, no closing cue exists in source." />
+  </allowed_unmatched>
+  <completed_at>2026-09-19T19:45:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text>Apelação Cível  Nº <ref_processual ord="0">5091017-57.2023.4.02.5101</ref_processual>/RJ
+
+ RELATOR : Juiz Federal GUILHERME BOLLORINI PEREIRA
+
+ APELADO : IVAN NASCIMENTO DE SOUZA (AUTOR)
+
+ ADVOGADO(A) : EDIVAN VICENTE DE OLIVEIRA (OAB RJ154111)
+
+<ementa><inicio ord="1">EMENTA</inicio></ementa>
+
+DIREITO PREVIDENCIÁRIO. APELAÇÃO CÍVEL. DEVOLUÇÃO DE VALORES RECEBIDOS INDEVIDAMENTE. DESCONTOS EM NOVO BENEFÍCIO PREVIDENCIÁRIO. AUSÊNCIA DE COMPROVAÇÃO DE MÁ-FÉ. NATUREZA DE ILÍCITO CIVIL. INCIDÊNCIA DA PRESCRIÇÃO QUINQUENAL. RECURSO DESPROVIDO.
+
+I. CASO EM EXAME
+
+1. Apelação interposta pelo INSS contra sentença que julgou parcialmente procedentes os pedidos formulados por segurado para declarar prescrito o débito referente ao benefício NB 42/107.955.195-3 e determinar a cessação dos descontos no benefício NB 41/179.087.552-5, com consequente restituição dos valores descontados desde a data de início do segundo benefício. O autor teve benefício de aposentadoria por tempo de serviço cessado em 2004 por alegada fraude, mas foi absolvido definitivamente em processo criminal. Em 2019, obteve aposentadoria por idade, quando o INSS passou a descontar valores relativos ao benefício anterior.
+
+II. QUESTÃO EM DISCUSSÃO
+
+2. Há duas questões em discussão: (i) definir se é exigível a devolução dos valores recebidos pelo autor no período de 1998 a 2004, relativos a benefício previdenciário posteriormente cessado; e (ii) determinar se a pretensão de cobrança por parte do INSS encontra-se fulminada pela prescrição.
+
+III. RAZÕES DE DECIDIR
+
+3. O INSS não comprova a existência de fraude dolosa praticada pelo autor na concessão do benefício, limitando-se a alegações não corroboradas por decisão penal condenatória, o que impede o afastamento da prescrição com fundamento na prática de ato de improbidade administrativa ou ilícito penal.
+
+4. A absolvição definitiva do autor no processo criminal em 2009 afasta a configuração de dolo necessário para a imprescritibilidade prevista no art. 37, § 5º, da CF/1988, devendo ser aplicado o entendimento do STF no Tema 666, segundo o qual é prescritível a ação de ressarcimento ao erário por ilícito civil.
+
+5. <fundamentacao_legal ord="2">Conforme orientação firmada pelo STJ</fundamentacao_legal>, incide o prazo prescricional de cinco anos previsto no Decreto nº 20.910/1932 para a cobrança de valores pagos indevidamente a título de benefício previdenciário, mesmo diante de eventual má-fé, quando ausente comprovação de ato doloso ou ímprobo.
+
+6. Considerando que o benefício anterior foi cessado em 01/11/2008 e que os descontos no novo benefício somente se iniciaram em 26/02/2019, encontra-se caracterizada a prescrição da pretensão ressarcitória da autarquia.
+
+IV. DISPOSITIVO 
+
+7. Recurso desprovido.
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="3">Vistos e relatados</inicio> estes autos em que são partes as acima indicadas, a Egrégia 9ª Turma Especializada do Tribunal Regional Federal da 2ª Região decidiu, <fim ord="4">por unanimidade</fim></acordao_decisorio>, <resultado ord="5">NEGAR PROVIMENTO À APELAÇÃO</resultado>, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Rio de Janeiro, 10 de junho de 2025.</text>
+</annotation>
