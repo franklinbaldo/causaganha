@@ -1,5 +1,5 @@
 ---
-goal: "Re-run scripts/audit_cnj_parquets.py end-to-end to produce a fresh 2026-09-20 catalog audit report, and use it to close issue #1470's outstanding 're-run before rollout, document unavailable files without calling them absent' acceptance-criterion item."
+goal: "Re-run scripts/audit_cnj_parquets.py end-to-end to produce a fresh 2026-09-20 catalog audit report as an interim freshness/monitoring snapshot -- NOT a closure of issue #1470's outstanding 're-run before rollout' acceptance-criterion item, which stays an operational step for #1472's actual rollout time (still gated on IA credentials), per Codex review comment 4056756203 on PR #1595 correcting this goal's original overclaim."
 id: "run-goals/20260920t102431z-do-the-best-useful-work-availab/goal-refresh-1470-audit"
 kind: "task-advance"
 rationale: "The 2026-09-14 evidence file was 6 days stale; #1470 is the only currently open catalog-audit task with zero external-credential dependency (archive.org public metadata/search API only), it directly unblocks the #1468/#1469/#1471/#1472 CNJ-reordering epic's rollout decision, and #1471/#1482/#950 were all found this round to have no remaining credential-free code work."
