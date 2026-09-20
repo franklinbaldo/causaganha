@@ -24,11 +24,20 @@ fidelidade verbatim byte-a-byte antes de ingerir via
 `knowledge/backlog/issue-1050.md` com os numeros e qualquer achado
 novo.
 
-**Alcançado**: document_count 179->185, val_ceiling/test_ceiling
-27/27->28/28. 6 documentos (TJBA/574460088, TJMA/42725100,
-TJPI/22443826, TJES/577051509, TJGO/543517919, TJPB/578906897)
-ingeridos com fidelidade verbatim confirmada na primeira tentativa
-(nenhum defeito de transcrição encontrado) e 7 overrides
+**Alcançado (estado final, pós-correção Codex)**: document_count
+179->184, val_ceiling/test_ceiling 27/27->28/28. 5 documentos líquidos
+no corpus (TJMA/42725100, TJPI/22443826, TJES/577051509,
+TJGO/543517919, TJPB/578906897) — um sexto candidato inicialmente
+ingerido, TJBA/574460088, foi revertido por inteiro após a revisão
+automatizada do Codex confirmar que era um near-duplicate
+(SequenceMatcher.ratio=0.9801) já rejeitado no lote 17 contra
+TJBA/574460085, já no store. Fidelidade verbatim confirmada
+independentemente para os 6 documentos inicialmente ingeridos (nenhum
+defeito de transcrição encontrado) e 7 overrides
 `--allowed-unmatched-overrides` declarados, todos verificados contra o
-texto-fonte bruto. `uv run pytest -q tests/segmenter_dataset`: 208
+texto-fonte bruto. A mesma revisão Codex também encontrou e motivou a
+correção de 4 outras lacunas de cobertura de categoria (capitulo_merito
+e fundamentacao_legal em TJGO, cabecalho em TJPI, fundamentacao_legal
+em TJMA) nos documentos que permaneceram no corpus, cada uma
+reverificada contra o texto-fonte antes de reingerir. `uv run pytest -q tests/segmenter_dataset`: 208
 passed. Zero achados semânticos novos.

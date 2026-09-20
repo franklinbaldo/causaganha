@@ -4,8 +4,8 @@ id: "2026-09-20-exciting-mccarthy-fv62kx-evidence-pr-1590-merged"
 run_id: "2026-09-20-exciting-mccarthy-fv62kx"
 goal_id: "2026-09-20-exciting-mccarthy-fv62kx-goal-djen-sample-batch24"
 kind: "review"
-reference: "https://github.com/franklinbaldo/causaganha/pull/1590, merge commit dba8dcf on main"
-summary: "PR #1590 (batch24, #1050) merged by franklinbaldo. All 11 CI checks were green on the final head (4326a76) and all 7 Codex review threads were resolved before merge. origin/main now carries the merge commit dba8dcf; git log confirms it directly follows a90f01f (the batch23-closeout round) and c301160 (PR #1588's parser fix)."
+reference: "https://github.com/franklinbaldo/causaganha/pull/1590, squash commit dba8dcf on main"
+summary: "PR #1590 (batch24, #1050) merged (squashed) by franklinbaldo. All 11 CI checks were green on the final head (4326a76) and all 7 Codex review threads were resolved before merge. origin/main now carries the squash commit dba8dcf (single parent a90f01f, confirmed via `git log --format='%H %P' -1 dba8dcf`); git log confirms it directly follows a90f01f (the batch23-closeout round) and c301160 (PR #1588's parser fix)."
 ---
 
 # Evidência: PR #1590 mesclada
