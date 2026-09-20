@@ -5,10 +5,13 @@ from pathlib import Path
 import pytest
 from conftest import make_annotation, make_document, make_review
 
+from segmenter_dataset.schemas import Label
 from segmenter_dataset.store import (
     ImmutabilityError,
     NonIndependentReviewError,
     SegmenterDatasetStore,
+    _labels_to_text_element,
+    _text_element_to_labels,
 )
 
 
@@ -38,6 +41,29 @@ def test_write_document_same_id_different_content_raises(tmp_path: Path) -> None
     forged = document.model_copy(update={"text": "different text entirely"})
     with pytest.raises(ImmutabilityError):
         store.write_document(forged)
+
+
+def test_singleton_label_nested_inside_pair_role_survives_round_trip() -> None:
+    """A single-anchor label whose span falls inside a pair role's own
+    interval (e.g. a ``resultado`` cue nested inside a ``cabecalho_fim``
+    closing anchor, PR #1586's real-batch finding) must survive
+    ``_labels_to_text_element``/``_text_element_to_labels`` round-tripping,
+    not just the reconstructed text. ``_PAIR_ROLES`` branch previously
+    only emitted the wrapper's own ``{base}_{role}`` label and silently
+    dropped any label nested inside that role's own span -- round-trip
+    *text* still matched byte-for-byte, hiding the label loss from any
+    check that only compares text.
+    """
+    text = "abcdefghij"
+    labels = [
+        Label(start=0, end=6, category="cabecalho_inicio"),
+        Label(start=6, end=10, category="cabecalho_fim"),
+        Label(start=7, end=9, category="resultado"),
+    ]
+    element = _labels_to_text_element("text", text, labels)
+    recovered_text, recovered_labels = _text_element_to_labels(element)
+    assert recovered_text == text
+    assert recovered_labels == labels
 
 
 def test_annotation_allowed_unmatched_round_trips_through_storage(tmp_path: Path) -> None:

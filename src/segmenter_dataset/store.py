@@ -378,6 +378,21 @@ def _text_element_to_labels(element: ET.Element) -> tuple[str, list[Label]]:
                         Label(start=cursor, end=cursor + len(child_text), category=category),
                     )
                 )
+                # A role anchor (inicio/fim) can itself have its own nested
+                # children (e.g. a singleton cue inside a closing `fim`) --
+                # splice those in too, exactly like the plain-wrapper branch
+                # below, or they round-trip in text but vanish as labels.
+                collected.extend(
+                    (
+                        index,
+                        Label(
+                            start=label.start + cursor,
+                            end=label.end + cursor,
+                            category=label.category,
+                        ),
+                    )
+                    for index, label in child_items
+                )
             elif child_items:
                 # child is itself a region wrapper — splice its already-resolved
                 # labels in, shifted from child-relative to this element's cursor.
