@@ -115,3 +115,50 @@ def test_find_near_duplicates_never_builds_a_matcher_for_length_incompatible_pai
     within_group_pairs = 2 * (8 * 7 // 2)
     assert construction_count <= within_group_pairs
     assert construction_count < total_pairs
+
+
+def test_find_near_duplicates_threshold_zero_matches_every_pair() -> None:
+    """Every ratio is >= 0, so threshold=0 (accepted by SplitManifest._validate_ratios)
+    must union every pair -- not skip the whole corpus because length_a happens to be 0.
+    """
+    records = {"a": "some text", "b": "totally different content", "c": ""}
+    expected = _brute_force_near_duplicates(records, threshold=0)
+    actual = find_near_duplicates(records, threshold=0)
+    assert actual == expected
+    assert len(actual) == 3  # C(3, 2): every pair, including the one touching an empty string
+
+
+def test_find_near_duplicates_matches_two_empty_texts() -> None:
+    """Two empty (post-normalization) texts are identical: SequenceMatcher.ratio() == 1.0."""
+    records = {"a": "", "b": "   \n\t  ", "c": "not empty"}
+    near = find_near_duplicates(records, threshold=0.9)
+    assert near == [("a", "b", 1.0)]
+
+
+def test_find_near_duplicates_keeps_exact_threshold_boundary_despite_float_rounding() -> None:
+    """`\"aa\"` vs `\"aaa\"` has ratio() == 0.8 exactly; float rounding of the length-bound
+    formula must not exclude it from being compared at threshold=0.8.
+    """
+    records = {"a": "aa", "b": "aaa"}
+    near = find_near_duplicates(records, threshold=0.8)
+    assert near == [("a", "b", 0.8)]
+
+
+def test_find_near_duplicates_preserves_brute_force_order_for_equal_ratio_pairs() -> None:
+    """Length-sorted traversal must not change the relative order of tied ratios.
+
+    Fixture from the live Codex review of PR #1598: three records where the
+    naive insertion-order brute-force scan discovers ('0', '2') before
+    ('1', '2') (both ratio 0.5) -- length-sorted traversal must still report
+    them in that same order, since the docstring promises equivalence with a
+    naive scan and callers like `validate_cross_pool_leakage` rely on stable
+    diagnostic ordering.
+    """
+    records = {
+        "0": "baba c bbcbbcc    ba cbabbba b bc",
+        "1": "accbcab ac",
+        "2": "bc bcc    bcb",
+    }
+    expected = _brute_force_near_duplicates(records, threshold=0.4)
+    actual = find_near_duplicates(records, threshold=0.4)
+    assert actual == expected

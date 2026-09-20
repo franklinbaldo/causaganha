@@ -70,7 +70,7 @@ def find_near_duplicates(
 
     ``SequenceMatcher.ratio() == 2*M/T`` where ``T = len(a) + len(b)`` and
     ``M <= min(len(a), len(b))`` — so a pair can only reach ``threshold`` if
-    ``2*min(la, lb)/(la+lb) >= threshold``. This is a provable upper bound
+    ``2*min(la, lb) >= threshold*(la+lb)``. This is a provable upper bound
     (not a heuristic), so sorting by length and skipping pairs outside that
     band drops zero true near-duplicates while pruning most of the O(n^2)
     candidates before touching ``SequenceMatcher`` at all — corpus-scale use
@@ -79,7 +79,19 @@ def find_near_duplicates(
     corpus passed ~150 documents. ``quick_ratio()`` (itself a cheap,
     guaranteed upper bound on ``ratio()``) prunes further before the actual
     edit-distance computation. Returns ``(id_a, id_b, ratio)`` sorted by
-    ratio descending.
+    ratio descending, ties broken by original insertion order (matching a
+    naive nested-loop scan over ``records``).
+
+    The bound is checked as ``2*la >= threshold*(la+lb)`` rather than via a
+    precomputed ``max_length_b = la*(2-threshold)/threshold`` compared with
+    ``lb`` — the division form can round the wrong way at an exact boundary
+    (e.g. threshold 0.8 with lengths 2 and 3: ``2*(2-0.8)/0.8`` evaluates to
+    ``2.9999999999999996``, silently excluding a pair whose true ratio is
+    exactly ``0.8``) and requires excluding ``length_a == 0`` / non-positive
+    ``threshold`` as special cases even though both are legal inputs (two
+    empty-after-normalization texts are identical, ratio 1.0; threshold 0 is
+    accepted by ``SplitManifest._validate_ratios`` and must union every
+    pair, since every ratio is >= 0).
     """
     normalized = {doc_id: normalize_text(text) for doc_id, text in records.items()}
     # `SequenceMatcher(None, a, b).ratio()` is not guaranteed symmetric (its
@@ -97,11 +109,8 @@ def find_near_duplicates(
     out: list[tuple[str, str, float]] = []
     for i in range(n):
         length_a = lengths[i]
-        if length_a == 0 or threshold <= 0:
-            continue
-        max_length_b = length_a * (2 - threshold) / threshold
         j = i + 1
-        while j < n and lengths[j] <= max_length_b:
+        while j < n and 2 * length_a >= threshold * (length_a + lengths[j]):
             left, right = order[i], order[j]
             id_a, id_b = (
                 (left, right) if insertion_index[left] < insertion_index[right] else (right, left)
@@ -112,4 +121,6 @@ def find_near_duplicates(
                 if ratio >= threshold:
                     out.append((id_a, id_b, ratio))
             j += 1
-    return sorted(out, key=lambda t: t[2], reverse=True)
+    out.sort(key=lambda t: (insertion_index[t[0]], insertion_index[t[1]]))
+    out.sort(key=lambda t: t[2], reverse=True)
+    return out
