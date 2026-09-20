@@ -1,7 +1,7 @@
 ---
 checks: ["run-checks/20260920t043518z-do-the-best-useful-work-availab/handoff-environment-revalidation", "run-checks/20260920t043518z-do-the-best-useful-work-availab/handoff-disposition-reframed"]
 decisions: ["run-decisions/20260920t043518z-do-the-best-useful-work-availab/pivot-from-1471-fix-pr-1590-conflict"]
-evidence: []
+evidence: ["run-evidence/20260920t043518z-do-the-best-useful-work-availab/conflict-resolution-pushed"]
 goals: ["run-goals/20260920t043518z-do-the-best-useful-work-availab/goal-land-batch24-pr-1590"]
 id: "runs/20260920T043518Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260920t043518z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260920t043518z-do-the-best-useful-work-availab/reading-active-skills"]
