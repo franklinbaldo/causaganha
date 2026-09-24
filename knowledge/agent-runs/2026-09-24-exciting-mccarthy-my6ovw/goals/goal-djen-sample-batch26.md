@@ -1,0 +1,11 @@
+---
+type: AgentGoal
+id: "2026-09-24-exciting-mccarthy-my6ovw-goal-djen-sample-batch26"
+run_id: "2026-09-24-exciting-mccarthy-my6ovw"
+goal: "Ingest a twenty-sixth real batch for #1050 via scripts/ingest_djen_sample_technique1_batch.py: TJCE/363694252 (Sentença) and TJSC/587254831 (Acórdão)."
+rationale: "document_count is live at 191 with val_ceiling=test_ceiling=29, one batch-size short of RFC 0012 Sec 5 item 4's >=30/>=30 floor (per the immediately prior AgentRun's next_move). A live scan of every data/segmenter_samples/*.jsonl candidate (Sentenca/Acordao only, 2500-18000 chars, deduped against the 191 already-ingested source_uris) initially surfaced TJBA/574460088 and TJMA/42728925 as the only unused floor-compliant candidates in the lowest-store-count tribunals -- both rejected on a live SequenceMatcher.ratio() near-duplicate check against the existing store (0.98 against TJBA/574460085, 0.968 against TJMA/42728353; see decision-reject-near-duplicate-candidates). TJCE/363694252 (13910 chars, cue_score 6, max ratio 0.061 against the whole store) was selected as the real replacement. TJSC is the single most under-represented tribunal in the whole store (store_count=1) and has zero remaining candidates at/above the 2500-char floor, so this batch deliberately relaxes that floor (an empirical batch5 heuristic, not a validation rule) for TJSC/587254831 (2336 chars, max ratio 0.05 against the store) to keep advancing #1050's explicit 'multiple tribunals/sources' ask rather than re-using an already-well-represented tribunal."
+success_signal: "scripts/ingest_djen_sample_technique1_batch.py ingests TJCE/363694252 and TJSC/587254831 as new DocumentRecord+AnnotationRecord pairs (train split); a regression test in tests/segmenter_dataset is RED before ingestion and GREEN after (document_count and the two new document hashes); scripts/segmenter_governance_status.py run live afterward reports document_count>=193; scripts/segmenter_semantic_audit.py reports no new unexplained findings on the two new documents; segmenter_dataset.dedup.find_near_duplicates confirms neither new document is a near-duplicate of any existing store document; uv run ruff check/format --check and uv run pytest -q stay green; a PR is opened against main."
+status: "achieved"
+---
+
+# Goal: vigésimo sexto lote real multi-tribunal (#1050)
