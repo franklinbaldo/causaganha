@@ -51,6 +51,15 @@ jobs:
       IAS3_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
       PYTHONPATH: ${{ github.workspace }}
+      # See #1608/TM-01: dispatch inputs arrive as job-level env vars, never
+      # spliced into a step's script text (that would let a crafted input
+      # break out of quoting and run shell in this secret-bearing job).
+      # Validated once, in the first step that consumes them below — a
+      # later step in the same job never runs after a failing step exits
+      # non-zero, so that validation protects every step that reads these.
+      BOOTSTRAP_TARGET: ${{ inputs.target || '500' }}
+      BOOTSTRAP_N_ITEMS: ${{ inputs.n_items || '10' }}
+      BOOTSTRAP_MAX_PER_TRIBUNAL: ${{ inputs.max_per_tribunal || '100' }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -91,9 +100,20 @@ jobs:
 
       - name: Download texts from IA
         run: |
-          TARGET="${{ inputs.target || '500' }}"
-          N_ITEMS="${{ inputs.n_items || '10' }}"
-          MAX_PER="${{ inputs.max_per_tribunal || '100' }}"
+          set -euo pipefail
+
+          TARGET="$BOOTSTRAP_TARGET"
+          N_ITEMS="$BOOTSTRAP_N_ITEMS"
+          MAX_PER="$BOOTSTRAP_MAX_PER_TRIBUNAL"
+
+          for pair in "target:$TARGET" "n_items:$N_ITEMS" "max_per_tribunal:$MAX_PER"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+              echo "::error::$name must be a non-negative integer, got: $value" >&2
+              exit 1
+            fi
+          done
 
           uv run python scripts/augment_segmenter_data.py \
             --target "$TARGET" \
@@ -103,9 +123,10 @@ jobs:
 
       - name: Run OPF + heuristic (Stage 1)
         run: |
+          set -euo pipefail
           uv run --no-sync python scripts/bootstrap_training_corpus.py \
             --input data/bootstrap_texts/train.jsonl \
-            --target ${{ inputs.target || '500' }} \
+            --target "$BOOTSTRAP_TARGET" \
             --device -1 \
             --save-intermediate data/intermediate.jsonl
 

@@ -69,6 +69,13 @@ jobs:
           - acordao
     env:
       PYTHONPATH: ${{ github.workspace }}
+      # See #1608/TM-01: dispatch inputs arrive as env vars, never spliced
+      # into the script text below. matrix.tribunal/matrix.mode are safe to
+      # keep inline — they come from the fixed matrix list above, defined in
+      # this file, not from an attacker-controlled dispatch input.
+      SAMPLE_N_PER_TRIBUNAL: ${{ inputs.n_per_tribunal || '20' }}
+      SAMPLE_MAX_ZIPS: ${{ inputs.max_zips || '10' }}
+      SAMPLE_SEED: ${{ inputs.seed || '42' }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -81,12 +88,22 @@ jobs:
         continue-on-error: true
         run: |
           set -euo pipefail
+
+          for pair in "n_per_tribunal:$SAMPLE_N_PER_TRIBUNAL" "max_zips:$SAMPLE_MAX_ZIPS" "seed:$SAMPLE_SEED"; do
+            name="${pair%%:*}"
+            value="${pair#*:}"
+            if ! [[ "$value" =~ ^[0-9]+$ ]]; then
+              echo "::error::$name must be a non-negative integer, got: $value" >&2
+              exit 1
+            fi
+          done
+
           uv run python scripts/sample_ia_texts.py \
             --tribunal "${{ matrix.tribunal }}" \
             --mode "${{ matrix.mode }}" \
-            --n "${{ inputs.n_per_tribunal || '20' }}" \
-            --max-zips "${{ inputs.max_zips || '10' }}" \
-            --seed "${{ inputs.seed || '42' }}" \
+            --n "$SAMPLE_N_PER_TRIBUNAL" \
+            --max-zips "$SAMPLE_MAX_ZIPS" \
+            --seed "$SAMPLE_SEED" \
             --output-dir /tmp/segmenter_samples
 
       - name: Upload sample
