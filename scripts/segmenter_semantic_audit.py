@@ -130,14 +130,18 @@ def find_anti_patterns(store_dir: Path) -> dict[str, list[dict[str, str]]]:
         ann_path = store.annotations_dir / doc.document_id / f"{annotation.annotation_id}.xml"
         if ann_path.exists():
             xml_text = ann_path.read_text(encoding="utf-8")
-            if "<ref_normativa>" in xml_text and "<fundamentacao_legal>" in xml_text:
+            if re.search(r"<ref_normativa\b", xml_text) and re.search(
+                r"<fundamentacao_legal\b", xml_text
+            ):
                 ref_norm_spans = [
                     match.span()
-                    for match in re.finditer(r"<ref_normativa>(.*?)</ref_normativa>", xml_text)
+                    for match in re.finditer(
+                        r"<ref_normativa\b[^>]*>(.*?)</ref_normativa>", xml_text
+                    )
                 ]
 
                 for match in re.finditer(
-                    r"<fundamentacao_legal>(.*?)</fundamentacao_legal>", xml_text
+                    r"<fundamentacao_legal\b[^>]*>(.*?)</fundamentacao_legal>", xml_text
                 ):
                     fl_start, fl_end = match.span()
                     for rn_start, rn_end in ref_norm_spans:
