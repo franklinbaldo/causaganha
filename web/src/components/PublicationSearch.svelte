@@ -239,8 +239,17 @@
     }, 2400);
   }
 
+  // Spreadsheet software (Excel, LibreOffice, Google Sheets) interprets a
+  // cell as a formula when its first non-whitespace character is one of
+  // these — even inside an otherwise well-quoted CSV. Source content
+  // (publication text, órgão names, etc.) is not trusted input, so a
+  // leading apostrophe neutralizes it (issue #1612 / TM-09) without
+  // changing what the cell displays in the exported file.
+  const DANGEROUS_CSV_PREFIX = /^[ \t]*[=+\-@]/;
+
   function csvField(value: unknown): string {
-    const text = value == null ? '' : String(value);
+    const raw = value == null ? '' : String(value);
+    const text = DANGEROUS_CSV_PREFIX.test(raw) ? `'${raw}` : raw;
     return /[",\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
   }
 
