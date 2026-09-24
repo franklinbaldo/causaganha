@@ -1332,3 +1332,131 @@ nao devem ser reusados sem reverificacao) e considerar se vale a pena
 investir numa tecnica de chunking para desbloquear STM e outros
 candidatos de grande porte, dado que a maioria dos tribunais de porte
 medio parece proxima da exaustao.
+
+**CORREÇÃO PÓS-PR (mesma rodada, após revisão automatizada do Codex).**
+O bot `chatgpt-codex-connector` revisou a PR #1594 e sinalizou 10
+achados P2 inline, um por documento (todos os 7 do lote). Verificação
+ao vivo de cada um (nenhum aceito as-is) confirmou os 10 como reais:
+
+- **TJPI/22537155, TJTO/285641901, TJCE/363676235, TJMT/74432048**:
+  determinações operativas de `custas`/`honorários` genuinamente
+  presentes no texto-fonte ficaram sem tag nenhuma (exportadas como `O`
+  em vez de região anotada). **Corrigido**: 4 novos wrappers
+  `custas`/`honorarios` adicionados (TJPI e TJTO/TJCE com `custas`
+  inicio-only ou dividido de forma não sobreposta com `honorarios`,
+  mesmo padrão já usado no lote 18); TJPI e TJCE precisaram de novos
+  overrides `--allowed-unmatched-overrides` para `custas` (clausula
+  unica sem fechamento distinto), verificados contra o texto-fonte
+  antes de declarar.
+- **TJCE/363676235**: o valor de dano moral pleiteado (`R$ 10.000,00`,
+  pedido posteriormente julgado improcedente) não tinha
+  `valor_condenacao`, apesar de `valor_condenacao` ser explicitamente
+  multivalorado e este lote já tagear valores pleiteados em outros
+  documentos. **Corrigido**: tag adicionada.
+- **TRF3/42491442** -- achado misto, o mais significativo desta
+  correção. (1) A citação do RE 585.235 e do art. 3º da Lei 9.718/98
+  fica na PRÓPRIA fundamentação do tribunal ("Também é certo o fato de
+  que, quando do julgamento do RE 585.235... a mesma Corte declarou a
+  inconstitucionalidade..."), imediatamente ANTES do bloco de
+  precedentes citados verbatim -- não dentro dele. A decisão anterior
+  desta mesma rodada (`decision-dismiss-trf3-quoted-precedent-art-finding`)
+  havia classificado essa citação como parte do bloco de terceiros por
+  engano, ao não verificar o limite exato da sentença. **Corrigido**:
+  as duas citações reconvertidas de `ref_normativa` para
+  `fundamentacao_legal` (a categoria correta para citação com conector
+  de raciocínio). Com isso, `doc_2f952744ab8c9e0bafb66cd01a9f4e2d` deixa
+  de disparar `fundamentacao_legal_collapsed` -- a oitava entrada da
+  allowlist de `test_real_store_has_at_most_the_one_known_collapsed_false_positive`
+  adicionada mais cedo nesta mesma rodada foi **revertida** (a allowlist
+  volta a ter 7 entradas, o teste passa porque o achado deixou de
+  existir, não porque foi silenciado). Lição de processo: uma citação na
+  frase imediatamente ANTES do marcador de bloco citado não está
+  automaticamente dentro do bloco -- verificar a fronteira exata da
+  sentença, não só a proximidade textual. (2) `Rejeito a preliminar de
+  necessidade de suspensão do feito... Sem outras preliminares, passo ao
+  mérito.` era uma análise preliminar explícita e delimitada, sem tag
+  `preliminar`. **Corrigido**: região `preliminar` adicionada (par
+  completo, inicio/fim).
+- **TRF5/463264368** -- achado misto. (1) O override `ementa`
+  (declarado como "sem cue de fechamento") estava incorreto: a linha
+  final `RECURSO NÃO CONHECIDO.` é o desfecho substantivo da ementa,
+  imediatamente antes do `VOTO` -- padrão já usado em anotações
+  comparáveis do corpus. **Corrigido**: override `ementa` removido, par
+  fechado nessa frase. (2) Duas citações de fundamentação própria do
+  tribunal (`art. 42, §1º da Lei 9.099/95` e `art. 54` sobre isenção de
+  custas) estavam tageadas como `ref_normativa` em vez de
+  `fundamentacao_legal`, apesar de virem com conector de raciocínio
+  próprio ("assim dispõe", "é adstrita ao"). **Corrigido**: reconvertidas
+  para `fundamentacao_legal`.
+- **TJRJ/488920434**: duas citações de fundamentação própria (Verbete
+  Sumular 111 do STJ sobre honorários, Tema 905 do STJ sobre juros)
+  estavam como `ref_normativa` em vez de `fundamentacao_legal`, mesmo
+  padrão do achado acima. **Corrigido**.
+- **TJMT/74432048** -- achado misto. (1) `relatorio_fim` fabricado: a
+  anotação original fechava o relatório no nome do réu ("CRÉDITO,
+  FINANCIAMENTO E INVESTIMENTO"), mas um nome de parte não é um cue de
+  fechamento de relatório. **Corrigido**: `fim` removido, par deixado
+  corretamente sem fechamento (novo override `relatorio` declarado e
+  verificado contra o texto-fonte). (2) Duas citações de fundamentação
+  própria (Resolução BACEN nº 3.658/2008, Lei Complementar nº 105/2001
+  art. 1º) estavam sem tag. **Corrigido**: `fundamentacao_legal`
+  adicionado a ambas.
+
+Após a correção: `document_count`/`annotation_count` inalterados (191/244
+-- mesma correção in-place, mesmos `document_id`s content-addressed,
+apenas novos `annotation_id`s). `scripts/segmenter_semantic_audit.py`
+reconfirmado sem achados novos nos 7 documentos do lote (a correção do
+TRF3 eliminou o único achado que existia). `uv run ruff check`/`format
+--check` e `uv run pytest -q tests/segmenter_dataset` reconfirmados
+verdes após a correção (allowlist com 7 entradas, não 8 -- revertida
+para refletir que o achado do TRF3 deixou de existir).
+
+**NOVA LIÇÃO DE PROCESSO**: como no lote 24, uma revisão automatizada de
+código (Codex) sobre a PR encontrou defeitos reais de cobertura de
+categoria que a verificação verbatim-fidelity e a auditoria semântica
+programáticas não capturam sozinhas -- desta vez em TODOS os 7
+documentos do lote, não apenas 1. Adicionalmente, esta rodada mostrou
+que uma decisão de "falso positivo" registrada durante a própria sessão
+também precisa ser verificada contra o texto-fonte com a mesma cautela
+que qualquer achado do Codex -- a primeira leitura do TRF3 errou a
+fronteira exata de um bloco citado.
+
+**SEGUNDA CORREÇÃO PÓS-PR (PR #1597, revisão automatizada do Codex sobre
+a própria correção).** O Codex revisou a PR #1597 (que já continha a
+primeira correção acima) e sinalizou mais 3 achados P2, todos em
+documentos já tocados pela correção anterior:
+
+- **TJCE/363676235**: o valor de R$ 10.000,00 pleiteado a título de
+  danos morais foi incorretamente tageado como `valor_condenacao` na
+  primeira correção. Verificação ao vivo confirma que o pedido foi
+  **totalmente rejeitado** ("JULGO TOTALMENTE IMPROCEDENTES os pedidos
+  formulados na petição inicial") -- não existe condenação alguma neste
+  documento, então um valor pleiteado-e-negado não é `valor_condenacao`
+  ("amount in A CONDEMNATION", não qualquer valor mencionado). Lição:
+  a regra "valor_condenacao é multivalorado, tageie também valores
+  restated" (guideline) se aplica a RESTATEMENTS de um valor
+  efetivamente condenado, não a um valor pleiteado num caso julgado
+  improcedente -- generalização incorreta da primeira correção.
+  **Corrigido**: tag removida.
+- **TJCE/363676235 e TJTO/285641901**: `honorarios_fim` fechava apenas
+  no ponto final ("."), um token de pontuação ubíquo sem valor
+  distintivo como cue de fechamento. **Corrigido**: fechamento movido
+  para a frase "valor atualizado da causa"/"valor atualizado da
+  condenação", que já existia no texto imediatamente antes da citação
+  de `fundamentacao_legal` (agora fora do wrapper `honorarios`, o que é
+  permitido já que citações de categoria single-anchor não precisam
+  estar dentro do par que as motiva).
+
+Após esta segunda correção: `document_count`/`annotation_count`
+inalterados (191/244). `scripts/segmenter_semantic_audit.py`
+reconfirmado sem achados novos. `uv run ruff check`/`format --check`
+limpos.
+
+**LIÇÃO DE PROCESSO ACUMULADA**: duas rodadas consecutivas de revisão
+automatizada sobre a MESMA PR (a segunda revisando a correção da
+primeira) encontraram defeitos reais em ambas as vezes -- incluindo um
+defeito introduzido pela PRÓPRIA correção anterior (o valor_condenacao
+mal generalizado). Uma correção "verificada ao vivo" ainda pode
+introduzir um novo defeito por generalização incorreta de um padrão
+correto em outro contexto; a verificação de uma correção merece o
+mesmo escrutínio da anotação original, não menos.
