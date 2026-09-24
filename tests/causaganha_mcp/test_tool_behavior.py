@@ -165,6 +165,20 @@ async def test_datajud_status_local_is_explicitly_noncanonical(mcp, tmp_path: Pa
     assert result.aviso is not None
 
 
+async def test_datajud_status_rejects_invalid_tribunal_before_network(
+    mcp, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    def fail_download(_file_name: str, _tribunal: str, **_kwargs: object) -> bytes | None:
+        message = "download_file must not be called for an invalid tribunal"
+        raise AssertionError(message)
+
+    monkeypatch.setattr(archive, "download_file", fail_download)
+    fn = await _tool_fn(mcp, "datajud_status")
+
+    with pytest.raises(ToolError, match="tribunal"):
+        fn(tribunal="../tjro")
+
+
 # ── tjro_juris_status ───────────────────────────────────────────────────
 
 
