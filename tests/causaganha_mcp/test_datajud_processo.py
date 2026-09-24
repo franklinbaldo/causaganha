@@ -216,6 +216,15 @@ async def test_processo_estado_rejects_invalid_cnj_before_network(mcp) -> None:
         assert route.called is False
 
 
+async def test_processo_estado_rejects_invalid_tribunal_before_network(mcp) -> None:
+    fn = await _fn(mcp)
+    with respx.mock(assert_all_called=False) as router:
+        route = router.post(ENDPOINT).respond(200, json={"hits": {"hits": []}})
+        with pytest.raises(ToolError, match="tribunal"):
+            await fn(cnj=CNJ, tribunal="../tjro")
+        assert route.called is False
+
+
 async def test_processo_estado_has_hard_interactive_timeout(mcp) -> None:
     tool = await mcp.get_tool("processo_estado")
     assert tool.timeout == tool_module._PROCESSO_TOOL_TIMEOUT

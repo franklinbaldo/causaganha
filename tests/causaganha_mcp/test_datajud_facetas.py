@@ -153,6 +153,15 @@ async def test_facetas_other_http_status_becomes_tool_error(mcp) -> None:
             await fn(tribunal="tjro", por="classe", limite=15)
 
 
+async def test_facetas_rejects_invalid_tribunal_before_network(mcp) -> None:
+    fn = await _facetas_fn(mcp)
+    with respx.mock(assert_all_mocked=False, assert_all_called=False) as router:
+        route = router.post(url__regex=r".*").respond(200, json=_facetas_payload(0, []))
+        with pytest.raises(ToolError, match="tribunal"):
+            await fn(tribunal="../tjro", por="classe", limite=15)
+        assert route.called is False
+
+
 async def test_facetas_has_a_hard_interactive_timeout_as_backstop(mcp) -> None:
     """The tool declares its own deadline — independent of DataJudClient's budget.
 

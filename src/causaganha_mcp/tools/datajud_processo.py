@@ -33,6 +33,7 @@ from datajud.models import (
     normalizar_cnj,
     normalizar_data14,
 )
+from datajud.tribunais import TribunalInvalidoError, validar_tribunal
 
 
 if TYPE_CHECKING:
@@ -379,6 +380,12 @@ def register(mcp: FastMCP) -> None:
         if not normalized:
             msg = "CNJ inválido: informe os 20 dígitos do número do processo, com ou sem máscara."
             raise ToolError(msg)
+
+        try:
+            tribunal = validar_tribunal(tribunal)
+        except TribunalInvalidoError as exc:
+            msg = f"tribunal inválido: {tribunal!r} não pertence ao conjunto canônico do DataJud."
+            raise ToolError(msg) from exc
 
         try:
             capas = await process_service.consultar_processo(
