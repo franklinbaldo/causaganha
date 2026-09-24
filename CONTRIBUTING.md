@@ -106,6 +106,11 @@ If you change collection, consolidation, catalog, or deployment behavior:
 
 ## Security
 
+The operational threat model and security backlog live in
+[`docs/SECURITY_THREAT_MODEL.md`](docs/SECURITY_THREAT_MODEL.md). New security
+findings should identify the trust boundary, violated invariant, concrete impact
+and the automated gate that prevents regression.
+
 - Never commit `.env`, IA credentials, or service tokens.
 - Prefer environment variables for all secrets.
 - Treat Internet Archive item naming and metadata as part of the public contract.
