@@ -127,3 +127,97 @@ describe('PublicationSearch — export current page as CSV', () => {
     expect(text).toMatch(/itens nesta página: 2/i);
   });
 });
+
+describe('PublicationSearch — CSV formula injection neutralization (#1612)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(new Date('2026-01-01T00:00:00.945Z'));
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  async function exportWithTexts(texts: string[]) {
+    vi.mocked(djen.searchDjenComunicacoes).mockResolvedValue({
+      items: texts.map((texto, i) => ({
+        id: i + 1,
+        numeroComunicacao: i + 1,
+        siglaTribunal: 'TJSP',
+        texto,
+        data_disponibilizacao: '2026-04-01',
+        tipoDocumento: 'Intimação',
+        nomeOrgao: 'Vara X',
+        destinatarios: [],
+        destinatarioadvogados: [],
+      })),
+      count: texts.length,
+      rateLimit: { limit: null, remaining: null, resetAt: null },
+      source: 'djen',
+      usedFallback: false,
+    });
+
+    let capturedParts: string[] | null = null;
+    const OriginalBlob = globalThis.Blob;
+    vi.stubGlobal(
+      'Blob',
+      class extends OriginalBlob {
+        constructor(parts: string[], opts?: BlobPropertyBag) {
+          super(parts, opts);
+          capturedParts = parts;
+        }
+      },
+    );
+    vi.spyOn(URL, 'createObjectURL').mockImplementation(() => 'blob:mock-url');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+
+    const component = render(PublicationSearch);
+    const input = (await waitFor(() =>
+      component.getByLabelText('Buscar publicações'),
+    )) as HTMLInputElement;
+    await fireEvent.input(input, { target: { value: 'contrato' } });
+    await fireEvent.keyDown(input, { key: 'Enter' });
+    await waitFor(() =>
+      expect(component.getByText(`${texts.length} resultado(s)`)).toBeTruthy(),
+    );
+    await fireEvent.click(component.getByText('Exportar CSV (página atual)'));
+
+    expect(capturedParts).not.toBeNull();
+    return (capturedParts as unknown as string[]).join('');
+  }
+
+  it('neutralizes cells starting with =, +, - or @, including with leading whitespace', async () => {
+    const dangerous = [
+      '=1+1',
+      '+SUM(A1:A9)',
+      '-1+2',
+      '@cmd|calc!A1',
+      ' =1+1',
+      '\t=1+1',
+    ];
+    const text = await exportWithTexts(dangerous);
+    const dataLines = text.split('\n').slice(6);
+
+    for (const [i, original] of dangerous.entries()) {
+      const line = dataLines[i];
+      expect(line, `line for ${JSON.stringify(original)}`).toBeDefined();
+      // The dangerous field is the last CSV column (texto), so its neutralized
+      // form must appear right after the last comma preceding it.
+      const field = line.slice(line.lastIndexOf(',') + 1);
+      expect(field.trimStart().startsWith(original.trimStart())).toBe(false);
+      // Neutralized form must not itself be interpretable as a formula by a
+      // spreadsheet: its first non-whitespace character must not be one of
+      // =, +, - or @.
+      expect(field.trimStart()).not.toMatch(/^["]?[=+\-@]/);
+    }
+  });
+
+  it('leaves benign text byte-for-byte unchanged', async () => {
+    const benign = ['Intimação sobre honorários', '10% de multa', '(vide anexo)', 'R$ 1.000,00'];
+    const text = await exportWithTexts(benign);
+    for (const original of benign) {
+      expect(text).toContain(original);
+    }
+  });
+});
