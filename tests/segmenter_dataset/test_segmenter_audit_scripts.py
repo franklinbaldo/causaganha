@@ -284,3 +284,44 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_db852d2ad03c021f0ac411e3e5b63b60",
         "doc_12f989ac213c5eadf857aacc69b33ad2",
     }
+
+
+def test_real_store_has_no_long_anchor_or_dispositivo_inside_voto_findings() -> None:
+    """Regression guard for issue #1050's 2026-09 semantic audit, second pass.
+
+    Unlike the ``_collapsed`` types asserted above, ``long_anchor`` and
+    ``dispositivo_inside_voto`` were never asserted on by any test, so they
+    accumulated unrepaired in the accepted gold corpus since 2026-09-15:
+
+    - Three ``acordao_decisorio_inicio`` anchors (127-202 chars) tagged the
+      entire formulaic opening paragraph instead of a short cue —
+      ``annotation_guideline_v7.md`` Rule 1 caps anchors at "~120 characters
+      ... never a full paragraph", and the guideline's own worked example
+      for this exact category is the short "Vistos, relatados e
+      discutidos".
+    - One ``dispositivo_abertura`` ("Ante o exposto") was tagged inside an
+      individual judge's ``voto`` region in an acórdão — the guideline's own
+      "Acórdão notes" anti-pattern: "do not also tag a single-judge
+      dispositivo_abertura inside an individual voto"; the document's real
+      operative result is the collegiate ``acordao_decisorio``, which had no
+      ``resultado`` tag of its own.
+
+    Repaired by ``scripts/repair_segmenter_semantic_audit_2026_09_batch2.py``,
+    which trims the three long anchors to the guideline's own short cue and
+    moves the one misplaced ``resultado`` onto the collegiate operative
+    phrase, removing the erroneous ``dispositivo_abertura``.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    mod = load_script("segmenter_semantic_audit", "scripts/segmenter_semantic_audit.py")
+    findings = mod.find_anti_patterns(store_dir)  # type: ignore[attr-defined]
+
+    bad_types = {"long_anchor", "dispositivo_inside_voto"}
+    offending = {
+        doc_id: sorted(f["type"] for f in doc_findings if f["type"] in bad_types)
+        for doc_id, doc_findings in findings.items()
+        if any(f["type"] in bad_types for f in doc_findings)
+    }
+    assert offending == {}
