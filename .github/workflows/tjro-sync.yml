@@ -90,39 +90,81 @@ jobs:
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
+          # Dispatch inputs arrive as env vars, never spliced into the script
+          # text below — see #1608/TM-01: a bare `${{ inputs.X }}` inside a
+          # `run:` block is substituted textually by GitHub Actions *before*
+          # bash parses the script, so an attacker-controlled input can
+          # break out of quoting and run arbitrary shell in this
+          # secret-bearing job. Routed through `env:`, the value becomes a
+          # literal environment variable (via execve) and is never
+          # re-parsed as shell syntax.
+          TJRO_ANO: ${{ inputs.tjro_ano }}
+          TJRO_MES: ${{ inputs.tjro_mes }}
+          TJRO_DESDE_ANO: ${{ inputs.tjro_desde_ano }}
+          TJRO_TIPOS: ${{ inputs.tjro_tipos }}
+          TJRO_EVENT_NAME: ${{ github.event_name }}
         run: |
-          ANO="${{ inputs.tjro_ano }}"
-          MES="${{ inputs.tjro_mes }}"
-          DESDE_ANO="${{ inputs.tjro_desde_ano }}"
-          TIPOS="${{ inputs.tjro_tipos }}"
+          set -euo pipefail
+
+          ANO="$TJRO_ANO"
+          MES="$TJRO_MES"
+          DESDE_ANO="$TJRO_DESDE_ANO"
+          TIPOS="$TJRO_TIPOS"
 
           # Non-dispatch runs (cron / temporary push) attempt to continue the
           # full historical backfill. The manifest restore + per-window skip
           # + incremental manifest save make each day's run cheap and
           # resumable: only windows not yet uploaded are actually crawled.
-          if [ "${{ github.event_name }}" != "workflow_dispatch" ] && [ -z "$ANO" ] && [ -z "$MES" ] && [ -z "$DESDE_ANO" ]; then
+          if [ "$TJRO_EVENT_NAME" != "workflow_dispatch" ] && [ -z "$ANO" ] && [ -z "$MES" ] && [ -z "$DESDE_ANO" ]; then
             DESDE_ANO=1988
           fi
 
-          CMD="uv run --no-dev tjro-juris crawl data/tjro-juris"
+          if [ -n "$ANO" ] && ! [[ "$ANO" =~ ^[0-9]{4}$ ]]; then
+            echo "::error::tjro_ano must be a 4-digit year, got: $ANO" >&2
+            exit 1
+          fi
+          if [ -n "$MES" ] && ! [[ "$MES" =~ ^[0-9]{4}-(0[1-9]|1[0-2])$ ]]; then
+            echo "::error::tjro_mes must be AAAA-MM, got: $MES" >&2
+            exit 1
+          fi
+          if [ -n "$DESDE_ANO" ] && ! [[ "$DESDE_ANO" =~ ^[0-9]{4}$ ]]; then
+            echo "::error::tjro_desde_ano must be a 4-digit year, got: $DESDE_ANO" >&2
+            exit 1
+          fi
+
+          # Closed set — must match tjro_juris.client.TIPOS.
+          ALLOWED_TIPOS=("ACÓRDÃO" "DECISÃO" "DECISÃO DA PRESIDÊNCIA" "SENTENÇA" "VOTO" "EMENTA" "RELATÓRIO")
+
+          CMD=(uv run --no-dev tjro-juris crawl data/tjro-juris)
           if [ -n "$ANO" ]; then
-            CMD="$CMD --ano $ANO"
+            CMD+=(--ano "$ANO")
           fi
           if [ -n "$MES" ]; then
-            CMD="$CMD --mes $MES"
+            CMD+=(--mes "$MES")
           fi
           if [ -n "$DESDE_ANO" ]; then
-            CMD="$CMD --desde-ano $DESDE_ANO"
+            CMD+=(--desde-ano "$DESDE_ANO")
           fi
           if [ -n "$TIPOS" ]; then
             IFS=',' read -ra TIPO_LIST <<< "$TIPOS"
             for t in "${TIPO_LIST[@]}"; do
-              CMD="$CMD --tipo \"$t\""
+              valid=0
+              for allowed in "${ALLOWED_TIPOS[@]}"; do
+                if [ "$t" = "$allowed" ]; then
+                  valid=1
+                  break
+                fi
+              done
+              if [ "$valid" -ne 1 ]; then
+                echo "::error::tjro_tipos contains an unknown tipo: $t" >&2
+                exit 1
+              fi
+              CMD+=(--tipo "$t")
             done
           fi
 
-          echo "Running: $CMD"
-          eval "$CMD"
+          echo "Running: ${CMD[*]}"
+          "${CMD[@]}"
 
       - name: Upload parquets to Internet Archive
         if: ${{ !inputs.skip_upload }}
