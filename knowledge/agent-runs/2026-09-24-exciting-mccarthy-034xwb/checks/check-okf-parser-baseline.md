@@ -3,8 +3,9 @@ type: AgentCheck
 id: "2026-09-24-exciting-mccarthy-034xwb-check-okf-parser-baseline"
 run_id: "2026-09-24-exciting-mccarthy-034xwb"
 command: "uv run okf-parser check knowledge --relational-schema okf.schema.sql"
-result: "pass"
+result: "passed"
 evidence_id: null
+summary: "Rodado logo apos copiar o scaffold para run.md (ainda em rascunho). conformant=true, concept_count=2101, diagnostics=[]."
 ---
 
 # Check: okf-parser baseline (scaffold copiado)

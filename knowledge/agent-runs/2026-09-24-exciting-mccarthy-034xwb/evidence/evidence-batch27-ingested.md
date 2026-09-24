@@ -3,7 +3,7 @@ type: AgentEvidence
 id: "2026-09-24-exciting-mccarthy-034xwb-evidence-batch27-ingested"
 run_id: "2026-09-24-exciting-mccarthy-034xwb"
 goal_id: "2026-09-24-exciting-mccarthy-034xwb-goal-batch27-corpus-growth"
-kind: "diff+runtime"
+kind: "runtime"
 reference: "commit 51e30b3 on claude/exciting-mccarthy-034xwb"
 summary: "Vigesimo setimo lote real (Technique 1) ingerido: TJES/577054715 (Sentenca, formato projeto-de-sentenca + homologacao, 3824 chars) e TJGO/543518267 (Sentenca, embargos de declaracao, 4195 chars apos html.unescape() -- mesmo defeito recorrente de entidades HTML cruas ja visto nos lotes 12/16/18/22). document_count 193->195, annotation_count 246->248 (scripts/segmenter_governance_status.py, reconfirmado ao vivo por esta sessao apos o commit, nao apenas pelo autorrelato). Ambos candidatos confirmados limpos via SequenceMatcher.ratio() ao vivo contra os 193 documentos ja no store (max 0.114 e 0.054); TJBA/574460088 e TJMA/42728925 reconfirmados como as mesmas quase-duplicatas ja rejeitadas no lote 26 (ratio 0.980/0.968) -- nao reselecionados."
 ---
