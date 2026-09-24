@@ -3,9 +3,10 @@ type: AgentCheck
 id: "2026-09-24-exciting-mccarthy-mjd1vm-check-okf-parser-final"
 run_id: "2026-09-24-exciting-mccarthy-mjd1vm"
 goal_id: "2026-09-24-exciting-mccarthy-mjd1vm-goal-land-stalled-prs"
-procedure: "uv run okf-parser check knowledge --relational-schema okf.schema.sql"
-result: "pass"
+command: "uv run okf-parser check knowledge --relational-schema okf.schema.sql"
+result: "passed"
 evidence_id: "2026-09-24-exciting-mccarthy-mjd1vm-evidence-pr-1597-merged"
+summary: "conformant=true, diagnostics=[] apos o relatorio desta rodada estar completo (completed_at/result_summary/next_move preenchidos) e apos o merge de origin/main."
 ---
 
 # Check: okf-parser conformante ao final da rodada

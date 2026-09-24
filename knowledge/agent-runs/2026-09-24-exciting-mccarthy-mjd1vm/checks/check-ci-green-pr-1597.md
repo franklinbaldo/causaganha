@@ -3,9 +3,10 @@ type: AgentCheck
 id: "2026-09-24-exciting-mccarthy-mjd1vm-check-ci-green-pr-1597"
 run_id: "2026-09-24-exciting-mccarthy-mjd1vm"
 goal_id: "2026-09-24-exciting-mccarthy-mjd1vm-goal-land-stalled-prs"
-procedure: "mcp__github__pull_request_read (method=get_check_runs, pullNumber=1597) reconferido apos o push do commit 10c4589, ate os 11 checks completarem."
-result: "pass"
+command: "mcp__github__pull_request_read (method=get_check_runs, pullNumber=1597) reconferido apos o push do commit 10c4589, ate os 11 checks completarem."
+result: "passed"
 evidence_id: "2026-09-24-exciting-mccarthy-mjd1vm-evidence-pr-1597-merged"
+summary: "11/11 checks completaram com conclusion=success (lint, tests (tjro), archive-cors-proxy, web, validate, CodeQL x4, GitGuardian). tests (tjro) foi o unico lento (~18min). PR fechada e mesclada por franklinbaldo logo em seguida."
 ---
 
 # Check: CI verde no commit final de #1597

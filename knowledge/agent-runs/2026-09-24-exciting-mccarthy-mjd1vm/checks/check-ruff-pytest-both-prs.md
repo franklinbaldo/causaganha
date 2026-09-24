@@ -3,9 +3,10 @@ type: AgentCheck
 id: "2026-09-24-exciting-mccarthy-mjd1vm-check-ruff-pytest-both-prs"
 run_id: "2026-09-24-exciting-mccarthy-mjd1vm"
 goal_id: "2026-09-24-exciting-mccarthy-mjd1vm-goal-land-stalled-prs"
-procedure: "uv run ruff check; uv run ruff format --check; uv run pytest -q tests/segmenter_dataset -- executado localmente em cada worktree (/tmp/pr1597, /tmp/pr1598) apos merge de origin/main, antes de qualquer push."
-result: "pass"
+command: "uv run ruff check; uv run ruff format --check; uv run pytest -q tests/segmenter_dataset -- executado localmente em cada worktree (/tmp/pr1597, /tmp/pr1598) apos merge de origin/main, antes de qualquer push."
+result: "passed"
 evidence_id: "2026-09-24-exciting-mccarthy-mjd1vm-evidence-pr-1597-merged"
+summary: "ruff check e ruff format --check limpos em ambos os branches. pytest tests/segmenter_dataset: #1597 249 passed (EXIT:0, ~10min); #1598 100% verde (EXIT:0), visivelmente mais rapido, consistente com o proprio fix de performance da PR."
 ---
 
 # Check: ruff + pytest locais antes do push (ambas as PRs)
