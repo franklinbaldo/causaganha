@@ -24,10 +24,12 @@ entry_state: "new"
 target_state: "red"
 decision_ids:
   - "2026-09-24-exciting-mccarthy-034xwb-decision-continue-agentrun-scheduled-trigger"
-evidence_ids: []
+evidence_ids:
+  - "2026-09-24-exciting-mccarthy-034xwb-evidence-batch27-ingested"
 check_ids:
   - "2026-09-24-exciting-mccarthy-034xwb-check-okf-parser-baseline"
   - "2026-09-24-exciting-mccarthy-034xwb-check-okf-parser-after-readings-goal-decision"
+  - "2026-09-24-exciting-mccarthy-034xwb-check-batch27-independent-verification"
 result_state: "red"
 result_summary: ""
 next_move: ""
