@@ -1,0 +1,129 @@
+# Threat model operacional do CausaGanha
+
+Atualizado em 2026-09-24.
+
+Este documento converte o threat model do CausaGanha em controles verificáveis. A unidade de trabalho é:
+
+```
+ameaça -> invariante -> controle atual -> gate automatizado -> issue
+```
+
+O objetivo não é transformar segurança em checklist genérico de aplicação web. O CausaGanha não possui contas de usuário, sessão autenticada, banco multi-tenant, pagamentos ou dashboard mutável. Os riscos dominantes são integridade/proveniência do acervo judicial, abuso de superfícies públicas de consulta, conteúdo jurídico não confiável, privacidade local no navegador, credenciais de publicação/deploy e supply chain.
+
+## 1. Ativos e fronteiras
+
+Ativos prioritários:
+
+- integridade e proveniência de publicações, decisões, estados processuais e datasets derivados;
+- credenciais do Internet Archive, relay e autoridade de deploy GitHub/GCP;
+- disponibilidade dos coletores, canários, MCP e consultas públicas;
+- estado privado salvo no browser (`localStorage` e backups exportados);
+- capacidade de distinguir **ARQUIVO**, **ESTADO** e **TEOR**;
+- identidade correta entre pessoa, processo, tribunal, período, geração e artefato.
+
+Fronteiras relevantes:
+
+1. **usuário anônimo** — controla argumentos de tools MCP, busca pública, paginação e filtros;
+2. **fontes oficiais/públicas** — conteúdo de rede pode estar malformado, enorme, comprometido ou conter prompt injection;
+3. **Internet Archive** — raiz prática de confiança do arquivo publicado, mas não assinatura independente;
+4. **browser** — conteúdo judicial é renderizado e pesquisas/snapshots podem permanecer em `localStorage`;
+5. **MCP -> host/agente** — texto judicial é evidência não confiável, mesmo quando o MCP é read-only;
+6. **relays/proxies** — atravessam restrições de WAF e por isso precisam de egress deliberadamente estreito;
+7. **workflows e supply chain** — jobs agendados/manuais podem carregar segredos e autoridade de publicação.
+
+## 2. Regra de severidade
+
+A severidade é calibrada pelo impacto real no produto:
+
+- **Crítica**: execução remota/PR-controlled em contexto com segredos e autoridade sistêmica; compromise de build que backdoore site/MCP ou corrompa amplamente o arquivo canônico; escape do comportamento read-only com obtenção de autoridade de deploy.
+- **Alta**: stored XSS com impacto amplo; bypass de relay/segredo que permita SSRF ou requests mutáveis; adulteração/fabricação relevante do acervo; atribuição errada com propagação ampla; prompt injection somente quando demonstrado que um host comum executa ação sensível.
+- **Média**: DoS/abuso sustentado, bombs de ingestão, quota exhaustion, formula injection, poisoning que exija compromisso prévio de artefato canônico, omissão silenciosa de partição limitada.
+- **Baixa / aceita**: versão/health não sensíveis, erros detalhados sem segredos, exposição de estado local compatível com a fronteira documentada, SQL arbitrário digitado pelo próprio usuário no Explorer.
+
+A classificação abaixo é a prioridade do risco **neste repositório hoje**, não uma propriedade eterna. Se um precondition mudar, a severidade deve ser reavaliada.
+
+## 3. Matriz operacional
+
+| ID | Severidade | Ameaça | Invariante de segurança | Controle atual | Gate automatizado necessário | Issue |
+| --- | --- | --- | --- | --- | --- | --- |
+| TM-01 | Alta | Command injection em `workflow_dispatch` com secrets via string + `eval` em `.github/workflows/tjro-sync.yml`. | Input de dispatch nunca vira código de shell; entra apenas como argumento validado de um comando fixo. | Permissões do workflow são `contents: read`; secrets ficam no environment/job. O gap é a reinterpretação por `eval`. | Teste estático proíbe `eval`; payloads com metacaracteres são rejeitados/tratados como dados; casos válidos preservam argumentos esperados. | [#1608](https://github.com/franklinbaldo/causaganha/issues/1608) |
+| TM-02 | Alta | Relay roubado/abusado vira WAF-bypass contra tribunais, aceita método/rota indevida ou encaminha headers sensíveis. | Egress do relay é HTTPS-only, métodos fechados, host/rota fechados, headers mínimos, redirects manuais e budgets de tamanho/quota. | Python relay usa token em comparação constante, allowlist de host e não segue redirects; CF relay já é HTTPS + GET/HEAD/POST e faz stripping mais forte. `djen_proxy.go` é fixed-host, mas aceita métodos amplos e prefixos largos. | Testes rejeitam HTTP, métodos mutáveis, host/rota fora da política, headers sensíveis e body/resposta acima do limite; mantêm requests oficiais necessários. | [#1609](https://github.com/franklinbaldo/causaganha/issues/1609) |
+| TM-03 | Alta se houver alteração canônica; média para egress isolado | Manifest/index envenenado controla URL entregue a DuckDB/httpfs ou browser. | Toda URL derivada de autoridade remota passa por uma única política: HTTPS, host canônico, path/extensão esperados, quantidade limitada e quoting central. | Parte das URLs é constante; em `src/causaganha/processos/service.py`, URLs do índice remoto são usadas em `read_parquet` e listas SQL sem policy central. | Fixtures `file://`, `http://`, host estranho, quotes, fragments/query e paths inesperados falham fechado antes de DuckDB/fetch; Python e TS usam política equivalente. | [#1610](https://github.com/franklinbaldo/causaganha/issues/1610) |
+| TM-04 | Alta | Manifesto formalmente válido aponta para geração/tribunal/período errado, produzindo omissão ou atribuição incorreta sem precisar de SSRF. | Cada transição preserva identidade verificável: source, retrieval time, raw artifact, hash, normalization version, generation id, tribunal/período, schema fingerprint, row count e derived artifact. | DataJud bundles já usam generation + SHA-256 + size; manifests e canários possuem vários checks de coerência. A cadeia completa não é uniforme em todas as fontes/consultas. | Fixture com hash/generation/tribunal/schema/row-count incompatível falha antes da composição; query importante consegue apontar para a cadeia de evidência da geração que a sustenta. | [#1610](https://github.com/franklinbaldo/causaganha/issues/1610) |
+| TM-05 | Média | Decompression bomb, JSON/membro gigante, quantidade excessiva de membros ou download ilimitado exaure RAM/disco do runner. | Toda entrada de rede/arquivo tem orçamento explícito aplicado durante streaming/leitura, antes de materialização perigosa. | `download_zip` faz streaming para disco; `stream_zip_to_ndjson` não materializa o conjunto inteiro, mas faz `json.load` por membro e não impõe budgets de tamanho/contagem/razão. | ZIPs sintéticos exercitam many-members, tamanho declarado, alta razão de compressão, JSON gigante, traversal e download que excede teto. Erro é distinto de dataset vazio. | [#1611](https://github.com/franklinbaldo/causaganha/issues/1611) |
+| TM-06 | Média | Flood sequencial do MCP público consome CPU/memória, banda IA e quota DataJud apesar do limite global de concorrência. | Superfície pública tem deadlines, concorrência e abuse controls de deploy suficientes para manter custo por chamador limitado. | `http_server.py` já define timeout e concorrência global; modelos limitam paginação/resultados. Não há rate limit por origem/token no servidor público. | Load/admission tests provam rejeição bounded; deploy documenta quota/body/request limits; limites não convertem falha upstream em “ausência”. | [#950](https://github.com/franklinbaldo/causaganha/issues/950) |
+| TM-07 | Média | `tribunal` livre alcança path/artefato DataJud inesperado ou causa amplificação de requests. | Tribunal é identidade de domínio, não fragmento livre de URL/path; somente códigos canônicos atravessam rede/artefato. | Tools normalizam lowercase e aplicam limites de retorno/timeout, mas aceitam `tribunal: str`. | Casos válidos passam; `../`, slash, backslash, `?`, `#`, `%`, whitespace e Unicode confusável falham antes de qualquer request. | [#1615](https://github.com/franklinbaldo/causaganha/issues/1615) |
+| TM-08 | Alta se explorável em muitos usuários | Stored XSS em texto judicial ou regressão do sanitizer altera evidência exibida e acessa estado same-origin. | Conteúdo HTML não confiável só chega a `{@html}` após sanitização testada; CSP limita script/worker/connect origins ao mínimo necessário. | `web/src/lib/djen.ts` usa DOMPurify, proíbe `script`/`style` e `style=`; links são normalizados; `PublicationReader.svelte` e `PublicationDetailPanel.svelte` são sinks explícitos. Não há CSP em `Layout.astro`. | Corpus XSS falha inerte; teste estático impede novo sink `{@html}` fora do caminho autorizado; CSP é exercitada no build/runtime e worker remoto não aceita origem arbitrária. | [#1613](https://github.com/franklinbaldo/causaganha/issues/1613) |
+| TM-09 | Média | CSV exportado contém célula iniciada por `=`, `+`, `-` ou `@` e vira fórmula em desktop spreadsheet. | Valor textual controlável pela fonte permanece inerte ao abrir o CSV em planilha. | Export já tem teste de paginação/arquivo e quoting estrutural; não há neutralização de fórmula. | `PublicationSearch.export.test.ts` cobre prefixos perigosos e variantes com whitespace, além de strings benignas. | [#1612](https://github.com/franklinbaldo/causaganha/issues/1612) |
+| TM-10 | Crítica se comprometer job/build com autoridade de publicação | Resolução livre de dependências/base image permite build não reprodutível ou pacote compatível malicioso. | Mesmo commit resolve para inputs verificáveis e runtime possui privilégio mínimo. | Ações são majoritariamente SHA-pinned; JS possui lockfiles. Python usa mínimos amplos; MCP Docker faz `pip install .` online sobre `python:3.12-slim` e roda sem usuário não-root explícito. | Gate exige `uv.lock` frozen, base por digest, usuário não-root, SBOM e scans sobre o conjunto realmente implantado. | [#1614](https://github.com/franklinbaldo/causaganha/issues/1614) |
+| TM-11 | Média; alta apenas se host executar ação sensível de forma confiável | Prompt injection indireta em publicação/decisão influencia o LLM consumidor a usar tools externas ao MCP. | Texto judicial é evidência não confiável e não instrucional de forma machine-readable; ARQUIVO/ESTADO/TEOR não se misturam. | MCP é read-only e já usa proveniência/semântica explícita, mas não pode impor política de ferramentas do host. | Schema preserva marker de confiança; fixture “ignore instruções anteriores” permanece no campo de teor e nunca vira campo operacional/next action. | [#1616](https://github.com/franklinbaldo/causaganha/issues/1616) |
+| TM-12 | Baixa / risco aceito | `localStorage`/backup plaintext expõe pesquisas e snapshots a extensão, malware, script same-origin, dispositivo compartilhado ou arquivo exportado. | Produto não promete confidencialidade criptográfica no browser; retenção local deve ser clara e bounded. | Sem contas/servidor de estado privado; armazenamento é local e exportável. | Testes de import/export/shape e limite de tamanho/quantidade quando aplicável; documentação pública deixa a fronteira explícita. | Sem issue de segurança enquanto a fronteira continuar local-only e documentada. |
+| TM-13 | Baixa / fora do perfil remoto | Tool stdio local com path fornecido pelo operador lê filesystem local. | Paths de operador nunca entram no catálogo MCP público remoto. | `profiles.py` separa perfil operador/local do público; comentários em `datajud_status` registram a fronteira. | Schema/catalog test falha se tool/parâmetro de filesystem aparecer no perfil público. | Cobertura existente; abrir issue apenas se houver regressão. |
+| TM-14 | Baixa / comportamento deliberado | DuckDB Explorer executa SQL arbitrário digitado pelo próprio visitante, podendo consumir recursos locais/fazer fetch escolhido pelo usuário. | SQL do Explorer nunca é pré-populado/executado por conteúdo remoto sem gesto explícito. | Execução é client-side e deliberada. | Teste de produto deve falhar se uma URL/parâmetro compartilhado passar a executar SQL automaticamente. | Sem issue enquanto continuar self-directed. |
+| TM-15 | Crítica/Alta conforme alcance | Credencial IA/relay/deploy exposta permite alterar futuras gerações, manifests ou serviço publicado. | Segredos não entram em PRs não confiáveis, logs, schemas, artefatos ou headers encaminhados; uso é mínimo e rotacionável. | Environment secrets, permissões de workflow e OIDC/scoped permissions reduzem superfície; o risco de command injection (#1608), relay forwarding (#1609) e supply chain (#1614) são caminhos concretos. | Secret scanning + testes de permissões/workflow + regressões de forwarding; documentação de rotação e revogação. | [#1608](https://github.com/franklinbaldo/causaganha/issues/1608), [#1609](https://github.com/franklinbaldo/causaganha/issues/1609), [#1614](https://github.com/franklinbaldo/causaganha/issues/1614) |
+
+## 4. Invariantes transversais
+
+Os gates acima devem convergir para estes invariantes, independentemente da implementação:
+
+### 4.1 Proveniência é parte do dado
+
+Uma resposta relevante deve ser rastreável, quando tecnicamente aplicável, por:
+
+```
+fonte oficial
+  -> instante de aquisição
+  -> artefato bruto
+  -> hash
+  -> versão da normalização
+  -> geração
+  -> artefato derivado
+  -> resultado consultado
+```
+
+Checksum interno prova consistência de bytes, não autoria independente. Assinatura externa de release/manifests pode ser adicionada como camada posterior, mas não substitui validação de geração/identidade.
+
+### 4.2 Ausência nunca é erro de transporte
+
+Timeout, 403, manifesto ilegível, hash incompatível, schema inesperado ou fonte indisponível não podem ser convertidos em “zero resultados” ou “processo sem movimento”. A taxonomia existente de `present/absent/unknown/unavailable` e ARQUIVO/ESTADO/TEOR deve ser preservada em novos controles de segurança.
+
+### 4.3 Conteúdo judicial é dado hostil para parsers e agentes
+
+Texto oficial pode conter HTML, fórmulas de planilha, bytes inesperados e instruções dirigidas a um LLM. Fidelidade ao registro não implica confiar na sua interpretação operacional.
+
+### 4.4 Egress é uma capacidade privilegiada
+
+Toda URL derivada de manifesto, usuário ou metadata externa deve passar por policy explícita antes de rede/DuckDB. “Host oficial” não autoriza método, path, body ou header arbitrário.
+
+### 4.5 Security gates devem ser regressões executáveis
+
+Uma issue desta matriz não termina apenas com documentação. O fechamento exige um teste, scanner, policy check ou canário capaz de falhar quando o bug reaparece, salvo quando a linha estiver explicitamente marcada como risco aceito/out of scope.
+
+## 5. Ordem de execução
+
+A ordem abaixo considera exploitabilidade, blast radius e dependências:
+
+1. **#1608** — remover `eval` do workflow secret-bearing;
+2. **#1609** — estreitar relays e DJEN proxy;
+3. **#1610** — boundary única para URLs de manifestos + identidade de geração;
+4. **#1611** — budgets de ingestão;
+5. **#1615** e **#950** — limitar egress/amplificação do MCP/DataJud;
+6. **#1612** — formula injection;
+7. **#1613** — CSP + piso XSS/runtime remoto;
+8. **#1614** — lock/build/container/SBOM;
+9. **#1616** — contrato machine-readable de conteúdo não confiável para agentes.
+
+A ordem não muda a severidade. Ela apenas define o caminho de implementação com menor dependência e maior redução de risco por mudança.
+
+## 6. Regra para novos achados
+
+Novo achado de segurança deve responder, no mínimo:
+
+1. qual fronteira de confiança foi atravessada;
+2. qual invariante foi violado;
+3. qual impacto concreto existe no CausaGanha;
+4. se o ataque exige usuário anônimo, fonte comprometida, colaborador, operador ou segredo prévio;
+5. qual gate automatizado provará a correção;
+6. qual issue rastreia a implementação.
+
+Checklist genérico sem relação com uma fronteira/ativo deste documento não é suficiente para alterar prioridade.
