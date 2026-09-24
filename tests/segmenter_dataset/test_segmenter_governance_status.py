@@ -703,6 +703,61 @@ def test_real_store_reflects_batch23_corpus_growth() -> None:
     assert any(h.startswith("8744eb61") for h in hashes), "TRF2/301228222 batch23 document missing"
 
 
+def test_real_store_reflects_batch26_corpus_growth() -> None:
+    """Regression guard for #1050's twenty-sixth real DJEN sample batch.
+
+    Snapshot before this batch: 191 documents (after batches 1-25 merged,
+    including PR #1597's Codex-finding fixes and PR #1598's dedup.py
+    performance fix, both landed 2026-09-24). A live scan of every
+    ``data/segmenter_samples/*.jsonl`` candidate (Sentenca/Acordao only,
+    2500-18000 chars, deduped against the store's already-ingested
+    ``(tribunal, id)`` pairs) initially surfaced TJBA/574460088 and
+    TJMA/42728925 as the only unused floor-compliant candidates among the
+    lowest-``store_count`` tribunals -- both were rejected on a live
+    ``difflib.SequenceMatcher.ratio()`` check against the whole store
+    (0.980 against TJBA/574460085, already ingested; 0.968 against
+    TJMA/42728353, already ingested), the same near-duplicate risk class
+    batch17/batch25 already documented. Notably, ``knowledge/backlog/issue-1050.md``'s
+    own batch24 narrative claims TJBA/574460088 was ingested that round,
+    but a live grep of ``data/segmenter/documents`` for its source_uri
+    found zero matches -- a real backlog/store inconsistency, flagged in
+    this round's ``AgentDecision`` rather than silently trusted either
+    way. TJCE/363694252 (13910 chars, Sentenca) was picked as the real
+    replacement (max ratio 0.061 against the entire store). TJSC/587254831
+    (raw 2336 chars, Acordao) was also selected, deliberately below the
+    empirical ~2500-char selection floor: TJSC is the single most
+    under-represented tribunal in the whole store (store_count=1) with
+    zero remaining candidates at or above that floor, and #1050 explicitly
+    asks for "multiple tribunals/sources" diversity, not just volume.
+    TJSC/587254831's ``texto_limpo`` turned out to be raw, unwrapped HTML
+    (``<html><head>...<body>`` with embedded ``<section>``/``<table>``
+    markup) rather than plain text -- the same defect class documented
+    since batch3/batch18/TRF4's exclusion, caught only because the first
+    subagent's tagged output still carried the HTML wrapper verbatim. Fixed
+    by running the batch3 HTML-to-text cleaner
+    (``docs/planning/evidence/segmenter-djen-sample-batch3-clean-html.py``)
+    on the raw text (2336 -> 1037 chars) before re-annotating; the cleaned
+    text's near-duplicate check was reconfirmed clean (max ratio 0.118
+    against the entire store).
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the two specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 193
+    assert any(h.startswith("797cacef") for h in hashes), "TJCE/363694252 batch26 document missing"
+    assert any(h.startswith("4f966854") for h in hashes), "TJSC/587254831 batch26 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
