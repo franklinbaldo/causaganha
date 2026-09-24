@@ -257,22 +257,7 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     reasoning-authority tag -- the heuristic's ``>3`` threshold flags it
     anyway.
 
-    ``doc_2f952744ab8c9e0bafb66cd01a9f4e2d`` (djen_sample batch25, TRF3,
-    2026-09-20) is the same shape of false positive again for
-    ``fundamentacao_legal_collapsed``: this sentença quotes a long block
-    of third-party STJ/TRF3 precedent excerpts verbatim under "Confiram-se
-    os precedentes:" (AIRESP 1630429, AIRESP 1455148, a TRF3 Agravo Legal,
-    an EMEN:/DTPB:-tagged jurisprudence-database export), whose own text
-    cites "art. 1.021, §4º" (CPC/2015), "art. 557", and "art. 195, I" —
-    none of those are this document's own reasoning-with-connector
-    language, so they were correctly left untagged the same way quoted
-    precedent citations are elsewhere in this allowlist. The one real
-    ``fundamentacao_legal`` span ("a teor do art. 487, inc. I, do
-    CPC/2015") sits in the dispositivo proper. Four raw "art." mentions,
-    one real reasoning-authority tag -- the heuristic's ``>3`` threshold
-    flags it anyway.
-
-    If this test starts seeing *more* than these eight findings, a new
+    If this test starts seeing *more* than these seven findings, a new
     real omission was introduced and needs the same triage — repair it, or
     extend this allowlist with a documented reason, never silence the
     assertion.
@@ -298,5 +283,4 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_3b0be436ba6753185997c37b2b6b9765",
         "doc_db852d2ad03c021f0ac411e3e5b63b60",
         "doc_12f989ac213c5eadf857aacc69b33ad2",
-        "doc_2f952744ab8c9e0bafb66cd01a9f4e2d",
     }
