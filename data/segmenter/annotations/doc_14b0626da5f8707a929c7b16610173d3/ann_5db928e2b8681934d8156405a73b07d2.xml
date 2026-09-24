@@ -1,4 +1,4 @@
-<annotation id="ann_97adc0adbd8e98e22b01ed1bed4a687a" document_id="doc_14b0626da5f8707a929c7b16610173d3">
+<annotation id="ann_5db928e2b8681934d8156405a73b07d2" document_id="doc_14b0626da5f8707a929c7b16610173d3">
   <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
   <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
   <covered_categories>
@@ -31,7 +31,7 @@
   <allowed_unmatched>
     <entry base="ementa" reason="batch25: TJRJ 'capa+ementa-estruturada' export -- 'EMENTA' followed directly by numbered sections (I. CASO EM EXAME / II. QUESTAO EM DISCUSSAO / III. RAZOES DE DECIDIR / IV. DISPOSITIVO), with no separate RELATORIO or VOTO section -- exactly the format the guideline's own ementa row documents as having no real closing cue (originally documented for TJRO exports; same structural pattern confirmed here for TJRJ), verified against raw source text" />
   </allowed_unmatched>
-  <completed_at>2026-09-20T09:50:00Z</completed_at>
+  <completed_at>2026-09-20T10:45:00Z</completed_at>
   <annotation_method>independent_full_read</annotation_method>
   <text>Apelação Cível  Nº <ref_processual ord="0">3002835-28.2025.8.19.0001</ref_processual>/RJ
 
@@ -81,9 +81,9 @@ III. RAZÕES DE DECIDIR.
 
 14. Inexiste necessidade de fundamentação de todo e qualquer argumento trazido pela parte a fim de prequestionamento, quando implícito em seus argumentos matéria constitucional e infraconstitucional. Jurisprudência do STJ.
 
-15. Entretanto, em relação aos consectários da condenação, há a necessária reforma da sentença, inclusive de ofício. Assim, deve-se afastar a condenação do Estado ao pagamento da <custas><inicio ord="4">Taxa Judiciária</inicio>, tendo em vista a sua <fim ord="5">isenção legal</fim></custas>. Ademais, deve se também aplicar o Verbete Sumular nº 111 do STJ em relação a condenação dos Estado em <honorarios><inicio ord="6">pagar honorários</inicio>, tendo em vista ser a autora servidora pública inativa. E por fim, de forma oficiosa, deve se adequar o índice de Juros Moratórios ao tema 905 do STJ, afastando o IPCA como seu índice.
+15. Entretanto, em relação aos consectários da condenação, há a necessária reforma da sentença, inclusive de ofício. Assim, deve-se afastar a condenação do Estado ao pagamento da <custas><inicio ord="4">Taxa Judiciária</inicio>, tendo em vista a sua <fim ord="5">isenção legal</fim></custas>. Ademais, <fundamentacao_legal ord="6">deve se também aplicar o Verbete Sumular nº 111 do STJ</fundamentacao_legal> em relação a condenação dos Estado em <honorarios><inicio ord="7">pagar honorários</inicio>, tendo em vista ser a autora servidora pública inativa. E por fim, <fundamentacao_legal ord="8">de forma oficiosa, deve se adequar o índice de Juros Moratórios ao tema 905 do STJ</fundamentacao_legal>, afastando o IPCA como seu índice.
 
-16. <fim ord="7">Sem majoração de honorários</fim></honorarios>.
+16. <fim ord="9">Sem majoração de honorários</fim></honorarios>.
 
 IV. DISPOSITIVO E TESE.
 
@@ -107,7 +107,7 @@ Jurisprudência relevante citada: STF, RE 1326541 RG, Rel. Min. Presidente, j. 2
 
 ACÓRDÃO
 
-<acordao_decisorio><inicio ord="8">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 5ª Câmara de Direito Público do Tribunal de Justiça do Estado do Rio de Janeiro decidiu, <fim ord="9">por unanimidade</fim></acordao_decisorio>, <resultado ord="10">dar parcial provimento</resultado> ao recurso de apelação interposto pelas partes rés para reformar parcialmente a sentença, na forma da fundamentação acima, nos termos do relatório, votos e notas de julgamento que integram o presente julgado.
+<acordao_decisorio><inicio ord="10">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 5ª Câmara de Direito Público do Tribunal de Justiça do Estado do Rio de Janeiro decidiu, <fim ord="11">por unanimidade</fim></acordao_decisorio>, <resultado ord="12">dar parcial provimento</resultado> ao recurso de apelação interposto pelas partes rés para reformar parcialmente a sentença, na forma da fundamentação acima, nos termos do relatório, votos e notas de julgamento que integram o presente julgado.
 
 Rio de Janeiro, 09 de dezembro de 2025.</text>
 </annotation>
