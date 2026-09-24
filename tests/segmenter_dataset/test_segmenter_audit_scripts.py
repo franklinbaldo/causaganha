@@ -286,6 +286,236 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     }
 
 
+def test_find_anti_patterns_detects_operative_on_reasoning_or_verb(tmp_path: Path) -> None:
+    """Unit coverage for a finding type never exercised by a synthetic fixture.
+
+    Only ``fundamentacao_legal_collapsed`` had a controlled (non-real-corpus)
+    test before this — ``operative_on_reasoning_or_verb``,
+    ``capitulo_merito_on_prose``, ``ref_processual_mismatch`` and
+    ``ref_normativa_overlap`` were only ever exercised implicitly by running
+    the heuristic against whatever the real corpus happened to contain, so a
+    latent bug in any of them could hide for as long as no real document
+    triggered it (see the sibling tests below, and
+    ``test_find_anti_patterns_detects_ref_normativa_overlap`` in particular).
+    """
+    store = SegmenterDatasetStore(tmp_path / "store")
+    text = "Relatório. Isto posto, decido pela procedência do pedido. Fim."
+    doc = DocumentRecord(
+        document_id="doc_00000000000000000000000000000010",
+        text=text,
+        source=SourceInfo(
+            system="sys1",
+            tribunal="trib1",
+            document_type="sentenca",
+            source_uri="uri1",
+            source_hash="hash1",
+        ),
+        extraction=ExtractionInfo(method="method1", version="v1"),
+        grouping=GroupingInfo(source_process_id="1234567-89.2023.8.22.0001"),
+    )
+    store.write_document(doc)
+    start = text.index("decido")
+    end = start + len("decido pela procedência do pedido")
+    store.write_annotation(
+        AnnotationRecord(
+            annotation_id="ann_00000000000000000000000000000010",
+            document_id=doc.document_id,
+            annotator_id="annotator1",
+            annotator_config=AnnotatorConfig(
+                model_family="test_model", guideline_version="test_v1"
+            ),
+            ontology_version="test_v1",
+            covered_categories=("dispositivo_abertura",),
+            completed_at="2023-01-01T00:00:00Z",
+            annotation_method="method1",
+            labels=[Label(category="dispositivo_abertura", start=start, end=end)],
+        )
+    )
+
+    mod = load_script("segmenter_semantic_audit", "scripts/segmenter_semantic_audit.py")
+    findings = mod.find_anti_patterns(tmp_path / "store")  # type: ignore[attr-defined]
+
+    assert any(f["type"] == "operative_on_reasoning_or_verb" for f in findings[doc.document_id])
+
+
+def test_find_anti_patterns_detects_capitulo_merito_on_prose(tmp_path: Path) -> None:
+    store = SegmenterDatasetStore(tmp_path / "store")
+    text = "Capítulo do mérito.\nAnalisando os autos, verifico que o pedido procede integralmente."
+    doc = DocumentRecord(
+        document_id="doc_00000000000000000000000000000011",
+        text=text,
+        source=SourceInfo(
+            system="sys1",
+            tribunal="trib1",
+            document_type="sentenca",
+            source_uri="uri1",
+            source_hash="hash1",
+        ),
+        extraction=ExtractionInfo(method="method1", version="v1"),
+        grouping=GroupingInfo(source_process_id="1234567-89.2023.8.22.0001"),
+    )
+    store.write_document(doc)
+    store.write_annotation(
+        AnnotationRecord(
+            annotation_id="ann_00000000000000000000000000000011",
+            document_id=doc.document_id,
+            annotator_id="annotator1",
+            annotator_config=AnnotatorConfig(
+                model_family="test_model", guideline_version="test_v1"
+            ),
+            ontology_version="test_v1",
+            covered_categories=("capitulo_merito_inicio",),
+            completed_at="2023-01-01T00:00:00Z",
+            annotation_method="method1",
+            labels=[Label(category="capitulo_merito_inicio", start=0, end=len(text))],
+        )
+    )
+
+    mod = load_script("segmenter_semantic_audit", "scripts/segmenter_semantic_audit.py")
+    findings = mod.find_anti_patterns(tmp_path / "store")  # type: ignore[attr-defined]
+
+    assert any(f["type"] == "capitulo_merito_on_prose" for f in findings[doc.document_id])
+
+
+def test_find_anti_patterns_detects_ref_processual_mismatch(tmp_path: Path) -> None:
+    store = SegmenterDatasetStore(tmp_path / "store")
+    text = "Processo n. 9999999-99.2099.8.22.9999 referente aos autos originais."
+    doc = DocumentRecord(
+        document_id="doc_00000000000000000000000000000012",
+        text=text,
+        source=SourceInfo(
+            system="sys1",
+            tribunal="trib1",
+            document_type="sentenca",
+            source_uri="uri1",
+            source_hash="hash1",
+        ),
+        extraction=ExtractionInfo(method="method1", version="v1"),
+        grouping=GroupingInfo(source_process_id="1234567-89.2023.8.22.0001"),
+    )
+    store.write_document(doc)
+    start = text.index("9999999")
+    end = start + len("9999999-99.2099.8.22.9999")
+    store.write_annotation(
+        AnnotationRecord(
+            annotation_id="ann_00000000000000000000000000000012",
+            document_id=doc.document_id,
+            annotator_id="annotator1",
+            annotator_config=AnnotatorConfig(
+                model_family="test_model", guideline_version="test_v1"
+            ),
+            ontology_version="test_v1",
+            covered_categories=("ref_processual",),
+            completed_at="2023-01-01T00:00:00Z",
+            annotation_method="method1",
+            labels=[Label(category="ref_processual", start=start, end=end)],
+        )
+    )
+
+    mod = load_script("segmenter_semantic_audit", "scripts/segmenter_semantic_audit.py")
+    findings = mod.find_anti_patterns(tmp_path / "store")  # type: ignore[attr-defined]
+
+    assert any(f["type"] == "ref_processual_mismatch" for f in findings[doc.document_id])
+
+
+def test_find_anti_patterns_detects_ref_normativa_overlap(tmp_path: Path) -> None:
+    """Regression test for a real detector bug found while auditing issue #1050.
+
+    The real store always serializes each label with an ``ord="N"``
+    attribute (``store.py``'s ``_labels_to_text_element``/``_render_item``),
+    so a rendered span is always e.g. ``<ref_normativa ord="1">...`` — never
+    the bare ``<ref_normativa>`` the old heuristic searched for with a plain
+    substring check (``"<ref_normativa>" in xml_text``) and a matching
+    non-attribute regex. That substring therefore never occurs in any real
+    annotation file, making ``ref_normativa_overlap`` structurally dead code:
+    it could never fire against the actual corpus regardless of whether a
+    genuine ``ref_normativa``/``fundamentacao_legal`` overlap existed,
+    silently defeating the exact check issue #1050 relies on to keep those
+    two categories from ever conflating a bare citation with a citation used
+    as this document's own reasoning.
+
+    Fixed by matching the tag name with a word boundary and an optional
+    attribute list (``<ref_normativa\\b[^>]*>``), which matches both the
+    attribute-carrying real form and the bare form this test's fixture would
+    also produce if the store ever stopped rendering ``ord``.
+    """
+    store = SegmenterDatasetStore(tmp_path / "store")
+    text = "Aplica-se o art. 5 da Lei X conforme fundamentação explícita do juízo sobre o caso."
+    doc = DocumentRecord(
+        document_id="doc_00000000000000000000000000000013",
+        text=text,
+        source=SourceInfo(
+            system="sys1",
+            tribunal="trib1",
+            document_type="sentenca",
+            source_uri="uri1",
+            source_hash="hash1",
+        ),
+        extraction=ExtractionInfo(method="method1", version="v1"),
+        grouping=GroupingInfo(source_process_id="1234567-89.2023.8.22.0001"),
+    )
+    store.write_document(doc)
+    rn_start = text.index("art. 5")
+    rn_end = rn_start + len("art. 5 da Lei X")
+    store.write_annotation(
+        AnnotationRecord(
+            annotation_id="ann_00000000000000000000000000000013",
+            document_id=doc.document_id,
+            annotator_id="annotator1",
+            annotator_config=AnnotatorConfig(
+                model_family="test_model", guideline_version="test_v1"
+            ),
+            ontology_version="test_v1",
+            covered_categories=("fundamentacao_legal", "ref_normativa"),
+            completed_at="2023-01-01T00:00:00Z",
+            annotation_method="method1",
+            labels=[
+                Label(category="fundamentacao_legal", start=0, end=len(text)),
+                Label(category="ref_normativa", start=rn_start, end=rn_end),
+            ],
+        )
+    )
+
+    mod = load_script("segmenter_semantic_audit", "scripts/segmenter_semantic_audit.py")
+    findings = mod.find_anti_patterns(tmp_path / "store")  # type: ignore[attr-defined]
+
+    assert any(f["type"] == "ref_normativa_overlap" for f in findings[doc.document_id])
+
+
+def test_real_store_has_no_operative_capitulo_processual_or_normativa_findings() -> None:
+    """Regression guard closing the last blind spot flagged by issue #1050's audit.
+
+    ``test_real_store_has_no_long_anchor_or_dispositivo_inside_voto_findings``
+    closed two of the six previously-unasserted finding types;
+    ``operative_on_reasoning_or_verb``, ``capitulo_merito_on_prose`` and
+    ``ref_processual_mismatch`` were the remaining three that heuristic ever
+    computed but no test read, and ``ref_normativa_overlap`` was outright
+    dead code (see ``test_find_anti_patterns_detects_ref_normativa_overlap``)
+    until this round's fix. Live re-run against the real corpus after the
+    fix reports zero findings of any of these four types — the fix closes a
+    real detection gap without surfacing a backlog of undetected defects.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    mod = load_script("segmenter_semantic_audit", "scripts/segmenter_semantic_audit.py")
+    findings = mod.find_anti_patterns(store_dir)  # type: ignore[attr-defined]
+
+    bad_types = {
+        "operative_on_reasoning_or_verb",
+        "capitulo_merito_on_prose",
+        "ref_processual_mismatch",
+        "ref_normativa_overlap",
+    }
+    offending = {
+        doc_id: sorted(f["type"] for f in doc_findings if f["type"] in bad_types)
+        for doc_id, doc_findings in findings.items()
+        if any(f["type"] in bad_types for f in doc_findings)
+    }
+    assert offending == {}
+
+
 def test_real_store_has_no_long_anchor_or_dispositivo_inside_voto_findings() -> None:
     """Regression guard for issue #1050's 2026-09 semantic audit, second pass.
 
