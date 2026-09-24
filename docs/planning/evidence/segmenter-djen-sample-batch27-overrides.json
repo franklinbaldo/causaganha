@@ -1,0 +1,10 @@
+{
+  "577054715": {
+    "relatorio": "batch27: 'Trata-se de' opens the report but the source has no distinct closing cue ('É o relatório.' or equivalent) -- this JEC 'projeto de sentença' (juiz leigo) + homologação (juiz togado) format has no separate capitulo_merito heading either, narrative flows directly from facts into 'Entendo, assim, que...' reasoning and then into the dispositivo_abertura ('Isso posto'), same 'no capitulo_merito heading' shape the guideline documents as expected, verified against raw source text",
+    "custas": "batch27: 'Deixo de condenar em custas e honorários, nesta fase, por determinação legal (artigo 55, Lei 9.099/95)' shares one combined clause with honorarios -- no distinct closing cue for custas on its own, same bare-combined-clause pattern already sanctioned in batches 12/18/19/20/22/24/25/26, verified against raw source text. Only the juiz leigo's own mention is tagged; a second, later restatement in the juiz togado's part ('Sem custas e honorários advocatícios na forma do artigo 55 da lei 9.099/95') is left untagged as a repeat inside the encerramento's own prose, consistent with only the operative dispositivo_abertura/resultado (also the juiz leigo's, per the precedent set by doc_a33e4d32f1892f5c9e91177ba1f78a34/TJMT-74428001 already in the store, where the togado's later 'Homologo...' sentence is NOT tagged as a second dispositivo_abertura/resultado)",
+    "honorarios": "batch27: same combined single-clause statement as custas above ('Deixo de condenar em custas e honorários...'), no distinct closing cue for honorarios on its own, verified against raw source text; same one-mention-only reasoning as the custas entry above"
+  },
+  "543518267": {
+    "relatorio": "batch27: 'I – RELATÓRIO' heading opens the section, narrative proceeds directly into 'II – FUNDAMENTAÇÃO' (tagged as capitulo_merito_inicio) with no 'É o relatório.' or equivalent closing phrase anywhere in the source, verified by direct search -- same 'heading present but no closing phrase' shape already sanctioned in prior batches (e.g. batch25/TRF3-42491442)"
+  }
+}
