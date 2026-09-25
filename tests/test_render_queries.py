@@ -447,6 +447,101 @@ def test_register_comunicacoes_prefers_indice_when_available(tmp_path, monkeypat
     assert rows == [("00000010220248220001",)]
 
 
+def test_register_comunicacoes_discards_url_that_fails_artifact_policy(
+    tmp_path, monkeypatch, capsys
+):
+    """Issue #1610 (TypeScript/Python halves closed by PR #1622/#1624) also
+    applies here: `arquivo_ia_url` comes from `indice_processual.parquet`, a
+    canonical manifest artifact but one a compromised upstream could poison.
+    Before this fix, `_register_comunicacoes` interpolated every value
+    straight into `read_parquet([...])` with no validation -- a poisoned
+    entry (wrong host, or a value carrying a `'` to break out of the SQL
+    string literal) would have redirected the fetch or corrupted the query
+    instead of being dropped like `causaganha.processos.service._fonte_urls`
+    already does for the same class of value.
+    """
+    import duckdb
+
+    good = _copy_sql_to_parquet(
+        tmp_path / "comunicacoes.parquet",
+        """
+        SELECT * FROM (VALUES
+            ('00000010220248220001', DATE '2024-03-01', 'TJRO')
+        ) AS t(numero_processo, data_disponibilizacao, tribunal)
+        """,
+    )
+    indice = _copy_sql_to_parquet(
+        tmp_path / "indice_processual.parquet",
+        f"""
+        SELECT * FROM (VALUES
+            ('00000010220248220001', 'djen', 'c1', 'TJRO', DATE '2024-03-01', '{good}'),
+            ('00000020220248220002', 'djen', 'c2', 'TJRO', DATE '2024-03-02',
+                'https://evil.example/download/x/x.parquet'),
+            ('00000030220248220003', 'djen', 'c3', 'TJRO', DATE '2024-03-03',
+                '''; ATTACH ''x'' AS y; --')
+        ) AS t(numero_processo, fonte, registro_id, tribunal, data, arquivo_ia_url)
+        """,
+    )
+    monkeypatch.setattr(rq, "_INDICE_PROCESSUAL_PARQUET", indice)
+    monkeypatch.setattr(rq, "_IA_CATALOG_MANIFEST_URL", "http://127.0.0.1:1/unreachable")
+
+    con = duckdb.connect()
+    try:
+        registered = rq._register_comunicacoes(con)
+        assert registered is True
+        rows = con.execute("SELECT numero_processo FROM comunicacoes").fetchall()
+    finally:
+        con.close()
+    # Only the row backed by the validated local artifact survives; the
+    # evil-host and quote-injection rows never reach read_parquet([...]).
+    assert rows == [("00000010220248220001",)]
+    assert "evil.example" in capsys.readouterr().out
+
+
+def test_register_comunicacoes_falls_back_to_catalog_when_all_urls_fail_policy(
+    tmp_path, monkeypatch
+):
+    """If every djen URL in the index fails the artifact policy, this must
+    behave exactly like an index with no djen rows at all -- fall back to
+    the catalog manifest -- rather than silently registering an empty view
+    or crashing.
+    """
+    import duckdb
+
+    comunicacoes = _copy_sql_to_parquet(
+        tmp_path / "comunicacoes.parquet",
+        """
+        SELECT * FROM (VALUES
+            ('00000010220248220001', DATE '2024-03-01', 'TJRO')
+        ) AS t(numero_processo, data_disponibilizacao, tribunal)
+        """,
+    )
+    catalog = _copy_sql_to_parquet(
+        tmp_path / "catalog.parquet",
+        f"SELECT '{comunicacoes}' AS ia_url, 'comunicacoes' AS table_name",
+    )
+    indice = _copy_sql_to_parquet(
+        tmp_path / "indice_processual.parquet",
+        """
+        SELECT * FROM (VALUES
+            ('00000020220248220002', 'djen', 'c2', 'TJRO', DATE '2024-03-02',
+                'https://evil.example/download/x/x.parquet')
+        ) AS t(numero_processo, fonte, registro_id, tribunal, data, arquivo_ia_url)
+        """,
+    )
+    monkeypatch.setattr(rq, "_INDICE_PROCESSUAL_PARQUET", indice)
+    monkeypatch.setattr(rq, "_IA_CATALOG_MANIFEST_URL", str(catalog))
+
+    con = duckdb.connect()
+    try:
+        registered = rq._register_comunicacoes(con)
+        assert registered is True
+        rows = con.execute("SELECT numero_processo FROM comunicacoes").fetchall()
+    finally:
+        con.close()
+    assert rows == [("00000010220248220001",)]
+
+
 # ── _register_tjro_juris / _register_datajud_capa IA fallback ─────────────────
 # deploy-web.yml's fresh checkout never runs reconcile_processos.py, and even
 # update-catalog.yml's own job caches its IA-fallback downloads under
