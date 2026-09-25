@@ -425,3 +425,92 @@ def test_connection_is_closed_when_indice_itself_is_unreachable(
     assert len(captured) == 1
     with pytest.raises(duckdb.Error):
         captured[0].execute("SELECT 1")
+
+
+class TestValidateArtifactUrl:
+    """Issue #1610: `arquivo_ia_url` values come straight from
+    `indice_processual.parquet`, a canonical manifest artifact interpolated
+    as-is into `read_parquet([...])` by `_url_list_sql`. A compromised
+    manifest must not be able to redirect DuckDB's fetch destination or break
+    out of that naive string-literal embedding.
+    """
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "https://archive.org/download/tjro-juris-2024/tjro-juris-2024.parquet",
+            "https://archive.org/download/causaganha-dashboard/indice_processual.parquet",
+        ],
+    )
+    def test_valid_archive_org_urls_pass(self, url: str) -> None:
+        assert service._validate_artifact_url(url) == url
+
+    def test_local_path_without_scheme_passes(self, tmp_path: Path) -> None:
+        local = str(tmp_path / "fixture.parquet")
+        assert service._validate_artifact_url(local) == local
+
+    def test_embedded_quote_is_rejected(self, tmp_path: Path) -> None:
+        malicious = str(tmp_path / "evil.parquet") + "'; ATTACH '/etc/passwd' AS pwn; --"
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url(malicious)
+
+    def test_http_scheme_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url("http://archive.org/download/x/x.parquet")
+
+    def test_file_scheme_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url("file:///etc/passwd")
+
+    def test_foreign_host_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url("https://evil.example/download/x/x.parquet")
+
+    def test_query_string_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url(
+                "https://archive.org/download/x/x.parquet?redirect=https://evil.example"
+            )
+
+    def test_fragment_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url("https://archive.org/download/x/x.parquet#frag")
+
+    def test_non_parquet_path_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url("https://archive.org/download/x/x.json")
+
+    def test_path_outside_download_prefix_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactUrlError):
+            service._validate_artifact_url("https://archive.org/metadata/x/x.parquet")
+
+
+def test_poisoned_manifest_url_degrades_source_instead_of_crashing(tmp_path: Path) -> None:
+    """The exact threat issue #1610 describes: a compromised
+    `indice_processual.parquet` points `arquivo_ia_url` at an unexpected host.
+    The source must degrade to an aviso, like any other unavailable source,
+    instead of `read_parquet` ever seeing that URL.
+    """
+    malicious = "https://evil.example/download/x/x.parquet"
+    con = duckdb.connect()
+    try:
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'djen' AS fonte, 'x' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-01-01' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, malicious],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(CNJ_ALL, indice_url=str(indice), report_url=str(report))
+
+    assert result.encontrado is True
+    assert result.djen is None
+    assert any("djen" in aviso.lower() for aviso in result.avisos)

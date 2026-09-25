@@ -32,6 +32,7 @@ import json
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 import duckdb
 import httpx
@@ -57,6 +58,45 @@ _RELATORIO_INDISPONIVEL_AVISO = (
     "Relatório de cobertura (indice_processual.report.json) indisponível; "
     "sem detalhamento de quais fontes estavam carregadas na geração do dataset."
 )
+
+# Issue #1610: `arquivo_ia_url` values come from `indice_processual.parquet`
+# itself -- a canonical manifest artifact, not user input, but one a
+# compromised upstream could poison. They are interpolated as-is into
+# `read_parquet([...])` by `_url_list_sql`, so an unvalidated value could
+# redirect DuckDB's fetch target or break out of that string literal.
+_ARTIFACT_ALLOWED_HOST = "archive.org"
+_ARTIFACT_ALLOWED_PATH_PREFIX = "/download/"
+_ARTIFACT_ALLOWED_PATH_SUFFIX = ".parquet"
+
+
+class ArtifactUrlError(ValueError):
+    """A manifest-provided artifact URL failed the fetch policy (issue #1610)."""
+
+
+def _validate_artifact_url(url: str) -> str:
+    """Fail closed on anything that isn't a same-host, same-path-shape IA
+    parquet URL -- or a bare local/dev path, which carries no fetch
+    destination to police (used by tests instead of real network fixtures).
+    """
+    if "'" in url:
+        msg = f"URL de artefato contém aspas simples: {url!r}"
+        raise ArtifactUrlError(msg)
+    parsed = urlsplit(url)
+    if not parsed.scheme:
+        return url
+    if parsed.scheme != "https" or parsed.netloc.lower() != _ARTIFACT_ALLOWED_HOST:
+        msg = f"Host/esquema de artefato não permitido: {url!r}"
+        raise ArtifactUrlError(msg)
+    if parsed.query or parsed.fragment:
+        msg = f"URL de artefato não pode ter query/fragment: {url!r}"
+        raise ArtifactUrlError(msg)
+    if not parsed.path.startswith(_ARTIFACT_ALLOWED_PATH_PREFIX) or not parsed.path.endswith(
+        _ARTIFACT_ALLOWED_PATH_SUFFIX
+    ):
+        msg = f"Path de artefato fora do padrão esperado: {url!r}"
+        raise ArtifactUrlError(msg)
+    return url
+
 
 # Same 48h freshness SLO the canary/dashboard already alarm on
 # (docs/SERVICE_OBJECTIVES.md, FRESHNESS_THRESHOLD_MS in siteStatus.ts) —
@@ -260,8 +300,18 @@ def _carregar_cobertura(report_url: str) -> tuple[list[FonteCobertura], str | No
     return cobertura, data.get("generated_at")
 
 
-def _fonte_urls(rows: list[tuple[str, str]], fonte: str) -> list[str]:
-    return sorted({url for row_fonte, url in rows if row_fonte == fonte})
+def _fonte_urls(rows: list[tuple[str, str]], fonte: str, avisos: list[str]) -> list[str]:
+    """URLs registradas para `fonte`, descartando (com aviso) qualquer uma que
+    falhe a política de artefato -- ver `_validate_artifact_url` (#1610).
+    """
+    urls = sorted({url for row_fonte, url in rows if row_fonte == fonte})
+    validated = []
+    for url in urls:
+        try:
+            validated.append(_validate_artifact_url(url))
+        except ArtifactUrlError as exc:
+            avisos.append(f"Fonte '{fonte}' descartou um artefato inválido no índice: {exc}")
+    return validated
 
 
 def _load_httpfs(con: duckdb.DuckDBPyConnection) -> None:
@@ -461,10 +511,10 @@ def buscar_processo(
             )
 
         fontes_presentes = sorted({fonte for fonte, _url in rows})
-        djen_urls = _fonte_urls(rows, "djen")
-        juris_urls = _fonte_urls(rows, "juris")
-        stj_urls = _fonte_urls(rows, "stj")
-        datajud_urls = _fonte_urls(rows, "datajud")
+        djen_urls = _fonte_urls(rows, "djen", avisos)
+        juris_urls = _fonte_urls(rows, "juris", avisos)
+        stj_urls = _fonte_urls(rows, "stj", avisos)
+        datajud_urls = _fonte_urls(rows, "datajud", avisos)
 
         djen = _build_djen(con, djen_urls, nr_processo, avisos)
         juris = _build_juris(con, juris_urls, nr_processo, avisos)
