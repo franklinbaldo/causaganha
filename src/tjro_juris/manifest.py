@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import csv
 import io
+import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
@@ -15,9 +16,25 @@ if TYPE_CHECKING:
 
 HEADER = "tipo,mes_ano,ia_status,n_docs,updated_at"
 
+# Issue #1610: `mes_ano` is interpolated by `causaganha.decisoes.published._juris_url`
+# into a `read_parquet(...)` URL that `causaganha.decisoes.search` runs unmodified.
+# `urllib.parse.quote`'s default `safe='/'` lets an embedded `/` survive unescaped
+# into that URL, so a manifest carrying `mes_ano` like `"2024-01/../../secret"`
+# would mint a path-traversal fetch target. Enforcing the canonical `YYYY-MM` shape
+# here, at parse time, is cheaper and more robust than trying to escape it later at
+# every URL-building call site.
+_MES_ANO_PATTERN = re.compile(r"^\d{4}-(0[1-9]|1[0-2])$")
+
 
 class ManifestFormatError(ValueError):
     """The manifest CSV is malformed (missing column, non-numeric n_docs, ...)."""
+
+
+def _validate_mes_ano(mes_ano: str) -> str:
+    if not _MES_ANO_PATTERN.match(mes_ano):
+        msg = f"mes_ano must be YYYY-MM, got {mes_ano!r}"
+        raise ValueError(msg)
+    return mes_ano
 
 
 @dataclass
@@ -56,7 +73,7 @@ class ManifestJuris:
             try:
                 entry = ManifestJurisEntry(
                     tipo=row["tipo"],
-                    mes_ano=row["mes_ano"],
+                    mes_ano=_validate_mes_ano(row["mes_ano"]),
                     ia_status=row.get("ia_status", ""),
                     n_docs=int(row.get("n_docs", 0) or 0),
                     updated_at=row.get("updated_at", ""),

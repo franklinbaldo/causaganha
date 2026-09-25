@@ -23,6 +23,7 @@ from causaganha.processos.query_plan_fixtures import (
     CNJ_UNKNOWN,
     build_fixtures,
 )
+from tjro_juris.manifest import ManifestFormatError
 
 
 MANIFEST = """tipo,mes_ano,ia_status,n_docs,updated_at
@@ -44,6 +45,21 @@ def test_juris_discovery_only_exposes_uploaded_nonempty_windows() -> None:
         "https://archive.org/download/tjro-juris-2026/2026-06-AC%C3%93RD%C3%83O.parquet"
     )
     assert datasets[1].url.endswith("/2026-07-DECIS%C3%83O___MONOCR%C3%81TICA.parquet")
+
+
+def test_juris_discovery_rejects_manifest_with_path_traversal_mes_ano() -> None:
+    """A JURIS manifest fetched live from IA (issue #1610) feeds `mes_ano`
+    straight into `_juris_url`, which is then interpolated verbatim into the
+    `read_parquet([...])` SQL `decisoes_buscar` runs (`search.py`). A poisoned
+    `mes_ano` containing `/../` must never reach that URL — the manifest
+    parser must fail closed instead of silently minting a traversal URL.
+    """
+    malicious = (
+        "tipo,mes_ano,ia_status,n_docs,updated_at\n"
+        "ACÓRDÃO,2024-01/../../secret-item,uploaded,5,2026-07-01T00:00:00+00:00\n"
+    )
+    with pytest.raises(ManifestFormatError):
+        discover_published_juris_datasets(malicious)
 
 
 def test_combined_discovery_keeps_stj_as_distinct_source() -> None:

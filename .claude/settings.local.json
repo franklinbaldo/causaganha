@@ -12,7 +12,9 @@
       "Bash(mkdir -p knowledge/agent-runs/2026-09-16-exciting-mccarthy-83kr8s)",
       "Bash(cp .claude/agent-run-scaffold.md knowledge/agent-runs/2026-09-16-exciting-mccarthy-83kr8s/run.md)",
       "Bash(mkdir -p knowledge/agent-runs/2026-09-24-exciting-mccarthy-5pnpmt)",
-      "Bash(cp .claude/agent-run-scaffold.md knowledge/agent-runs/2026-09-24-exciting-mccarthy-5pnpmt/run.md)"
+      "Bash(cp .claude/agent-run-scaffold.md knowledge/agent-runs/2026-09-24-exciting-mccarthy-5pnpmt/run.md)",
+      "Bash(mkdir -p knowledge/agent-runs/2026-09-25-exciting-mccarthy-fipj1n/checks knowledge/agent-runs/2026-09-25-exciting-mccarthy-fipj1n/evidence)",
+      "Bash(cp .claude/agent-run-scaffold.md knowledge/agent-runs/2026-09-25-exciting-mccarthy-fipj1n/run.md)"
     ],
     "deny": []
   }
