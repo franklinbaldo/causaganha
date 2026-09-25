@@ -51,10 +51,20 @@ const primary = [
       `report-to` are silently ignored when delivered via <meta> and are
       deliberately omitted here rather than left in to look enforced.
 
-      - script-src 'self' only: no inline scripts ship anywhere in the app
-        (the one former inline redirect script in advogados.astro/
+      - script-src 'self' + build-time sha256 hashes, never 'unsafe-inline':
+        the one former inline redirect script in advogados.astro/
         comparador.astro was removed in favor of the <meta http-equiv=
-        "refresh"> already on those pages), so no 'unsafe-inline' is needed.
+        "refresh"> already on those pages, but Astro's own client-hydration
+        runtime (the astro-island bootstrap, the astro:transitions
+        ClientRouter used below) still injects a handful of small inline
+        <script> tags into every built page with a hydrated island —
+        confirmed live: without an allowance for them, a real browser
+        refuses them outright and ProcessoLookup.svelte never hydrates.
+        `scripts/injectCspHashes.mjs` (run as `postbuild`, see
+        web/package.json) rewrites every dist/**/*.html's script-src to add
+        `'sha256-<hash>'` for each inline script's exact build output, so
+        the allowlist can never drift out of sync with an Astro/Vite
+        upgrade the way a hand-maintained hash list would.
       - style-src keeps 'unsafe-inline': Svelte's scoped-style mechanism
         (CLAUDE.md's CSS token boundary — Svelte components never use
         Panda's css(), only global CSS + a scoped <style> block) emits
