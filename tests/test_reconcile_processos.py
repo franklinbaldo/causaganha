@@ -116,7 +116,7 @@ def _datajud_capa_bytes(path: Path) -> bytes:
             "ultima_atualizacao": "2024-06-02T00:00:00",
         },
     ]
-    write_capa_parquet(rows, path)
+    write_capa_parquet(rows, path, tribunal="tjro")
     return path.read_bytes()
 
 
