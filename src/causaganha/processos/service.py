@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import re
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -98,6 +99,53 @@ def _validate_artifact_url(url: str) -> str:
     return url
 
 
+# Issue #1610 (TM-04): `indice_processual.parquet` also carries a `tribunal`
+# column per row — an independent claim about the same fact `arquivo_ia_url`
+# encodes for the two sources partitioned per tribunal (djen's IA item is
+# `djen-{tribunal}-{ano}`; datajud's is `datajud-{tribunal}`, per CLAUDE.md's
+# "IA item naming" and `scripts/reconcile_processos.py`'s `_INDICE_*_SQL`). A
+# manifest that passes the URL policy above but disagrees with itself about
+# which tribunal a row describes is still a "controle de significado" threat
+# (attribution/omission without needing a bad fetch destination) — juris/stj
+# are single, fixed items regardless of tribunal, so there is nothing to
+# cross-check there.
+_TRIBUNAL_URL_PATTERNS: dict[str, re.Pattern[str]] = {
+    "djen": re.compile(r"/download/djen-([a-z0-9]+)-\d{4}/"),
+    "datajud": re.compile(r"/download/datajud-([a-z0-9]+)/"),
+}
+
+
+class ArtifactProvenanceError(ValueError):
+    """A manifest row's `tribunal` disagrees with the tribunal its own `arquivo_ia_url` names (issue #1610)."""
+
+
+def _tribunal_da_url(fonte: str, url: str) -> str | None:
+    """Tribunal (lowercase) embedded in `url`'s IA item name for a
+    tribunal-partitioned `fonte`. `None` when `fonte` isn't partitioned by
+    tribunal, or when `url` doesn't match the expected IA item shape (e.g. a
+    local test path) — in both cases there is no independent claim to check
+    the manifest's `tribunal` column against.
+    """
+    pattern = _TRIBUNAL_URL_PATTERNS.get(fonte)
+    if pattern is None:
+        return None
+    match = pattern.search(url)
+    return match.group(1) if match else None
+
+
+def _validar_tribunal_coerente(fonte: str, tribunal: str, url: str) -> None:
+    """Raises `ArtifactProvenanceError` when `url` names a different tribunal
+    than the manifest's own `tribunal` column claims for this row.
+    """
+    esperado = _tribunal_da_url(fonte, url)
+    if esperado is not None and esperado != tribunal.lower():
+        msg = (
+            f"Tribunal declarado no índice ({tribunal!r}) incoerente com o "
+            f"tribunal do artefato ({esperado!r}) para fonte {fonte!r}: {url!r}"
+        )
+        raise ArtifactProvenanceError(msg)
+
+
 # Same 48h freshness SLO the canary/dashboard already alarm on
 # (docs/SERVICE_OBJECTIVES.md, FRESHNESS_THRESHOLD_MS in siteStatus.ts) —
 # not a new number invented for this check.
@@ -134,8 +182,10 @@ def _url_list_sql(urls: list[str]) -> str:
 def _indice_sql(url: str) -> str:
     # `url` é sempre uma constante do módulo (ou um override explícito de
     # teste), nunca entrada do usuário — só o CNJ, abaixo, é bind parameter.
+    # `tribunal` é selecionado para a checagem de coerência de proveniência
+    # (issue #1610, TM-04) feita por `_fonte_urls`/`_validar_tribunal_coerente`.
     return f"""
-        SELECT fonte, arquivo_ia_url
+        SELECT fonte, arquivo_ia_url, tribunal
         FROM read_parquet('{url}')
         WHERE numero_processo = ?
     """
@@ -300,17 +350,31 @@ def _carregar_cobertura(report_url: str) -> tuple[list[FonteCobertura], str | No
     return cobertura, data.get("generated_at")
 
 
-def _fonte_urls(rows: list[tuple[str, str]], fonte: str, avisos: list[str]) -> list[str]:
+def _fonte_urls(rows: list[tuple[str, str, str]], fonte: str, avisos: list[str]) -> list[str]:
     """URLs registradas para `fonte`, descartando (com aviso) qualquer uma que
-    falhe a política de artefato -- ver `_validate_artifact_url` (#1610).
+    falhe a política de artefato (`_validate_artifact_url`) ou a checagem de
+    coerência de tribunal (`_validar_tribunal_coerente`) -- ambas #1610.
     """
-    urls = sorted({url for row_fonte, url in rows if row_fonte == fonte})
+    urls_tribunais: dict[str, set[str]] = {}
+    for row_fonte, url, tribunal in rows:
+        if row_fonte == fonte:
+            urls_tribunais.setdefault(url, set()).add(tribunal)
+
     validated = []
-    for url in urls:
+    for url in sorted(urls_tribunais):
         try:
-            validated.append(_validate_artifact_url(url))
+            url_valida = _validate_artifact_url(url)
+            for tribunal in urls_tribunais[url]:
+                _validar_tribunal_coerente(fonte, tribunal, url_valida)
         except ArtifactUrlError as exc:
             avisos.append(f"Fonte '{fonte}' descartou um artefato inválido no índice: {exc}")
+            continue
+        except ArtifactProvenanceError as exc:
+            avisos.append(
+                f"Fonte '{fonte}' descartou um artefato com tribunal incoerente no índice: {exc}"
+            )
+            continue
+        validated.append(url_valida)
     return validated
 
 
@@ -510,7 +574,7 @@ def buscar_processo(
                 avisos=avisos,
             )
 
-        fontes_presentes = sorted({fonte for fonte, _url in rows})
+        fontes_presentes = sorted({fonte for fonte, _url, _tribunal in rows})
         djen_urls = _fonte_urls(rows, "djen", avisos)
         juris_urls = _fonte_urls(rows, "juris", avisos)
         stj_urls = _fonte_urls(rows, "stj", avisos)
