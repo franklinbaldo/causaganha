@@ -121,11 +121,24 @@ jobs:
             # diagnosed. This bound doesn't fix a root cause; it turns any
             # future regression here into a fast, legible Playwright
             # TimeoutError instead of a silent 20-minute hang.
-            npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="$viewport" --full-page \
+            #
+            # A timeout here must not abort the whole job: this function
+            # exists to observe a code path ("before" a fix, "after" it)
+            # that can legitimately behave differently between the two
+            # states under comparison -- that's the whole point of a
+            # before/after visual diff. `set -euo pipefail` would otherwise
+            # treat one state's expected timeout as a hard script error and
+            # abort before capturing the other state at all. Report it and
+            # move on; the comparison step below already treats a missing
+            # capture as "different", which is the correct, informative
+            # outcome here.
+            if ! npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="$viewport" --full-page \
               --timeout 30000 \
               --wait-for-selector='text=CNJ inválido' \
               "http://127.0.0.1:${port}/causaganha/processo.html?cnj=123" \
-              "captures/processo-invalid-${suffix}-${state}.png"
+              "captures/processo-invalid-${suffix}-${state}.png"; then
+              echo "::warning::processo-invalid-${suffix}-${state} capture failed (timeout or error, see log above) -- comparison will report this surface as different"
+            fi
           }
 
           for state_port in before:4173 after:4174; do
