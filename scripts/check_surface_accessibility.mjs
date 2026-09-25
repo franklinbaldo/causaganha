@@ -26,6 +26,14 @@ let failed = false;
 
 for (const viewport of viewports) {
   const context = await browser.newContext({ viewport });
+  // Injected once per context, before any navigation: Playwright's
+  // addInitScript runs via CDP's Page.addScriptToEvaluateOnNewDocument,
+  // which — unlike a real <script> tag added post-navigation with
+  // page.addScriptTag({ content }) — is not subject to the page's own
+  // Content-Security-Policy. #1613 gave Layout.astro a strict
+  // `script-src 'self'` (no 'unsafe-inline'), which would otherwise reject
+  // axe-core's inline source outright.
+  await context.addInitScript({ content: axe.source });
   for (const route of routes) {
     const page = await context.newPage();
     const url = new URL(route, baseUrl).toString();
@@ -41,7 +49,6 @@ for (const viewport of viewports) {
       uiGenerationMatches = uiGeneration === 'cobogo-panda';
     }
 
-    await page.addScriptTag({ content: axe.source });
     const violations = await page.evaluate(async () => {
       const report = await globalThis.axe.run(document, {
         runOnly: {
