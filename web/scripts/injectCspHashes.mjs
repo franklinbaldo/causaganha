@@ -31,6 +31,24 @@ const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const CSP_META_RE =
   /(<meta\s+http-equiv="Content-Security-Policy"\s+content=")([^"]*)("\s*\/?>)/i;
 
+/**
+ * Removes every HTML comment, including cases a single non-looped
+ * `replace()` pass would miss: e.g. "<!-<!-- --><x>- -->" strips only the
+ * inner "<!-- -->" in one pass, leaving a literal "<!--" behind (CodeQL
+ * js/incomplete-sanitization). Repeats until the string stops changing so
+ * no such marker can survive.
+ * @param {string} html @returns {string}
+ */
+export function stripHtmlComments(html) {
+  let stripped = html;
+  let previous;
+  do {
+    previous = stripped;
+    stripped = stripped.replace(HTML_COMMENT_RE, "");
+  } while (stripped !== previous);
+  return stripped;
+}
+
 /** @param {string} html @returns {string[]} sorted, deduplicated sha256-base64 hashes */
 export function computeInlineScriptHashes(html) {
   // A browser never parses HTML comment contents as markup, so a literal
@@ -38,7 +56,7 @@ export function computeInlineScriptHashes(html) {
   // rationale comment in Layout.astro talks about "inline <script> tags"
   // in prose) must not be treated as a real element boundary. Strip
   // comments first, matching the scanner to what a real parser sees.
-  const withoutComments = html.replace(HTML_COMMENT_RE, "");
+  const withoutComments = stripHtmlComments(html);
   const hashes = new Set();
   for (const match of withoutComments.matchAll(INLINE_SCRIPT_RE)) {
     const attrs = match[1] ?? "";

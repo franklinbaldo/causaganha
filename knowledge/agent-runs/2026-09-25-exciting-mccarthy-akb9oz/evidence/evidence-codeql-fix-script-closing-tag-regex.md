@@ -4,7 +4,7 @@ id: "2026-09-25-exciting-mccarthy-akb9oz-evidence-codeql-fix-script-closing-tag-
 run_id: "2026-09-25-exciting-mccarthy-akb9oz"
 kind: "review"
 reference: "PR #1628 review comment 4102895727 (CodeQL, github-advanced-security[bot]); check run CodeQL (108009738210, 1 high severity alert); web/scripts/injectCspHashes.mjs:28"
-summary: "CodeQL sinalizou 2 alertas sucessivos de severidade alta em web/scripts/injectCspHashes.mjs:28 ('Bad HTML filtering regexp'), e uma terceira falha foi encontrada por verificacao manual propria (nao pelo CodeQL) antes de qualquer push. Rodada 1: INLINE_SCRIPT_RE usava /<\\/script>/, nao reconhecendo '</script >' (espaco antes do '>', tag de fechamento valida pelo tokenizer HTML5) -- corrigido para /<\\/script\\s*>/. Rodada 2: CodeQL apontou um caso mais geral, '</script\\t\\n bar>' (conteudo tipo-atributo arbitrario antes do '>', tambem valido -- o tokenizer HTML5 trata qualquer coisa apos o nome da tag de fechamento como atributos ignorados) -- corrigido para o padrao recomendado pela propria CodeQL, /<\\/script[^>]*>/. Rodada 3 (achado proprio, verificacao manual de um build real antes de push): o regex nao tem nocao de comentarios HTML -- o proprio comentario de racional da CSP em Layout.astro usa a frase 'inline <script> tags' em prosa, e o regex casava esse '<script>' literal dentro do comentario como inicio de um script real, consumindo greedily ate o proximo '</script...>' verdadeiro do documento (por sorte, sem engolir nenhum script legitimo no meio, mas produzindo um 4o hash espurio sobre comentario+markup nao relacionado -- inofensivo por nao corresponder a nenhum script real que um navegador executaria, mas uma prova de que o scanner nao reflete como um parser HTML real le o documento). Corrigido removendo comentarios HTML (/<!--[\\s\\S]*?-->/g) do documento antes de escanear por scripts -- so no caminho de deteccao/hash, nao no caminho de reescrita do <meta> CSP (que precisa continuar operando sobre o HTML real). TDD completo: 3 testes novos RED-then-GREEN, um por rodada, cobrindo cada padrao especificamente. Verificado ao vivo com Chromium real apos a correcao final: dist/processo.html volta a ter exatamente os 3 hashes legitimos (nao 4), e o probe de hidratacao (CNJ inválido) continua funcionando sem nenhum erro de console CSP."
+summary: "CodeQL sinalizou 3 alertas sucessivos de severidade alta em web/scripts/injectCspHashes.mjs (2 na mesma linha 28, 1 na linha 41), e uma quarta falha foi encontrada por verificacao manual propria (nao pelo CodeQL) antes de qualquer push. Rodada 1: INLINE_SCRIPT_RE usava /<\\/script>/, nao reconhecendo '</script >' (espaco antes do '>', tag de fechamento valida pelo tokenizer HTML5) -- corrigido para /<\\/script\\s*>/. Rodada 2: CodeQL apontou um caso mais geral, '</script\\t\\n bar>' (conteudo tipo-atributo arbitrario antes do '>', tambem valido) -- corrigido para o padrao recomendado pela propria CodeQL, /<\\/script[^>]*>/. Rodada 3 (achado proprio, verificacao manual de um build real antes de push): o regex nao tem nocao de comentarios HTML -- o proprio comentario de racional da CSP em Layout.astro usa a frase 'inline <script> tags' em prosa, e o regex casava esse '<script>' literal dentro do comentario, consumindo ate o proximo '</script...>' verdadeiro e produzindo um 4o hash espurio (inofensivo, mas prova de que o scanner nao lia o documento como um parser real). Corrigido removendo comentarios HTML antes de escanear. Rodada 4 (CodeQL, 'Incomplete multi-character sanitization', apos o push da rodada 3): a remocao de comentarios usava uma unica chamada html.replace(HTML_COMMENT_RE, \"\") -- confirmado programaticamente (node -e) que uma unica passada sobre a entrada '<!-<!-- --><x>- -->' remove so o par interno '<!-- -->' e deixa o par externo '<!-- -->' intacto no resultado, uma string que ainda contem '<!--' literal. Corrigido extraindo stripHtmlComments(html) como funcao propria testada isoladamente, que repete a substituicao ate o resultado estabilizar (loop de ponto fixo) -- garantindo que nenhuma sequencia remanescente de '<!--' sobrevive, exatamente a alegacao do alerta CodeQL. TDD completo: 5 testes novos RED-then-GREEN no total (1 por rodada 1/2/3, 2 para a rodada 4: o caso adversarial que derrota uma unica passada, e um caso de multiplos comentarios bem formados em sequencia). Verificado ao vivo com Chromium real apos todas as correcoes: dist/processo.html continua com exatamente os 3 hashes legitimos, hidratacao funciona, 0 erros de console CSP."
 ---
 
 # Evidencia: CodeQL (alta severidade) corrigido -- regex de fechamento de `<script>`
@@ -37,13 +37,13 @@ AssertionError: expected [] to deeply equal [ Array(1) ]
 ```
 
 ```
-$ npx vitest run scripts/injectCspHashes.test.ts   # apos as 3 correcoes
+$ npx vitest run scripts/injectCspHashes.test.ts   # apos as 4 correcoes
  Test Files  1 passed (1)
-      Tests  13 passed (13)
+      Tests  15 passed (15)
 
 $ npx vitest run   # suite web completa
  Test Files  80 passed (80)
-      Tests  598 passed (598)
+      Tests  600 passed (600)
 
 $ npx eslint . / npx astro check
 0 errors em ambos

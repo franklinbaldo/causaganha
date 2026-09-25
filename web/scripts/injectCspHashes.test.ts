@@ -4,6 +4,7 @@ import {
   computeInlineScriptHashes,
   injectHashesIntoCsp,
   rewriteHtmlCsp,
+  stripHtmlComments,
 } from "./injectCspHashes.mjs";
 
 function sha256Base64(content: string): string {
@@ -66,6 +67,25 @@ describe("computeInlineScriptHashes (#1613, TM-08 follow-up)", () => {
     // and the CodeQL-recommended fix for this query class is </script[^>]*>.
     const html = `<script>console.log("b")</script\t\n bar><p>outside</p>`;
     expect(computeInlineScriptHashes(html)).toEqual([sha256Base64('console.log("b")')]);
+  });
+});
+
+describe("stripHtmlComments (#1613, TM-08 follow-up; CodeQL js/incomplete-sanitization)", () => {
+  it("never leaves a literal '<!--' behind, even for overlapping/malformed markers that defeat a single non-looped replace() pass", () => {
+    // A single, non-repeated `.replace(HTML_COMMENT_RE, "")` call over this
+    // exact input strips only the inner "<!-- -->" pair and leaves the
+    // outer "<!-- -->" behind untouched (verified independently: the naive
+    // one-pass strip of "<!-<!-- --><x>- -->" yields "<!-- --><x>-->", a
+    // *result that still contains a literal '<!--'* -- exactly the
+    // CodeQL js/incomplete-sanitization finding this function must not
+    // reproduce). Stripping must repeat until the string stops changing.
+    const html = "<!-<!-- --><script>console.log(\"c\")</script>- -->";
+    expect(stripHtmlComments(html)).not.toContain("<!--");
+  });
+
+  it("removes well-formed comments completely, including several in sequence", () => {
+    const html = "a<!-- one -->b<!-- two -->c";
+    expect(stripHtmlComments(html)).toBe("abc");
   });
 });
 
