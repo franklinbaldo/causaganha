@@ -14,10 +14,16 @@ import pytest
 
 from causaganha.decisoes.published import PublishedDecisionDataset
 from causaganha.decisoes.search import DecisionHit, DecisionSearchResult
+from causaganha.processos.models import (
+    DocumentoProcesso,
+    ProcessoConsultaResult,
+    StjAcordao,
+)
 from causaganha.publicacoes.models import CoberturaArquivo, PublicacaoArquivo, PublicacoesBusca
 from causaganha_mcp.evidence import UNTRUSTED_LEGAL_TEXT
 from causaganha_mcp.server import build_server
-from causaganha_mcp.tools import decisoes, publicacoes as publicacoes_tool_module
+from causaganha_mcp.tools import decisoes, processo as processo_tool_module
+from causaganha_mcp.tools import publicacoes as publicacoes_tool_module
 
 
 CNJ = "00000010220248220001"
@@ -151,4 +157,89 @@ async def test_tool_output_schema_declares_the_content_trust_marker(
     tool = await mcp.get_tool(tool_name)
     item_schema = tool.output_schema["$defs"][concept_name]
 
+    assert item_schema["properties"]["tipo_conteudo"]["const"] == UNTRUSTED_LEGAL_TEXT
+
+
+_PROCESSO_CNJ = "00000010220248220001"
+_PROCESSO_CNJ_MASCARA = "0000001-02.2024.8.22.0001"
+
+
+def _processo_resultado_com_teor() -> ProcessoConsultaResult:
+    return ProcessoConsultaResult(
+        encontrado=True,
+        nr_processo=_PROCESSO_CNJ,
+        nr_processo_mascara=_PROCESSO_CNJ_MASCARA,
+        fontes_presentes=["stj"],
+        stj=StjAcordao(
+            id="stj-1",
+            classe="REsp",
+            relator="MIN X",
+            tema="tema",
+            tese=_INJECTION_TRECHO,
+            ementa=_INJECTION_TRECHO,
+            data_decisao="2024-05-01",
+            data_publicacao="2024-05-10",
+        ),
+        documentos=[
+            DocumentoProcesso(
+                fonte="stj",
+                id_documento="stj-1",
+                tipo="REsp",
+                data="2024-05-01",
+                url="",
+                resumo=_INJECTION_TRECHO,
+            )
+        ],
+    )
+
+
+async def test_processo_consultar_marks_documento_resumo_as_untrusted_legal_text(
+    mcp, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        processo_tool_module.service,
+        "buscar_processo",
+        lambda *a, **k: _processo_resultado_com_teor(),
+    )
+
+    fn = await _tool_fn(mcp, "processo_consultar")
+    result = fn(cnj=_PROCESSO_CNJ)
+
+    documento = result.documentos[0]
+    assert documento.resumo == _INJECTION_TRECHO, "resumo must reach the caller unmodified"
+    assert documento.tipo_conteudo == UNTRUSTED_LEGAL_TEXT
+
+
+async def test_processo_consultar_marks_stj_tese_ementa_as_untrusted_legal_text(
+    mcp, monkeypatch
+) -> None:
+    monkeypatch.setattr(
+        processo_tool_module.service,
+        "buscar_processo",
+        lambda *a, **k: _processo_resultado_com_teor(),
+    )
+
+    fn = await _tool_fn(mcp, "processo_consultar")
+    result = fn(cnj=_PROCESSO_CNJ)
+
+    assert result.stj.tese == _INJECTION_TRECHO, "tese must reach the caller unmodified"
+    assert result.stj.ementa == _INJECTION_TRECHO, "ementa must reach the caller unmodified"
+    assert result.stj.tipo_conteudo == UNTRUSTED_LEGAL_TEXT
+
+
+@pytest.mark.parametrize(
+    ("concept_name", "field_name"),
+    [
+        ("DocumentoResult", "resumo"),
+        ("StjAcordaoResult", "tese"),
+    ],
+)
+async def test_processo_consultar_output_schema_declares_the_content_trust_marker(
+    mcp, concept_name, field_name
+) -> None:
+    """The marker is part of the tool's advertised contract, not hidden metadata."""
+    tool = await mcp.get_tool("processo_consultar")
+    item_schema = tool.output_schema["$defs"][concept_name]
+
+    assert field_name in item_schema["properties"]
     assert item_schema["properties"]["tipo_conteudo"]["const"] == UNTRUSTED_LEGAL_TEXT
