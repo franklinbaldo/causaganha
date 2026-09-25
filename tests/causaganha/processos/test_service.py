@@ -16,6 +16,7 @@ import duckdb
 import pytest
 import respx
 
+from causaganha.consolidate import schema_registry
 from causaganha.processos import service
 from causaganha.processos.models import CnjInvalidoError, FonteCobertura
 from causaganha.processos.query_plan_fixtures import (
@@ -543,6 +544,168 @@ class TestTribunalCoerenteComUrl:
 
     def test_unverifiable_url_does_not_raise(self, tmp_path: Path) -> None:
         service._validar_tribunal_coerente("juris", "TJRO", str(tmp_path / "juris.parquet"))
+
+
+class TestMetadataDjenCoerente:
+    """Issue #1610 (TM-04), fatia "schema fingerprint"/"generation id": todo
+    export djen já grava `causaganha.schema_version`/`causaganha.item_id` no
+    rodapé KV_METADATA do Parquet (`schema_registry.kv_metadata_for_export`,
+    ativo desde a v3.0.0), mas nada consumia esse rodapé antes de compor
+    `read_parquet(arquivo_ia_url)`. Um artefato cujo próprio rodapé discorda
+    do item_id que a URL do índice nomeia (ou que não carrega nenhum
+    schema_version reconhecido) é a mesma classe de "controle de
+    significado" que `_validar_tribunal_coerente` já cobre para o tribunal,
+    agora verificada contra a identidade que o próprio arquivo declara, não
+    só contra a sintaxe da URL.
+    """
+
+    @pytest.mark.parametrize(
+        ("url", "esperado"),
+        [
+            ("https://archive.org/download/djen-tjro-2024/comunicacoes.parquet", "djen-tjro-2024"),
+            ("https://archive.org/download/djen-tjsp-2025/comunicacoes.parquet", "djen-tjsp-2025"),
+        ],
+    )
+    def test_item_id_extracted_from_djen_url(self, url: str, esperado: str) -> None:
+        assert service._item_id_da_url(url) == esperado
+
+    def test_item_id_none_for_local_test_path(self, tmp_path: Path) -> None:
+        assert service._item_id_da_url(str(tmp_path / "comunicacoes.parquet")) is None
+
+    def test_item_id_none_for_non_djen_source(self) -> None:
+        assert (
+            service._item_id_da_url(
+                "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet"
+            )
+            is None
+        )
+
+    def test_coherent_metadata_passes(self) -> None:
+        url = "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+        metadata = {
+            "causaganha.schema_version": schema_registry.CURRENT_VERSION,
+            "causaganha.item_id": "djen-tjro-2024",
+        }
+        service._validar_metadata_djen(url, metadata)
+
+    def test_unknown_schema_version_is_rejected(self) -> None:
+        url = "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+        metadata = {"causaganha.schema_version": "99.0.0", "causaganha.item_id": "djen-tjro-2024"}
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_djen(url, metadata)
+
+    def test_missing_schema_version_is_rejected(self) -> None:
+        url = "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_djen(url, {"causaganha.item_id": "djen-tjro-2024"})
+
+    def test_mismatched_item_id_is_rejected(self) -> None:
+        url = "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+        metadata = {
+            "causaganha.schema_version": schema_registry.CURRENT_VERSION,
+            "causaganha.item_id": "djen-tjsp-2024",
+        }
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_djen(url, metadata)
+
+    def test_unverifiable_url_does_not_raise(self, tmp_path: Path) -> None:
+        service._validar_metadata_djen(str(tmp_path / "comunicacoes.parquet"), {})
+
+
+def test_djen_artifact_footer_item_id_mismatch_degrades_source_instead_of_trusting(
+    tmp_path: Path,
+) -> None:
+    """The artifact itself, not just the manifest, can disagree with the URL
+    it is served at: a `comunicacoes.parquet` file whose own footer declares
+    `causaganha.item_id = djen-tjsp-2024` but is wired into the index under a
+    `djen-tjro-2024` URL must degrade to an aviso instead of being trusted —
+    this is the real bytes swapped under an unchanged URL, not just a bad
+    string in the manifest row (which `_validar_tribunal_coerente` already
+    catches).
+    """
+    from causaganha.processos.query_plan_fixtures import CNJ_ALL
+
+    item_dir = tmp_path / "download" / "djen-tjro-2024"
+    item_dir.mkdir(parents=True)
+    comunicacoes = item_dir / "comunicacoes.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            COPY (
+                SELECT '{CNJ_ALL}' AS numero_processo, DATE '2024-03-01' AS data_disponibilizacao,
+                    'TJRO' AS tribunal
+            ) TO '{comunicacoes}' (FORMAT PARQUET,
+                {schema_registry.kv_metadata_sql_fragment("djen-tjsp-2024", table_name="comunicacoes")})
+            """
+        )
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'djen' AS fonte, 'c1' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-03-01' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, str(comunicacoes)],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(CNJ_ALL, indice_url=str(indice), report_url=str(report))
+
+    assert result.encontrado is True
+    assert result.djen is None
+    assert any("item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos)
+    assert not any("indispon" in aviso.lower() for aviso in result.avisos)
+
+
+def test_djen_artifact_footer_item_id_coerente_is_accepted(tmp_path: Path) -> None:
+    """The positive case: a footer whose `causaganha.item_id` agrees with the
+    URL it's served at must not be dropped -- `djen` keeps being populated
+    exactly like it would without this check.
+    """
+    from causaganha.processos.query_plan_fixtures import CNJ_ALL
+
+    item_dir = tmp_path / "download" / "djen-tjro-2024"
+    item_dir.mkdir(parents=True)
+    comunicacoes = item_dir / "comunicacoes.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            COPY (
+                SELECT '{CNJ_ALL}' AS numero_processo, DATE '2024-03-01' AS data_disponibilizacao,
+                    'TJRO' AS tribunal
+            ) TO '{comunicacoes}' (FORMAT PARQUET,
+                {schema_registry.kv_metadata_sql_fragment("djen-tjro-2024", table_name="comunicacoes")})
+            """
+        )
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'djen' AS fonte, 'c1' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-03-01' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, str(comunicacoes)],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(CNJ_ALL, indice_url=str(indice), report_url=str(report))
+
+    assert result.encontrado is True
+    assert result.djen is not None
+    assert result.djen.n_publicacoes == 1
+    assert not any(
+        "item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos
+    )
 
 
 def test_poisoned_manifest_tribunal_degrades_source_instead_of_trusting(tmp_path: Path) -> None:

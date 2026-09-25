@@ -1,0 +1,10 @@
+---
+type: AgentReading
+id: "2026-09-25-exciting-mccarthy-qn6gvy-reading-okf"
+run_id: "2026-09-25-exciting-mccarthy-qn6gvy"
+subject: "okf_knowledge"
+reference: "knowledge/agent-runs/2026-09-25-exciting-mccarthy-{e0vvbh,akb9oz,q4zn8q}/run.md + src/causaganha/consolidate/schema_registry.py + docs/SECURITY_THREAT_MODEL.md (linha TM-04)"
+finding: "e0vvbh (09:47Z) fechou a fatia tratável de TM-04 (#1610): tribunal declarado por linha em indice_processual.parquet cruzado contra o tribunal que o próprio arquivo_ia_url nomeia (service._validar_tribunal_coerente/_tribunal_da_url), para djen/datajud. next_move dessa mesma rodada e da rodada akb9oz (07:50Z) concordam: o que falta do critério de conclusão de TM-04 — generation id, hash, schema fingerprint, row count coerentes com o manifesto — 'não existe em nenhum gerador do repositório' e é 'um escopo de design maior... talvez mereça uma RFC própria antes de qualquer implementação'. q4zn8q (2026-09-15) mostra o padrão já usado nesta base para provar identidade de artefato sem RFC nova: src/datajud/state.py já calcula um hash de conteúdo ('generation') e verifica na leitura antes de aceitar um bundle. Busca direta em schema_registry.py revelou uma segunda peça de proveniência JÁ EMITIDA e nunca verificada: todo export djen (comunicacoes/processos) grava KV_METADATA no rodapé do Parquet via kv_metadata_for_export — causaganha.schema_version e causaganha.item_id — confirmado ao vivo nesta rodada com uma leitura real via DuckDB parquet_kv_metadata() contra https://archive.org/download/djen-tjro-2026/comunicacoes.parquet (retornou schema_version='3.0.0', item_id='djen-tjro-2026'), uma leitura de rodapé (barata, sem baixar o arquivo inteiro) e não uma amostragem hipotética. juris/stj/datajud não emitem esse KV_METADATA hoje (gap real, não escondido). Isso dá uma fatia de TM-04 genuinely tratável nesta rodada, sem precisar de RFC prévia nem de mudar nenhum gerador: verificar o schema_fingerprint/item_id já publicado pelo djen antes de compor a consulta, ao lado da checagem de tribunal que e0vvbh já fez."
+---
+
+# Leitura: OKF (rodadas recentes + prior art)

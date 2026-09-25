@@ -38,6 +38,7 @@ from urllib.parse import urlsplit
 import duckdb
 import httpx
 
+from causaganha.consolidate.schema_registry import SCHEMA_REGISTRY
 from causaganha.processos.cnj import formatar_cnj, normalizar_cnj
 from causaganha.processos.models import (
     CnjInvalidoError,
@@ -144,6 +145,96 @@ def _validar_tribunal_coerente(fonte: str, tribunal: str, url: str) -> None:
             f"tribunal do artefato ({esperado!r}) para fonte {fonte!r}: {url!r}"
         )
         raise ArtifactProvenanceError(msg)
+
+
+# Issue #1610 (TM-04), fatia "schema fingerprint"/"generation id": todo export
+# djen (comunicacoes/processos) já grava KV_METADATA no rodapé do próprio
+# arquivo Parquet -- causaganha.schema_version e causaganha.item_id
+# (schema_registry.kv_metadata_for_export, ativo desde a v3.0.0) -- mas nada
+# lia esse rodapé antes de compor read_parquet(arquivo_ia_url). Diferente de
+# _validar_tribunal_coerente (que só cruza duas strings do próprio índice),
+# esta checagem lê o que o artefato de origem *declara sobre si mesmo*, via
+# parquet_kv_metadata() -- uma leitura do rodapé Parquet (barata, via
+# httpfs range-read; não baixa o arquivo inteiro), o único jeito prático de
+# verificar identidade de artefato sem contradizer o motivo de usar DuckDB-WASM
+# httpfs em primeiro lugar (consulta seletiva, não download completo). Um
+# hash/row-count de conteúdo completo continuaria exigindo o arquivo inteiro
+# e fica fora do alcance desta fatia -- ver docs/SECURITY_THREAT_MODEL.md
+# TM-04 para o que permanece em aberto. juris/stj/datajud não emitem esse
+# KV_METADATA hoje (gap real, documentado, não coberto por esta checagem).
+_DJEN_ITEM_ID_PATTERN = re.compile(r"/download/(djen-[a-z0-9]+-\d{4})/")
+
+
+def _item_id_da_url(url: str) -> str | None:
+    """IA item id (`djen-{tribunal}-{ano}`) embedded in `url`'s path, or
+    `None` when `url` isn't shaped like a djen artifact URL (e.g. a local
+    test path) -- in which case there is no independent claim to check the
+    artifact's own footer metadata against.
+    """
+    match = _DJEN_ITEM_ID_PATTERN.search(url)
+    return match.group(1) if match else None
+
+
+def _validar_metadata_djen(url: str, metadata: dict[str, str]) -> None:
+    """Raises `ArtifactProvenanceError` when a djen artifact's own Parquet
+    footer KV_METADATA disagrees with (or lacks) the identity its
+    `arquivo_ia_url` claims -- a compromised/mismatched artifact swapped
+    under an unchanged URL, not just a bad string in the manifest row.
+    """
+    esperado_item_id = _item_id_da_url(url)
+    if esperado_item_id is None:
+        return
+    schema_version = metadata.get("causaganha.schema_version")
+    if schema_version is None or schema_version not in SCHEMA_REGISTRY:
+        msg = (
+            f"Artefato djen sem schema_version reconhecido no rodapé Parquet "
+            f"({schema_version!r}): {url!r}"
+        )
+        raise ArtifactProvenanceError(msg)
+    item_id = metadata.get("causaganha.item_id")
+    if item_id != esperado_item_id:
+        msg = (
+            f"Artefato djen declara item_id {item_id!r} no rodapé Parquet, mas "
+            f"a URL do índice aponta para {esperado_item_id!r}: {url!r}"
+        )
+        raise ArtifactProvenanceError(msg)
+
+
+def _kv_metadata(con: duckdb.DuckDBPyConnection, url: str) -> dict[str, str]:
+    """KV_METADATA entries from `url`'s Parquet footer, decoded to str.
+
+    `parquet_kv_metadata` reads only the footer (httpfs range-read for a
+    remote URL) -- it does not fetch the file's row data.
+    """
+    rows = con.execute(f"SELECT key, value FROM parquet_kv_metadata('{url}')").fetchall()
+
+    def _decode(value: object) -> str:
+        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+
+    return {_decode(key): _decode(value) for key, value in rows}
+
+
+def _validar_metadata_djen_urls(
+    con: duckdb.DuckDBPyConnection, urls: list[str], avisos: list[str]
+) -> list[str]:
+    """djen URLs whose footer KV_METADATA passes `_validar_metadata_djen`,
+    dropping (with an aviso, never a fatal exception) any that fail to read
+    or fail the check -- same non-fatal-per-artifact policy as the rest of
+    this module.
+    """
+    validated = []
+    for url in urls:
+        try:
+            metadata = _kv_metadata(con, url)
+            _validar_metadata_djen(url, metadata)
+        except duckdb.Error as exc:
+            avisos.append(f"Fonte 'djen' descartou um artefato sem rodapé Parquet legível: {exc}")
+            continue
+        except ArtifactProvenanceError as exc:
+            avisos.append(f"Fonte 'djen' descartou um artefato com {exc}")
+            continue
+        validated.append(url)
+    return validated
 
 
 # Same 48h freshness SLO the canary/dashboard already alarm on
@@ -576,6 +667,7 @@ def buscar_processo(
 
         fontes_presentes = sorted({fonte for fonte, _url, _tribunal in rows})
         djen_urls = _fonte_urls(rows, "djen", avisos)
+        djen_urls = _validar_metadata_djen_urls(con, djen_urls, avisos)
         juris_urls = _fonte_urls(rows, "juris", avisos)
         stj_urls = _fonte_urls(rows, "stj", avisos)
         datajud_urls = _fonte_urls(rows, "datajud", avisos)
