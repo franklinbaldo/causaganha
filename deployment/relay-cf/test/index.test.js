@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { handleRequest, hostAllowed, verifyToken } from "../src/index.js";
+import { handleRequest, hostAllowed, readBounded, verifyToken } from "../src/index.js";
 
 const ENV = { RELAY_TOKEN: "correct horse battery staple" };
 
@@ -90,6 +90,28 @@ describe("relay forwarding", () => {
     expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
+  it("strips Authorization and Cookie before forwarding upstream", async () => {
+    const upstreamFetch = vi.fn(async (_url, init) => {
+      expect(init.headers.has("authorization")).toBe(false);
+      expect(init.headers.has("cookie")).toBe(false);
+      return new Response("ok", { status: 200 });
+    });
+
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/", {
+        headers: {
+          authorization: "Bearer stolen-token",
+          cookie: "session=hijacked",
+        },
+      }),
+      ENV,
+      upstreamFetch,
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
   it("returns a generic 502 when the upstream fetch fails", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = await handleRequest(
@@ -104,5 +126,100 @@ describe("relay forwarding", () => {
     await expect(response.text()).resolves.toBe("upstream error");
     expect(errorSpy).toHaveBeenCalledOnce();
     errorSpy.mockRestore();
+  });
+
+  it("strips Set-Cookie from the upstream response", async () => {
+    const upstreamFetch = vi.fn(
+      async () =>
+        new Response("ok", {
+          status: 200,
+          headers: { "set-cookie": "session=abc123" },
+        }),
+    );
+
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/"),
+      ENV,
+      upstreamFetch,
+    );
+
+    expect(response.headers.has("set-cookie")).toBe(false);
+  });
+});
+
+describe("relay egress budgets (TM-02 / #1609)", () => {
+  it("readBounded assembles chunks that stay within budget", async () => {
+    const stream = new Response("hello").body;
+    const bytes = await readBounded(stream, 100);
+    expect(new TextDecoder().decode(bytes)).toBe("hello");
+  });
+
+  it("readBounded returns null once the stream exceeds budget", async () => {
+    const stream = new Response("hello world").body;
+    const bytes = await readBounded(stream, 5);
+    expect(bytes).toBeNull();
+  });
+
+  it("readBounded returns an empty buffer for a null stream", async () => {
+    const bytes = await readBounded(null, 5);
+    expect(bytes.byteLength).toBe(0);
+  });
+
+  it("rejects a request body over budget with 413, never calling upstream", async () => {
+    const upstreamFetch = vi.fn();
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/", {
+        method: "POST",
+        body: "x".repeat(11),
+      }),
+      ENV,
+      upstreamFetch,
+      { maxRequestBytes: 10, maxResponseBytes: 1024 },
+    );
+
+    expect(response.status).toBe(413);
+    expect(upstreamFetch).not.toHaveBeenCalled();
+  });
+
+  it("allows a request body within budget", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("ok", { status: 200 }));
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/", {
+        method: "POST",
+        body: "x".repeat(10),
+      }),
+      ENV,
+      upstreamFetch,
+      { maxRequestBytes: 10, maxResponseBytes: 1024 },
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
+  it("returns 502 when the upstream response exceeds budget", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("x".repeat(11), { status: 200 }));
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/"),
+      ENV,
+      upstreamFetch,
+      { maxRequestBytes: 1024, maxResponseBytes: 10 },
+    );
+
+    expect(response.status).toBe(502);
+    await expect(response.text()).resolves.toBe("upstream response too large");
+  });
+
+  it("allows an upstream response within budget", async () => {
+    const upstreamFetch = vi.fn(async () => new Response("x".repeat(10), { status: 200 }));
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/"),
+      ENV,
+      upstreamFetch,
+      { maxRequestBytes: 1024, maxResponseBytes: 10 },
+    );
+
+    expect(response.status).toBe(200);
+    await expect(response.text()).resolves.toBe("x".repeat(10));
   });
 });

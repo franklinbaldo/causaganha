@@ -337,9 +337,15 @@
   }
 
   onMount(() => {
+    // init() (DuckDB-WASM connection) runs in the background, never gating
+    // what follows: a syntactically invalid ?cnj= in the URL must render
+    // "CNJ inválido" immediately, since format validation needs no database
+    // at all -- and DuckDB-WASM's own init can take a long time, or on some
+    // browsers/networks (no COOP/COEP on this static site) never settle.
+    // search() already awaits init() itself, but only once it knows the
+    // input is a syntactically valid CNJ that actually needs a query.
+    void init();
     (async () => {
-      await init();
-      if (cancelled) return;
       const fromUrl = typeof window !== 'undefined' ? readCnjParam(window.location.search) : null;
       if (fromUrl) {
         input = fromUrl;

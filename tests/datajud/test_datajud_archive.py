@@ -7,11 +7,13 @@ from urllib.parse import unquote
 
 import duckdb
 import httpx
+import pyarrow.parquet as pq
 import pytest
 import respx
 
 from datajud.archive import (
     CAPA_SCHEMA,
+    DATAJUD_SCHEMA_VERSION,
     MOVIMENTOS_SCHEMA,
     capa_parquet_name,
     item_id,
@@ -65,7 +67,9 @@ def test_item_and_parquet_naming():
 
 def test_write_capa_parquet_roundtrip(tmp_path: Path):
     path = tmp_path / "capa.parquet"
-    count = write_capa_parquet([_capa_row(), _capa_row(grau="G2", orgao_julgador_codigo=222)], path)
+    count = write_capa_parquet(
+        [_capa_row(), _capa_row(grau="G2", orgao_julgador_codigo=222)], path, tribunal="tjro"
+    )
     assert count == 2
 
     con = duckdb.connect()
@@ -82,7 +86,7 @@ def test_write_capa_parquet_roundtrip(tmp_path: Path):
 def test_write_capa_parquet_tolerates_missing_and_extra_keys(tmp_path: Path):
     path = tmp_path / "capa.parquet"
     row = {"numero_processo": CNJ, "grau": "G1", "unknown_column": "ignored"}
-    assert write_capa_parquet([row], path) == 1
+    assert write_capa_parquet([row], path, tribunal="tjro") == 1
 
     con = duckdb.connect()
     result = con.execute(
@@ -106,7 +110,7 @@ def test_write_movimentos_parquet_roundtrip(tmp_path: Path):
             "complementos": "tipo=sorteio",
         }
     ]
-    assert write_movimentos_parquet(rows, path) == 1
+    assert write_movimentos_parquet(rows, path, tribunal="tjro") == 1
 
     con = duckdb.connect()
     cols = [d[0] for d in con.execute(f"SELECT * FROM read_parquet('{path}')").description]
@@ -116,11 +120,75 @@ def test_write_movimentos_parquet_roundtrip(tmp_path: Path):
 
 def test_write_empty_parquet_keeps_schema(tmp_path: Path):
     path = tmp_path / "empty.parquet"
-    assert write_capa_parquet([], path) == 0
+    assert write_capa_parquet([], path, tribunal="tjro") == 0
     con = duckdb.connect()
     cols = [d[0] for d in con.execute(f"SELECT * FROM read_parquet('{path}')").description]
     con.close()
     assert cols == CAPA_SCHEMA.names
+
+
+# ── KV_METADATA footer (issue #1610, TM-04) ────────────────────────────────
+#
+# djen (schema_registry.kv_metadata_for_export) and juris
+# (tjro_juris.service._kv_metadata_for_export) already embed
+# causaganha.schema_version/causaganha.item_id in the Parquet footer so a
+# read-side check can catch an artifact swapped under an unchanged URL.
+# datajud has its own write_parquet pipeline under this repo's control
+# (unlike stj_acordaos, which has none) but never emitted this footer —
+# this closes that write-side gap, mirroring juris exactly.
+
+
+def test_write_capa_parquet_embeds_schema_version_and_item_id_in_footer(tmp_path: Path):
+    path = tmp_path / "capa.parquet"
+    write_capa_parquet([_capa_row()], path, tribunal="TJRO")
+
+    metadata = pq.read_schema(path).metadata
+    assert metadata[b"causaganha.schema_version"] == DATAJUD_SCHEMA_VERSION.encode()
+    assert metadata[b"causaganha.item_id"] == item_id("TJRO").encode()
+
+
+def test_write_movimentos_parquet_embeds_schema_version_and_item_id_in_footer(tmp_path: Path):
+    path = tmp_path / "mov.parquet"
+    write_movimentos_parquet(
+        [
+            {
+                "numero_processo": CNJ,
+                "tribunal": "TJRO",
+                "grau": "G1",
+                "orgao_julgador_codigo": 111,
+                "codigo": 26,
+                "nome": "Distribuição",
+                "data_hora": "2024-01-15T10:30:00.000Z",
+                "complementos": "tipo=sorteio",
+            }
+        ],
+        path,
+        tribunal="TJRO",
+    )
+
+    metadata = pq.read_schema(path).metadata
+    assert metadata[b"causaganha.schema_version"] == DATAJUD_SCHEMA_VERSION.encode()
+    assert metadata[b"causaganha.item_id"] == item_id("TJRO").encode()
+
+
+def test_write_capa_parquet_footer_metadata_is_readable_via_duckdb_parquet_kv_metadata(
+    tmp_path: Path,
+):
+    """Same read path the service-side check uses (`parquet_kv_metadata`, a
+    footer-only httpfs range-read), not just pyarrow's own schema reader.
+    """
+    path = tmp_path / "capa.parquet"
+    write_capa_parquet([_capa_row()], path, tribunal="tjro")
+
+    con = duckdb.connect()
+    raw_rows = con.execute(f"SELECT key, value FROM parquet_kv_metadata('{path}')").fetchall()
+    con.close()
+    rows = {
+        (k.decode() if isinstance(k, bytes) else k): (v.decode() if isinstance(v, bytes) else v)
+        for k, v in raw_rows
+    }
+    assert rows["causaganha.schema_version"] == DATAJUD_SCHEMA_VERSION
+    assert rows["causaganha.item_id"] == "datajud-tjro"
 
 
 # ── IA upload ────────────────────────────────────────────────────────────

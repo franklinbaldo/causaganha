@@ -34,6 +34,37 @@ def test_load_local_non_numeric_n_docs_raises_manifest_format_error(tmp_path: Pa
         ManifestJuris.load_local(path)
 
 
+@pytest.mark.parametrize(
+    "mes_ano",
+    [
+        "2024-01/../../secret-item",
+        "2024-01/etc/passwd",
+        "../../2024-01",
+        "2024-1",
+        "2024-13",
+        "abcd-ef",
+        "",
+    ],
+)
+def test_load_text_rejects_malformed_mes_ano(mes_ano: str) -> None:
+    """`mes_ano` is interpolated into a `read_parquet` URL by
+    `causaganha.decisoes.published._juris_url` (issue #1610): `urllib.parse.quote`'s
+    default `safe='/'` lets an embedded `/` (in particular `../`) survive into the
+    resulting archive.org URL unescaped, redirecting the DuckDB fetch target outside
+    the intended item. A manifest that cannot produce a well-formed `YYYY-MM` value
+    must fail closed at parse time, before any URL is ever built from it.
+    """
+    text = f"{HEADER}\nACÓRDÃO,{mes_ano},uploaded,5,\n"
+
+    with pytest.raises(ManifestFormatError, match="mes_ano"):
+        ManifestJuris.load_text(text)
+
+
+def test_load_text_accepts_well_formed_mes_ano() -> None:
+    m = ManifestJuris.load_text(f"{HEADER}\nACÓRDÃO,2024-01,uploaded,5,\n")
+    assert m.get("ACÓRDÃO", "2024-01") is not None
+
+
 def test_save_load_roundtrip(tmp_path: Path) -> None:
     path = tmp_path / "tjro-juris-manifest.csv"
     m1 = ManifestJuris()

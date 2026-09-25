@@ -58,17 +58,33 @@ jobs:
           echo "Manifest rows: $(tail -n +2 data/sync-manifest.csv | wc -l)"
 
       - name: Run roundtrip equivalence check
+        env:
+          # See #1608/TM-01: dispatch inputs arrive as env vars, never
+          # spliced into the script text below.
+          ROUNDTRIP_DATE: ${{ github.event.inputs.date || '' }}
+          ROUNDTRIP_SAMPLE_SIZE: ${{ github.event.inputs.sample_size || '50' }}
         run: |
-          DATE="${{ github.event.inputs.date || '' }}"
-          SAMPLE="${{ github.event.inputs.sample_size || '50' }}"
+          set -euo pipefail
 
-          CMD="uv run python scripts/roundtrip_check.py --sample $SAMPLE"
-          if [ -n "$DATE" ]; then
-            CMD="$CMD --date $DATE"
+          DATE="$ROUNDTRIP_DATE"
+          SAMPLE="$ROUNDTRIP_SAMPLE_SIZE"
+
+          if ! [[ "$SAMPLE" =~ ^[0-9]+$ ]]; then
+            echo "::error::sample_size must be a non-negative integer, got: $SAMPLE" >&2
+            exit 1
+          fi
+          if [ -n "$DATE" ] && ! [[ "$DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "::error::date must be YYYY-MM-DD, got: $DATE" >&2
+            exit 1
           fi
 
-          echo "Running: $CMD"
-          $CMD
+          CMD=(uv run python scripts/roundtrip_check.py --sample "$SAMPLE")
+          if [ -n "$DATE" ]; then
+            CMD+=(--date "$DATE")
+          fi
+
+          echo "Running: ${CMD[*]}"
+          "${CMD[@]}"
 
       - name: Roundtrip summary
         if: always()

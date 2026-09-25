@@ -1,0 +1,11 @@
+---
+type: AgentGoal
+id: "2026-09-25-exciting-mccarthy-r0zxiq-goal-datajud-kv-metadata"
+run_id: "2026-09-25-exciting-mccarthy-r0zxiq"
+goal: "Fechar o gap write+read do KV_METADATA de identidade (TM-04, issue #1610) para a fonte `datajud`, em Python e no espelho TS, mirando exatamente o padrão já usado para djen e juris."
+rationale: "`docs/SECURITY_THREAT_MODEL.md` TM-04 afirmava que `datajud`, como `stj`, não tinha pipeline de export Parquet sob controle deste repo -- essa afirmação está errada: `datajud.archive._write_parquet` (usado por `datajud.service.persist`) grava `datajud-capa-{tribunal}.parquet`/`datajud-movimentos-{tribunal}.parquet` sob controle total deste repo. `causaganha.processos.service.buscar_processo` já valida o rodapé Parquet de djen e juris (`_validar_metadata_djen_urls`/`_validar_metadata_juris_urls`) antes de compor `read_parquet`, mas passava `datajud_urls` direto para `_build_datajud` sem a mesma checagem -- e o mesmo gap existia, simetricamente, em `web/src/lib/processoCnj.ts`. Um artefato datajud comprometido/trocado sob uma URL de índice inalterada não seria detectado antes de alimentar o dossiê público de um CNJ -- exatamente a classe de ameaça (\"controle de significado\") que TM-04 define."
+success_signal: "`_validar_metadata_datajud_urls`/`_validar_metadata_datajud` existem em `src/causaganha/processos/service.py` e são chamadas em `buscar_processo` antes de `_build_datajud`; `validarMetadataDatajudUrls`/`validarMetadataDatajud` existem em `web/src/lib/processoCnj.ts` e são chamadas antes de `buildDatajudSql`; `datajud.archive.write_capa_parquet`/`write_movimentos_parquet` embutem `causaganha.schema_version`/`causaganha.item_id` no rodapé Parquet via `tribunal` obrigatório; testes RED->GREEN cobrindo write-side (footer legível via pyarrow e via `parquet_kv_metadata` do DuckDB), read-side (fixture com item_id incoerente degrada com aviso; fixture coerente é aceita) em Python e TS; `uv run ruff check`/`format --check` limpos; suíte Python completa (`uv run pytest -q`) verde; suíte de testes do arquivo `processoCnj.test.ts` verde (168/168); `docs/SECURITY_THREAT_MODEL.md` TM-04 corrigido para refletir o estado real (datajud fechado, stj genuinamente fora de alcance); PR aberta."
+status: "achieved"
+---
+
+# Goal: KV_METADATA de identidade para `datajud` (TM-04, #1610)

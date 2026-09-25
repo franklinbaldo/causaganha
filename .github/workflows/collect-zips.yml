@@ -61,6 +61,15 @@ jobs:
       IAS3_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
       IA_UPLOAD_RATE_LIMIT: "32"
       DJEN_RATE_LIMIT: "10"
+      # See #1608/TM-01: dispatch inputs arrive as job-level env vars, never
+      # spliced into a step's script text (that would let a crafted input
+      # break out of quoting and run shell in this secret-bearing job, which
+      # also runs every 20 minutes on cron).
+      COLLECT_WORKERS: ${{ github.event.inputs.workers || '8' }}
+      COLLECT_DEADLINE_MINUTES: ${{ github.event.inputs.deadline_minutes || '17' }}
+      COLLECT_TRIBUNAL: ${{ github.event.inputs.tribunal || '' }}
+      COLLECT_START_DATE: ${{ github.event.inputs.start_date || '2020-01-01' }}
+      COLLECT_END_DATE: ${{ github.event.inputs.end_date || '' }}
 
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
@@ -78,28 +87,51 @@ jobs:
 
       - name: Run djen-backup
         run: |
-          WORKERS="${{ github.event.inputs.workers || '8' }}"
-          DEADLINE="${{ github.event.inputs.deadline_minutes || '17' }}"
-          TRIBUNAL="${{ github.event.inputs.tribunal || '' }}"
-          START_DATE="${{ github.event.inputs.start_date || '2020-01-01' }}"
-          END_DATE="${{ github.event.inputs.end_date || '' }}"
+          set -euo pipefail
 
-          CMD="uv run --no-dev djen-backup"
-          CMD="$CMD --deadline-minutes $DEADLINE"
-          CMD="$CMD --workers $WORKERS"
-          CMD="$CMD --start-date $START_DATE"
-          CMD="$CMD --use-proxy"
-          CMD="$CMD --no-fail-fast"
+          WORKERS="$COLLECT_WORKERS"
+          DEADLINE="$COLLECT_DEADLINE_MINUTES"
+          TRIBUNAL="$COLLECT_TRIBUNAL"
+          START_DATE="$COLLECT_START_DATE"
+          END_DATE="$COLLECT_END_DATE"
+
+          if ! [[ "$WORKERS" =~ ^[0-9]+$ ]]; then
+            echo "::error::workers must be a non-negative integer, got: $WORKERS" >&2
+            exit 1
+          fi
+          if ! [[ "$DEADLINE" =~ ^[0-9]+$ ]]; then
+            echo "::error::deadline_minutes must be a non-negative integer, got: $DEADLINE" >&2
+            exit 1
+          fi
+          if ! [[ "$START_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "::error::start_date must be YYYY-MM-DD, got: $START_DATE" >&2
+            exit 1
+          fi
+          if [ -n "$END_DATE" ] && ! [[ "$END_DATE" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+            echo "::error::end_date must be YYYY-MM-DD, got: $END_DATE" >&2
+            exit 1
+          fi
+          if [ -n "$TRIBUNAL" ] && ! [[ "$TRIBUNAL" =~ ^[A-Za-z0-9]{2,10}$ ]]; then
+            echo "::error::tribunal must match ^[A-Za-z0-9]{2,10}$, got: $TRIBUNAL" >&2
+            exit 1
+          fi
+
+          CMD=(uv run --no-dev djen-backup)
+          CMD+=(--deadline-minutes "$DEADLINE")
+          CMD+=(--workers "$WORKERS")
+          CMD+=(--start-date "$START_DATE")
+          CMD+=(--use-proxy)
+          CMD+=(--no-fail-fast)
 
           if [ -n "$END_DATE" ]; then
-            CMD="$CMD --end-date $END_DATE"
+            CMD+=(--end-date "$END_DATE")
           fi
           if [ -n "$TRIBUNAL" ]; then
-            CMD="$CMD --tribunal $TRIBUNAL"
+            CMD+=(--tribunal "$TRIBUNAL")
           fi
 
-          echo "Running: $CMD"
-          $CMD
+          echo "Running: ${CMD[*]}"
+          "${CMD[@]}"
 
       - name: Save manifest cache
         if: always()

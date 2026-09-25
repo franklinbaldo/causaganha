@@ -74,6 +74,27 @@ def item_id(tribunal: str) -> str:
     return f"datajud-{tribunal.lower()}"
 
 
+# TM-04 (docs/SECURITY_THREAT_MODEL.md, issue #1610): djen
+# (schema_registry.kv_metadata_for_export) and juris
+# (tjro_juris.service._kv_metadata_for_export) embed identity KV_METADATA in
+# the Parquet footer so a read-side check can catch an artifact swapped
+# under an unchanged URL. datajud has its own write_parquet pipeline under
+# this repo's control (unlike stj_acordaos, which has none) but never
+# emitted this footer -- same "causaganha.*" key namespace here so a
+# generic reader can treat all three sources uniformly. Bump on breaking
+# schema changes to CAPA_SCHEMA/MOVIMENTOS_SCHEMA (SemVer, mirroring
+# schema_registry's convention).
+DATAJUD_SCHEMA_VERSION = "1.0.0"
+
+
+def _kv_metadata_for_export(datajud_item_id: str) -> dict[str, str]:
+    """KV metadata to embed in the Parquet footer via ``replace_schema_metadata``."""
+    return {
+        "causaganha.schema_version": DATAJUD_SCHEMA_VERSION,
+        "causaganha.item_id": datajud_item_id,
+    }
+
+
 def capa_parquet_name(tribunal: str) -> str:
     """Canonical capa parquet filename for a tribunal."""
     return f"datajud-capa-{tribunal.lower()}.parquet"
@@ -84,19 +105,25 @@ def movimentos_parquet_name(tribunal: str) -> str:
     return f"datajud-movimentos-{tribunal.lower()}.parquet"
 
 
-def write_capa_parquet(rows: list[dict], path: Path) -> int:
-    """Write capa rows to *path* with the canonical schema. Returns row count."""
-    return _write_parquet(rows, CAPA_SCHEMA, path)
+def write_capa_parquet(rows: list[dict], path: Path, *, tribunal: str) -> int:
+    """Write capa rows to *path* with the canonical schema. Returns row count.
+
+    ``tribunal`` is embedded (as ``item_id(tribunal)``) in the footer's
+    KV_METADATA (see :data:`DATAJUD_SCHEMA_VERSION`) so a read-side check
+    can verify the artifact matches the identity its own IA item URL claims.
+    """
+    return _write_parquet(rows, CAPA_SCHEMA, path, tribunal=tribunal)
 
 
-def write_movimentos_parquet(rows: list[dict], path: Path) -> int:
+def write_movimentos_parquet(rows: list[dict], path: Path, *, tribunal: str) -> int:
     """Write movimento rows to *path* with the canonical schema. Returns row count."""
-    return _write_parquet(rows, MOVIMENTOS_SCHEMA, path)
+    return _write_parquet(rows, MOVIMENTOS_SCHEMA, path, tribunal=tribunal)
 
 
-def _write_parquet(rows: list[dict], schema: pa.Schema, path: Path) -> int:
+def _write_parquet(rows: list[dict], schema: pa.Schema, path: Path, *, tribunal: str) -> int:
     filtered = [{name: row.get(name) for name in schema.names} for row in rows]
     table = pa.Table.from_pylist(filtered, schema=schema)
+    table = table.replace_schema_metadata(_kv_metadata_for_export(item_id(tribunal)))
     path.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(table, path, compression="zstd")
     log.info("datajud_parquet_written", path=str(path), rows=table.num_rows)

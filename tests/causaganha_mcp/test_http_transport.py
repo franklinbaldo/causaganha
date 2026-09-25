@@ -40,6 +40,7 @@ def test_http_settings_are_loopback_safe_by_default(
         "CAUSAGANHA_MCP_PATH",
         "CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS",
         "CAUSAGANHA_MCP_MAX_CONCURRENCY",
+        "CAUSAGANHA_MCP_RATE_LIMIT_PER_MINUTE",
     ):
         monkeypatch.delenv(key, raising=False)
 
@@ -51,6 +52,7 @@ def test_http_settings_are_loopback_safe_by_default(
         path="/mcp",
         tool_timeout_seconds=45.0,
         max_concurrency=4,
+        rate_limit_per_minute=120,
     )
 
 
@@ -62,6 +64,7 @@ def test_http_settings_support_explicit_deployment_bind_and_limits(
     monkeypatch.setenv("CAUSAGANHA_MCP_PATH", "/api/mcp")
     monkeypatch.setenv("CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS", "30")
     monkeypatch.setenv("CAUSAGANHA_MCP_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("CAUSAGANHA_MCP_RATE_LIMIT_PER_MINUTE", "10")
 
     assert HttpSettings.from_env() == HttpSettings(
         host="0.0.0.0",
@@ -69,6 +72,7 @@ def test_http_settings_support_explicit_deployment_bind_and_limits(
         path="/api/mcp",
         tool_timeout_seconds=30.0,
         max_concurrency=2,
+        rate_limit_per_minute=10,
     )
 
 
@@ -133,6 +137,7 @@ def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
     monkeypatch.setenv("CAUSAGANHA_MCP_PATH", "/mcp")
     monkeypatch.setenv("CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS", "30")
     monkeypatch.setenv("CAUSAGANHA_MCP_MAX_CONCURRENCY", "2")
+    monkeypatch.setenv("CAUSAGANHA_MCP_RATE_LIMIT_PER_MINUTE", "10")
 
     http_entry.main()
 
@@ -141,6 +146,7 @@ def test_http_entrypoint_uses_streamable_http_stateless_with_limits(
     assert isinstance(limits, OperationalLimitsMiddleware)
     assert limits.timeout_seconds == 30.0
     assert limits.max_concurrency == 2
+    assert limits.rate_limit_per_minute == 10
     assert calls == [
         {
             "transport": "http",

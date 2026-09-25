@@ -16,6 +16,20 @@ curl --fail http://127.0.0.1:8080/health
 
 O container faz bind externo apenas no ambiente empacotado. O entrypoint local continua loopback-safe por padrão.
 
+Build reprodutível (#1614): a imagem base é pinada por digest e as dependências
+Python são instaladas via `uv sync --frozen` a partir do `uv.lock` commitado na
+raiz do repositório — o build falha em vez de re-resolver silenciosamente se
+`pyproject.toml` e `uv.lock` divergirem. O processo roda como usuário não-root
+(`mcp`, uid 10001) dentro do container.
+
+SBOM + scan (#1614/TM-10): o job `supply-chain` de `.github/workflows/test.yml`
+roda em toda PR — exporta o conjunto exato de dependências que o Dockerfile
+instala (`uv export --frozen --no-dev`), escaneia com `pip-audit` (falha o
+build com qualquer vulnerabilidade conhecida) e publica o SBOM CycloneDX
+resultante como artefato de build. Dependências de ferramentas de
+desenvolvimento (ex.: mkdocs-material, nunca embarcadas na imagem) ficam fora
+desse gate por desenho — ver `docs/SECURITY_THREAT_MODEL.md` TM-10.
+
 ## Contrato operacional
 
 Defaults do artefato:
@@ -25,6 +39,11 @@ Defaults do artefato:
 - `CAUSAGANHA_MCP_PATH=/mcp`;
 - `CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS=45`;
 - `CAUSAGANHA_MCP_MAX_CONCURRENCY=4`;
+- `CAUSAGANHA_MCP_RATE_LIMIT_PER_MINUTE=120` — chamadas por cliente (chave: primeiro hop de
+  `X-Forwarded-For`, senão o IP do socket) numa janela fixa de 60s; `0` desliga o controle
+  (issue #950/TM-06 — ver `docs/SECURITY_THREAT_MODEL.md`). Bound por cliente, distinto do
+  `CAUSAGANHA_MCP_MAX_CONCURRENCY` global acima: um único chamador sequencial não pode mais
+  monopolizar o budget de concorrência/timeout e negar serviço aos demais;
 - `CAUSAGANHA_MCP_COMMIT` recebe o SHA passado em `--build-arg GIT_SHA=...`.
 
 Nenhuma credencial de Internet Archive, DataJud ou outra fonte faz parte do contrato do cliente.

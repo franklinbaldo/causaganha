@@ -2,7 +2,6 @@ __pycache__/
 **/__pycache__/
 *.pyc
 .env
-uv.lock
 
 # Data files
 data/*
@@ -116,3 +115,8 @@ deployment/archive-cors-proxy/dist/
 # Wisk state is versioned under .wisk/knowledge/{local,experiences,wiki,skills}.
 # `wisk init .` may add generated, nested gitignored state such as manifest.json,
 # specs/, and knowledge/system/ under .wisk/. Do not ignore the .wisk root.
+
+# Supply-chain scan gate (#1614/TM-10) CI output -- regenerated every run from
+# uv.lock, never a source of truth.
+requirements-mcp.txt
+sbom-mcp.json

@@ -124,6 +124,20 @@ def test_forward_headers_strips_hop_by_hop_and_relay_headers() -> None:
     assert headers["Host"] == "scon.stj.jus.br"
 
 
+def test_forward_headers_strips_authorization_and_cookie() -> None:
+    request = _request(
+        headers={
+            "X-Relay-Token": RELAY_TOKEN,
+            "X-Relay-Url": "https://scon.stj.jus.br/",
+            "Authorization": "Bearer stolen-token",
+            "Cookie": "session=hijacked",
+        }
+    )
+    headers = main._forward_headers(request, "scon.stj.jus.br")
+    assert "Authorization" not in headers
+    assert "Cookie" not in headers
+
+
 # ── relay() end-to-end (monkeypatched upstream client) ────────────────────
 
 
@@ -151,6 +165,83 @@ def test_relay_rejects_non_http_scheme() -> None:
     request = _request(headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "file:///etc/passwd"})
     _body, status = main.relay(request)
     assert status == 403
+
+
+def test_relay_rejects_plain_http_scheme(monkeypatch: pytest.MonkeyPatch) -> None:
+    # A stolen token must not be usable to route unencrypted traffic — HTTPS
+    # is the only scheme every real caller (tjro_juris/stj_acordaos/tse_processual)
+    # ever requests, so plain http:// is refused before any upstream call.
+    def handler(req: httpx.Request) -> httpx.Response:  # pragma: no cover — must not be reached
+        return httpx.Response(200, content=b"should not be reached")
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "http://scon.stj.jus.br/"}
+    )
+    _body, status = main.relay(request)
+    assert status == 403
+
+
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "DELETE", "OPTIONS"])
+def test_relay_rejects_disallowed_methods(method: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:  # pragma: no cover — must not be reached
+        return httpx.Response(200, content=b"should not be reached")
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        method=method,
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+    )
+    _body, status = main.relay(request)
+    assert status == 405
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD", "POST"])
+def test_relay_allows_get_head_post(method: str, monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"ok")
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        method=method,
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+    )
+    _body, status, _headers = main.relay(request)
+    assert status == 200
+
+
+def test_relay_rejects_oversized_request_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:  # pragma: no cover — must not be reached
+        return httpx.Response(200, content=b"should not be reached")
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    oversized_body = b"x" * (main.MAX_REQUEST_BODY_BYTES + 1)
+    request = _request(
+        method="POST",
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+        data=oversized_body,
+    )
+    _body, status = main.relay(request)
+    assert status == 413
+
+
+def test_relay_rejects_oversized_response_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    oversized = b"y" * (main.MAX_RESPONSE_BODY_BYTES + 1)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=oversized)
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"}
+    )
+    _body, status = main.relay(request)
+    assert status == 502
 
 
 def test_relay_forwards_to_upstream_and_strips_content_encoding(
@@ -198,3 +289,24 @@ def test_relay_returns_502_on_upstream_error(monkeypatch: pytest.MonkeyPatch) ->
     )
     _body, status = main.relay(request)
     assert status == 502
+
+
+# ── egress policy: Set-Cookie never forwarded back (TM-02 / #1609) ───────
+
+
+def test_relay_strips_set_cookie_from_upstream_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No upstream in the allowlist is a session-bearing site the caller
+    should start trusting cookies from -- a compromised relay must not be
+    able to plant cookies in the caller via a forwarded ``Set-Cookie``.
+    """
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="ok", headers={"Set-Cookie": "session=abc123"})
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"}
+    )
+    _body, _status, headers = main.relay(request)
+    assert "set-cookie" not in headers

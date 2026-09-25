@@ -1,0 +1,11 @@
+---
+type: "RunEvidence"
+id: "run-evidence/20260925t042504z-do-the-best-useful-work-availab/evidence-1609-relay-security"
+run: "runs/20260925T042504Z-do-the-best-useful-work-available-in-this-reposi"
+kind: "execution"
+reference: "deployment/relay/function/main.py; tests/deployment/relay/test_main.py; deployment/relay-cf/src/index.js; deployment/relay-cf/test/index.test.js; deployment/relay/README.md; docs/SECURITY_THREAT_MODEL.md"
+summary: "RED confirmado ao vivo antes da mudanca: 8 testes novos em tests/deployment/relay/test_main.py falhavam contra o main.py original (http:// aceito, PUT/PATCH/DELETE/OPTIONS aceitos, Authorization/Cookie encaminhados, sem MAX_REQUEST_BODY_BYTES/MAX_RESPONSE_BODY_BYTES). GREEN apos: _ALLOWED_METHODS={GET,HEAD,POST} (405 fora dela), scheme exigido == 'https' (403 para http), _SENSITIVE_HEADERS={authorization,cookie} unidos a _STRIP_HEADERS, MAX_REQUEST_BODY_BYTES=5MiB (413 acima), MAX_RESPONSE_BODY_BYTES=50MiB (502 abortando a meio do streaming via _client.stream()+iter_bytes(), nunca materializando a resposta inteira antes de checar). tests/deployment/relay/test_main.py: 41/41 verde. Mesmo padrao replicado no CF relay (deployment/relay-cf/src/index.js): RED confirmado (teste novo falhava com Authorization/Cookie chegando ao upstream mockado), GREEN apos adicionar 'authorization'/'cookie' a STRIP_REQUEST_HEADERS -- agora os dois relays compartilham a mesma politica de headers sensiveis. deployment/relay-cf/test/index.test.js: 10/10 verde (npm install + npx vitest run). uv run ruff check . e uv run ruff format --check . limpos no repositorio inteiro. uv run pytest -q (suite completa) rodou ate 100% com exit code 0 (so 1 skip, nenhuma falha). deployment/relay/README.md ganhou uma secao 'Egress policy (#1609/TM-02)' documentando a politica e a alavanca de quota (--max-instances) pedida pelo criterio de conclusao da issue. docs/SECURITY_THREAT_MODEL.md/TM-02 atualizado para descrever o estado real: djen_proxy.go + relay Python + CF relay (parcial, so headers) fechados; budget de tamanho no CF relay (dead infra, nunca ligado a producao) deliberadamente nao fechado nesta rodada."
+goal: "run-goals/20260925t042504z-do-the-best-useful-work-availab/goal-1609-relay-security"
+---
+
+# RunEvidence

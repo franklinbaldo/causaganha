@@ -21,6 +21,7 @@ from datajud.client import (
     DataJudRateLimitError,
 )
 from datajud.manifest import STATUS_OK, ManifestDataJud, ManifestFormatError
+from datajud.tribunais import TribunalInvalidoError, validar_tribunal
 
 
 if TYPE_CHECKING:
@@ -264,7 +265,12 @@ def register_status(mcp: FastMCP) -> None:
                 execução neste host.
             diretorio_dados: Diretório usado somente quando ``fonte='local'``.
         """
-        tribunal = tribunal.lower()
+        try:
+            tribunal = validar_tribunal(tribunal)
+        except TribunalInvalidoError as exc:
+            msg = f"tribunal inválido: {tribunal!r} não pertence ao conjunto canônico do DataJud."
+            raise ToolError(msg) from exc
+
         if fonte == "local":
             summary = service.manifest_status(Path(diretorio_dados))
             return _status_result(
@@ -373,6 +379,12 @@ def register_facetas(mcp: FastMCP) -> None:
                 sempre reflete o acervo inteiro, mesmo quando `limite`
                 corta a lista de grupos.
         """
+        try:
+            tribunal = validar_tribunal(tribunal)
+        except TribunalInvalidoError as exc:
+            msg = f"tribunal inválido: {tribunal!r} não pertence ao conjunto canônico do DataJud."
+            raise ToolError(msg) from exc
+
         try:
             total, buckets = await service.facetas(
                 tribunal,
