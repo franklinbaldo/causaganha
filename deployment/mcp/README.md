@@ -22,6 +22,14 @@ raiz do repositório — o build falha em vez de re-resolver silenciosamente se
 `pyproject.toml` e `uv.lock` divergirem. O processo roda como usuário não-root
 (`mcp`, uid 10001) dentro do container.
 
+SBOM + scan (#1614/TM-10): o job `supply-chain` de `.github/workflows/test.yml`
+roda em toda PR — exporta o conjunto exato de dependências que o Dockerfile
+instala (`uv export --frozen --no-dev`), escaneia com `pip-audit` (falha o
+build com qualquer vulnerabilidade conhecida) e publica o SBOM CycloneDX
+resultante como artefato de build. Dependências de ferramentas de
+desenvolvimento (ex.: mkdocs-material, nunca embarcadas na imagem) ficam fora
+desse gate por desenho — ver `docs/SECURITY_THREAT_MODEL.md` TM-10.
+
 ## Contrato operacional
 
 Defaults do artefato:
