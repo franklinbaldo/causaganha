@@ -148,10 +148,15 @@ function urlListSql(urls: string[]): string {
  * — para que o harness de paridade de plano de consulta (#1107) possa exercitar este
  * builder contra a mesma fixture local que os demais já usam, em vez de ficar
  * permanentemente amarrado à URL de produção.
+ *
+ * `tribunal` é selecionado só para manter paridade de linhas com
+ * `_indice_sql` do lado Python -- ainda não consumido aqui. A checagem de
+ * coerência de proveniência que o lado Python já faz com essa coluna
+ * (`_validar_tribunal_coerente`, issue #1610/TM-04) é follow-up do lado Web.
  */
 export function buildIndiceSql(url: string = INDICE_PROCESSUAL_URL): string {
   return `
-    SELECT fonte, arquivo_ia_url
+    SELECT fonte, arquivo_ia_url, tribunal
     FROM read_parquet('${url}')
     WHERE numero_processo = ?
   `;
