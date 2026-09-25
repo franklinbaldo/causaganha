@@ -104,7 +104,11 @@ MAX_RESPONSE_BODY_BYTES = 50 * 1024 * 1024
 # makes the CALLER's httpx try to gunzip it a second time and raise
 # DecodingError. Response-only: request-side Content-Encoding (basically
 # never sent by these crawlers) is left alone.
-_RESPONSE_STRIP_HEADERS = _STRIP_HEADERS | {"content-encoding"}
+#
+# Set-Cookie is also response-only: no upstream in the allowlist is a
+# session-bearing site the caller should start trusting cookies from, and
+# forwarding it would let a compromised relay plant cookies in the caller.
+_RESPONSE_STRIP_HEADERS = _STRIP_HEADERS | {"content-encoding", "set-cookie"}
 
 _RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 

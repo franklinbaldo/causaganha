@@ -289,3 +289,24 @@ def test_relay_returns_502_on_upstream_error(monkeypatch: pytest.MonkeyPatch) ->
     )
     _body, status = main.relay(request)
     assert status == 502
+
+
+# ── egress policy: Set-Cookie never forwarded back (TM-02 / #1609) ───────
+
+
+def test_relay_strips_set_cookie_from_upstream_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No upstream in the allowlist is a session-bearing site the caller
+    should start trusting cookies from -- a compromised relay must not be
+    able to plant cookies in the caller via a forwarded ``Set-Cookie``.
+    """
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="ok", headers={"Set-Cookie": "session=abc123"})
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"}
+    )
+    _body, _status, headers = main.relay(request)
+    assert "set-cookie" not in headers
