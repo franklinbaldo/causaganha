@@ -1,7 +1,7 @@
 ---
 checks: ["run-checks/20260925t202645z-do-the-best-useful-work-availab/check-handoff-environment", "run-checks/20260925t202645z-do-the-best-useful-work-availab/check-handoff-disposition"]
 decisions: ["run-decisions/20260925t202645z-do-the-best-useful-work-availab/decision-skip-legacy-agentrun-scaffold"]
-evidence: ["run-evidence/20260925t202645z-do-the-best-useful-work-availab/evidence-credential-gap-still-absent"]
+evidence: ["run-evidence/20260925t202645z-do-the-best-useful-work-availab/evidence-credential-gap-still-absent", "run-evidence/20260925t202645z-do-the-best-useful-work-availab/evidence-pr1605-merge-conflict-resolved", "run-evidence/20260925t202645z-do-the-best-useful-work-availab/evidence-pr1605-backlog-provenance-bug-found-and"]
 goals: ["run-goals/20260925t202645z-do-the-best-useful-work-availab/goal-resume-pr-1605"]
 id: "runs/20260925T202645Z-do-the-best-useful-work-available-in-this-reposi"
 readings: ["run-readings/20260925t202645z-do-the-best-useful-work-availab/reading-active-handoffs", "run-readings/20260925t202645z-do-the-best-useful-work-availab/reading-active-skills"]
