@@ -4,6 +4,7 @@ import { ClientRouter } from 'astro:transitions';
 import { css } from '../../styled-system/css';
 import { navLink } from '../../styled-system/recipes';
 import NetworkStatusBanner from '../components/NetworkStatusBanner.astro';
+import { CSP_META_CONTENT } from '../lib/csp';
 
 interface Props {
   title: string;
@@ -41,6 +42,38 @@ const primary = [
     <meta name="description" content={description} />
     <meta name="generator" content={Astro.generator} />
     <meta name="theme-color" content="#17221f" />
+    <!--
+      Content-Security-Policy (#1613, TM-08 in docs/SECURITY_THREAT_MODEL.md).
+      This is a fully static GitHub Pages build (astro.config.mjs:
+      `output: 'static'`) — there is no server to send an HTTP response
+      header, so this <meta> tag is the only delivery mechanism available.
+      Per the CSP spec, `frame-ancestors`, `sandbox` and `report-uri`/
+      `report-to` are silently ignored when delivered via <meta> and are
+      deliberately omitted here rather than left in to look enforced.
+
+      - script-src 'self' only: no inline scripts ship anywhere in the app
+        (the one former inline redirect script in advogados.astro/
+        comparador.astro was removed in favor of the <meta http-equiv=
+        "refresh"> already on those pages), so no 'unsafe-inline' is needed.
+      - style-src keeps 'unsafe-inline': Svelte's scoped-style mechanism
+        (CLAUDE.md's CSS token boundary — Svelte components never use
+        Panda's css(), only global CSS + a scoped <style> block) emits
+        static <style> blocks and style="..." attributes directly into
+        every server-rendered page. None of that is user-controlled:
+        djen.ts's sanitizeHtml() (FORBID_TAGS: ["style"], FORBID_ATTR:
+        ["style"]) means untrusted judicial text can never reach a <style>
+        sink, so this is a bounded, reviewed exception — never extended to
+        script-src.
+      - connect-src / worker-src include https://cdn.jsdelivr.net because
+        web/src/lib/duckdbSingleton.ts loads the DuckDB-WASM worker/module
+        from the jsDelivr bundle CDN (`duckdb.getJsDelivrBundles()`), with a
+        `blob:` worker fallback when direct Worker construction fails.
+      - connect-src also allows the fixed set of official data hosts the
+        app fetches from: archive.org (Internet Archive parquet/downloads),
+        comunicaapi.pje.jus.br (DJEN public API) and the DJEN Cloud Run
+        proxy fallback (djenClient.ts).
+    -->
+    <meta http-equiv="Content-Security-Policy" content={CSP_META_CONTENT} />
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="CausaGanha" />
     <meta property="og:locale" content="pt_BR" />

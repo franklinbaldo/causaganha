@@ -1,0 +1,58 @@
+---
+type: AgentRun
+id: "2026-09-25-exciting-mccarthy-akb9oz"
+started_at: "2026-09-25T07:24:57Z"
+completed_at: "2026-09-25T07:50:00Z"
+branch_at_start: "claude/exciting-mccarthy-akb9oz"
+commit_at_start: "7da38689f8a1db1c4c07461848116cd62eee27f3"
+claude_md_reading_id: "2026-09-25-exciting-mccarthy-akb9oz-reading-claude-md"
+issues_reading_id: "2026-09-25-exciting-mccarthy-akb9oz-reading-issues"
+prs_reading_id: "2026-09-25-exciting-mccarthy-akb9oz-reading-prs"
+okf_reading_id: "2026-09-25-exciting-mccarthy-akb9oz-reading-okf"
+goal_ids:
+  - "2026-09-25-exciting-mccarthy-akb9oz-goal-csp-xss-floor"
+primary_goal_id: "2026-09-25-exciting-mccarthy-akb9oz-goal-csp-xss-floor"
+considered_work:
+  - "#1470/#1469/#1482/#1471/#1472/#1468/#1022/#985 (Parquet/CNJ): reconfirmadas bloqueadas por credenciais Internet Archive ausentes neste tipo de sessao, fato ja estabelecido por 10+ rodadas anteriores. Nao selecionadas."
+  - "#1605 (batch27 de #1050, branch alheia claude/exciting-mccarthy-034xwb): mesmo bloqueio de merge conflict + falta de permissao de push naquela branch, reconfirmado por 4+ rodadas anteriores. Nao selecionado."
+  - "#1353 (dependabot bump @vitest/mocker, deployment/relay-cf): parada ha 16+ dias, fora de escopo, baixa prioridade. Nao selecionada."
+  - "#1627 (security(mcp): mark publicacoes_buscar/decisoes_buscar text as untrusted evidence, fecha o core de #1616, sessao concorrente claude/exciting-mccarthy-9t0p2a): mergeable_state=clean, 11/11 checks verdes, Codex security review sem findings, 0 reviews pendentes. Mesclada via mcp__github__merge_pull_request no inicio da rodada (ver decision-merge-1627-select-1613, evidence-pr-1627-merged)."
+  - "#1610 (security/archive: validar URLs de manifestos e invariantes de proveniencia): metade TM-03 (validador central de URL) ja fechada por 3 PRs mescladas (#1622/#1624/#1626); verificado por grep (nao presumido) que a metade TM-04 (invariantes de geracao/hash/schema) continua sem nenhuma implementacao em service.py. Issue mantida aberta corretamente -- nao selecionada como trabalho principal por TM-04 ser um escopo de design maior (cadeia de proveniencia completa) que nao cabe como continuidade rapida desta rodada; registrada como proximo passo de seguranca em next_move."
+  - "#1609 (relay Python + Cloudflare, restante apos #1623 fechar a fatia Go): decisoes de politica de deploy (rotacao de RELAY_TOKEN, quotas) fora do controle desta sessao. Nao selecionada."
+  - "#1614 (supply chain: build Python/container reproduzivel): exige decisoes de infraestrutura de build/CI (base image por digest, usuario nao-root no Dockerfile do MCP) fora do escopo de uma unica rodada de TDD self-contained. Nao selecionada."
+  - "#1613 (security/web: CSP + piso de regressao para HTML sanitizado e worker remoto, TM-08): self-contained em TypeScript/Astro, sem credenciais externas, sem decisao de infraestrutura de deploy, gate automatizado ja especificado no corpo da issue (corpus XSS, inventario de sinks {@html}, CSP compativel com build, origem de worker/dependencia limitada). Recomendada por 2 rodadas anteriores no mesmo dia (r2xele, 3zkmxg) como proximo alvo mais tratavel. Selecionada como trabalho principal."
+selected_work: "TDD completo sobre a issue #1613 (TM-08): escrever 4 arquivos de teste novos (web/src/layouts/Layout.csp.test.ts, web/src/lib/htmlSinks.inventory.test.ts, web/src/lib/djenXssCorpus.test.ts, web/src/pages/redirectStubs.noInlineScript.test.ts) contra o codigo de producao anterior (nenhuma CSP em Layout.astro); confirmar RED (8/8 testes de CSP falhando por ausencia da <meta> tag); implementar web/src/lib/csp.ts (CSP_META_CONTENT compartilhada) e consumi-la em Layout.astro via <meta http-equiv=\"Content-Security-Policy\">; remover o <script define:vars> redundante de advogados.astro/comparador.astro (o <meta http-equiv=\"refresh\"> ja presente ja fazia o redirecionamento -- unico script inline do app, incompativel com script-src 'self' sem 'unsafe-inline'); descobrir via build real (nao so leitura de fonte) que essas duas paginas nao usam Layout.astro e por isso nao recebiam a CSP -- corrigir replicando a tag nelas tambem, consumindo a mesma constante; confirmar GREEN; rodar suite web completa, eslint, astro check e build real antes de fechar a rodada."
+expected_behavior: "Ver success_signal em goal-csp-xss-floor."
+entry_state: "new"
+target_state: "review"
+decision_ids:
+  - "2026-09-25-exciting-mccarthy-akb9oz-decision-merge-1627-select-1613"
+  - "2026-09-25-exciting-mccarthy-akb9oz-decision-shared-csp-constant"
+evidence_ids:
+  - "2026-09-25-exciting-mccarthy-akb9oz-evidence-pr-1627-merged"
+  - "2026-09-25-exciting-mccarthy-akb9oz-evidence-red-csp-xss-floor"
+  - "2026-09-25-exciting-mccarthy-akb9oz-evidence-green-csp-xss-floor"
+check_ids:
+  - "2026-09-25-exciting-mccarthy-akb9oz-check-web-test-full-suite"
+  - "2026-09-25-exciting-mccarthy-akb9oz-check-web-lint-typecheck"
+  - "2026-09-25-exciting-mccarthy-akb9oz-check-web-build"
+  - "2026-09-25-exciting-mccarthy-akb9oz-check-ruff"
+  - "2026-09-25-exciting-mccarthy-akb9oz-check-pytest-full-suite"
+  - "2026-09-25-exciting-mccarthy-akb9oz-check-okf-parser-final"
+result_state: "review"
+result_summary: "Mesclada #1627 (fatia core de #1616/TM-11, ja verde de sessao concorrente) como acao de continuidade antes do trabalho proprio. Fechada a issue #1613 (security/web: CSP + piso de regressao XSS, TM-08) com TDD completo. web/src/layouts/Layout.astro (usado por toda pagina real) nao tinha nenhuma Content-Security-Policy; o worker/modulo WASM do DuckDB-WASM carregava de cdn.jsdelivr.net sem limite de origem declarado; os dois sinks {@html} do app (PublicationReader.svelte, PublicationDetailPanel.svelte) e o sanitizeHtml() de djen.ts nao tinham corpus de regressao XSS automatizado. RED: 4 arquivos de teste novos escritos primeiro contra o codigo anterior -- 8/8 testes de Layout.csp.test.ts falharam com 'No <meta http-equiv=\"Content-Security-Policy\"> tag found'; os outros 3 arquivos ja passavam contra o codigo anterior (nao havia bug no sanitizer ou nos sinks, apenas ausencia de piso de regressao -- exatamente o que a issue pede). GREEN apos: extrair a politica para web/src/lib/csp.ts (CSP_META_CONTENT: script-src 'self' sem unsafe-inline/unsafe-eval/wildcard; style-src 'self' 'unsafe-inline', decisao documentada -- Svelte emite <style> escopado estatico em toda pagina com ilha, nunca de conteudo do usuario, ja que sanitizeHtml() proibe tag/atributo style em texto judicial; connect-src/worker-src restritos a self + archive.org + comunicaapi.pje.jus.br + o proxy DJEN Cloud Run + cdn.jsdelivr.net; object-src 'none'; base-uri/form-action 'self'); consumi-la em Layout.astro; remover o <script define:vars={{ target }}>window.location.replace(target)</script> redundante de advogados.astro/comparador.astro (o <meta http-equiv=\"refresh\"> ja presente ja redirecionava -- era o unico script inline do app inteiro). Um build real (rm -rf dist && npm run build) revelou, antes do GREEN final, que essas mesmas duas paginas renderizam seu proprio <html> em vez de usar Layout.astro e por isso nao recebiam a CSP -- corrigido replicando a tag nelas via a mesma constante compartilhada, e o teste (Layout.csp.test.ts) reescrito para verificar as 3 paginas, nao so Layout.astro (ver decision-shared-csp-constant; a leitura de codigo-fonte isolada, sem build real, teria deixado esse gap invisivel). frame-ancestors/sandbox/report-uri foram deliberadamente omitidos da politica (ignorados pelo spec CSP quando entregues via <meta>, e GitHub Pages nao permite header HTTP customizado) -- documentado no comentario do Layout.astro, nao escondido. 25 testes novos, 100% verdes; suite web completa (npx vitest run) foi de 583 para 585 testes, 100% verde, sem regressao; eslint 0 erros (43 warnings pre-existentes em styled-system/*.d.ts nao relacionados); astro check 0 erros; build real confirmou a <meta> presente em 100% das paginas geradas, incluindo as duas que nao usam Layout.astro, e confirmou por grep que nenhum <script> inline sobra em advogados.html/comparador.html. uv run ruff check/format --check limpos (nenhum arquivo Python tocado). Durante a leitura de issues, corrigida uma primeira presuncao apressada de que #1610 estaria totalmente implementada (as 3 PRs mescladas cobrem so TM-03, validacao de URL; TM-04, invariantes de geracao/hash/schema, continua sem nenhuma implementacao verificada por grep em service.py) -- issue mantida aberta corretamente, registrada como proximo passo em vez de fechada por engano."
+next_move: "Uma rodada futura deve: (1) abrir e acompanhar a PR desta rodada (fecha #1613) ate o merge, mesmo padrao de #1627/#1623 (squash, sem merge commit -- o repositorio bloqueia merge commits); (2) reconfirmar #1605 (batch27, branch claude/exciting-mccarthy-034xwb) -- permanece bloqueada por conflito de merge numa branch sem permissao de push desta sessao ha 5+ rodadas seguidas; so uma sessao com permissao para editar aquela branch especifica (ou o dono humano) pode resolve-lo, e vale escalar ao dono humano se uma proxima rodada reconfirmar o mesmo bloqueio sem nenhum progresso; (3) com #1608/#1611/#1612/#1613/#1615/#1616(core) fechadas e #1609 parcialmente fechado, o proximo item de seguranca tratavel e a metade TM-04 de #1610 (invariantes de identidade/proveniencia: generation id, hash, schema fingerprint e row count coerentes com o manifesto antes da composicao) -- verificado nesta rodada, por grep direto em service.py, que continua sem nenhuma implementacao; e um escopo de design maior que TM-03 (nao e so validar uma URL, e definir e verificar uma cadeia de campos de proveniencia), avaliar se cabe inteiro numa rodada ou se deve ser dividido; #1614 (supply chain Python/container) e #1609 (relay Python+Cloudflare remanescente) continuam envolvendo decisoes de infraestrutura de build/deploy fora do controle de uma sessao sem credenciais; (4) considerar se o CSP desta rodada deveria ganhar um relatorio de CSP-violation (report-to/report-uri) quando o app deixar de ser 100% GitHub Pages -- hoje esses directives sao tecnicamente inviaveis via <meta>, documentado como limitacao aceita, nao ignorada; (5) a tensao AgentRun-vs-Wisk (issue #1256) permanece sem reconciliacao formal do dono humano e sem fato novo desde a ultima escalacao -- nao reescalar sem fato novo."
+---
+
+# Agent run
+
+Rodada de continuidade do backlog de seguranca operacional
+(`docs/SECURITY_THREAT_MODEL.md`). Mesclada `#1627` (fecha o core de
+`#1616`/TM-11, sessao concorrente) como acao de continuidade. Trabalho
+principal: fechar `#1613` (CSP + piso de regressao XSS, TM-08) com TDD
+completo em `web/src/layouts/Layout.astro`, `web/src/lib/csp.ts` (novo),
+`web/src/pages/advogados.astro`/`comparador.astro` e 4 arquivos de teste
+novos. Ver `goal_ids`/`decision_ids`/`evidence_ids`/`check_ids` para o
+processo completo. `next_move` aponta a metade TM-04 de `#1610`
+(invariantes de proveniencia, verificada nesta rodada como genuinamente
+pendente) como proximo trabalho de seguranca tratavel.
