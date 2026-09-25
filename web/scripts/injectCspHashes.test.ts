@@ -40,6 +40,15 @@ describe("computeInlineScriptHashes (#1613, TM-08 follow-up)", () => {
     const html = `<script type="module"></script>`;
     expect(computeInlineScriptHashes(html)).toEqual([]);
   });
+
+  it("recognizes a closing tag with whitespace before '>' (valid HTML5, flagged by CodeQL js/bad-tag-filter)", () => {
+    // </script > is a valid closing tag per the HTML5 tokenizer. A regexp
+    // that only matches the exact literal "</script>" fails to find this
+    // boundary and instead keeps scanning for the next literal "</script>"
+    // in the document, silently merging unrelated content into the hash.
+    const html = `<script>console.log("a")</script ><p>not part of the script</p>`;
+    expect(computeInlineScriptHashes(html)).toEqual([sha256Base64('console.log("a")')]);
+  });
 });
 
 describe("injectHashesIntoCsp (#1613, TM-08 follow-up)", () => {
