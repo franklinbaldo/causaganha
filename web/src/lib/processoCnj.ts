@@ -149,10 +149,9 @@ function urlListSql(urls: string[]): string {
  * builder contra a mesma fixture local que os demais já usam, em vez de ficar
  * permanentemente amarrado à URL de produção.
  *
- * `tribunal` é selecionado só para manter paridade de linhas com
- * `_indice_sql` do lado Python -- ainda não consumido aqui. A checagem de
- * coerência de proveniência que o lado Python já faz com essa coluna
- * (`_validar_tribunal_coerente`, issue #1610/TM-04) é follow-up do lado Web.
+ * `tribunal` é selecionado para a checagem de coerência de proveniência
+ * (issue #1610, TM-04) feita por `fonteUrls`/`validarTribunalCoerente` --
+ * espelha `_indice_sql` do lado Python.
  */
 export function buildIndiceSql(url: string = INDICE_PROCESSUAL_URL): string {
   return `
@@ -722,20 +721,181 @@ export function validateArtifactUrl(url: string): string {
   return url;
 }
 
+// Issue #1610 (TM-04): `indice_processual.parquet` also carries a `tribunal`
+// column per row -- an independent claim about the same fact `arquivo_ia_url`
+// encodes for the two sources partitioned per tribunal (djen's IA item is
+// `djen-{tribunal}-{ano}`; datajud's is `datajud-{tribunal}`, per CLAUDE.md's
+// "IA item naming"). A manifest row that passes the URL policy above but
+// disagrees with itself about which tribunal it describes is still a
+// "controle de significado" threat (attribution/omission without needing a
+// bad fetch destination) -- juris/stj are single, fixed items regardless of
+// tribunal, so there is nothing to cross-check there. Mirrors
+// causaganha.processos.service._tribunal_da_url/_validar_tribunal_coerente.
+const TRIBUNAL_URL_PATTERNS: Partial<Record<Fonte, RegExp>> = {
+  djen: /\/download\/djen-([a-z0-9]+)-\d{4}\//,
+  datajud: /\/download\/datajud-([a-z0-9]+)\//,
+};
+
+/** A manifest row's `tribunal` disagrees with the tribunal its own `arquivo_ia_url` names (issue #1610). */
+export class ArtifactProvenanceError extends Error {}
+
+/**
+ * Tribunal (lowercase) embutido no nome do item IA de `url`, para uma fonte
+ * particionada por tribunal. `null` quando `fonte` não é particionada por
+ * tribunal, ou quando `url` não tem o formato esperado de item IA (ex.: um
+ * path local de teste) -- em ambos os casos não há reivindicação
+ * independente contra a qual checar a coluna `tribunal` do índice.
+ */
+export function tribunalDaUrl(fonte: Fonte, url: string): string | null {
+  const pattern = TRIBUNAL_URL_PATTERNS[fonte];
+  if (!pattern) return null;
+  const match = pattern.exec(url);
+  return match ? match[1] : null;
+}
+
+/** Lança `ArtifactProvenanceError` quando `url` nomeia um tribunal diferente do que a coluna `tribunal` do índice declara para esta linha. */
+export function validarTribunalCoerente(fonte: Fonte, tribunal: string, url: string): void {
+  const esperado = tribunalDaUrl(fonte, url);
+  if (esperado !== null && esperado !== tribunal.toLowerCase()) {
+    throw new ArtifactProvenanceError(
+      `Tribunal declarado no índice (${JSON.stringify(tribunal)}) incoerente com o tribunal ` +
+        `do artefato (${JSON.stringify(esperado)}) para fonte ${JSON.stringify(fonte)}: ${JSON.stringify(url)}`,
+    );
+  }
+}
+
+// Issue #1610 (TM-04), fatia "schema fingerprint"/"generation id": todo
+// export djen (comunicacoes/processos) já grava KV_METADATA no rodapé do
+// próprio arquivo Parquet -- causaganha.schema_version e causaganha.item_id
+// (schema_registry.kv_metadata_for_export, ativo desde a v3.0.0) -- mas nada
+// do lado Web lia esse rodapé antes de compor read_parquet(arquivo_ia_url).
+// Diferente de validarTribunalCoerente (que só cruza duas strings do próprio
+// índice), esta checagem lê o que o artefato de origem *declara sobre si
+// mesmo*, via parquet_kv_metadata() -- uma leitura do rodapé Parquet (barata,
+// via httpfs range-read; não baixa o arquivo inteiro). juris/stj/datajud não
+// emitem esse KV_METADATA hoje (gap real, documentado, não coberto). Mirrors
+// causaganha.processos.service._item_id_da_url/_validar_metadata_djen.
+const DJEN_ITEM_ID_PATTERN = /\/download\/(djen-[a-z0-9]+-\d{4})\//;
+
+// Mirrors SCHEMA_REGISTRY's keys (src/causaganha/consolidate/schema_registry.py)
+// -- duplicated here, not imported, because the Python registry isn't
+// available to a browser build. Same accepted-duplication risk already
+// documented for the artifact URL policy (Python _validate_artifact_url vs
+// TS validateArtifactUrl, #1610 next_move): a new schema version must be
+// added here too, or a coherent djen artifact would fail this check.
+const KNOWN_DJEN_SCHEMA_VERSIONS = new Set(['3.0.0']);
+
+/** IA item id (`djen-{tribunal}-{ano}`) embutido no path de `url`, ou `null` quando `url` não tem o formato de artefato djen (ex.: path local de teste). */
+export function itemIdDaUrl(url: string): string | null {
+  const match = DJEN_ITEM_ID_PATTERN.exec(url);
+  return match ? match[1] : null;
+}
+
+/**
+ * Lança `ArtifactProvenanceError` quando o rodapé Parquet (`metadata`) de um
+ * artefato djen discorda de (ou não carrega) a identidade que sua
+ * `arquivo_ia_url` reivindica -- um artefato comprometido/trocado sob uma URL
+ * inalterada, não só uma string ruim na linha do manifesto.
+ */
+export function validarMetadataDjen(url: string, metadata: Record<string, string>): void {
+  const esperadoItemId = itemIdDaUrl(url);
+  if (esperadoItemId === null) return;
+  const schemaVersion = metadata['causaganha.schema_version'];
+  if (schemaVersion === undefined || !KNOWN_DJEN_SCHEMA_VERSIONS.has(schemaVersion)) {
+    throw new ArtifactProvenanceError(
+      `Artefato djen sem schema_version reconhecido no rodapé Parquet ` +
+        `(${JSON.stringify(schemaVersion ?? null)}): ${JSON.stringify(url)}`,
+    );
+  }
+  const itemId = metadata['causaganha.item_id'];
+  if (itemId !== esperadoItemId) {
+    throw new ArtifactProvenanceError(
+      `Artefato djen declara item_id ${JSON.stringify(itemId ?? null)} no rodapé Parquet, mas ` +
+        `a URL do índice aponta para ${JSON.stringify(esperadoItemId)}: ${JSON.stringify(url)}`,
+    );
+  }
+}
+
+/** SQL do rodapé Parquet de um único artefato djen -- leitura de footer (httpfs range-read), não do arquivo inteiro. */
+export function buildDjenArtifactMetadataSql(url: string): string {
+  return `SELECT key, value FROM parquet_kv_metadata('${url}')`;
+}
+
+/**
+ * `djenUrls` cujo rodapé Parquet passa `validarMetadataDjen`, descartando
+ * (com aviso em `avisos`, nunca uma exceção fatal) qualquer um que falhe a
+ * leitura ou a checagem -- mesma política non-fatal-per-artifact do resto
+ * deste módulo. Cada URL é consultada individualmente (não em lote) para que
+ * a falha de leitura de um artefato não degrade os demais. Diferente do lado
+ * Python (que sempre lê o rodapé antes de checar a forma da URL), aqui a
+ * leitura só é tentada quando `itemIdDaUrl` já reconhece a URL como um item
+ * djen -- uma URL sem essa forma (ex.: fixture local de teste) não tem
+ * reivindicação para verificar, então não vale a pena arriscar uma consulta
+ * de rede/uma falha de leitura só para descartá-la sem necessidade.
+ */
+export async function validarMetadataDjenUrls(
+  conn: DuckDBConnectionLike,
+  djenUrls: string[],
+  avisos: string[],
+): Promise<string[]> {
+  const validated: string[] = [];
+  for (const url of djenUrls) {
+    if (itemIdDaUrl(url) === null) {
+      validated.push(url);
+      continue;
+    }
+    try {
+      const rows = await queryRows(conn, buildDjenArtifactMetadataSql(url), []);
+      const metadata: Record<string, string> = {};
+      for (const row of rows) metadata[String(row.key)] = String(row.value);
+      validarMetadataDjen(url, metadata);
+    } catch (err) {
+      if (err instanceof ArtifactProvenanceError) {
+        avisos.push(`Fonte 'djen' descartou um artefato com ${err.message}`);
+      } else {
+        const detalhe = err instanceof Error ? err.message : String(err);
+        avisos.push(`Fonte 'djen' descartou um artefato sem rodapé Parquet legível: ${detalhe}`);
+      }
+      continue;
+    }
+    validated.push(url);
+  }
+  return validated;
+}
+
 /**
  * Agrupa as URLs de arquivo_ia_url do índice por fonte, sem repetição,
  * ordenadas -- descartando (com aviso em `avisos`) qualquer uma que falhe a
- * política de artefato (ver validateArtifactUrl, #1610).
+ * política de artefato (`validateArtifactUrl`) ou a checagem de coerência de
+ * tribunal (`validarTribunalCoerente`) -- ambas #1610.
  */
-export function fonteUrls(rows: Array<{ fonte: string; url: string }>, fonte: Fonte, avisos: string[]): string[] {
-  const urls = Array.from(new Set(rows.filter((r) => r.fonte === fonte).map((r) => r.url))).sort();
+export function fonteUrls(
+  rows: Array<{ fonte: string; url: string; tribunal: string }>,
+  fonte: Fonte,
+  avisos: string[],
+): string[] {
+  const urlsTribunais = new Map<string, Set<string>>();
+  for (const row of rows) {
+    if (row.fonte !== fonte) continue;
+    if (!urlsTribunais.has(row.url)) urlsTribunais.set(row.url, new Set());
+    urlsTribunais.get(row.url)!.add(row.tribunal);
+  }
   const validated: string[] = [];
-  for (const url of urls) {
+  for (const url of Array.from(urlsTribunais.keys()).sort()) {
     try {
-      validated.push(validateArtifactUrl(url));
+      const urlValida = validateArtifactUrl(url);
+      for (const tribunal of urlsTribunais.get(url)!) {
+        validarTribunalCoerente(fonte, tribunal, urlValida);
+      }
+      validated.push(urlValida);
     } catch (err) {
-      const detalhe = err instanceof Error ? err.message : String(err);
-      avisos.push(`Fonte '${fonte}' descartou um artefato inválido no índice: ${detalhe}`);
+      if (err instanceof ArtifactUrlError) {
+        avisos.push(`Fonte '${fonte}' descartou um artefato inválido no índice: ${err.message}`);
+      } else if (err instanceof ArtifactProvenanceError) {
+        avisos.push(`Fonte '${fonte}' descartou um artefato com tribunal incoerente no índice: ${err.message}`);
+      } else {
+        throw err;
+      }
     }
   }
   return validated;
@@ -960,11 +1120,15 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
     };
   }
 
-  const rowPairs = indiceRows.map((r) => ({ fonte: String(r.fonte), url: String(r.arquivo_ia_url) }));
+  const rowPairs = indiceRows.map((r) => ({
+    fonte: String(r.fonte),
+    url: String(r.arquivo_ia_url),
+    tribunal: String(r.tribunal ?? ''),
+  }));
   const fontes = (Array.from(new Set(rowPairs.map((r) => r.fonte))).sort() as Fonte[]).filter((f) =>
     ALL_FONTES.includes(f),
   );
-  const djenUrls = fonteUrls(rowPairs, 'djen', avisos);
+  const djenUrls = await validarMetadataDjenUrls(conn, fonteUrls(rowPairs, 'djen', avisos), avisos);
   const jurisUrls = fonteUrls(rowPairs, 'juris', avisos);
   const stjUrls = fonteUrls(rowPairs, 'stj', avisos);
   const datajudUrls = fonteUrls(rowPairs, 'datajud', avisos);

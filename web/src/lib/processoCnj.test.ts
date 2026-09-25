@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ALL_FONTES,
+  ArtifactProvenanceError,
   ArtifactUrlError,
   buildCnjSearchParams,
   buildDatajudSql,
@@ -25,6 +26,7 @@ import {
   isDatasetStale,
   isDocumentosVazio,
   isValidCnj,
+  itemIdDaUrl,
   mapDatajudRow,
   mapDjenRow,
   mapDocumentoRow,
@@ -36,6 +38,10 @@ import {
   resolveDjenEqualityMode,
   stripCnjMask,
   toIsoDate,
+  tribunalDaUrl,
+  validarMetadataDjen,
+  validarMetadataDjenUrls,
+  validarTribunalCoerente,
   validateArtifactUrl,
 } from './processoCnj';
 
@@ -719,10 +725,10 @@ describe('validateArtifactUrl', () => {
 describe('fonteUrls', () => {
   it('dedupes and sorts URLs for the requested fonte', () => {
     const rows = [
-      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/b.parquet' },
-      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet' },
-      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet' },
-      { fonte: 'juris', url: 'https://archive.org/download/tjro-juris-2024/c.parquet' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/b.parquet', tribunal: 'TJRO' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet', tribunal: 'TJRO' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet', tribunal: 'TJRO' },
+      { fonte: 'juris', url: 'https://archive.org/download/tjro-juris-2024/c.parquet', tribunal: 'TJRO' },
     ];
     const avisos: string[] = [];
     expect(fonteUrls(rows, 'djen', avisos)).toEqual([
@@ -735,13 +741,150 @@ describe('fonteUrls', () => {
 
   it('drops an invalid URL and records an aviso instead of returning it — issue #1610', () => {
     const rows = [
-      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet' },
-      { fonte: 'djen', url: 'https://evil.example/download/x/x.parquet' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet', tribunal: 'TJRO' },
+      { fonte: 'djen', url: 'https://evil.example/download/x/x.parquet', tribunal: 'TJRO' },
     ];
     const avisos: string[] = [];
     expect(fonteUrls(rows, 'djen', avisos)).toEqual(['https://archive.org/download/djen-2024/a.parquet']);
     expect(avisos).toHaveLength(1);
     expect(avisos[0]).toContain("Fonte 'djen' descartou um artefato inválido no índice");
+  });
+});
+
+describe('tribunalDaUrl / validarTribunalCoerente (#1610 TM-04 -- Web parity with service._tribunal_da_url)', () => {
+  it.each([
+    ['djen' as const, 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet', 'tjro'],
+    ['djen' as const, 'https://archive.org/download/djen-tjsp-2025/comunicacoes.parquet', 'tjsp'],
+    ['datajud' as const, 'https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet', 'tjro'],
+  ])('extracts the tribunal embedded in the IA item name for %s', (fonte, url, esperado) => {
+    expect(tribunalDaUrl(fonte, url)).toBe(esperado);
+  });
+
+  it.each([
+    ['juris' as const, 'https://archive.org/download/tjro-juris-2024/tjro-juris-2024.parquet'],
+    ['stj' as const, 'https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet'],
+  ])('is null for a fonte not partitioned by tribunal (%s)', (fonte, url) => {
+    expect(tribunalDaUrl(fonte, url)).toBeNull();
+  });
+
+  it('is null for a local test path (no IA item shape)', () => {
+    expect(tribunalDaUrl('djen', '/tmp/comunicacoes.parquet')).toBeNull();
+  });
+
+  it('accepts a matching tribunal, case-insensitive', () => {
+    expect(() =>
+      validarTribunalCoerente('djen', 'TJRO', 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet'),
+    ).not.toThrow();
+  });
+
+  it('rejects a mismatched tribunal', () => {
+    expect(() =>
+      validarTribunalCoerente('djen', 'TJSP', 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet'),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('does not raise for an unverifiable URL', () => {
+    expect(() => validarTribunalCoerente('juris', 'TJRO', '/tmp/juris.parquet')).not.toThrow();
+  });
+});
+
+describe('itemIdDaUrl / validarMetadataDjen (#1610 TM-04 -- Web parity with service._item_id_da_url/_validar_metadata_djen)', () => {
+  it.each([
+    ['https://archive.org/download/djen-tjro-2024/comunicacoes.parquet', 'djen-tjro-2024'],
+    ['https://archive.org/download/djen-tjsp-2025/comunicacoes.parquet', 'djen-tjsp-2025'],
+  ])('extracts the djen IA item id from %s', (url, esperado) => {
+    expect(itemIdDaUrl(url)).toBe(esperado);
+  });
+
+  it('is null for a local test path', () => {
+    expect(itemIdDaUrl('/tmp/comunicacoes.parquet')).toBeNull();
+  });
+
+  it('is null for a non-djen source', () => {
+    expect(itemIdDaUrl('https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet')).toBeNull();
+  });
+
+  const URL_TJRO = 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet';
+
+  it('accepts coherent metadata', () => {
+    expect(() =>
+      validarMetadataDjen(URL_TJRO, { 'causaganha.schema_version': '3.0.0', 'causaganha.item_id': 'djen-tjro-2024' }),
+    ).not.toThrow();
+  });
+
+  it('rejects an unrecognized schema_version', () => {
+    expect(() =>
+      validarMetadataDjen(URL_TJRO, { 'causaganha.schema_version': '99.0.0', 'causaganha.item_id': 'djen-tjro-2024' }),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('rejects a missing schema_version', () => {
+    expect(() => validarMetadataDjen(URL_TJRO, { 'causaganha.item_id': 'djen-tjro-2024' })).toThrow(
+      ArtifactProvenanceError,
+    );
+  });
+
+  it('rejects a mismatched item_id', () => {
+    expect(() =>
+      validarMetadataDjen(URL_TJRO, { 'causaganha.schema_version': '3.0.0', 'causaganha.item_id': 'djen-tjsp-2024' }),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('does not raise for an unverifiable URL', () => {
+    expect(() => validarMetadataDjen('/tmp/comunicacoes.parquet', {})).not.toThrow();
+  });
+});
+
+describe('validarMetadataDjenUrls (#1610 TM-04 -- live footer check inside buscarProcesso)', () => {
+  const URL_TJRO = 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet';
+
+  it('keeps a djen URL whose footer coherently matches its own IA item id', async () => {
+    const conn = fakeConn([
+      [
+        'FROM parquet_kv_metadata',
+        [
+          { key: 'causaganha.schema_version', value: '3.0.0' },
+          { key: 'causaganha.item_id', value: 'djen-tjro-2024' },
+        ],
+      ],
+    ]);
+    const avisos: string[] = [];
+    expect(await validarMetadataDjenUrls(conn as any, [URL_TJRO], avisos)).toEqual([URL_TJRO]);
+    expect(avisos).toEqual([]);
+  });
+
+  it('drops a djen URL whose footer item_id disagrees with the URL it is served at', async () => {
+    const conn = fakeConn([
+      [
+        'FROM parquet_kv_metadata',
+        [
+          { key: 'causaganha.schema_version', value: '3.0.0' },
+          { key: 'causaganha.item_id', value: 'djen-tjsp-2024' },
+        ],
+      ],
+    ]);
+    const avisos: string[] = [];
+    expect(await validarMetadataDjenUrls(conn as any, [URL_TJRO], avisos)).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'djen' descartou um artefato com");
+    expect(avisos[0]).toContain('item_id');
+  });
+
+  it('drops a djen URL whose footer cannot be read, with an aviso instead of throwing', async () => {
+    const conn = fakeConnWithFailure('FROM parquet_kv_metadata', []);
+    const avisos: string[] = [];
+    expect(await validarMetadataDjenUrls(conn as any, [URL_TJRO], avisos)).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'djen' descartou um artefato sem rodapé Parquet legível");
+  });
+
+  it('keeps a URL that is not shaped like a djen IA item untouched (test fixture bypass)', async () => {
+    const conn = fakeConn([]);
+    const avisos: string[] = [];
+    expect(await validarMetadataDjenUrls(conn as any, ['/tmp/comunicacoes.parquet'], avisos)).toEqual([
+      '/tmp/comunicacoes.parquet',
+    ]);
+    expect(avisos).toEqual([]);
   });
 });
 
@@ -1044,6 +1187,88 @@ describe('buscarProcesso', () => {
       expect(result.avisos.some((a) => a.includes("Fonte 'djen' descartou um artefato inválido"))).toBe(true);
       // The malicious URL must never reach read_parquet/parquet_kv_metadata.
       expect(conn.calls.some((c) => c.sql.includes('evil.example'))).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('degrades djen to absent + aviso when the index tribunal disagrees with the URL it names — issue #1610 TM-04', async () => {
+    // The tribunal half of TM-04's Web gap: indice_processual.parquet's own
+    // `tribunal` column disagrees with the tribunal the artefact's IA item
+    // name embeds, for an otherwise policy-valid URL — the same
+    // "controle de significado" threat validateArtifactUrl's host/path
+    // policy alone cannot catch (direct counterpart of
+    // test_poisoned_manifest_tribunal_degrades_source_instead_of_trusting in
+    // causaganha/processos/test_service.py).
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ generated_at: 'X', sources: {} }) }),
+    );
+    try {
+      const conn = fakeConn([
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [
+            {
+              fonte: 'djen',
+              arquivo_ia_url: 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet',
+              tribunal: 'TJSP',
+            },
+          ],
+        ],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.encontrado).toBe(true);
+      expect(result.djen.present).toBe(false);
+      expect(result.avisos.some((a) => a.includes("Fonte 'djen' descartou um artefato com tribunal incoerente"))).toBe(
+        true,
+      );
+      expect(result.avisos.some((a) => a.toLowerCase().includes('indispon'))).toBe(false);
+      // Rejected by the provenance check itself, before any read_parquet against the mismatched url.
+      expect(conn.calls.some((c) => c.sql.includes('djen-tjro-2024'))).toBe(false);
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("degrades djen to absent + aviso when the artefact's own Parquet footer disagrees with the URL it is served at — issue #1610 TM-04", async () => {
+    // The artefact itself, not just the manifest, can disagree with the URL
+    // it is served at: a footer whose causaganha.item_id names a different
+    // djen IA item than the index's own arquivo_ia_url must degrade to an
+    // aviso instead of being trusted (direct counterpart of
+    // test_djen_artifact_footer_item_id_mismatch_degrades_source_instead_of_trusting
+    // in causaganha/processos/test_service.py).
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockResolvedValue({ ok: true, json: async () => ({ generated_at: 'X', sources: {} }) }),
+    );
+    try {
+      const conn = fakeConn([
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [
+            {
+              fonte: 'djen',
+              arquivo_ia_url: 'https://archive.org/download/djen-tjro-2024/comunicacoes.parquet',
+              tribunal: 'TJRO',
+            },
+          ],
+        ],
+        [
+          'FROM parquet_kv_metadata',
+          [
+            { key: 'causaganha.schema_version', value: '3.0.0' },
+            { key: 'causaganha.item_id', value: 'djen-tjsp-2024' },
+          ],
+        ],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.encontrado).toBe(true);
+      expect(result.djen.present).toBe(false);
+      expect(result.avisos.some((a) => a.includes("Fonte 'djen' descartou um artefato com") && a.includes('item_id'))).toBe(
+        true,
+      );
+      expect(result.avisos.some((a) => a.toLowerCase().includes('indispon'))).toBe(false);
     } finally {
       vi.unstubAllGlobals();
     }
