@@ -61,6 +61,10 @@ ROOT = Path(__file__).resolve().parent.parent
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
+from causaganha.processos.service import (  # noqa: E402 — idem
+    ArtifactUrlError,
+    _validate_artifact_url,
+)
 from datajud.archive import (  # noqa: E402 — importado após o bootstrap de sys.path acima
     CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA,
 )
@@ -518,19 +522,33 @@ def _register_comunicacoes(con: duckdb.DuckDBPyConnection) -> bool:
     Falls back to _comunicacoes_urls_from_catalog when the index itself
     isn't available yet (or lists no djen rows) — see that function's
     docstring for why: this is a rollout-window guard, not the steady state.
+
+    Issue #1610: `arquivo_ia_url` comes from `indice_processual.parquet`, a
+    canonical manifest artifact a compromised upstream could still poison.
+    Each value is validated with the same fetch policy already enforced by
+    `causaganha.processos.service._validate_artifact_url` (and its
+    TypeScript twin in `processoCnj.ts`) before it is interpolated into
+    `read_parquet([...])` below — an invalid entry is dropped with a warning
+    instead of redirecting the fetch or breaking out of the SQL literal.
     """
     urls: list[str] = []
     indice_path = _try_download_parquet(
         _INDICE_PROCESSUAL_IA_URL, _INDICE_PROCESSUAL_PARQUET, "indice_processual"
     )
     if indice_path is not None:
-        urls = [
+        raw_urls = [
             row[0]
             for row in con.execute(
                 f"SELECT DISTINCT arquivo_ia_url FROM read_parquet('{indice_path}') "
                 "WHERE fonte = 'djen'"
             ).fetchall()
         ]
+        urls = []
+        for raw_url in raw_urls:
+            try:
+                urls.append(_validate_artifact_url(raw_url))
+            except ArtifactUrlError as exc:
+                print(f"WARNING: comunicacoes discartou um artefato inválido no índice: {exc}")
     if not urls:
         urls = _comunicacoes_urls_from_catalog(con)
         source = "causaganha-catalog manifest (indice_processual fallback)"
