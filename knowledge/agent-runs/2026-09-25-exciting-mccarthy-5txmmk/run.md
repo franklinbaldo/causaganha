@@ -2,7 +2,7 @@
 type: AgentRun
 id: "2026-09-25-exciting-mccarthy-5txmmk"
 started_at: "2026-09-25T22:27:53Z"
-completed_at: ""
+completed_at: "2026-09-25T22:39:00Z"
 branch_at_start: "claude/exciting-mccarthy-5txmmk"
 commit_at_start: "a6a4d3357710d9e3dd8371cfc5c13d39ded348c9"
 claude_md_reading_id: "2026-09-25-exciting-mccarthy-5txmmk-reading-claude-md"
@@ -23,12 +23,19 @@ selected_work: "TDD completo sobre #1652 (TM-16) item (3): aplicar verificacao d
 expected_behavior: "Ver success_signal em goal-reconcile-identity-check."
 entry_state: "new"
 target_state: "review"
-decision_ids: []
-evidence_ids: []
-check_ids: []
-result_state: "red"
-result_summary: ""
-next_move: ""
+decision_ids:
+  - "2026-09-25-exciting-mccarthy-5txmmk-decision-identity-metadata-not-digest-manifest"
+evidence_ids:
+  - "2026-09-25-exciting-mccarthy-5txmmk-evidence-red-identity-check"
+  - "2026-09-25-exciting-mccarthy-5txmmk-evidence-green-identity-check"
+check_ids:
+  - "2026-09-25-exciting-mccarthy-5txmmk-check-reconcile-suite"
+  - "2026-09-25-exciting-mccarthy-5txmmk-check-ruff"
+  - "2026-09-25-exciting-mccarthy-5txmmk-check-pytest-full-suite"
+  - "2026-09-25-exciting-mccarthy-5txmmk-check-okf-parser-final"
+result_state: "review"
+result_summary: "Fechado #1652 (TM-16) item (3), a ultima superficie aberta da issue: scripts/reconcile_processos.py::fetch_juris_from_ia/fetch_datajud_from_ia agora verificam (_verify_artifact_identity, via _kv_metadata local com DuckDB parquet_kv_metadata) o rodape causaganha.schema_version/causaganha.item_id de todo arquivo baixado do fallback IA contra o item do qual foi fetched, antes de aceita-lo como fonte para indice_processual.parquet -- rejeitando (SourceDataError, mesmo tipo ja usado para parquet corrompido) um arquivo sem esse rodape ou com item_id divergente. TDD completo: 4 testes novos em TestArtifactIdentityVerification, RED confirmado (3/3 casos de rejeicao nao levantavam excecao) antes da mudanca de producao, GREEN depois. Fixtures JURIS existentes (_juris_parquet) ganharam parametro item= para gravar o mesmo KV_METADATA que tjro_juris.service ja grava em producao (TM-04, rodada qjwekj desta mesma data); fixtures DataJud ja usavam o write_capa_parquet real (rodada r0zxiq), sem mudanca necessaria. Decisao registrada (decision-identity-metadata-not-digest-manifest): nao adotado o desenho da PR externa #1645 (manifesto JSON de digests SHA-256 hand-maintained) por estar desatualizado contra main (pre-#1657) e por seu padrao vazio-por-padrao quebrar reconciliacao em producao ate curadoria manual continua -- reusado em vez disso o mecanismo de identidade auto-verificavel ja estabelecido nos lados de escrita (TM-04) e consulta (causaganha.processos.service) do proprio projeto. docs/SECURITY_THREAT_MODEL.md TM-16 atualizado, marcando as 3 superficies de #1652 como fechadas. uv run pytest -q tests/test_reconcile_processos.py: 35/35 verde. uv run ruff check/format --check: limpos. uv run pytest -q (suite completa do repositorio): verde, com a unica falha esperada e documentada no proprio scaffold (test_check_agent_run_completeness.py::test_main_over_this_rounds_own_report_tree_is_complete, causada por este proprio run.md ainda estar em rascunho no momento em que a suite completa rodou em paralelo com a redacao deste relatorio) -- resolvida ao preencher completed_at/result_summary/next_move nestes commit final, revalidada isoladamente apos o preenchimento. uv run okf-parser check knowledge --relational-schema okf.schema.sql: conformant, 0 diagnostics, apos cada etapa do relatorio."
+next_move: "Commit local ja feito (db8e5c5) e revalidado: apos preencher completed_at/result_summary/next_move, tests/test_check_agent_run_completeness.py::test_main_over_this_rounds_own_report_tree_is_complete e os dois testes de geracao (zod schemas/domain models) confirmados verdes isoladamente (a falha inicial era 'subject' com valor invalido em 3 AgentReading -- corrigido: open_issues/open_prs/okf_knowledge, nao issues/prs/okf). Proximo passo desta mesma rodada: git push da branch e abrir PR fechando #1652 com 'Closes #1652'. Uma rodada futura deve: (1) confirmar a PR mesclada e atualizar este run.md/o registro OKF conforme o padrao ja estabelecido pelas rodadas anteriores (r0zxiq/szlcz8/xy5a8a); (2) considerar se ha mais alguma issue de seguranca aberta alem de #1652 -- uma releitura completa de docs/SECURITY_THREAT_MODEL.md contra as issues abertas atuais ajudaria a confirmar se o backlog de seguranca conhecido esta exaurido; (3) #1605 (batch27 segmenter, branch claude/exciting-mccarthy-034xwb) permanece bloqueada por conflito de merge em branch sem permissao de push ha 6+ rodadas -- considerar escalar ao dono humano se uma proxima rodada reconfirmar o mesmo bloqueio sem nenhum progresso; (4) Parquet/CNJ (#1470/#1469/#1471/#1472/#1468/#1022/#985) seguem bloqueadas por credenciais IA ausentes neste tipo de sessao, sem fato novo."
 ---
 
 # Agent run
