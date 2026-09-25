@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect, it, vi } from 'vitest';
 import {
   ALL_FONTES,
+  ArtifactUrlError,
   buildCnjSearchParams,
   buildDatajudSql,
   buildDjenCertificationSql,
@@ -35,6 +36,7 @@ import {
   resolveDjenEqualityMode,
   stripCnjMask,
   toIsoDate,
+  validateArtifactUrl,
 } from './processoCnj';
 
 /** Runs `fn` under a given TZ, then restores the previous value -- deleting
@@ -661,16 +663,85 @@ describe('evidenceMatrixRows', () => {
   });
 });
 
+describe('validateArtifactUrl', () => {
+  // Issue #1610: arquivo_ia_url values come straight from
+  // indice_processual.parquet, a canonical manifest artifact interpolated
+  // as-is into read_parquet([...])/parquet_kv_metadata([...]) by urlListSql.
+  // A compromised manifest must not be able to redirect DuckDB's fetch
+  // destination or break out of that naive string-literal embedding — same
+  // policy as causaganha.processos.service._validate_artifact_url (#1622).
+
+  it.each([
+    'https://archive.org/download/tjro-juris-2024/tjro-juris-2024.parquet',
+    'https://archive.org/download/causaganha-dashboard/indice_processual.parquet',
+  ])('accepts a valid archive.org parquet URL: %s', (url) => {
+    expect(validateArtifactUrl(url)).toBe(url);
+  });
+
+  it('accepts a bare local path without a scheme (used by test fixtures)', () => {
+    expect(validateArtifactUrl('/tmp/fixture.parquet')).toBe('/tmp/fixture.parquet');
+    expect(validateArtifactUrl('relative/fixture.parquet')).toBe('relative/fixture.parquet');
+  });
+
+  it('rejects a URL with an embedded single quote', () => {
+    expect(() => validateArtifactUrl("https://archive.org/download/x/x'.parquet")).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a non-https scheme', () => {
+    expect(() => validateArtifactUrl('http://archive.org/download/x/x.parquet')).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a host outside the allowlist', () => {
+    expect(() => validateArtifactUrl('https://evil.example/download/x/x.parquet')).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a file:// URL', () => {
+    expect(() => validateArtifactUrl('file:///etc/passwd')).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a query string', () => {
+    expect(() => validateArtifactUrl('https://archive.org/download/x/x.parquet?evil=1')).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a fragment', () => {
+    expect(() => validateArtifactUrl('https://archive.org/download/x/x.parquet#evil')).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a path outside the /download/ prefix', () => {
+    expect(() => validateArtifactUrl('https://archive.org/metadata/x/x.parquet')).toThrow(ArtifactUrlError);
+  });
+
+  it('rejects a path that does not end in .parquet', () => {
+    expect(() => validateArtifactUrl('https://archive.org/download/x/x.json')).toThrow(ArtifactUrlError);
+  });
+});
+
 describe('fonteUrls', () => {
   it('dedupes and sorts URLs for the requested fonte', () => {
     const rows = [
-      { fonte: 'djen', url: 'https://b' },
-      { fonte: 'djen', url: 'https://a' },
-      { fonte: 'djen', url: 'https://a' },
-      { fonte: 'juris', url: 'https://c' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/b.parquet' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet' },
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet' },
+      { fonte: 'juris', url: 'https://archive.org/download/tjro-juris-2024/c.parquet' },
     ];
-    expect(fonteUrls(rows, 'djen')).toEqual(['https://a', 'https://b']);
-    expect(fonteUrls(rows, 'stj')).toEqual([]);
+    const avisos: string[] = [];
+    expect(fonteUrls(rows, 'djen', avisos)).toEqual([
+      'https://archive.org/download/djen-2024/a.parquet',
+      'https://archive.org/download/djen-2024/b.parquet',
+    ]);
+    expect(fonteUrls(rows, 'stj', avisos)).toEqual([]);
+    expect(avisos).toEqual([]);
+  });
+
+  it('drops an invalid URL and records an aviso instead of returning it — issue #1610', () => {
+    const rows = [
+      { fonte: 'djen', url: 'https://archive.org/download/djen-2024/a.parquet' },
+      { fonte: 'djen', url: 'https://evil.example/download/x/x.parquet' },
+    ];
+    const avisos: string[] = [];
+    expect(fonteUrls(rows, 'djen', avisos)).toEqual(['https://archive.org/download/djen-2024/a.parquet']);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'djen' descartou um artefato inválido no índice");
   });
 });
 
@@ -811,14 +882,14 @@ describe('buscarProcesso', () => {
         [
           'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
           [
-            { fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' },
-            { fonte: 'datajud', arquivo_ia_url: 'https://ia/datajud-capa-tjro.parquet' },
+            { fonte: 'djen', arquivo_ia_url: 'https://archive.org/download/ia/djen-2024.parquet' },
+            { fonte: 'datajud', arquivo_ia_url: 'https://archive.org/download/ia/datajud-capa-tjro.parquet' },
           ],
         ],
         ['COUNT(*)::INTEGER AS n_publicacoes', [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }]],
         ['FROM agg, principal', []],
         [
-          'FROM read_parquet([\'https://ia/datajud-capa-tjro.parquet\'])',
+          'FROM read_parquet([\'https://archive.org/download/ia/datajud-capa-tjro.parquet\'])',
           [{ n: 1, classe_oficial: 'Apelacao', assuntos: 'X', orgao_julgador: 'Y', grau: 'G1', data_ajuizamento: '2024-01-01', ultima_atualizacao: '2024-02-01' }],
         ],
       ]);
@@ -852,9 +923,9 @@ describe('buscarProcesso', () => {
         [
           'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
           [
-            { fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' },
-            { fonte: 'juris', arquivo_ia_url: 'https://ia/tjro-juris-2024.parquet' },
-            { fonte: 'datajud', arquivo_ia_url: 'https://ia/datajud-capa-tjro.parquet' },
+            { fonte: 'djen', arquivo_ia_url: 'https://archive.org/download/ia/djen-2024.parquet' },
+            { fonte: 'juris', arquivo_ia_url: 'https://archive.org/download/ia/tjro-juris-2024.parquet' },
+            { fonte: 'datajud', arquivo_ia_url: 'https://archive.org/download/ia/datajud-capa-tjro.parquet' },
           ],
         ],
         [
@@ -862,7 +933,7 @@ describe('buscarProcesso', () => {
           [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }],
         ],
         [
-          'FROM read_parquet([\'https://ia/datajud-capa-tjro.parquet\'])',
+          'FROM read_parquet([\'https://archive.org/download/ia/datajud-capa-tjro.parquet\'])',
           [{ n: 1, classe_oficial: 'Apelacao', assuntos: 'X', orgao_julgador: 'Y', grau: 'G1', data_ajuizamento: '2024-01-01', ultima_atualizacao: '2024-02-01' }],
         ],
       ]);
@@ -886,14 +957,14 @@ describe('buscarProcesso', () => {
       const conn = fakeConn([
         [
           'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
-          [{ fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2026.parquet' }],
+          [{ fonte: 'djen', arquivo_ia_url: 'https://archive.org/download/ia/djen-2026.parquet' }],
         ],
         [
           'FROM parquet_kv_metadata',
           [
-            { file_name: 'https://ia/djen-2026.parquet', key: 'causaganha.layout', value: 'cnj-text-sorted-v1' },
+            { file_name: 'https://archive.org/download/ia/djen-2026.parquet', key: 'causaganha.layout', value: 'cnj-text-sorted-v1' },
             {
-              file_name: 'https://ia/djen-2026.parquet',
+              file_name: 'https://archive.org/download/ia/djen-2026.parquet',
               key: 'causaganha.cnj_normalization',
               value: 'valid-20-digits-v1',
             },
@@ -917,7 +988,7 @@ describe('buscarProcesso', () => {
       const conn = fakeConn([
         [
           'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
-          [{ fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' }],
+          [{ fonte: 'djen', arquivo_ia_url: 'https://archive.org/download/ia/djen-2024.parquet' }],
         ],
         // No route registered for `parquet_kv_metadata` -- fakeConn returns [] for
         // any unmatched query, exactly like a real legacy file with no KV footer.
@@ -938,7 +1009,7 @@ describe('buscarProcesso', () => {
       const conn = fakeConnWithFailure('FROM parquet_kv_metadata', [
         [
           'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
-          [{ fonte: 'djen', arquivo_ia_url: 'https://ia/djen-2024.parquet' }],
+          [{ fonte: 'djen', arquivo_ia_url: 'https://archive.org/download/ia/djen-2024.parquet' }],
         ],
         ['COUNT(*)::INTEGER AS n_publicacoes', [{ n_publicacoes: 1, primeira_publicacao: '2024-01-01', ultima_publicacao: '2024-01-01', tribunais: ['TJRO'] }]],
       ]);
@@ -946,6 +1017,33 @@ describe('buscarProcesso', () => {
       expect(result.djen.present).toBe(true);
       const djenCall = conn.calls.find((c) => c.sql.includes('COUNT(*)::INTEGER AS n_publicacoes'));
       expect(djenCall?.sql).toContain("WHERE regexp_replace(numero_processo, '[^0-9]', '', 'g') = ?");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it('degrades a source to absent + aviso instead of crashing when the index has a poisoned arquivo_ia_url — issue #1610', async () => {
+    // The exact threat issue #1610 describes: a compromised
+    // indice_processual.parquet points arquivo_ia_url at an unexpected host.
+    // The source must degrade to an aviso, like any other unavailable
+    // source, instead of that URL ever reaching read_parquet/
+    // parquet_kv_metadata (direct TypeScript counterpart of
+    // test_poisoned_manifest_url_degrades_source_instead_of_crashing in
+    // causaganha/processos/test_service.py).
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false }));
+    try {
+      const conn = fakeConn([
+        [
+          'FROM read_parquet(\'https://archive.org/download/causaganha-dashboard/indice_processual.parquet\')',
+          [{ fonte: 'djen', arquivo_ia_url: 'https://evil.example/download/x/x.parquet' }],
+        ],
+      ]);
+      const result = await buscarProcesso(conn as any, CNJ_ALL);
+      expect(result.encontrado).toBe(true);
+      expect(result.djen.present).toBe(false);
+      expect(result.avisos.some((a) => a.includes("Fonte 'djen' descartou um artefato inválido"))).toBe(true);
+      // The malicious URL must never reach read_parquet/parquet_kv_metadata.
+      expect(conn.calls.some((c) => c.sql.includes('evil.example'))).toBe(false);
     } finally {
       vi.unstubAllGlobals();
     }
@@ -1026,7 +1124,7 @@ describe('carregarDocumentos', () => {
         ],
       ],
     ]);
-    const result = await carregarDocumentos(conn as any, ['https://ia/juris.parquet'], [], CNJ_ALL, 0, 20);
+    const result = await carregarDocumentos(conn as any, ['https://archive.org/download/ia/juris.parquet'], [], CNJ_ALL, 0, 20);
     expect(result.items).toEqual([
       { fonte: 'juris', idDocumento: '1', tipo: 'ACÓRDÃO', data: '2024-01-15', url: 'https://juris/1', resumo: 'r1' },
     ]);
