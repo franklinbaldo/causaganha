@@ -39,5 +39,5 @@ runs:
             fi
           done
         fi
-        uv sync "${args[@]}"
+        uv sync --frozen "${args[@]}"
       shell: bash
