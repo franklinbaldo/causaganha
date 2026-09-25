@@ -111,7 +111,18 @@ jobs:
             port="$2"
             viewport="$3"
             suffix="$4"
+            # --timeout bounds --wait-for-selector explicitly: unlike a plain
+            # capture() (bounded implicitly by page.goto()'s own 30s default),
+            # this command has no default timeout at all (`npx playwright
+            # screenshot --help`: "no timeout by default") and would otherwise
+            # hang until the job's own 20-minute timeout kills the runner --
+            # exactly what happened while #1631 (ProcessoLookup.svelte's
+            # onMount blocking CNJ format validation on DuckDB-WASM init) was
+            # diagnosed. This bound doesn't fix a root cause; it turns any
+            # future regression here into a fast, legible Playwright
+            # TimeoutError instead of a silent 20-minute hang.
             npx --yes playwright@1.55.0 screenshot --browser chromium --viewport-size="$viewport" --full-page \
+              --timeout 30000 \
               --wait-for-selector='text=CNJ inválido' \
               "http://127.0.0.1:${port}/causaganha/processo.html?cnj=123" \
               "captures/processo-invalid-${suffix}-${state}.png"
