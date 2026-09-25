@@ -863,6 +863,92 @@ export async function validarMetadataDjenUrls(
   return validated;
 }
 
+// TM-04 read side for `juris` (issue #1610): o lado de escrita
+// (`tjro_juris.service._rows_to_parquet`) agora grava o mesmo rodapé
+// `causaganha.schema_version`/`causaganha.item_id` que os exports djen já
+// gravam, no mesmo namespace `causaganha.*` (`JURIS_SCHEMA_VERSION` em vez de
+// `SCHEMA_REGISTRY`, já que juris tem um único schema de export até agora,
+// sem versionamento). Mirrors causaganha.processos.service
+// ._juris_item_id_da_url/_validar_metadata_juris (Python) -- mesma política,
+// mesma checagem, superfície TS.
+const JURIS_ITEM_ID_PATTERN = /\/download\/(tjro-juris-\d{4})\//;
+
+// Mirrors JURIS_SCHEMA_VERSION (src/tjro_juris/service.py) -- duplicado
+// aqui pelo mesmo motivo aceito para KNOWN_DJEN_SCHEMA_VERSIONS: o registro
+// Python não está disponível para um build de browser.
+const KNOWN_JURIS_SCHEMA_VERSIONS = new Set(['1.0.0']);
+
+/** IA item id (`tjro-juris-{ano}`) embutido no path de `url`, ou `null` quando `url` não tem o formato de artefato juris (ex.: path local de teste). */
+export function jurisItemIdDaUrl(url: string): string | null {
+  const match = JURIS_ITEM_ID_PATTERN.exec(url);
+  return match ? match[1] : null;
+}
+
+/**
+ * Lança `ArtifactProvenanceError` quando o rodapé Parquet (`metadata`) de um
+ * artefato juris discorda de (ou não carrega) a identidade que sua
+ * `arquivo_ia_url` reivindica -- espelho de `validarMetadataDjen` para juris.
+ */
+export function validarMetadataJuris(url: string, metadata: Record<string, string>): void {
+  const esperadoItemId = jurisItemIdDaUrl(url);
+  if (esperadoItemId === null) return;
+  const schemaVersion = metadata['causaganha.schema_version'];
+  if (schemaVersion === undefined || !KNOWN_JURIS_SCHEMA_VERSIONS.has(schemaVersion)) {
+    throw new ArtifactProvenanceError(
+      `Artefato juris sem schema_version reconhecido no rodapé Parquet ` +
+        `(${JSON.stringify(schemaVersion ?? null)}): ${JSON.stringify(url)}`,
+    );
+  }
+  const itemId = metadata['causaganha.item_id'];
+  if (itemId !== esperadoItemId) {
+    throw new ArtifactProvenanceError(
+      `Artefato juris declara item_id ${JSON.stringify(itemId ?? null)} no rodapé Parquet, mas ` +
+        `a URL do índice aponta para ${JSON.stringify(esperadoItemId)}: ${JSON.stringify(url)}`,
+    );
+  }
+}
+
+/** SQL do rodapé Parquet de um único artefato juris -- leitura de footer (httpfs range-read), não do arquivo inteiro. */
+export function buildJurisArtifactMetadataSql(url: string): string {
+  return `SELECT key, value FROM parquet_kv_metadata('${url}')`;
+}
+
+/**
+ * `jurisUrls` cujo rodapé Parquet passa `validarMetadataJuris`, descartando
+ * (com aviso em `avisos`, nunca uma exceção fatal) qualquer um que falhe a
+ * leitura ou a checagem -- mesma política non-fatal-per-artifact de
+ * `validarMetadataDjenUrls`.
+ */
+export async function validarMetadataJurisUrls(
+  conn: DuckDBConnectionLike,
+  jurisUrls: string[],
+  avisos: string[],
+): Promise<string[]> {
+  const validated: string[] = [];
+  for (const url of jurisUrls) {
+    if (jurisItemIdDaUrl(url) === null) {
+      validated.push(url);
+      continue;
+    }
+    try {
+      const rows = await queryRows(conn, buildJurisArtifactMetadataSql(url), []);
+      const metadata: Record<string, string> = {};
+      for (const row of rows) metadata[String(row.key)] = String(row.value);
+      validarMetadataJuris(url, metadata);
+    } catch (err) {
+      if (err instanceof ArtifactProvenanceError) {
+        avisos.push(`Fonte 'juris' descartou um artefato com ${err.message}`);
+      } else {
+        const detalhe = err instanceof Error ? err.message : String(err);
+        avisos.push(`Fonte 'juris' descartou um artefato sem rodapé Parquet legível: ${detalhe}`);
+      }
+      continue;
+    }
+    validated.push(url);
+  }
+  return validated;
+}
+
 /**
  * Agrupa as URLs de arquivo_ia_url do índice por fonte, sem repetição,
  * ordenadas -- descartando (com aviso em `avisos`) qualquer uma que falhe a
@@ -1129,7 +1215,7 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
     ALL_FONTES.includes(f),
   );
   const djenUrls = await validarMetadataDjenUrls(conn, fonteUrls(rowPairs, 'djen', avisos), avisos);
-  const jurisUrls = fonteUrls(rowPairs, 'juris', avisos);
+  const jurisUrls = await validarMetadataJurisUrls(conn, fonteUrls(rowPairs, 'juris', avisos), avisos);
   const stjUrls = fonteUrls(rowPairs, 'stj', avisos);
   const datajudUrls = fonteUrls(rowPairs, 'datajud', avisos);
 

@@ -18,6 +18,7 @@ import respx
 
 from causaganha.consolidate import schema_registry
 from causaganha.processos import service
+from tjro_juris import service as juris_service
 from causaganha.processos.models import CnjInvalidoError, FonteCobertura
 from causaganha.processos.query_plan_fixtures import (
     CNJ_ALL,
@@ -610,6 +611,181 @@ class TestMetadataDjenCoerente:
 
     def test_unverifiable_url_does_not_raise(self, tmp_path: Path) -> None:
         service._validar_metadata_djen(str(tmp_path / "comunicacoes.parquet"), {})
+
+
+class TestMetadataJurisCoerente:
+    """Issue #1610 (TM-04) read-side gap for `juris`, closed after the write
+    side (`tjro_juris.service._rows_to_parquet`, issue #1610/TM-04) started
+    embedding `causaganha.schema_version`/`causaganha.item_id` in every
+    monthly export's Parquet footer. Mirrors `_validar_metadata_djen`
+    exactly, against the `tjro-juris-{ano}` item shape instead of
+    `djen-{tribunal}-{ano}`.
+    """
+
+    @pytest.mark.parametrize(
+        ("url", "esperado"),
+        [
+            (
+                "https://archive.org/download/tjro-juris-2024/2024-01-ACÓRDÃO.parquet",
+                "tjro-juris-2024",
+            ),
+            (
+                "https://archive.org/download/tjro-juris-2025/2025-06-SENTENÇA.parquet",
+                "tjro-juris-2025",
+            ),
+        ],
+    )
+    def test_item_id_extracted_from_juris_url(self, url: str, esperado: str) -> None:
+        assert service._juris_item_id_da_url(url) == esperado
+
+    def test_item_id_none_for_local_test_path(self, tmp_path: Path) -> None:
+        assert service._juris_item_id_da_url(str(tmp_path / "tjro-juris-2024.parquet")) is None
+
+    def test_item_id_none_for_non_juris_source(self) -> None:
+        assert (
+            service._juris_item_id_da_url(
+                "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+            )
+            is None
+        )
+
+    def test_coherent_metadata_passes(self) -> None:
+        url = "https://archive.org/download/tjro-juris-2024/2024-01-ACÓRDÃO.parquet"
+        metadata = {
+            "causaganha.schema_version": juris_service.JURIS_SCHEMA_VERSION,
+            "causaganha.item_id": "tjro-juris-2024",
+        }
+        service._validar_metadata_juris(url, metadata)
+
+    def test_unknown_schema_version_is_rejected(self) -> None:
+        url = "https://archive.org/download/tjro-juris-2024/2024-01-ACÓRDÃO.parquet"
+        metadata = {"causaganha.schema_version": "99.0.0", "causaganha.item_id": "tjro-juris-2024"}
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_juris(url, metadata)
+
+    def test_missing_schema_version_is_rejected(self) -> None:
+        url = "https://archive.org/download/tjro-juris-2024/2024-01-ACÓRDÃO.parquet"
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_juris(url, {"causaganha.item_id": "tjro-juris-2024"})
+
+    def test_mismatched_item_id_is_rejected(self) -> None:
+        url = "https://archive.org/download/tjro-juris-2024/2024-01-ACÓRDÃO.parquet"
+        metadata = {
+            "causaganha.schema_version": juris_service.JURIS_SCHEMA_VERSION,
+            "causaganha.item_id": "tjro-juris-2025",
+        }
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_juris(url, metadata)
+
+    def test_unverifiable_url_does_not_raise(self, tmp_path: Path) -> None:
+        service._validar_metadata_juris(str(tmp_path / "tjro-juris-2024.parquet"), {})
+
+
+def _juris_kv_metadata_sql_fragment(item_id: str) -> str:
+    """Mirrors `schema_registry.kv_metadata_sql_fragment` for juris fixtures."""
+    meta = {
+        "causaganha.schema_version": juris_service.JURIS_SCHEMA_VERSION,
+        "causaganha.item_id": item_id,
+    }
+    pairs = ", ".join(f"'{k}': '{v}'" for k, v in meta.items())
+    return f"KV_METADATA {{{pairs}}}"
+
+
+def test_juris_artifact_footer_item_id_mismatch_degrades_source_instead_of_trusting(
+    tmp_path: Path,
+) -> None:
+    """Same class of threat `test_djen_artifact_footer_item_id_mismatch_...`
+    covers, now for `juris`: a `tjro-juris-{ano}.parquet` file whose own
+    footer declares `causaganha.item_id = tjro-juris-2025` but is wired into
+    the index under a `tjro-juris-2024` URL must degrade to an aviso instead
+    of being trusted.
+    """
+    item_dir = tmp_path / "download" / "tjro-juris-2024"
+    item_dir.mkdir(parents=True)
+    juris_parquet = item_dir / "2024-01-ACORDAO.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            COPY (
+                SELECT 1 AS id_documento, '{CNJ_ALL}' AS nr_processo, 'ACÓRDÃO' AS tipo,
+                    DATE '2024-01-15' AS data_julgamento, 'orgao' AS orgao,
+                    'relator' AS relator, 'classe' AS classe_judicial,
+                    'https://juris/1' AS url_portal
+            ) TO '{juris_parquet}' (FORMAT PARQUET,
+                {_juris_kv_metadata_sql_fragment("tjro-juris-2025")})
+            """
+        )
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'juris' AS fonte, 'j1' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-01-15' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, str(juris_parquet)],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(
+        CNJ_ALL, indice_url=str(indice), report_url=str(report), incluir_documentos=False
+    )
+
+    assert result.encontrado is True
+    assert result.juris is None
+    assert any("item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos)
+    assert not any("indispon" in aviso.lower() for aviso in result.avisos)
+
+
+def test_juris_artifact_footer_item_id_coerente_is_accepted(tmp_path: Path) -> None:
+    """The positive case: a juris footer whose `causaganha.item_id` agrees
+    with the URL it's served at must not be dropped.
+    """
+    item_dir = tmp_path / "download" / "tjro-juris-2024"
+    item_dir.mkdir(parents=True)
+    juris_parquet = item_dir / "2024-01-ACORDAO.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            COPY (
+                SELECT 1 AS id_documento, '{CNJ_ALL}' AS nr_processo, 'ACÓRDÃO' AS tipo,
+                    DATE '2024-01-15' AS data_julgamento, 'orgao' AS orgao,
+                    'relator' AS relator, 'classe' AS classe_judicial,
+                    'https://juris/1' AS url_portal
+            ) TO '{juris_parquet}' (FORMAT PARQUET,
+                {_juris_kv_metadata_sql_fragment("tjro-juris-2024")})
+            """
+        )
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'juris' AS fonte, 'j1' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-01-15' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, str(juris_parquet)],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(
+        CNJ_ALL, indice_url=str(indice), report_url=str(report), incluir_documentos=False
+    )
+
+    assert result.encontrado is True
+    assert result.juris is not None
+    assert result.juris.n_documentos == 1
+    assert not any(
+        "item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos
+    )
 
 
 def test_djen_artifact_footer_item_id_mismatch_degrades_source_instead_of_trusting(

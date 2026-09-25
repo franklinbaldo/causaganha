@@ -27,6 +27,7 @@ import {
   isDocumentosVazio,
   isValidCnj,
   itemIdDaUrl,
+  jurisItemIdDaUrl,
   mapDatajudRow,
   mapDjenRow,
   mapDocumentoRow,
@@ -41,6 +42,8 @@ import {
   tribunalDaUrl,
   validarMetadataDjen,
   validarMetadataDjenUrls,
+  validarMetadataJuris,
+  validarMetadataJurisUrls,
   validarTribunalCoerente,
   validateArtifactUrl,
 } from './processoCnj';
@@ -883,6 +886,106 @@ describe('validarMetadataDjenUrls (#1610 TM-04 -- live footer check inside busca
     const avisos: string[] = [];
     expect(await validarMetadataDjenUrls(conn as any, ['/tmp/comunicacoes.parquet'], avisos)).toEqual([
       '/tmp/comunicacoes.parquet',
+    ]);
+    expect(avisos).toEqual([]);
+  });
+});
+
+describe('jurisItemIdDaUrl / validarMetadataJuris (#1610 TM-04 -- Web parity with service._juris_item_id_da_url/_validar_metadata_juris)', () => {
+  it.each([
+    ['https://archive.org/download/tjro-juris-2024/2024-01-ACORDAO.parquet', 'tjro-juris-2024'],
+    ['https://archive.org/download/tjro-juris-2025/2025-06-SENTENCA.parquet', 'tjro-juris-2025'],
+  ])('extracts the juris IA item id from %s', (url, esperado) => {
+    expect(jurisItemIdDaUrl(url)).toBe(esperado);
+  });
+
+  it('is null for a local test path', () => {
+    expect(jurisItemIdDaUrl('/tmp/tjro-juris-2024.parquet')).toBeNull();
+  });
+
+  it('is null for a non-juris source', () => {
+    expect(jurisItemIdDaUrl('https://archive.org/download/djen-tjro-2024/comunicacoes.parquet')).toBeNull();
+  });
+
+  const URL_JURIS = 'https://archive.org/download/tjro-juris-2024/2024-01-ACORDAO.parquet';
+
+  it('accepts coherent metadata', () => {
+    expect(() =>
+      validarMetadataJuris(URL_JURIS, { 'causaganha.schema_version': '1.0.0', 'causaganha.item_id': 'tjro-juris-2024' }),
+    ).not.toThrow();
+  });
+
+  it('rejects an unrecognized schema_version', () => {
+    expect(() =>
+      validarMetadataJuris(URL_JURIS, { 'causaganha.schema_version': '99.0.0', 'causaganha.item_id': 'tjro-juris-2024' }),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('rejects a missing schema_version', () => {
+    expect(() => validarMetadataJuris(URL_JURIS, { 'causaganha.item_id': 'tjro-juris-2024' })).toThrow(
+      ArtifactProvenanceError,
+    );
+  });
+
+  it('rejects a mismatched item_id', () => {
+    expect(() =>
+      validarMetadataJuris(URL_JURIS, { 'causaganha.schema_version': '1.0.0', 'causaganha.item_id': 'tjro-juris-2025' }),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('does not raise for an unverifiable URL', () => {
+    expect(() => validarMetadataJuris('/tmp/tjro-juris-2024.parquet', {})).not.toThrow();
+  });
+});
+
+describe('validarMetadataJurisUrls (#1610 TM-04 -- live footer check inside buscarProcesso)', () => {
+  const URL_JURIS = 'https://archive.org/download/tjro-juris-2024/2024-01-ACORDAO.parquet';
+
+  it('keeps a juris URL whose footer coherently matches its own IA item id', async () => {
+    const conn = fakeConn([
+      [
+        'FROM parquet_kv_metadata',
+        [
+          { key: 'causaganha.schema_version', value: '1.0.0' },
+          { key: 'causaganha.item_id', value: 'tjro-juris-2024' },
+        ],
+      ],
+    ]);
+    const avisos: string[] = [];
+    expect(await validarMetadataJurisUrls(conn as any, [URL_JURIS], avisos)).toEqual([URL_JURIS]);
+    expect(avisos).toEqual([]);
+  });
+
+  it('drops a juris URL whose footer item_id disagrees with the URL it is served at', async () => {
+    const conn = fakeConn([
+      [
+        'FROM parquet_kv_metadata',
+        [
+          { key: 'causaganha.schema_version', value: '1.0.0' },
+          { key: 'causaganha.item_id', value: 'tjro-juris-2025' },
+        ],
+      ],
+    ]);
+    const avisos: string[] = [];
+    expect(await validarMetadataJurisUrls(conn as any, [URL_JURIS], avisos)).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'juris' descartou um artefato com");
+    expect(avisos[0]).toContain('item_id');
+  });
+
+  it('drops a juris URL whose footer cannot be read, with an aviso instead of throwing', async () => {
+    const conn = fakeConnWithFailure('FROM parquet_kv_metadata', []);
+    const avisos: string[] = [];
+    expect(await validarMetadataJurisUrls(conn as any, [URL_JURIS], avisos)).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'juris' descartou um artefato sem rodapé Parquet legível");
+  });
+
+  it('keeps a URL that is not shaped like a juris IA item untouched (test fixture bypass)', async () => {
+    const conn = fakeConn([]);
+    const avisos: string[] = [];
+    expect(await validarMetadataJurisUrls(conn as any, ['/tmp/tjro-juris-2024.parquet'], avisos)).toEqual([
+      '/tmp/tjro-juris-2024.parquet',
     ]);
     expect(avisos).toEqual([]);
   });
