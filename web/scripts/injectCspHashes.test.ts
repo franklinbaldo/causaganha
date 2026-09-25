@@ -41,6 +41,15 @@ describe("computeInlineScriptHashes (#1613, TM-08 follow-up)", () => {
     expect(computeInlineScriptHashes(html)).toEqual([]);
   });
 
+  it("ignores literal '<script>' text inside an HTML comment (found live: Layout.astro's own CSP rationale comment mentions '<script> tags' in prose)", () => {
+    const html = `
+      <!-- This comment talks about inline <script> tags in prose, never a
+           real element -- a browser never parses comment contents as HTML. -->
+      <script>console.log("real")</script>
+    `;
+    expect(computeInlineScriptHashes(html)).toEqual([sha256Base64('console.log("real")')]);
+  });
+
   it("recognizes a closing tag with whitespace before '>' (valid HTML5, flagged by CodeQL js/bad-tag-filter)", () => {
     // </script > is a valid closing tag per the HTML5 tokenizer. A regexp
     // that only matches the exact literal "</script>" fails to find this
@@ -48,6 +57,15 @@ describe("computeInlineScriptHashes (#1613, TM-08 follow-up)", () => {
     // in the document, silently merging unrelated content into the hash.
     const html = `<script>console.log("a")</script ><p>not part of the script</p>`;
     expect(computeInlineScriptHashes(html)).toEqual([sha256Base64('console.log("a")')]);
+  });
+
+  it("recognizes a closing tag with junk/attribute-like content before '>' (also valid HTML5)", () => {
+    // The HTML5 tokenizer parses an end tag's name ("script"), then any
+    // following bytes up to '>' as (invalid, ignored) attributes -- the
+    // element still ends there. </script\t\n bar> is exactly this case,
+    // and the CodeQL-recommended fix for this query class is </script[^>]*>.
+    const html = `<script>console.log("b")</script\t\n bar><p>outside</p>`;
+    expect(computeInlineScriptHashes(html)).toEqual([sha256Base64('console.log("b")')]);
   });
 });
 

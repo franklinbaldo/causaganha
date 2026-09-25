@@ -25,15 +25,22 @@ import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const INLINE_SCRIPT_RE = /<script(\s[^>]*)?>([\s\S]*?)<\/script\s*>/gi;
+const INLINE_SCRIPT_RE = /<script(\s[^>]*)?>([\s\S]*?)<\/script[^>]*>/gi;
 const HAS_SRC_ATTR_RE = /\bsrc\s*=/i;
+const HTML_COMMENT_RE = /<!--[\s\S]*?-->/g;
 const CSP_META_RE =
   /(<meta\s+http-equiv="Content-Security-Policy"\s+content=")([^"]*)("\s*\/?>)/i;
 
 /** @param {string} html @returns {string[]} sorted, deduplicated sha256-base64 hashes */
 export function computeInlineScriptHashes(html) {
+  // A browser never parses HTML comment contents as markup, so a literal
+  // "<script>" appearing in a documentation comment (this file's own CSP
+  // rationale comment in Layout.astro talks about "inline <script> tags"
+  // in prose) must not be treated as a real element boundary. Strip
+  // comments first, matching the scanner to what a real parser sees.
+  const withoutComments = html.replace(HTML_COMMENT_RE, "");
   const hashes = new Set();
-  for (const match of html.matchAll(INLINE_SCRIPT_RE)) {
+  for (const match of withoutComments.matchAll(INLINE_SCRIPT_RE)) {
     const attrs = match[1] ?? "";
     const content = match[2];
     if (HAS_SRC_ATTR_RE.test(attrs)) continue; // external script, src= is covered by 'self'
