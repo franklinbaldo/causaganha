@@ -21,6 +21,40 @@ through this via a custom httpx transport (`src/common/relay.py`) instead of
 `HTTPS_PROXY`: the destination URL travels in an `X-Relay-Url` header, and
 the relay forwards method/body/headers to it directly.
 
+## Egress policy (#1609/TM-02)
+
+A leaked `RELAY_TOKEN` must not turn this function into an open,
+unrestricted proxy — the function itself enforces the minimal policy every
+real caller already satisfies (see `deployment/relay/function/main.py`):
+
+- **HTTPS-only** destinations (`http://`/other schemes: 403) — no real
+  caller (`tjro_juris`/`stj_acordaos`/`tse_processual`, via
+  `src/common/relay.py`) ever requests plain HTTP.
+- **Host allowlist**: `*.stj.jus.br`, `*.tjro.jus.br`, `*.tse.jus.br` only.
+- **Method allowlist**: `GET`/`HEAD`/`POST` only (405 otherwise) — the same
+  set `deployment/relay-cf` enforces, so both relays share one policy.
+- **Sensitive headers always stripped**: `Authorization`, `Cookie` (plus the
+  usual hop-by-hop set) never reach the upstream host, even if a caller
+  sends them — no real caller does, so this only removes what a misused
+  token could otherwise exfiltrate.
+- **Size budgets**: request body over `MAX_REQUEST_BODY_BYTES` (5 MiB) is
+  rejected with 413; an upstream response over `MAX_RESPONSE_BODY_BYTES`
+  (50 MiB) aborts with 502 mid-stream, before it's fully buffered. Both are
+  generous multiples of real traffic (a small JSON search body; JSON/HTML
+  API responses), not a tight fit — see the constants' own docstring in
+  `main.py` for the sizing rationale.
+- Redirects are never followed (`follow_redirects=False`); the 3xx is
+  returned to the caller.
+
+**Quota/rate limits at the deploy layer**: the function itself has no
+rate limiter (its blast radius is already bounded by the policy above, and
+real traffic is dozens–low-hundreds of requests/day per the Cost section
+below). `gcloud functions deploy` accepts `--max-instances` to cap
+concurrent execution as a coarse abuse-rate ceiling if real traffic ever
+needs bounding harder than the size/method/host policy already does; not
+set today because observed traffic has never approached a level that would
+need it.
+
 ## Why this exists (Fase 0)
 
 Before writing any of this, a throwaway `probe` function was deployed to the

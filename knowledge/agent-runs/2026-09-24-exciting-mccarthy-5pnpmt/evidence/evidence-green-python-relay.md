@@ -5,7 +5,7 @@ run_id: "2026-09-24-exciting-mccarthy-5pnpmt"
 goal_id: "2026-09-24-exciting-mccarthy-5pnpmt-goal-relay-egress-policy"
 kind: "test_green"
 reference: "deployment/relay/function/main.py; tests/deployment/relay/test_main.py"
-summary: "uv run pytest tests/deployment/relay/test_main.py: 46 passed apos a correcao. main.py agora: rejeita esquema != https (403); restringe metodo a GET/HEAD/POST (405 para o resto); remove Authorization/Cookie do encaminhamento e Set-Cookie da resposta (_STRIP_HEADERS/_RESPONSE_STRIP_HEADERS); aplica _MAX_REQUEST_BODY_BYTES=10MiB (413 se excedido) e _MAX_RESPONSE_BYTES=25MiB via streaming com abort antecipado (_client.stream + iter_bytes, 502 se excedido antes de materializar a resposta inteira em memoria)."
+summary: "SUPERSEDIDO apos merge de conflito com origin/main -- ver decision-resolve-merge-conflict-concurrent-tm02-work. Enquanto esta rodada trabalhava, uma sessao Wisk concorrente mesclou PR #1625 fechando a mesma lacuna (HTTPS-only, metodo GET/HEAD/POST, Authorization/Cookie, budgets de tamanho) com constantes/nomes diferentes (MAX_REQUEST_BODY_BYTES=5MiB/MAX_RESPONSE_BODY_BYTES=50MiB, publicas, sem underscore). Ao resolver o conflito de merge em deployment/relay/function/main.py, esta rodada adotou a versao ja mesclada de #1625 em vez de reescrever por cima -- o diff abaixo (46 passed, _MAX_REQUEST_BODY_BYTES/_MAX_RESPONSE_BYTES) descreve fielmente o que esta rodada implementou e validou ANTES do conflito, mas nao e mais o que esta no main.py final desta PR. O unico gap que sobreviveu a reconciliacao (Set-Cookie da resposta) tem evidencia propria em evidence-red-green-set-cookie-python-relay."
 ---
 
 # Evidencia GREEN: relay Python com politica de egress (TM-02/#1609)

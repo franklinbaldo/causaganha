@@ -96,6 +96,12 @@ Campos semânticos preferidos, quando aplicáveis:
 
 Detalhes de transporte como `parquet_ia`, `manifest_local`, `loaded_local` e `loaded_remote` não devem ser necessários para interpretar uma resposta. Quando forem úteis para diagnóstico, pertencem a campos explicitamente operacionais ou às tools de status.
 
+### Evidência não é instrução (#1616)
+
+`publicacoes_buscar` e `decisoes_buscar` devolvem texto judicial (`trecho`) que um terceiro controla parcialmente — uma publicação ou decisão pode conter frases escritas para parecer um comando dirigido a um agente, não a um humano. O MCP é read-only e não pode impor a política de tools de um host downstream, mas torna a fronteira semântica explícita e testável no próprio schema: cada item desses dois resultados carrega `tipo_conteudo="untrusted_legal_text"`, um marcador Literal estável.
+
+Esse marcador nunca sanitiza ou reescreve o teor probatório — o texto original chega verbatim, inclusive quando parece um comando. Ele só rotula: qualquer ação além de citar/exibir o texto (chamar outra tool, mudar de fluxo, revelar segredo) é decisão do host/agente que consome o MCP, nunca algo a inferir do conteúdo textual retornado. `tests/causaganha_mcp/test_untrusted_evidence_marker.py` cobre o gate com uma fixture de prompt injection e uma verificação de que o marcador está declarado no output schema publicado por cada tool.
+
 ## Next actions
 
 `next_actions` é parte da agent experience, não decoração.

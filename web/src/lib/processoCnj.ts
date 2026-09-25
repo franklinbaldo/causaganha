@@ -148,10 +148,15 @@ function urlListSql(urls: string[]): string {
  * — para que o harness de paridade de plano de consulta (#1107) possa exercitar este
  * builder contra a mesma fixture local que os demais já usam, em vez de ficar
  * permanentemente amarrado à URL de produção.
+ *
+ * `tribunal` é selecionado só para manter paridade de linhas com
+ * `_indice_sql` do lado Python -- ainda não consumido aqui. A checagem de
+ * coerência de proveniência que o lado Python já faz com essa coluna
+ * (`_validar_tribunal_coerente`, issue #1610/TM-04) é follow-up do lado Web.
  */
 export function buildIndiceSql(url: string = INDICE_PROCESSUAL_URL): string {
   return `
-    SELECT fonte, arquivo_ia_url
+    SELECT fonte, arquivo_ia_url, tribunal
     FROM read_parquet('${url}')
     WHERE numero_processo = ?
   `;
@@ -676,9 +681,64 @@ export function isDocumentosVazio(items: unknown[], offset: number): boolean {
   return offset === 0 && items.length === 0;
 }
 
-/** Agrupa as URLs de arquivo_ia_url do índice por fonte, sem repetição, ordenadas. */
-export function fonteUrls(rows: Array<{ fonte: string; url: string }>, fonte: Fonte): string[] {
-  return Array.from(new Set(rows.filter((r) => r.fonte === fonte).map((r) => r.url))).sort();
+// Issue #1610: arquivo_ia_url values come from indice_processual.parquet
+// itself -- a canonical manifest artifact, not user input, but one a
+// compromised upstream could poison. They are interpolated as-is into
+// read_parquet([...])/parquet_kv_metadata([...]) by urlListSql, so an
+// unvalidated value could redirect DuckDB's fetch target or break out of
+// that string literal. Mirrors causaganha.processos.service
+// ._validate_artifact_url (#1622) -- same policy, same allowlist.
+const ARTIFACT_ALLOWED_HOST = 'archive.org';
+const ARTIFACT_ALLOWED_PATH_PREFIX = '/download/';
+const ARTIFACT_ALLOWED_PATH_SUFFIX = '.parquet';
+
+/** A manifest-provided artifact URL failed the fetch policy (issue #1610). */
+export class ArtifactUrlError extends Error {}
+
+/**
+ * Fails closed on anything that isn't a same-host, same-path-shape IA
+ * parquet URL -- or a bare, scheme-less local path (kept so test fixtures,
+ * which stand in for remote IA URLs, keep working unchanged).
+ */
+export function validateArtifactUrl(url: string): string {
+  if (url.includes("'")) {
+    throw new ArtifactUrlError(`URL de artefato contém aspas simples: ${JSON.stringify(url)}`);
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return url;
+  }
+  if (parsed.protocol !== 'https:' || parsed.hostname.toLowerCase() !== ARTIFACT_ALLOWED_HOST) {
+    throw new ArtifactUrlError(`Host/esquema de artefato não permitido: ${JSON.stringify(url)}`);
+  }
+  if (parsed.search || parsed.hash) {
+    throw new ArtifactUrlError(`URL de artefato não pode ter query/fragment: ${JSON.stringify(url)}`);
+  }
+  if (!parsed.pathname.startsWith(ARTIFACT_ALLOWED_PATH_PREFIX) || !parsed.pathname.endsWith(ARTIFACT_ALLOWED_PATH_SUFFIX)) {
+    throw new ArtifactUrlError(`Path de artefato fora do padrão esperado: ${JSON.stringify(url)}`);
+  }
+  return url;
+}
+
+/**
+ * Agrupa as URLs de arquivo_ia_url do índice por fonte, sem repetição,
+ * ordenadas -- descartando (com aviso em `avisos`) qualquer uma que falhe a
+ * política de artefato (ver validateArtifactUrl, #1610).
+ */
+export function fonteUrls(rows: Array<{ fonte: string; url: string }>, fonte: Fonte, avisos: string[]): string[] {
+  const urls = Array.from(new Set(rows.filter((r) => r.fonte === fonte).map((r) => r.url))).sort();
+  const validated: string[] = [];
+  for (const url of urls) {
+    try {
+      validated.push(validateArtifactUrl(url));
+    } catch (err) {
+      const detalhe = err instanceof Error ? err.message : String(err);
+      avisos.push(`Fonte '${fonte}' descartou um artefato inválido no índice: ${detalhe}`);
+    }
+  }
+  return validated;
 }
 
 // ── Cobertura do dataset (indice_processual.report.json) ──────────────────
@@ -904,10 +964,10 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
   const fontes = (Array.from(new Set(rowPairs.map((r) => r.fonte))).sort() as Fonte[]).filter((f) =>
     ALL_FONTES.includes(f),
   );
-  const djenUrls = fonteUrls(rowPairs, 'djen');
-  const jurisUrls = fonteUrls(rowPairs, 'juris');
-  const stjUrls = fonteUrls(rowPairs, 'stj');
-  const datajudUrls = fonteUrls(rowPairs, 'datajud');
+  const djenUrls = fonteUrls(rowPairs, 'djen', avisos);
+  const jurisUrls = fonteUrls(rowPairs, 'juris', avisos);
+  const stjUrls = fonteUrls(rowPairs, 'stj', avisos);
+  const datajudUrls = fonteUrls(rowPairs, 'datajud', avisos);
 
   const djenEqualityMode = djenUrls.length ? await resolveDjenEqualityModeLive(conn, djenUrls) : 'compatible';
   const djenRaw = djenUrls.length

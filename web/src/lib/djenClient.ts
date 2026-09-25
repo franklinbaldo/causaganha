@@ -8,10 +8,11 @@
  * so non-Brazilian users do not pay the 10-second public-URL timeout on every
  * subsequent request.
  *
- * IMPORTANT: the proxy at `deployment/djen_proxy.go` whitelists path prefixes
- * `/api/`, `/swagger/`, `/comunicacao`, `/login`. All 7 spec endpoints are
- * under `/api/v1/`, so they are covered. If a new path is added to
- * `djen.yml` outside `/api/`, update the proxy whitelist in the same PR.
+ * IMPORTANT: the proxy at `deployment/djen_proxy.go` whitelists only the
+ * `/api/` path prefix and only GET requests (TM-02, issue #1609 — `/swagger/`,
+ * bare `/comunicacao` and `/login` were dropped as unused). All 7 spec
+ * endpoints are GETs under `/api/v1/`, so they are covered. If a new path or
+ * method is added to `djen.yml`, update the proxy allowlist in the same PR.
  */
 
 import createClient, { type Client, type Middleware } from "openapi-fetch";

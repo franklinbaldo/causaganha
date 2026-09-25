@@ -25,6 +25,11 @@ Defaults do artefato:
 - `CAUSAGANHA_MCP_PATH=/mcp`;
 - `CAUSAGANHA_MCP_TOOL_TIMEOUT_SECONDS=45`;
 - `CAUSAGANHA_MCP_MAX_CONCURRENCY=4`;
+- `CAUSAGANHA_MCP_RATE_LIMIT_PER_MINUTE=120` — chamadas por cliente (chave: primeiro hop de
+  `X-Forwarded-For`, senão o IP do socket) numa janela fixa de 60s; `0` desliga o controle
+  (issue #950/TM-06 — ver `docs/SECURITY_THREAT_MODEL.md`). Bound por cliente, distinto do
+  `CAUSAGANHA_MCP_MAX_CONCURRENCY` global acima: um único chamador sequencial não pode mais
+  monopolizar o budget de concorrência/timeout e negar serviço aos demais;
 - `CAUSAGANHA_MCP_COMMIT` recebe o SHA passado em `--build-arg GIT_SHA=...`.
 
 Nenhuma credencial de Internet Archive, DataJud ou outra fonte faz parte do contrato do cliente.

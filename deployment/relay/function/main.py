@@ -16,20 +16,22 @@ allowlist and confirmed live that this region's egress isn't Akamai-blocked
 too. Confirm that before relying on it.
 
 Contract:
-- Destination URL comes in the ``X-Relay-Url`` request header, and must be
-  ``https://`` — plaintext ``http://`` is rejected even to an allowlisted
-  host (TM-02 / #1609).
+- Destination URL comes in the ``X-Relay-Url`` request header and must be
+  ``https``  — a stolen token must not be usable to route unencrypted
+  traffic, and every real caller (tjro_juris/stj_acordaos/tse_processual,
+  see ``src/common/relay.py``) only ever requests ``https``.
 - Auth via ``X-Relay-Token`` (constant-time compare against the
   ``RELAY_TOKEN`` env var, sourced from Secret Manager at deploy time).
-- Method is restricted to ``GET``/``HEAD``/``POST`` — the only verbs the
-  real STJ/TJRO/TSE crawlers use; anything else is ``405``.
-- Body and headers are forwarded, minus hop-by-hop headers, ``X-Relay-*``
-  headers, and ``Authorization``/``Cookie`` (never legitimately needed by a
-  caller through this relay); ``Host`` is rewritten to the destination
-  host, and the upstream's ``Set-Cookie`` is never forwarded back.
-- Request bodies above ``_MAX_REQUEST_BODY_BYTES`` are rejected (``413``);
-  upstream responses above ``_MAX_RESPONSE_BYTES`` are aborted mid-stream
-  (``502``) rather than fully buffered.
+- Method is restricted to GET/HEAD/POST (the only methods any real caller
+  uses — mirrors ``deployment/relay-cf``'s ``ALLOWED_METHODS``); body and
+  headers are forwarded minus hop-by-hop, ``X-Relay-*`` and sensitive
+  (``Authorization``/``Cookie``) headers — no real caller sends either, and
+  forwarding them would let a stolen relay token also exfiltrate whatever
+  credential the caller happened to be carrying. ``Host`` is rewritten to
+  the destination host.
+- Request body and upstream response are each capped (see
+  ``MAX_REQUEST_BODY_BYTES``/``MAX_RESPONSE_BODY_BYTES``) so a misused
+  token can't turn the relay into an unbounded egress/ingress amplifier.
 - Redirects are NOT followed — the 3xx is returned to the caller, who
   decides whether to follow it back through the relay.
 """
@@ -56,13 +58,21 @@ logger = logging.getLogger("relay")
 _ALLOWED_SUFFIXES = (".stj.jus.br", ".tjro.jus.br", ".tse.jus.br")
 _ALLOWED_EXACT = frozenset({"stj.jus.br", "tjro.jus.br", "tse.jus.br"})
 
+# GET/HEAD/POST is every method any real caller uses (tjro_juris POSTs a
+# search body, stj_acordaos/tse_processual GET) — mirrors relay-cf's own
+# ALLOWED_METHODS so both relays share one minimal method policy (#1609).
+_ALLOWED_METHODS = frozenset({"GET", "HEAD", "POST"})
+
+# Headers a stolen relay token must never be able to smuggle through: no
+# real caller sends either (grepped every src/*/client.py that routes
+# through the relay), so stripping them unconditionally costs nothing and
+# stops a leaked token from also exfiltrating an unrelated credential.
+_SENSITIVE_HEADERS = frozenset({"authorization", "cookie"})
+
 # Headers that must never be blindly forwarded: hop-by-hop headers (RFC 9110
-# §7.6.1), Content-Length (httpx recomputes it from the body it sends), Host
-# (rewritten explicitly to the destination's host below), and Authorization/
-# Cookie — no caller through this relay authenticates to STJ/TJRO/TSE with
-# either (auth is X-Relay-Token to the relay itself), so forwarding them
-# would only leak a caller's own credentials to whatever host the allowlist
-# permits (TM-02 / #1609).
+# §7.6.1) plus Content-Length (httpx recomputes it from the body it sends),
+# Host (rewritten explicitly to the destination's host below) and the
+# sensitive headers above.
 _STRIP_HEADERS = frozenset(
     {
         "connection",
@@ -75,10 +85,18 @@ _STRIP_HEADERS = frozenset(
         "upgrade",
         "content-length",
         "host",
-        "authorization",
-        "cookie",
     }
+    | _SENSITIVE_HEADERS
 )
+
+# Budgets bounding how much a single relayed request/response can cost, so a
+# stolen token or a misbehaving upstream can't turn the relay into an
+# unbounded egress/ingress amplifier. Real traffic is small (tjro_juris's
+# POST search body is a few hundred bytes of JSON; STJ/TJRO/TSE responses
+# are JSON/HTML pages, not bulk downloads) — both budgets are generous
+# multiples of that, not a tight fit.
+MAX_REQUEST_BODY_BYTES = 5 * 1024 * 1024
+MAX_RESPONSE_BODY_BYTES = 50 * 1024 * 1024
 
 # httpx's client transparently gunzips the upstream response into
 # `.content` — the bytes we return are already decoded. Forwarding the
@@ -91,18 +109,6 @@ _STRIP_HEADERS = frozenset(
 # session-bearing site the caller should start trusting cookies from, and
 # forwarding it would let a compromised relay plant cookies in the caller.
 _RESPONSE_STRIP_HEADERS = _STRIP_HEADERS | {"content-encoding", "set-cookie"}
-
-# Methods the real crawlers use (STJ CKAN GET, TJRO Elasticsearch POST) plus
-# HEAD for parity — see deployment/relay/README.md. Not an open proxy: a
-# stolen token must not be able to replay mutating verbs against tribunal
-# hosts.
-_ALLOWED_METHODS = frozenset({"GET", "HEAD", "POST"})
-
-# TM-02 / #1609: a relay with no budget lets a stolen token or misbehaving
-# upstream exhaust the function instance's memory. These are generous
-# (real DJEN/STJ/TJRO payloads are small JSON/HTML documents) but bounded.
-_MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024  # 10 MiB
-_MAX_RESPONSE_BYTES = 25 * 1024 * 1024  # 25 MiB
 
 _RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
@@ -146,8 +152,7 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
     if not _token_valid(request):
         return ("unauthorized", 401)
 
-    method = request.method
-    if method not in _ALLOWED_METHODS:
+    if request.method not in _ALLOWED_METHODS:
         return ("method not allowed", 405)
 
     target_url = request.headers.get("X-Relay-Url", "")
@@ -156,28 +161,26 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
     if not target_url or parsed.scheme != "https" or not host_ok:
         return ("forbidden: destination host not in allowlist", 403)
 
+    method = request.method
     body = request.get_data() or None
-    if body is not None and len(body) > _MAX_REQUEST_BODY_BYTES:
+    if body and len(body) > MAX_REQUEST_BODY_BYTES:
         return ("request body too large", 413)
-
     headers = _forward_headers(request, parsed.hostname)
 
     start = time.monotonic()
     try:
+        content = bytearray()
         with _client.stream(method, target_url, headers=headers, content=body) as upstream:
-            chunks: list[bytes] = []
-            received = 0
             for chunk in upstream.iter_bytes():
-                received += len(chunk)
-                if received > _MAX_RESPONSE_BYTES:
+                content += chunk
+                if len(content) > MAX_RESPONSE_BODY_BYTES:
                     logger.info(
                         "relay_response_too_large method=%s host=%s elapsed_s=%.2f",
                         method,
                         parsed.hostname,
                         time.monotonic() - start,
                     )
-                    return ("upstream response too large", 502)
-                chunks.append(chunk)
+                    return ("upstream response exceeds size budget", 502)
             status_code = upstream.status_code
             response_headers = {
                 key: value
@@ -202,4 +205,4 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
         time.monotonic() - start,
     )
 
-    return (b"".join(chunks), status_code, response_headers)
+    return (bytes(content), status_code, response_headers)

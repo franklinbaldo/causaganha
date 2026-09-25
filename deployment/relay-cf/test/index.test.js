@@ -90,6 +90,28 @@ describe("relay forwarding", () => {
     expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
+  it("strips Authorization and Cookie before forwarding upstream", async () => {
+    const upstreamFetch = vi.fn(async (_url, init) => {
+      expect(init.headers.has("authorization")).toBe(false);
+      expect(init.headers.has("cookie")).toBe(false);
+      return new Response("ok", { status: 200 });
+    });
+
+    const response = await handleRequest(
+      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/", {
+        headers: {
+          authorization: "Bearer stolen-token",
+          cookie: "session=hijacked",
+        },
+      }),
+      ENV,
+      upstreamFetch,
+    );
+
+    expect(response.status).toBe(200);
+    expect(upstreamFetch).toHaveBeenCalledOnce();
+  });
+
   it("returns a generic 502 when the upstream fetch fails", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     const response = await handleRequest(
@@ -104,28 +126,6 @@ describe("relay forwarding", () => {
     await expect(response.text()).resolves.toBe("upstream error");
     expect(errorSpy).toHaveBeenCalledOnce();
     errorSpy.mockRestore();
-  });
-
-  it("never forwards Authorization or Cookie to upstream", async () => {
-    const upstreamFetch = vi.fn(async (url, init) => {
-      expect(init.headers.has("authorization")).toBe(false);
-      expect(init.headers.has("cookie")).toBe(false);
-      return new Response("ok", { status: 200 });
-    });
-
-    const response = await handleRequest(
-      relayRequest("https://juris-back.tjro.jus.br/search/varios_parametros/", {
-        headers: {
-          Authorization: "Bearer super-secret",
-          Cookie: "session=abc123",
-        },
-      }),
-      ENV,
-      upstreamFetch,
-    );
-
-    expect(response.status).toBe(200);
-    expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
   it("strips Set-Cookie from the upstream response", async () => {
