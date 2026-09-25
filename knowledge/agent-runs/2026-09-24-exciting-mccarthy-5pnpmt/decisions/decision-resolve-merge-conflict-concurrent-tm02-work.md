@@ -1,0 +1,21 @@
+---
+type: AgentDecision
+id: "2026-09-24-exciting-mccarthy-5pnpmt-decision-resolve-merge-conflict-concurrent-tm02-work"
+run_id: "2026-09-24-exciting-mccarthy-5pnpmt"
+goal_id: "2026-09-24-exciting-mccarthy-5pnpmt-goal-relay-egress-policy"
+question: "Apos abrir a PR #1634 e assinar o CI, mergeable_state virou 'dirty': duas sessoes Wisk concorrentes ja tinham mesclado #1623 (fecha a parte djen_proxy.go de #1609, exatamente a superficie que esta rodada havia deferido em decision-scope-two-relays-not-go-proxy) e #1625 (fecha a parte Python relay de #1609 -- mesma intencao desta rodada: HTTPS-only, allowlist de metodo, stripping de Authorization/Cookie, budgets de tamanho -- so que com nomes de constante e tamanhos de budget diferentes dos meus). O conflito real ficou so em deployment/relay/function/main.py; tests/deployment/relay/test_main.py, deployment/relay-cf/src/index.js, deployment/relay-cf/test/index.test.js e .github/workflows/test.yml fizeram auto-merge. Como resolver: manter minha implementacao do relay Python (forcando meu diff por cima), pegar a de main (ja mesclada, ja validada por CI real), ou tentar reconciliar as duas?"
+choice: "Pegar main.py inteiro de origin/main (a versao ja mesclada) via 'git checkout --theirs'. Descartar meus 8 testes redundantes de HTTPS/metodo/headers/budget do lado Python em tests/deployment/relay/test_main.py (duplicavam nome de funcao com os testes ja mesclados -- Python simplesmente sombrearia a primeira definicao, quebrando a cobertura da PR ja mesclada -- e referenciavam constantes privadas _MAX_REQUEST_BODY_BYTES/_MAX_RESPONSE_BYTES que main.py nao tem mais, so as publicas MAX_REQUEST_BODY_BYTES/MAX_RESPONSE_BODY_BYTES de #1625). Manter apenas o unico teste genuinamente novo (Set-Cookie da resposta upstream nunca e devolvido ao chamador) -- gap real que nem #1625 nem nenhuma PR concorrente havia fechado -- e adicionar 'set-cookie' a _RESPONSE_STRIP_HEADERS do main.py ja mesclado para fecha-lo, confirmando RED contra o main.py mesclado antes do fix e GREEN depois. No lado Cloudflare, remover meu teste 'never forwards Authorization or Cookie to upstream' (duplicava, com nome diferente, o teste 'strips Authorization and Cookie before forwarding upstream' que #1625 tambem adicionou a deployment/relay-cf/test/index.test.js e que fez auto-merge limpo com o meu index.js) e manter o resto do meu trabalho no CF relay (readBounded, budgets de tamanho, Set-Cookie, job de CI relay-cf) integralmente, porque nenhuma PR concorrente tocou esses gaps."
+rationale: "main.py de origin/main ja esta mesclado, ja rodou CI real (nao so localmente) e e a fonte de verdade de producao a partir de agora -- reescrever por cima com uma segunda implementacao equivalente (budgets de tamanho diferentes: 10MiB/25MiB meus vs 5MiB/50MiB deles) so criaria uma terceira variante sem nenhum ganho de seguranca real, alem de forcar um push que reverte trabalho ja revisado e mesclado de outra sessao -- exatamente o tipo de conflito destrutivo que as regras de PR pedem para nunca fazer sem necessidade. Meus testes duplicados de nome quebravam de verdade (Python so mantem a ultima definicao de uma funcao top-level, entao um 'git add' ingenuo teria APAGADO silenciosamente a cobertura de #1625 assim que meu arquivo fosse mesclado -- verificado ao tentar rodar a suite antes de remover os duplicados). O unico gap real que sobrou depois de reconciliar com o que #1623/#1625 ja fecharam foi Set-Cookie no relay Python (nenhuma das duas PRs concorrentes tocou isso) e o CF relay inteiro (Set-Cookie + budgets de tamanho + job de CI, que nenhuma PR concorrente tocou) -- esse e o valor real que esta rodada ainda tem para entregar depois da reconciliacao."
+---
+
+# Decisao: reconciliar com o trabalho concorrente ja mesclado de #1609
+
+Duas PRs concorrentes (#1623: `djen_proxy.go`; #1625: relay Python)
+fecharam, enquanto esta rodada trabalhava, exatamente as duas
+superficies que `decision-scope-two-relays-not-go-proxy` desta mesma
+rodada ja havia identificado como as mais concretas de `#1609`. Em
+vez de forcar minha propria implementacao por cima da ja mesclada
+(que ja rodou CI real), esta rodada absorveu o `main.py` mesclado
+como base e manteve apenas o que ele deixou de fora: `Set-Cookie` no
+relay Python, e o relay Cloudflare inteiro (`Set-Cookie`, budgets de
+tamanho, job de CI que nao existia).
