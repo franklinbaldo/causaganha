@@ -1,0 +1,11 @@
+---
+type: AgentGoal
+id: "2026-09-25-exciting-mccarthy-e0vvbh-goal-tribunal-coerente-manifesto"
+run_id: "2026-09-25-exciting-mccarthy-e0vvbh"
+goal: "Fechar a fatia tratável da metade de proveniência/identidade de #1610 (TM-04): antes de consultar os parquets de origem, verificar que o `tribunal` declarado por uma linha de `indice_processual.parquet` é coerente com o tribunal que o próprio `arquivo_ia_url` da linha nomeia, para as fontes cujo item IA é particionado por tribunal (djen: `djen-{tribunal}-{ano}`; datajud: `datajud-{tribunal}`)."
+rationale: "Investigação nesta rodada (grep + leitura de reconcile_processos.py/service.py) confirmou que generation id/schema fingerprint/hash/row count -- os outros quatro invariantes citados literalmente em #1610 -- não existem em nenhum lugar do código hoje; implementá-los exigiria inventar campos novos no gerador do manifesto (mudança maior, cross-cutting, já sinalizada como fora de escopo por duas rodadas anteriores). Já existe, porém, o par (tribunal, arquivo_ia_url) por linha, ambos escritos pelo mesmo gerador mas nunca cruzados na consulta -- exatamente a ameaça 2 do issue ('controle de significado: artefato aponta para... tribunal... errado e propaga atribuição/omissão silenciosa') sem precisar de SSRF: hoje, um índice cuja coluna tribunal diz TJRO mas cujo arquivo_ia_url aponta para o item de outro tribunal passa despercebido, mesmo já tendo passado pela política de URL do #1610 original."
+success_signal: "Testes novos em tests/causaganha/processos/test_service.py provam RED (AttributeError contra o código anterior) e GREEN após a implementação de service._tribunal_da_url/_validar_tribunal_coerente/ArtifactProvenanceError, incluindo um teste de integração via buscar_processo mostrando um manifesto com tribunal/URL incoerentes degradando a fonte para ausente + aviso específico ('incoerente'), nunca uma exceção nem um 'indisponível' por falha de rede real. web/src/lib/processoCnj.ts::buildIndiceSql atualizado para manter paridade de linhas com o lado Python (harness #1107), com processoQueryPlanParity.test.ts continuando 100% verde. Suítes completas (pytest, vitest, ruff, eslint, astro check) verdes; PR aberta fechando a fatia tratável de #1610."
+status: "achieved"
+---
+
+# Goal: coerência de tribunal entre índice e artefato (TM-04 parcial de #1610)

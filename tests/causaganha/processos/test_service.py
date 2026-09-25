@@ -485,7 +485,100 @@ class TestValidateArtifactUrl:
             service._validate_artifact_url("https://archive.org/metadata/x/x.parquet")
 
 
-def test_poisoned_manifest_url_degrades_source_instead_of_crashing(tmp_path: Path) -> None:
+class TestTribunalCoerenteComUrl:
+    """Issue #1610 (TM-04): a manifest row's `tribunal` column and its
+    `arquivo_ia_url` are two independent claims about the same fact. A
+    compromised or corrupted `indice_processual.parquet` could keep the URL
+    policy-valid (issue #1610's URL half) while pointing a row labeled one
+    tribunal at another tribunal's IA item — the "controle de significado"
+    threat from the issue body, where wrong attribution never needs a bad
+    fetch destination to succeed.
+    """
+
+    @pytest.mark.parametrize(
+        ("fonte", "url", "esperado"),
+        [
+            ("djen", "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet", "tjro"),
+            ("djen", "https://archive.org/download/djen-tjsp-2025/comunicacoes.parquet", "tjsp"),
+            (
+                "datajud",
+                "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet",
+                "tjro",
+            ),
+        ],
+    )
+    def test_tribunal_extracted_from_partitioned_sources(
+        self, fonte: str, url: str, esperado: str
+    ) -> None:
+        assert service._tribunal_da_url(fonte, url) == esperado
+
+    @pytest.mark.parametrize(
+        ("fonte", "url"),
+        [
+            ("juris", "https://archive.org/download/tjro-juris-2024/tjro-juris-2024.parquet"),
+            (
+                "stj",
+                "https://archive.org/download/stj-acordaos-primeira-secao/stj-acordaos.parquet",
+            ),
+        ],
+    )
+    def test_none_for_sources_not_partitioned_by_tribunal(self, fonte: str, url: str) -> None:
+        assert service._tribunal_da_url(fonte, url) is None
+
+    def test_none_for_local_test_path(self, tmp_path: Path) -> None:
+        assert service._tribunal_da_url("djen", str(tmp_path / "comunicacoes.parquet")) is None
+
+    def test_matching_tribunal_case_insensitive_passes(self) -> None:
+        service._validar_tribunal_coerente(
+            "djen", "TJRO", "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+        )
+
+    def test_mismatched_tribunal_is_rejected(self) -> None:
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_tribunal_coerente(
+                "djen",
+                "TJSP",
+                "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet",
+            )
+
+    def test_unverifiable_url_does_not_raise(self, tmp_path: Path) -> None:
+        service._validar_tribunal_coerente("juris", "TJRO", str(tmp_path / "juris.parquet"))
+
+
+def test_poisoned_manifest_tribunal_degrades_source_instead_of_trusting(tmp_path: Path) -> None:
+    """The TM-04 half of issue #1610: `indice_processual.parquet` declares one
+    tribunal for a `datajud` row while `arquivo_ia_url` itself names another
+    tribunal's IA item. This must degrade to an aviso, like a policy-invalid
+    URL, instead of `buscar_processo` trusting whichever tribunal string won.
+    """
+    swapped = "https://archive.org/download/datajud-tjsp/datajud-capa-tjsp.parquet"
+    con = duckdb.connect()
+    try:
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'datajud' AS fonte, 'x' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-01-01' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, swapped],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(CNJ_ALL, indice_url=str(indice), report_url=str(report))
+
+    assert result.encontrado is True
+    assert result.datajud is None
+    # Must be rejected by the provenance check itself -- before any
+    # `read_parquet` is attempted against the mismatched URL -- not merely
+    # degrade because the fabricated archive.org path happens to be
+    # unreachable from this test environment.
+    assert any("incoerente" in aviso.lower() for aviso in result.avisos)
+    assert not any("indispon" in aviso.lower() for aviso in result.avisos)
     """The exact threat issue #1610 describes: a compromised
     `indice_processual.parquet` points `arquivo_ia_url` at an unexpected host.
     The source must degrade to an aviso, like any other unavailable source,
