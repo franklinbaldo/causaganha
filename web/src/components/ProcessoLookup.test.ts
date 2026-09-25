@@ -319,3 +319,24 @@ describe('ProcessoLookup — dataset staleness warning', () => {
     expect(container.textContent).not.toContain('pode estar desatualizado');
   });
 });
+
+describe('ProcessoLookup — ?cnj= URL param with an invalid CNJ never waits on DuckDB', () => {
+  // Found live in CI (compare-product-surfaces, a real Chromium against a
+  // real build): onMount awaited init() (DuckDB-WASM connection) BEFORE
+  // reading the ?cnj= URL param, so a syntactically invalid CNJ in the URL
+  // never rendered "CNJ inválido" until the DB connection settled -- and
+  // when DuckDB-WASM's own instantiate() hangs (observed for real against
+  // a public CDN with no COOP/COEP headers on a plain static site), that
+  // "CNJ inválido" message never appears at all, even though format
+  // validation needs zero database access. This is a real product bug for
+  // any visitor whose browser/network makes DuckDB-WASM initialization slow
+  // or stuck, not just a CI artifact.
+  it('shows "CNJ inválido" immediately from a ?cnj= URL param, even while getDuckDB() never resolves', async () => {
+    vi.mocked(getDuckDB).mockReturnValue(new Promise(() => {})); // never settles
+    window.history.replaceState(null, '', '/causaganha/processo?cnj=123');
+
+    const { getByText } = render(ProcessoLookup);
+
+    await waitFor(() => expect(getByText('CNJ inválido')).toBeTruthy());
+  });
+});
