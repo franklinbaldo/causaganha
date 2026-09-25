@@ -16,11 +16,20 @@ allowlist and confirmed live that this region's egress isn't Akamai-blocked
 too. Confirm that before relying on it.
 
 Contract:
-- Destination URL comes in the ``X-Relay-Url`` request header.
+- Destination URL comes in the ``X-Relay-Url`` request header, and must be
+  ``https://`` — plaintext ``http://`` is rejected even to an allowlisted
+  host (TM-02 / #1609).
 - Auth via ``X-Relay-Token`` (constant-time compare against the
   ``RELAY_TOKEN`` env var, sourced from Secret Manager at deploy time).
-- Method, body and headers are forwarded as-is (minus hop-by-hop and
-  ``X-Relay-*`` headers); ``Host`` is rewritten to the destination host.
+- Method is restricted to ``GET``/``HEAD``/``POST`` — the only verbs the
+  real STJ/TJRO/TSE crawlers use; anything else is ``405``.
+- Body and headers are forwarded, minus hop-by-hop headers, ``X-Relay-*``
+  headers, and ``Authorization``/``Cookie`` (never legitimately needed by a
+  caller through this relay); ``Host`` is rewritten to the destination
+  host, and the upstream's ``Set-Cookie`` is never forwarded back.
+- Request bodies above ``_MAX_REQUEST_BODY_BYTES`` are rejected (``413``);
+  upstream responses above ``_MAX_RESPONSE_BYTES`` are aborted mid-stream
+  (``502``) rather than fully buffered.
 - Redirects are NOT followed — the 3xx is returned to the caller, who
   decides whether to follow it back through the relay.
 """
@@ -48,8 +57,12 @@ _ALLOWED_SUFFIXES = (".stj.jus.br", ".tjro.jus.br", ".tse.jus.br")
 _ALLOWED_EXACT = frozenset({"stj.jus.br", "tjro.jus.br", "tse.jus.br"})
 
 # Headers that must never be blindly forwarded: hop-by-hop headers (RFC 9110
-# §7.6.1) plus Content-Length (httpx recomputes it from the body it sends)
-# and Host (rewritten explicitly to the destination's host below).
+# §7.6.1), Content-Length (httpx recomputes it from the body it sends), Host
+# (rewritten explicitly to the destination's host below), and Authorization/
+# Cookie — no caller through this relay authenticates to STJ/TJRO/TSE with
+# either (auth is X-Relay-Token to the relay itself), so forwarding them
+# would only leak a caller's own credentials to whatever host the allowlist
+# permits (TM-02 / #1609).
 _STRIP_HEADERS = frozenset(
     {
         "connection",
@@ -62,6 +75,8 @@ _STRIP_HEADERS = frozenset(
         "upgrade",
         "content-length",
         "host",
+        "authorization",
+        "cookie",
     }
 )
 
@@ -71,7 +86,23 @@ _STRIP_HEADERS = frozenset(
 # makes the CALLER's httpx try to gunzip it a second time and raise
 # DecodingError. Response-only: request-side Content-Encoding (basically
 # never sent by these crawlers) is left alone.
-_RESPONSE_STRIP_HEADERS = _STRIP_HEADERS | {"content-encoding"}
+#
+# Set-Cookie is also response-only: no upstream in the allowlist is a
+# session-bearing site the caller should start trusting cookies from, and
+# forwarding it would let a compromised relay plant cookies in the caller.
+_RESPONSE_STRIP_HEADERS = _STRIP_HEADERS | {"content-encoding", "set-cookie"}
+
+# Methods the real crawlers use (STJ CKAN GET, TJRO Elasticsearch POST) plus
+# HEAD for parity — see deployment/relay/README.md. Not an open proxy: a
+# stolen token must not be able to replay mutating verbs against tribunal
+# hosts.
+_ALLOWED_METHODS = frozenset({"GET", "HEAD", "POST"})
+
+# TM-02 / #1609: a relay with no budget lets a stolen token or misbehaving
+# upstream exhaust the function instance's memory. These are generous
+# (real DJEN/STJ/TJRO payloads are small JSON/HTML documents) but bounded.
+_MAX_REQUEST_BODY_BYTES = 10 * 1024 * 1024  # 10 MiB
+_MAX_RESPONSE_BYTES = 25 * 1024 * 1024  # 25 MiB
 
 _RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
@@ -115,19 +146,44 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
     if not _token_valid(request):
         return ("unauthorized", 401)
 
+    method = request.method
+    if method not in _ALLOWED_METHODS:
+        return ("method not allowed", 405)
+
     target_url = request.headers.get("X-Relay-Url", "")
     parsed = urlparse(target_url)
     host_ok = _host_allowed(parsed.hostname)
-    if not target_url or parsed.scheme not in ("http", "https") or not host_ok:
+    if not target_url or parsed.scheme != "https" or not host_ok:
         return ("forbidden: destination host not in allowlist", 403)
 
-    method = request.method
     body = request.get_data() or None
+    if body is not None and len(body) > _MAX_REQUEST_BODY_BYTES:
+        return ("request body too large", 413)
+
     headers = _forward_headers(request, parsed.hostname)
 
     start = time.monotonic()
     try:
-        upstream = _client.request(method, target_url, headers=headers, content=body)
+        with _client.stream(method, target_url, headers=headers, content=body) as upstream:
+            chunks: list[bytes] = []
+            received = 0
+            for chunk in upstream.iter_bytes():
+                received += len(chunk)
+                if received > _MAX_RESPONSE_BYTES:
+                    logger.info(
+                        "relay_response_too_large method=%s host=%s elapsed_s=%.2f",
+                        method,
+                        parsed.hostname,
+                        time.monotonic() - start,
+                    )
+                    return ("upstream response too large", 502)
+                chunks.append(chunk)
+            status_code = upstream.status_code
+            response_headers = {
+                key: value
+                for key, value in upstream.headers.items()
+                if key.lower() not in _RESPONSE_STRIP_HEADERS
+            }
     except httpx.HTTPError as exc:
         logger.info(
             "relay_upstream_error method=%s host=%s error=%s elapsed_s=%.2f",
@@ -142,13 +198,8 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
         "relay_ok method=%s host=%s status=%s elapsed_s=%.2f",
         method,
         parsed.hostname,
-        upstream.status_code,
+        status_code,
         time.monotonic() - start,
     )
 
-    response_headers = {
-        key: value
-        for key, value in upstream.headers.items()
-        if key.lower() not in _RESPONSE_STRIP_HEADERS
-    }
-    return (upstream.content, upstream.status_code, response_headers)
+    return (b"".join(chunks), status_code, response_headers)

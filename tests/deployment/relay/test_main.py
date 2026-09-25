@@ -198,3 +198,143 @@ def test_relay_returns_502_on_upstream_error(monkeypatch: pytest.MonkeyPatch) ->
     )
     _body, status = main.relay(request)
     assert status == 502
+
+
+# ── egress policy: HTTPS-only (TM-02 / #1609) ─────────────────────────────
+
+
+def test_relay_rejects_plain_http_to_allowlisted_host() -> None:
+    """A ``http://`` target must be rejected even though the host is allowed.
+
+    The relay exists to bypass WAF blocks on HTTPS traffic to real tribunal
+    APIs — plaintext HTTP to those same hosts is never a legitimate use and
+    would let a stolen token downgrade a caller's traffic.
+    """
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "http://scon.stj.jus.br/"}
+    )
+    _body, status = main.relay(request)
+    assert status == 403
+
+
+# ── egress policy: closed method allowlist (TM-02 / #1609) ───────────────
+
+
+@pytest.mark.parametrize("method", ["PUT", "PATCH", "DELETE", "TRACE", "CONNECT", "OPTIONS"])
+def test_relay_rejects_disallowed_methods(method: str) -> None:
+    request = _request(
+        method=method,
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+    )
+    _body, status = main.relay(request)
+    assert status == 405
+
+
+@pytest.mark.parametrize("method", ["GET", "HEAD", "POST"])
+def test_relay_allows_official_methods(monkeypatch: pytest.MonkeyPatch, method: str) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="ok")
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        method=method,
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+    )
+    _body, status, _headers = main.relay(request)
+    assert status == 200
+
+
+# ── egress policy: sensitive headers never forwarded (TM-02 / #1609) ─────
+
+
+def test_forward_headers_strips_authorization_and_cookie() -> None:
+    request = _request(
+        headers={
+            "X-Relay-Token": RELAY_TOKEN,
+            "X-Relay-Url": "https://scon.stj.jus.br/",
+            "Authorization": "Bearer super-secret",
+            "Cookie": "session=abc123",
+            "Accept": "application/json",
+        }
+    )
+    headers = main._forward_headers(request, "scon.stj.jus.br")
+    assert "Authorization" not in headers
+    assert "Cookie" not in headers
+    assert headers["Accept"] == "application/json"
+
+
+def test_relay_strips_set_cookie_from_upstream_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="ok", headers={"Set-Cookie": "session=abc123"})
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"}
+    )
+    _body, _status, headers = main.relay(request)
+    assert "set-cookie" not in headers
+
+
+# ── egress policy: request/response size budgets (TM-02 / #1609) ─────────
+
+
+def test_relay_rejects_oversized_request_body(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "_MAX_REQUEST_BODY_BYTES", 8)
+
+    request = _request(
+        method="POST",
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+        data=b"x" * 9,
+    )
+    _body, status = main.relay(request)
+    assert status == 413
+
+
+def test_relay_allows_request_body_within_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "_MAX_REQUEST_BODY_BYTES", 8)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text="ok")
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        method="POST",
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"},
+        data=b"x" * 8,
+    )
+    _body, status, _headers = main.relay(request)
+    assert status == 200
+
+
+def test_relay_rejects_oversized_upstream_response(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "_MAX_RESPONSE_BYTES", 8)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"x" * 9)
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"}
+    )
+    _body, status = main.relay(request)
+    assert status == 502
+
+
+def test_relay_allows_upstream_response_within_budget(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(main, "_MAX_RESPONSE_BYTES", 8)
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"x" * 8)
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    request = _request(
+        headers={"X-Relay-Token": RELAY_TOKEN, "X-Relay-Url": "https://scon.stj.jus.br/"}
+    )
+    body, status, _headers = main.relay(request)
+    assert status == 200
+    assert body == b"x" * 8

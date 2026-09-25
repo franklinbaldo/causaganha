@@ -79,6 +79,29 @@ jobs:
       - name: Check bundle (dry-run, no deploy)
         run: npm run check
 
+  relay-cf:
+    # TM-02 / #1609: this job was missing entirely before this change, so
+    # deployment/relay-cf/test/index.test.js (the egress-policy suite for
+    # the Cloudflare relay Worker) never ran in CI — mirrors the
+    # archive-cors-proxy job above, the closest sibling Worker in this repo.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: deployment/relay-cf
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: deployment/relay-cf/package-lock.json
+      - run: npm ci
+      - name: Test
+        run: npm test
+      - name: Check bundle (dry-run, no deploy)
+        run: npm run check
+
   web:
     runs-on: ubuntu-latest
     timeout-minutes: 10
