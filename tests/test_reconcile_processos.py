@@ -12,6 +12,7 @@ import json
 from typing import TYPE_CHECKING
 
 import duckdb
+import httpx
 import pytest
 import respx
 
@@ -234,6 +235,60 @@ def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
     )
     expected_url = published.discover_published_juris_datasets(manifest_csv)[0].url
     assert list(urls.values()) == [expected_url]
+
+
+def test_juris_discovery_rejects_untrusted_wildcard_items() -> None:
+    """An IA user cannot add a new year merely by matching our item prefix."""
+    with respx.mock() as router:
+        router.get(host="archive.org", path="/advancedsearch.php").respond(
+            200,
+            json={
+                "response": {
+                    "docs": [
+                        {"identifier": "tjro-juris-2024"},
+                        {"identifier": "tjro-juris-9999"},
+                    ]
+                }
+            },
+        )
+        with httpx.Client() as client:
+            assert rp._discover_juris_items(client) == ["tjro-juris-2024"]
+
+
+def test_juris_fallback_enforces_file_count_limit(
+    isolated_dirs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(rp, "_MAX_JURIS_FILES", 1)
+    with respx.mock() as router:
+        router.get(host="archive.org", path="/advancedsearch.php").respond(
+            200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
+        )
+        router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+            200,
+            json={
+                "files": [
+                    {"name": "2024-01-ACORDAO.parquet"},
+                    {"name": "2024-02-SENTENCA.parquet"},
+                ]
+            },
+        )
+        with pytest.raises(rp.SourceDataError, match="exceeds 1 parquet files"):
+            rp.fetch_juris_from_ia()
+
+
+def test_download_rejects_oversized_parquet_before_caching(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setattr(rp, "_MAX_PARQUET_BYTES", 4)
+    url = "https://archive.org/download/trusted/file.parquet"
+    dest = tmp_path / "file.parquet"
+    with respx.mock() as router:
+        router.get(url).respond(200, content=b"12345")
+        with httpx.Client() as client, pytest.raises(rp.SourceDataError, match="exceeds 4 bytes"):
+            rp._atomic_download(client, url, dest, "test parquet")
+
+    assert not dest.exists()
+    assert not dest.with_name("file.parquet.part").exists()
 
 
 def test_current_catalog_wins_over_stale_published_catalog(tmp_path, monkeypatch):

@@ -102,6 +102,14 @@ _DEFAULT_DATAJUD_TRIBUNAIS = ("tjro",)
 # older docs said data/tjro_juris/.
 _JURIS_ITEM_PREFIX = "tjro-juris"
 _JURIS_ITEM_RE = re.compile(r"^tjro-juris-\d{4}$")
+# These item identifiers were allocated by this project's historical backfill.
+# Do not trust a syntactically matching IA search result: IA identifiers are
+# global, so an unrelated account can create any still-unclaimed year.
+_TRUSTED_JURIS_ITEMS = frozenset(
+    f"{_JURIS_ITEM_PREFIX}-{year}" for year in range(1988, 2027)
+)
+_MAX_JURIS_FILES = 2_500
+_MAX_PARQUET_BYTES = 1_073_741_824  # 1 GiB per downloaded parquet
 _JURIS_LOCAL_GLOBS = (
     "data/tjro_juris/*/tjro-juris-*.parquet",
     "data/tjro-juris/*/tjro-juris-*.parquet",
@@ -199,9 +207,27 @@ def _atomic_download(client: httpx.Client, url: str, dest: Path, label: str) -> 
     print(f"Downloading {label} from {url}")
     dest.parent.mkdir(parents=True, exist_ok=True)
     tmp = dest.with_name(dest.name + ".part")
-    resp = client.get(url)
-    resp.raise_for_status()
-    tmp.write_bytes(resp.content)
+    downloaded = 0
+    with client.stream("GET", url) as resp:
+        resp.raise_for_status()
+        content_length = resp.headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_size = int(content_length)
+            except ValueError as exc:
+                msg = f"download from {url} has invalid Content-Length"
+                raise SourceDataError(msg) from exc
+            if declared_size > _MAX_PARQUET_BYTES:
+                msg = f"download from {url} exceeds {_MAX_PARQUET_BYTES:,} bytes"
+                raise SourceDataError(msg)
+        with tmp.open("wb") as output:
+            for chunk in resp.iter_bytes():
+                downloaded += len(chunk)
+                if downloaded > _MAX_PARQUET_BYTES:
+                    tmp.unlink(missing_ok=True)
+                    msg = f"download from {url} exceeds {_MAX_PARQUET_BYTES:,} bytes"
+                    raise SourceDataError(msg)
+                output.write(chunk)
     if not _is_valid_parquet(tmp):
         tmp.unlink(missing_ok=True)
         msg = f"downloaded file from {url} is not valid parquet"
@@ -287,7 +313,7 @@ def juris_parquet_files() -> list[Path]:
 
 
 def _discover_juris_items(client: httpx.Client) -> list[str]:
-    """tjro-juris-{year} item identifiers that actually exist on IA."""
+    """Project-owned tjro-juris-{year} identifiers that currently exist on IA."""
     resp = client.get(
         _IA_SEARCH_URL,
         params={
@@ -302,7 +328,9 @@ def _discover_juris_items(client: httpx.Client) -> list[str]:
     return sorted(
         d["identifier"]
         for d in docs
-        if isinstance(d, dict) and _JURIS_ITEM_RE.match(d.get("identifier", ""))
+        if isinstance(d, dict)
+        and _JURIS_ITEM_RE.match(d.get("identifier", ""))
+        and d["identifier"] in _TRUSTED_JURIS_ITEMS
     )
 
 
@@ -349,6 +377,9 @@ def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
                     needs_dedup = True
             if not wanted:
                 print(f"  IA item {item}: no parquet files", file=sys.stderr)
+            if len(paths) + len(wanted) > _MAX_JURIS_FILES:
+                msg = f"JURIS IA fallback exceeds {_MAX_JURIS_FILES:,} parquet files"
+                raise SourceDataError(msg)
             for name in wanted:
                 url = f"{_IA_BASE}/{item}/{quote(name)}"
                 path = _fetch_cached(client, url, cache / item / name, f"JURIS {item}/{name}")
