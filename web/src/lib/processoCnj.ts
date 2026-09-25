@@ -772,8 +772,11 @@ export function validarTribunalCoerente(fonte: Fonte, tribunal: string, url: str
 // Diferente de validarTribunalCoerente (que só cruza duas strings do próprio
 // índice), esta checagem lê o que o artefato de origem *declara sobre si
 // mesmo*, via parquet_kv_metadata() -- uma leitura do rodapé Parquet (barata,
-// via httpfs range-read; não baixa o arquivo inteiro). juris/stj/datajud não
-// emitem esse KV_METADATA hoje (gap real, documentado, não coberto). Mirrors
+// via httpfs range-read; não baixa o arquivo inteiro). juris e datajud
+// também já emitem e validam esse rodapé (ver validarMetadataJuris/
+// validarMetadataDatajud abaixo); stj continua sem cobertura porque
+// stj_acordaos não tem nenhum pipeline write_parquet/to_parquet sob
+// controle deste repo hoje. Mirrors
 // causaganha.processos.service._item_id_da_url/_validar_metadata_djen.
 const DJEN_ITEM_ID_PATTERN = /\/download\/(djen-[a-z0-9]+-\d{4})\//;
 
@@ -941,6 +944,97 @@ export async function validarMetadataJurisUrls(
       } else {
         const detalhe = err instanceof Error ? err.message : String(err);
         avisos.push(`Fonte 'juris' descartou um artefato sem rodapé Parquet legível: ${detalhe}`);
+      }
+      continue;
+    }
+    validated.push(url);
+  }
+  return validated;
+}
+
+// TM-04 read side for `datajud` (issue #1610): o lado de escrita
+// (`datajud.archive._write_parquet`) agora grava o mesmo rodapé
+// `causaganha.schema_version`/`causaganha.item_id` que os exports djen e
+// juris já gravam, no mesmo namespace `causaganha.*`
+// (`DATAJUD_SCHEMA_VERSION` em vez de `SCHEMA_REGISTRY`, já que datajud tem
+// um único schema de export até agora, sem versionamento). Mirrors
+// causaganha.processos.service
+// ._datajud_item_id_da_url/_validar_metadata_datajud (Python) -- mesma
+// política, mesma checagem, superfície TS, contra a forma de item
+// `datajud-{tribunal}` (sem sufixo de ano) em vez de `tjro-juris-{ano}`.
+const DATAJUD_ITEM_ID_PATTERN = /\/download\/(datajud-[a-z0-9]+)\//;
+
+// Mirrors DATAJUD_SCHEMA_VERSION (src/datajud/archive.py) -- duplicado aqui
+// pelo mesmo motivo aceito para KNOWN_DJEN_SCHEMA_VERSIONS/
+// KNOWN_JURIS_SCHEMA_VERSIONS: o registro Python não está disponível para
+// um build de browser.
+const KNOWN_DATAJUD_SCHEMA_VERSIONS = new Set(['1.0.0']);
+
+/** IA item id (`datajud-{tribunal}`) embutido no path de `url`, ou `null` quando `url` não tem o formato de artefato datajud (ex.: path local de teste). */
+export function datajudItemIdDaUrl(url: string): string | null {
+  const match = DATAJUD_ITEM_ID_PATTERN.exec(url);
+  return match ? match[1] : null;
+}
+
+/**
+ * Lança `ArtifactProvenanceError` quando o rodapé Parquet (`metadata`) de um
+ * artefato datajud discorda de (ou não carrega) a identidade que sua
+ * `arquivo_ia_url` reivindica -- espelho de `validarMetadataDjen` para datajud.
+ */
+export function validarMetadataDatajud(url: string, metadata: Record<string, string>): void {
+  const esperadoItemId = datajudItemIdDaUrl(url);
+  if (esperadoItemId === null) return;
+  const schemaVersion = metadata['causaganha.schema_version'];
+  if (schemaVersion === undefined || !KNOWN_DATAJUD_SCHEMA_VERSIONS.has(schemaVersion)) {
+    throw new ArtifactProvenanceError(
+      `Artefato datajud sem schema_version reconhecido no rodapé Parquet ` +
+        `(${JSON.stringify(schemaVersion ?? null)}): ${JSON.stringify(url)}`,
+    );
+  }
+  const itemId = metadata['causaganha.item_id'];
+  if (itemId !== esperadoItemId) {
+    throw new ArtifactProvenanceError(
+      `Artefato datajud declara item_id ${JSON.stringify(itemId ?? null)} no rodapé Parquet, mas ` +
+        `a URL do índice aponta para ${JSON.stringify(esperadoItemId)}: ${JSON.stringify(url)}`,
+    );
+  }
+}
+
+/** SQL do rodapé Parquet de um único artefato datajud -- leitura de footer (httpfs range-read), não do arquivo inteiro. */
+export function buildDatajudArtifactMetadataSql(url: string): string {
+  return `SELECT key, value FROM parquet_kv_metadata('${url}')`;
+}
+
+/**
+ * `datajudUrls` cujo rodapé Parquet passa `validarMetadataDatajud`,
+ * descartando (com aviso em `avisos`, nunca uma exceção fatal) qualquer um
+ * que falhe a leitura ou a checagem -- mesma política non-fatal-per-artifact
+ * de `validarMetadataDjenUrls`/`validarMetadataJurisUrls`.
+ */
+export async function validarMetadataDatajudUrls(
+  conn: DuckDBConnectionLike,
+  datajudUrls: string[],
+  avisos: string[],
+): Promise<string[]> {
+  const validated: string[] = [];
+  for (const url of datajudUrls) {
+    if (datajudItemIdDaUrl(url) === null) {
+      validated.push(url);
+      continue;
+    }
+    try {
+      const rows = await queryRows(conn, buildDatajudArtifactMetadataSql(url), []);
+      const metadata: Record<string, string> = {};
+      for (const row of rows) metadata[String(row.key)] = String(row.value);
+      validarMetadataDatajud(url, metadata);
+    } catch (err) {
+      if (err instanceof ArtifactProvenanceError) {
+        avisos.push(`Fonte 'datajud' descartou um artefato com ${err.message}`);
+      } else {
+        const detalhe = err instanceof Error ? err.message : String(err);
+        avisos.push(
+          `Fonte 'datajud' descartou um artefato sem rodapé Parquet legível: ${detalhe}`,
+        );
       }
       continue;
     }
@@ -1217,7 +1311,11 @@ export async function buscarProcesso(conn: DuckDBConnectionLike, digits: string)
   const djenUrls = await validarMetadataDjenUrls(conn, fonteUrls(rowPairs, 'djen', avisos), avisos);
   const jurisUrls = await validarMetadataJurisUrls(conn, fonteUrls(rowPairs, 'juris', avisos), avisos);
   const stjUrls = fonteUrls(rowPairs, 'stj', avisos);
-  const datajudUrls = fonteUrls(rowPairs, 'datajud', avisos);
+  const datajudUrls = await validarMetadataDatajudUrls(
+    conn,
+    fonteUrls(rowPairs, 'datajud', avisos),
+    avisos,
+  );
 
   const djenEqualityMode = djenUrls.length ? await resolveDjenEqualityModeLive(conn, djenUrls) : 'compatible';
   const djenRaw = djenUrls.length

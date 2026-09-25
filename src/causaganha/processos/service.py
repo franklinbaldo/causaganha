@@ -50,6 +50,7 @@ from causaganha.processos.models import (
     ProcessoConsultaResult,
     StjAcordao,
 )
+from datajud import archive as datajud_archive
 from tjro_juris import archive as juris_archive
 from tjro_juris import service as juris_service
 
@@ -162,8 +163,10 @@ def _validar_tribunal_coerente(fonte: str, tribunal: str, url: str) -> None:
 # httpfs em primeiro lugar (consulta seletiva, não download completo). Um
 # hash/row-count de conteúdo completo continuaria exigindo o arquivo inteiro
 # e fica fora do alcance desta fatia -- ver docs/SECURITY_THREAT_MODEL.md
-# TM-04 para o que permanece em aberto. juris/stj/datajud não emitem esse
-# KV_METADATA hoje (gap real, documentado, não coberto por esta checagem).
+# TM-04 para o que permanece em aberto. juris e datajud também já emitem e
+# validam esse rodapé (ver `_validar_metadata_juris`/`_validar_metadata_datajud`
+# abaixo); `stj` continua sem cobertura porque `stj_acordaos` não tem nenhum
+# pipeline `write_parquet`/`to_parquet` sob controle deste repo hoje.
 _DJEN_ITEM_ID_PATTERN = re.compile(r"/download/(djen-[a-z0-9]+-\d{4})/")
 
 
@@ -305,6 +308,77 @@ def _validar_metadata_juris_urls(
             continue
         except ArtifactProvenanceError as exc:
             avisos.append(f"Fonte 'juris' descartou um artefato com {exc}")
+            continue
+        validated.append(url)
+    return validated
+
+
+# TM-04 read side for `datajud` (issue #1610): the write side
+# (`datajud.archive._write_parquet`) now embeds the same
+# `causaganha.schema_version`/`causaganha.item_id` KV_METADATA the djen and
+# juris exports do (`DATAJUD_SCHEMA_VERSION` instead of `SCHEMA_REGISTRY`,
+# since datajud has a single, unversioned export schema so far). This
+# mirrors `_validar_metadata_juris`/`_juris_item_id_da_url` against the
+# `datajud-{tribunal}` item shape datajud capa URLs use (no year suffix,
+# same shape `_TRIBUNAL_URL_PATTERNS["datajud"]` already matches for the
+# tribunal-coherence check above) instead of juris's `{prefix}-{ano}`.
+_DATAJUD_ITEM_ID_PATTERN = re.compile(r"/download/(datajud-[a-z0-9]+)/")
+
+
+def _datajud_item_id_da_url(url: str) -> str | None:
+    """IA item id (`datajud-{tribunal}`) embedded in `url`'s path, or `None`
+    when `url` isn't shaped like a datajud artifact URL (e.g. a local test
+    path) -- in which case there is no independent claim to check the
+    artifact's own footer metadata against.
+    """
+    match = _DATAJUD_ITEM_ID_PATTERN.search(url)
+    return match.group(1) if match else None
+
+
+def _validar_metadata_datajud(url: str, metadata: dict[str, str]) -> None:
+    """Raises `ArtifactProvenanceError` when a datajud artifact's own Parquet
+    footer KV_METADATA disagrees with (or lacks) the identity its
+    `arquivo_ia_url` claims -- the datajud mirror of `_validar_metadata_djen`.
+    """
+    esperado_item_id = _datajud_item_id_da_url(url)
+    if esperado_item_id is None:
+        return
+    schema_version = metadata.get("causaganha.schema_version")
+    if schema_version != datajud_archive.DATAJUD_SCHEMA_VERSION:
+        msg = (
+            f"Artefato datajud sem schema_version reconhecido no rodapé Parquet "
+            f"({schema_version!r}): {url!r}"
+        )
+        raise ArtifactProvenanceError(msg)
+    item_id = metadata.get("causaganha.item_id")
+    if item_id != esperado_item_id:
+        msg = (
+            f"Artefato datajud declara item_id {item_id!r} no rodapé Parquet, mas "
+            f"a URL do índice aponta para {esperado_item_id!r}: {url!r}"
+        )
+        raise ArtifactProvenanceError(msg)
+
+
+def _validar_metadata_datajud_urls(
+    con: duckdb.DuckDBPyConnection, urls: list[str], avisos: list[str]
+) -> list[str]:
+    """datajud URLs whose footer KV_METADATA passes `_validar_metadata_datajud`,
+    dropping (with an aviso, never a fatal exception) any that fail to read
+    or fail the check -- same non-fatal-per-artifact policy as
+    `_validar_metadata_djen_urls`/`_validar_metadata_juris_urls`.
+    """
+    validated = []
+    for url in urls:
+        try:
+            metadata = _kv_metadata(con, url)
+            _validar_metadata_datajud(url, metadata)
+        except duckdb.Error as exc:
+            avisos.append(
+                f"Fonte 'datajud' descartou um artefato sem rodapé Parquet legível: {exc}"
+            )
+            continue
+        except ArtifactProvenanceError as exc:
+            avisos.append(f"Fonte 'datajud' descartou um artefato com {exc}")
             continue
         validated.append(url)
     return validated
@@ -745,6 +819,7 @@ def buscar_processo(
         juris_urls = _validar_metadata_juris_urls(con, juris_urls, avisos)
         stj_urls = _fonte_urls(rows, "stj", avisos)
         datajud_urls = _fonte_urls(rows, "datajud", avisos)
+        datajud_urls = _validar_metadata_datajud_urls(con, datajud_urls, avisos)
 
         djen = _build_djen(con, djen_urls, nr_processo, avisos)
         juris = _build_juris(con, juris_urls, nr_processo, avisos)

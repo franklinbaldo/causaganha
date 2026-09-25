@@ -27,6 +27,7 @@ import {
   isDocumentosVazio,
   isValidCnj,
   itemIdDaUrl,
+  datajudItemIdDaUrl,
   jurisItemIdDaUrl,
   mapDatajudRow,
   mapDjenRow,
@@ -42,6 +43,8 @@ import {
   tribunalDaUrl,
   validarMetadataDjen,
   validarMetadataDjenUrls,
+  validarMetadataDatajud,
+  validarMetadataDatajudUrls,
   validarMetadataJuris,
   validarMetadataJurisUrls,
   validarTribunalCoerente,
@@ -986,6 +989,106 @@ describe('validarMetadataJurisUrls (#1610 TM-04 -- live footer check inside busc
     const avisos: string[] = [];
     expect(await validarMetadataJurisUrls(conn as any, ['/tmp/tjro-juris-2024.parquet'], avisos)).toEqual([
       '/tmp/tjro-juris-2024.parquet',
+    ]);
+    expect(avisos).toEqual([]);
+  });
+});
+
+describe('datajudItemIdDaUrl / validarMetadataDatajud (#1610 TM-04 -- Web parity with service._datajud_item_id_da_url/_validar_metadata_datajud)', () => {
+  it.each([
+    ['https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet', 'datajud-tjro'],
+    ['https://archive.org/download/datajud-tjsp/datajud-capa-tjsp.parquet', 'datajud-tjsp'],
+  ])('extracts the datajud IA item id from %s', (url, esperado) => {
+    expect(datajudItemIdDaUrl(url)).toBe(esperado);
+  });
+
+  it('is null for a local test path', () => {
+    expect(datajudItemIdDaUrl('/tmp/datajud-capa-tjro.parquet')).toBeNull();
+  });
+
+  it('is null for a non-datajud source', () => {
+    expect(datajudItemIdDaUrl('https://archive.org/download/djen-tjro-2024/comunicacoes.parquet')).toBeNull();
+  });
+
+  const URL_DATAJUD = 'https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet';
+
+  it('accepts coherent metadata', () => {
+    expect(() =>
+      validarMetadataDatajud(URL_DATAJUD, { 'causaganha.schema_version': '1.0.0', 'causaganha.item_id': 'datajud-tjro' }),
+    ).not.toThrow();
+  });
+
+  it('rejects an unrecognized schema_version', () => {
+    expect(() =>
+      validarMetadataDatajud(URL_DATAJUD, { 'causaganha.schema_version': '99.0.0', 'causaganha.item_id': 'datajud-tjro' }),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('rejects a missing schema_version', () => {
+    expect(() => validarMetadataDatajud(URL_DATAJUD, { 'causaganha.item_id': 'datajud-tjro' })).toThrow(
+      ArtifactProvenanceError,
+    );
+  });
+
+  it('rejects a mismatched item_id', () => {
+    expect(() =>
+      validarMetadataDatajud(URL_DATAJUD, { 'causaganha.schema_version': '1.0.0', 'causaganha.item_id': 'datajud-tjsp' }),
+    ).toThrow(ArtifactProvenanceError);
+  });
+
+  it('does not raise for an unverifiable URL', () => {
+    expect(() => validarMetadataDatajud('/tmp/datajud-capa-tjro.parquet', {})).not.toThrow();
+  });
+});
+
+describe('validarMetadataDatajudUrls (#1610 TM-04 -- live footer check inside buscarProcesso)', () => {
+  const URL_DATAJUD = 'https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet';
+
+  it('keeps a datajud URL whose footer coherently matches its own IA item id', async () => {
+    const conn = fakeConn([
+      [
+        'FROM parquet_kv_metadata',
+        [
+          { key: 'causaganha.schema_version', value: '1.0.0' },
+          { key: 'causaganha.item_id', value: 'datajud-tjro' },
+        ],
+      ],
+    ]);
+    const avisos: string[] = [];
+    expect(await validarMetadataDatajudUrls(conn as any, [URL_DATAJUD], avisos)).toEqual([URL_DATAJUD]);
+    expect(avisos).toEqual([]);
+  });
+
+  it('drops a datajud URL whose footer item_id disagrees with the URL it is served at', async () => {
+    const conn = fakeConn([
+      [
+        'FROM parquet_kv_metadata',
+        [
+          { key: 'causaganha.schema_version', value: '1.0.0' },
+          { key: 'causaganha.item_id', value: 'datajud-tjsp' },
+        ],
+      ],
+    ]);
+    const avisos: string[] = [];
+    expect(await validarMetadataDatajudUrls(conn as any, [URL_DATAJUD], avisos)).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'datajud' descartou um artefato com");
+    expect(avisos[0]).toContain('item_id');
+  });
+
+  it('drops a datajud URL whose footer cannot be read, with an aviso instead of throwing', async () => {
+    const conn = fakeConnWithFailure('FROM parquet_kv_metadata', []);
+    const avisos: string[] = [];
+    expect(await validarMetadataDatajudUrls(conn as any, [URL_DATAJUD], avisos)).toEqual([]);
+    expect(avisos).toHaveLength(1);
+    expect(avisos[0]).toContain("Fonte 'datajud' descartou um artefato sem rodapé Parquet legível");
+  });
+
+  it('keeps a URL that is not shaped like a datajud IA item untouched (test fixture bypass)', async () => {
+    const conn = fakeConn([]);
+    const avisos: string[] = [];
+    expect(await validarMetadataDatajudUrls(conn as any, ['/tmp/datajud-capa-tjro.parquet'], avisos)).toEqual([
+      '/tmp/datajud-capa-tjro.parquet',
     ]);
     expect(avisos).toEqual([]);
   });

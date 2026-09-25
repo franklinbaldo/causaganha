@@ -18,6 +18,7 @@ import respx
 
 from causaganha.consolidate import schema_registry
 from causaganha.processos import service
+from datajud import archive as datajud_archive
 from tjro_juris import service as juris_service
 from causaganha.processos.models import CnjInvalidoError, FonteCobertura
 from causaganha.processos.query_plan_fixtures import (
@@ -783,6 +784,181 @@ def test_juris_artifact_footer_item_id_coerente_is_accepted(tmp_path: Path) -> N
     assert result.encontrado is True
     assert result.juris is not None
     assert result.juris.n_documentos == 1
+    assert not any(
+        "item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos
+    )
+
+
+class TestMetadataDatajudCoerente:
+    """Issue #1610 (TM-04) read-side gap for `datajud`, closed after the
+    write side (`datajud.archive._write_parquet`, issue #1610/TM-04) started
+    embedding `causaganha.schema_version`/`causaganha.item_id` in every capa
+    export's Parquet footer. Mirrors `_validar_metadata_juris` exactly,
+    against the `datajud-{tribunal}` item shape instead of
+    `tjro-juris-{ano}`.
+    """
+
+    @pytest.mark.parametrize(
+        ("url", "esperado"),
+        [
+            (
+                "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet",
+                "datajud-tjro",
+            ),
+            (
+                "https://archive.org/download/datajud-tjsp/datajud-capa-tjsp.parquet",
+                "datajud-tjsp",
+            ),
+        ],
+    )
+    def test_item_id_extracted_from_datajud_url(self, url: str, esperado: str) -> None:
+        assert service._datajud_item_id_da_url(url) == esperado
+
+    def test_item_id_none_for_local_test_path(self, tmp_path: Path) -> None:
+        assert service._datajud_item_id_da_url(str(tmp_path / "datajud-capa-tjro.parquet")) is None
+
+    def test_item_id_none_for_non_datajud_source(self) -> None:
+        assert (
+            service._datajud_item_id_da_url(
+                "https://archive.org/download/djen-tjro-2024/comunicacoes.parquet"
+            )
+            is None
+        )
+
+    def test_coherent_metadata_passes(self) -> None:
+        url = "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet"
+        metadata = {
+            "causaganha.schema_version": datajud_archive.DATAJUD_SCHEMA_VERSION,
+            "causaganha.item_id": "datajud-tjro",
+        }
+        service._validar_metadata_datajud(url, metadata)
+
+    def test_unknown_schema_version_is_rejected(self) -> None:
+        url = "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet"
+        metadata = {"causaganha.schema_version": "99.0.0", "causaganha.item_id": "datajud-tjro"}
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_datajud(url, metadata)
+
+    def test_missing_schema_version_is_rejected(self) -> None:
+        url = "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet"
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_datajud(url, {"causaganha.item_id": "datajud-tjro"})
+
+    def test_mismatched_item_id_is_rejected(self) -> None:
+        url = "https://archive.org/download/datajud-tjro/datajud-capa-tjro.parquet"
+        metadata = {
+            "causaganha.schema_version": datajud_archive.DATAJUD_SCHEMA_VERSION,
+            "causaganha.item_id": "datajud-tjsp",
+        }
+        with pytest.raises(service.ArtifactProvenanceError):
+            service._validar_metadata_datajud(url, metadata)
+
+    def test_unverifiable_url_does_not_raise(self, tmp_path: Path) -> None:
+        service._validar_metadata_datajud(str(tmp_path / "datajud-capa-tjro.parquet"), {})
+
+
+def _datajud_kv_metadata_sql_fragment(item_id: str) -> str:
+    """Mirrors `schema_registry.kv_metadata_sql_fragment` for datajud fixtures."""
+    meta = {
+        "causaganha.schema_version": datajud_archive.DATAJUD_SCHEMA_VERSION,
+        "causaganha.item_id": item_id,
+    }
+    pairs = ", ".join(f"'{k}': '{v}'" for k, v in meta.items())
+    return f"KV_METADATA {{{pairs}}}"
+
+
+def test_datajud_artifact_footer_item_id_mismatch_degrades_source_instead_of_trusting(
+    tmp_path: Path,
+) -> None:
+    """Same class of threat `test_djen_artifact_footer_item_id_mismatch_...`
+    covers, now for `datajud`: a `datajud-capa-{tribunal}.parquet` file whose
+    own footer declares `causaganha.item_id = datajud-tjsp` but is wired
+    into the index under a `datajud-tjro` URL must degrade to an aviso
+    instead of being trusted.
+    """
+    item_dir = tmp_path / "download" / "datajud-tjro"
+    item_dir.mkdir(parents=True)
+    capa_parquet = item_dir / "datajud-capa-tjro.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            COPY (
+                SELECT '{CNJ_ALL}' AS numero_processo, 'TJRO' AS tribunal,
+                    'classe' AS classe_nome, 'assuntos' AS assuntos,
+                    'orgao' AS orgao_julgador, 'G1' AS grau,
+                    DATE '2024-01-10' AS data_ajuizamento,
+                    TIMESTAMP '2024-06-01' AS ultima_atualizacao
+            ) TO '{capa_parquet}' (FORMAT PARQUET,
+                {_datajud_kv_metadata_sql_fragment("datajud-tjsp")})
+            """
+        )
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'datajud' AS fonte, 'd1' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-01-10' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, str(capa_parquet)],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(
+        CNJ_ALL, indice_url=str(indice), report_url=str(report), incluir_documentos=False
+    )
+
+    assert result.encontrado is True
+    assert result.datajud is None
+    assert any("item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos)
+
+
+def test_datajud_artifact_footer_item_id_coerente_is_accepted(tmp_path: Path) -> None:
+    """The positive case: a datajud footer whose `causaganha.item_id` agrees
+    with the URL it's served at must not be dropped.
+    """
+    item_dir = tmp_path / "download" / "datajud-tjro"
+    item_dir.mkdir(parents=True)
+    capa_parquet = item_dir / "datajud-capa-tjro.parquet"
+    con = duckdb.connect()
+    try:
+        con.execute(
+            f"""
+            COPY (
+                SELECT '{CNJ_ALL}' AS numero_processo, 'TJRO' AS tribunal,
+                    'classe' AS classe_nome, 'assuntos' AS assuntos,
+                    'orgao' AS orgao_julgador, 'G1' AS grau,
+                    DATE '2024-01-10' AS data_ajuizamento,
+                    TIMESTAMP '2024-06-01' AS ultima_atualizacao
+            ) TO '{capa_parquet}' (FORMAT PARQUET,
+                {_datajud_kv_metadata_sql_fragment("datajud-tjro")})
+            """
+        )
+        indice = tmp_path / "indice_processual.parquet"
+        con.execute(
+            f"""
+            COPY (
+                SELECT ? AS numero_processo, 'datajud' AS fonte, 'd1' AS registro_id,
+                    'TJRO' AS tribunal, DATE '2024-01-10' AS data, ? AS arquivo_ia_url
+            ) TO '{indice}' (FORMAT PARQUET)
+            """,
+            [CNJ_ALL, str(capa_parquet)],
+        )
+    finally:
+        con.close()
+    report = tmp_path / "indice_processual.report.json"
+    report.write_text('{"generated_at": "2026-07-12T18:00:00Z", "sources": {}}', encoding="utf-8")
+
+    result = service.buscar_processo(
+        CNJ_ALL, indice_url=str(indice), report_url=str(report), incluir_documentos=False
+    )
+
+    assert result.encontrado is True
+    assert result.datajud is not None
     assert not any(
         "item_id" in aviso.lower() or "rodapé" in aviso.lower() for aviso in result.avisos
     )
