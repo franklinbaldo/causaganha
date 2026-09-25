@@ -62,7 +62,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -76,6 +75,8 @@ import httpx
 from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
 from datajud.archive import capa_parquet_name as _datajud_capa_name
 from datajud.archive import item_id as _datajud_item_id
+from tjro_juris import archive as juris_archive
+from tjro_juris.manifest import ManifestFormatError, ManifestJuris
 
 
 ROOT = Path(__file__).parent.parent
@@ -86,7 +87,6 @@ _REPORT_NAME = "indice_processual.report.json"
 
 _IA_BASE = "https://archive.org/download"
 _IA_METADATA_BASE = "https://archive.org/metadata"
-_IA_SEARCH_URL = "https://archive.org/advancedsearch.php"
 _IA_ITEM_DASHBOARD = "causaganha-dashboard"
 _IA_CATALOG_MANIFEST_URL = f"{_IA_BASE}/causaganha-catalog/manifest.parquet"
 
@@ -101,7 +101,6 @@ _DEFAULT_DATAJUD_TRIBUNAIS = ("tjro",)
 # glob spellings are honoured: the CLI/workflows write data/tjro-juris/,
 # older docs said data/tjro_juris/.
 _JURIS_ITEM_PREFIX = "tjro-juris"
-_JURIS_ITEM_RE = re.compile(r"^tjro-juris-\d{4}$")
 _JURIS_LOCAL_GLOBS = (
     "data/tjro_juris/*/tjro-juris-*.parquet",
     "data/tjro-juris/*/tjro-juris-*.parquet",
@@ -287,23 +286,31 @@ def juris_parquet_files() -> list[Path]:
 
 
 def _discover_juris_items(client: httpx.Client) -> list[str]:
-    """tjro-juris-{year} item identifiers that actually exist on IA."""
-    resp = client.get(
-        _IA_SEARCH_URL,
-        params={
-            "q": f"identifier:{_JURIS_ITEM_PREFIX}-*",
-            "fl[]": "identifier",
-            "rows": "500",
-            "output": "json",
-        },
-    )
+    """tjro-juris-{year} item identifiers this project's own crawl manifest vouches for.
+
+    Fixes #1652 (TM-16): this used to discover items via an unauthenticated
+    `identifier:tjro-juris-*` search against IA's public namespace and
+    trusted anything syntactically matching the naming pattern — a
+    third-party item with the same name would have been silently accepted
+    as project data (catalog/data poisoning without compromising any
+    project credential). The project's own manifest — a fixed, project-owned
+    IA item (`juris_archive.MANIFEST_DOWNLOAD_URL`), the same allowlist
+    `causaganha.decisoes.published.discover_published_juris_datasets`
+    already trusts — is the only source of truth for which years actually
+    belong to this project's JURIS crawl; only years with at least one
+    `ia_status == "uploaded"` window become a candidate item identifier.
+    """
+    resp = client.get(juris_archive.MANIFEST_DOWNLOAD_URL)
+    if resp.status_code == httpx.codes.NOT_FOUND:
+        return []
     resp.raise_for_status()
-    docs = resp.json().get("response", {}).get("docs", [])
-    return sorted(
-        d["identifier"]
-        for d in docs
-        if isinstance(d, dict) and _JURIS_ITEM_RE.match(d.get("identifier", ""))
-    )
+    try:
+        manifest = ManifestJuris.load_text(resp.text, source=juris_archive.MANIFEST_DOWNLOAD_URL)
+    except ManifestFormatError as exc:
+        print(f"  malformed JURIS manifest: {exc}", file=sys.stderr)
+        return []
+    years = {entry.mes_ano[:4] for entry in manifest.all_entries() if entry.ia_status == "uploaded"}
+    return sorted(f"{_JURIS_ITEM_PREFIX}-{year}" for year in years)
 
 
 def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:

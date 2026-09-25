@@ -1,0 +1,11 @@
+---
+type: AgentDecision
+id: "2026-09-25-exciting-mccarthy-szlcz8-decision-manifest-allowlist-not-digest"
+run_id: "2026-09-25-exciting-mccarthy-szlcz8"
+goal_id: "2026-09-25-exciting-mccarthy-szlcz8-goal-juris-discovery-allowlist"
+question: "Como fechar o item (2) de #1652/TM-16 (scripts/reconcile_processos.py::_discover_juris_items sem allowlist): inventar um novo manifesto/allowlist dedicado a esta função, verificar digest SHA-256 de cada arquivo remoto (o que a issue já separa como item 3, mais amplo), ou reaproveitar um artefato de allowlist que o projeto já publica e já consome em outro lugar?"
+choice: "Reaproveitar tjro_juris.archive.MANIFEST_DOWNLOAD_URL (o manifesto CSV year-less que o próprio crawler/upload JURIS já publica em IA, MANIFEST_ITEM_ID='tjro-juris') como allowlist: _discover_juris_items agora lê esse manifesto via ManifestJuris.load_text() e só trata como candidato um ano com pelo menos uma janela (tipo, mes_ano) marcada ia_status='uploaded'. Escopo explicitamente limitado à descoberta de quais anos existem (item 2); verificação de digest por arquivo (item 3) fica para uma fatia futura."
+rationale: "causaganha.decisoes.published.discover_published_juris_datasets já lê exatamente este mesmo manifesto como allowlist para projetar URLs públicas de JURIS — reaproveitá-lo aqui é o mesmo padrão arquitetural que scripts/generate_catalog.py::discover_catalog_items já usa para DJEN (trocar list_ia_items() por get_items_from_sync_manifest(), corrigido na rodada anterior 230b86), só que para a fonte JURIS. Inventar um allowlist novo e dedicado teria duplicado uma fonte de verdade que já existe, é publicada pelo próprio projeto e já é lida por um consumidor real — risco de as duas allowlists divergirem silenciosamente. Verificação de digest SHA-256 por arquivo (item 3 de #1652) é um problema distinto e mais amplo — cobre também o fallback DataJud geral, que não tem manifesto equivalente hoje — e a própria issue já o separa como um item de critério de conclusão independente; misturar os dois nesta fatia ampliaria o escopo além do que uma rodada de TDD self-contained comporta. As duas PRs externas (codex #1644/#1645) tentam os itens 2 e 3 separadamente também, reforçando que são fatias distintas."
+---
+
+# Decisão: reaproveitar o manifesto JURIS já publicado como allowlist, não um mecanismo novo
