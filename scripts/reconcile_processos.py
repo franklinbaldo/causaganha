@@ -49,6 +49,9 @@ Environment knobs:
                                  defaults to the published IA manifest
   RECONCILE_CACHE_DIR          — where IA-fetched source parquets are cached
                                  (default: data/reconcile-cache)
+  RECONCILE_REMOTE_SOURCE_MANIFEST — trusted JSON manifest of exact JURIS and
+                                 DataJud IA item/file names and SHA-256 digests
+                                 (default: config/reconcile-remote-sources.json)
   RECONCILE_DATAJUD_TRIBUNAIS  — comma list of datajud-{tribunal} IA items to
                                  probe for capa parquets (default: tjro)
   RECONCILE_EXPECTED_SOURCES   — comma list of sources whose *unavailability*
@@ -61,6 +64,7 @@ Environment knobs:
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 import re
 import sys
@@ -85,10 +89,9 @@ _PARQUET_INDICE = DATA_DIR / "indice_processual.parquet"
 _REPORT_NAME = "indice_processual.report.json"
 
 _IA_BASE = "https://archive.org/download"
-_IA_METADATA_BASE = "https://archive.org/metadata"
-_IA_SEARCH_URL = "https://archive.org/advancedsearch.php"
 _IA_ITEM_DASHBOARD = "causaganha-dashboard"
 _IA_CATALOG_MANIFEST_URL = f"{_IA_BASE}/causaganha-catalog/manifest.parquet"
+_REMOTE_SOURCE_MANIFEST = ROOT / "config" / "reconcile-remote-sources.json"
 
 _STJ_PARQUET = DATA_DIR / "stj" / "stj-acordaos.parquet"
 _STJ_IA_URL = f"{_IA_BASE}/stj-acordaos-primeira-secao/stj-acordaos.parquet"
@@ -234,14 +237,6 @@ def _fetch_cached(client: httpx.Client, url: str, dest: Path, label: str) -> Pat
     return dest
 
 
-def _ia_item_files(client: httpx.Client, item_id: str) -> list[str]:
-    """File names inside an IA item ([] when the item does not exist)."""
-    resp = client.get(f"{_IA_METADATA_BASE}/{item_id}")
-    resp.raise_for_status()
-    files = resp.json().get("files", [])
-    return [f["name"] for f in files if isinstance(f, dict) and "name" in f]
-
-
 def comunicacoes_parquet_urls(con: duckdb.DuckDBPyConnection) -> list[str] | None:
     """URLs of every consolidated comunicacoes.parquet, from the IA catalog.
 
@@ -286,24 +281,26 @@ def juris_parquet_files() -> list[Path]:
     return sorted(files)
 
 
-def _discover_juris_items(client: httpx.Client) -> list[str]:
-    """tjro-juris-{year} item identifiers that actually exist on IA."""
-    resp = client.get(
-        _IA_SEARCH_URL,
-        params={
-            "q": f"identifier:{_JURIS_ITEM_PREFIX}-*",
-            "fl[]": "identifier",
-            "rows": "500",
-            "output": "json",
-        },
-    )
-    resp.raise_for_status()
-    docs = resp.json().get("response", {}).get("docs", [])
-    return sorted(
-        d["identifier"]
-        for d in docs
-        if isinstance(d, dict) and _JURIS_ITEM_RE.match(d.get("identifier", ""))
-    )
+def _trusted_remote_sources(source: str) -> list[dict[str, str]]:
+    """Return repository-approved IA files with pinned SHA-256 digests."""
+    path = Path(os.environ.get("RECONCILE_REMOTE_SOURCE_MANIFEST", "") or _REMOTE_SOURCE_MANIFEST)
+    if not path.exists():
+        return []
+    data = json.loads(path.read_text(encoding="utf-8"))
+    entries = data.get(source, [])
+    for entry in entries:
+        if set(entry) != {"item", "file", "sha256"} or not re.fullmatch(
+            r"[0-9a-f]{64}", entry.get("sha256", "")
+        ):
+            raise SourceDataError(f"invalid {source} entry in trusted source manifest")  # noqa: TRY003
+    return entries
+
+
+def _verify_digest(path: Path, expected: str) -> None:
+    actual = hashlib.sha256(path.read_bytes()).hexdigest()
+    if actual != expected:
+        _quarantine(path)
+        raise SourceDataError(f"SHA-256 mismatch for trusted remote file {path.name}")  # noqa: TRY003
 
 
 def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
@@ -334,26 +331,20 @@ def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
     urls: dict[Path, str] = {}
     needs_dedup = False
     with httpx.Client(timeout=180, follow_redirects=True) as client:
-        items = _discover_juris_items(client)
-        if not items:
-            print(f"  no {_JURIS_ITEM_PREFIX}-* items found on IA", file=sys.stderr)
+        entries = _trusted_remote_sources("juris")
+        if not entries:
+            print("  no JURIS files in trusted remote source manifest", file=sys.stderr)
             return [], {}, False
-        for item in items:
-            names = _ia_item_files(client, item)
-            consolidated = f"{item}.parquet"
-            if consolidated in names:
-                wanted = [consolidated]
-            else:
-                wanted = sorted(n for n in names if n.endswith(".parquet"))
-                if wanted:
-                    needs_dedup = True
-            if not wanted:
-                print(f"  IA item {item}: no parquet files", file=sys.stderr)
-            for name in wanted:
-                url = f"{_IA_BASE}/{item}/{quote(name)}"
-                path = _fetch_cached(client, url, cache / item / name, f"JURIS {item}/{name}")
-                paths.append(path)
-                urls[path] = url
+        needs_dedup = any(e["file"] != f"{e['item']}.parquet" for e in entries)
+        for entry in entries:
+            item, name = entry["item"], entry["file"]
+            if not _JURIS_ITEM_RE.fullmatch(item) or not name.endswith(".parquet"):
+                raise SourceDataError("invalid JURIS identity in trusted source manifest")  # noqa: TRY003
+            url = f"{_IA_BASE}/{item}/{quote(name)}"
+            path = _fetch_cached(client, url, cache / item / name, f"JURIS {item}/{name}")
+            _verify_digest(path, entry["sha256"])
+            paths.append(path)
+            urls[path] = url
     return paths, urls, needs_dedup
 
 
@@ -390,25 +381,23 @@ def datajud_parquet_files() -> list[Path]:
 
 
 def fetch_datajud_from_ia() -> list[Path]:
-    """Download DataJud capa parquets from the datajud-{tribunal} IA items."""
+    """Download only DataJud files pinned by the trusted manifest."""
     cache = _cache_dir() / "datajud"
     paths: list[Path] = []
     with httpx.Client(timeout=180, follow_redirects=True) as client:
-        for tribunal in _datajud_tribunais():
-            item = _datajud_item_id(tribunal)
-            filename = _datajud_capa_name(tribunal)
-            names = _ia_item_files(client, item)
-            if filename not in names:
-                print(f"  IA item {item}: no {filename} (item missing or empty)", file=sys.stderr)
-                continue
-            paths.append(
-                _fetch_cached(
-                    client,
-                    f"{_IA_BASE}/{item}/{filename}",
-                    cache / filename,
-                    f"DataJud {item}/{filename}",
-                )
+        for entry in _trusted_remote_sources("datajud"):
+            item, filename = entry["item"], entry["file"]
+            allowed = {(_datajud_item_id(t), _datajud_capa_name(t)) for t in _datajud_tribunais()}
+            if (item, filename) not in allowed:
+                raise SourceDataError("unapproved DataJud identity in trusted source manifest")  # noqa: TRY003
+            path = _fetch_cached(
+                client,
+                f"{_IA_BASE}/{item}/{filename}",
+                cache / filename,
+                f"DataJud {item}/{filename}",
             )
+            _verify_digest(path, entry["sha256"])
+            paths.append(path)
     return paths
 
 

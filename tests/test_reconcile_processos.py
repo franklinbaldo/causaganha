@@ -9,6 +9,7 @@ point at local fixture parquets, and STJ is fetched via its (mocked) IA URL.
 from __future__ import annotations
 
 import json
+import hashlib
 from typing import TYPE_CHECKING
 
 import duckdb
@@ -80,6 +81,15 @@ def _juris_parquet(path: Path, rows: str) -> Path:
     )
 
 
+def _trust_remote(fixtures: Path, source: str, item: str, filename: str, payload: bytes) -> None:
+    manifest = fixtures.parent / "trusted-sources.json"
+    data = json.loads(manifest.read_text()) if manifest.exists() else {"juris": [], "datajud": []}
+    data[source].append(
+        {"item": item, "file": filename, "sha256": hashlib.sha256(payload).hexdigest()}
+    )
+    manifest.write_text(json.dumps(data), encoding="utf-8")
+
+
 def _stj_parquet(path: Path, numero_processo: str = CNJ_ALL) -> Path:
     return _copy_sql_to_parquet(
         path,
@@ -131,6 +141,7 @@ def isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setattr(rp, "_STJ_PARQUET", data_dir / "stj" / "stj-acordaos.parquet")
     monkeypatch.setattr(rp, "_DATAJUD_DIR", data_dir / "datajud")
     monkeypatch.setenv("RECONCILE_CACHE_DIR", str(tmp_path / "cache"))
+    monkeypatch.setenv("RECONCILE_REMOTE_SOURCE_MANIFEST", str(tmp_path / "trusted-sources.json"))
     monkeypatch.delenv("RECONCILE_EXPECTED_SOURCES", raising=False)
     monkeypatch.delenv("RECONCILE_STRICT", raising=False)
     monkeypatch.delenv("GITHUB_ACTIONS", raising=False)
@@ -153,6 +164,8 @@ def _mock_juris_remote(router: respx.MockRouter, fixtures: Path) -> None:
         f"(2, '{CNJ_ALL}', 'SENTENÇA', 'Apelação', '1a Vara', 'Juiz B', 'PJE',"
         " '2024-02-10', 'texto dois', 'https://juris/2', '2024-02-28T00:00:00')",
     )
+    _trust_remote(fixtures, "juris", "tjro-juris-2024", juris1.name, juris1.read_bytes())
+    _trust_remote(fixtures, "juris", "tjro-juris-2024", juris2.name, juris2.read_bytes())
     router.get(host="archive.org", path="/advancedsearch.php").respond(
         200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
     )
@@ -176,6 +189,7 @@ def _mock_juris_remote(router: respx.MockRouter, fixtures: Path) -> None:
 
 def _mock_datajud_remote(router: respx.MockRouter, fixtures: Path) -> None:
     capa_bytes = _datajud_capa_bytes(fixtures / "datajud-capa-tjro.parquet")
+    _trust_remote(fixtures, "datajud", "datajud-tjro", "datajud-capa-tjro.parquet", capa_bytes)
     router.get(host="archive.org", path="/metadata/datajud-tjro").respond(
         200, json={"files": [{"name": "datajud-capa-tjro.parquet"}]}
     )
@@ -215,7 +229,8 @@ def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
         f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
         " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
     )
-    with respx.mock() as router:
+    _trust_remote(fixtures, "juris", "tjro-juris-2024", raw_name, juris.read_bytes())
+    with respx.mock(assert_all_called=False) as router:
         router.get(host="archive.org", path="/advancedsearch.php").respond(
             200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
         )
@@ -236,6 +251,47 @@ def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
     assert list(urls.values()) == [expected_url]
 
 
+def test_unlisted_juris_item_is_never_downloaded(isolated_dirs: Path) -> None:
+    """A globally claimable, correctly named IA item is not a trust source."""
+    with respx.mock(assert_all_called=False) as router:
+        attacker = router.get(
+            host="archive.org", path="/download/tjro-juris-9999/tjro-juris-9999.parquet"
+        ).respond(200, content=b"attacker controlled")
+        paths, urls, needs_dedup = rp.fetch_juris_from_ia()
+
+    assert (paths, urls, needs_dedup) == ([], {}, False)
+    assert attacker.call_count == 0
+
+
+def test_trusted_remote_digest_mismatch_is_rejected(isolated_dirs: Path, tmp_path: Path) -> None:
+    parquet = _juris_parquet(
+        tmp_path / "valid.parquet",
+        f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+        " '2024-01-15', 'texto', 'https://juris/1', '2024-01-31T00:00:00')",
+    )
+    manifest = tmp_path / "trusted-sources.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "juris": [
+                    {
+                        "item": "tjro-juris-2024",
+                        "file": "tjro-juris-2024.parquet",
+                        "sha256": "0" * 64,
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    with respx.mock(assert_all_called=False) as router:
+        router.get(
+            host="archive.org", path="/download/tjro-juris-2024/tjro-juris-2024.parquet"
+        ).respond(200, content=parquet.read_bytes())
+        with pytest.raises(rp.SourceDataError, match="SHA-256 mismatch"):
+            rp.fetch_juris_from_ia()
+
+
 def test_current_catalog_wins_over_stale_published_catalog(tmp_path, monkeypatch):
     old = tmp_path / "old-comunicacoes.parquet"
     new = tmp_path / "new-comunicacoes.parquet"
@@ -252,7 +308,7 @@ def test_index_upload_does_not_queue_derived_files(tmp_path, monkeypatch):
     monkeypatch.setenv("IA_SECRET_KEY", "test-secret")
     path = tmp_path / "indice_processual.parquet"
     path.write_bytes(b"test-parquet-payload")
-    with respx.mock() as router:
+    with respx.mock(assert_all_called=False) as router:
         upload = router.put(
             "https://s3.us.archive.org/causaganha-dashboard/indice_processual.parquet"
         ).respond(200)
@@ -281,7 +337,7 @@ class TestFullReconcileWithoutLocalParquets:
         catalog = _catalog_parquet(fixtures / "catalog.parquet", [comunicacoes])
         monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
 
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             _mock_stj_remote(router, fixtures, numero_processo=STJ_NUMERO_PROCESSO_REALISTA)
             _mock_juris_remote(router, fixtures)
             _mock_datajud_remote(router, fixtures)
@@ -379,7 +435,7 @@ class TestFullReconcileWithoutLocalParquets:
         fixtures = tmp_path / "fixtures"
         fixtures.mkdir()
 
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             _mock_datajud_remote(router, fixtures)
             download = router.routes[-1]
             first = rp.fetch_datajud_from_ia()
@@ -413,7 +469,7 @@ class TestUnavailableSources:
 
     @pytest.mark.usefixtures("unavailable_env")
     def test_zero_and_unavailable_fails_strict(self) -> None:
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             self._mock_empty_ia(router)
             exit_code = rp.main(["--no-upload"])
 
@@ -436,13 +492,13 @@ class TestUnavailableSources:
     @pytest.mark.usefixtures("unavailable_env")
     def test_strict_disabled_via_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv("RECONCILE_STRICT", "0")
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             self._mock_empty_ia(router)
             assert rp.main(["--no-upload"]) == 0
 
     @pytest.mark.usefixtures("unavailable_env")
     def test_strict_disabled_via_flag(self) -> None:
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             self._mock_empty_ia(router)
             assert rp.main(["--no-upload", "--no-strict"]) == 0
 
@@ -451,7 +507,7 @@ class TestUnavailableSources:
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         monkeypatch.setenv("RECONCILE_EXPECTED_SOURCES", "djen,stj")
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             self._mock_empty_ia(router)
             assert rp.main(["--no-upload"]) == 0
         report = json.loads((rp.DATA_DIR / rp._REPORT_NAME).read_text(encoding="utf-8"))
@@ -476,7 +532,7 @@ class TestCorruptedParquetHandling:
         catalog = _catalog_parquet(fixtures / "catalog.parquet", [comunicacoes])
         monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
 
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             router.get(rp._STJ_IA_URL).respond(200, content=b"not a parquet file at all")
             _mock_juris_remote(router, fixtures)
             _mock_datajud_remote(router, fixtures)
@@ -548,7 +604,7 @@ class TestCorruptedParquetHandling:
         cache_path.parent.mkdir(parents=True, exist_ok=True)
         cache_path.write_bytes(b"garbage left over from a crashed earlier run")
 
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             _mock_datajud_remote(router, fixtures)
             download_route = router.routes[-1]
             paths = rp.fetch_datajud_from_ia()
@@ -572,7 +628,8 @@ class TestCorruptedParquetHandling:
             f"(NULL, '{CNJ_DJEN_DJ}', 'SENTENÇA', 'Apelação', '1a Vara', 'Juiz B', 'PJE',"
             " '2024-02-10', 'texto null-2', 'https://juris/null2', '2024-02-28T00:00:00')",
         )
-        with respx.mock() as router:
+        _trust_remote(fixtures, "juris", "tjro-juris-2024", shard.name, shard.read_bytes())
+        with respx.mock(assert_all_called=False) as router:
             router.get(host="archive.org", path="/advancedsearch.php").respond(
                 200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
             )
@@ -613,7 +670,8 @@ class TestCorruptedParquetHandling:
             f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
             " NULL, 'texto sem data', 'https://juris/1', '2024-01-31T00:00:00')",
         )
-        with respx.mock() as router:
+        _trust_remote(fixtures, "juris", "tjro-juris-2024", shard.name, shard.read_bytes())
+        with respx.mock(assert_all_called=False) as router:
             router.get(host="archive.org", path="/advancedsearch.php").respond(
                 200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
             )
@@ -652,7 +710,7 @@ class TestCorruptedParquetHandling:
         catalog = _catalog_parquet(fixtures / "catalog.parquet", [comunicacoes])
         monkeypatch.setattr(rp, "_IA_CATALOG_MANIFEST_URL", str(catalog))
 
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             _mock_stj_remote(router, fixtures)
             _mock_datajud_remote(router, fixtures)
             # JURIS's only shard is corrupted — the source becomes unavailable,
@@ -718,7 +776,7 @@ class TestLocalSourceUrlProvenanceWarning:
         tmp_path = isolated_dirs
         fixtures = tmp_path / "fixtures"
         fixtures.mkdir()
-        with respx.mock() as router:
+        with respx.mock(assert_all_called=False) as router:
             _mock_juris_remote(router, fixtures)
             con = duckdb.connect()
             try:
