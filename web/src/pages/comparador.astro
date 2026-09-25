@@ -1,4 +1,6 @@
 ---
+import { CSP_META_CONTENT } from '../lib/csp';
+
 const BASE = import.meta.env.BASE_URL.replace(/\/?$/, '/');
 const target = `${BASE}stats`;
 const canonicalURL = new URL(target, Astro.site);
@@ -9,6 +11,10 @@ const canonicalURL = new URL(target, Astro.site);
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <!-- CSP (#1613, TM-08): this page renders its own bare <html> instead
+         of using Layout.astro, so it needs its own copy of the tag. See
+         Layout.astro for the directive-by-directive rationale. -->
+    <meta http-equiv="Content-Security-Policy" content={CSP_META_CONTENT} />
     <meta http-equiv="refresh" content={`0;url=${target}`} />
     <meta name="robots" content="noindex,follow" />
     <link rel="canonical" href={canonicalURL} />
@@ -18,8 +24,5 @@ const canonicalURL = new URL(target, Astro.site);
     <main>
       <p>Esta visão foi consolidada em <a href={target}>Estatísticas e cobertura</a>.</p>
     </main>
-    <script define:vars={{ target }}>
-      window.location.replace(target);
-    </script>
   </body>
 </html>
