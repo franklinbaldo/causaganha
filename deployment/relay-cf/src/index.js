@@ -1,8 +1,10 @@
 const ALLOWED_HOST_SUFFIXES = [".stj.jus.br", ".tjro.jus.br"];
 const ALLOWED_METHODS = new Set(["GET", "HEAD", "POST"]);
 const STRIP_REQUEST_HEADERS = new Set([
+  "authorization",
   "connection",
   "content-length",
+  "cookie",
   "forwarded",
   "host",
   "keep-alive",
