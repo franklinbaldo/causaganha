@@ -1,0 +1,34 @@
+                                        
+<cabecalho><inicio>PODER JUDICIÁRIO DO ESTADO DE GOIÁS</inicio>
+COMARCA DE CAMPINORTE
+Vara Cível
+SENTENÇA
+Processo: <ref_processual>5246925-31.2023.8.09.0170</ref_processual>
+Requerente: Edmundo Pinheiro Macêdo
+<fim>Requerido: Sergio Donizete Pinheiro</fim></cabecalho>
+Obs.: A presente decisão serve como instrumento de citação/intimação, mandado, ofício nos termos dos artigos 136 a 139 do Código de Normas e Procedimentos do Foro, da Corregedoria do Estado de Goiás.
+ 
+I – <relatorio><inicio>RELATÓRIO</inicio></relatorio>
+Trata-se de Ação de Usucapião proposta por Edmundo Pinheiro Macêdo e Walteira dos Santos Pinheiro em desfavor de Sérgio Donizete Pinheiro e Ivone Aparecida de Aleluia Pinheiro, ambos devidamente qualificados.
+Compulsando os autos, observa-se que ao ev. 109 foi proferida sentença que julgou procedentes os pedidos iniciais. Na mesma oportunidade, condenou-se a parte requerida ao pagamento das despesas processuais, deixando de condená-la ao pagamento de honorários advocatícios sucumbenciais, tendo em vista a ausência de pretensão resistida.
+Irresignado, o autor opôs embargos de declaração, suscitando a ocorrência de omissão na sentença quanto à impossibilidade de condenação da parte requerida ao pagamento das despesas processuais, visto que, ao ev. 61, as partes celebraram acordo em que dispensaram o pagamento de custas finais. Requereu, assim, o acolhimento dos declaratórios com efeitos infringentes para o fim de afastar a condenação da parte requerida ao pagamento das despesas processuais, seja em razão das disposições do acordo, seja <fundamentacao_legal>em observância ao teor do art. 90, §3.º, do CPC</fundamentacao_legal>. 
+O prazo para os embargados contrarrazoarem os embargos transcorreu in albis. 
+Vieram os autos conclusos. Passo a decidir. 
+II – <capitulo_merito><inicio>FUNDAMENTAÇÃO</inicio> 
+<fundamentacao_legal>Nos termos do art. 1.022, caput e incisos, do CPC</fundamentacao_legal>, os embargos de declaração destinam-se a suprir omissão, aclarar obscuridade, bem como eliminar contradição ou ambiguidade existente no julgado impugnado, não se prestando como meio processual adequado para veicular simples inconformismo ou rediscutir matéria já decidida. Supostos erros de julgamento, por sua vez, não se compatibilizam com a via estreita dos embargos de declaração, os quais têm como finalidade precípua o aprimoramento da decisão, e não sua revisão de mérito.
+No caso em análise, entendo que os declaratórios comportam acolhimento, visto que, efetivamente, a sentença de ev. 109 deixou de observar a cláusula constante do acordo celebrado entre as partes envolvendo a dispensa das custas finais (ev. 61). 
+Verifica-se, ademais, que o <ref_normativa>art. 90, §3.º, do CPC</ref_normativa>, prevê que “se a transação ocorrer antes da sentença, as partes ficam dispensadas do pagamento das custas processuais remanescentes, se houver”. 
+Não é demais relembrar que a sentença proferida ao ev. 109 não se trata, propriamente, de sentença homologatória de acordo, visto que – dadas as peculiaridades e efeito erga omnes da ação de usucapião – este d. Juízo proferiu sentença de mérito reconhecendo o preenchimento dos requisitos presentes no <ref_normativa>art. 1.228 do Código Civil</ref_normativa> e julgando procedentes os pedidos autorais. 
+Não obstante, verifica-se que a pretensão veiculada nos declaratórios comporta acolhimento, visto que, de fato, a pretensão autoral não enfrentou resistência da parte requerida e, ainda, as partes celebraram acordo antes da prolação da sentença (ainda que com efeitos limitados), de modo que incumbir à parte requerida o pagamento das custas processuais representaria ônus desproporcional in casu. 
+Assim, os declaratórios devem ser acolhidos para o fim de dispensar o pagamento das custas e despesas processuais remanescentes, <fundamentacao_legal>nos termos do art. 90, §3.º, do CPC</fundamentacao_legal>. 
+III – <fim>DISPOSITIVO</fim></capitulo_merito>
+<dispositivo_abertura>Diante do exposto</dispositivo_abertura>, <fundamentacao_legal>nos termos do art. 1.022, II, do CPC</fundamentacao_legal>, <resultado>CONHEÇO e ACOLHO</resultado> os declaratórios opostos pela parte autora, para, sanando a omissão constante da sentença de ev. 109, afastar a condenação da parte requerida ao pagamento das custas processuais remanescentes, <fundamentacao_legal>nos termos do art. 90, §3.º, do CPC</fundamentacao_legal>. 
+Os demais termos da sentença embargada restam inalterados. 
+<encerramento><inicio>Publique-se.</inicio> Registre-se. Intime-se.
+Oportunamente, arquivem-se os autos.
+Campinorte, datado pelo sistema.
+ 
+THAYANE DE OLIVEIRA ALBUQUERQUE
+<fim>Juíza de Direito</fim></encerramento>
+Decreto Judiciário nº 5388/2025
+ (assinado digitalmente)

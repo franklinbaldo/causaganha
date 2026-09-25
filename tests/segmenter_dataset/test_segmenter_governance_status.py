@@ -758,6 +758,50 @@ def test_real_store_reflects_batch26_corpus_growth() -> None:
     assert any(h.startswith("4f966854") for h in hashes), "TJSC/587254831 batch26 document missing"
 
 
+def test_real_store_reflects_batch27_corpus_growth() -> None:
+    """Regression guard for #1050's twenty-seventh real DJEN sample batch.
+
+    Snapshot before this batch: 193 documents. A live scan of every
+    ``data/segmenter_samples/*.jsonl`` candidate (Sentenca/Acordao only,
+    >=2500 chars, deduped by ``(tribunal, id)`` against the store's
+    already-ingested ``djen_sample_technique1`` source URIs) found the
+    lowest non-exhausted, non-near-duplicate tribunal tier at
+    ``store_count=6``: TJES, TJGO, TJPB, TJMT, TJPA, TJRJ, TJTO, TRF3, TRF5
+    all tied. TRF6/TJMG/TJSC/TJRN/TJRS/TJSE/TJMS/TST were reconfirmed
+    exhausted or near-duplicate-only (TJBA's single remaining candidate,
+    574460088, and TJMA's, 42728925, are the same known near-duplicates
+    batch26 already rejected at ratio 0.980/0.968 -- not reselected here).
+    TRF4 was reconfirmed unusable per the already-documented risk class 16.
+
+    TJES/577054715 (Sentenca, 3824 chars, JEC "projeto de sentenca" +
+    homologacao format) and TJGO/543518267 (Sentenca, embargos de
+    declaracao ruling, 4195 chars after ``html.unescape()`` -- the source
+    ``texto_limpo`` carried raw HTML entities, the same recurring TJGO
+    defect class already documented for batches 12/16/18/22) were picked:
+    both tied at ``store_count=6`` before this batch, both real,
+    never-used, and both confirmed clean of any near-duplicate by a live
+    ``difflib.SequenceMatcher.ratio()`` check against the entire 193-document
+    store (max ratio 0.114 and 0.054 respectively, far below any
+    near-duplicate threshold used by prior batches).
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the two specific document hashes are the actual
+    contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 195
+    assert any(h.startswith("2e2ead10") for h in hashes), "TJES/577054715 batch27 document missing"
+    assert any(h.startswith("fc6215c7") for h in hashes), "TJGO/543518267 batch27 document missing"
+
+
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     store = SegmenterDatasetStore(tmp_path / "store")
     _write_document_and_annotation(store, "doc_" + "6" * 32, "ann_" + "6" * 32)
