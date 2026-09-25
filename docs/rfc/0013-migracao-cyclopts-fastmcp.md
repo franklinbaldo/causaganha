@@ -518,9 +518,12 @@ importava `segmenter_dataset.__main__` antes desta fase, o mesmo hiato que
 escondeu o bug de import do outro pacote) usam o mesmo adaptador
 `tests/cli_contract/harness.py`'s `_invoke` que a Fase 4 introduziu — sem
 duplicar a lógica de invocação. `typer` saiu de `dependencies` em
-`pyproject.toml`; a única referência restante a `typer` no ambiente é uma
+`pyproject.toml`; a única referência restante a `typer` no ambiente era uma
 dependência transitiva não relacionada da ferramenta de desenvolvimento
-`safety`, fora do controle deste projeto.
+`safety` — removida do projeto em #1614/TM-10 (scanner não utilizado por
+nenhum script/CI, cuja própria dependência `nltk` carregava uma
+vulnerabilidade sem fix disponível), então `typer` não existe mais em
+nenhuma forma no ambiente resolvido.
 
 ## 3. Critérios de aceitação
 
