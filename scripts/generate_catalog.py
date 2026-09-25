@@ -191,6 +191,38 @@ def list_ia_items() -> list[str]:
     return valid_items
 
 
+def discover_catalog_items(
+    *, full: bool, verified_inventory: bool
+) -> tuple[list[str], list[dict] | None, set[str] | None]:
+    """Discover catalog items without treating the global IA namespace as trusted.
+
+    Verified rebuilds use the project-controlled sync manifest as their item
+    allowlist.  The broad IA search remains available only to legacy,
+    non-verified invocations.
+    """
+    existing_manifest = None
+    completed_items = None
+
+    if verified_inventory:
+        return get_items_from_sync_manifest(), existing_manifest, completed_items
+
+    items: list[str] = []
+    if not full:
+        existing_manifest = load_existing_manifest()
+        completed_items = load_completed_items()
+
+        if existing_manifest:
+            existing_items = {m.get("ia_item") for m in existing_manifest if m.get("ia_item")}
+            new_items = set(get_items_from_sync_manifest())
+            items = list(existing_items | new_items)
+
+    if not items:
+        logger.info("fallback_to_full_list")
+        items = list_ia_items()
+
+    return items, existing_manifest, completed_items
+
+
 async def fetch_item_files(
     session: aiohttp.ClientSession,
     item_id: str,
@@ -1419,28 +1451,10 @@ def main() -> int:
     if start_date > end_date:
         return 1
 
-    # 1. Load existing state if in incremental mode
-    existing_manifest = None
-    completed_items = None
-    items = []
-
-    if not args.full and not args.verified_inventory:
-        existing_manifest = load_existing_manifest()
-        completed_items = load_completed_items()
-
-        if existing_manifest:
-            # Infer existing items from the manifest
-            existing_items = {m.get("ia_item") for m in existing_manifest if m.get("ia_item")}
-            # Add new items modified in the current run
-            new_items = set(get_items_from_sync_manifest())
-            # We must pass all known items to generate_manifest so it preserves
-            # the unchanged ones while processing the new/modified ones
-            items = list(existing_items | new_items)
-
-    # 2. Fallback to full varredura if no existing manifest or forced
-    if not items:
-        logger.info("fallback_to_full_list")
-        items = list_ia_items()
+    # 1. Discover only project-owned items for verified catalog rebuilds.
+    items, existing_manifest, completed_items = discover_catalog_items(
+        full=args.full, verified_inventory=args.verified_inventory
+    )
 
     # 3. Generate manifest
     if args.verified_inventory and not items:

@@ -101,6 +101,24 @@ def test_full_catalog_inventory_failure_propagates(monkeypatch):
         catalog.generate_manifest([ITEM], verified_inventory=True)
 
 
+def test_verified_catalog_discovery_uses_project_manifest_allowlist(monkeypatch):
+    from scripts import generate_catalog as catalog
+
+    project_items = ["djen-tjro-2026"]
+    monkeypatch.setattr(catalog, "get_items_from_sync_manifest", lambda: project_items)
+    global_search = Mock()
+    monkeypatch.setattr(catalog, "list_ia_items", global_search)
+
+    items, existing_manifest, completed_items = catalog.discover_catalog_items(
+        full=True, verified_inventory=True
+    )
+
+    assert items == project_items
+    assert existing_manifest is None
+    assert completed_items is None
+    global_search.assert_not_called()
+
+
 def test_daily_rotation_does_not_starve_later_partitions(monkeypatch):
     from scripts.pipeline import archive_partitions as module
 
