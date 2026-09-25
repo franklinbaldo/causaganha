@@ -18,3 +18,13 @@ do DuckDB-WASM carrega de `cdn.jsdelivr.net` sem limite de origem
 declarado. Ver `decision_ids`/`evidence_ids`/`check_ids` para o processo TDD
 completo (RED com os 3 arquivos de teste novos contra o `Layout.astro` e
 `djen.ts` atuais, GREEN apos a CSP + remocao do script inline redundante).
+
+**Fechamento**: o bug de produto que a CSP revelou (onMount de
+`ProcessoLookup.svelte` bloqueando validacao de CNJ na inicializacao do
+DuckDB-WASM) foi corrigido em PR separada (#1631, continuidade desta
+mesma rodada apos #1628/#1613 serem mesclados). A causa raiz e o fix
+foram confirmados definitivamente por log real de CI (nao so reproducao
+local): o estado pre-fix estoura >30s carregando DuckDB-WASM via rede
+real do runner antes de validar formato de CNJ; o estado com o fix
+resolve em ~90ms. PR #1631 esta 100% verde e aguardando merge humano
+(ver evidence-ci-green-onmount-fix-confirmed).
