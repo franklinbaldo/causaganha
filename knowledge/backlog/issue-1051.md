@@ -5,8 +5,8 @@ title: "segmenter: build an independently annotated validation set for model sel
 category: "ml_data_work"
 blocking_reason: "Not blocked. The mechanism is proven: scripts/annotate_second_independent.py (second independent annotation, model_family must differ from the first -- convention is prompt_subagents:haiku via Agent tool with model=haiku, vs the first annotation's prompt_subagents:general-purpose) + scripts/adjudicate_segmenter_review.py (reconcile into an accepted ReviewRecord) + scripts/segmenter_governance_status.py (real vs ceiling val/test counts, RFC 0012 Sec 5 item 4's >=30/>=30 floor)."
 unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side: after this round (bomtmk), review_count=40, val_count=30 (already at its ceiling), test_count=10 (of 30). A future round should keep picking single-annotated, unreviewed, seeded_with=='none' candidates (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated -- filter for this before selecting) and SIMULATE assign_splits with each candidate added to evaluation_eligible (in isolation, then jointly with the round's full batch) BEFORE spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every time it runs, so which specific document lands in val vs test isn't controllable by identity, only the aggregate test_count/val_count are the real, checkable contract. Roughly 20 more accepted reviews are needed on average to reach test_count>=30 (fewer if a lucky hash ordering front-loads test; simulate rather than assume)."
-last_verified_run_id: "2026-09-26-exciting-mccarthy-bomtmk"
-last_verified_at: "2026-09-26T08:30:00Z"
+last_verified_run_id: "runs/20260926T092820Z-do-the-best-useful-work-available-in-this-reposi"
+last_verified_at: "2026-09-26T09:52:00Z"
 status: "unblocked"
 ---
 
@@ -161,6 +161,58 @@ still `False` (need >=30/>=30, have 30/10).
 pre-round baseline (same pre-existing allowlisted documents; none of
 this round's 3 new documents implicated). `uv run ruff check`/`format
 --check`: clean, 462 files.
+
+**Round uq3be8 (2026-09-26, first round to migrate to the Wisk runtime
+per `.claude/hourly-loop.md` -- see that round's `runs/20260926T092820Z-...`
+LoopRun instead of a `knowledge/agent-runs/` `AgentRun`):** adjudicated 3
+more documents, chosen the same way as prior rounds: a live simulation
+among 133 eligible candidates found 126 that individually raise
+`test_count`; the three shortest were picked
+(`doc_f6bf5be833edfed990b813302278409d`/TJRS sentenca,
+`doc_cfa06dbce6009c921f4f66a5126c2056`/TJRS sentenca,
+`doc_9d8bb4320467e630a1d7805adac5c315`/TRF4 acordao), confirmed by joint
+simulation to raise `test_count` 10->13 before any annotation effort
+began.
+
+Two new defect shapes, both caught before ingestion: (1) TJRS doc2's
+second annotation dropped one NBSP character (space substituted at a
+single offset) despite passing its own verbatim self-check -- repaired
+by substituting the exact character at the exact diff offset, same
+shape as kgxf50/bomtmk's prior NBSP findings. (2) TRF4 doc3's second
+annotation, on its first attempt, silently dropped an entire
+"\n\nACÓRDÃO" heading substring and normalized ~20 NBSP/curly-quote
+characters to ASCII -- a genuine content-loss defect (verbatim length
+2420 vs 2451, `difflib` showed real deletions, not just whitespace)
+correctly rejected and never written to the store; a second, more
+explicit retry (warning specifically about heading omission and
+character-exact copying) produced a clean, verbatim-exact annotation.
+A third defect was introduced by this round's *own* adjudication, not
+by any subagent: the reviewer's first resolution for TJRS doc2 kept one
+of the second annotation's `fundamentacao_legal` spans at its full
+138-character length, which `scripts/segmenter_semantic_audit.py`'s
+zero-tolerance `long_anchor` check (asserted by
+`test_real_store_has_no_long_anchor_or_dispositivo_inside_voto_findings`)
+correctly flagged -- caught by re-running the semantic audit before
+finalizing, not by the RED/GREEN test alone. Fixed by deleting the
+already-ingested second annotation and review, tightening the span to
+just the parenthetical article/law citation (72 chars) in the raw
+annotation itself, and re-ingesting both -- the lesson for future
+rounds: run `scripts/segmenter_semantic_audit.py` against live state
+*during* adjudication, not only as a final check, since an adjudicated
+review's own chosen span can introduce a fresh anti-pattern finding
+that the RED/GREEN governance-status test alone would never catch.
+
+Post-ingestion, live-confirmed: `document_count`=197 (unchanged),
+`annotation_count` 263->266, `review_count` 40->43, `val_count`=30
+(unchanged, already at ceiling), **`test_count` 10->13** (exactly
+matching the pre-annotation simulation). `meets_rfc_0012_split_floor`
+still `False` (need >=30/>=30, have 30/13).
+`scripts/segmenter_semantic_audit.py`: 6 findings, unchanged from the
+pre-round baseline and exactly matching
+`test_real_store_has_at_most_the_one_known_collapsed_false_positive`'s
+allowlist (none of this round's 3 new documents implicated after the
+long_anchor fix above). `uv run ruff check`/`format --check`: clean,
+462 files.
 
 **Next natural step:** keep adjudicating single-annotated,
 `seeded_with=='none'`, unreviewed candidates, always simulating
