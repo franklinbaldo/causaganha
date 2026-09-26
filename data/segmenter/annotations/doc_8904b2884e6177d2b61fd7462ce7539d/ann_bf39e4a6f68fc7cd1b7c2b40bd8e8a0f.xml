@@ -1,0 +1,44 @@
+<annotation id="ann_bf39e4a6f68fc7cd1b7c2b40bd8e8a0f" document_id="doc_8904b2884e6177d2b61fd7462ce7539d">
+  <annotator id="llm_technique1:bomtmk_second_independent_1" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
+  </allowed_unmatched>
+  <completed_at>2026-09-26T08:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO DO JUIZADO ESPECIAL CÍVEL</inicio>  Nº <ref_processual ord="1">5001664-21.2024.4.02.5117/RJ</ref_processual>
+
+ AUTOR : MARILEA RODRIGUES TINOCO
+
+ ADVOGADO(A) : <fim ord="2">MARIA JOSE RETTA DODDS (OAB RJ196508)</fim></cabecalho>
+
+SENTENÇA
+<dispositivo_abertura ord="3">Ante o exposto</dispositivo_abertura>, <resultado ord="4">ACOLHO O PEDIDO</resultado>, <fundamentacao_legal ord="5">na forma do art. 487, I do CPC</fundamentacao_legal>, para condenar o INSS a pagar os valores referentes ao benefício assistencial NB 711.958.465-1, desde 18/08/2022 (DER) até 25/08/2023 (véspera da data de concessão do benefício assistencial NB 713.653.214-1), acrescidos de correção monetária e juros de mora, <fundamentacao_legal ord="6">na forma do Manual de Cálculos do Conselho da Justiça Federal</fundamentacao_legal>. Sem custas nem honorários advocatícios (art. 55, da Lei n. 9.099/95, c/c art. 1º, Lei nº 10.259/01). Ficam as partes cientes do prazo de dez dias úteis para interposição de recurso, sendo necessária a representação por advogado. Em havendo interposição de recurso tempestivo, dê-se vista à parte contrária para contrarrazões e, posteriormente, encaminhem-se os autos às Turmas Recursais. Sentença não sujeita ao reexame necessário. Diante da concessão de gratuidade de justiça, estabeleço desde já que, após o trânsito em julgado, mantida a sentença, caberá ao INSS apresentar memória de cálculo que possibilite o cumprimento da obrigação de pagar quantia certa. No cálculo do quantum debeatur deverá ser observado que a renúncia expressa a valores excedentes a 60 salários mínimos para fixação da competência do JEF recai apenas sobre a soma das parcelas vencidas - anteriores à propositura da demanda - com as doze primeiras parcelas vincendas - posteriores à propositura (STJ: RESp 1807665, S1, DJE 26.11.2020 - Tese no Tema Repetitivo 1030; TRRJ 65). As parcelas subsequentes não são afetadas pelo corte, de modo que o valor da condenação pode ultrapassar o teto do art. 3o, caput, Lei n. 10.259/01, tal como previsto no art. 17, § 4o, da mesma lei. Informado o valor dos atrasados, requisite-se seu pagamento ao E. Tribunal Regional Federal da 2ª Região, no prazo de sessenta dias, intimando-se as partes da referida expedição, nos termos do art. 10 da Resolução nº 168/2011 do CJF. <encerramento><inicio ord="7">Publique-se.</inicio></encerramento> Registre-se. Intimem-se.</text>
+</annotation>

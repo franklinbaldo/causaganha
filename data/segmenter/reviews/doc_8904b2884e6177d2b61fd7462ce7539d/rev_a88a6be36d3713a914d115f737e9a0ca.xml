@@ -1,0 +1,28 @@
+<review id="rev_a88a6be36d3713a914d115f737e9a0ca" document_id="doc_8904b2884e6177d2b61fd7462ce7539d">
+  <input_annotations>
+    <annotation_id>ann_aa3bfc8428a106e4bb19cf00cd908c99</annotation_id>
+    <annotation_id>ann_bf39e4a6f68fc7cd1b7c2b40bd8e8a0f</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="batch1: no closing cue present in source text (region extends to EOD)" />
+    <entry base="custas" reason="TRF2/JEF sentenca: clausula unica &quot;Sem custas nem honorarios advocaticios (art. 55...)&quot; compartilhada entre custas e honorarios, sem cue de fechamento separado para nenhum dos dois -- mesma forma recorrente de batch4/7." />
+    <entry base="honorarios" reason="TRF2: mesma clausula compartilhada do override de custas acima." />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:bomtmk</reviewer>
+  </reviewers>
+  <resolution>Adotada majoritariamente a anotacao A (mais completa: 5 ocorrencias de fundamentacao_legal, custas/honorarios como clausula compartilhada, encerramento sem fim). Da anotacao B, adotados os limites mais estreitos de cabecalho_inicio/cabecalho_fim (excluindo o numero do processo e o rotulo 'ADVOGADO(A) :', regra 'anchor spans are short'), a separacao de ref_processual como categoria propria, e uma ocorrencia nova de fundamentacao_legal ('na forma do Manual de Calculos do Conselho da Justica Federal') que A havia omitido.</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 4 span(s) agreed by both annotators, 9 only in annotation A, 4 only in annotation B — categories in A-only: ['cabecalho_fim', 'cabecalho_inicio', 'custas_inicio', 'fundamentacao_legal', 'honorarios_inicio']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'fundamentacao_legal', 'ref_processual']</note>
+  </notes>
+  <approved_at>2026-09-26T08:20:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO DO JUIZADO ESPECIAL CÍVEL</inicio>  Nº <ref_processual ord="1">5001664-21.2024.4.02.5117/RJ</ref_processual>
+
+ AUTOR : MARILEA RODRIGUES TINOCO
+
+ ADVOGADO(A) : <fim ord="2">MARIA JOSE RETTA DODDS (OAB RJ196508)</fim></cabecalho>
+
+SENTENÇA
+<dispositivo_abertura ord="3">Ante o exposto</dispositivo_abertura>, <resultado ord="4">ACOLHO O PEDIDO</resultado>, <fundamentacao_legal ord="5">na forma do art. 487, I do CPC</fundamentacao_legal>, para condenar o INSS a pagar os valores referentes ao benefício assistencial NB 711.958.465-1, desde 18/08/2022 (DER) até 25/08/2023 (véspera da data de concessão do benefício assistencial NB 713.653.214-1), acrescidos de correção monetária e juros de mora, <fundamentacao_legal ord="6">na forma do Manual de Cálculos do Conselho da Justiça Federal</fundamentacao_legal>. <custas><inicio ord="7">Sem custas</inicio></custas> nem <honorarios><inicio ord="8">honorários advocatícios</inicio></honorarios> (<fundamentacao_legal ord="9">art. 55, da Lei n. 9.099/95, c/c art. 1º, Lei nº 10.259/01</fundamentacao_legal>). Ficam as partes cientes do prazo de dez dias úteis para interposição de recurso, sendo necessária a representação por advogado. Em havendo interposição de recurso tempestivo, dê-se vista à parte contrária para contrarrazões e, posteriormente, encaminhem-se os autos às Turmas Recursais. Sentença não sujeita ao reexame necessário. Diante da concessão de gratuidade de justiça, estabeleço desde já que, após o trânsito em julgado, mantida a sentença, caberá ao INSS apresentar memória de cálculo que possibilite o cumprimento da obrigação de pagar quantia certa. No cálculo do quantum debeatur deverá ser observado que a renúncia expressa a valores excedentes a 60 salários mínimos para fixação da competência do JEF recai apenas sobre a soma das parcelas vencidas - anteriores à propositura da demanda - com as doze primeiras parcelas vincendas - posteriores à propositura <fundamentacao_legal ord="10">(STJ: RESp 1807665, S1, DJE 26.11.2020 - Tese no Tema Repetitivo 1030; TRRJ 65)</fundamentacao_legal>. As parcelas subsequentes não são afetadas pelo corte, de modo que o valor da condenação pode ultrapassar o teto do <fundamentacao_legal ord="11">art. 3o, caput, Lei n. 10.259/01</fundamentacao_legal>, tal como previsto no <fundamentacao_legal ord="12">art. 17, § 4o, da mesma lei</fundamentacao_legal>. Informado o valor dos atrasados, requisite-se seu pagamento ao E. Tribunal Regional Federal da 2ª Região, no prazo de sessenta dias, intimando-se as partes da referida expedição, <fundamentacao_legal ord="13">nos termos do art. 10 da Resolução nº 168/2011 do CJF</fundamentacao_legal>. <encerramento><inicio ord="14">Publique-se.</inicio></encerramento> Registre-se. Intimem-se.</text>
+</review>
