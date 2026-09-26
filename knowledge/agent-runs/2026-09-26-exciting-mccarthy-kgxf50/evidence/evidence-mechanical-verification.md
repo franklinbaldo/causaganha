@@ -3,7 +3,7 @@ type: AgentEvidence
 id: "2026-09-26-exciting-mccarthy-kgxf50-evidence-mechanical-verification"
 run_id: "2026-09-26-exciting-mccarthy-kgxf50"
 goal_id: "2026-09-26-exciting-mccarthy-kgxf50-goal-1051-test-split-adjudication"
-kind: "runtime_observation"
+kind: "runtime"
 reference: "ad-hoc script: xml.etree.ElementTree.fromstring + segmenter_dataset.store._text_element_to_labels + segmenter_dataset.mechanical.validate_record, run against each second annotation and each adjudication resolution before any store write"
 summary: "All 3 second annotations initially had NBSP (U+00A0) whitespace dropped by the subagent (3 spots in TJSC, 14 in TJMG) -- repaired by inserting exactly the missing characters at the exact diff offsets (difflib.SequenceMatcher against the real stored document), re-verified byte-for-byte identical after. TJSC also had a genuine structural defect (resultado nested inside acordao_decisorio's fim with an identical span, producing an unconditional overlap under check_final_invariants' flat interval check) -- fixed by splitting the fim anchor (\"por unanimidade\") from the resultado tag (\"negar provimento ao recurso\") as adjacent, non-overlapping spans. All 3 final resolutions re-verified: verbatim match True, 0 mechanical-validation problems, before running scripts/adjudicate_segmenter_review.py."
 ---
