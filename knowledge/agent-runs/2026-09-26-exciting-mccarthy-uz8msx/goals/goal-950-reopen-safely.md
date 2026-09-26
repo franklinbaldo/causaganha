@@ -1,0 +1,11 @@
+---
+type: AgentGoal
+id: "2026-09-26-exciting-mccarthy-uz8msx-goal-950-reopen-safely"
+run_id: "2026-09-26-exciting-mccarthy-uz8msx"
+goal: "Reabrir #950 (rollout MCP remoto) uma segunda vez, corrigindo desta vez a causa raiz que fez a própria PR de correção da rodada anterior (#1661) reclosar a issue no momento do merge: o título do PR continha a string 'closed #950', que o GitHub reconhece como closing keyword. A reabertura desta rodada deve (a) reabrir a issue via API, (b) garantir que nenhum título/corpo/mensagem de commit do PR desta rodada contenha um closing keyword (close/closes/closed/fix/fixes/fixed/resolve/resolves/resolved) imediatamente seguido de '#950', e (c) documentar esse padrão de auto-close acidental em algum lugar que rodadas futuras leiam antes de escrever títulos de PR referenciando issues que não devem fechar."
+rationale: "Duas rodadas seguidas (230b86-era PR #1630, e agora orr2e3-era PR #1661) fecharam #950 sem que ela cumprisse seu próprio critério de aceite -- a primeira por engano genuíno (closing keyword no PR errado), a segunda por um efeito colateral do próprio texto que tentava corrigir o primeiro engano. Sem quebrar esse ciclo, uma terceira rodada correria o mesmo risco: reabrir #950 citando a mesma evidência (deploy-mcp.yml com 0 execuções) sem perceber que o merge do seu próprio PR de correção pode refechar a issue de novo. Isso não é trabalho de produto, mas é uma correção de integridade do rastreador que evita que rodadas futuras (ou o dono humano) acreditem que o rollout do MCP remoto está pronto quando na verdade nunca rodou."
+success_signal: "issue_read(950).state == 'open' após o merge do PR desta rodada (não apenas logo após a chamada issue_write, mas reconfirmado depois que o PR de registro mesclar em main, para provar que o próprio merge não a refechou). knowledge/backlog/issue-950.md permanece com status: blocked e blocking_reason correto (credenciais GCP/Workload Identity ausentes nesta sessão). O título e o corpo do PR desta rodada não contêm nenhuma das strings 'close #950'/'closes #950'/'closed #950'/'fix #950'/'fixes #950'/'fixed #950'/'resolve #950'/'resolves #950'/'resolved #950' (case-insensitive) em nenhum commit nem na descrição do PR."
+status: "achieved"
+---
+
+# Goal: reabrir #950 sem repetir o auto-close acidental por closing keyword
