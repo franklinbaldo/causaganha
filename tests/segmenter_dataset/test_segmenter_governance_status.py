@@ -872,3 +872,55 @@ def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[s
     payload = json.loads(first_line_block)
     assert payload["document_count"] == 1
     assert "WARNING" in out
+
+
+def test_real_store_reflects_1051_test_split_adjudication_round() -> None:
+    """Regression guard for #1051's second and third real adjudicated reviews.
+
+    Snapshot before this round: 197 documents, 32 accepted reviews
+    (`val_count`=30, at the corpus-size ceiling reached by batch28;
+    `test_count`=2, far behind). `scripts/segmenter_governance_status.py`
+    run live at the start of this round confirmed the corpus-scale ceiling
+    (#1050) no longer blocks the RFC 0012 Sec 5 item 4 floor
+    (`val_ceiling_at_full_adjudication`/`test_ceiling_at_full_adjudication`
+    both 30) -- the remaining gap is purely adjudication coverage on the
+    TEST side (#1051).
+
+    Two more documents were adjudicated this round via a genuinely
+    independent second annotation (distinct `model_family`,
+    `prompt_subagents:haiku` vs the first annotation's
+    `prompt_subagents:general-purpose`) reconciled into an accepted
+    ``ReviewRecord``: doc_0db5fffa04141a164fb9c48f11bb8c01 (TRF6 acordao,
+    embargos de declaracao) and doc_174797b9bfde68303b3e00c43ac291fe (TRF2
+    acordao, embargos de declaracao). Both were selected because a live
+    simulation (``assign_splits`` with each candidate added to
+    ``evaluation_eligible`` in isolation, before spending any annotation
+    effort) showed they would each raise ``test_count`` -- confirming they
+    move the metric that actually blocks the floor, not just
+    ``review_count`` in general. ``assign_splits`` recomputes the whole
+    val/test partition from a fixed hash order every time it runs, so which
+    *specific* document lands in val vs test isn't controllable by
+    identity -- only the aggregate counts are the real contract here.
+
+    If corpus/review growth from a later concurrent round changes the
+    exact totals, update the counts here rather than treating a higher
+    number as a failure -- the two specific document hashes/ids are the
+    actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    reviews = list(store.list_reviews())
+    reviewed_document_ids = {r.document_id for r in reviews if r.status == "accepted"}
+
+    assert len(reviews) >= 34
+    assert "doc_0db5fffa04141a164fb9c48f11bb8c01" in reviewed_document_ids
+    assert "doc_174797b9bfde68303b3e00c43ac291fe" in reviewed_document_ids
+
+    mod = load_script("segmenter_governance_status", "scripts/segmenter_governance_status.py")
+    status = mod.compute_governance_status(store_dir)  # type: ignore[attr-defined]
+
+    assert status["review_count"] >= 34
+    assert status["test_count"] >= 4
