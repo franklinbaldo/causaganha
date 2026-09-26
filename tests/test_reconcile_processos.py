@@ -12,12 +12,15 @@ import json
 from typing import TYPE_CHECKING
 
 import duckdb
+import httpx
 import pytest
 import respx
 
 from causaganha.decisoes import published
 from datajud.archive import write_capa_parquet
 from scripts import reconcile_processos as rp
+from tjro_juris import archive as juris_archive
+from tjro_juris import service as juris_service
 
 
 if TYPE_CHECKING:
@@ -38,10 +41,16 @@ CNJ_DJEN_DJ = "00000020320248220002"
 STJ_NUMERO_PROCESSO_REALISTA = "2225936"
 
 
-def _copy_sql_to_parquet(path: Path, sql: str) -> Path:
+def _copy_sql_to_parquet(
+    path: Path, sql: str, *, kv_metadata: dict[str, str] | None = None
+) -> Path:
+    options = "FORMAT PARQUET"
+    if kv_metadata:
+        pairs = ", ".join(f"'{k}': '{v}'" for k, v in kv_metadata.items())
+        options += f", KV_METADATA {{{pairs}}}"
     con = duckdb.connect()
     try:
-        con.execute(f"COPY ({sql}) TO '{path}' (FORMAT PARQUET)")
+        con.execute(f"COPY ({sql}) TO '{path}' ({options})")
     finally:
         con.close()
     return path
@@ -69,7 +78,23 @@ def _catalog_parquet(path: Path, comunicacoes_paths: list[Path]) -> Path:
     return _copy_sql_to_parquet(path, f"SELECT * FROM (VALUES {values}) AS t(ia_url, table_name)")
 
 
-def _juris_parquet(path: Path, rows: str) -> Path:
+def _juris_parquet(path: Path, rows: str, *, item: str | None = None) -> Path:
+    """Build a JURIS fixture parquet.
+
+    ``item`` embeds the same ``causaganha.schema_version``/``causaganha.item_id``
+    KV_METADATA `tjro_juris.service._rows_to_parquet` writes in production
+    (see `_kv_metadata_for_export`) -- needed by every fixture served through
+    the IA remote-fallback mocks so the identity check `fetch_juris_from_ia`
+    now runs (#1652/TM-16 item 3) accepts them. `None` (the default) omits
+    it, for fixtures placed directly on a local glob path -- local files are
+    never identity-checked (see `ensure_juris_parquets`'s local-first branch).
+    """
+    kv_metadata = None
+    if item is not None:
+        kv_metadata = {
+            "causaganha.schema_version": juris_service.JURIS_SCHEMA_VERSION,
+            "causaganha.item_id": item,
+        }
     return _copy_sql_to_parquet(
         path,
         f"""
@@ -77,6 +102,7 @@ def _juris_parquet(path: Path, rows: str) -> Path:
         AS t(id_documento, nr_processo, tipo, classe_judicial, orgao, relator,
              sistema_origem, data_julgamento, texto_limpo, url_portal, extraido_em)
         """,
+        kv_metadata=kv_metadata,
     )
 
 
@@ -137,6 +163,25 @@ def isolated_dirs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     return tmp_path
 
 
+def _juris_manifest_csv(*windows: tuple[str, str, str]) -> str:
+    """A `tjro-juris-manifest.csv` body -- the project-controlled allowlist
+    `_discover_juris_items` must derive its trusted years from (issue #1652,
+    TM-16). Each window is (tipo, mes_ano, ia_status); defaults to a single
+    2024-01 ACÓRDÃO window marked uploaded when no windows are given."""
+    rows = windows or (("ACÓRDÃO", "2024-01", "uploaded"),)
+    lines = ["tipo,mes_ano,ia_status,n_docs,updated_at"]
+    lines += [
+        f"{tipo},{mes_ano},{status},1,2024-02-01T00:00:00+00:00" for tipo, mes_ano, status in rows
+    ]
+    return "\n".join(lines) + "\n"
+
+
+def _mock_juris_manifest(router: respx.MockRouter, *windows: tuple[str, str, str]) -> None:
+    router.get(juris_archive.MANIFEST_DOWNLOAD_URL).respond(
+        200, content=_juris_manifest_csv(*windows)
+    )
+
+
 def _mock_juris_remote(router: respx.MockRouter, fixtures: Path) -> None:
     """Serve two overlapping monthly JURIS shards from a fake tjro-juris-2024 item."""
     # id_documento 1 appears in BOTH shards (recrawl overlap) — the loader
@@ -145,6 +190,7 @@ def _mock_juris_remote(router: respx.MockRouter, fixtures: Path) -> None:
         fixtures / "2024-01-ACORDAO.parquet",
         f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
         " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+        item="tjro-juris-2024",
     )
     juris2 = _juris_parquet(
         fixtures / "2024-02-SENTENCA.parquet",
@@ -152,10 +198,9 @@ def _mock_juris_remote(router: respx.MockRouter, fixtures: Path) -> None:
         " '2024-01-15', 'texto um', 'https://juris/1', '2024-02-28T00:00:00'),"
         f"(2, '{CNJ_ALL}', 'SENTENÇA', 'Apelação', '1a Vara', 'Juiz B', 'PJE',"
         " '2024-02-10', 'texto dois', 'https://juris/2', '2024-02-28T00:00:00')",
+        item="tjro-juris-2024",
     )
-    router.get(host="archive.org", path="/advancedsearch.php").respond(
-        200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
-    )
+    _mock_juris_manifest(router)
     router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
         200,
         json={
@@ -191,6 +236,64 @@ def _mock_stj_remote(
     router.get(rp._STJ_IA_URL).respond(200, content=stj.read_bytes())
 
 
+class TestDiscoverJurisItemsAllowlist:
+    """#1652/TM-16 item (2): `_discover_juris_items` must derive trusted
+    tjro-juris-{year} identifiers exclusively from the project's own crawl
+    manifest (`juris_archive.MANIFEST_DOWNLOAD_URL`) -- never from an
+    unauthenticated `identifier:tjro-juris-*` search against IA's public
+    namespace, which would accept any third-party item matching the naming
+    pattern as canonical project data (catalog/data poisoning without
+    compromising any project credential).
+    """
+
+    def test_uses_manifest_years_marked_uploaded(self) -> None:
+        with respx.mock() as router:
+            _mock_juris_manifest(
+                router,
+                ("ACÓRDÃO", "2023-06", "uploaded"),
+                ("SENTENÇA", "2024-01", "uploaded"),
+            )
+            with httpx.Client(timeout=10) as client:
+                items = rp._discover_juris_items(client)
+        assert items == ["tjro-juris-2023", "tjro-juris-2024"]
+
+    def test_dedups_same_year_across_multiple_tipos(self) -> None:
+        with respx.mock() as router:
+            _mock_juris_manifest(
+                router,
+                ("ACÓRDÃO", "2024-01", "uploaded"),
+                ("SENTENÇA", "2024-03", "uploaded"),
+            )
+            with httpx.Client(timeout=10) as client:
+                items = rp._discover_juris_items(client)
+        assert items == ["tjro-juris-2024"]
+
+    def test_never_trusts_an_unauthenticated_global_search(self) -> None:
+        """No route is registered for advancedsearch.php -- if the discovery
+        ever fell back to that unauthenticated global search, respx would
+        raise on the unmocked request and this test would fail for that
+        reason alone, independent of the assertion below."""
+        with respx.mock() as router:
+            _mock_juris_manifest(router, ("ACÓRDÃO", "2024-01", "uploaded"))
+            with httpx.Client(timeout=10) as client:
+                items = rp._discover_juris_items(client)
+        assert items == ["tjro-juris-2024"]
+
+    def test_ignores_pending_manifest_entries(self) -> None:
+        with respx.mock() as router:
+            _mock_juris_manifest(router, ("ACÓRDÃO", "2024-01", "pending"))
+            with httpx.Client(timeout=10) as client:
+                items = rp._discover_juris_items(client)
+        assert items == []
+
+    def test_returns_empty_when_manifest_missing(self) -> None:
+        with respx.mock() as router:
+            router.get(juris_archive.MANIFEST_DOWNLOAD_URL).respond(404)
+            with httpx.Client(timeout=10) as client:
+                items = rp._discover_juris_items(client)
+        assert items == []
+
+
 def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
     isolated_dirs: Path,
 ) -> None:
@@ -214,11 +317,14 @@ def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
         fixtures / "juris.parquet",
         f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
         " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+        item="tjro-juris-2024",
+    )
+    manifest_csv = (
+        "tipo,mes_ano,ia_status,n_docs,updated_at\n"
+        "ACÓRDÃO,2024-01,uploaded,1,2024-02-01T00:00:00+00:00\n"
     )
     with respx.mock() as router:
-        router.get(host="archive.org", path="/advancedsearch.php").respond(
-            200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
-        )
+        router.get(juris_archive.MANIFEST_DOWNLOAD_URL).respond(200, content=manifest_csv)
         router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
             200, json={"files": [{"name": raw_name}]}
         )
@@ -228,10 +334,6 @@ def test_fetch_juris_from_ia_matches_published_juris_url_encoding(
         ).respond(200, content=juris.read_bytes())
         _, urls, _ = rp.fetch_juris_from_ia()
 
-    manifest_csv = (
-        "tipo,mes_ano,ia_status,n_docs,updated_at\n"
-        "ACÓRDÃO,2024-01,uploaded,1,2024-02-01T00:00:00+00:00\n"
-    )
     expected_url = published.discover_published_juris_datasets(manifest_csv)[0].url
     assert list(urls.values()) == [expected_url]
 
@@ -456,9 +558,7 @@ class TestUnavailableSources:
         return tmp_path
 
     def _mock_empty_ia(self, router: respx.MockRouter) -> None:
-        router.get(host="archive.org", path="/advancedsearch.php").respond(
-            200, json={"response": {"docs": []}}
-        )
+        router.get(juris_archive.MANIFEST_DOWNLOAD_URL).respond(404)
         router.get(host="archive.org", path="/metadata/datajud-tjro").respond(200, json={})
 
     @pytest.mark.usefixtures("unavailable_env")
@@ -621,11 +721,10 @@ class TestCorruptedParquetHandling:
             " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00'),"
             f"(NULL, '{CNJ_DJEN_DJ}', 'SENTENÇA', 'Apelação', '1a Vara', 'Juiz B', 'PJE',"
             " '2024-02-10', 'texto null-2', 'https://juris/null2', '2024-02-28T00:00:00')",
+            item="tjro-juris-2024",
         )
         with respx.mock() as router:
-            router.get(host="archive.org", path="/advancedsearch.php").respond(
-                200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
-            )
+            _mock_juris_manifest(router)
             router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
                 200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
             )
@@ -662,11 +761,10 @@ class TestCorruptedParquetHandling:
             fixtures / "2024-01-ACORDAO.parquet",
             f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
             " NULL, 'texto sem data', 'https://juris/1', '2024-01-31T00:00:00')",
+            item="tjro-juris-2024",
         )
         with respx.mock() as router:
-            router.get(host="archive.org", path="/advancedsearch.php").respond(
-                200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
-            )
+            _mock_juris_manifest(router)
             router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
                 200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
             )
@@ -707,9 +805,7 @@ class TestCorruptedParquetHandling:
             _mock_datajud_remote(router, fixtures)
             # JURIS's only shard is corrupted — the source becomes unavailable,
             # but DJEN/STJ/DataJud must still load and contribute normally.
-            router.get(host="archive.org", path="/advancedsearch.php").respond(
-                200, json={"response": {"docs": [{"identifier": "tjro-juris-2024"}]}}
-            )
+            _mock_juris_manifest(router)
             router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
                 200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
             )
@@ -728,6 +824,132 @@ class TestCorruptedParquetHandling:
         assert report["sources"]["djen"]["status"] == rp.STATUS_LOADED_REMOTE
         assert report["sources"]["stj"]["status"] == rp.STATUS_LOADED_REMOTE
         assert report["sources"]["datajud"]["status"] == rp.STATUS_LOADED_REMOTE
+
+
+class TestArtifactIdentityVerification:
+    """#1652/TM-16 item (3): a JURIS/DataJud file fetched through the IA
+    fallback must carry the same `causaganha.schema_version`/
+    `causaganha.item_id` KV_METADATA footer `tjro_juris.service`/
+    `datajud.archive` already write at export time (TM-04) -- matching the
+    item it was actually fetched from -- before its content is trusted into
+    `indice_processual.parquet`. Item (2) already allowlists *which* items
+    are discovered (`_discover_juris_items`, PR #1657); this closes the
+    remaining gap: nothing previously verified that the *file inside* an
+    allowlisted item is the one this project's own pipeline wrote, as
+    opposed to e.g. a file swapped under an unchanged, allowlisted name.
+    Structurally invalid parquet (`TestCorruptedParquetHandling`) is caught
+    earlier by `_is_valid_parquet`; this class covers a *structurally valid*
+    parquet whose footer identity is missing or wrong.
+    """
+
+    def test_juris_shard_without_identity_metadata_is_rejected(self, isolated_dirs: Path) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        # No `item=` -- this shard carries no causaganha.* KV_METADATA at all,
+        # exactly like every parquet written before TM-04's write-side fix.
+        shard = _juris_parquet(
+            fixtures / "2024-01-ACORDAO.parquet",
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+        )
+        with respx.mock() as router:
+            _mock_juris_manifest(router)
+            router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+                200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+            ).respond(200, content=shard.read_bytes())
+
+            with pytest.raises(rp.SourceDataError, match="identity"):
+                rp.fetch_juris_from_ia()
+
+    def test_juris_shard_with_mismatched_item_id_is_rejected(self, isolated_dirs: Path) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        # Footer claims tjro-juris-2099, but is served from tjro-juris-2024 --
+        # a file swapped under an unchanged, allowlisted item name.
+        shard = _juris_parquet(
+            fixtures / "2024-01-ACORDAO.parquet",
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+            item="tjro-juris-2099",
+        )
+        with respx.mock() as router:
+            _mock_juris_manifest(router)
+            router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+                200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+            ).respond(200, content=shard.read_bytes())
+
+            with pytest.raises(rp.SourceDataError, match="identity"):
+                rp.fetch_juris_from_ia()
+
+    def test_datajud_capa_with_mismatched_item_id_is_rejected(self, isolated_dirs: Path) -> None:
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        # Written for tribunal "tjce" (footer item_id datajud-tjce), served
+        # from datajud-tjro under the tjro capa filename.
+        capa_path = fixtures / "datajud-capa-tjro.parquet"
+        write_capa_parquet(
+            [
+                {
+                    "numero_processo": CNJ_ALL,
+                    "tribunal": "tjro",
+                    "grau": "G2",
+                    "orgao_julgador": "2a Camara",
+                    "classe_nome": "Apelacao Civel",
+                    "assuntos": "Contratos",
+                    "data_ajuizamento": "2024-01-10T00:00:00",
+                    "ultima_atualizacao": "2024-06-01T00:00:00",
+                }
+            ],
+            capa_path,
+            tribunal="tjce",
+        )
+        with respx.mock() as router:
+            router.get(host="archive.org", path="/metadata/datajud-tjro").respond(
+                200, json={"files": [{"name": "datajud-capa-tjro.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/datajud-tjro/datajud-capa-tjro.parquet"
+            ).respond(200, content=capa_path.read_bytes())
+
+            with pytest.raises(rp.SourceDataError, match="identity"):
+                rp.fetch_datajud_from_ia()
+
+    def test_valid_identity_metadata_is_accepted(self, isolated_dirs: Path) -> None:
+        """Sanity check: correct footer identity (the shape every other
+        fixture in this file now uses) is not itself rejected."""
+        tmp_path = isolated_dirs
+        fixtures = tmp_path / "fixtures"
+        fixtures.mkdir()
+        shard = _juris_parquet(
+            fixtures / "2024-01-ACORDAO.parquet",
+            f"(1, '{CNJ_ALL}', 'ACÓRDÃO', 'Apelação', '2a Camara', 'Des. A', 'PJE',"
+            " '2024-01-15', 'texto um', 'https://juris/1', '2024-01-31T00:00:00')",
+            item="tjro-juris-2024",
+        )
+        with respx.mock() as router:
+            _mock_juris_manifest(router)
+            router.get(host="archive.org", path="/metadata/tjro-juris-2024").respond(
+                200, json={"files": [{"name": "2024-01-ACORDAO.parquet"}]}
+            )
+            router.get(
+                host="archive.org", path="/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+            ).respond(200, content=shard.read_bytes())
+
+            paths, urls, _needs_dedup = rp.fetch_juris_from_ia()
+
+        assert len(paths) == 1
+        assert (
+            urls[paths[0]] == "https://archive.org/download/tjro-juris-2024/2024-01-ACORDAO.parquet"
+        )
 
 
 class TestLocalSourceUrlProvenanceWarning:

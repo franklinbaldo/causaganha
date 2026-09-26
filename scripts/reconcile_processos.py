@@ -62,7 +62,6 @@ from __future__ import annotations
 
 import json
 import os
-import re
 import sys
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -74,8 +73,12 @@ import duckdb
 import httpx
 
 from datajud.archive import CAPA_SCHEMA as _DATAJUD_CAPA_SCHEMA
+from datajud.archive import DATAJUD_SCHEMA_VERSION as _DATAJUD_SCHEMA_VERSION
 from datajud.archive import capa_parquet_name as _datajud_capa_name
 from datajud.archive import item_id as _datajud_item_id
+from tjro_juris import archive as juris_archive
+from tjro_juris import service as juris_service
+from tjro_juris.manifest import ManifestFormatError, ManifestJuris
 
 
 ROOT = Path(__file__).parent.parent
@@ -86,7 +89,6 @@ _REPORT_NAME = "indice_processual.report.json"
 
 _IA_BASE = "https://archive.org/download"
 _IA_METADATA_BASE = "https://archive.org/metadata"
-_IA_SEARCH_URL = "https://archive.org/advancedsearch.php"
 _IA_ITEM_DASHBOARD = "causaganha-dashboard"
 _IA_CATALOG_MANIFEST_URL = f"{_IA_BASE}/causaganha-catalog/manifest.parquet"
 
@@ -101,7 +103,6 @@ _DEFAULT_DATAJUD_TRIBUNAIS = ("tjro",)
 # glob spellings are honoured: the CLI/workflows write data/tjro-juris/,
 # older docs said data/tjro_juris/.
 _JURIS_ITEM_PREFIX = "tjro-juris"
-_JURIS_ITEM_RE = re.compile(r"^tjro-juris-\d{4}$")
 _JURIS_LOCAL_GLOBS = (
     "data/tjro_juris/*/tjro-juris-*.parquet",
     "data/tjro-juris/*/tjro-juris-*.parquet",
@@ -242,6 +243,68 @@ def _ia_item_files(client: httpx.Client, item_id: str) -> list[str]:
     return [f["name"] for f in files if isinstance(f, dict) and "name" in f]
 
 
+def _kv_metadata(path: Path) -> dict[str, str]:
+    """KV_METADATA entries from a local Parquet file's footer, decoded to str.
+
+    Mirrors `causaganha.processos.service._kv_metadata`, but reads a local
+    file instead of a remote httpfs URL: `_fetch_cached` has already put the
+    bytes on disk by the time this is called, so there is no reason to pay
+    for a second network round-trip just to read metadata the downloaded
+    file already contains.
+    """
+    con = duckdb.connect()
+    try:
+        rows = con.execute(f"SELECT key, value FROM parquet_kv_metadata('{path}')").fetchall()
+    finally:
+        con.close()
+
+    def _decode(value: object) -> str:
+        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+
+    return {_decode(key): _decode(value) for key, value in rows}
+
+
+def _verify_artifact_identity(
+    path: Path, *, expected_item_id: str, expected_schema_version: str, label: str
+) -> None:
+    """Raises `SourceDataError` when a just-downloaded artifact's own Parquet
+    footer KV_METADATA disagrees with (or lacks) the item identity it was
+    fetched under -- quarantining the cached copy so a future run re-fetches
+    rather than reusing it.
+
+    Fixes #1652 (TM-16) item (3): item/file identity is already allowlisted
+    (item 2, PR #1657 -- `_discover_juris_items` only trusts years this
+    project's own crawl manifest vouches for) and the file itself already
+    passes structural Parquet validation (`_is_valid_parquet`), but nothing
+    previously verified that the bytes an allowlisted IA item actually
+    serves are the ones this project's own pipeline wrote for it -- a
+    compromised item, or a file swapped under an unchanged/allowlisted
+    name, would still have been silently accepted as canonical and folded
+    into `indice_processual.parquet`. Rather than a hand-maintained external
+    manifest of SHA-256 digests (brittle against this project's continuous
+    JURIS/DataJud crawl -- every new file would need manual approval before
+    reconciliation could see it), this reuses the self-describing identity
+    mechanism the write side already embeds (TM-04:
+    `tjro_juris.service._kv_metadata_for_export`,
+    `datajud.archive._kv_metadata_for_export`) and the query side already
+    reads (`causaganha.processos.service._validar_metadata_juris`/
+    `_validar_metadata_datajud`) -- applied here at ingestion time, before
+    any row derived from this file is trusted into the index at all.
+    """
+    metadata = _kv_metadata(path)
+    schema_version = metadata.get("causaganha.schema_version")
+    item_id = metadata.get("causaganha.item_id")
+    if schema_version != expected_schema_version or item_id != expected_item_id:
+        _quarantine(path)
+        msg = (
+            f"{label}: Parquet footer identity mismatch or missing "
+            f"(causaganha.item_id={item_id!r}, causaganha.schema_version="
+            f"{schema_version!r}), expected item_id={expected_item_id!r} "
+            f"schema_version={expected_schema_version!r}"
+        )
+        raise SourceDataError(msg)
+
+
 def comunicacoes_parquet_urls(con: duckdb.DuckDBPyConnection) -> list[str] | None:
     """URLs of every consolidated comunicacoes.parquet, from the IA catalog.
 
@@ -287,23 +350,31 @@ def juris_parquet_files() -> list[Path]:
 
 
 def _discover_juris_items(client: httpx.Client) -> list[str]:
-    """tjro-juris-{year} item identifiers that actually exist on IA."""
-    resp = client.get(
-        _IA_SEARCH_URL,
-        params={
-            "q": f"identifier:{_JURIS_ITEM_PREFIX}-*",
-            "fl[]": "identifier",
-            "rows": "500",
-            "output": "json",
-        },
-    )
+    """tjro-juris-{year} item identifiers this project's own crawl manifest vouches for.
+
+    Fixes #1652 (TM-16): this used to discover items via an unauthenticated
+    `identifier:tjro-juris-*` search against IA's public namespace and
+    trusted anything syntactically matching the naming pattern — a
+    third-party item with the same name would have been silently accepted
+    as project data (catalog/data poisoning without compromising any
+    project credential). The project's own manifest — a fixed, project-owned
+    IA item (`juris_archive.MANIFEST_DOWNLOAD_URL`), the same allowlist
+    `causaganha.decisoes.published.discover_published_juris_datasets`
+    already trusts — is the only source of truth for which years actually
+    belong to this project's JURIS crawl; only years with at least one
+    `ia_status == "uploaded"` window become a candidate item identifier.
+    """
+    resp = client.get(juris_archive.MANIFEST_DOWNLOAD_URL)
+    if resp.status_code == httpx.codes.NOT_FOUND:
+        return []
     resp.raise_for_status()
-    docs = resp.json().get("response", {}).get("docs", [])
-    return sorted(
-        d["identifier"]
-        for d in docs
-        if isinstance(d, dict) and _JURIS_ITEM_RE.match(d.get("identifier", ""))
-    )
+    try:
+        manifest = ManifestJuris.load_text(resp.text, source=juris_archive.MANIFEST_DOWNLOAD_URL)
+    except ManifestFormatError as exc:
+        print(f"  malformed JURIS manifest: {exc}", file=sys.stderr)
+        return []
+    years = {entry.mes_ano[:4] for entry in manifest.all_entries() if entry.ia_status == "uploaded"}
+    return sorted(f"{_JURIS_ITEM_PREFIX}-{year}" for year in years)
 
 
 def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
@@ -352,6 +423,12 @@ def fetch_juris_from_ia() -> tuple[list[Path], dict[Path, str], bool]:
             for name in wanted:
                 url = f"{_IA_BASE}/{item}/{quote(name)}"
                 path = _fetch_cached(client, url, cache / item / name, f"JURIS {item}/{name}")
+                _verify_artifact_identity(
+                    path,
+                    expected_item_id=item,
+                    expected_schema_version=juris_service.JURIS_SCHEMA_VERSION,
+                    label=f"JURIS {item}/{name}",
+                )
                 paths.append(path)
                 urls[path] = url
     return paths, urls, needs_dedup
@@ -401,14 +478,19 @@ def fetch_datajud_from_ia() -> list[Path]:
             if filename not in names:
                 print(f"  IA item {item}: no {filename} (item missing or empty)", file=sys.stderr)
                 continue
-            paths.append(
-                _fetch_cached(
-                    client,
-                    f"{_IA_BASE}/{item}/{filename}",
-                    cache / filename,
-                    f"DataJud {item}/{filename}",
-                )
+            path = _fetch_cached(
+                client,
+                f"{_IA_BASE}/{item}/{filename}",
+                cache / filename,
+                f"DataJud {item}/{filename}",
             )
+            _verify_artifact_identity(
+                path,
+                expected_item_id=item,
+                expected_schema_version=_DATAJUD_SCHEMA_VERSION,
+                label=f"DataJud {item}/{filename}",
+            )
+            paths.append(path)
     return paths
 
 
