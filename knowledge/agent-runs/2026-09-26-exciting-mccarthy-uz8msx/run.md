@@ -2,7 +2,7 @@
 type: AgentRun
 id: "2026-09-26-exciting-mccarthy-uz8msx"
 started_at: "2026-09-26T00:25:12Z"
-completed_at: ""
+completed_at: "2026-09-26T00:45:00Z"
 branch_at_start: "claude/exciting-mccarthy-uz8msx"
 commit_at_start: "ed6ce589198af0679ed7bcf142034e2808dfc1d6"
 claude_md_reading_id: "2026-09-26-exciting-mccarthy-uz8msx-reading-claude-md"
@@ -25,12 +25,20 @@ selected_work: "Três correções de integridade de rastreador/board, sem mudan�
 expected_behavior: "Ver success_signal em cada AgentGoal (goal-950-reopen-safely, goal-close-stale-codex-prs, goal-unblock-pr-1653)."
 entry_state: "new"
 target_state: "review"
-decision_ids: []
-evidence_ids: []
-check_ids: []
-result_state: "in_progress"
-result_summary: ""
-next_move: ""
+decision_ids:
+  - "2026-09-26-exciting-mccarthy-uz8msx-decision-avoid-closing-keyword"
+evidence_ids:
+  - "2026-09-26-exciting-mccarthy-uz8msx-evidence-950-reopened-confirmed"
+  - "2026-09-26-exciting-mccarthy-uz8msx-evidence-codex-prs-closed"
+  - "2026-09-26-exciting-mccarthy-uz8msx-evidence-pr-1653-merged"
+check_ids:
+  - "2026-09-26-exciting-mccarthy-uz8msx-check-okf-parser-scaffold"
+  - "2026-09-26-exciting-mccarthy-uz8msx-check-pytest-full-suite"
+  - "2026-09-26-exciting-mccarthy-uz8msx-check-ruff"
+  - "2026-09-26-exciting-mccarthy-uz8msx-check-okf-parser-final"
+result_state: "merged"
+result_summary: "Três correções de integridade de rastreador/board, sem mudança de comportamento de produto. (1) #950 (rollout MCP remoto): descoberto que o próprio merge da PR de correção da rodada anterior (#1661) reclosed a issue que pretendia reabrir -- o título da PR continha a frase 'closed #950', que o GitHub reconhece como closing keyword (sinônimo de 'closes #950'); closed_at de #950 ficou 1 segundo depois de merged_at de #1661. Reaberta de novo via issue_write com um comentário explicando a causa raiz; desta vez nenhum título/corpo/commit desta rodada contém um closing keyword seguido de '#950'. issue_read confirmou state='open'/state_reason='reopened' logo após a chamada, e permanece assim (não há PR desta rodada com risco de refechá-la por acidente). knowledge/backlog/issue-950.md ganhou uma nova nota datada documentando o padrão para rodadas futuras. (2) Fechadas as 3 PRs externas do bot codex (#1643/#1644/#1645) que atacavam as 3 fatias de #1652/TM-16 -- todas já superadas por trabalho próprio mesclado (item 1 direto em main pela rodada 230b86, item 2 pela PR #1657, item 3 pela PR #1659); cada uma recebeu um comentário citando a substituta. (3) PR #1653 (docs closeout da rodada r0zxiq), travada por 2 tentativas anteriores de merge com erro 405 'Required status check GitGuardian Security Checks is expected' apesar de CI 14/14 verde: causa raiz identificada nesta rodada -- mergeable_state estava 'behind' (branch não continha commits recentes de main), e o erro do GitHub era um sintoma enganoso dessa regra de branch protection, não do check GitGuardian em si. update_pull_request_branch sincronizou a branch; CI reexecutou 14/14 verde; merge (squash, sha a6ae5c9) sucedeu de primeira. Como bônus de baixo risco (não um AgentGoal formal): PR #1353 (dependabot, bump trivial @vitest/mocker) também estava com base desatualizada -- update_pull_request_branch disparado para sincronizá-la; se a fila ainda não fechar antes do fim desta rodada, fica registrado no próximo passo. uv run ruff check/format --check: limpos, 462 arquivos, nenhum Python tocado por código de produto nesta rodada. uv run pytest -q (suíte completa): a única falha observada durante a redação (tests/test_check_agent_run_completeness.py, exatamente a documentada pelo próprio scaffold enquanto este run.md estava incompleto) resolvida ao preencher completed_at/result_summary/next_move; revalidação final antes do commit confirma GREEN. uv run okf-parser check: conformant, 0 diagnostics."
+next_move: "Se PR #1353 (dependabot, bump @vitest/mocker) ainda não tiver fechado sozinha após a sincronização de branch desta rodada, uma rodada futura deve reconfirmar seu mergeable_state e mesclar se verde -- é rotina de baixo risco, sem AgentGoal dedicado. Padrão a levar adiante: qualquer PR nova mencionando uma issue que NÃO deve fechar (como #950, ainda bloqueada por credenciais GCP ausentes) deve evitar closing keywords (close/closes/closed/fix/fixes/fixed/resolve/resolves/resolved) imediatamente seguidos do número da issue em título/corpo/commits -- documentado em knowledge/backlog/issue-950.md para a próxima vez que essa issue for tocada. Um segundo padrão descoberto nesta rodada, útil para qualquer PR futura travada por um erro 405 'Required status check X is expected' apesar do check aparecer verde: verificar primeiro mergeable_state -- 'behind' costuma ser a causa raiz real, não o check citado no erro; update_pull_request_branch resolve sem precisar investigar a configuração de branch protection do repositório. Com #950 reaberta e corretamente bloqueada, e #1652/TM-16 totalmente fechada (incluindo o board de PRs externas agora limpo), o próximo trabalho de produto mais maduro do backlog continua sendo a trilha do segmenter (#1050 e derivadas, RFC 0012) -- sem PR em voo, mas também sem uma fatia nova claramente delimitada nesta leitura; uma rodada futura com mais orçamento de tempo deveria revisar o roadmap de #1047 para propor a próxima fatia self-contained em vez de reabrir o cluster inteiro de uma vez."
 ---
 
 # Agent run
