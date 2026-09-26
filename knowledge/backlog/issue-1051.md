@@ -4,9 +4,9 @@ issue_number: 1051
 title: "segmenter: build an independently annotated validation set for model selection"
 category: "ml_data_work"
 blocking_reason: "Not blocked. The mechanism is proven: scripts/annotate_second_independent.py (second independent annotation, model_family must differ from the first -- convention is prompt_subagents:haiku via Agent tool with model=haiku, vs the first annotation's prompt_subagents:general-purpose) + scripts/adjudicate_segmenter_review.py (reconcile into an accepted ReviewRecord) + scripts/segmenter_governance_status.py (real vs ceiling val/test counts, RFC 0012 Sec 5 item 4's >=30/>=30 floor)."
-unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side: after this round (p08457), review_count=34, val_count=30 (already at its ceiling), test_count=4 (of 30). A future round should keep picking single-annotated, unreviewed, seeded_with=='none' candidates (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated -- filter for this before selecting) and SIMULATE assign_splits with each candidate added to evaluation_eligible (in isolation, then jointly with the round's full batch) BEFORE spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every time it runs, so which specific document lands in val vs test isn't controllable by identity, only the aggregate test_count/val_count are the real, checkable contract. Roughly 26 more accepted reviews are needed on average to reach test_count>=30 (fewer if a lucky hash ordering front-loads test; simulate rather than assume)."
-last_verified_run_id: "2026-09-26-exciting-mccarthy-p08457"
-last_verified_at: "2026-09-26T05:00:00Z"
+unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side: after PR #1670 (round kgxf50), review_count=37, val_count=30 (already at its ceiling), test_count=7 (of 30). A future round should keep picking single-annotated, unreviewed, seeded_with=='none' candidates (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated -- filter for this before selecting) and SIMULATE assign_splits with each candidate added to evaluation_eligible (in isolation, then jointly with the round's full batch) BEFORE spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every time it runs, so which specific document lands in val vs test isn't controllable by identity, only the aggregate test_count/val_count are the real, checkable contract. Roughly 23 more accepted reviews are needed on average to reach test_count>=30 (fewer if a lucky hash ordering front-loads test; simulate rather than assume)."
+last_verified_run_id: "runs/20260926T062628Z-do-the-best-useful-work-available-in-this-reposi"
+last_verified_at: "2026-09-26T06:45:00Z"
 status: "unblocked"
 ---
 
@@ -88,13 +88,47 @@ appears in any finding). `uv run ruff check`/`format --check` clean;
 `uv run pytest -q tests/segmenter_dataset` and the full repository
 suite green.
 
+**Round kgxf50 (PR #1670, 2026-09-26):** adjudicated 3 more documents
+into accepted `ReviewRecord`s via a genuinely independent second
+annotation (Agent tool, `model=haiku`): `doc_d3de3dfe95769791db33077c54bd3724`
+(TJSC, acordao), `doc_4a8e16820fb9c8fa1d808d717d9a34d7` (TJMG,
+sentenca), `doc_3b0be436ba6753185997c37b2b6b9765` (TJSE, acordao de
+Turma Recursal). Candidates chosen the same way as p08457's round: a
+live simulation of `assign_splits` among 139 eligible candidates found
+132 that individually raise `test_count`, with the three shortest
+picked for tractability and a joint simulation confirming `test_count`
+4->7 before annotation effort began. Two of three subagent annotations
+silently dropped NBSP (U+00A0) whitespace despite passing their own
+verbatim self-check (repaired at exact diff offsets, never touching
+tagged content); one nested a single-anchor tag inside a pair's closing
+anchor at an identical span (fixed by splitting into two adjacent,
+non-overlapping spans). Adjudication caught a near-mistake before it
+landed: an initial TJSE resolution would have silently overwritten a
+documented precedent from an earlier round (deliberately not
+double-tagging one span with two categories) -- caught only because the
+*full* repository test suite, not just `tests/segmenter_dataset`, was
+re-run before finalizing. Reverted to match the precedent and updated
+the allowlist test instead. Post-merge, live-confirmed via
+`scripts/segmenter_governance_status.py`: `document_count`=197
+(unchanged), `annotation_count` 257->260, `review_count` 34->37,
+`val_count`=30 (unchanged, already at ceiling), **`test_count` 4->7**.
+`meets_rfc_0012_split_floor` still `False` (need >=30/>=30, have
+30/7). This round (the scheduled loop round that reviewed and merged
+PR #1670) re-ran `uv run ruff check`/`format --check` (clean) and
+`uv run pytest -q tests/segmenter_dataset` against the merged state to
+confirm no regression before closing out.
+
 **Next natural step:** keep adjudicating single-annotated,
 `seeded_with=='none'`, unreviewed candidates, always simulating
 `assign_splits` first (isolated, then jointly with the round's actual
 batch) to confirm real `test_count` movement before spending
-annotation effort -- a live scan at the start of this round found 141
-such candidates, 134 of which individually raise `test_count` when
-simulated in isolation. `test_count` needs to go from 4 to >=30 -- at
-2 documents per round (this round's pace), roughly 13 more rounds of
-this size, though a larger batch per round (more subagents dispatched
-in parallel) would scale faster within one round's time budget.
+annotation effort. `test_count` needs to go from 7 to >=30 -- at
+2-3 documents per round (the pace of the last three rounds), roughly
+8-11 more rounds of this size, though a larger batch per round (more
+subagents dispatched in parallel) would scale faster within one
+round's time budget. Watch for concurrent same-day rounds picking
+overlapping candidates (this round found #1670 already open and
+merged it rather than re-running the same candidate-selection
+simulation concurrently) -- always re-simulate against live store
+state immediately before selecting, not against a cached count from
+even a few minutes earlier.
