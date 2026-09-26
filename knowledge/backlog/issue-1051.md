@@ -4,9 +4,9 @@ issue_number: 1051
 title: "segmenter: build an independently annotated validation set for model selection"
 category: "ml_data_work"
 blocking_reason: "Not blocked. The mechanism is proven: scripts/annotate_second_independent.py (second independent annotation, model_family must differ from the first -- convention is prompt_subagents:haiku via Agent tool with model=haiku, vs the first annotation's prompt_subagents:general-purpose) + scripts/adjudicate_segmenter_review.py (reconcile into an accepted ReviewRecord) + scripts/segmenter_governance_status.py (real vs ceiling val/test counts, RFC 0012 Sec 5 item 4's >=30/>=30 floor)."
-unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side. On merged main@103ad9b (round uq3be8): review_count=43, val_count=30 (already at its ceiling), test_count=13 (of 30). Two more open, not-yet-merged PRs (#1678/#1679) report review_count=48/test_count=18 once merged -- reconfirm live before trusting. scripts/segmenter_adjudication_candidates.py (added by round qs1nzy) now formalizes the scan-and-simulate method: find_second_annotation_candidates() enumerates single-annotated/seeded_with=='none'/unreviewed documents (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated) and flags which ones individually raise test_count; joint_simulation() confirms a batch's aggregate effect before spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every call, so which specific document lands in val vs test isn't identity-controllable, only the aggregate counts are the real contract. A future round with Agent-tool access can call this script directly instead of writing a scratch simulation by hand; qs1nzy's own run left doc_6b9ee9d4f525b8442af4cbc20da41269 (TRF4) and doc_c41321b105269252919a5d4d730800a2 (TJMS) as an already-simulated, ready-to-annotate pair (test_count 13->15) for whichever round picks this up next, PENDING a fresh live re-simulation since the candidate pool shrinks every round. Roughly 12-17 more accepted reviews are needed on average to reach test_count>=30 from the last confirmed-merged number (13); fewer from 18 if #1678 has landed by the time you read this."
+unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side: after merging round pg2bcv (Wisk run 20260926T102619Z, PR #1678) with the concurrent round uq3be8 (PR #1677) -- a genuine same-day race, not a mistake, since neither round's 5/3 documents overlapped -- review_count=48, val_count=30 (already at its ceiling), test_count=18 (of 30), all confirmed merged to main (#1678 squash-merged directly; its sibling closeout PR #1679 was closed without merging as ceremonial bookkeeping). scripts/segmenter_adjudication_candidates.py (added by round qs1nzy, PR #1680) now formalizes the scan-and-simulate method: find_second_annotation_candidates() enumerates single-annotated/seeded_with=='none'/unreviewed documents (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated) and flags which ones individually raise test_count; joint_simulation() confirms a batch's aggregate effect before spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every call, so which specific document lands in val vs test isn't identity-controllable, only the aggregate counts are the real contract. A future round with Agent-tool access can call this script directly instead of writing a scratch simulation by hand; qs1nzy's own candidate pick (doc_6b9ee9d4f525b8442af4cbc20da41269 TRF4 / doc_c41321b105269252919a5d4d730800a2 TJMS) was simulated against the pre-#1678 store (test_count 13->15) and needs a fresh live re-simulation against the current test_count=18 baseline before use, since the candidate pool and the floor gap both shift every round. Roughly 8-10 more accepted reviews are needed on average to reach test_count>=30 from 18."
 last_verified_run_id: "2026-09-26-exciting-mccarthy-qs1nzy"
-last_verified_at: "2026-09-26T12:55:00Z"
+last_verified_at: "2026-09-26T13:35:00Z"
 status: "unblocked"
 ---
 
@@ -234,18 +234,66 @@ almost wholesale (TRF2) and sometimes means combining specific spans
 from both (TJES, TJSE); never assume the second (haiku) annotation is
 uniformly as complete as the first.
 
-**Concurrent rounds pg2bcv (PR #1678) and 6m3b2b (PR #1679), same day:**
-while round `qs1nzy` (below) was working, two more concurrent rounds
-adjudicated 5 further documents (TJES/TJMT/TJRN/TJMT/TJMA), reporting
-(per PR #1678's own description, after merging a concurrent #1677):
-`review_count` 40->48, `test_count` 10->18, `val_count` unchanged at 30
-(ceiling). As of this file's last edit, PR #1678 (`mergeable_state:
-clean`) and PR #1679 (a closeout/merge-helper round for #1678,
-`mergeable_state: unstable`) were both still **open, not yet merged** --
-`main` itself remained at `103ad9b` (round `uq3be8`'s PR #1677:
-`review_count=43`, `test_count=13`, `val_count=30`). Do not treat #1678's
-numbers as landed until a fresh `git fetch origin main` + live
-`scripts/segmenter_governance_status.py` confirms them.
+**Round pg2bcv (2026-09-26, Wisk loop, run 20260926T102619Z):** the
+legacy `knowledge/agent-runs/` AgentRun mechanism this round's own
+scheduled prompt asked for is retired (see `knowledge/agent-runs/index.md`,
+`.claude/hourly-loop.md`) -- this round used the Wisk runtime instead
+(`.wisk/knowledge/experiences/runs/20260926t102619z-...`). `wisk start`
+resumed a stale handoff for #1471 (IA publish credentials, unchanged
+blocker, already escalated by an earlier round with zero new signal --
+not re-notified) and pivoted to this same #1051 track, live-confirming
+no PR was already open on it.
+
+Adjudicated 5 more documents, chosen by a live joint `assign_splits`
+simulation (before any annotation effort) confirming `test_count`
+10->15: `doc_1b3f5f7c10c405140aeae34dfb9eb25e` (TJES),
+`doc_cef4677db81a15cd7104a72b26ac3131` (TJMT),
+`doc_c8e8fed1aa63fab1538a9893a3b0b280` (TJRN),
+`doc_cdd1225e01e312fee25cd7c3193f5766` (TJMT), and
+`doc_a650dba8224a68a88a472ab9833e00d7` (TJMA) -- all sentenças. Five
+parallel Agent-tool subagents (`model=haiku`) produced the second
+independent annotations. Three of five had real defects caught by
+mechanical verification before ingestion, despite each subagent's own
+verbatim self-check passing: TJRN had ~9 curly quotes silently
+flattened to straight quotes (same failure class as round bomtmk's
+NBSP defect); TJMA had 10 invented paragraph breaks (the source has
+zero newlines) and an empty `<fim></fim>` cabecalho wrapper; two
+documents had a single-anchor category (`ref_processual`, `resultado`)
+tagged twice, violating the "at most one tag" rule. All repaired by
+direct diff-offset patching of the raw tagged file -- never retyping
+content. Every genuine disagreement was adjudicated against the
+guideline's own rules (the worked cabecalho example for the
+"REQUERIDO:"/"Advogado:" role-prefix convention, the existing corpus's
+comma-less `dispositivo_abertura` precedent, "tag every distinct
+citation" for `fundamentacao_legal`, and cross-checking a sibling
+same-tribunal TJMT document where both annotators independently agreed
+on a numbered-heading convention) rather than picking one side
+wholesale.
+
+Post-ingestion, live-confirmed: `document_count`=197 (unchanged),
+`annotation_count` 263->268, `review_count` 40->45, `val_count`=30
+(unchanged, already at ceiling), **`test_count` 10->15** (exactly
+matching the pre-annotation simulation). `meets_rfc_0012_split_floor`
+still `False` (need >=30/>=30, have 30/15 -- halfway to the test
+floor). `scripts/segmenter_semantic_audit.py`: 6 findings, unchanged
+from the pre-round baseline; none of this round's 5 new documents
+implicated. `uv run ruff check`/`format --check`: clean, 462 files.
+
+**Merge note (PR #1678 vs #1677):** round pg2bcv's PR (#1678, this
+document's 5 TJES/TJMT/TJRN/TJMT/TJMA reviews) and round uq3be8's PR
+(#1677, 3 TJRS/TJRS/TRF4 reviews) were both open concurrently against
+the same base -- a genuine same-day race, not a mistake, since neither
+round's document set overlapped. #1677 merged first; #1678 merged
+`origin/main` and re-verified live: `document_count`=197 (unchanged),
+`annotation_count` 263->271, `review_count` 40->48 (37 from `main`
+after both rounds' work landed via #1677 and #1678: 40+3+5), `val_count`
+unchanged at 30 (ceiling), **`test_count` 10->18** (not simply 15+13-10,
+since `assign_splits` recomputes the whole partition from scratch each
+time -- confirmed by re-running `segmenter_governance_status.py`
+against the actual merged store, not by arithmetic). Both rounds' RED
+tests (`test_real_store_reflects_1051_uq3be8_round_adjudication`,
+`test_real_store_reflects_1051_pg2bcv_round_adjudication`) coexist and
+both pass GREEN against the merged store.
 
 **Round qs1nzy (2026-09-26): hard tooling blocker, pivoted to
 infrastructure.** This round's own session had no `Task`/`Agent` tool
@@ -294,3 +342,7 @@ subagents instead of re-scanning.
 files touched this round). `uv run ruff check`/`format --check`: clean,
 464 files (462 + 2 new). `uv run pytest -q` (full suite): green (see
 this round's own `run.md`/`checks/`).
+
+**Round qs1nzy's PR #1680 update, post-merge (this round):** #1678 squash-merged to main directly (sha `9d39b73`); its sibling closeout PR #1679 (pure `knowledge/agent-runs/` bookkeeping confirming a concurrent session had already reconciled #1678) was closed without merging per the repo's anti-ceremonial-PR rule. PR #1680 (this file's own change, adding `scripts/segmenter_adjudication_candidates.py`) was rebased onto the post-merge `main` by merging `main` into its branch and resolving this file's conflict narratively (no data files conflicted -- the store is one file per document/review). The qs1nzy candidate pick above (TRF4/TJMS, simulated against test_count=13) is now stale relative to the merged test_count=18 baseline and needs a fresh live re-simulation via `scripts/segmenter_adjudication_candidates.py` before use.
+
+**Next natural step:** `test_count` needs to go from 18 to >=30 (roughly 8-10 more accepted reviews at current hash ordering). Use `scripts/segmenter_adjudication_candidates.py` (now committed, not a scratch script) to re-simulate candidates live before picking a batch -- the module's `find_second_annotation_candidates()`/`joint_simulation()` replace the by-hand simulation every prior round re-derived. Round pg2bcv showed 5 parallel subagents scale with no quality cost as long as each is mechanically verified before trusting it. Two same-day rounds working this same track concurrently is now a repeated pattern (PR #1671/c8119ff, #1677/#1678, and this round's own #1680 needing a merge against #1678) -- always re-simulate `assign_splits` and check for other open PRs on #1051 immediately before selecting a batch, and expect to merge `main` before pushing if another round's PR landed first.
