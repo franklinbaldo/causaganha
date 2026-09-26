@@ -1,0 +1,19 @@
+---
+type: "Handoff"
+id: "handoffs/handoff-issue-1051-adjudication-continuation"
+title: "Continue issue #1051's segmenter val/test adjudication: 1 new ReviewRecord landed this round, ~28 more needed to reach the RFC 0012 Sec 5 floor once issue #1050 also grows the corpus past 197 docs"
+created_at: "2026-09-26T02:01:05.765659Z"
+status: "active"
+created_by_run: "runs/20260926T012508Z-do-the-best-useful-work-available-in-this-reposi"
+state: "review_count moved 31->32 this round (doc_003c99b9812d01848478f7ff0bf16238/TJPA, rev_fe46288960a283d9ff11df3ae27b31c9), the first tracked progress on #1051 since it opened 2026-09-16 (no knowledge/backlog/issue-1051.md existed before this round -- #1051 had zero prior-round investigation). Working tooling: scripts/annotate_second_independent.py (independent second annotation) + scripts/adjudicate_segmenter_review.py (reconcile into an accepted ReviewRecord) + scripts/segmenter_governance_status.py (real vs ceiling val/test counts). Independence (RFC 0012 Sec 5.3 / mechanical.annotations_are_independent) requires the second annotation's model_family to differ from the first's -- most existing first annotations use model_family=prompt_subagents:general-purpose, so the second annotation must be dispatched with a genuinely different model (Agent tool's model=haiku parameter) to form a valid pair; a same-family second annotation will be silently rejected by write_review's NonIndependentReviewError at ingestion time. Also: a document whose sole existing annotation has seeded_with != 'none' (e.g. model_assisted_correction over a Gemini draft) can NEVER be adjudicated -- filter candidates by annotator_config.seeded_with=='none' before selecting, not just by annotation count. Hard corpus-scale ceiling still applies: even 100% adjudication of the current 195-document corpus caps at val=29/test=29, one document short of RFC 0012's >=30/>=30 floor -- #1050 must grow the corpus to >=197 documents for the ceiling itself to reach 30/30 (see scripts/segmenter_governance_status.py output). Two attempts to adjudicate a second document (doc_82d8ee7168b24d787ce0417f888d1eb3, TJPB) both failed mechanical/verbatim verification before ingestion (dropped clause + quote normalization on attempt 1; duplicate single-anchor resultado tags + overlapping span + undeclared unmatched pair on attempt 2) and were correctly rejected, never written to the store -- this document remains a valid candidate for a future round with a fresh, more carefully-prompted attempt (or a non-haiku alternate model family)."
+next_action: "Pick more single-annotated, unreviewed, seeded_with=='none' documents (live-query the store, do not trust cached counts) and repeat the independent-second-annotation + adjudication cycle. Prioritize documents whose eventual review would land in the TEST split specifically (simulate via segmenter_dataset.splits.assign_splits with the candidate added to evaluation_eligible before spending annotation effort -- test_count is currently far behind val_count: 3 vs 29 of a 29/29 ceiling). In parallel, a future round should keep landing #1050 train-only ingestion batches to push document_count from 195 to >=197 so the ceiling itself can reach 30/30 -- adjudication alone cannot cross the floor without that. Consider creating knowledge/backlog/issue-1051.md now that this round has real findings to record, or keep relying on this handoff for continuity."
+references: ["https://github.com/franklinbaldo/causaganha/issues/1051,https://github.com/franklinbaldo/causaganha/issues/1050"]
+goals: ["run-goals/20260926t012508z-do-the-best-useful-work-availab/goal-segmenter-adjudication-slice"]
+repository_head: "96756cb1b7b824b09acc25bd30a8fe67ac0b0bad"
+repository_branch: "claude/exciting-mccarthy-ns7mbo"
+repository_dirty: true
+repository_diff_digest: "sha256:8b688fe730ccf71d60c7c29599c1d590464005d6bd09207c879966e82a3ac970"
+target_session_type: "session-types/standard-experience"
+---
+
+# Handoff
