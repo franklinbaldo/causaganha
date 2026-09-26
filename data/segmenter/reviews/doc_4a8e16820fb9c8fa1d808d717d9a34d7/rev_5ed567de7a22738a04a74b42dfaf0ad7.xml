@@ -1,0 +1,69 @@
+<review id="rev_5ed567de7a22738a04a74b42dfaf0ad7" document_id="doc_4a8e16820fb9c8fa1d808d717d9a34d7">
+  <input_annotations>
+    <annotation_id>ann_9025e4b078e7404132a38e1ba9a5946e</annotation_id>
+    <annotation_id>ann_dc92951a489ba5d0ecb5cf253a260f6c</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="relatorio" reason="no distinct closing cue; narrative flows directly into dispositivo_abertura" />
+    <entry base="custas" reason="single short clause covers both custas and honorarios with no distinct closing cue for either" />
+    <entry base="honorarios" reason="single short clause covers both custas and honorarios with no distinct closing cue for either" />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>Adopted B's short cabecalho_inicio/cabecalho_fim spans plus its separate ref_processual tag (A merged the case number into one long cabecalho_inicio span and never tagged ref_processual on its own). Adopted A's fundamentacao_legal classification (wider span including the reasoning connector 'a teor dos') over B's bare ref_normativa for the same citation, per the guideline's own fundamentacao_legal example shape. Adopted A's closed encerramento pair (both tagged inicio, only A closed it with a fim at the document's own last words).</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 6 span(s) agreed by both annotators, 4 only in annotation A, 3 only in annotation B — categories in A-only: ['cabecalho_fim', 'cabecalho_inicio', 'encerramento_fim', 'fundamentacao_legal']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'ref_processual']</note>
+  </notes>
+  <approved_at>2026-09-26T06:15:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO COMUM CÍVEL</inicio>  Nº <ref_processual ord="1">1033100-43.2025.8.13.0024/MG</ref_processual>
+
+ AUTOR : LEONARDO BARBOSA DE AGUIAR SANTANA
+
+ ADVOGADO(A) : VITOR EDUARDO GOESE <fim ord="2">(OAB ES037226)</fim></cabecalho>
+
+Local: Belo Horizonte
+
+ Data:  01/10/2025
+
+SENTENÇA
+
+<relatorio><inicio ord="3">Trata-se de</inicio></relatorio> Ação Indenizatória ajuizada por LEONARDO BARBOSA DE AGUIAR SANTANA contra GENERALI BRASIL SEGUROS S A, ambos qualificados.
+
+ 
+
+Segundo o relato da inicial, o autor narra que sofreu acidente de trânsito que deixou sequelas em seu corpo, como a limitação funcional de seu membro inferior direito. Nesse contexto, alega que a ré não forneceu a apólice da cobertura securitária que sustenta ter direito e entende que deveria ter recebido um valor maior em virtude do ocorrido. 
+
+ 
+
+Diante disso, requer a condenação ao pagamento de R$ 5.000,00, a título de danos morais. 
+
+ 
+
+A inicial veio acompanhada de documentos. 
+
+ 
+
+No despacho anterior, determinou-se a emenda à inicial, a fim de que a parte autora formulasse pedido certo, indicando o valor pago e a diferença que entende devida ou, caso não fosse possível, que alterasse o feito para o procedimento de produção antecipada de provas, em prol da exibição da apólice. 
+
+ 
+
+Apesar da ordem emanada pelo juízo, o autor bastou impugnar a contestação oferecida prematuramente, sem nada manifestar quanto à emenda determinada.
+
+ 
+
+<dispositivo_abertura ord="4">Posto que não cumprida a emenda à inicial</dispositivo_abertura>, <resultado ord="5">EXTINGO O FEITO</resultado>, sem resolução de mérito, <fundamentacao_legal ord="6">a teor dos arts. 321 c/c 485, I, ambos do Código de Processo Civil</fundamentacao_legal>.
+
+ 
+
+<custas><inicio ord="7">Sem custas</inicio></custas> e <honorarios><inicio ord="8">honorários</inicio></honorarios>. 
+
+ 
+
+Após o trânsito em julgado e cumpridas as formalidades de praxe, arquivem-se os autos com baixa.
+
+ 
+
+<encerramento><inicio ord="9">Publique-se</inicio>; registre-se; <fim ord="10">intime-se.</fim></encerramento></text>
+</review>

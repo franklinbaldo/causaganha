@@ -1,0 +1,88 @@
+<annotation id="ann_dc92951a489ba5d0ecb5cf253a260f6c" document_id="doc_4a8e16820fb9c8fa1d808d717d9a34d7">
+  <annotator id="llm_technique1:kgxf50_second_independent" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="relatorio" reason="no distinct closing cue; narrative flows directly into dispositivo_abertura, same pattern the guideline documents for a waived/absent relatorio close" />
+    <entry base="custas" reason="single short clause covers both custas and honorarios with no distinct closing cue for either" />
+    <entry base="honorarios" reason="single short clause covers both custas and honorarios with no distinct closing cue for either" />
+    <entry base="encerramento" reason="document ends immediately after Publique-se; registre-se; intime-se. -- no judge title/signature line follows" />
+  </allowed_unmatched>
+  <completed_at>2026-09-26T06:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO COMUM CÍVEL</inicio>  Nº <ref_processual ord="1">1033100-43.2025.8.13.0024/MG</ref_processual>
+
+ AUTOR : LEONARDO BARBOSA DE AGUIAR SANTANA
+
+ ADVOGADO(A) : VITOR EDUARDO GOESE <fim ord="2">(OAB ES037226)</fim></cabecalho>
+
+Local: Belo Horizonte
+
+ Data:  01/10/2025
+
+SENTENÇA
+
+<relatorio><inicio ord="3">Trata-se de</inicio></relatorio> Ação Indenizatória ajuizada por LEONARDO BARBOSA DE AGUIAR SANTANA contra GENERALI BRASIL SEGUROS S A, ambos qualificados.
+
+ 
+
+Segundo o relato da inicial, o autor narra que sofreu acidente de trânsito que deixou sequelas em seu corpo, como a limitação funcional de seu membro inferior direito. Nesse contexto, alega que a ré não forneceu a apólice da cobertura securitária que sustenta ter direito e entende que deveria ter recebido um valor maior em virtude do ocorrido. 
+
+ 
+
+Diante disso, requer a condenação ao pagamento de R$ 5.000,00, a título de danos morais. 
+
+ 
+
+A inicial veio acompanhada de documentos. 
+
+ 
+
+No despacho anterior, determinou-se a emenda à inicial, a fim de que a parte autora formulasse pedido certo, indicando o valor pago e a diferença que entende devida ou, caso não fosse possível, que alterasse o feito para o procedimento de produção antecipada de provas, em prol da exibição da apólice. 
+
+ 
+
+Apesar da ordem emanada pelo juízo, o autor bastou impugnar a contestação oferecida prematuramente, sem nada manifestar quanto à emenda determinada.
+
+ 
+
+<dispositivo_abertura ord="4">Posto que não cumprida a emenda à inicial</dispositivo_abertura>, <resultado ord="5">EXTINGO O FEITO</resultado>, sem resolução de mérito, a teor dos arts. 321 c/c 485, I, ambos do Código de Processo Civil.
+
+ 
+
+<custas><inicio ord="6">Sem custas</inicio></custas> e <honorarios><inicio ord="7">honorários</inicio></honorarios>. 
+
+ 
+
+Após o trânsito em julgado e cumpridas as formalidades de praxe, arquivem-se os autos com baixa.
+
+ 
+
+<encerramento><inicio ord="8">Publique-se</inicio></encerramento>; registre-se; intime-se.</text>
+</annotation>
