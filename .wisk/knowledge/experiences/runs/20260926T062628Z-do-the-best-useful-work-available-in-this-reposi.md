@@ -1,5 +1,5 @@
 ---
-checks: ["run-checks/20260926t062628z-do-the-best-useful-work-availab/check-handoff-1471-environment", "run-checks/20260926t062628z-do-the-best-useful-work-availab/check-handoff-1471-disposition"]
+checks: ["run-checks/20260926t062628z-do-the-best-useful-work-availab/check-handoff-1471-environment", "run-checks/20260926t062628z-do-the-best-useful-work-availab/check-handoff-1471-disposition", "run-checks/20260926t062628z-do-the-best-useful-work-availab/check-verification-post-merge"]
 decisions: []
 evidence: ["run-evidence/20260926t062628z-do-the-best-useful-work-availab/evidence-pr-1670-merged"]
 goals: ["run-goals/20260926t062628z-do-the-best-useful-work-availab/goal-shepherd-pr-1670"]
