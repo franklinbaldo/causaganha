@@ -9,8 +9,12 @@ This is deliberately a probe, not an open proxy:
 - only `GET`, `HEAD`, and `POST` are accepted;
 - only HTTPS subdomains of `stj.jus.br` and `tjro.jus.br` are reachable;
 - redirects are returned to the caller and never followed by the Worker;
-- relay, forwarding, Cloudflare, and hop-by-hop headers are removed;
-- request and response bodies are streamed;
+- relay, forwarding, Cloudflare, hop-by-hop, `Authorization`, `Cookie`, and
+  `Set-Cookie` headers are removed;
+- request and response bodies are read into memory bounded by
+  `MAX_REQUEST_BODY_BYTES`/`MAX_RESPONSE_BYTES` (10 MiB / 25 MiB) — a body
+  over budget is rejected (`413`) or aborts the relay (`502`) instead of
+  being buffered without limit;
 - the token lives only in the `RELAY_TOKEN` Worker secret.
 
 ## Probe result

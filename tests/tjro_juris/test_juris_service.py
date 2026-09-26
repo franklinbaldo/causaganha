@@ -9,9 +9,15 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import duckdb
 import pyarrow.parquet as pq
 
-from tjro_juris.service import _PARQUET_SCHEMA, _rows_to_parquet, _to_row
+from tjro_juris.service import (
+    JURIS_SCHEMA_VERSION,
+    _PARQUET_SCHEMA,
+    _rows_to_parquet,
+    _to_row,
+)
 
 
 if TYPE_CHECKING:
@@ -85,7 +91,7 @@ def test_rows_to_parquet_round_trips_new_int_and_string_fields(tmp_path: Path) -
     row = _to_row(_FULL_CRAWLER_DOC)
     missing_row = _to_row({"data_julgamento": "2024-01-01"})
     out = tmp_path / "test.parquet"
-    _rows_to_parquet([row, missing_row], out)
+    _rows_to_parquet([row, missing_row], out, item_id="tjro-juris-2024")
 
     table = pq.read_table(out)
     data = table.to_pylist()
@@ -101,3 +107,45 @@ def test_rows_to_parquet_round_trips_new_int_and_string_fields(tmp_path: Path) -
     assert str(schema_types["id_processo"]) == "int64"
     assert str(schema_types["nivel_sigilo_processo"]) == "int64"
     assert str(schema_types["ds_assunto_trf"]) == "string"
+
+
+def test_rows_to_parquet_embeds_schema_version_and_item_id_in_footer(tmp_path: Path) -> None:
+    """TM-04 (docs/SECURITY_THREAT_MODEL.md) documents juris exports as not
+    emitting the identity KV_METADATA djen already writes via
+    causaganha.consolidate.schema_registry.kv_metadata_for_export. A future
+    read-side check (mirroring
+    causaganha.processos.service._validar_metadata_djen) needs this footer
+    to exist first.
+    """
+    row = _to_row(_FULL_CRAWLER_DOC)
+    out = tmp_path / "test.parquet"
+    _rows_to_parquet([row], out, item_id="tjro-juris-2024")
+
+    metadata = pq.read_schema(out).metadata
+    decoded = {k.decode(): v.decode() for k, v in metadata.items()}
+    assert decoded["causaganha.schema_version"] == JURIS_SCHEMA_VERSION
+    assert decoded["causaganha.item_id"] == "tjro-juris-2024"
+
+
+def test_rows_to_parquet_footer_metadata_is_readable_via_duckdb_parquet_kv_metadata(
+    tmp_path: Path,
+) -> None:
+    """The djen read-side check reads footers via DuckDB's
+    parquet_kv_metadata() table function
+    (causaganha.processos.service._kv_metadata) rather than pyarrow --
+    juris exports must be legible the same way for that mechanism to
+    extend to juris in a later round.
+    """
+    row = _to_row(_FULL_CRAWLER_DOC)
+    out = tmp_path / "test.parquet"
+    _rows_to_parquet([row], out, item_id="tjro-juris-2025")
+
+    con = duckdb.connect()
+    rows = con.execute(f"SELECT key, value FROM parquet_kv_metadata('{out}')").fetchall()
+
+    def _decode(value: object) -> str:
+        return value.decode("utf-8") if isinstance(value, bytes) else str(value)
+
+    kv = {_decode(k): _decode(v) for k, v in rows}
+    assert kv["causaganha.item_id"] == "tjro-juris-2025"
+    assert kv["causaganha.schema_version"] == JURIS_SCHEMA_VERSION

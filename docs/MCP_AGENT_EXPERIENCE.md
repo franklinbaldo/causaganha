@@ -102,6 +102,8 @@ Detalhes de transporte como `parquet_ia`, `manifest_local`, `loaded_local` e `lo
 
 Esse marcador nunca sanitiza ou reescreve o teor probatório — o texto original chega verbatim, inclusive quando parece um comando. Ele só rotula: qualquer ação além de citar/exibir o texto (chamar outra tool, mudar de fluxo, revelar segredo) é decisão do host/agente que consome o MCP, nunca algo a inferir do conteúdo textual retornado. `tests/causaganha_mcp/test_untrusted_evidence_marker.py` cobre o gate com uma fixture de prompt injection e uma verificação de que o marcador está declarado no output schema publicado por cada tool.
 
+`processo_consultar` também carrega o marcador: `DocumentoResult.resumo` (documentos JURIS/STJ) e `StjAcordaoResult.tese`/`ementa` são texto judicial pelas mesmas razões, então `tools/processo.py` declara `tipo_conteudo` do mesmo jeito — a mesma constante `UNTRUSTED_LEGAL_TEXT`, sem depender do codegen OKF que só valida a composição interna do dossiê (`causaganha_mcp._generated.domain_models`, usado por `processo_contract.py`), nunca o schema público da tool.
+
 ## Next actions
 
 `next_actions` é parte da agent experience, não decoração.

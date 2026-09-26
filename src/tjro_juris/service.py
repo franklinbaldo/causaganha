@@ -78,6 +78,24 @@ _INT_FIELD_NAMES = frozenset(
 )
 
 
+# TM-04 (docs/SECURITY_THREAT_MODEL.md): djen exports embed identity
+# KV_METADATA in the Parquet footer (causaganha.consolidate.schema_registry
+# .kv_metadata_for_export) so a read-side check can catch an artifact
+# swapped under an unchanged URL. juris exports didn't emit this at all —
+# same "causaganha.*" key namespace here so a future generic reader can
+# treat djen and juris artifacts uniformly. Bump on breaking schema changes
+# to _PARQUET_SCHEMA (SemVer, mirroring schema_registry's convention).
+JURIS_SCHEMA_VERSION = "1.0.0"
+
+
+def _kv_metadata_for_export(item_id: str) -> dict[str, str]:
+    """KV metadata to embed in the Parquet footer via ``replace_schema_metadata``."""
+    return {
+        "causaganha.schema_version": JURIS_SCHEMA_VERSION,
+        "causaganha.item_id": item_id,
+    }
+
+
 _MES_RE = re.compile(r"\d{4}-(0[1-9]|1[0-2])")
 
 DEFAULT_START_YEAR = 2010
@@ -226,8 +244,13 @@ def _parse_date(v: str | None) -> _dt.date | None:
         return None
 
 
-def _rows_to_parquet(rows: list[dict], out: Path) -> None:
-    """Write list of row dicts to a parquet file using pyarrow."""
+def _rows_to_parquet(rows: list[dict], out: Path, *, item_id: str) -> None:
+    """Write list of row dicts to a parquet file using pyarrow.
+
+    ``item_id`` is embedded in the footer's KV_METADATA (see
+    :data:`JURIS_SCHEMA_VERSION`) so a future read-side check can verify the
+    artifact matches the identity its own IA item URL claims.
+    """
     arrays: dict[str, list] = {f.name: [] for f in _PARQUET_SCHEMA}
     for row in rows:
         for field in _PARQUET_SCHEMA:
@@ -250,6 +273,7 @@ def _rows_to_parquet(rows: list[dict], out: Path) -> None:
     table = pa.table(
         dict(zip(_PARQUET_SCHEMA.names, arrow_cols, strict=True)), schema=_PARQUET_SCHEMA
     )
+    table = table.replace_schema_metadata(_kv_metadata_for_export(item_id))
     out.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(table, out)
 
@@ -310,7 +334,8 @@ def crawl_juris(
 
         rows = [_to_row(d) for d in docs]
         out = parquet_path(data_dir, tipo_name, year_month)
-        _rows_to_parquet(rows, out)
+        item_id = f"{ia_archive.IA_ITEM_PREFIX}-{year_month[:4]}"
+        _rows_to_parquet(rows, out, item_id=item_id)
         log.info("parquet_saved", path=str(out), rows=len(rows))
 
         entry = ManifestJurisEntry(

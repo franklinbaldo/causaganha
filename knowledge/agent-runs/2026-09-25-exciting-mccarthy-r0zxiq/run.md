@@ -1,0 +1,48 @@
+---
+type: AgentRun
+id: "2026-09-25-exciting-mccarthy-r0zxiq"
+started_at: "2026-09-25T18:24:19Z"
+completed_at: "2026-09-25T18:40:00Z"
+branch_at_start: "claude/exciting-mccarthy-r0zxiq"
+commit_at_start: "49d046164dd772012eb5b1e98832ccfe1d4407a7"
+claude_md_reading_id: "2026-09-25-exciting-mccarthy-r0zxiq-reading-claude-md"
+issues_reading_id: "2026-09-25-exciting-mccarthy-r0zxiq-reading-issues"
+prs_reading_id: "2026-09-25-exciting-mccarthy-r0zxiq-reading-prs"
+okf_reading_id: "2026-09-25-exciting-mccarthy-r0zxiq-reading-okf"
+goal_ids:
+  - "2026-09-25-exciting-mccarthy-r0zxiq-goal-datajud-kv-metadata"
+primary_goal_id: "2026-09-25-exciting-mccarthy-r0zxiq-goal-datajud-kv-metadata"
+considered_work:
+  - "#1470/#1469/#1471/#1472/#1468/#1022/#985 (Parquet/CNJ): reconfirmadas bloqueadas por credenciais Internet Archive ausentes neste tipo de sessão (10+ rodadas anteriores, ver knowledge/backlog/). Não selecionadas."
+  - "#1050 e derivadas do segmenter, com PR #1605 aberta: reconfirmado o mesmo diagnóstico de conflito de merge em branch alheia (claude/exciting-mccarthy-034xwb) sem permissão de push desta sessão, sem fato novo desde a rodada mais recente que o reconfirmou. Não selecionada."
+  - "PRs #1643/#1644/#1645 (branches codex/2026-09-25/..., ferramenta/convenção de branch distinta desta equipe de sessões claude/exciting-mccarthy-*): tratam de um tópico de segurança adjacente (fontes IA não confiáveis em reconcile/fallback JURIS/descoberta de catálogo) mas não se enquadram em 'PR desta sessão' nem 'PR que esta sessão foi pedida para observar'. Não investigadas em profundidade."
+  - "Lado de leitura do TM-04 para juris (next_move item 1 da rodada anterior, qjwekj): verificado já fechado por PR #1650 (commit 49d0461, topo de main no início desta rodada), produzida por uma sessão paralela fora do formato AgentRun/OKF (sistema 'Wisk', ver reading-okf.md) -- reconfirma a tensão AgentRun-vs-Wisk (#1256) sem reconciliação do dono humano, mas o item em si já estava resolvido. Não refeito."
+  - "#1610/TM-04 para `datajud`: releitura completa do corpo da issue #1610 (checklist de conclusão) e da tabela TM-04 revelou que a frase 'stj/datajud continuam sem emitir esse rodapé... porque stj_acordaos não tem pipeline' estava factualmente errada para `datajud` -- `src/datajud/archive.py` tem `_write_parquet`, um pipeline de export Parquet sob controle deste repo (usado por `datajud.service.persist`), diferente de `stj_acordaos` (que genuinamente não tem nenhum). Confirmado que `causaganha.processos.service.buscar_processo` e o espelho `web/src/lib/processoCnj.ts` validavam o rodapé de djen/juris mas passavam `datajud_urls` direto para a composição de `read_parquet`, sem a mesma checagem. Gap real, concreto, delimitado, simétrico em Python e TS, com precedente direto e testável no próprio repositório (o par djen/juris). Selecionado como trabalho principal desta rodada."
+selected_work: "TDD sobre o gap write+read de KV_METADATA do TM-04 (issue #1610) para a fonte `datajud`, mirroring exato do padrão já usado para djen/juris: (1) write-side -- `src/datajud/archive.py` ganha `DATAJUD_SCHEMA_VERSION='1.0.0'` e `_kv_metadata_for_export(item_id)`; `write_capa_parquet`/`write_movimentos_parquet`/`_write_parquet` passam a exigir um kwarg `tribunal` (sem shim de compatibilidade, ver decision-required-tribunal-kwarg) e embutem `causaganha.schema_version`/`causaganha.item_id` no rodapé via `table.replace_schema_metadata` antes de `pq.write_table`; `datajud/service.py::persist` e os 3 call sites de teste existentes (`tests/datajud/test_datajud_archive.py`, `tests/test_reconcile_processos.py`) atualizados para passar `tribunal=...` explicitamente. (2) read-side Python -- `causaganha/processos/service.py` ganha `_datajud_item_id_da_url`/`_validar_metadata_datajud`/`_validar_metadata_datajud_urls` (mirroring exato de `_validar_metadata_juris*`), com `buscar_processo` chamando `_validar_metadata_datajud_urls` antes de `_build_datajud`. (3) paridade TS -- `web/src/lib/processoCnj.ts` ganha `datajudItemIdDaUrl`/`validarMetadataDatajud`/`validarMetadataDatajudUrls`, chamadas antes de `buildDatajudSql` em `buscarProcesso`. (4) testes escritos primeiro contra a API alvo: RED confirmado (`ImportError: cannot import name 'DATAJUD_SCHEMA_VERSION'` na coleta de `tests/datajud/test_datajud_archive.py`), depois GREEN após a implementação -- 3 testes novos de footer (Python, incluindo leitura via `parquet_kv_metadata` do DuckDB, o mesmo caminho que o lado de leitura usa), 7 testes unitários + 2 de integração via `buscar_processo` (`TestMetadataDatajudCoerente` e os dois testes de degradação/aceitação, Python), 10 testes novos no espelho TS (`processoCnj.test.ts`, mirroring exato dos describes de juris). (5) `docs/SECURITY_THREAT_MODEL.md` TM-04 corrigido: a célula 'Estado atual' e a 'Gate automatizado' agora descrevem o fechamento de `datajud` (write+read, Python+TS) e mantêm só `stj` como pendência genuína (com a razão correta: sem pipeline de export)."
+expected_behavior: "Ver success_signal em goal-datajud-kv-metadata."
+entry_state: "new"
+target_state: "review"
+decision_ids:
+  - "2026-09-25-exciting-mccarthy-r0zxiq-decision-required-tribunal-kwarg"
+evidence_ids:
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-red-datajud-write-side"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-green-datajud-write-side"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-green-datajud-read-side"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-green-datajud-ts-parity"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-diff-threat-model-correction"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-pr-1651-opened"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-evidence-pr-1651-merged-issue-1610-closed"
+check_ids:
+  - "2026-09-25-exciting-mccarthy-r0zxiq-check-ruff"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-check-vitest-processocnj"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-check-pytest-full-suite"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-check-okf-parser-final"
+  - "2026-09-25-exciting-mccarthy-r0zxiq-check-pr-1651-ci-green"
+result_state: "merged"
+result_summary: "PR #1651 mesclada (squash, commit 02a4c75 em main) fechando o gap write+read de KV_METADATA de identidade (TM-04, issue #1610) para `datajud`, em Python e no espelho TS -- mesmo padrão já usado para djen/juris, agora simétrico nas três fontes que têm pipeline de export Parquet sob controle deste repo (`stj` continua fora, genuinamente sem pipeline). `datajud.archive.write_capa_parquet`/`write_movimentos_parquet` agora exigem `tribunal` e embutem `causaganha.schema_version`/`causaganha.item_id` no rodapé Parquet; `causaganha.processos.service.buscar_processo` e `web/src/lib/processoCnj.ts::buscarProcesso` agora leem esse rodapé (`parquet_kv_metadata`) e degradam com aviso (nunca exceção) qualquer artefato datajud cujo rodapé discorde da URL do índice, antes de compor `read_parquet`. RED (ImportError contra a API alvo) -> GREEN: `uv run pytest -q` completo verde, `npx vitest run processoCnj.test.ts` 168/168 verde, `uv run ruff check`/`format --check` limpos, `uv run okf-parser check` conformant=true. Todos os 15 check runs da PR passaram (tests tjro, validate, supply-chain, lint, web, archive-cors-proxy, djen-proxy, relay-cf, compare-product-surfaces, CodeQL x4, GitGuardian), `mergeable_state=clean`, Codex Security Review sem findings bloqueantes. Mesclada sem exigir nenhum commit de correção desta sessão. Após o merge (evento `pull_request.closed`, outcome=merged, sessão automaticamente desinscrita), releitura completa do checklist de conclusão de `#1610` (4 critérios) confirmou que os únicos gaps restantes eram exceções de escopo já documentadas (`stj` sem pipeline de export; hash/row-count de conteúdo completo, fora de alcance por decisão) -- issue `#1610` fechada via GitHub (`state_reason=completed`) com comentário citando as evidências dos três lados fechados (djen desde v3.0.0, juris PRs #1648/#1650, datajud PR #1651 desta rodada) e as duas exceções de escopo."
+next_move: "[FECHADO nesta rodada] PR #1651 mesclada; issue #1610 fechada via GitHub após confirmação de que os 4 critérios de conclusão estão satisfeitos (com as duas exceções de escopo documentadas em TM-04). Para uma rodada futura: (1) considerar levantar a tensão AgentRun-vs-Wisk (#1256) ao dono humano de forma mais direta -- esta foi a segunda vez (depois da PR #1650) que uma sessão fora do formato AgentRun/OKF desta equipe fechou um item que o next_move de uma rodada AgentRun apontava como próximo passo, sem deixar rastro em knowledge/agent-runs/; um mecanismo de sincronização entre as duas linhas evitaria retrabalho de leitura/reavaliação a cada rodada; (2) reconfirmar #1605 (segmenter) -- já bloqueado por 6+ rodadas pelo mesmo conflito de merge em branch sem permissão de push desta sessão; considerar escalar ao dono humano se a próxima rodada reconfirmar sem progresso; (3) avaliar overlap entre as PRs codex/aardvark abertas (#1643/#1644/#1645) e o texto que era de #1610 (agora fechada) -- ainda não investigado em profundidade por nenhuma rodada desta equipe; com #1610 fechada, avaliar se esse overlap ainda justifica investigação ou se as PRs codex já cobrem uma superfície distinta e sem issue de rastreamento; (4) com a matriz de segurança de `docs/SECURITY_THREAT_MODEL.md` sem nenhuma issue aberta apontando para ela agora, uma rodada futura pode escolher trabalho de outra natureza (Parquet/CNJ segue bloqueado por credenciais; segmenter segue bloqueado por #1605) ou revisitar a matriz do zero em busca de gaps ainda não documentados."
+---
+
+# Agent run
+
+Ver `.claude/agent-run-scaffold.md` para o protocolo desta rodada.

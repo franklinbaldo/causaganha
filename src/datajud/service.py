@@ -191,8 +191,8 @@ def persist(
     capa_rows = merge_capa_rows(_read_parquet_rows(capa_path), new_capa_rows)
     mov_rows = merge_movimento_rows(_read_parquet_rows(mov_path), new_mov_rows, refreshed_keys)
 
-    n_capa = archive.write_capa_parquet(capa_rows, capa_path)
-    n_mov = archive.write_movimentos_parquet(mov_rows, mov_path)
+    n_capa = archive.write_capa_parquet(capa_rows, capa_path, tribunal=tribunal)
+    n_mov = archive.write_movimentos_parquet(mov_rows, mov_path, tribunal=tribunal)
     return capa_path, mov_path, n_capa, n_mov
 
 

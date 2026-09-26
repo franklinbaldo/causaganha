@@ -16,6 +16,20 @@ curl --fail http://127.0.0.1:8080/health
 
 O container faz bind externo apenas no ambiente empacotado. O entrypoint local continua loopback-safe por padrão.
 
+Build reprodutível (#1614): a imagem base é pinada por digest e as dependências
+Python são instaladas via `uv sync --frozen` a partir do `uv.lock` commitado na
+raiz do repositório — o build falha em vez de re-resolver silenciosamente se
+`pyproject.toml` e `uv.lock` divergirem. O processo roda como usuário não-root
+(`mcp`, uid 10001) dentro do container.
+
+SBOM + scan (#1614/TM-10): o job `supply-chain` de `.github/workflows/test.yml`
+roda em toda PR — exporta o conjunto exato de dependências que o Dockerfile
+instala (`uv export --frozen --no-dev`), escaneia com `pip-audit` (falha o
+build com qualquer vulnerabilidade conhecida) e publica o SBOM CycloneDX
+resultante como artefato de build. Dependências de ferramentas de
+desenvolvimento (ex.: mkdocs-material, nunca embarcadas na imagem) ficam fora
+desse gate por desenho — ver `docs/SECURITY_THREAT_MODEL.md` TM-10.
+
 ## Contrato operacional
 
 Defaults do artefato:

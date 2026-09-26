@@ -37,6 +37,33 @@ jobs:
         # from the same view registry the render uses. No network needed.
         run: uv run python scripts/render_queries.py --check
 
+  supply-chain:
+    # #1614/TM-10: SBOM + vulnerability scan gate. Scans the exact dependency
+    # set the MCP image ships (`--no-dev`, matching deployment/mcp/Dockerfile's
+    # `uv sync --frozen --no-dev --no-editable`), not the full dev environment
+    # -- doc-tooling deps this project never ships (e.g. mkdocs-material's
+    # transitive pymdown-extensions pin) are out of scope here, tracked
+    # separately in docs/SECURITY_THREAT_MODEL.md TM-10.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: ./.github/actions/setup
+      - name: Export shipped (no-dev) dependency set
+        run: uv export --frozen --no-dev --no-hashes --no-emit-project -o requirements-mcp.txt
+      - name: Scan shipped dependencies and emit SBOM
+        # Fails the build on any known vulnerability (pip-audit's default
+        # exit code 1) -- not swallowed, not advisory-only.
+        run: uv run pip-audit -r requirements-mcp.txt --format cyclonedx-json --output sbom-mcp.json
+      - name: Publish SBOM
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: sbom-mcp-${{ github.sha }}
+          path: sbom-mcp.json
+          if-no-files-found: warn
+          retention-days: 90
+
   tests:
     runs-on: ubuntu-latest
     # The segmenter dataset suite (tests/segmenter_dataset) scales with the
@@ -91,6 +118,29 @@ jobs:
           node-version: '22'
           cache: 'npm'
           cache-dependency-path: deployment/archive-cors-proxy/package-lock.json
+      - run: npm ci
+      - name: Test
+        run: npm test
+      - name: Check bundle (dry-run, no deploy)
+        run: npm run check
+
+  relay-cf:
+    # TM-02 / #1609: this job was missing entirely before this change, so
+    # deployment/relay-cf/test/index.test.js (the egress-policy suite for
+    # the Cloudflare relay Worker) never ran in CI — mirrors the
+    # archive-cors-proxy job above, the closest sibling Worker in this repo.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: deployment/relay-cf
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: deployment/relay-cf/package-lock.json
       - run: npm ci
       - name: Test
         run: npm test
