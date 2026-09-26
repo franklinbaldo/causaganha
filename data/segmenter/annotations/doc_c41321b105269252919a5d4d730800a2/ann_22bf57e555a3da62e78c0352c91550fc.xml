@@ -1,0 +1,43 @@
+<annotation id="ann_22bf57e555a3da62e78c0352c91550fc" document_id="doc_c41321b105269252919a5d4d730800a2">
+  <annotator id="llm_technique1:second_independent_sg2540" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-26T12:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">Apelação Cível nº</inicio> 0827208-78.2021.8.12.0001
+Comarca de Campo Grande - 13ª Vara Cível
+Relator(a): Juiz Lúcio R. da Silveira
+Apelante: Elektro Redes S.A
+Advogado: Bruno Henrique Gonçalves (OAB: 131351/SP)
+Apelado: Itaú Seguros de Auto e Residência S/A
+Advogada: Cintia Malfatti Massoni Cenize <fim ord="1">(OAB: 138636/SP)</fim></cabecalho>
+
+<ementa><inicio ord="2">EMENTA - APELAÇÃO CÍVEL</inicio> - AÇÃO REGRESSIVA DE RESSARCIMENTO - RECURSO DA CONCESSIONÁRIA DE ENERGIA ELÉTRICA - PRELIMINAR DE AUSÊNCIA DE REQUERIMENTO ADMINISTRATIVO - REJEITADA - MÉRITO - SUB-ROGAÇÃO DE DIREITOS DA SEGURADORA - LEGISLAÇÃO CONSUMERISTA QUE SE APLICA AO SEGURADO - RESPONSABILIDADE CIVIL OBJETIVA DA CONCESSIONÁRIA DE ENERGIA ELÉTRICA - FALHA NA PRESTAÇÃO DE SERVIÇO COMPROVADA - INDENIZAÇÃO PAGA AO SEGURADO COMPROVADA - NEXO CAUSAL COMPROVADO - DEVER DE INDENIZAR - RECURSO CONHECIDO E DESPROVIDO. I - Não é necessário o esgotamento da via administrativa para o ajuizamento da presente ação de regresso, sendo bastante a apresentação de prova documental para solicitação de eventual ressarcimento administrativo, prescindindo-se, pois, de pedido ou esgotamento do procedimento administrativo <fundamentacao_legal ord="3">previsto Resolução Normativa n. 414/2010 da ANEEL</fundamentacao_legal>. Preliminar de ausência de interesse de agir rejeitada. II - Comprovado o pagamento da indenização ao segurado, a Seguradora-Apelada assume sua posição, sub-rogando-se em todos os seus direitos e deveres, inclusive no que diz respeito aos privilégios das normas protetivas do consumidor, tendo em vista a relação de consumo existente entre os interessados originários. III - A parte Apelada comprovou que houve sobrecarga elétrica que foi responsável por danificar os equipamentos analisados, desincumbindo-se do ônus de prova que lhe competia, <fundamentacao_legal ord="4">consoante dispõe o art. 373, I, do CPC</fundamentacao_legal>. Evidenciou-se, portanto, o nexo de causalidade entre a conduta da concessionária de energia elétrica e o dano experimentado pelos segurados da parte Apelada. Nesse sentido, cabia à Apelante provar a existência de fato impeditivo, modificativo ou extintivo do direito do Autor, <fundamentacao_legal ord="5">nos termos do art. 373, II, do mesmo diploma processual</fundamentacao_legal>, ônus do qual não se desincumbiu. IV - <fim ord="6">Recurso conhecido e desprovido</fim></ementa>. A C Ó R D Ã O <acordao_decisorio><inicio ord="7">Vistos, relatados e discutidos</inicio> estes autos, ACORDAM, em sessão permanente e virtual, os Magistrados da 4ª Câmara Cível do Tribunal de Justiça de Mato Grosso do Sul, na conformidade da ata de julgamentos, a seguinte decisão: <fim ord="8">Por unanimidade</fim></acordao_decisorio>, <resultado ord="9">afastaram a preliminar e, no mérito, negaram provimento ao recurso</resultado>, nos termos do voto do Relator.</text>
+</annotation>

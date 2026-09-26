@@ -1,0 +1,63 @@
+<annotation id="ann_150342d0f5d7e1974aca32144952526a" document_id="doc_6b9ee9d4f525b8442af4cbc20da41269">
+  <annotator id="llm_technique1:second_independent_sg2540" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched />
+  <completed_at>2026-09-26T12:00:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">Apelação Cível</inicio>  Nº <ref_processual ord="1">5002769-04.2025.4.04.7102/RS</ref_processual>
+
+ RELATORA : Juíza Federal VERA LÚCIA FEIL
+
+ APELANTE : BRUNO IAGO ESCOBAR IANGURDES (AUTOR)
+
+ ADVOGADO(A) : Francine Nunes Ávila (OAB RS076677)
+
+ ADVOGADO(A) : CLEUSA ISABEL NUNES ZULIANI PINTOS <fim ord="2">(OAB RS044748)</fim></cabecalho>
+
+<ementa><inicio ord="3">EMENTA</inicio>
+
+TRIBUTÁRIO. PROCESSO ADMINISTRATIVO FISCAL. NOTIFICAÇÃO EDITALÍCIA. LEGALIDADE. TRANSPORTE DE MERCADORIAS IMPORTADAS IRREGULARMENTE. PENA DE PERDIMENTO DO VEÍCULO TRANSPORTADOR. CONSTITUCIONALIDADE.
+
+1. Comprovada a prévia tentativa de intimação do particular no endereço por ele declarado como sendo seu domicílio tributário, é possível a intimação por edital, <fundamentacao_legal ord="4">nos termos do artigo 23, § 1º, do Decreto nº 70.235, de 1972</fundamentacao_legal>.
+
+2. A pena de perdimento não ofende o direito de propriedade assegurado constitucionalmente. 
+
+3. A pena de perdimento de veículo é aplicável à situação em que: (a) o veículo transportador pertencer ao proprietário das mercadorias apreendidas ou, (b) ainda que as mercadorias não pertençam ao proprietário do veículo, houver responsabilidade deste na prática da infração, entendida esta como o transporte de mercadorias sujeitas ao perdimento. A lei pune não apenas quem irregularmente introduziu a mercadoria no país, mas também o proprietário do veículo que o auxilia, transportando-as ou permitindo o transporte, tendo conhecimento das irregularidades que envolvem a operação.
+
+4. Na aplicação do princípio da proporcionalidade, está em exame não apenas o valor do tributo elidido e do veículo perdido. Há outros bens jurídicos protegidos pelo poder de polícia que devem ser valorados na aplicação do princípio: a saúde, a segurança pública, a economia interna (mercado privado) e o meio ambiente. A aplicação do princípio não se resume na comparação do resultado econômico do ilícito (valor de aquisição e de revenda das mercadorias, valor dos tributos elididos) com o resultado econômico da punição (valor do veículo apreendido).
+
+5. O caráter comercial e a expressividade das mercadorias irregularmente nacionalizadas justificam a aplicação da pena de perdimento do veículo transportador, <fim ord="5">com atenção ao princípio da proporcionalidade.</fim></ementa>
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="6">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 2ª Turma do Tribunal Regional Federal da 4ª Região decidiu, <fim ord="7">por unanimidade</fim></acordao_decisorio>, <resultado ord="8">negar  provimento</resultado> à apelação, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Porto Alegre, 18 de dezembro de 2025.</text>
+</annotation>
