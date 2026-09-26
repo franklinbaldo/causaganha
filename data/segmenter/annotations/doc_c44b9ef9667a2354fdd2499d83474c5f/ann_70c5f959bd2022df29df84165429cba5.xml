@@ -1,0 +1,37 @@
+<annotation id="ann_70c5f959bd2022df29df84165429cba5" document_id="doc_c44b9ef9667a2354fdd2499d83474c5f">
+  <annotator id="llm_technique1:djen_sample_batch1" model_family="prompt_subagents:general-purpose" guideline_version="segmenter_v7.1" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="relatorio" reason="no closing cue present in source text (narrative flows directly into merit reasoning, no heading or 'É o relatório.' equivalent)" />
+  </allowed_unmatched>
+  <completed_at>2026-09-26T03:50:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">Poder Judiciário</inicio> da Paraíba 1º Juizado Especial Cível de Campina Grande PROCEDIMENTO DO JUIZADO ESPECIAL CÍVEL (436) <ref_processual ord="1">0824507-58.2024.8.15.0001</ref_processual> [Inclusão Indevida em Cadastro de Inadimplentes] AUTOR: EDPO FRANCISCO DE SENA CAVALCANTI <fim ord="2">REU: SERASA S.A.</fim></cabecalho> SENTENÇA <relatorio><inicio ord="3">Trata-se de</inicio></relatorio> Cumprimento de Sentença proposto por ÉDPO FRANCISCO DE SENA CAVALCANTI em desfavor da SERASA S.A., nos autos da Ação de Inclusão Indevida em Cadastro de Inadimplentes. A sentença proferida nos autos julgou procedente o pedido inicial, condenando a Ré ao pagamento de indenização por danos morais no valor de <valor_condenacao ord="4">R$ 3.000,00</valor_condenacao> e honorários de sucumbência de 15% (quinze por cento), além de deferir tutela antecipada para determinar a retirada de anotação indevida do nome do Autor, com imposição de multa diária de <valor_condenacao ord="5">R$ 300,00 (trezentos reais)</valor_condenacao> em caso de descumprimento, limitada ao valor de <valor_condenacao ord="6">R$ 3.000,00 (três mil reais)</valor_condenacao>. O Autor requereu o cumprimento da obrigação de pagar a indenização por danos morais e os honorários de sucumbência, bem como a satisfação da obrigação de fazer (retirada da anotação). A obrigação de pagar foi satisfeita no ID 123420239. O exequente requereu a execução da multa diária (astreintes) sob a alegação de que a obrigação de fazer não foi cumprida no prazo devido após intimação por domicílio eletrônico, requerendo, inclusive, a majoração do valor. A parte executada informou o cumprimento da obrigação de fazer. 129438219 Intimado o exequente para manifestação, este não impugnou a baixa da negativação, contudo, requereu a execução da multa, suscitando o descumprimento fora do prazo. Em despacho anterior [ID 156264539, p. 1], já se apontou que, para fins de execução da multa, faz-se necessária a intimação pessoal através de carta com aviso de recebimento (AR) ou mandado judicial. O Autor, em petição de reconsideração [ID 156618087, p. 2] e em petição de chamamento à ordem [ID 126326074, p. 2], argumenta que a intimação por domicílio eletrônico seria válida e equivalente à intimação pessoal, com base em precedente, e pugna pela execução da multa e sua majoração. É imperioso destacar que, para a exigibilidade da multa diária (astreintes), que possui natureza coercitiva, a jurisprudência dominante e a melhor exegese legal exigem a intimação pessoal da parte devedora. Conforme a Súmula 410 do Superior Tribunal de Justiça, "A prévia intimação pessoal do devedor constitui condição necessária para a cobrança de multa pelo descumprimento de obrigação de fazer ou não fazer". Esta exigência visa garantir a ciência inequívoca da determinação judicial e das consequências do seu descumprimento, permitindo à parte a oportunidade de cumprir a ordem e evitar a sanção pecuniária. Embora a intimação por domicílio eletrônico possa ser considerada válida para a maioria dos atos processuais, conforme a legislação processual e as normativas do Conselho Nacional de Justiça, ela não se equipara à intimação pessoal por carta com AR ou mandado judicial quando se trata da execução de multa por descumprimento de obrigação de fazer. A finalidade específica das astreintes impõe um rigor maior na forma de comunicação para a sua efetivação. A intimação pessoal por carta com AR ou mandado assegura que a parte foi formalmente cientificada da obrigação e da penalidade, não deixando margem para dúvidas quanto ao seu conhecimento e possibilitando a plena eficácia da medida coercitiva. A simples intimação por domicílio eletrônico, sem a prova da efetiva ciência do conteúdo da decisão que impõe a multa, não atende a essa exigência formal e material para a constituição da mora e, consequentemente, para a exigibilidade da multa. Portanto, para que a multa diária por descumprimento de obrigação de fazer seja exigível, a intimação da parte deve ocorrer pessoalmente, seja por carta com aviso de recebimento (AR), seja por mandado judicial. A intimação realizada exclusivamente por domicílio eletrônico, embora válida para outros fins, não é suficiente para dar início à contagem da multa. Assim, considerando que a intimação da tutela concedida na sentença foi realizada através do domicílio eletrônico e não por carta com AR ou mandado judicial [ID 156264539, p. 1], a exigibilidade da multa por descumprimento da obrigação de fazer não se mostra configurada nos termos exigidos por este Juízo. <dispositivo_abertura ord="7">Diante do exposto</dispositivo_abertura>, <resultado ord="8">JULGO EXTINTO O CUMPRIMENTO DE SENTENÇA</resultado>, <fundamentacao_legal ord="9">com fundamento no art. 924, inciso II, do Código de Processo Civil</fundamentacao_legal>. Contudo, REJEITO o pedido de execução da multa (astreintes), porquanto a exigibilidade das astreintes depende de intimação pessoal da parte devedora por carta com AR ou mandado judicial, conforme Súmula 410 do STJ, não sendo suficiente a intimação por domicílio eletrônico para este fim. ALTERE-SE CLASSE PARA CUMPRIMENTO DE SENTENÇA. <encerramento><inicio ord="10">P.R.I.</inicio> Após o trânsito em julgado, arquivem-se os autos, com as devidas baixas. Campina Grande-PB, data do certificado digital. Deborah Cavalcanti Figueiredo <fim ord="11">Juíza de Direito</fim></encerramento></text>
+</annotation>

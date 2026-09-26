@@ -224,17 +224,24 @@ def test_real_store_has_at_least_one_evaluation_eligible_document() -> None:
     assert status["evaluation_eligible_count"] >= 1
     assert status["blocked_on_reviews"] is False
 
-    # New regression guard (introduced c4y4rc): RFC 0012 Sec 5 item 4's per-split
-    # floor (>=30 val, >=30 test, each adjudicated) is a function of *total corpus
-    # size* (val_target = round(total_eligible * val_ratio)), not just review
-    # coverage. As of 0iuk22 (68 documents, first non-TJRO batch via
-    # ingest_djen_sample_technique1_batch.py) even simulating 100% adjudication of
-    # every document, assign_splits' own ratio math still caps val/test at ~10
-    # each -- far short of 30. If this assertion ever starts failing because
-    # corpus_scale_blocks_floor is False, issue #1050 (corpus scale-up) has made
-    # enough real progress to lift this structural ceiling -- update/remove this
-    # guard instead of treating a flip here as a failure.
-    assert status["corpus_scale_blocks_floor"] is True
+    # Former regression guard (introduced c4y4rc, asserted `corpus_scale_blocks_floor
+    # is True` / `meets_rfc_0012_split_floor is False`): RFC 0012 Sec 5 item 4's
+    # per-split floor (>=30 val, >=30 test, each adjudicated) is a function of
+    # *total corpus size* (val_target = round(total_eligible * val_ratio)), not
+    # just review coverage. That guard's own docstring called for this update:
+    # "If this assertion ever starts failing because corpus_scale_blocks_floor is
+    # False, issue #1050 (corpus scale-up) has made enough real progress to lift
+    # this structural ceiling -- update/remove this guard instead of treating a
+    # flip here as a failure." It has: Lote 28 (#1050, batch28) pushed
+    # document_count from 195 to 197, and val_ceiling_at_full_adjudication /
+    # test_ceiling_at_full_adjudication both reached 30 for the first time (see
+    # test_real_store_reflects_batch28_corpus_growth). The corpus-size ceiling is
+    # no longer the blocker; #1051's remaining work (scaling review_count from 32
+    # towards the real, non-ceiling val/test counts of >=30/>=30) is now purely an
+    # adjudication-coverage gap, not a structural one.
+    assert status["corpus_scale_blocks_floor"] is False
+    assert status["val_ceiling_at_full_adjudication"] >= 30
+    assert status["test_ceiling_at_full_adjudication"] >= 30
     assert status["meets_rfc_0012_split_floor"] is False
 
 
@@ -800,6 +807,57 @@ def test_real_store_reflects_batch27_corpus_growth() -> None:
     assert len(documents) >= 195
     assert any(h.startswith("2e2ead10") for h in hashes), "TJES/577054715 batch27 document missing"
     assert any(h.startswith("fc6215c7") for h in hashes), "TJGO/543518267 batch27 document missing"
+
+
+def test_real_store_reflects_batch28_corpus_growth() -> None:
+    """Regression guard for #1050's twenty-eighth real DJEN sample batch.
+
+    Snapshot before this batch: 195 documents (after batch27 merged, plus
+    PR #1665's #1051 adjudication which only touches ``review_count``, not
+    ``document_count``). ``scripts/segmenter_governance_status.py`` run
+    live at the start of this round showed ``val_ceiling_at_full_adjudication``/
+    ``test_ceiling_at_full_adjudication`` both at 29 -- one document short
+    of RFC 0012 Sec 5 item 4's >=30/>=30 per-split floor even at 100%
+    adjudication of the existing pool. Growing the corpus (not adjudicating
+    it further) is the only lever that can raise that ceiling.
+
+    A live scan of every ``data/segmenter_samples/*.jsonl`` candidate
+    (Sentenca/Acordao only, >=2500 chars, deduped by ``(tribunal, id)``
+    against the store's already-ingested ``djen_sample_technique1`` source
+    URIs) found the lowest non-exhausted tribunal tier at ``store_count=6``:
+    TJMA, TJPA, TJPB, TJRJ, TJTO, TRF3, TRF5, TJMT all tied (TJES/TJGO moved
+    to 7 by batch27). TJMA was reconfirmed unusable -- its one remaining
+    candidate (42728925) is the same near-duplicate batch26/batch27 already
+    rejected (ratio 0.968 against an already-ingested TJMA document).
+
+    TJPB/578828501 (Sentenca, Juizado Especial Civel de Campina Grande,
+    cumprimento de sentenca, 4932 chars) and TJMT/74433596 (Sentenca, 6o
+    Juizado Especial Civel de Cuiaba, 5230 chars) were picked: both real,
+    never-used, both tied at ``store_count=6`` before this batch. Live
+    ``difflib.SequenceMatcher.ratio()`` against the entire 195-document
+    store: TJPB max ratio 0.025 (no similar document); TJMT max ratio 0.64
+    against an already-ingested TJMT document from the same court
+    (``djen_sample_technique1:batch1:TJMT:74430633``) -- inspected directly
+    and confirmed to be template boilerplate similarity (same Juizado
+    Especial Civel de Cuiaba "Vistos etc." opening formula), not a
+    near-duplicate: different process numbers, different parties, different
+    claims. Not rejected.
+
+    If corpus growth from a later concurrent batch changes the exact
+    total, update the count here rather than treating a higher number as
+    a failure -- the two specific document hashes are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    documents = list(store.list_documents())
+    hashes = {doc.source.source_hash for doc in documents}
+
+    assert len(documents) >= 197
+    assert any(h.startswith("9b4452b6") for h in hashes), "TJPB/578828501 batch28 document missing"
+    assert any(h.startswith("a3716fe5") for h in hashes), "TJMT/74433596 batch28 document missing"
 
 
 def test_main_prints_json_status(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
