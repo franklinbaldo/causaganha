@@ -1014,6 +1014,47 @@ def test_real_store_reflects_1051_bomtmk_round_adjudication() -> None:
     assert status["test_count"] > 7
 
 
+def test_real_store_reflects_1051_uq3be8_round_adjudication() -> None:
+    """Regression guard for #1051's 11th/12th/13th accepted reviews (round uq3be8).
+
+    Snapshot before this round: 197 documents, 40 accepted reviews
+    (`val_count`=30, at the corpus-size ceiling; `test_count`=10, still
+    behind the RFC 0012 Sec 5 item 4 floor of 30). Three more documents were
+    adjudicated via a genuinely independent second annotation
+    (`model_family=prompt_subagents:haiku`, distinct from the first
+    annotation's `model_family=prompt_subagents:general-purpose`):
+    `doc_f6bf5be833edfed990b813302278409d` (TJRS, sentenca),
+    `doc_cfa06dbce6009c921f4f66a5126c2056` (TJRS, sentenca), and
+    `doc_9d8bb4320467e630a1d7805adac5c315` (TRF4, acordao). All three were
+    selected because a live simulation (`assign_splits` with each candidate
+    added to `evaluation_eligible` in isolation, then jointly with the
+    round's full batch, before spending any annotation effort) showed the
+    joint addition raises `test_count` from 10 to 13.
+
+    If corpus/review growth from a later concurrent round changes the exact
+    totals, update the counts here rather than treating a higher number as a
+    failure -- the three specific document ids are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    reviews = list(store.list_reviews())
+    reviewed_document_ids = {r.document_id for r in reviews if r.status == "accepted"}
+
+    assert len(reviews) >= 43
+    assert "doc_f6bf5be833edfed990b813302278409d" in reviewed_document_ids
+    assert "doc_cfa06dbce6009c921f4f66a5126c2056" in reviewed_document_ids
+    assert "doc_9d8bb4320467e630a1d7805adac5c315" in reviewed_document_ids
+
+    mod = load_script("segmenter_governance_status", "scripts/segmenter_governance_status.py")
+    status = mod.compute_governance_status(store_dir)  # type: ignore[attr-defined]
+
+    assert status["review_count"] >= 43
+    assert status["test_count"] > 10
+
+
 def test_real_store_reflects_1051_pg2bcv_round_adjudication() -> None:
     """Regression guard for #1051's 11th-15th accepted reviews (this round).
 

@@ -1,0 +1,72 @@
+<annotation id="ann_bb15e8a676b98f8913b3dbdcedb6c2b3" document_id="doc_f6bf5be833edfed990b813302278409d">
+  <annotator id="llm_technique1:second_independent_uq3be8_1" model_family="prompt_subagents:haiku" guideline_version="segmenter_v7" seeded_with="none" />
+  <ontology_version>segmenter-ontology-v8.0.0</ontology_version>
+  <covered_categories>
+    <category>acordao_decisorio_fim</category>
+    <category>acordao_decisorio_inicio</category>
+    <category>cabecalho_fim</category>
+    <category>cabecalho_inicio</category>
+    <category>capitulo_merito_fim</category>
+    <category>capitulo_merito_inicio</category>
+    <category>custas_fim</category>
+    <category>custas_inicio</category>
+    <category>dispositivo_abertura</category>
+    <category>ementa_fim</category>
+    <category>ementa_inicio</category>
+    <category>encerramento_fim</category>
+    <category>encerramento_inicio</category>
+    <category>fundamentacao_legal</category>
+    <category>honorarios_fim</category>
+    <category>honorarios_inicio</category>
+    <category>preliminar_fim</category>
+    <category>preliminar_inicio</category>
+    <category>ref_processual</category>
+    <category>relatorio_fim</category>
+    <category>relatorio_inicio</category>
+    <category>resultado</category>
+    <category>valor_condenacao</category>
+    <category>voto_fim</category>
+    <category>voto_inicio</category>
+  </covered_categories>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="no closing cue (P.R.I./judge title) after Publique-se.; extends to EOD per guideline" />
+  </allowed_unmatched>
+  <completed_at>2026-09-26T09:40:00Z</completed_at>
+  <annotation_method>independent_full_read</annotation_method>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO COMUM CÍVEL</inicio>  Nº <ref_processual ord="1">5002983-48.2021.8.21.0014/RS</ref_processual>
+
+ AUTOR : MAGDA TERESINHA TEIXEIRA PRUDENCIO
+
+ ADVOGADO(A) : LENON OLIVEIRA HORBACH (OAB RS105118)
+
+ AUTOR : LUIZ CLAUDIO TEIXEIRA PRUDENCIO
+
+ ADVOGADO(A) : LENON OLIVEIRA HORBACH (OAB RS105118)
+
+ AUTOR : LITIERI JACOBUS DOS SANTOS
+
+ ADVOGADO(A) : LENON OLIVEIRA HORBACH (OAB RS105118)
+
+ RÉU : N C KLEIN INCORPORADORA E ADMINISTRADORA D IMOVEIS LTDA
+
+ ADVOGADO(A) : FERNANDA PEREIRA RODRIGUES ALVES (OAB RS086337)
+
+ ADVOGADO(A) : IZADORA PEREIRA RODRIGUES ALVES (OAB RS044480)
+
+ ADVOGADO(A) : ANDRE DE ALEXANDRI (OAB RS025307)
+
+ RÉU : IMOBILIARIA VILA RICA NEGOCIOS IMOBILIARIOS LTDA
+
+ ADVOGADO(A) : FLOR EDISON DA SILVA FILHO (OAB RS005687)
+
+ ADVOGADO(A) : CÉSAR AUGUSTO BOEIRA DA SILVA (OAB RS047002)
+
+ ADVOGADO(A) : JOSE RAIMUNDO BLUMEL GENEROSI (OAB RS111391)
+
+ ADVOGADO(A) : GUSTAVO PORTO BORJES (OAB RS062561)
+
+ ADVOGADO(A) : <fim ord="2">ADYR NEY GENEROSI FILHO (OAB RS020068)</fim></cabecalho>
+
+SENTENÇA
+III. DISPOSITIVO <dispositivo_abertura ord="3">Ante o exposto</dispositivo_abertura>, e por tudo mais que dos autos consta, HOMOLOGO, por sentença, para produzir seus jurídicos e legais efeitos, o acordo celebrado entre as partes, cujos termos constam na petição do Evento evento 99, ACORDO1. Em consequência, <resultado ord="4">JULGO EXTINTO</resultado>, com resolução de mérito, <fundamentacao_legal ord="5">com fundamento no artigo 487, inciso III, alínea 'b', do Código de Processo Civil</fundamentacao_legal>. As custas processuais remanescentes, se houver, deverão ser rateadas entre as partes, na proporção de 50% para cada uma, <fundamentacao_legal ord="6">conforme artigo 90, § 2º, do Código de Processo Civil</fundamentacao_legal>, ficando, contudo, suspensa a exigibilidade da quota-parte cabível aos autores, em razão do benefício da gratuidade da justiça que lhes foi deferido e não restou revogado. Os honorários advocatícios são regidos pelo que foi expressamente pactuado na transação, não havendo que se falar em fixação de verba sucumbencial por este juízo. <encerramento><inicio ord="7">Publique-se.</inicio></encerramento> Registre-se. Intimem-se. Com o trânsito em julgado e cumpridas as formalidades legais, não havendo outras pendências, arquivem-se ambos os feitos com as devidas baixas. Ficam as partes cientes de que o eventual descumprimento da avença deverá ser noticiado nestes autos, para fins de instauração da fase de cumprimento de sentença.</text>
+</annotation>

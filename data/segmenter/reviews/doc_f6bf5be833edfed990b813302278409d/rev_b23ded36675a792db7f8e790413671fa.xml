@@ -1,0 +1,54 @@
+<review id="rev_b23ded36675a792db7f8e790413671fa" document_id="doc_f6bf5be833edfed990b813302278409d">
+  <input_annotations>
+    <annotation_id>ann_4bfd14d95ec0dfcc105dcc5d98764295</annotation_id>
+    <annotation_id>ann_bb15e8a676b98f8913b3dbdcedb6c2b3</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="encerramento" reason="no closing cue (P.R.I./judge title) after Publique-se.; extends to EOD per guideline" />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:uq3be8</reviewer>
+  </reviewers>
+  <resolution>Adopted annotation B's tighter cabecalho/dispositivo_abertura/resultado spans and its standalone ref_processual tag (matches Rule 1's short-anchor rule and the guideline's own dispositivo_abertura/resultado examples); kept annotation A's custas/honorarios tags (real content B omitted entirely -- the custas/honorarios paragraph is genuinely present in the document, B under-read it).</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 3 span(s) agreed by both annotators, 8 only in annotation A, 5 only in annotation B — categories in A-only: ['cabecalho_fim', 'cabecalho_inicio', 'custas_fim', 'custas_inicio', 'dispositivo_abertura', 'honorarios_fim', 'honorarios_inicio', 'resultado']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'dispositivo_abertura', 'ref_processual', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T09:45:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">PROCEDIMENTO COMUM CÍVEL</inicio>  Nº <ref_processual ord="1">5002983-48.2021.8.21.0014/RS</ref_processual>
+
+ AUTOR : MAGDA TERESINHA TEIXEIRA PRUDENCIO
+
+ ADVOGADO(A) : LENON OLIVEIRA HORBACH (OAB RS105118)
+
+ AUTOR : LUIZ CLAUDIO TEIXEIRA PRUDENCIO
+
+ ADVOGADO(A) : LENON OLIVEIRA HORBACH (OAB RS105118)
+
+ AUTOR : LITIERI JACOBUS DOS SANTOS
+
+ ADVOGADO(A) : LENON OLIVEIRA HORBACH (OAB RS105118)
+
+ RÉU : N C KLEIN INCORPORADORA E ADMINISTRADORA D IMOVEIS LTDA
+
+ ADVOGADO(A) : FERNANDA PEREIRA RODRIGUES ALVES (OAB RS086337)
+
+ ADVOGADO(A) : IZADORA PEREIRA RODRIGUES ALVES (OAB RS044480)
+
+ ADVOGADO(A) : ANDRE DE ALEXANDRI (OAB RS025307)
+
+ RÉU : IMOBILIARIA VILA RICA NEGOCIOS IMOBILIARIOS LTDA
+
+ ADVOGADO(A) : FLOR EDISON DA SILVA FILHO (OAB RS005687)
+
+ ADVOGADO(A) : CÉSAR AUGUSTO BOEIRA DA SILVA (OAB RS047002)
+
+ ADVOGADO(A) : JOSE RAIMUNDO BLUMEL GENEROSI (OAB RS111391)
+
+ ADVOGADO(A) : GUSTAVO PORTO BORJES (OAB RS062561)
+
+ ADVOGADO(A) : <fim ord="2">ADYR NEY GENEROSI FILHO (OAB RS020068)</fim></cabecalho>
+
+SENTENÇA
+III. DISPOSITIVO <dispositivo_abertura ord="3">Ante o exposto</dispositivo_abertura>, e por tudo mais que dos autos consta, HOMOLOGO, por sentença, para produzir seus jurídicos e legais efeitos, o acordo celebrado entre as partes, cujos termos constam na petição do Evento evento 99, ACORDO1. Em consequência, <resultado ord="4">JULGO EXTINTO</resultado>, com resolução de mérito, <fundamentacao_legal ord="5">com fundamento no artigo 487, inciso III, alínea 'b', do Código de Processo Civil</fundamentacao_legal>. <custas><inicio ord="7">As custas processuais remanescentes</inicio>, se houver, deverão ser rateadas entre as partes, na proporção de 50% para cada uma, <fundamentacao_legal ord="6">conforme artigo 90, § 2º, do Código de Processo Civil</fundamentacao_legal>, ficando, contudo, suspensa a exigibilidade da quota-parte cabível aos autores, em razão do benefício da gratuidade da justiça que lhes foi deferido e <fim ord="8">não restou revogado.</fim></custas> <honorarios><inicio ord="9">Os honorários advocatícios são regidos</inicio> pelo que foi expressamente pactuado na transação, não havendo que se falar em fixação de verba sucumbencial <fim ord="10">por este juízo.</fim></honorarios> <encerramento><inicio ord="11">Publique-se.</inicio></encerramento> Registre-se. Intimem-se. Com o trânsito em julgado e cumpridas as formalidades legais, não havendo outras pendências, arquivem-se ambos os feitos com as devidas baixas. Ficam as partes cientes de que o eventual descumprimento da avença deverá ser noticiado nestes autos, para fins de instauração da fase de cumprimento de sentença.</text>
+</review>

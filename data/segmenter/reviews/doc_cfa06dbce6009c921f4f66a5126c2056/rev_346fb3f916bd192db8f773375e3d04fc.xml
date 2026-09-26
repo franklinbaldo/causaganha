@@ -1,0 +1,29 @@
+<review id="rev_346fb3f916bd192db8f773375e3d04fc" document_id="doc_cfa06dbce6009c921f4f66a5126c2056">
+  <input_annotations>
+    <annotation_id>ann_ffebf49b747553595fe8bfeaa9c2b1ec</annotation_id>
+    <annotation_id>ann_232c4172f347aaaf1e468745e7c4cf5c</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="honorarios" reason="Same sentence as custas above -- both open and close together at EOD with no separate closing phrase for honorarios." />
+    <entry base="custas" reason="TJRS sentenca excerpt ends with the custas/honorarios sentence -- no distinct closing cue for custas separate from honorarios; extends to EOD." />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:uq3be8</reviewer>
+  </reviewers>
+  <resolution>Adopted annotation B's cabecalho tag (real header content A missed entirely) and its full-suffix ref_processual span (matches this corpus's established '/RS' suffix convention). Kept annotation A's custas/honorarios tags (real content B missed). Tightened B's 4th fundamentacao_legal span to just the parenthetical article/law citation (dropping the vague descriptive lead-in per Rule 1's ~120-char anchor cap -- the original 138-char span was caught by scripts/segmenter_semantic_audit.py's long_anchor check and fixed in the raw second annotation itself before adjudication, not just in the review); kept A's tighter first fundamentacao_legal span over B's longer version for the same reason.</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 4 span(s) agreed by both annotators, 4 only in annotation A, 5 only in annotation B — categories in A-only: ['custas_inicio', 'fundamentacao_legal', 'honorarios_inicio', 'ref_processual']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'fundamentacao_legal', 'ref_processual']</note>
+  </notes>
+  <approved_at>2026-09-26T09:45:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">LIQUIDAÇÃO POR ARBITRAMENTO</inicio>  Nº <ref_processual ord="1">5001217-29.2018.8.21.0025/RS</ref_processual>
+
+ AUTOR : SOLANGE DA CUNHA FONSECA
+
+ ADVOGADO(A) : MAURO ROBERTO SILVEIRA SONEGO (OAB RS061491)
+
+ ADVOGADO(A) : ENILDA MOURA MOTTA <fim ord="2">(OAB RS047154)</fim></cabecalho>
+
+SENTENÇA
+IV.- Do dispositivo. <dispositivo_abertura ord="3">ISSO POSTO</dispositivo_abertura>, <resultado ord="4">acolho PARCIALMENTE</resultado> a impugnação apresentada pelo Município de Santana do Livramento, pelas razões acima apontadas, determinando à remessa dos autos à CCALC, para fins de elaboração de novo cálculo de liquidação, devendo ser observados os seguintes parâmetros: Termo Inicial de Apuração: As diferenças salariais deverão ser apuradas a partir de 27 de abril de 2011; Período de Apuração das Diferenças: As diferenças salariais serão devidas exclusivamente para o mês de abril de 2011 e, para os anos seguintes, apenas nos meses de janeiro a abril, abrangendo o período de 2012 a 2017. Deverá ser excluída da apuração qualquer diferença para os meses de maio a dezembro de todos os anos, bem como para todo o período posterior a abril de 2017. Base de Cálculo: Deverá ser utilizado como paradigma o vencimento básico inicial da carreira do professor, sem a incidência de reflexos automáticos e demais vantagens ou gratificações, salvo expressa previsão em lei municipal que determine sua integração, o que não restou demonstrado nos autos, <fundamentacao_legal ord="5">em consonância com o Tema 911 do STJ</fundamentacao_legal> e a jurisprudência do TJRS. Atualização Monetária e Juros de Mora: A correção monetária das dívidas não-tributárias deverá ser realizada pelo Índice de Preços ao Consumador Amplo Especial (IPCA-E), e os juros de mora, a partir da citação, deverão incidir conforme o índice de remuneração oficial da caderneta de poupança <fundamentacao_legal ord="6">(art. 1º-F da Lei nº 9.494/97, com a redação dada pela Lei nº 11.960/09)</fundamentacao_legal>, <fundamentacao_legal ord="7">observando-se os Temas 810 do STF e 905 do STJ</fundamentacao_legal>. A partir de dezembro de 2021, <fundamentacao_legal ord="8">com observância da EC n.º 113</fundamentacao_legal>, que indica que para fins de atualização monetária, de remuneração do capital e de compensação da mora, inclusive do precatório, haverá a incidência, uma única vez, até o efetivo pagamento, do índice da taxa referencial do Sistema Especial de Liquidação e de Custódia (Selic), acumulado mensalmente.  Intimem-se. Após, encaminhem-se os autos à CCalc. Após a apresentação do cálculo pela CCalc, intimem-se as partes para manifestação no prazo legal. <custas><inicio ord="9">Custas processuais</inicio></custas> e <honorarios><inicio ord="10">honorários advocatícios</inicio></honorarios> serão definidos oportunamente, após a homologação do valor final da liquidação.</text>
+</review>

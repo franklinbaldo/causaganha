@@ -1,0 +1,65 @@
+<review id="rev_14ce178d2c5e7a29f78487b6a08e51a5" document_id="doc_9d8bb4320467e630a1d7805adac5c315">
+  <input_annotations>
+    <annotation_id>ann_7bff4110206271075fc0ead1ff72c6c4</annotation_id>
+    <annotation_id>ann_c73dc42a37720bf7b9897c535b5a97c4</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="ementa" reason="capa+ementa-estruturada export format with no separate RELATORIO/VOTO section; extends to EOD per guideline note" />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:uq3be8</reviewer>
+  </reviewers>
+  <resolution>Adopted annotation B's cabecalho tag (real header content A missed entirely) and B's split of the collegiate closing into acordao_decisorio_fim ('por unanimidade') plus a separately-tagged resultado ('negar provimento à apelação') -- matching the precedent from round bomtmk's TJSE adjudication of preferring a separately-tagged resultado over a single fused acordao_decisorio_fim span. Kept the matched ref_processual/ementa_inicio/acordao_decisorio_inicio anchors from both annotations. This document's second annotation needed one retry: the first attempt (rejected, never ingested) dropped an entire '\''\n\nACÓRDÃO'\'' heading substring and normalized ~20 non-breaking-space/curly-quote characters to ASCII -- a genuine content-loss defect caught by verbatim-fidelity verification before ingestion, not a judgment call; the retry preserved every character exactly.</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 3 span(s) agreed by both annotators, 1 only in annotation A, 4 only in annotation B — categories in A-only: ['acordao_decisorio_fim']; categories in B-only: ['acordao_decisorio_fim', 'cabecalho_fim', 'cabecalho_inicio', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T09:52:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Apelação Cível</inicio>  Nº <ref_processual ord="1">5003058-31.2025.4.04.7200/SC</ref_processual>
+
+ RELATORA : Juíza Federal VERA LÚCIA FEIL
+
+ APELANTE : REYC COMERCIO E PARTICIPACOES LTDA (IMPETRANTE)
+
+ ADVOGADO(A) : DANIEL LANNES POUBEL (OAB RJ172745)
+
+ ADVOGADO(A) : DANIEL BATISTA PEREIRA SERRA LIMA (<fim ord="2">OAB RJ159708</fim></cabecalho>)
+
+<ementa><inicio ord="3">EMENTA</inicio></ementa>
+
+DIREITO TRIBUTÁRIO.EXCLUSÃO DO PIS e da COFINS DA BASE DE CÁLCULO DO PIS E DA COFINS. IMPOSSIBILIDADE. 
+
+I. CASO EM EXAME
+
+Apelação em mandado de segurança pretendendo a exclusão do PIS e da COFINS da base de cálculo das contribuições ao PIS e COFINS, bem como a declaração do direito de compensar os valores indevidamente recolhidos a tal título, nos últimos cinco anos, atualizados pela SELIC.
+
+II. QUESTÃO EM DISCUSSÃO  
+
+Definir se é possível a exclusão do PIS e da COFINS da base de cálculo das contribuição ao PIS e COFINS. 
+
+III. RAZÕES DE DECIDIR  
+
+A Constituição outorga competência para a União instituir contribuições tendo como base de cálculo a “receita ou faturamento” (art. 195, I, letra b; art. 239, caput, da CRFB).  
+
+O conceito de receita bruta, base de cálculo das contribuições ao PIS e à COFINS, abrange os tributos sobre ela incidentes, como o próprio PIS e a COFINS (art. 12, § 5º, do Decreto-Lei nº 1.598/1977, na redação da Lei nº 12.973/2014).  
+
+É constitucional a regra do § 5º do artigo 12 do Decreto-Lei nº 1.598/1977, que permite a inclusão do PIS e da COFINS na base de cálculo do PIS e da COFINS.  
+
+A tese firmada no Tema 69/STF (exclusão do ICMS da base do PIS/COFINS) não se aplica à matéria discutida no presente feito, pois é vedada a aplicação da analogia em matéria tributária, seja para cobrar tributos ou para desonerar o contribuinte de pagá-los.
+
+IV. DISPOSITIVO E TESE  
+
+Recurso desprovido.  
+
+Tese de julgamento: O contribuinte não tem direito de excluir da base de cálculo do PIS e da COFINS os valores correspondentes às contribuições ao PIS e à COFINS.  
+
+Dispositivos relevantes citados: CF/88, art. 195, I, "b"; DL nº 1.598/1977, art. 12; Lei nº 12.973/2014.  
+
+Jurisprudência relevante citada: STF, RE nº 240.785; STF, RE nº 574.706; STF, RE nº 582461; STJ, REsp 1144469/PR.
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="4">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 2ª Turma do Tribunal Regional Federal da 4ª Região decidiu, <fim ord="5">por unanimidade</fim></acordao_decisorio>, <resultado ord="6">negar  provimento à apelação</resultado>, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Porto Alegre, 18 de dezembro de 2025.</text>
+</review>
