@@ -211,23 +211,27 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     ``valor_condenacao``, five raw "R$" occurrences, the heuristic's ``>2``
     threshold flags it anyway.
 
-    ``doc_3b0be436ba6753185997c37b2b6b9765`` (djen_sample batch8, TJSE,
-    2026-09-16) is the same shape of false positive again for
-    ``fundamentacao_legal_collapsed``: this is a compact Turma Recursal
-    ementa+acordao export where the EMENTA block enumerates several
-    "ART." citations in its caps-lock keyword-abstract style (art. 373,
-    II do CPC; art. 42, parágrafo único, do CDC) -- an ementa's citations
-    are boundary content inside ``ementa_inicio``/``ementa_fim``, not
-    reasoning prose, and the guideline never asks for per-citation tagging
-    inside an ementa. The one real ``fundamentacao_legal`` span
-    ("NOS TERMOS DO ART. 142, §2º, I DO RITJSE.") sits in the
-    acordao_decisorio region; a second "ART. 55, 2ª PARTE, DA LEI
-    9.099/95." citation was deliberately left untagged because it is
-    identical, verbatim, to the acordao_decisorio's own ``_fim`` anchor
-    text (tagging it twice would overlap two categories on the same span,
-    the guideline's own anti-pattern). Four raw "art."/"ART." mentions,
-    one real reasoning-authority tag -- the heuristic's ``>3`` threshold
-    flags it anyway.
+    ``doc_3b0be436ba6753185997c37b2b6b9765`` (djen_sample batch8, TJSE)
+    **was** the same shape of false positive for
+    ``fundamentacao_legal_collapsed`` through round ``p08457`` (2026-09-26):
+    its sole annotation at the time tagged only one of the two "ART."
+    citations in the acordao_decisorio region as ``fundamentacao_legal``
+    (the second, "ART. 55, 2ª PARTE, DA LEI 9.099/95.", was folded into
+    the acordao_decisorio's own ``_fim`` anchor instead, to avoid
+    double-tagging one span with two categories). Round ``kgxf50``
+    (2026-09-26) added this document's second, independent annotation for
+    issue #1051's val/test adjudication (RFC 0012 §9) -- ``_latest_per_document``
+    now scans that *later* annotation, which tags both citations as
+    distinct ``fundamentacao_legal`` spans (a legitimate, independent
+    reading, not a defect), so the heuristic's raw "art." count no longer
+    exceeds the tagged count and the false positive no longer reproduces.
+    The accepted ``ReviewRecord`` adjudicating the two annotations kept
+    the original single-tag structure (matching the reasoning above,
+    since the two "ART." citations remain the same verbatim span as the
+    acordao_decisorio close) -- only the *annotation-level* heuristic this
+    script scans is affected, not the reviewed ground truth. Removed from
+    this allowlist because it is no longer a live false positive, not
+    because the underlying reasoning above stopped applying.
 
     ``doc_db852d2ad03c021f0ac411e3e5b63b60`` (djen_sample batch20, TRF2,
     2026-09-17) is the same shape of false positive again for
@@ -257,10 +261,13 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
     reasoning-authority tag -- the heuristic's ``>3`` threshold flags it
     anyway.
 
-    If this test starts seeing *more* than these seven findings, a new
+    If this test starts seeing *more* than these six findings, a new
     real omission was introduced and needs the same triage — repair it, or
     extend this allowlist with a documented reason, never silence the
-    assertion.
+    assertion. A document dropping OUT of this set (as
+    ``doc_3b0be436ba6753185997c37b2b6b9765`` did in round ``kgxf50``) is
+    fine and expected once a later, independent second annotation exists
+    for it — shrink the set and document why, per the note above.
     """
     store_dir = Path("data/segmenter")
     if not store_dir.exists():
@@ -280,7 +287,6 @@ def test_real_store_has_at_most_the_one_known_collapsed_false_positive() -> None
         "doc_3cffd7961e9fc910f6ae628f5aaa6c40",
         "doc_f985597a64cc7b5ad06731c072915a7a",
         "doc_2a07306d88d1acebcdc0aff9958f7009",
-        "doc_3b0be436ba6753185997c37b2b6b9765",
         "doc_db852d2ad03c021f0ac411e3e5b63b60",
         "doc_12f989ac213c5eadf857aacc69b33ad2",
     }

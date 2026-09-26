@@ -1,0 +1,37 @@
+<review id="rev_6c269b436e25a0118c83ed80eca797a9" document_id="doc_d3de3dfe95769791db33077c54bd3724">
+  <input_annotations>
+    <annotation_id>ann_27a840665d1163627a9a935a470b8f1a</annotation_id>
+    <annotation_id>ann_33ce3e960c9736273148087cdebe5b28</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="custas" reason="single mention (&quot;Custas pela recorrente&quot;) with no distinct closing cue before the document's date line" />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>Adopted B's cabecalho tags (A omitted cabecalho entirely) and B's split of acordao_decisorio_fim/resultado (A merged both into one fim span, omitting the required resultado tag). Added back A's custas_inicio (B omitted it entirely); left unmatched (single mention, no distinct closing cue).</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 4 span(s) agreed by both annotators, 2 only in annotation A, 4 only in annotation B — categories in A-only: ['acordao_decisorio_fim', 'custas_inicio']; categories in B-only: ['acordao_decisorio_fim', 'cabecalho_fim', 'cabecalho_inicio', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T06:15:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Agravo de Instrumento</inicio>  Nº <ref_processual ord="1">5085995-76.2025.8.24.0000/SC</ref_processual>
+
+ RELATOR : Desembargador RICARDO ROESLER
+
+ AGRAVANTE : STAC TRANSPORTADORA DE REVISTAS E JORNAIS LTDA
+
+ ADVOGADO(A) : JORGE ALBERTO ZIEBELL DE OLIVEIRA (<fim ord="2">OAB RS045197</fim></cabecalho>)
+
+<ementa><inicio ord="3">EMENTA</inicio>
+
+AGRAVO DE INSTRUMENTO. EXECUÇÃO FISCAL. DEDUÇÃO DE PRESCRIÇÃO. EXECUÇÃO, TODAVIA, MANEJADA NO CURSO DO LUSTRO LEGAL.  
+
+ALEGAÇÃO DE NULIDADE DO TÍTULO POR AUSÊNCIA DE NOTIFICAÇÃO. DÍVIDA ORIUNDA DA INCIDÊNCIA DO ISS, CUJO LANÇAMENTO DECORRE DE ATO PRÓPRIO DO DEVEDOR (AUTOLANÇAMENTO). DEDUÇÃO, NO MAIS DE VÍCIOS DE REGULARIDADE DO TÍTULO, QUE RIGOROSAMENTE CONTÉM OS SEUS ELEMENTOS MÍNIMOS. <fim ord="4">RECURSO DESPROVIDO.</fim></ementa> 
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="5">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 2ª Câmara de Direito Público do Tribunal de Justiça do Estado de Santa Catarina decidiu, <fim ord="6">por unanimidade</fim></acordao_decisorio>, <resultado ord="7">negar provimento ao recurso</resultado>. <custas><inicio ord="8">Custas pela recorrente</inicio></custas>, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Florianópolis, 14 de abril de 2026.</text>
+</review>
