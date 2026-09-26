@@ -1,0 +1,46 @@
+<review id="rev_14388657a3b98d8b771bdf9364c351c6" document_id="doc_6b9ee9d4f525b8442af4cbc20da41269">
+  <input_annotations>
+    <annotation_id>ann_91604c55fb46e9957872d092e5311a45</annotation_id>
+    <annotation_id>ann_9058cfd62deda352fe4f728372cd9cbd</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched />
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>A (general-purpose) and B (haiku) agreed on ref_processual, ementa_inicio, fundamentacao_legal, acordao_decisorio_inicio/fim, and resultado (including the source's double space in 'negar  provimento', preserved verbatim by both). A omitted cabecalho entirely; adopted B's cabecalho boundaries (inicio='Apelacao Civel', fim='(OAB RS044748)'), the guideline's own 'last party/OAB' cue. B left ementa unmatched (no closing cue found); adopted A's ementa_fim ('principio da proporcionalidade.', the ementa's own last words before ACORDAO) since it is a genuine, correctly-identified closing cue B simply missed, not a disagreement about correctness. B's first two attempts (not stored) had a fabricated duplicate ref_processual span inside ementa item 1 and a dropped standalone ACORDAO heading line; this third attempt fixed both defects. B's stored attempt also silently flattened several non-breaking spaces to regular spaces (documented recurring defect, see kgxf50/bomtmk/uq3be8/qs1nzy backlog notes) -- repaired mechanically by rebuilding the tagged text from the ground-truth document.text at B's own (position-preserving) label offsets before ingestion, touching no tag content.</resolution>
+  <notes>
+    <note>Round qs1nzy: candidate selected via live joint assign_splits simulation on merged main@9d39b73 (post-PR #1678), confirming test_count 18-&gt;20 before any annotation effort was spent.</note>
+    <note>exact-match diff before adjudication: 4 span(s) agreed by both annotators, 3 only in annotation A, 4 only in annotation B — categories in A-only: ['ementa_fim', 'fundamentacao_legal', 'ref_processual']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'fundamentacao_legal', 'ref_processual']</note>
+  </notes>
+  <approved_at>2026-09-26T13:50:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Apelação Cível</inicio>  Nº <ref_processual ord="1">5002769-04.2025.4.04.7102/RS</ref_processual>
+
+ RELATORA : Juíza Federal VERA LÚCIA FEIL
+
+ APELANTE : BRUNO IAGO ESCOBAR IANGURDES (AUTOR)
+
+ ADVOGADO(A) : Francine Nunes Ávila (OAB RS076677)
+
+ ADVOGADO(A) : CLEUSA ISABEL NUNES ZULIANI PINTOS <fim ord="2">(OAB RS044748)</fim></cabecalho>
+
+<ementa><inicio ord="3">EMENTA</inicio>
+
+TRIBUTÁRIO. PROCESSO ADMINISTRATIVO FISCAL. NOTIFICAÇÃO EDITALÍCIA. LEGALIDADE. TRANSPORTE DE MERCADORIAS IMPORTADAS IRREGULARMENTE. PENA DE PERDIMENTO DO VEÍCULO TRANSPORTADOR. CONSTITUCIONALIDADE.
+
+1. Comprovada a prévia tentativa de intimação do particular no endereço por ele declarado como sendo seu domicílio tributário, é possível a intimação por edital, <fundamentacao_legal ord="4">nos termos do artigo 23, § 1º, do Decreto nº 70.235, de 1972</fundamentacao_legal>.
+
+2. A pena de perdimento não ofende o direito de propriedade assegurado constitucionalmente. 
+
+3. A pena de perdimento de veículo é aplicável à situação em que: (a) o veículo transportador pertencer ao proprietário das mercadorias apreendidas ou, (b) ainda que as mercadorias não pertençam ao proprietário do veículo, houver responsabilidade deste na prática da infração, entendida esta como o transporte de mercadorias sujeitas ao perdimento. A lei pune não apenas quem irregularmente introduziu a mercadoria no país, mas também o proprietário do veículo que o auxilia, transportando-as ou permitindo o transporte, tendo conhecimento das irregularidades que envolvem a operação.
+
+4. Na aplicação do princípio da proporcionalidade, está em exame não apenas o valor do tributo elidido e do veículo perdido. Há outros bens jurídicos protegidos pelo poder de polícia que devem ser valorados na aplicação do princípio: a saúde, a segurança pública, a economia interna (mercado privado) e o meio ambiente. A aplicação do princípio não se resume na comparação do resultado econômico do ilícito (valor de aquisição e de revenda das mercadorias, valor dos tributos elididos) com o resultado econômico da punição (valor do veículo apreendido).
+
+5. O caráter comercial e a expressividade das mercadorias irregularmente nacionalizadas justificam a aplicação da pena de perdimento do veículo transportador, com atenção ao <fim ord="5">princípio da proporcionalidade.</fim></ementa>
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="6">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 2ª Turma do Tribunal Regional Federal da 4ª Região decidiu, <fim ord="7">por unanimidade</fim></acordao_decisorio>, <resultado ord="8">negar  provimento</resultado> à apelação, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Porto Alegre, 18 de dezembro de 2025.</text>
+</review>

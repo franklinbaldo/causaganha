@@ -1101,3 +1101,46 @@ def test_real_store_reflects_1051_pg2bcv_round_adjudication() -> None:
 
     assert status["review_count"] >= 45
     assert status["test_count"] > 10
+
+
+def test_real_store_reflects_1051_qs1nzy_round_adjudication() -> None:
+    """Regression guard for #1051's next accepted reviews (round qs1nzy).
+
+    Snapshot before this round (post-PR #1678, round pg2bcv): 197 documents,
+    48 accepted reviews (`val_count`=30, at the corpus-size ceiling;
+    `test_count`=18, still behind the RFC 0012 Sec 5 item 4 floor of 30).
+    Two more documents were adjudicated this round via a genuinely
+    independent second annotation (`model_family=prompt_subagents:haiku`,
+    distinct from the first annotation's
+    `model_family=prompt_subagents:general-purpose`):
+    `doc_6b9ee9d4f525b8442af4cbc20da41269` (TRF4, acordao) and
+    `doc_c41321b105269252919a5d4d730800a2` (TJMS, acordao). Both were
+    selected because a live simulation (`assign_splits` with both candidates
+    added to `evaluation_eligible` jointly, before spending any annotation
+    effort) showed the joint addition raises `test_count` above 18 --
+    `assign_splits` recomputes the whole val/test partition from a fixed
+    hash order every run, so which *specific* document lands in val vs test
+    isn't identity-controllable, only the aggregate counts are the real
+    contract.
+
+    If corpus/review growth from a later concurrent round changes the exact
+    totals, update the counts here rather than treating a higher number as a
+    failure -- the two specific document ids are the actual contract.
+    """
+    store_dir = Path("data/segmenter")
+    if not store_dir.exists():
+        pytest.skip("data/segmenter not present in this checkout")
+
+    store = SegmenterDatasetStore(store_dir)
+    reviews = list(store.list_reviews())
+    reviewed_document_ids = {r.document_id for r in reviews if r.status == "accepted"}
+
+    assert len(reviews) >= 50
+    assert "doc_6b9ee9d4f525b8442af4cbc20da41269" in reviewed_document_ids
+    assert "doc_c41321b105269252919a5d4d730800a2" in reviewed_document_ids
+
+    mod = load_script("segmenter_governance_status", "scripts/segmenter_governance_status.py")
+    status = mod.compute_governance_status(store_dir)  # type: ignore[attr-defined]
+
+    assert status["review_count"] >= 50
+    assert status["test_count"] > 18

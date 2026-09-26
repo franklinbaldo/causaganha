@@ -4,9 +4,9 @@ issue_number: 1051
 title: "segmenter: build an independently annotated validation set for model selection"
 category: "ml_data_work"
 blocking_reason: "Not blocked. The mechanism is proven: scripts/annotate_second_independent.py (second independent annotation, model_family must differ from the first -- convention is prompt_subagents:haiku via Agent tool with model=haiku, vs the first annotation's prompt_subagents:general-purpose) + scripts/adjudicate_segmenter_review.py (reconcile into an accepted ReviewRecord) + scripts/segmenter_governance_status.py (real vs ceiling val/test counts, RFC 0012 Sec 5 item 4's >=30/>=30 floor)."
-unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side: after merging round pg2bcv (Wisk run 20260926T102619Z, PR #1678) with the concurrent round uq3be8 (PR #1677) -- a genuine same-day race, not a mistake, since neither round's 5/3 documents overlapped -- review_count=48, val_count=30 (already at its ceiling), test_count=18 (of 30). A future round should keep picking single-annotated, unreviewed, seeded_with=='none' candidates (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated -- filter for this before selecting) and SIMULATE assign_splits with each candidate added to evaluation_eligible (in isolation, then jointly with the round's full batch) BEFORE spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every time it runs, so which specific document lands in val vs test isn't controllable by identity, only the aggregate test_count/val_count are the real, checkable contract. `scripts/segmenter_adjudication_candidates.py` (added by round qs1nzy, merged separately) now formalizes exactly this scan-and-simulate step as tested, reusable code -- `find_second_annotation_candidates()` + `joint_simulation()` -- instead of a fresh scratch script each round; its own live simulation (against the pre-#1678 store) found `doc_6b9ee9d4f525b8442af4cbc20da41269` (TRF4) and `doc_c41321b105269252919a5d4d730800a2` (TJMS) as a ready-to-annotate pair, but that simulation predates #1678's merge and MUST be re-run against current store state before trusting it (the candidate pool and hash assignment shift every round). Roughly 8-10 more accepted reviews are needed on average to reach test_count>=30 from the current confirmed-merged number (18)."
+unblock_condition: "Already unblocked. Issue #1050 (Lote 28, round ku8qje) crossed the corpus-scale ceiling on 2026-09-26: with document_count=197, val_ceiling_at_full_adjudication/test_ceiling_at_full_adjudication both reached 30 for the first time -- the floor is reachable in principle. The remaining gap is pure adjudication coverage, concentrated on the TEST side. As of round qs1nzy's completion (after its own PR #1680 + a same-session follow-up ingesting 2 more documents): review_count=50, val_count=30 (already at its ceiling), test_count=20 (of 30). A future round should keep picking single-annotated, unreviewed, seeded_with=='none' candidates (a document whose sole annotation has seeded_with != 'none' can NEVER be adjudicated -- filter for this before selecting) and SIMULATE assign_splits with each candidate added to evaluation_eligible (in isolation, then jointly with the round's full batch) BEFORE spending annotation effort -- assign_splits recomputes the whole val/test partition from a fixed hash order of (seed, group_id) every time it runs, so which specific document lands in val vs test isn't controllable by identity, only the aggregate test_count/val_count are the real, checkable contract. `scripts/segmenter_adjudication_candidates.py` (added by round qs1nzy) formalizes exactly this scan-and-simulate step as tested, reusable code -- `find_second_annotation_candidates()` + `joint_simulation()` -- instead of a fresh scratch script each round. Roughly 5-7 more accepted reviews are needed on average to reach test_count>=30 from the current confirmed number (20)."
 last_verified_run_id: "2026-09-26-exciting-mccarthy-qs1nzy"
-last_verified_at: "2026-09-26T13:30:00Z"
+last_verified_at: "2026-09-26T13:50:00Z"
 status: "unblocked"
 ---
 
@@ -366,8 +366,76 @@ narrative additions (both describing the same day's events from
 different vantage points; kept both, in chronological order). The
 `doc_6b9ee9d4f525b8442af4cbc20da41269`/`doc_c41321b105269252919a5d4d730800a2`
 pair above was simulated against the pre-#1678 store (`test_count`
-13->15) and is now stale -- current confirmed state is `review_count=48`,
-`test_count=18`, `val_count=30` (per pg2bcv's own merge note above).
-`scripts/segmenter_adjudication_candidates.py` itself is unaffected by
-this and should simply be re-run against live state before the next
-round trusts any specific candidate pair.
+13->15) and was stale -- current confirmed state at that point was
+`review_count=48`, `test_count=18`, `val_count=30` (per pg2bcv's own
+merge note above).
+
+**Round qs1nzy continuation (same session, after the tooling blocker
+above): completed the annotation this round's own earlier half could
+not.** The session's original Agent-tool absence was specific to a
+delegated subagent invoked for the round, not to the parent session
+itself, which does have Agent-tool access -- once that was confirmed,
+the parent session dispatched the two independent second annotations
+directly rather than leaving the ready-to-go pair for a future round.
+Both candidates were re-simulated against the post-#1678 merged store
+first (never trusting the pre-merge numbers above): joint simulation
+confirmed `test_count` 18->20 before any annotation effort.
+
+Both second annotations (Agent tool, `model=haiku`,
+`model_family=prompt_subagents:haiku`) needed repair before ingestion,
+neither for the same reason: TRF4's *first* attempt fabricated a
+duplicate `ref_processual` span inside ementa item 1 (text that does
+not appear there in the source) and silently dropped the standalone
+"ACÓRDÃO" heading line entirely -- both real content defects, not
+whitespace, so this attempt was discarded (never ingested) and a
+second, more explicit retry was dispatched instead; that retry passed
+content-wise but still flattened several NBSP characters to regular
+spaces (the same recurring defect documented by kgxf50/bomtmk/uq3be8) --
+repaired by rebuilding the tagged XML from the ground-truth
+`document.text` at the annotation's own label offsets (a pure,
+position-preserving whitespace fix, not a content decision). TJMS's
+second annotation retyped "negaram provimento ao recurso" a second
+time as its `acordao_decisorio_fim` tag content instead of wrapping the
+existing occurrence -- the guideline's own documented anti-pattern --
+repaired structurally by nesting the existing `resultado` span inside a
+`fim` wrapper closing at "ao recurso" (the guideline's own pattern for
+nesting a single-anchor tag inside a pair's interior), which also
+required splitting `resultado` down to just "negaram provimento" to
+avoid overlap -- incidentally a better fit for Rule 3 ("resultado only
+on the operative verb") than the wider span either annotator first
+produced.
+
+Both first annotations (from the original corpus batch,
+`model_family=prompt_subagents:general-purpose`) had independently
+omitted `cabecalho` entirely -- both reviews adopted the second
+annotation's `cabecalho` tagging as a genuine addition, not a
+disagreement. TRF4's review otherwise kept the first annotation's
+`ementa_fim` (a correctly-identified closing cue the second annotation
+missed, leaving it unmatched instead).
+
+Post-ingestion, live-confirmed: `document_count`=197 (unchanged),
+`annotation_count` 271->273, `review_count` 48->50, `val_count`=30
+(unchanged, already at ceiling), **`test_count` 18->20** (exactly
+matching the pre-annotation joint simulation).
+`meets_rfc_0012_split_floor` still `False` (need >=30/>=30, have
+30/20). `scripts/segmenter_semantic_audit.py`: 6 findings, unchanged,
+neither new document implicated. `uv run ruff check`/`format --check`:
+clean. TDD: RED test
+`test_real_store_reflects_1051_qs1nzy_round_adjudication` declared the
+contract (`review_count>=50`, `test_count>18`, both document_ids as
+accepted reviews) and failed (`assert 48 >= 50`) before any second
+annotation existed; GREEN after ingestion.
+
+**Next natural step:** `test_count` is at 20 of the RFC 0012 floor of
+30 (`val_count` already at 30, its ceiling -- no more val-side work
+needed). At ~2 documents per round, roughly 5-7 more rounds of similar
+size would cross the floor. Re-run the live simulation before selecting
+the next batch -- the candidate pool shrinks and hash assignment shifts
+every round; do not reuse a cached candidate list from this or any
+prior round's narrative. Process lesson from this round: when a
+delegated subagent reports a tooling blocker (e.g. "no Agent tool
+available"), check whether that blocker is specific to the subagent or
+also applies to the parent session before accepting it as a hard stop
+for the round -- here the parent session had the access the subagent
+lacked, so the round could still complete the numeric goal instead of
+only leaving tooling behind for a future round.

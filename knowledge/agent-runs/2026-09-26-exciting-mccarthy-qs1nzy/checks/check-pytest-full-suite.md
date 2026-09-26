@@ -5,7 +5,7 @@ run_id: "2026-09-26-exciting-mccarthy-qs1nzy"
 goal_id: "2026-09-26-exciting-mccarthy-qs1nzy-goal-1051-formalize-candidate-selection"
 command: "uv run pytest -q"
 result: "passed"
-summary: "Full repository suite green: 2040 collected tests, 0 in .pytest_cache/v/cache/lastfailed, ~16 minutes wall time (12:56-13:12 UTC). Slowness is a pre-existing characteristic of tests/segmenter_dataset's ~18 test_real_store_reflects_* tests plus this round's own new live-store test, each independently paying segmenter_dataset.splits.build_groups' ~75s near-duplicate scan over the 197-document store (confirmed by direct benchmark) -- not a regression from this round's changes."
+summary: "Full repository suite run THREE times, always green: (1) pre-merge, 2040 tests; (2) post-merge with PR #1678, 2042 tests; (3) post-continuation, after the parent session's two additional ReviewRecords + new test function were independently re-verified, 2042 tests -- all three runs 0 failures. Slowness (~16-18 min each) is a pre-existing characteristic of tests/segmenter_dataset's ~18-20 test_real_store_reflects_* tests, each independently paying segmenter_dataset.splits.build_groups' ~75-90s near-duplicate scan over the store (confirmed by direct benchmark) -- not a regression from this round's changes."
 ---
 
 # Check: full repository test suite
@@ -44,7 +44,35 @@ build_groups 74.85203170776367 ngroups 191
 ~18 `test_real_store_reflects_*` tests that each independently call this
 path once (plus this round's own new
 `test_real_store_candidate_scan_is_consistent_with_governance_status`,
-which calls it twice) -- accounting for the bulk of the suite's ~16
-minute wall time. Ran once, full and green; not re-run a second time
-given its cost and the confirmed zero-failure result.
+which calls it twice) -- accounting for the bulk of the suite's ~16-17
+minute wall time each run.
+
+Second full run (post-merge, after resolving the conflict with
+concurrent PR #1678 in `knowledge/backlog/issue-1051.md`):
+
+```
+$ uv run pytest -q
+... 2042 tests, 0 failures, [100%] ...
+
+$ cat .pytest_cache/v/cache/lastfailed
+{}
+
+$ python3 -c "import json; print(len(json.load(open('.pytest_cache/v/cache/nodeids'))))"
+2042
+```
+
+Third full run (post-continuation): after independently re-verifying
+the parent session's two new `ReviewRecord`s (mechanical validation,
+verbatim-fidelity reconstruction, live `segmenter_governance_status.py`
+cross-check) and updating `run.md`/`issue-1051.md` to reflect the
+combined final state, ran the full suite once more before the final
+push:
+
+```
+$ uv run pytest -q
+... 2042 tests, 0 failures, [100%] ...
+
+$ cat .pytest_cache/v/cache/lastfailed
+{}
+```
 
