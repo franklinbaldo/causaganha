@@ -1,0 +1,75 @@
+<review id="rev_4baa3dfb71c908c8a14b9a41b3fb19b7" document_id="doc_174797b9bfde68303b3e00c43ac291fe">
+  <input_annotations>
+    <annotation_id>ann_149ef20d0c22b449629f1a1ccf513eaa</annotation_id>
+    <annotation_id>ann_f6cdd708201a53f9b306e0a8c2cc5312</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="ementa" reason="capa+ementa-estruturada format, no closing cue" />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:p08457</reviewer>
+  </reviewers>
+  <resolution>Resolução combina o melhor de ambas: (1) cabecalho_inicio/fim adicionado a partir da anotação B (independente) -- categoria válida e presente no documento, omitida por A, sem razão aparente para excluí-la; (2) todas as 4 ocorrências distintas de fundamentacao_legal mantidas (união de A e B -- B omitiu a primeira ocorrência em 'prevista no art. 103-A da Lei nº 8.213/91', mas a Regra da guideline exige tag em toda ocorrência distinta, então a leitura mais completa de A prevalece neste ponto); (3) resultado ('NEGAR PROVIMENTO') mantido a partir de A -- B omitiu esta âncora inteiramente, uma lacuna real, não uma escolha editorial; (4) acordao_decisorio_inicio/fim e ref_processual/ementa_inicio idênticos em ambas, sem divergência.</resolution>
+  <notes>
+    <note>Anotação B (independente) concordou em ref_processual, ementa_inicio (unmatched, formato capa+ementa-estruturada), 3 de 4 fundamentacao_legal, e acordao_decisorio_inicio/fim; adicionou cabecalho (aceito); omitiu 1 fundamentacao_legal e o resultado inteiro (ambos restaurados de A nesta resolução).</note>
+    <note>exact-match diff before adjudication: 6 span(s) agreed by both annotators, 3 only in annotation A, 3 only in annotation B — categories in A-only: ['acordao_decisorio_inicio', 'fundamentacao_legal', 'resultado']; categories in B-only: ['acordao_decisorio_inicio', 'cabecalho_fim', 'cabecalho_inicio']</note>
+  </notes>
+  <approved_at>2026-09-26T04:51:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Apelação Cível</inicio>  Nº <ref_processual ord="1">5002507-60.2022.4.02.5115/RJ</ref_processual>
+
+ RELATOR : Juiz Federal JOSE CARLOS DA SILVA GARCIA
+
+ APELADO : JAIR DA ROSA DAMAZIO (AUTOR)
+
+ ADVOGADO(A) : PATRICIA DO CANTO SILVA DE MORAES (OAB RJ177114)
+
+ ADVOGADO(A) : <fim ord="2">DÉBORA DE OLIVEIRA PEREIRA (OAB RJ224488)</fim></cabecalho>
+
+<ementa><inicio ord="3">EMENTA</inicio></ementa>
+
+DIREITO PREVIDENCIÁRIO E PROCESSUAL CIVIL. EMBARGOS DE DECLARAÇÃO. APOSENTADORIA ESPECIAL. DECADÊNCIA ADMINISTRATIVA. AUSÊNCIA DE OMISSÃO. EMBARGOS REJEITADOS.
+
+I. CASO EM EXAME
+
+1. Embargos de declaração opostos pelo INSS contra acórdão que reconheceu a ocorrência de decadência do direito da Administração revisar benefício previdenciário concedido à parte autora, consistente em Aposentadoria Especial com DIB em 01/10/2003. A autarquia sustenta a existência de omissão no julgado, ao argumento de que não teriam sido consideradas as datas relevantes do processo administrativo, iniciado em 2005 e concluído em 2014.
+
+II. QUESTÃO EM DISCUSSÃO
+
+2. A questão em discussão consiste em verificar se o acórdão embargado incorreu em omissão quanto à análise das datas de concessão do benefício e da revisão administrativa, com reflexo no reconhecimento da decadência administrativa <fundamentacao_legal ord="4">prevista no art. 103-A da Lei nº 8.213/91</fundamentacao_legal>.
+
+III. RAZÕES DE DECIDIR
+
+3. Os embargos de declaração apenas são cabíveis <fundamentacao_legal ord="5">nas hipóteses taxativas do art. 1.022 do CPC</fundamentacao_legal>, quais sejam, omissão, contradição, obscuridade ou erro material, não servindo como instrumento de reexame da causa.
+
+4. O acórdão embargado analisou expressamente os elementos constantes do processo administrativo, inclusive a data de início da revisão (05/04/2005) e sua conclusão (25/03/2014), reconhecendo que a contagem do prazo decadencial se inicia com a prática do ato administrativo de concessão do benefício, <fundamentacao_legal ord="6">nos termos do art. 103-A da Lei nº 8.213/91</fundamentacao_legal>.
+
+5. A suposta omissão apontada configura, na realidade, inconformismo com a tese jurídica adotada pelo julgado, não havendo ausência de manifestação apta a justificar a oposição dos embargos de declaração.
+
+6. O julgador não está obrigado a rebater todos os argumentos das partes, desde que fundamente adequadamente sua decisão, conforme entendimento consolidado na jurisprudência.
+
+7. Para fins de prequestionamento, basta a suscitação da matéria nos embargos de declaração, ainda que rejeitados, <fundamentacao_legal ord="7">nos termos do art. 1.025 do CPC</fundamentacao_legal>.
+
+IV. DISPOSITIVO E TESE
+
+8. Embargos de declaração rejeitados.
+
+Tese de julgamento:
+
+1. A análise expressa das datas de concessão e revisão do benefício afasta a alegação de omissão no acórdão.
+
+2. A decadência administrativa para revisão de benefício previdenciário tem como marco inicial a data do ato de concessão, não sendo suspensa nem interrompida.
+
+3. O inconformismo da parte com a fundamentação adotada não autoriza o acolhimento dos embargos de declaração.
+
+4. O julgador não está obrigado a enfrentar todos os dispositivos legais invocados pelas partes, bastando fundamentar adequadamente sua decisão.
+
+Dispositivos relevantes citados: CPC, arts. 1.022 e 1.025; CC, art. 207; Lei nº 8.213/91, art. 103-A.
+Jurisprudência relevante citada: Não há precedentes indicados no voto.
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="8">Vistos e relatados</inicio> estes autos em que são partes as acima indicadas, a Egrégia 9ª Turma Especializada do Tribunal Regional Federal da 2ª Região decidiu, <fim ord="9">por unanimidade</fim></acordao_decisorio>, <resultado ord="10">NEGAR PROVIMENTO</resultado> aos embargos de declaração, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Rio de Janeiro, 10 de junho de 2025.</text>
+</review>
