@@ -1,0 +1,11 @@
+---
+type: AgentDecision
+id: "2026-09-26-exciting-mccarthy-uz8msx-decision-avoid-closing-keyword"
+run_id: "2026-09-26-exciting-mccarthy-uz8msx"
+goal_id: "2026-09-26-exciting-mccarthy-uz8msx-goal-950-reopen-safely"
+question: "Como reabrir #950 sem repetir o acidente da rodada anterior, em que o próprio PR de correção (#1661) reclosed a issue no momento do merge porque seu título continha a frase 'closed #950' (um closing keyword reconhecido pelo GitHub)? Vale a pena registrar essa descoberta em algum lugar que persista além deste único AgentRun, ou basta a nota no backlog item?"
+choice: "(a) Reabrir #950 via issue_write ANTES de escrever qualquer título/corpo de PR; (b) escrever o título/corpo/commits desta rodada evitando deliberadamente qualquer combinação de closing keyword (close/closes/closed/fix/fixes/fixed/resolve/resolves/resolved, case-insensitive) imediatamente seguida de '#950' -- usar formas como 'issue #950' cercada de outras palavras, ou referenciar sem o padrão de closing keyword; (c) documentar o padrão na nota do próprio knowledge/backlog/issue-950.md (já lido por todas as rodadas antes de tocar essa issue) em vez de criar um novo mecanismo de conhecimento -- é o lugar mais barato onde uma futura rodada que abrir um PR mencionando #950 certamente vai passar antes de escrever o título."
+rationale: "O backlog item já é lido por toda rodada que toca uma issue bloqueada (padrão estabelecido por 15+ rodadas) -- adicionar a nota ali garante que a lição não se perca sem exigir um novo tipo OKF ou uma seção nova em CLAUDE.md para um caso relativamente raro (só ocorre quando um PR precisa mencionar uma issue sem fechá-la, e o texto natural em português/inglês usa exatamente uma das palavras-gatilho). Optou-se por não generalizar a correção para todas as issues do projeto (ex: adicionar uma regra em CLAUDE.md sobre closing keywords) porque isso adicionaria uma regra de estilo de baixa frequência a um documento que já é longo e de alto tráfego de leitura; a nota pontual no backlog item específico é proporcional ao risco real (uma issue reaberta por engano, não uma classe de bug recorrente)."
+---
+
+# Decisão: onde e como registrar a lição do closing-keyword acidental
