@@ -30,6 +30,11 @@ jobs:
         run: python -m pip install httpx==0.28.1
       - name: Audit structural boundary ceiling on training documents (offline)
         run: python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/train.jsonl > thx02-region-ceiling.json
+      - name: Audit unit-size sensitivity (offline training set only)
+        run: |
+          for size in 120 250 400; do
+            python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/train.jsonl --max-chars "$size" > "thx02-region-ceiling-${size}.json"
+          done
       - name: THX region segmentation smoke (fictional judgment only)
         id: regions
         continue-on-error: true
@@ -45,6 +50,9 @@ jobs:
           if test -s thx02-region-ceiling.json; then
             python -c 'import json; r=json.load(open("thx02-region-ceiling.json")); print("Training documents:",r["documents"]); print("Boundary ceiling:",r["ceiling_recall"]); print("Boundary matches:",r["boundaries_within_tolerance"],"/",r["gold_structural_boundaries"])'
           fi
+          for size in 120 250 400; do
+            FILE="thx02-region-ceiling-${size}.json" python -c 'import json,os; x=json.load(open(os.environ["FILE"])); print(os.environ["FILE"],"units:",x["units"],"ceiling:",x["ceiling_recall"])'
+          done
           if test -s thx02-region-smoke.json; then
             python -c 'import json; r=json.load(open("thx02-region-smoke.json")); print("Region units:",len(r["units"])); print("Accepted:",sum(p["status"]=="accepted" for p in r["predictions"])); print("Segments:",len(r["regions"]))'
           fi
@@ -59,7 +67,7 @@ jobs:
           path: |
             thx02-smoke-results.jsonl
             thx02-region-smoke.json
-            thx02-region-ceiling.json
+            thx02-region-ceiling*.json
           if-no-files-found: warn
           retention-days: 14
 
