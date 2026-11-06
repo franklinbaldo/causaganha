@@ -234,9 +234,7 @@ def merge_regions(predictions: list[Prediction]) -> list[dict]:
         ):
             regions[-1]["end"] = item.end
             regions[-1]["unit_count"] += 1
-            regions[-1]["min_probability"] = min(
-                regions[-1]["min_probability"], item.probability
-            )
+            regions[-1]["min_probability"] = min(regions[-1]["min_probability"], item.probability)
         else:
             regions.append(
                 {
@@ -251,9 +249,7 @@ def merge_regions(predictions: list[Prediction]) -> list[dict]:
     return regions
 
 
-def boundary_ceiling(
-    documents: list[dict], *, max_chars: int = 600, tolerance: int = 60
-) -> dict:
+def boundary_ceiling(documents: list[dict], *, max_chars: int = 600, tolerance: int = 60) -> dict:
     """Pure preprocessing ceiling using train/val *if explicitly supplied*.
 
     This is NOT THX quality. Measure how often a gold structural boundary could
@@ -271,9 +267,7 @@ def boundary_ceiling(
         for span in doc.get("label", []):
             cat = span["category"]
             if not (
-                cat.endswith("_inicio")
-                or cat.endswith("_fim")
-                or cat == "dispositivo_abertura"
+                cat.endswith("_inicio") or cat.endswith("_fim") or cat == "dispositivo_abertura"
             ):
                 continue
             total += 1
@@ -333,9 +327,7 @@ def main() -> int:
         ]
         print(
             json.dumps(
-                boundary_ceiling(
-                    docs, max_chars=args.max_chars, tolerance=args.tolerance
-                ),
+                boundary_ceiling(docs, max_chars=args.max_chars, tolerance=args.tolerance),
                 ensure_ascii=False,
                 indent=2,
             )
