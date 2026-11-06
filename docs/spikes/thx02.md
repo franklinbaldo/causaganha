@@ -1,6 +1,7 @@
 # Spike — THX-02 para classificar resultados judiciais
 
 **Status:** experimental; somente leitura; não integrado ao pipeline de produção.
+**PR:** https://github.com/franklinbaldo/causaganha/pull/1687
 **Contrato verificado em:** https://api.hal-x.ai/docs/thx-02/ (2026-11-06).
 
 ## Hipótese
@@ -80,10 +81,14 @@ Limitações: os 12 textos fictícios são **smoke tests**, não demonstram gene
 3. Comparar **mesmo conjunto** no THX-02, `KeywordClassifier`, RAG e LLM; reportar macro-F1 por polo, F1 do gate, cobertura por threshold, erro de alta confiança, Brier/ECE, latência de rede e custo por decisão.
 4. Somente propor integração na produção se houver melhoria estatística e proteção adequada a dados pessoais. Um mecanismo de rollback e a preservação de evidência/proveniência são pré-requisitos.
 
-## Resultado desta execução
+## Resultado desta execução (06/11/2026)
 
 - Testes unitários do spike: **29/29 aprovados** localmente com Python 3.13.
 - Dry-run: 12 itens, 4 perguntas por item, 48 decisões potenciais; sem transmissão externa.
-- Chamada ao endpoint real: **não executada localmente** porque o sandbox não resolve DNS externo; o workflow de PR tentará somente o conjunto sintético sem colocar essa disponibilidade como condição para integrar o spike.
+- O sandbox local não resolve DNS externo, mas o [smoke de GitHub Actions](https://github.com/franklinbaldo/causaganha/actions/runs/42163822481) **chamou de fato a API THX-02**, exclusivamente com os 12 textos fictícios. Não houve erros de API nem de contrato.
+- **Outcome de superfície:** 11/12 (91,7%). O caso s09 (recurso do réu provido para julgar improcedente o pedido) retornou `improcedente` em vez de `provido`. É confusão entre disposição do recurso e resultado final do pedido.
+- **Vencedor direto:** 10/12 (83,3%), porém houve falsos positivos nos casos s11 (parcial provimento) e s12 (recurso não conhecido); não pode ser consumido como polo vencedor de produção.
+- **Polo vencedor por regra + threshold 0,90:** cobertura 2/12 (16,7%); precisão do gate 2/2 e recall 2/7 (28,6%) entre ratáveis. A decisão de acordo s04 foi rejeitada porque a probabilidade do *tipo do ato* ficou em 0,767, apesar de a probabilidade de `acordo` ser 0,991.
+- Latência `latency_ms` em batch aparece praticamente idêntica (~976 ms) nos 12 resultados: não é latência independente por item; medir RTT da chamada separadamente antes de extrapolar throughput.
 
-**Leitura:** viabilidade de contrato e implementação demonstradas offline; eficácia jurídica real ainda não medida.
+**Leitura:** o contrato funciona e a classificação do resultado do ato parece promissora **somente nesta amostra sintética**. O limiar uniforme de 0,90 causa cobertura baixa e a mistura de opções recursais e de mérito provoca ambiguidades. Próximo experimento: perguntar separadamente pelo *resultado do recurso* e *resultado do pedido*, aferir calibração e o threshold por eixo usando gold independente. **Eficácia jurídica em dados reais ainda não medida.**
