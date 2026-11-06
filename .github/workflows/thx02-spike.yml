@@ -1,0 +1,42 @@
+name: THX-02 Spike (synthetic only)
+
+on:
+  pull_request:
+    paths:
+      - scripts/spike_thx02.py
+      - tests/test_spike_thx02.py
+      - tests/fixtures/thx02_spike.jsonl
+      - .github/workflows/thx02-spike.yml
+
+permissions:
+  contents: read
+
+jobs:
+  synthetic-live-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5
+        with:
+          python-version: '3.13'
+      - name: Offline request shape (no network)
+        run: python scripts/spike_thx02.py
+      - name: Live API smoke (synthetic only, non-blocking)
+        id: live
+        continue-on-error: true
+        run: python scripts/spike_thx02.py --live --limit 12 --output thx02-smoke-results.jsonl
+      - name: Summarize smoke outcome
+        if: always()
+        run: |
+          echo "Live step outcome: ${{ steps.live.outcome }}"
+          if test -s thx02-smoke-results.jsonl; then
+            python -c 'import json; p="thx02-smoke-results.jsonl"; data=[json.loads(x) for x in open(p)]; print("Predictions:", len(data)); print("Abstained:", sum(x.get("abstained", True) for x in data)); print("Errors:", sum("error" in x for x in data))'
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: thx02-synthetic-smoke
+          path: thx02-smoke-results.jsonl
+          if-no-files-found: warn
+          retention-days: 14
