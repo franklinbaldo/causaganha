@@ -317,11 +317,14 @@ def main() -> int:
     )
     parser.add_argument("--output", type=Path, help="Write JSONL results; default stdout")
     parser.add_argument("--max-chars", type=int, default=600)
+    parser.add_argument("--tolerance", type=int, default=60)
     parser.add_argument("--threshold", type=float, default=0.80)
     parser.add_argument("--max-units", type=int, default=40)
     args = parser.parse_args()
     if not 0 < args.threshold <= 1 or not 1 <= args.max_units <= MAX_UNITS_PER_REQUEST:
         parser.error("threshold must be (0,1]; max-units must be 1..60")
+    if args.tolerance < 0:
+        parser.error("tolerance must be nonnegative")
     if args.audit_train is not None:
         docs = [
             json.loads(line)
@@ -330,7 +333,11 @@ def main() -> int:
         ]
         print(
             json.dumps(
-                boundary_ceiling(docs, max_chars=args.max_chars), ensure_ascii=False, indent=2
+                boundary_ceiling(
+                    docs, max_chars=args.max_chars, tolerance=args.tolerance
+                ),
+                ensure_ascii=False,
+                indent=2,
             )
         )
         return 0
