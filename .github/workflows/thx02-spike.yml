@@ -32,6 +32,9 @@ jobs:
         run: |
           python -m pip install ruff==0.15.22
           python -m ruff format scripts/spike_thx02_segmenter.py tests/test_spike_thx02_segmenter.py
+      - name: Lint experimental sources (diagnostic only)
+        continue-on-error: true
+        run: python -m ruff check scripts/spike_thx02_segmenter.py tests/test_spike_thx02_segmenter.py
       - name: Audit structural boundary ceiling on training documents (offline)
         run: python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/train.jsonl > thx02-region-ceiling.json
       - name: Audit unit-size sensitivity (offline training set only)
