@@ -12,7 +12,11 @@ from scripts import spike_thx02_segmenter as spike
 
 
 def test_split_preserves_offsets_and_no_overlap():
-    s = "  I - RELATÓRIO\nTexto com espaços.\n\nII - FUNDAMENTAÇÃO\nA lei se aplica.\n\nIII - DISPOSITIVO\nJulgo procedente. "
+    s = (
+        "  I - RELATÓRIO\nTexto com espaços.\n\n"
+        "II - FUNDAMENTAÇÃO\nA lei se aplica.\n\n"
+        "III - DISPOSITIVO\nJulgo procedente. "
+    )
     units = spike.split_units(s, max_chars=160)
     assert len(units) >= 3
     assert all(s[u.start : u.end] == u.text for u in units)
@@ -59,7 +63,11 @@ def _answer(label="dispositivo", p=0.92):
     remainder = (1-p)/(len(spike.ROLES)-1) if type(p) in (int, float) else 0.0
     probabilities = {name: remainder for name in spike.ROLES}
     probabilities[label] = p
-    return {"answers": {"papel": {"type": "choice", "choice": label, "probabilities": probabilities}}}
+    return {
+        "answers": {
+            "papel": {"type": "choice", "choice": label, "probabilities": probabilities}
+        }
+    }
 
 
 def test_parses_batch_and_abstains_below_threshold():
@@ -102,10 +110,13 @@ def test_adjacent_accepted_regions_merge_without_gap_loss():
 
 
 def test_gold_audit_does_not_claim_model_quality():
-    doc = {"text": "I - RELATÓRIO\nAção ajuizada.\n\nII - FUNDAMENTAÇÃO\nRequisitos provados.", "label": [
-        {"category": "relatorio_inicio", "start": 4, "end": 13},
-        {"category": "fundamentacao_legal", "start": 50, "end": 58},
-    ]}
+    doc = {
+        "text": "I - RELATÓRIO\nAção ajuizada.\n\nII - FUNDAMENTAÇÃO\nRequisitos provados.",
+        "label": [
+            {"category": "relatorio_inicio", "start": 4, "end": 13},
+            {"category": "fundamentacao_legal", "start": 50, "end": 58},
+        ],
+    }
     result = spike.boundary_ceiling([doc], tolerance=30)
     assert result["documents"] == 1
     assert result["gold_structural_boundaries"] == 1
@@ -134,7 +145,9 @@ def test_no_network_in_unit_suite(monkeypatch):
 
 
 def test_live_custom_path_requires_explicit_opt_in(monkeypatch):
-    monkeypatch.setattr("sys.argv", ["spike_thx02_segmenter.py", "--live", "--source", "other.jsonl"])
+    monkeypatch.setattr(
+        "sys.argv", ["spike_thx02_segmenter.py", "--live", "--source", "other.jsonl"]
+    )
     with pytest.raises(SystemExit):
         spike.main()
 
@@ -158,4 +171,6 @@ def test_live_http_contract_with_fake_response(monkeypatch, capsys):
     assert report["transmitted"] is True
     assert report["regions"][0]["label"] == "dispositivo"
     assert calls[0]["payload"]["model"] == "thx-02"
-    assert "Authorization" not in calls[0]["headers"] or calls[0]["headers"]["Authorization"].startswith("Bearer ")
+    assert "Authorization" not in calls[0]["headers"] or calls[0]["headers"][
+        "Authorization"
+    ].startswith("Bearer ")
