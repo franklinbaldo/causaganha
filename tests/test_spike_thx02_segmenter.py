@@ -134,7 +134,8 @@ def test_fixture_and_offline_cli(monkeypatch, capsys):
 
 def test_no_network_in_unit_suite(monkeypatch):
     def deny(*args, **kwargs):
-        raise AssertionError("must not make live requests in offline mode")
+        message = "must not make live requests in offline mode"
+        raise AssertionError(message)
 
     monkeypatch.setattr(httpx.Client, "post", deny)
     p = Path(__file__).parent / "fixtures" / "thx02_segmenter_synthetic.jsonl"
