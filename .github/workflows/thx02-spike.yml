@@ -40,3 +40,18 @@ jobs:
           path: thx02-smoke-results.jsonl
           if-no-files-found: warn
           retention-days: 14
+
+      - name: Format Python sources for CI repair (artifact only)
+        run: |
+          python -m pip install --disable-pip-version-check ruff==0.15.22
+          ruff format scripts/spike_thx02.py tests/test_spike_thx02.py
+          ruff check scripts/spike_thx02.py tests/test_spike_thx02.py || true
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: thx02-ruff-formatted
+          path: |
+            scripts/spike_thx02.py
+            tests/test_spike_thx02.py
+          if-no-files-found: warn
+          retention-days: 7
