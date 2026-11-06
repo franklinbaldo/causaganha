@@ -106,9 +106,7 @@ def test_invalid_probabilities_raise_instead_of_silently_accepting() -> None:
 def test_interlocutory_type_prevents_false_positive_winner() -> None:
     doc = {"id": "test-interloc", "text": "Citação de sentença alheia"}
     response = _response("procedente", "nao_aplicavel", "A")
-    response["answers"]["decision_type"] = _choice_answer(
-        "decision_type", "interlocutoria"
-    )
+    response["answers"]["decision_type"] = _choice_answer("decision_type", "interlocutoria")
     prediction = spike.decode_response(doc, response, 0.90)
     assert prediction["winner"] == "unknown"
 
@@ -170,9 +168,7 @@ def test_send_batch_rejects_partial_results(monkeypatch: pytest.MonkeyPatch) -> 
 
 
 def test_fixtures_are_synthetic_with_unique_ids_and_known_gold() -> None:
-    fixture = (
-        Path(spike.__file__).resolve().parent.parent / "tests/fixtures/thx02_spike.jsonl"
-    )
+    fixture = Path(spike.__file__).resolve().parent.parent / "tests/fixtures/thx02_spike.jsonl"
     docs = spike.load_jsonl(fixture)
     assert len(docs) == 12
     assert all(doc["gold_outcome"] in spike.OUTCOME_LABELS.values() for doc in docs)
@@ -183,8 +179,7 @@ def test_fixtures_are_synthetic_with_unique_ids_and_known_gold() -> None:
 def test_parse_gold_directory_without_guessing_appeal_polo(tmp_path: Path) -> None:
     fixture = tmp_path / "gold.md"
     fixture.write_text(
-        "---\noutcome: não provido\nrecorrente_polo: null\n---\n"
-        "ACÓRDÃO. Mantém-se sentença.\n",
+        "---\noutcome: não provido\nrecorrente_polo: null\n---\nACÓRDÃO. Mantém-se sentença.\n",
         encoding="utf-8",
     )
     docs = spike.load_gold_dir(tmp_path, limit=1)
@@ -195,16 +190,28 @@ def test_parse_gold_directory_without_guessing_appeal_polo(tmp_path: Path) -> No
 def test_metrics_gate_and_conditional_separately() -> None:
     sample = [
         {
-            "id": "1", "outcome": "procedente", "gold_outcome": "procedente",
-            "winner": "A", "gold_winner": "A", "winner_direct": "A",
+            "id": "1",
+            "outcome": "procedente",
+            "gold_outcome": "procedente",
+            "winner": "A",
+            "gold_winner": "A",
+            "winner_direct": "A",
         },
         {
-            "id": "2", "outcome": "não provido", "gold_outcome": "não provido",
-            "winner": "unknown", "gold_winner": "P", "winner_direct": "P",
+            "id": "2",
+            "outcome": "não provido",
+            "gold_outcome": "não provido",
+            "winner": "unknown",
+            "gold_winner": "P",
+            "winner_direct": "P",
         },
         {
-            "id": "3", "outcome": "unknown", "gold_outcome": "unknown",
-            "winner": "unknown", "gold_winner": "unknown", "winner_direct": "unknown",
+            "id": "3",
+            "outcome": "unknown",
+            "gold_outcome": "unknown",
+            "winner": "unknown",
+            "gold_winner": "unknown",
+            "winner_direct": "unknown",
         },
     ]
     metrics = spike.summarize(sample)
@@ -234,10 +241,9 @@ def test_live_synthetic_with_mock_api_writes_output(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path, capsys: pytest.CaptureFixture
 ) -> None:
     monkeypatch.setattr(
-        spike, "send_batch",
-        lambda items, **_kw: [
-            _response("procedente", "nao_aplicavel", "A") for _ in items
-        ],
+        spike,
+        "send_batch",
+        lambda items, **_kw: [_response("procedente", "nao_aplicavel", "A") for _ in items],
     )
     output = tmp_path / "result.jsonl"
     assert spike.main(["--live", "--limit", "1", "--output", str(output)]) == 0
