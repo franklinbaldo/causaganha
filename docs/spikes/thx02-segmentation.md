@@ -40,7 +40,10 @@ python scripts/spike_thx02_segmenter.py --live --source tests/fixtures/thx02_seg
 
 - 19 testes locais passaram: offsets, segurança de modo offline, resposta de lote, abstention, cota, contrato e fechamento de regiões.
 - Exemplo sintético: 1 documento com **5 unidades**, sem envio HTTP no modo padrão.
-- Serviço real indisponível neste sandbox por falha de DNS. **Zero inferências reais**, nenhuma estimativa de F1, latência ou calibração.
+- No sandbox, DNS impediu chamadas à HAL-X; o **GitHub Actions executou uma inferência real apenas no documento fictício**, em 06/11/2026, no run 42202538320 (artefato `thx02-synthetic-smoke`).
+- Cinco unidades de texto foram enviadas. Quatro foram aceitas corretamente por inspeção do exemplo sintético: `cabecalho` (0,982), `relatorio` (0,966), `fundamentacao` (0,971) e `encerramento` (0,961). O trecho misto com dispositivo e honorários foi recusado pelo limiar 0,80 (probabilidade vencedora 0,790). Essa abstenção é **diagnóstico de granularidade**, não prova de incapacidade do modelo.
+- O auditor offline do `train.jsonl` v7 encontrou **14 documentos, 180 unidades e 73/90 bordas estruturais** dentro da tolerância de ±60 caracteres (0,8111). É apenas teto de pré-processamento, **não** recall do THX nem qualidade semântica. As principais falhas concentram-se em `encerramento_inicio` (5), `custas_*` (5) e `honorarios_*` (3).
+- Ainda não há F1, latência comparável nem calibração do THX-02 sobre gold jurídico independente. A classificação sintética é somente smoke, sem extrapolação.
 
 ## Próximos experimentos / critério de decisão
 
