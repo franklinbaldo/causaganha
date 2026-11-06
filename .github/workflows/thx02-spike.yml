@@ -4,6 +4,10 @@ on:
   pull_request:
     paths:
       - scripts/spike_thx02.py
+      - scripts/spike_thx02_segmenter.py
+      - tests/test_spike_thx02_segmenter.py
+      - tests/fixtures/thx02_segmenter_synthetic.jsonl
+      - docs/spikes/thx02-segmentation.md
       - tests/test_spike_thx02.py
       - tests/fixtures/thx02_spike.jsonl
       - .github/workflows/thx02-spike.yml
@@ -22,6 +26,12 @@ jobs:
           python-version: '3.13'
       - name: Offline request shape (no network)
         run: python scripts/spike_thx02.py
+      - name: Install isolated dependency for region spike
+        run: python -m pip install httpx==0.28.1
+      - name: THX region segmentation smoke (fictional judgment only)
+        id: regions
+        continue-on-error: true
+        run: python scripts/spike_thx02_segmenter.py --live --output thx02-region-smoke.json
       - name: Live API smoke (synthetic only, non-blocking)
         id: live
         continue-on-error: true
@@ -29,6 +39,10 @@ jobs:
       - name: Summarize smoke outcome
         if: always()
         run: |
+          echo "Region step outcome: ${{ steps.regions.outcome }}"
+          if test -s thx02-region-smoke.json; then
+            python -c 'import json; r=json.load(open("thx02-region-smoke.json")); print("Region units:",len(r["units"])); print("Accepted:",sum(p["status"]=="accepted" for p in r["predictions"])); print("Segments:",len(r["regions"]))'
+          fi
           echo "Live step outcome: ${{ steps.live.outcome }}"
           if test -s thx02-smoke-results.jsonl; then
             python -c 'import json; p="thx02-smoke-results.jsonl"; data=[json.loads(x) for x in open(p)]; print("Predictions:", len(data)); print("Abstained:", sum(x.get("abstained", True) for x in data)); print("Errors:", sum("error" in x for x in data))'
@@ -37,7 +51,9 @@ jobs:
         if: always()
         with:
           name: thx02-synthetic-smoke
-          path: thx02-smoke-results.jsonl
+          path: |
+            thx02-smoke-results.jsonl
+            thx02-region-smoke.json
           if-no-files-found: warn
           retention-days: 14
 
