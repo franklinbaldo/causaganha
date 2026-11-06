@@ -9,7 +9,8 @@ Never part of the production pipeline or published as an OPF benchmark.
 
     python scripts/spike_thx02_segmenter.py
     python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/train.jsonl
-    python scripts/spike_thx02_segmenter.py --live --source tests/fixtures/thx02_segmenter_synthetic.jsonl
+    python scripts/spike_thx02_segmenter.py --live \
+        --source tests/fixtures/thx02_segmenter_synthetic.jsonl
 """
 
 from __future__ import annotations
@@ -79,7 +80,8 @@ def _clean_unit(text: str, start: int, end: int) -> Unit | None:
 def split_units(text: str, *, max_chars: int = 600) -> list[Unit]:
     """Return non-overlapping source-aligned units (not gold segmentation)."""
     if max_chars < 80:
-        raise ValueError("max_chars must be >= 80")
+        msg = "max_chars must be >= 80"
+        raise ValueError(msg)
     if not text.strip():
         return []
     boundaries = {0, len(text)}
@@ -143,7 +145,8 @@ def _split_oversized(text: str, unit: Unit, limit: int) -> list[Unit]:
 def request_items(text: str, units: list[Unit], *, think: bool = False) -> dict[str, Any]:
     """Build an exact HAL-X batch payload, no side effects."""
     if len(units) > MAX_UNITS_PER_REQUEST:
-        raise ValueError("too many units for anonymous-tier one-minute batch")
+        msg = "too many units for anonymous-tier one-minute batch"
+        raise ValueError(msg)
     items = []
     for unit in units:
         items.append(
@@ -175,7 +178,8 @@ def parse_results(units: list[Unit], result: dict, *, threshold: float = 0.80) -
     """Fail closed on mismatched/missing results, bad labels or probabilities."""
     records = result.get("results")
     if not isinstance(records, list) or len(records) != len(units):
-        raise ValueError("THX batch returned an unexpected number of results")
+        msg = "THX batch returned an unexpected number of results"
+        raise ValueError(msg)
     predictions = []
     for unit, record in zip(units, records, strict=True):
         answers = record.get("answers") if isinstance(record, dict) else None
@@ -192,7 +196,13 @@ def parse_results(units: list[Unit], result: dict, *, threshold: float = 0.80) -
             and all(type(v) in (int, float) and 0 <= v <= 1 for v in probabilities.values())
             and abs(sum(probabilities.values()) - 1) <= 0.03
         )
-        if label not in ROLES or not valid_dist or isinstance(p, bool) or not isinstance(p, (int, float)) or not 0 <= p <= 1:
+        if (
+            label not in ROLES
+            or not valid_dist
+            or isinstance(p, bool)
+            or not isinstance(p, (int, float))
+            or not 0 <= p <= 1
+        ):
             predictions.append(Prediction(unit.start, unit.end, "unknown", 0, "unavailable"))
             continue
         accepted = p >= threshold and label != "outro"
@@ -216,10 +226,17 @@ def merge_regions(predictions: list[Prediction]) -> list[dict]:
         if item.status != "accepted":
             merge_allowed = False
             continue
-        if merge_allowed and regions and regions[-1]["label"] == item.label and regions[-1]["end"] <= item.start:
+        if (
+            merge_allowed
+            and regions
+            and regions[-1]["label"] == item.label
+            and regions[-1]["end"] <= item.start
+        ):
             regions[-1]["end"] = item.end
             regions[-1]["unit_count"] += 1
-            regions[-1]["min_probability"] = min(regions[-1]["min_probability"], item.probability)
+            regions[-1]["min_probability"] = min(
+                regions[-1]["min_probability"], item.probability
+            )
         else:
             regions.append(
                 {
@@ -234,7 +251,9 @@ def merge_regions(predictions: list[Prediction]) -> list[dict]:
     return regions
 
 
-def boundary_ceiling(documents: list[dict], *, max_chars: int = 600, tolerance: int = 60) -> dict:
+def boundary_ceiling(
+    documents: list[dict], *, max_chars: int = 600, tolerance: int = 60
+) -> dict:
     """Pure preprocessing ceiling using train/val *if explicitly supplied*.
 
     This is NOT THX quality. Measure how often a gold structural boundary could
@@ -251,10 +270,18 @@ def boundary_ceiling(documents: list[dict], *, max_chars: int = 600, tolerance: 
         edges = [u.start for u in units] + [u.end for u in units]
         for span in doc.get("label", []):
             cat = span["category"]
-            if not (cat.endswith("_inicio") or cat.endswith("_fim") or cat == "dispositivo_abertura"):
+            if not (
+                cat.endswith("_inicio")
+                or cat.endswith("_fim")
+                or cat == "dispositivo_abertura"
+            ):
                 continue
             total += 1
-            boundary = int(span["start"] if cat.endswith("_inicio") or cat == "dispositivo_abertura" else span["end"])
+            boundary = int(
+                span["start"]
+                if cat.endswith("_inicio") or cat == "dispositivo_abertura"
+                else span["end"]
+            )
             if edges and min(abs(boundary - b) for b in edges) <= tolerance:
                 matched += 1
             else:
@@ -274,10 +301,20 @@ def boundary_ceiling(documents: list[dict], *, max_chars: int = 600, tolerance: 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--source", type=Path, default=Path("tests/fixtures/thx02_segmenter_synthetic.jsonl"))
-    parser.add_argument("--audit-train", type=Path, help="Train/development JSONL only; never final test")
-    parser.add_argument("--live", action="store_true", help="Actually transmit the provided document")
-    parser.add_argument("--allow-public-documents", action="store_true", help="Explicit opt-in for live non-fixture documents")
+    parser.add_argument(
+        "--source", type=Path, default=Path("tests/fixtures/thx02_segmenter_synthetic.jsonl")
+    )
+    parser.add_argument(
+        "--audit-train", type=Path, help="Train/development JSONL only; never final test"
+    )
+    parser.add_argument(
+        "--live", action="store_true", help="Actually transmit the provided document"
+    )
+    parser.add_argument(
+        "--allow-public-documents",
+        action="store_true",
+        help="Explicit opt-in for live non-fixture documents",
+    )
     parser.add_argument("--output", type=Path, help="Write JSONL results; default stdout")
     parser.add_argument("--max-chars", type=int, default=600)
     parser.add_argument("--threshold", type=float, default=0.80)
@@ -286,21 +323,42 @@ def main() -> int:
     if not 0 < args.threshold <= 1 or not 1 <= args.max_units <= MAX_UNITS_PER_REQUEST:
         parser.error("threshold must be (0,1]; max-units must be 1..60")
     if args.audit_train is not None:
-        docs = [json.loads(line) for line in args.audit_train.read_text(encoding="utf-8").splitlines() if line.strip()]
-        print(json.dumps(boundary_ceiling(docs, max_chars=args.max_chars), ensure_ascii=False, indent=2))
+        docs = [
+            json.loads(line)
+            for line in args.audit_train.read_text(encoding="utf-8").splitlines()
+            if line.strip()
+        ]
+        print(
+            json.dumps(
+                boundary_ceiling(docs, max_chars=args.max_chars), ensure_ascii=False, indent=2
+            )
+        )
         return 0
-    if args.live and args.source.resolve() != Path("tests/fixtures/thx02_segmenter_synthetic.jsonl").resolve() and not args.allow_public_documents:
-        parser.error("--live with a custom source requires --allow-public-documents (no sensitive texts)")
+    if (
+        args.live
+        and args.source.resolve()
+        != Path("tests/fixtures/thx02_segmenter_synthetic.jsonl").resolve()
+        and not args.allow_public_documents
+    ):
+        parser.error(
+            "--live with a custom source requires --allow-public-documents (no sensitive texts)"
+        )
     if not args.source.exists():
         parser.error(f"source not found: {args.source}")
-    docs = [json.loads(line) for line in args.source.read_text(encoding="utf-8").splitlines() if line.strip()]
+    docs = [
+        json.loads(line)
+        for line in args.source.read_text(encoding="utf-8").splitlines()
+        if line.strip()
+    ]
     if len(docs) != 1:
         parser.error("spike accepts exactly one document to avoid exceeding free-tier quotas")
     doc = docs[0]
     text = doc["text"]
     units = split_units(text, max_chars=args.max_chars)
     if len(units) > args.max_units:
-        parser.error(f"{len(units)} units exceed --max-units {args.max_units}; provide a smaller document")
+        parser.error(
+            f"{len(units)} units exceed --max-units {args.max_units}; provide a smaller document"
+        )
     payload = request_items(text, units)
     predictions = []
     if args.live and units:
