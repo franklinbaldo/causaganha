@@ -34,7 +34,7 @@ python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/trai
 python scripts/spike_thx02_segmenter.py --live --source tests/fixtures/thx02_segmenter_synthetic.jsonl
 ```
 
-`--audit-train` realiza **somente** a auditoria da discretização contra os limites do treino, sem chamadas à HAL-X. Calcula, entre as âncoras estruturais do gold que têm início/fim, quantas estão a até 60 caracteres de uma borda de unidade. É teto potencial **de pré-processamento**, não recall/F1 do THX-02. A amostra v7 tem 14 exemplos de treino, 3 de validação e 3 de teste; a avaliação final travada nunca deve ser aberta neste spike. Preferir, para o passo seguinte, releases v8 com revisão independente e splits imutáveis.
+`--audit-train` realiza **somente** a auditoria da discretização contra os limites do treino, sem chamadas à HAL-X. Calcula, entre as âncoras estruturais do gold que têm início/fim, quantas estão a até 60 caracteres de uma borda de unidade. É teto potencial **de pré-processamento**, não recall/F1 do THX-02. O parâmetro `--tolerance` (padrão 60) permite repetir a análise com fronteiras mais rigorosas; uma tolerância de 60 para unidades de 120 caracteres torna o teto praticamente tautológico. A amostra v7 tem 14 exemplos de treino, 3 de validação e 3 de teste; a avaliação final travada nunca deve ser aberta neste spike. Preferir, para o passo seguinte, releases v8 com revisão independente e splits imutáveis.
 
 ## Resultados obtidos no sandbox
 
@@ -43,6 +43,16 @@ python scripts/spike_thx02_segmenter.py --live --source tests/fixtures/thx02_seg
 - No sandbox, DNS impediu chamadas à HAL-X; o **GitHub Actions executou uma inferência real apenas no documento fictício**, em 06/11/2026, no run 42202538320 (artefato `thx02-synthetic-smoke`).
 - Cinco unidades de texto foram enviadas. Quatro foram aceitas corretamente por inspeção do exemplo sintético: `cabecalho` (0,982), `relatorio` (0,966), `fundamentacao` (0,971) e `encerramento` (0,961). O trecho misto com dispositivo e honorários foi recusado pelo limiar 0,80 (probabilidade vencedora 0,790). Essa abstenção é **diagnóstico de granularidade**, não prova de incapacidade do modelo.
 - O auditor offline do `train.jsonl` v7 encontrou **14 documentos, 180 unidades e 73/90 bordas estruturais** dentro da tolerância de ±60 caracteres (0,8111). É apenas teto de pré-processamento, **não** recall do THX nem qualidade semântica. As principais falhas concentram-se em `encerramento_inicio` (5), `custas_*` (5) e `honorarios_*` (3).
+- Ablação **sem THX, apenas discretização** sobre as 90 fronteiras do treino v7:
+
+| Máximo de caracteres | Unidades (14 documentos) | Dentro de ±60 | Dentro de ±10 |
+|---:|---:|---:|---:|
+| 600 | 180 | 73/90 (81,1%) | 55/90 (61,1%) |
+| 400 | 257 | 77/90 (85,6%) | 53/90 (58,9%) |
+| 250 | 403 | 85/90 (94,4%) | 61/90 (67,8%) |
+| 120 | 780 | 90/90 (100%, teto trivial) | 63/90 (70,0%) |
+
+Interpretar apenas como cobertura potencial de bordas, não recall de classificação: a granularidade menor aumenta cobertura, custo e risco de misturar regiões. A métrica precisa ser validada sobre regiões efetivas, não proximidade isolada.
 - Ainda não há F1, latência comparável nem calibração do THX-02 sobre gold jurídico independente. A classificação sintética é somente smoke, sem extrapolação.
 
 ## Próximos experimentos / critério de decisão
