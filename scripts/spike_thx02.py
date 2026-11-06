@@ -139,28 +139,34 @@ def resolve_winner(outcome: str, recorrente_polo: str | None) -> str:
 def make_item(doc: dict[str, Any], *, think: bool, tta: int) -> dict[str, Any]:
     text = doc["text"]
     if not isinstance(text, str) or not text.strip():
-        raise ValueError("Each document needs a nonempty string 'text'")
+        error_message = "Each document needs a nonempty string 'text'"
+        raise ValueError(error_message)
     if len(text.encode("utf-8")) > 250_000:
-        raise ValueError("Text above 250 KB: segment it first; no silent truncation")
+        error_message = "Text above 250 KB: segment it first; no silent truncation"
+        raise ValueError(error_message)
     return {"state": text, "questions": QUESTIONS, "think": "auto" if think else False, "tta": tta}
 
 
 def decode_choice(answer: Any, allowed: set[str]) -> tuple[str, float]:
     """Validate response and use the winner *probability*, not vendor confidence."""
     if not isinstance(answer, dict) or answer.get("type") != "choice":
-        raise ValueError("Expected THX-02 choice answer")
+        error_message = "Expected THX-02 choice answer"
+        raise ValueError(error_message)
     choice, probabilities = answer.get("choice"), answer.get("probabilities")
     if choice not in allowed or not isinstance(probabilities, dict):
-        raise ValueError("Unknown THX-02 choice or missing probabilities")
+        error_message = "Unknown THX-02 choice or missing probabilities"
+        raise ValueError(error_message)
     if set(probabilities) != allowed:
-        raise ValueError("THX-02 returned a different option set")
+        error_message = "THX-02 returned a different option set"
+        raise ValueError(error_message)
     if any(
-        type(value) not in (int, float) or not 0 <= value <= 1
-        for value in probabilities.values()
+        type(value) not in (int, float) or not 0 <= value <= 1 for value in probabilities.values()
     ):
-        raise ValueError("Invalid THX-02 probability")
+        error_message = "Invalid THX-02 probability"
+        raise ValueError(error_message)
     if abs(sum(probabilities.values()) - 1) > 0.03:
-        raise ValueError("THX-02 probabilities do not sum to one")
+        error_message = "THX-02 probabilities do not sum to one"
+        raise ValueError(error_message)
     return choice, float(probabilities[choice])
 
 
@@ -168,10 +174,12 @@ def decode_response(
     doc: dict[str, Any], response: dict[str, Any], threshold: float
 ) -> dict[str, Any]:
     if not isinstance(response, dict) or response.get("model", "").lower() != MODEL:
-        raise ValueError("Wrong model in THX-02 response")
+        error_message = "Wrong model in THX-02 response"
+        raise ValueError(error_message)
     answers = response.get("answers")
     if not isinstance(answers, dict):
-        raise ValueError("THX-02 response missing answers")
+        error_message = "THX-02 response missing answers"
+        raise TypeError(error_message)
     choices = {
         name: decode_choice(answers.get(name), set(question["criteria"]))
         for name, question in QUESTIONS.items()
@@ -213,7 +221,8 @@ def decode_response(
 def send_batch(items: list[dict[str, Any]], *, api_key: str | None = None) -> list[dict[str, Any]]:
     payload = json.dumps({"model": MODEL, "items": items}, ensure_ascii=False).encode("utf-8")
     if len(payload) > 8_000_000:
-        raise ValueError("Batch exceeds THX API 8 MB body cap")
+        error_message = "Batch exceeds THX API 8 MB body cap"
+        raise ValueError(error_message)
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["Authorization"] = f"Bearer {api_key}"
@@ -222,30 +231,36 @@ def send_batch(items: list[dict[str, Any]], *, api_key: str | None = None) -> li
         with urlopen(request, timeout=120) as response:
             body = response.read(8_000_001)
             if len(body) > 8_000_000:
-                raise ValueError("Response too large")
+                error_message = "Response too large"
+                raise ValueError(error_message)
             parsed = json.loads(body)
     except HTTPError as exc:
         # Do not log body: it may echo document content or credentials.
-        raise RuntimeError(f"THX-02 HTTP {exc.code}; retry 429 after Retry-After") from exc
+        error_message = f"THX-02 HTTP {exc.code}; retry 429 after Retry-After"
+        raise RuntimeError(error_message) from exc
     except URLError as exc:
-        raise RuntimeError("THX-02 network unavailable") from exc
+        error_message = "THX-02 network unavailable"
+        raise RuntimeError(error_message) from exc
     if not isinstance(parsed, dict) or not isinstance(parsed.get("results"), list):
-        raise ValueError("Invalid THX-02 batch envelope")
+        error_message = "Invalid THX-02 batch envelope"
+        raise TypeError(error_message)
     if len(parsed["results"]) != len(items):
-        raise ValueError("THX-02 batch cardinality mismatch")
+        error_message = "THX-02 batch cardinality mismatch"
+        raise ValueError(error_message)
     return parsed["results"]
 
 
 def load_jsonl(path: Path) -> list[dict[str, Any]]:
     docs = [
-        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
+        json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()
     ]
     for doc in docs:
         if not isinstance(doc.get("id"), str):
-            raise ValueError("Each input document requires a string id")
+            error_message = "Each input document requires a string id"
+            raise TypeError(error_message)
     if len({d["id"] for d in docs}) != len(docs):
-        raise ValueError("Duplicate id in input")
+        error_message = "Duplicate id in input"
+        raise ValueError(error_message)
     return docs
 
 
@@ -290,7 +305,8 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
     recall = tp / (tp + fn) if tp + fn else None
     f1 = (
         2 * p * recall / (p + recall)
-        if p is not None and recall is not None and p + recall else None
+        if p is not None and recall is not None and p + recall
+        else None
     )
     return {
         "n_total": len(results),
@@ -304,19 +320,21 @@ def summarize(results: list[dict[str, Any]]) -> dict[str, Any]:
         "gate_f1": f1,
         "conditional_accuracy": (
             sum(r["winner"] == r["gold_winner"] for r in true_gate) / len(true_gate)
-            if true_gate else None
+            if true_gate
+            else None
         ),
         "outcome_accuracy": (
             sum(
-                r["outcome"] == r["gold_outcome"]
-                for r in good if r.get("gold_outcome") is not None
+                r["outcome"] == r["gold_outcome"] for r in good if r.get("gold_outcome") is not None
             )
             / sum(r.get("gold_outcome") is not None for r in good)
-            if any(r.get("gold_outcome") is not None for r in good) else None
+            if any(r.get("gold_outcome") is not None for r in good)
+            else None
         ),
         "direct_winner_accuracy": (
             sum(r["winner_direct"] == r["gold_winner"] for r in comparable) / len(comparable)
-            if comparable else None
+            if comparable
+            else None
         ),
     }
 
@@ -329,26 +347,33 @@ def main(argv: list[str] | None = None) -> int:
         "--gold-dir", type=Path, help="Directory with benchmark Markdown frontmatter"
     )
     parser.add_argument(
-        "--live", action="store_true",
+        "--live",
+        action="store_true",
         help="Explicitly transmit data to HAL-X; default is offline",
     )
     parser.add_argument(
-        "--permit-third-party", action="store_true",
+        "--permit-third-party",
+        action="store_true",
         help="Confirm external transfer of non-synthetic texts is authorized",
     )
     parser.add_argument(
         "--output", type=Path, help="Write predictions as JSONL (without input texts)"
     )
     parser.add_argument(
-        "--limit", type=int, default=12,
+        "--limit",
+        type=int,
+        default=12,
         help="Max records (1..12, to respect anonymous RPM)",
     )
     parser.add_argument(
-        "--threshold", type=float, default=0.90,
+        "--threshold",
+        type=float,
+        default=0.90,
         help="Minimum selected probability, default 0.90",
     )
     parser.add_argument(
-        "--think", action="store_true",
+        "--think",
+        action="store_true",
         help="Use think:auto instead of direct inference",
     )
     parser.add_argument("--tta", choices=[1, 4], type=int, default=1)
@@ -362,7 +387,8 @@ def main(argv: list[str] | None = None) -> int:
     fixtures = Path(__file__).resolve().parent.parent / "tests/fixtures/thx02_spike.jsonl"
     docs = (
         load_gold_dir(args.gold_dir, args.limit)
-        if args.gold_dir else load_jsonl(args.input or fixtures)[: args.limit]
+        if args.gold_dir
+        else load_jsonl(args.input or fixtures)[: args.limit]
     )
     if not docs:
         parser.error("No input documents")
