@@ -60,13 +60,11 @@ def test_anonymous_limit_rejected():
 
 
 def _answer(label="dispositivo", p=0.92):
-    remainder = (1-p)/(len(spike.ROLES)-1) if type(p) in (int, float) else 0.0
+    remainder = (1 - p) / (len(spike.ROLES) - 1) if type(p) in (int, float) else 0.0
     probabilities = {name: remainder for name in spike.ROLES}
     probabilities[label] = p
     return {
-        "answers": {
-            "papel": {"type": "choice", "choice": label, "probabilities": probabilities}
-        }
+        "answers": {"papel": {"type": "choice", "choice": label, "probabilities": probabilities}}
     }
 
 
