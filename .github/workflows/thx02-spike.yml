@@ -35,6 +35,9 @@ jobs:
           for size in 120 250 400; do
             python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/train.jsonl --max-chars "$size" > "thx02-region-ceiling-${size}.json"
           done
+          for size in 120 250 400 600; do
+            python scripts/spike_thx02_segmenter.py --audit-train data/segmenter_splits/train.jsonl --max-chars "$size" --tolerance 10 > "thx02-region-ceiling-10-${size}.json"
+          done
       - name: THX region segmentation smoke (fictional judgment only)
         id: regions
         continue-on-error: true
@@ -52,6 +55,9 @@ jobs:
           fi
           for size in 120 250 400; do
             FILE="thx02-region-ceiling-${size}.json" python -c 'import json,os; x=json.load(open(os.environ["FILE"])); print(os.environ["FILE"],"units:",x["units"],"ceiling:",x["ceiling_recall"])'
+          done
+          for size in 120 250 400 600; do
+            FILE="thx02-region-ceiling-10-${size}.json" python -c 'import json,os; x=json.load(open(os.environ["FILE"])); print(os.environ["FILE"],"units:",x["units"],"ceiling:",x["ceiling_recall"])'
           done
           if test -s thx02-region-smoke.json; then
             python -c 'import json; r=json.load(open("thx02-region-smoke.json")); print("Region units:",len(r["units"])); print("Accepted:",sum(p["status"]=="accepted" for p in r["predictions"])); print("Segments:",len(r["regions"]))'
