@@ -25,6 +25,12 @@ from causaganha.decisoes.structural_segmenter import (
     SectionSpan,
     SectionType,
 )
+from causaganha.decisoes.taxonomy import (
+    DocumentTaxonomyRegistry,
+    MacroCategory,
+    TaxonomyClassification,
+    TaxonomyRule,
+)
 from causaganha.decisoes.topology_router import (
     DecisionTopology,
     TopologyRouter,
@@ -36,14 +42,18 @@ __all__ = [
     "DecisionTopology",
     "DispositifResult",
     "DocumentStructure",
+    "DocumentTaxonomyRegistry",
     "FullDocumentStructuralSegmenter",
     "HybridDispositifSegmenter",
+    "MacroCategory",
     "ModelRatchetGate",
     "PublishedDecisionDataset",
     "RatchetDecision",
     "RatchetMetrics",
     "SectionSpan",
     "SectionType",
+    "TaxonomyClassification",
+    "TaxonomyRule",
     "TopologyRouter",
     "discover_published_decision_datasets",
     "discover_published_juris_datasets",
