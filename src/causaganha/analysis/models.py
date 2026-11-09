@@ -250,6 +250,23 @@ class DecisionAnalysis(BaseModel):
         description="Extracted operative section (dispositivo) of the decision",
     )
 
+    @property
+    def taxa_sucesso_economico(self) -> float | None:
+        """Taxa contínua de êxito econômico substantivo: min(1.0, valor_condenacao / valor_causa)."""
+        if self.valor_causa and self.valor_causa > 0 and self.valor_condenacao is not None:
+            return round(
+                min(1.0, max(0.0, float(self.valor_condenacao) / float(self.valor_causa))), 4
+            )
+        return None
+
+    @property
+    def polo_vencedor_resolvido(self) -> str:
+        """Resolve o polo vencedor invariante (A, P, draw, unknown) considerando efeito substitutivo recursal."""
+        from causaganha.analysis.recurso_resolver import resolve_winner_polo
+
+        raw_outcome = self.outcome.value if hasattr(self.outcome, "value") else str(self.outcome)
+        return resolve_winner_polo(raw_outcome, self.recorrente_polo)
+
     @field_validator("decision_type", "outcome", mode="before")
     @classmethod
     def normalize_enum(cls, v: str) -> str:
