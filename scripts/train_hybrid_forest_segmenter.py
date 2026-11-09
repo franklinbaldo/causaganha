@@ -85,6 +85,7 @@ def load_dataset(jsonl_path: Path):
             for k, v in extracted.items():
                 if not meta.get(k):
                     meta[k] = v
+            meta["taxonomy_classification"] = segmenter.taxonomy_registry.classify(text, meta)
 
             doc_feats = []
             for idx, u in enumerate(units):
@@ -147,6 +148,7 @@ def main():
                 rec = json.loads(line)
                 full_text = rec["full_text"]
                 meta = rec.get("metadata", {})
+                meta["taxonomy_classification"] = segmenter_pool.taxonomy_registry.classify(full_text, meta)
                 units = segmenter_pool.split_document_units(full_text)
                 tot_u = len(units)
                 tot_c = len(full_text)

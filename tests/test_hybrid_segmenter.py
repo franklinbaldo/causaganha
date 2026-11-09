@@ -96,6 +96,10 @@ def test_extract_features_shape_and_metadata():
     assert feats[7] == 1.0
     # classe_is_execucao deve ser 1.0 (Cumprimento de sentença)
     assert feats[9] == 1.0
+    # Taxonomia: é sentença de procedência (julgo procedente)
+    feat_names = HybridDispositifSegmenter.FEATURE_NAMES
+    assert feats[feat_names.index("is_macro_sentenca")] == 1.0
+    assert feats[feat_names.index("is_macro_acordao")] == 0.0
 
 
 def test_citation_penalty_flag():

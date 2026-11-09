@@ -17,6 +17,8 @@ from typing import Any, Sequence
 import joblib
 import numpy as np
 
+from causaganha.decisoes.taxonomy import DocumentTaxonomyRegistry, MacroCategory
+
 # Padrões canônicos de abertura de dispositivo
 CANONICAL_ANCHORS = [
     r"\bante\s+(?:ao|o)\s+exposto\b",
@@ -111,12 +113,26 @@ class HybridDispositifSegmenter:
         "classe_is_recurso",
         "classe_is_hc",
         "ano_pos_2020",
+        "is_macro_acordao",
+        "is_macro_sentenca",
+        "is_macro_interlocutoria",
+        "is_macro_edital",
+        "is_macro_comunicacao",
+        "is_macro_cartorio",
+        "is_spec_homologatoria",
+        "is_spec_liminar_urgencia",
+        "has_urgencia_tag",
     ]
 
-    def __init__(self, model_path: str | Path | None = None):
+    def __init__(
+        self,
+        model_path: str | Path | None = None,
+        taxonomy_registry: DocumentTaxonomyRegistry | None = None,
+    ):
         self.rf_model = None
         self.isolation_forest = None
         self.is_fitted = False
+        self.taxonomy_registry = taxonomy_registry or DocumentTaxonomyRegistry()
 
         if model_path and Path(model_path).exists():
             self.load(model_path)
@@ -231,6 +247,28 @@ class HybridDispositifSegmenter:
             ano = int(m_ano.group(0))
         ano_pos_2020 = 1.0 if ano >= 2020 else 0.0
 
+        # 6. Metadados de Taxonomia Especializada (DJEN / Topologia Especializada)
+        tax_res = meta.get("taxonomy_classification")
+        if tax_res is None:
+            full_context = meta.get("full_text") or paragraph
+            tax_res = self.taxonomy_registry.classify(full_context, meta)
+
+        macro = getattr(tax_res, "macro_category", None)
+        macro_val = macro.value if hasattr(macro, "value") else str(macro)
+        spec = str(getattr(tax_res, "specific_category", ""))
+        tags = getattr(tax_res, "tags", []) or []
+
+        is_macro_acordao = 1.0 if macro_val == "ACORDAO" else 0.0
+        is_macro_sentenca = 1.0 if macro_val == "SENTENCA" else 0.0
+        is_macro_interlocutoria = 1.0 if macro_val == "DECISAO_INTERLOCUTORIA" else 0.0
+        is_macro_edital = 1.0 if macro_val == "EDITAL" else 0.0
+        is_macro_comunicacao = 1.0 if macro_val == "PUBLICACAO_COMUNICACAO" else 0.0
+        is_macro_cartorio = 1.0 if macro_val == "ATO_CARTORARIO" else 0.0
+
+        is_spec_homologatoria = 1.0 if "HOMOLOGATORIA" in spec else 0.0
+        is_spec_liminar_urgencia = 1.0 if ("TUTELA_URGENCIA" in spec or "LIMINAR" in spec) else 0.0
+        has_urgencia_tag = 1.0 if "urgencia" in tags else 0.0
+
         return [
             pos_rel,
             float(char_len),
@@ -245,6 +283,15 @@ class HybridDispositifSegmenter:
             is_rec,
             is_hc,
             ano_pos_2020,
+            is_macro_acordao,
+            is_macro_sentenca,
+            is_macro_interlocutoria,
+            is_macro_edital,
+            is_macro_comunicacao,
+            is_macro_cartorio,
+            is_spec_homologatoria,
+            is_spec_liminar_urgencia,
+            has_urgencia_tag,
         ]
 
     def _rule_based_score(self, feats: list[float]) -> float:
@@ -299,6 +346,12 @@ class HybridDispositifSegmenter:
             for k, v in extracted.items():
                 if k not in meta or not meta[k]:
                     meta[k] = v
+
+        # Classifica a taxonomia especializada uma única vez para o documento
+        if "taxonomy_classification" not in meta:
+            tax_res = self.taxonomy_registry.classify(text, meta)
+            meta["taxonomy_classification"] = tax_res
+            meta["taxonomy"] = tax_res.to_dict()
 
         n_total = len(text)
         if n_total <= 350:

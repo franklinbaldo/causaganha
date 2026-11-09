@@ -47,6 +47,7 @@ def run_training_step(pool_path: Path, model_save_path: Path) -> tuple[dict[str,
                 rec = json.loads(line)
                 full_text = rec["full_text"]
                 meta = rec.get("metadata", {})
+                meta["taxonomy_classification"] = segmenter_pool.taxonomy_registry.classify(full_text, meta)
                 units = segmenter_pool.split_document_units(full_text)
                 tot_u = len(units)
                 tot_c = len(full_text)
