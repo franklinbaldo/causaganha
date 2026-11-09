@@ -3,8 +3,13 @@
 from __future__ import annotations
 
 import re
+from typing import Any
 
 from causaganha.decisoes.ner.models import CnjValue, EntityRole, EntityType, JudicialMention
+from causaganha.processos.cnj import (
+    normalizar_cnj,
+    validar_digito_verificador,
+)
 
 # Regex canônica para número CNJ (com e sem pontuação)
 REGEX_CNJ = re.compile(
@@ -13,29 +18,31 @@ REGEX_CNJ = re.compile(
 
 
 def validate_cnj_modulo_97(seq: str, dv: str, ano: str, ramo: str, trib: str, origem: str) -> bool:
-    """Valida o dígito verificador do CNJ usando o algoritmo Módulo 97 Base 10 (Resolução CNJ 65/2008).
-
-    Fórmula:
-    R1 = int(sequencial) % 97
-    R2 = int(f"{R1:02d}{ano}{ramo}{trib}") % 97
-    R3 = int(f"{R2:02d}{origem}00") % 97
-    dv_esperado = 98 - R3
-    """
-    try:
-        r1 = int(seq) % 97
-        r2 = int(f"{r1:02d}{ano}{ramo}{trib}") % 97
-        r3 = int(f"{r2:02d}{origem}00") % 97
-        expected_dv = 98 - r3
-        return expected_dv == int(dv)
-    except (ValueError, TypeError):
-        return False
+    """Valida o dígito verificador do CNJ usando o algoritmo Módulo 97 Base 10 (Resolução CNJ 65/2008)."""
+    digits = f"{seq}{dv}{ano}{ramo}{trib}{origem}"
+    return validar_digito_verificador(digits)
 
 
 class CnjExtractor:
     """Extrator determinístico especializado em números de processo CNJ."""
 
-    def extract(self, text: str, section: str = "CABECALHO") -> list[JudicialMention]:
+    def extract(
+        self,
+        text: str,
+        section: str = "CABECALHO",
+        metadata: dict[str, Any] | None = None,
+    ) -> list[JudicialMention]:
+        meta = metadata or {}
         mentions: list[JudicialMention] = []
+
+        # 1. Recupera o CNJ oficial dos metadados do DJEN (Fonte de Verdade Canônica)
+        djen_raw = (
+            meta.get("numero_processo")
+            or meta.get("numero_processo_mascara")
+            or meta.get("cnj")
+            or meta.get("process_number")
+        )
+        djen_clean = normalizar_cnj(str(djen_raw)) if djen_raw else ""
 
         is_first_cnj = True
         for m in REGEX_CNJ.finditer(text):
@@ -47,23 +54,41 @@ class CnjExtractor:
             origem = m.group("origem")
 
             formatted = f"{seq}-{dv}.{ano}.{ramo}.{trib}.{origem}"
-            is_valid = validate_cnj_modulo_97(seq, dv, ano, ramo, trib, origem)
+            clean_digits = f"{seq}{dv}{ano}{ramo}{trib}{origem}"
+            is_valid = validar_digito_verificador(clean_digits)
 
             ctx_start = max(0, m.start() - 80)
             ctx_before = text[ctx_start : m.start()].lower()
 
-            # Papel Semântico: O primeiro CNJ no cabeçalho/início é o processo principal;
-            # processos subsequentes são citados ou paradigmas
-            if is_first_cnj and (section in {"CABECALHO"} or m.start() < 350):
-                role = EntityRole.PROCESSO_PRINCIPAL
-                evidence = "Primeiro número CNJ localizado no cabeçalho / início do ato"
-                is_first_cnj = False
-            elif "paradigma" in ctx_before or "precedente" in ctx_before or "tema" in ctx_before:
-                role = EntityRole.PROCESSO_PARADIGMA
-                evidence = f"Citado como paradigma / precedente na seção {section}"
+            # Papel Semântico: O processo principal DEVE vir dos metadados do DJEN.
+            if djen_clean:
+                if clean_digits == djen_clean:
+                    role = EntityRole.PROCESSO_PRINCIPAL
+                    evidence = (
+                        "Menção textual idêntica ao numero_processo oficial dos metadados do DJEN"
+                    )
+                elif (
+                    "paradigma" in ctx_before or "precedente" in ctx_before or "tema" in ctx_before
+                ):
+                    role = EntityRole.PROCESSO_PARADIGMA
+                    evidence = f"Citado como paradigma / precedente na seção {section}"
+                else:
+                    role = EntityRole.PROCESSO_CITADO
+                    evidence = f"Processo citado na seção {section} (distinto do metadado oficial do DJEN {djen_clean})"
             else:
-                role = EntityRole.PROCESSO_CITADO
-                evidence = f"Processo citado na seção {section}"
+                # Se não há metadados do DJEN disponíveis:
+                if "paradigma" in ctx_before or "precedente" in ctx_before or "tema" in ctx_before:
+                    role = EntityRole.PROCESSO_PARADIGMA
+                    evidence = f"Citado como paradigma / precedente na seção {section}"
+                elif is_first_cnj and (section in {"CABECALHO"} or m.start() < 350):
+                    role = EntityRole.PROCESSO_PRINCIPAL
+                    evidence = (
+                        "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+                    )
+                    is_first_cnj = False
+                else:
+                    role = EntityRole.PROCESSO_CITADO
+                    evidence = f"Processo citado na seção {section}"
 
             cnj_val = CnjValue(
                 numero_formatado=formatted,

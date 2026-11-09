@@ -53,7 +53,7 @@ def test_cnj_extractor_detection_and_roles():
     mentions = extractor.extract(text, section="CABECALHO")
     assert len(mentions) >= 2
 
-    # Primeiro processo é o principal
+    # Primeiro processo é o principal por ausência de metadados explícitos
     m0 = mentions[0]
     assert m0.normalized_value.numero_formatado == "7019913-62.2025.8.22.0007"
     assert m0.normalized_value.is_valid_mod97 is True
@@ -63,6 +63,33 @@ def test_cnj_extractor_detection_and_roles():
     # Segundo processo (mais adiante no texto) é paradigma
     m1 = mentions[1]
     assert m1.role == EntityRole.PROCESSO_PARADIGMA
+
+
+def test_cnj_main_process_strictly_governed_by_djen_metadata():
+    """Garante que o PROCESSO_PRINCIPAL seja governado pelos metadados do DJEN, não pelo cabeçalho."""
+    extractor = CnjExtractor()
+    # O texto cita no cabeçalho um processo apenso/dependente, e depois o processo real do DJEN
+    text = (
+        "Distribuição por dependência aos autos nº 7019913-62.2025.8.22.0007. "
+        "Trata-se de impugnação autuada sob o nº 7004816-83.2025.8.22.0019."
+    )
+
+    # O metadado do DJEN declara que a publicação é dos autos 7004816-83.2025.8.22.0019
+    meta_djen = {"numero_processo": "70048168320258220019"}
+
+    mentions = extractor.extract(text, section="CABECALHO", metadata=meta_djen)
+    assert len(mentions) == 2
+
+    m_apenso = [m for m in mentions if "7019913" in m.literal][0]
+    m_principal = [m for m in mentions if "7004816" in m.literal][0]
+
+    # O primeiro CNJ do cabeçalho NÃO pode ser o principal porque difere do DJEN
+    assert m_apenso.role == EntityRole.PROCESSO_CITADO
+    assert "distinto do metadado oficial do DJEN" in m_apenso.evidence
+
+    # O processo que coincide com o DJEN é o principal
+    assert m_principal.role == EntityRole.PROCESSO_PRINCIPAL
+    assert "numero_processo oficial dos metadados do DJEN" in m_principal.evidence
 
 
 def test_legal_reference_parser_hierarchy_and_context():
@@ -204,3 +231,35 @@ def test_composite_extractor_with_sections():
     assert "CABECALHO" in by_sec
     assert "DISPOSITIVO" in by_sec
     assert "ENCERRAMENTO" in by_sec
+
+
+def test_composite_injects_djen_process_when_not_in_text():
+    """Garante que quando o texto não contém CNJ, o metadado oficial do DJEN é preservado como PROCESSO_PRINCIPAL."""
+    composite = CompositeEntityExtractor()
+    sections = {
+        "cabecalho": SectionSpan(
+            section_type=SectionType.CABECALHO,
+            start=0,
+            end=60,
+            text="PODER JUDICIÁRIO. 1ª VARA CÍVEL. Ação de Cobrança.",
+            confidence=0.95,
+        ),
+        "dispositivo": SectionSpan(
+            section_type=SectionType.DISPOSITIVO,
+            start=61,
+            end=140,
+            text="Julgo procedente o pedido para condenar o réu em R$ 1.000,00.",
+            confidence=0.92,
+        ),
+    }
+
+    meta = {"numero_processo": "70199136220258220007"}
+    mentions = composite.extract_from_sections(sections, metadata=meta)
+
+    # O PROCESSO_PRINCIPAL deve existir via metadados do DJEN
+    cnjs = [m for m in mentions if m.entity_type == EntityType.CNJ]
+    assert len(cnjs) == 1
+    assert cnjs[0].role == EntityRole.PROCESSO_PRINCIPAL
+    assert cnjs[0].section == "METADADOS_DJEN"
+    assert cnjs[0].normalized_value.numero_formatado == "7019913-62.2025.8.22.0007"
+    assert "Metadados do DJEN" in cnjs[0].evidence
