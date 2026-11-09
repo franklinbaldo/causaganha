@@ -62,15 +62,15 @@ REGEX_HEADER_ADV = re.compile(
     re.IGNORECASE,
 )
 REGEX_PRECEDING_LAWYER = re.compile(
-    r"(?:advogad[oa](?:s)?(?:\s+d[oa]\s+\w+)?\s*:\s*|,\s*|\b)(?P<nome>[A-ZÀ-Ú][a-zà-úA-ZÀ-Ú\.\s]+?)(?:,\s*|\s+)OAB",
+    r"(?:advogad[oa](?:s)?(?:\s*\(a\))?(?:\s+d[oa]\s+\w+)?\s*:\s*|,\s*|\b)(?P<nome>[A-ZÀ-Ú][a-zà-úA-ZÀ-Ú\.\s]+?)(?:,\s*|\s*\(?\s*)OAB",
     re.IGNORECASE,
 )
 REGEX_HEADER_POLO_ATIVO = re.compile(
-    r"\b(?:autor(?:a)?|requerente|exequente|embargante|impetrante|polo\s+ativo)\s*:\s*(?P<nome>[A-ZÀ-Ú][A-Za-zÀ-ú\.\s\-]+?)(?:,?\s*(?:CPF|CNPJ|endereço|residente|qualificad|\n|$))",
+    r"\b(?:autor(?:a)?|requerente|exequente|embargante|impetrante|acusad[oa]|polo\s+ativo)\s*:\s*(?P<nome>[A-ZÀ-Ú][A-Za-zÀ-ú\.\s\-]+?)(?:,?\s*(?:CPF|CNPJ|endereço|residente|qualificad|[Rr][eé]u\s*:|\n|$))",
     re.IGNORECASE,
 )
 REGEX_HEADER_POLO_PASSIVO = re.compile(
-    r"\b(?:r[eé]u|requerid[oa]|executad[oa]|embargad[oa]|impetrad[oa]|polo\s+passivo)\s*:\s*(?P<nome>[A-ZÀ-Ú][A-Za-zÀ-ú\.\s\-]+?)(?:,?\s*(?:CPF|CNPJ|endereço|residente|qualificad|\n|$))",
+    r"\b(?:r[eé]u|requerid[oa]|executad[oa]|embargad[oa]|impetrad[oa]|acusad[oa]|polo\s+passivo)\s*:\s*(?P<nome>[A-ZÀ-Ú][A-Za-zÀ-ú\.\s\-]+?)(?:,?\s*(?:CPF|CNPJ|endereço|residente|qualificad|\badvogad|\bOAB|\n|$))",
     re.IGNORECASE,
 )
 
@@ -286,9 +286,9 @@ class PersonAdvogadoExtractor:
                     )
                 )
 
-        # 4. Fallback de Cabeçalho: Quando metadados do DJEN não vierem com advogado ou partes,
+        # 4. Fallback de Cabeçalho / Relatório: Quando metadados do DJEN não vierem com advogado ou partes,
         # detecta padrões lexicais como "Advogado: Dr. Fulano", "Autor: Beltrano", "Réu: Ciclano"
-        if section in {"CABECALHO"}:
+        if section in {"CABECALHO", "RELATORIO", "FUNDAMENTACAO", "CORPO"}:
             if not adv_djen:
                 for m in REGEX_HEADER_ADV.finditer(text):
                     nome = m.group("nome").strip()
@@ -341,5 +341,32 @@ class PersonAdvogadoExtractor:
                                 evidence="Polo Passivo extraído do rótulo de cabeçalho na ausência de metadado DJEN",
                             )
                         )
+
+        # 5. Detecção de Magistrado por Assinatura no Encerramento quando ausente nos metadados
+        if section in {"ENCERRAMENTO", "CORPO"} and not juiz_djen:
+            clean_text = text.replace("\xa0", " ")
+            sig_pattern = re.compile(
+                r"(?:(?:ju[ií]z(?:a)?(?:\s+de\s+direito|\s+substituto(?:a)?|\s+federal)?|desembargador(?:a)?|relator(?:a)?)\s*:\s*(?P<nome1>[A-ZÀ-Ú][a-zà-úA-ZÀ-Ú\.\s]{3,50})"
+                r"|"
+                r"(?:[.\n]|\b\d{4}\.?)\s*(?P<nome2>[A-ZÀ-Ú][a-zà-ú]+(?:\s+[A-ZÀ-Ú][a-zà-ú]+){1,4})\s+(?:Ju[ií]z(?:a)?(?:\s+de\s+Direito|\s+Substituto(?:a)?|\s+Federal)?|Desembargador(?:a)?|Relator(?:a)?)\b)",
+                re.IGNORECASE,
+            )
+            for m in sig_pattern.finditer(clean_text):
+                nome = (m.group("nome1") or m.group("nome2") or "").strip()
+                if len(nome) > 4 and not any(w in nome.lower() for w in ["tribunal", "comarca", "justiça", "estado"]):
+                    mentions.append(
+                        JudicialMention(
+                            literal=nome,
+                            start=m.start(),
+                            end=m.end(),
+                            section=section,
+                            entity_type=EntityType.PESSOA,
+                            normalized_value=PersonValue(nome=nome, polo="MAGISTRADO"),
+                            role=EntityRole.MAGISTRADO,
+                            confidence=0.88,
+                            evidence="Magistrado identificado por assinatura no encerramento da decisão",
+                        )
+                    )
+                    break
 
         return mentions

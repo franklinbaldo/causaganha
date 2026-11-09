@@ -151,12 +151,11 @@ class CompositeEntityExtractor:
             text = span.text
             base_offset = span.start
 
-            # 1. CNJ (Validado contra os metadados do DJEN)
-            if sec_type in {"CABECALHO", "ENCERRAMENTO"}:
-                for m in self.cnj.extract(text, sec_type, metadata=meta):
-                    m.start += base_offset
-                    m.end += base_offset
-                    all_mentions.append(m)
+            # 1. CNJ (Validado matematicamente por Módulo 97 e ancorado no DJEN)
+            for m in self.cnj.extract(text, sec_type, metadata=meta):
+                m.start += base_offset
+                m.end += base_offset
+                all_mentions.append(m)
 
             # 2. Normas
             if sec_type in {"FUNDAMENTACAO", "VOTO", "DISPOSITIVO", "RELATORIO", "EMENTA"}:
@@ -185,7 +184,7 @@ class CompositeEntityExtractor:
                 all_mentions.append(m)
 
             # 6. Pessoas, Advogados e OABs (Vinculados aos metadados do DJEN)
-            if sec_type in {"CABECALHO", "RELATORIO", "DISPOSITIVO", "ENCERRAMENTO"}:
+            if sec_type in {"CABECALHO", "RELATORIO", "FUNDAMENTACAO", "DISPOSITIVO", "ENCERRAMENTO"}:
                 for m in self.person.extract(text, sec_type, metadata=meta):
                     m.start += base_offset
                     m.end += base_offset
