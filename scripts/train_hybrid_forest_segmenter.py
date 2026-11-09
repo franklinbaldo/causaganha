@@ -130,10 +130,39 @@ def main():
     train_path = ROOT_DIR / "data/segmenter_splits/train.jsonl"
     val_path = ROOT_DIR / "data/segmenter_splits/val.jsonl"
     test_path = ROOT_DIR / "data/segmenter_splits/test.jsonl"
+    pool_path = ROOT_DIR / "data/audit/active_learning_pool.jsonl"
 
     print(f"Carregando dados de treino: {train_path}...")
     X_train, y_train, prof_train, train_docs = load_dataset(train_path)
-    print(f"X_train shape: {X_train.shape} | Dispositivo pos: {sum(y_train)} / neg: {len(y_train) - sum(y_train)}")
+
+    # Incorpora feedback do pool de Active Learning (THX-02) se disponível
+    if pool_path.exists():
+        print(f"Incorporando correções da Flywheel de Active Learning: {pool_path}...")
+        segmenter_pool = HybridDispositifSegmenter()
+        X_p, y_p = [], []
+        with open(pool_path, encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                full_text = rec["full_text"]
+                meta = rec.get("metadata", {})
+                units = segmenter_pool.split_document_units(full_text)
+                tot_u = len(units)
+                tot_c = len(full_text)
+                for idx_u, u in enumerate(units):
+                    p_txt = u["text"]
+                    pos_r = idx_u / max(tot_u - 1, 1)
+                    is_d = 1 if (pos_r > 0.65 and any(w in p_txt.lower() for w in ["julgo", "exposto", "acordam", "provimento", "homologo"])) else 0
+                    feats = segmenter_pool.extract_features(p_txt, idx_u, tot_u, u["start"], tot_c, meta)
+                    X_p.append(feats)
+                    y_p.append(is_d)
+        if X_p:
+            X_train = np.vstack([X_train, np.array(X_p)])
+            y_train = np.concatenate([y_train, np.array(y_p)])
+            print(f"  + {len(X_p)} unidades aprendidas do THX-02 adicionadas ao treino!")
+
+    print(f"X_train final shape: {X_train.shape} | Dispositivo pos: {sum(y_train)} / neg: {len(y_train) - sum(y_train)}")
 
     print(f"\nCarregando dados de validação: {val_path}...")
     X_val, y_val, prof_val, val_docs = load_dataset(val_path)
