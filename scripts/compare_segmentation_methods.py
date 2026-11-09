@@ -10,7 +10,6 @@ Methods evaluated:
 
 from __future__ import annotations
 
-import json
 import re
 import time
 from typing import Any
@@ -35,6 +34,7 @@ CANONICAL_ANCHORS = [
 
 REGEX_COMBINED = re.compile("|".join(CANONICAL_ANCHORS), re.IGNORECASE)
 
+
 def extract_canonical_regex(text: str) -> dict[str, Any]:
     t0 = time.perf_counter()
     n = len(text)
@@ -54,7 +54,7 @@ def extract_canonical_regex(text: str) -> dict[str, Any]:
         matches_all = list(REGEX_COMBINED.finditer(text))
         if matches_all:
             chosen = matches_all[-1]
-            extracted = text[chosen.start():].strip()
+            extracted = text[chosen.start() :].strip()
         else:
             # Fallback: ultimos 1500 caracteres
             extracted = text[-1500:].strip()
@@ -110,6 +110,7 @@ OPERATIVE_TERMS = {
     "sem resolucao do merito": 2.5,
 }
 
+
 def extract_paragraph_scorer(text: str) -> dict[str, Any]:
     t0 = time.perf_counter()
     paragraphs = [p.strip() for p in text.split("\n") if p.strip()]
@@ -160,7 +161,7 @@ def extract_block_chunk(text: str, chunk_size: int = 500, overlap: int = 100) ->
     step = chunk_size - overlap
     chunks = []
     for i in range(0, n, step):
-        chunk = text[i:i + chunk_size]
+        chunk = text[i : i + chunk_size]
         chunks.append((i, chunk))
 
     # Seleciona o chunk nos ultimos 40% com maior densidade operativa
@@ -230,16 +231,18 @@ def main():
         m4 = extract_block_chunk(text)
 
         for m in [m1, m2, m3, m4]:
-            results.append({
-                "text_uuid": doc_id,
-                "doc_type": doc_type,
-                "gold_outcome": gold_out,
-                "method": m["method"],
-                "char_count": m["char_count"],
-                "extraction_ms": m["extraction_ms"],
-                "fallback_used": m["fallback_used"],
-                "extracted_snippet": m["extracted_text"][:120].replace("\n", " "),
-            })
+            results.append(
+                {
+                    "text_uuid": doc_id,
+                    "doc_type": doc_type,
+                    "gold_outcome": gold_out,
+                    "method": m["method"],
+                    "char_count": m["char_count"],
+                    "extraction_ms": m["extraction_ms"],
+                    "fallback_used": m["fallback_used"],
+                    "extracted_snippet": m["extracted_text"][:120].replace("\n", " "),
+                }
+            )
 
     res_df = pd.DataFrame(results)
     print("\n--- EXTRACTION BENCHMARK SUMMARY ---")
@@ -248,9 +251,10 @@ def main():
         min_chars=("char_count", "min"),
         max_chars=("char_count", "max"),
         avg_extract_ms=("extraction_ms", "mean"),
-        fallback_rate=("fallback_used", "mean")
+        fallback_rate=("fallback_used", "mean"),
     )
     print(summary)
+
 
 if __name__ == "__main__":
     main()

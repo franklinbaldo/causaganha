@@ -2,10 +2,8 @@
 
 from __future__ import annotations
 
-import pytest
 from causaganha.decisoes.structural_segmenter import (
     FullDocumentStructuralSegmenter,
-    SectionType,
     DocumentStructure,
 )
 from causaganha.decisoes.topology_router import DecisionTopology

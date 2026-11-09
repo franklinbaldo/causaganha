@@ -17,10 +17,8 @@ from __future__ import annotations
 
 import enum
 import re
-import unicodedata
-from dataclasses import dataclass, field
-from pathlib import Path
-from typing import Any, Sequence
+from dataclasses import dataclass
+from typing import Any
 
 from causaganha.decisoes.topology_router import DecisionTopology, TopologyRouter
 
@@ -151,9 +149,13 @@ class FullDocumentStructuralSegmenter:
             entities["numero_cnj"] = cnj_match.group(0)
 
         # 3. Dispositivos legais mais citados
-        art_matches = re.findall(r"\bart\w*\.?\s*\d+[^,\n;]+(?:cpc|cc|cdc|clt|cpp|cp)", text, re.IGNORECASE)
+        art_matches = re.findall(
+            r"\bart\w*\.?\s*\d+[^,\n;]+(?:cpc|cc|cdc|clt|cpp|cp)", text, re.IGNORECASE
+        )
         if art_matches:
-            entities["fundamentacao_legal"] = list(dict.fromkeys([a.strip() for a in art_matches[:5]]))
+            entities["fundamentacao_legal"] = list(
+                dict.fromkeys([a.strip() for a in art_matches[:5]])
+            )
 
         return entities
 
@@ -168,7 +170,6 @@ class FullDocumentStructuralSegmenter:
 
         units = self.split_units(text)
         total_units = len(units)
-        n_chars = len(text)
 
         # Gramática sequencial esperada por topologia
         if topology == DecisionTopology.ACORDAO:

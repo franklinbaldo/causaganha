@@ -7,17 +7,16 @@ tabular de altíssima eficiência (< 0.1 ms em CPU) enriquecido com metadados do
 
 from __future__ import annotations
 
-import os
 import re
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Sequence
+from typing import Any
 
 import joblib
 import numpy as np
 
-from causaganha.decisoes.taxonomy import DocumentTaxonomyRegistry, MacroCategory
+from causaganha.decisoes.taxonomy import DocumentTaxonomyRegistry
 
 # Padrões canônicos de abertura de dispositivo
 CANONICAL_ANCHORS = [
@@ -84,6 +83,18 @@ class DispositifResult:
     metadata_used: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        clean_meta = {}
+        for k, v in self.metadata_used.items():
+            if k == "taxonomy_classification":
+                # Não serializa a dataclass crua; o dict limpo já é mantido em "taxonomy"
+                continue
+            if hasattr(v, "to_dict"):
+                clean_meta[k] = v.to_dict()
+            elif isinstance(v, (str, int, float, bool, list, dict, type(None))):
+                clean_meta[k] = v
+            else:
+                clean_meta[k] = str(v)
+
         return {
             "start": self.start,
             "end": self.end,
@@ -92,7 +103,7 @@ class DispositifResult:
             "confidence": round(self.confidence, 4),
             "is_anomaly": self.is_anomaly,
             "fallback_used": self.fallback_used,
-            "metadata_used": self.metadata_used,
+            "metadata_used": clean_meta,
         }
 
 
@@ -231,7 +242,11 @@ class HybridDispositifSegmenter:
         # 5. Metadados de Classe e Temporal
         classe_norm = normalize_str(meta.get("classe_processual"))
         is_exec = 1.0 if "execu" in classe_norm or "cumprimento" in classe_norm else 0.0
-        is_rec = 1.0 if "apelac" in classe_norm or "agravo" in classe_norm or "recurso" in classe_norm else 0.0
+        is_rec = (
+            1.0
+            if "apelac" in classe_norm or "agravo" in classe_norm or "recurso" in classe_norm
+            else 0.0
+        )
         is_hc = 1.0 if "habeas corpus" in classe_norm else 0.0
 
         ano = 2026
@@ -341,7 +356,11 @@ class HybridDispositifSegmenter:
         meta = dict(metadata or {})
 
         # Autocompleta metadados se faltantes
-        if not meta.get("judge_name") or not meta.get("polo_ativo") or not meta.get("classe_processual"):
+        if (
+            not meta.get("judge_name")
+            or not meta.get("polo_ativo")
+            or not meta.get("classe_processual")
+        ):
             extracted = self.extract_header_metadata(text)
             for k, v in extracted.items():
                 if k not in meta or not meta[k]:
@@ -356,17 +375,33 @@ class HybridDispositifSegmenter:
         n_total = len(text)
         if n_total <= 350:
             snippet = text.strip()
-            if len(snippet) > max_snippet_chars:
-                snippet = snippet[-max_snippet_chars:]
-            return DispositifResult(
-                start=max(0, n_total - len(snippet)),
-                end=n_total,
-                snippet=snippet,
-                confidence=1.0,
-                is_anomaly=False,
-                fallback_used=False,
-                metadata_used=meta,
-            )
+            # Distingue se o texto curto realmente contém um dispositivo decisório ou é certidão/expediente
+            has_anchor = bool(REGEX_ANCHORS.search(snippet))
+            if has_anchor:
+                if len(snippet) > max_snippet_chars:
+                    snippet = snippet[-max_snippet_chars:]
+                return DispositifResult(
+                    start=max(0, n_total - len(snippet)),
+                    end=n_total,
+                    snippet=snippet,
+                    confidence=0.70,  # Confiança calibrada para textos ultracurtos
+                    is_anomaly=False,
+                    fallback_used=True,
+                    metadata_used=meta,
+                )
+            else:
+                # Textos curtos sem âncora decisória (ex: certidões de decurso de prazo, avisos) não têm dispositivo
+                meta["has_dispositif"] = False
+                meta["passthrough_short_non_decisive"] = True
+                return DispositifResult(
+                    start=0,
+                    end=0,
+                    snippet="",
+                    confidence=0.0,
+                    is_anomaly=False,
+                    fallback_used=True,
+                    metadata_used=meta,
+                )
 
         # 1. Quebra em unidades estruturais preservando offsets exatos
         paras_info = self.split_document_units(text)

@@ -28,10 +28,7 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from scripts.spike_thx02 import (
     QUESTIONS,
-    OUTCOME_LABELS,
-    RECURSAL,
     decode_response,
-    resolve_winner,
 )
 from thx02 import THX02
 
@@ -83,7 +80,9 @@ def main():
     ram_after_load = get_ram_mb()
 
     print(f"Modelo carregado em {load_time:.2f}s!")
-    print(f"RAM após carregamento dos pesos: {ram_after_load:.1f} MB (Delta: +{ram_after_load - ram_start:.1f} MB)")
+    print(
+        f"RAM após carregamento dos pesos: {ram_after_load:.1f} MB (Delta: +{ram_after_load - ram_start:.1f} MB)"
+    )
 
     # Carregar documentos da fixture
     fixture_path = ROOT_DIR / args.fixture
@@ -103,7 +102,11 @@ def main():
     for i, doc in enumerate(docs_to_eval, start=1):
         doc_id = doc["id"]
         text = doc["text"]
-        print(f"[{i}/{len(docs_to_eval)}] Processando {doc_id} ({len(text)} chars)...", end="", flush=True)
+        print(
+            f"[{i}/{len(docs_to_eval)}] Processando {doc_id} ({len(text)} chars)...",
+            end="",
+            flush=True,
+        )
 
         t0 = time.time()
         raw_res = model.decide(state=text, questions=QUESTIONS, think=False, tta=1)
@@ -128,7 +131,9 @@ def main():
         match_out = "✓" if outcome == gold_out else "✗"
         match_win = "✓" if winner == gold_win else "✗"
 
-        print(f" Concluído em {elapsed_ms/1000:.1f}s | Resultado: {outcome} ({outcome_p:.1%}) [{match_out}] | Vencedor: {winner} [{match_win}]")
+        print(
+            f" Concluído em {elapsed_ms / 1000:.1f}s | Resultado: {outcome} ({outcome_p:.1%}) [{match_out}] | Vencedor: {winner} [{match_win}]"
+        )
 
     # Salva resultados
     out_jsonl = ROOT_DIR / args.output_jsonl
@@ -141,7 +146,9 @@ def main():
     # Converte tipos complexos se houver
     df_clean = df.copy()
     if "usage" in df_clean.columns:
-        df_clean["usage"] = df_clean["usage"].apply(lambda x: json.dumps(x) if isinstance(x, dict) else str(x))
+        df_clean["usage"] = df_clean["usage"].apply(
+            lambda x: json.dumps(x) if isinstance(x, dict) else str(x)
+        )
     df_clean.to_parquet(out_parquet, index=False)
 
     print("\n" + "=" * 65)
@@ -169,8 +176,12 @@ def main():
             "latency_p50_s": round(lat_series.median() / 1000, 2),
             "latency_p95_s": round(lat_series.quantile(0.95) / 1000, 2),
             "latency_mean_s": round(lat_series.mean() / 1000, 2),
-            "documents_per_minute": round(60 / (lat_series.mean() / 1000), 2) if lat_series.mean() > 0 else 0,
-            "questions_per_minute": round((60 / (lat_series.mean() / 1000)) * len(QUESTIONS), 2) if lat_series.mean() > 0 else 0,
+            "documents_per_minute": round(60 / (lat_series.mean() / 1000), 2)
+            if lat_series.mean() > 0
+            else 0,
+            "questions_per_minute": round((60 / (lat_series.mean() / 1000)) * len(QUESTIONS), 2)
+            if lat_series.mean() > 0
+            else 0,
         },
         "quality": {
             "outcome_accuracy": round(acc_outcome, 4),
@@ -185,7 +196,7 @@ def main():
     with open(summary_path, "w", encoding="utf-8") as f:
         json.dump(summary, f, indent=2, ensure_ascii=False)
 
-    print(f"\nResultados salvos:")
+    print("\nResultados salvos:")
     print(f" - JSONL: {out_jsonl}")
     print(f" - Parquet: {out_parquet}")
     print(f" - Sumário: {summary_path}")

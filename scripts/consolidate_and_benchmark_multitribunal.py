@@ -19,10 +19,11 @@ import pandas as pd
 from collections import Counter
 
 import sys
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from causaganha.decisoes.topology_router import DecisionTopology, TopologyRouter
+from causaganha.decisoes.topology_router import TopologyRouter
 from causaganha.decisoes.structural_segmenter import FullDocumentStructuralSegmenter
 
 
@@ -42,13 +43,15 @@ def main():
         # Amostra representativa do TJBA
         sample_tjba = df_tjba.sample(n=min(len(df_tjba), 500), random_state=42)
         for _, row in sample_tjba.iterrows():
-            records.append({
-                "doc_id": f"tjba_{row['id']}",
-                "court": "TJBA",
-                "texto": str(row["texto"]),
-                "classe_hint": "Procedimento Comum Cível",
-                "doc_type_hint": "Sentença",
-            })
+            records.append(
+                {
+                    "doc_id": f"tjba_{row['id']}",
+                    "court": "TJBA",
+                    "texto": str(row["texto"]),
+                    "classe_hint": "Procedimento Comum Cível",
+                    "doc_type_hint": "Sentença",
+                }
+            )
 
     # 2. Carrega STJ (89 acórdãos superiores)
     stj_path = ia_dir / "stj_acordaos.parquet"
@@ -58,14 +61,16 @@ def main():
         for _, row in df_stj.iterrows():
             # Une ementa + decisão para formar o texto integral do acórdão
             full_text = f"SUPERIOR TRIBUNAL DE JUSTIÇA\nÓrgão: {row.get('nomeOrgaoJulgador')}\nRelator: {row.get('ministroRelator')}\nClasse: {row.get('descricaoClasse')}\n\nEMENTA\n{row.get('ementa', '')}\n\nACÓRDÃO DECISÓRIO\n{row.get('decisao', '')}"
-            records.append({
-                "doc_id": f"stj_{row['id']}",
-                "court": "STJ",
-                "texto": full_text,
-                "classe_hint": str(row.get("descricaoClasse", "Recurso")),
-                "doc_type_hint": "Acórdão",
-                "relator": str(row.get("ministroRelator", "")),
-            })
+            records.append(
+                {
+                    "doc_id": f"stj_{row['id']}",
+                    "court": "STJ",
+                    "texto": full_text,
+                    "classe_hint": str(row.get("descricaoClasse", "Recurso")),
+                    "doc_type_hint": "Acórdão",
+                    "relator": str(row.get("ministroRelator", "")),
+                }
+            )
 
     # 3. Carrega TJRO / Mix de Testes (2.030 decisões)
     mix_path = ia_dir / "textos.parquet"
@@ -77,13 +82,15 @@ def main():
         print(f"Carregado Mix TJRO/Outros: {len(df_mix)} decisões.")
         sample_mix = df_mix.sample(n=min(len(df_mix), 400), random_state=42)
         for _, row in sample_mix.iterrows():
-            records.append({
-                "doc_id": f"mix_{row['id']}",
-                "court": "TJRO",
-                "texto": str(row["texto"]),
-                "classe_hint": str(row.get("procedural_class", "")),
-                "doc_type_hint": str(row.get("document_type", "")),
-            })
+            records.append(
+                {
+                    "doc_id": f"mix_{row['id']}",
+                    "court": "TJRO",
+                    "texto": str(row["texto"]),
+                    "classe_hint": str(row.get("procedural_class", "")),
+                    "doc_type_hint": str(row.get("document_type", "")),
+                }
+            )
 
     unified_df = pd.DataFrame(records)
     total_docs = len(unified_df)
@@ -107,7 +114,7 @@ def main():
     unified_df["predicted_topology"] = topologies
     elap_route = time.perf_counter() - t0_route
 
-    print(f"Tempo de roteamento: {elap_route*1000:.2f} ms ({total_docs/elap_route:.0f} docs/s)")
+    print(f"Tempo de roteamento: {elap_route * 1000:.2f} ms ({total_docs / elap_route:.0f} docs/s)")
     print("\nDistribuição Topológica por Tribunal:")
     cross = pd.crosstab(unified_df["court"], unified_df["predicted_topology"], margins=True)
     print(cross.to_string())
@@ -148,8 +155,10 @@ def main():
 
     print(f"Tempo total de segmentação : {elap_seg:.3f} s")
     print(f"Latência média por documento: {avg_ms:.2f} ms")
-    print(f"Throughput de decomposição  : {len(eval_sample)/elap_seg:.1f} decisões/segundo em CPU pura")
-    print(f"Volume textual processado   : {total_chars/1024:.1f} KB")
+    print(
+        f"Throughput de decomposição  : {len(eval_sample) / elap_seg:.1f} decisões/segundo em CPU pura"
+    )
+    print(f"Volume textual processado   : {total_chars / 1024:.1f} KB")
 
     print("\nDetecção de Seções Canônicas no Brasil (Multitribunal):")
     for sec, count in section_stats.most_common():
@@ -160,23 +169,29 @@ def main():
     # Salva dataset expandido consolidado multitribunal
     out_parquet = ROOT_DIR / "data/benchmark/ia_multitribunal_expanded.parquet"
     unified_df.to_parquet(out_parquet, index=False)
-    print(f"\nDataset consolidado multitribunal salvo em: {out_parquet} ({out_parquet.stat().st_size/1024:.1f} KB)")
+    print(
+        f"\nDataset consolidado multitribunal salvo em: {out_parquet} ({out_parquet.stat().st_size / 1024:.1f} KB)"
+    )
 
     # Salva relatório técnico
     report_path = ROOT_DIR / "docs/spikes/multitribunal_ia_expansion_report.md"
     with open(report_path, "w", encoding="utf-8") as f:
         f.write("# Relatório de Expansão Multitribunal (Internet Archive)\n\n")
-        f.write(f"- **Data:** 2026-11-09\n")
+        f.write("- **Data:** 2026-11-09\n")
         f.write(f"- **Total de Decisões Consolidadas:** {total_docs}\n")
-        f.write(f"- **Origens Regionais:** STJ (Superior), TJBA (Nordeste), TJRO (Norte), TJSP/TJRJ/TJMG (Sudeste)\n\n")
+        f.write(
+            "- **Origens Regionais:** STJ (Superior), TJBA (Nordeste), TJRO (Norte), TJSP/TJRJ/TJMG (Sudeste)\n\n"
+        )
         f.write("## Distribuição Topológica por Tribunal\n\n")
         f.write("```\n")
         f.write(cross.to_string())
         f.write("\n```\n")
         f.write("\n\n## Métricas de Performance Estrutural\n\n")
-        f.write(f"- **Throughput TopologyRouter:** {total_docs/elap_route:.0f} decisões/s\n")
+        f.write(f"- **Throughput TopologyRouter:** {total_docs / elap_route:.0f} decisões/s\n")
         f.write(f"- **Latência Média StructuralSegmenter:** {avg_ms:.2f} ms por documento\n")
-        f.write(f"- **Throughput StructuralSegmenter:** {len(eval_sample)/elap_seg:.1f} decisões/s\n")
+        f.write(
+            f"- **Throughput StructuralSegmenter:** {len(eval_sample) / elap_seg:.1f} decisões/s\n"
+        )
 
     print(f"Relatório técnico gravado em: {report_path}")
     print("=" * 80)

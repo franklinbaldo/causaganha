@@ -23,6 +23,7 @@ from typing import Any, Callable
 
 class MacroCategory(str, enum.Enum):
     """Categorias macro-estruturais do ordenamento processual."""
+
     ACORDAO = "ACORDAO"
     SENTENCA = "SENTENCA"
     DECISAO_INTERLOCUTORIA = "DECISAO_INTERLOCUTORIA"
@@ -37,6 +38,7 @@ class MacroCategory(str, enum.Enum):
 @dataclass
 class TaxonomyClassification:
     """Resultado hierárquico da classificação taxonômica especializada."""
+
     macro_category: MacroCategory
     specific_category: str
     tags: list[str] = field(default_factory=list)
@@ -105,7 +107,7 @@ class DocumentTaxonomyRegistry:
                     res = rule.classifier(text_norm, meta)
                     res.rule_matched = rule.name
                     return res
-            except Exception:
+            except (ValueError, KeyError, TypeError, AttributeError, IndexError):
                 continue
 
         return TaxonomyClassification(
@@ -117,16 +119,282 @@ class DocumentTaxonomyRegistry:
         )
 
     def _register_default_rules(self) -> None:
-        """Registra a taxonomia canônica inicial de documentos judiciais brasileiros."""
+        """Registra a taxonomia canônica inicial com resolução estrita de conflitos.
+
+        Princípio de Precedência:
+        1. Metadado explícito de doc_type do DJEN tem prioridade absoluta sobre menções lexicais.
+        2. Cabeçalho formal (primeiros 350 caracteres) tem prioridade sobre corpo/narrativa.
+        3. Menções incidentais no corpo (ex: 'citado por edital' no relatório de uma sentença)
+           são adicionadas como tags, mas NÃO alteram a macro-categoria do ato decisório.
+        """
 
         # -------------------------------------------------------------
-        # 1. EDITAIS (Prioridade 100) - Citação, Intimação, Leilão/Praça
+        # 1. DECISÃO MONOCRÁTICA (Prioridade 105)
+        # -------------------------------------------------------------
+        def match_monocratica(text: str, meta: dict[str, Any]) -> bool:
+            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
+            if "monocratica" in doc_type:
+                return True
+            header = text[:350]
+            return bool("decisao monocratica" in header)
+
+        def classify_monocratica(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
+            tags = ["segundo_grau", "decisao_unipessoal"]
+            if meta.get("relator"):
+                tags.append("relator_identificado")
+            if "art. 932" in text or "nao conheco" in text or "nego seguimento" in text:
+                tags.append("art_932_cpc")
+            return TaxonomyClassification(
+                macro_category=MacroCategory.DECISAO_MONOCRATICA,
+                specific_category="DECISAO_MONOCRATICA_RELATOR",
+                tags=tags,
+                confidence=0.97,
+            )
+
+        self.register_rule("monocratica_specialized", 105, match_monocratica, classify_monocratica)
+
+        # -------------------------------------------------------------
+        # 2. SENTENÇAS DE 1º GRAU (Prioridade 100)
+        # -------------------------------------------------------------
+        def match_sentenca(text: str, meta: dict[str, Any]) -> bool:
+            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
+            if "sentenca" in doc_type:
+                return True
+            header = text[:350]
+            # Se o cabeçalho indica explicitamente certidão, trânsito em julgado, ato ordinatório ou edital, não é sentença
+            if re.search(
+                r"\b(?:certid[aã]o|transito\s+em\s+julgado|ato\s+ordinat[oó]rio|edital\s+de)\b",
+                header,
+            ):
+                return False
+            if re.search(r"\bsenten[cç]a\b", header) and not re.search(
+                r"\b(?:da|daquela|r\.)\s+senten[cç]a\b", header
+            ):
+                return True
+            # Se não há doc_type conflitante, verifica comando terminativo forte
+            if doc_type in {"", "outro"} and re.search(
+                r"\bjulgo\s+(?:procedente|improcedente|parcialmente|extinto)\b", text
+            ):
+                return True
+            return False
+
+        def classify_sentenca(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
+            tags = ["primeiro_grau", "ato_decisorio"]
+
+            # Registra menções incidentais como tags sem alterar a categoria
+            if "edital" in text:
+                tags.append("contem_mencao_edital")
+            if "intimacao" in text or "intimad" in text:
+                tags.append("contem_intimacao_partes")
+
+            if "homologo o acordo" in text or "homologacao de acordo" in text:
+                tags.extend(["autocomposicao", "acordo", "extincao_com_merito"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_HOMOLOGATORIA_ACORDO",
+                    tags=tags,
+                    confidence=0.98,
+                )
+            if (
+                "art. 485" in text
+                or "sem resolucao do merito" in text
+                or "sem julgamento do merito" in text
+            ):
+                tags.extend(["terminativa", "sem_merito", "art_485_cpc"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_EXTINTIVA_SEM_MERITO",
+                    tags=tags,
+                    confidence=0.96,
+                )
+            if "julgo procedente" in text and "improcedente" not in text:
+                tags.extend(["merito", "procedencia_total"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_PROCEDENCIA",
+                    tags=tags,
+                    confidence=0.97,
+                )
+            if "julgo improcedente" in text:
+                tags.extend(["merito", "improcedencia_total"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_IMPROCEDENCIA",
+                    tags=tags,
+                    confidence=0.97,
+                )
+            if "julgo parcialmente procedente" in text:
+                tags.extend(["merito", "parcial_procedencia", "sucumbencia_reciproca"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_PARCIAL_PROCEDENCIA",
+                    tags=tags,
+                    confidence=0.96,
+                )
+            return TaxonomyClassification(
+                macro_category=MacroCategory.SENTENCA,
+                specific_category="SENTENCA_MERITO_GENERICA",
+                tags=tags,
+                confidence=0.92,
+            )
+
+        self.register_rule("sentenca_specialized", 100, match_sentenca, classify_sentenca)
+
+        # -------------------------------------------------------------
+        # 3. ACÓRDÃOS COLEGIAIS (Prioridade 95)
+        # -------------------------------------------------------------
+        def match_acordao(text: str, meta: dict[str, Any]) -> bool:
+            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
+            # Decisões monocráticas já foram filtradas na prioridade 105
+            if "acordao" in doc_type:
+                return True
+            header = text[:350]
+            # Exige evidência colegiada clara: acórdão no cabeçalho ou "acordam os"
+            return bool("acordam os" in text or re.search(r"\bacordao\b", header))
+
+        def classify_acordao(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
+            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
+            tags = ["colegiado", "segundo_grau"]
+
+            if "apelacao" in classe or "apelacao" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_APELACAO",
+                    tags=tags + ["merito_recursal"],
+                    confidence=0.98,
+                    cnj_class_hint="198",
+                )
+            if "agravo de instrumento" in classe or "agravo de instrumento" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_AGRAVO_INSTRUMENTO",
+                    tags=tags + ["tutela_recursal", "interlocutoria"],
+                    confidence=0.98,
+                    cnj_class_hint="202",
+                )
+            if "embargos de declaracao" in classe or "embargos de declaracao" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_EMBARGOS_DECLARACAO",
+                    tags=tags + ["integracao_julgamento"],
+                    confidence=0.98,
+                    cnj_class_hint="1689",
+                )
+            if (
+                "especial" in classe
+                or "extraordinario" in classe
+                or "resp" in text[:300]
+                or "stj" in text[:300]
+            ):
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_CORTE_SUPERIOR",
+                    tags=tags + ["tribunal_superior", "precedente_qualificado"],
+                    confidence=0.97,
+                )
+            return TaxonomyClassification(
+                macro_category=MacroCategory.ACORDAO,
+                specific_category="ACORDAO_COLEGIADO_GENERICO",
+                tags=tags,
+                confidence=0.92,
+            )
+
+        self.register_rule("acordao_specialized", 95, match_acordao, classify_acordao)
+
+        # -------------------------------------------------------------
+        # 4. DECISÕES INTERLOCUTÓRIAS E TUTELAS DE URGÊNCIA (Prioridade 90)
+        # -------------------------------------------------------------
+        def match_interlocutoria(text: str, meta: dict[str, Any]) -> bool:
+            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
+            if (
+                any(k in doc_type for k in ["decisao", "interlocutoria", "liminar"])
+                and "monocratica" not in doc_type
+            ):
+                return True
+            header = text[:350]
+            return bool(
+                re.search(r"\bdecisao\b", header)
+                and not re.search(r"\bsentenca\b", header)
+                and not re.search(r"\bmonocratica\b", header)
+            )
+
+        def classify_interlocutoria(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
+            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
+            tags = ["decisao_incidental"]
+
+            if any(
+                k in text
+                for k in [
+                    "tutela provisoria",
+                    "tutela de urgencia",
+                    "liminar",
+                    "inaudita altera parte",
+                ]
+            ):
+                tags.extend(["tutela_urgencia", "liminar", "periculum_in_mora"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
+                    specific_category="DECISAO_TUTELA_URGENCIA_LIMINAR",
+                    tags=tags,
+                    confidence=0.96,
+                )
+            if (
+                "saneamento" in text
+                or "fixo os pontos controvertidos" in text
+                or "saneador" in text
+            ):
+                tags.extend(["saneamento", "organizacao_processual"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
+                    specific_category="DECISAO_SANEADORA",
+                    tags=tags,
+                    confidence=0.96,
+                )
+            if (
+                "maria da penha" in classe
+                or "medidas protetivas" in classe
+                or "medida protetiva" in text
+            ):
+                tags.extend(["penal", "violencia_domestica", "cautelar"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
+                    specific_category="DECISAO_MEDIDA_PROTETIVA_CAUTELAR",
+                    tags=tags,
+                    confidence=0.97,
+                )
+            if (
+                "prisao em flagrante" in classe
+                or "custodia" in text
+                or "liberdade provisoria" in text
+            ):
+                tags.extend(["penal", "liberdade", "flagrante"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
+                    specific_category="DECISAO_CRIMINAL_CUSTODIA",
+                    tags=tags,
+                    confidence=0.96,
+                )
+            return TaxonomyClassification(
+                macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
+                specific_category="DECISAO_INTERLOCUTORIA_GENERICA",
+                tags=tags,
+                confidence=0.88,
+            )
+
+        self.register_rule(
+            "interlocutoria_specialized", 90, match_interlocutoria, classify_interlocutoria
+        )
+
+        # -------------------------------------------------------------
+        # 5. EDITAIS (Prioridade 85) - Exige veículo de edital formal
         # -------------------------------------------------------------
         def match_edital(text: str, meta: dict[str, Any]) -> bool:
             doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
             if "edital" in doc_type:
                 return True
-            return bool(re.search(r"\bedital\s+de\b", text) or "edital de citacao" in text)
+            # Se não é ato decisório conhecido, verifica cabeçalho formal
+            header = text[:350]
+            return bool(doc_type in {"", "outro"} and re.search(r"\bedital\s+de\b", header))
 
         def classify_edital(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
             tags = ["edital"]
@@ -164,20 +432,24 @@ class DocumentTaxonomyRegistry:
                 confidence=0.90,
             )
 
-        self.register_rule("edital_specialized", 100, match_edital, classify_edital)
+        self.register_rule("edital_specialized", 85, match_edital, classify_edital)
 
         # -------------------------------------------------------------
-        # 2. ATOS DE COMUNICAÇÃO / INTIMAÇÃO / CITAÇÃO DIRETA (Prioridade 90)
+        # 6. ATOS DE COMUNICAÇÃO / INTIMAÇÃO / CITAÇÃO DIRETA (Prioridade 80)
         # -------------------------------------------------------------
         def match_comunicacao(text: str, meta: dict[str, Any]) -> bool:
             doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
             if any(k in doc_type for k in ["intimacao", "citacao", "notificacao", "comunicacao"]):
                 return True
-            # Cabeçalhos típicos de certidão de publicação ou aviso do diário
+            # Cabeçalho formal do diário (não mera menção de intimação no fim da sentença)
+            header = text[:350]
             return bool(
-                re.search(r"\bintimacao\s+(?:de|por|para|do|da|acerca)\b", text)
-                or re.search(r"\bintimad[ao][s]?\b", text) and any(w in text for w in ["prazo", "sob pena", "audiencia", "pagamento", "art. 523", "cumprimento", "contrarrazoes", "fica"])
-                or re.search(r"\bficam?\s+.*?\s+intimad[ao][s]?\b", text)
+                doc_type in {"", "outro"}
+                and (
+                    re.search(r"\bintimacao\s+(?:de|por|para|do|da|acerca)\b", header)
+                    or re.search(r"\baviso\s+de\s+intimacao\b", header)
+                    or re.search(r"\bficam?\s+.*?\s+intimad[ao][s]?\b", header)
+                )
             )
 
         def classify_comunicacao(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
@@ -190,7 +462,11 @@ class DocumentTaxonomyRegistry:
                     tags=tags,
                     confidence=0.96,
                 )
-            if "art. 523" in text or "cumprimento de sentenca" in text or "pagamento voluntario" in text:
+            if (
+                "art. 523" in text
+                or "cumprimento de sentenca" in text
+                or "pagamento voluntario" in text
+            ):
                 tags.extend(["execucao", "pagamento", "art_523_cpc"])
                 return TaxonomyClassification(
                     macro_category=MacroCategory.PUBLICACAO_COMUNICACAO,
@@ -221,19 +497,23 @@ class DocumentTaxonomyRegistry:
                 confidence=0.90,
             )
 
-        self.register_rule("comunicacao_specialized", 90, match_comunicacao, classify_comunicacao)
+        self.register_rule("comunicacao_specialized", 80, match_comunicacao, classify_comunicacao)
 
         # -------------------------------------------------------------
-        # 3. ATOS CARTORÁRIOS E CERTIDÕES (Prioridade 85)
+        # 7. ATOS CARTORÁRIOS E CERTIDÕES (Prioridade 75)
         # -------------------------------------------------------------
         def match_cartorio(text: str, meta: dict[str, Any]) -> bool:
             doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
             if any(k in doc_type for k in ["certidao", "ato ordinatorio", "juntada"]):
                 return True
+            header = text[:350]
             return bool(
-                re.search(r"\bato\s+ordinatorio\b", text)
-                or re.search(r"\bcertifico\s+e\s+dou\s+fe\b", text)
-                or re.search(r"\bcertidao\s+de\s+transito\s+em\s+julgado\b", text)
+                doc_type in {"", "outro"}
+                and (
+                    re.search(r"\bato\s+ordinatorio\b", header)
+                    or re.search(r"\bcertifico\s+e\s+dou\s+fe\b", header)
+                    or re.search(r"\bcertidao\s+de\s+transito\s+em\s+julgado\b", header)
+                )
             )
 
         def classify_cartorio(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
@@ -258,190 +538,17 @@ class DocumentTaxonomyRegistry:
                 confidence=0.90,
             )
 
-        self.register_rule("cartorio_specialized", 85, match_cartorio, classify_cartorio)
+        self.register_rule("cartorio_specialized", 75, match_cartorio, classify_cartorio)
 
         # -------------------------------------------------------------
-        # 4. ACÓRDÃOS COLEGIAIS (Prioridade 80)
-        # -------------------------------------------------------------
-        def match_acordao(text: str, meta: dict[str, Any]) -> bool:
-            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
-            if "acordao" in doc_type:
-                return True
-            return bool("acordam os" in text or "acordao" in text[:300] or meta.get("relator"))
-
-        def classify_acordao(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
-            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
-            tags = ["colegiado", "segundo_grau"]
-
-            if "apelacao" in classe or "apelacao" in text[:400]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_APELACAO",
-                    tags=tags + ["merito_recursal"],
-                    confidence=0.98,
-                    cnj_class_hint="198",
-                )
-            if "agravo de instrumento" in classe or "agravo de instrumento" in text[:400]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_AGRAVO_INSTRUMENTO",
-                    tags=tags + ["tutela_recursal", "interlocutoria"],
-                    confidence=0.98,
-                    cnj_class_hint="202",
-                )
-            if "embargos de declaracao" in classe or "embargos de declaracao" in text[:400]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_EMBARGOS_DECLARACAO",
-                    tags=tags + ["integracao_julgamento"],
-                    confidence=0.98,
-                    cnj_class_hint="1689",
-                )
-            if "especial" in classe or "extraordinario" in classe or "resp" in text[:300] or "stj" in text[:300]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_CORTE_SUPERIOR",
-                    tags=tags + ["tribunal_superior", "precedente_qualificado"],
-                    confidence=0.97,
-                )
-            return TaxonomyClassification(
-                macro_category=MacroCategory.ACORDAO,
-                specific_category="ACORDAO_COLEGIADO_GENERICO",
-                tags=tags,
-                confidence=0.92,
-            )
-
-        self.register_rule("acordao_specialized", 80, match_acordao, classify_acordao)
-
-        # -------------------------------------------------------------
-        # 5. DECISÕES INTERLOCUTÓRIAS E TUTELAS DE URGÊNCIA (Prioridade 75)
-        # -------------------------------------------------------------
-        def match_interlocutoria(text: str, meta: dict[str, Any]) -> bool:
-            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
-            if any(k in doc_type for k in ["decisao", "interlocutoria", "liminar"]):
-                return True
-            return bool(
-                re.search(r"\bdecisao\b", text[:350])
-                and not re.search(r"\bsentenca\b", text[:350])
-            )
-
-        def classify_interlocutoria(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
-            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
-            tags = ["decisao_incidental"]
-
-            if any(k in text for k in ["tutela provisoria", "tutela de urgencia", "liminar", "inaudita altera parte"]):
-                tags.extend(["tutela_urgencia", "liminar", "periculum_in_mora"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
-                    specific_category="DECISAO_TUTELA_URGENCIA_LIMINAR",
-                    tags=tags,
-                    confidence=0.96,
-                )
-            if "saneamento" in text or "fixo os pontos controvertidos" in text or "saneador" in text:
-                tags.extend(["saneamento", "organizacao_processual"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
-                    specific_category="DECISAO_SANEADORA",
-                    tags=tags,
-                    confidence=0.96,
-                )
-            if "maria da penha" in classe or "medidas protetivas" in classe or "medida protetiva" in text:
-                tags.extend(["penal", "violencia_domestica", "cautelar"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
-                    specific_category="DECISAO_MEDIDA_PROTETIVA_CAUTELAR",
-                    tags=tags,
-                    confidence=0.97,
-                )
-            if "prisao em flagrante" in classe or "custodia" in text or "liberdade provisoria" in text:
-                tags.extend(["penal", "liberdade", "flagrante"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
-                    specific_category="DECISAO_CRIMINAL_CUSTODIA",
-                    tags=tags,
-                    confidence=0.96,
-                )
-            return TaxonomyClassification(
-                macro_category=MacroCategory.DECISAO_INTERLOCUTORIA,
-                specific_category="DECISAO_INTERLOCUTORIA_GENERICA",
-                tags=tags,
-                confidence=0.88,
-            )
-
-        self.register_rule("interlocutoria_specialized", 75, match_interlocutoria, classify_interlocutoria)
-
-        # -------------------------------------------------------------
-        # 6. SENTENÇAS DE 1º GRAU (Prioridade 70)
-        # -------------------------------------------------------------
-        def match_sentenca(text: str, meta: dict[str, Any]) -> bool:
-            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
-            if "sentenca" in doc_type:
-                return True
-            return bool(
-                re.search(r"\bsentenca\b", text[:350])
-                or re.search(r"\bjulgo\s+(?:procedente|improcedente|parcialmente|extinto)\b", text)
-            )
-
-        def classify_sentenca(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
-            tags = ["primeiro_grau", "ato_decisorio"]
-
-            if "homologo o acordo" in text or "homologacao de acordo" in text:
-                tags.extend(["autocomposicao", "acordo", "extincao_com_merito"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.SENTENCA,
-                    specific_category="SENTENCA_HOMOLOGATORIA_ACORDO",
-                    tags=tags,
-                    confidence=0.97,
-                )
-            if "art. 485" in text or "sem resolucao do merito" in text or "sem julgamento do merito" in text:
-                tags.extend(["terminativa", "sem_merito", "art_485_cpc"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.SENTENCA,
-                    specific_category="SENTENCA_EXTINTIVA_SEM_MERITO",
-                    tags=tags,
-                    confidence=0.96,
-                )
-            if "julgo procedente" in text and "improcedente" not in text:
-                tags.extend(["merito", "procedencia_total"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.SENTENCA,
-                    specific_category="SENTENCA_PROCEDENCIA",
-                    tags=tags,
-                    confidence=0.95,
-                )
-            if "julgo improcedente" in text:
-                tags.extend(["merito", "improcedencia_total"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.SENTENCA,
-                    specific_category="SENTENCA_IMPROCEDENCIA",
-                    tags=tags,
-                    confidence=0.95,
-                )
-            if "julgo parcialmente procedente" in text:
-                tags.extend(["merito", "parcial_procedencia", "sucumbencia_reciproca"])
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.SENTENCA,
-                    specific_category="SENTENCA_PARCIAL_PROCEDENCIA",
-                    tags=tags,
-                    confidence=0.96,
-                )
-            return TaxonomyClassification(
-                macro_category=MacroCategory.SENTENCA,
-                specific_category="SENTENCA_MERITO_GENERICA",
-                tags=tags,
-                confidence=0.90,
-            )
-
-        self.register_rule("sentenca_specialized", 70, match_sentenca, classify_sentenca)
-
-        # -------------------------------------------------------------
-        # 7. DESPACHOS DE MERO EXPEDIENTE (Prioridade 60)
+        # 8. DESPACHOS DE MERO EXPEDIENTE (Prioridade 60)
         # -------------------------------------------------------------
         def match_despacho(text: str, meta: dict[str, Any]) -> bool:
             doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
             if "despacho" in doc_type:
                 return True
-            return bool(re.search(r"\bdespacho\b", text[:350]))
+            header = text[:350]
+            return bool(re.search(r"\bdespacho\b", header))
 
         def classify_despacho(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
             return TaxonomyClassification(

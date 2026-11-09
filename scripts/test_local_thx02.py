@@ -17,7 +17,7 @@ checkpoint_path = r"C:\Users\76450694220\.cache\huggingface\hub\models--HAL-X-AI
 
 print(f"[1] Iniciando carregamento do modelo a partir de: {checkpoint_path}")
 print(f"    PyTorch version: {torch.__version__}")
-print(f"    Device: cpu, Dtype: bfloat16")
+print("    Device: cpu, Dtype: bfloat16")
 print(f"    CPU threads: {torch.get_num_threads()}")
 
 t0 = time.time()
@@ -37,8 +37,8 @@ questions = {
             "procedente": "Julga procedente o pedido inicial",
             "improcedente": "Julga improcedente o pedido inicial",
             "parcialmente_procedente": "Julga parcialmente procedente o pedido",
-            "desconhecido": "Resultado desconhecido ou outro"
-        }
+            "desconhecido": "Resultado desconhecido ou outro",
+        },
     },
     "tipo_decisao": {
         "type": "choice",
@@ -47,8 +47,8 @@ questions = {
             "sentenca": "Sentença",
             "acordao": "Acórdão",
             "decisao_monocratica": "Decisão monocrática",
-            "despacho": "Despacho ou outro provimento"
-        }
+            "despacho": "Despacho ou outro provimento",
+        },
     },
     "polo_vencedor": {
         "type": "choice",
@@ -57,9 +57,9 @@ questions = {
             "ativo": "Polo ativo / autor",
             "passivo": "Polo passivo / réu",
             "nenhum": "Nenhum ou ambos parcialmente",
-            "desconhecido": "Não informado ou inconclusivo"
-        }
-    }
+            "desconhecido": "Não informado ou inconclusivo",
+        },
+    },
 }
 
 print("\n[3] Executando inferencia local...")

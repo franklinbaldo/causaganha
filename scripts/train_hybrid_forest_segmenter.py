@@ -15,6 +15,7 @@ import numpy as np
 from sklearn.metrics import classification_report, roc_auc_score
 
 import sys
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -56,7 +57,8 @@ def load_dataset(jsonl_path: Path):
             disp_spans = [
                 (s["start"], s["end"])
                 for s in labels
-                if s["category"] in {
+                if s["category"]
+                in {
                     "dispositivo_abertura",
                     "resultado",
                     "acordao_decisorio_inicio",
@@ -148,15 +150,45 @@ def main():
                 rec = json.loads(line)
                 full_text = rec["full_text"]
                 meta = rec.get("metadata", {})
-                meta["taxonomy_classification"] = segmenter_pool.taxonomy_registry.classify(full_text, meta)
+                meta["taxonomy_classification"] = segmenter_pool.taxonomy_registry.classify(
+                    full_text, meta
+                )
                 units = segmenter_pool.split_document_units(full_text)
                 tot_u = len(units)
                 tot_c = len(full_text)
+                corrected_spans = rec.get("corrected_spans") or []
                 for idx_u, u in enumerate(units):
                     p_txt = u["text"]
-                    pos_r = idx_u / max(tot_u - 1, 1)
-                    is_d = 1 if (pos_r > 0.65 and any(w in p_txt.lower() for w in ["julgo", "exposto", "acordam", "provimento", "homologo"])) else 0
-                    feats = segmenter_pool.extract_features(p_txt, idx_u, tot_u, u["start"], tot_c, meta)
+                    p_start = u["start"]
+                    p_end = u["end"]
+                    is_d = 0
+                    if corrected_spans:
+                        for d_start, d_end in corrected_spans:
+                            if max(p_start, d_start) < min(p_end, d_end):
+                                is_d = 1
+                                break
+                    else:
+                        pos_r = idx_u / max(tot_u - 1, 1)
+                        is_d = (
+                            1
+                            if (
+                                pos_r > 0.65
+                                and any(
+                                    w in p_txt.lower()
+                                    for w in [
+                                        "julgo",
+                                        "exposto",
+                                        "acordam",
+                                        "provimento",
+                                        "homologo",
+                                    ]
+                                )
+                            )
+                            else 0
+                        )
+                    feats = segmenter_pool.extract_features(
+                        p_txt, idx_u, tot_u, p_start, tot_c, meta
+                    )
                     X_p.append(feats)
                     y_p.append(is_d)
         if X_p:
@@ -164,11 +196,15 @@ def main():
             y_train = np.concatenate([y_train, np.array(y_p)])
             print(f"  + {len(X_p)} unidades aprendidas do THX-02 adicionadas ao treino!")
 
-    print(f"X_train final shape: {X_train.shape} | Dispositivo pos: {sum(y_train)} / neg: {len(y_train) - sum(y_train)}")
+    print(
+        f"X_train final shape: {X_train.shape} | Dispositivo pos: {sum(y_train)} / neg: {len(y_train) - sum(y_train)}"
+    )
 
     print(f"\nCarregando dados de validação: {val_path}...")
     X_val, y_val, prof_val, val_docs = load_dataset(val_path)
-    print(f"X_val shape: {X_val.shape} | Dispositivo pos: {sum(y_val)} / neg: {len(y_val) - sum(y_val)}")
+    print(
+        f"X_val shape: {X_val.shape} | Dispositivo pos: {sum(y_val)} / neg: {len(y_val) - sum(y_val)}"
+    )
 
     segmenter = HybridDispositifSegmenter()
 
@@ -241,9 +277,13 @@ def main():
     print("=" * 65)
     if decision.promoted:
         print(f"✅ {decision.reason}")
-        print(f"   Métricas Atuais: AUC={decision.current_metrics.roc_auc:.4f} | Recall={decision.current_metrics.recall:.4f} | F1={decision.current_metrics.f1:.4f}")
+        print(
+            f"   Métricas Atuais: AUC={decision.current_metrics.roc_auc:.4f} | Recall={decision.current_metrics.recall:.4f} | F1={decision.current_metrics.f1:.4f}"
+        )
         if decision.baseline_metrics:
-            print(f"   Baseline Anterior: AUC={decision.baseline_metrics.roc_auc:.4f} | Recall={decision.baseline_metrics.recall:.4f}")
+            print(
+                f"   Baseline Anterior: AUC={decision.baseline_metrics.roc_auc:.4f} | Recall={decision.baseline_metrics.recall:.4f}"
+            )
             print(f"   Diferenças: {decision.metric_diffs}")
     else:
         print(f"❌ {decision.reason}")
@@ -265,7 +305,7 @@ def main():
 
     avg_ms = sum(test_latencies) / len(test_latencies)
     print(f"Documentos avaliados: {len(all_eval_docs)}")
-    print(f"Latência média por documento: {avg_ms:.3f} ms ({avg_ms*1000:.1f} µs)!")
+    print(f"Latência média por documento: {avg_ms:.3f} ms ({avg_ms * 1000:.1f} µs)!")
     print(f"Throughput em CPU: {1000.0 / avg_ms:.0f} documentos/segundo!")
 
 

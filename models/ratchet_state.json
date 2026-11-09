@@ -4,5 +4,7 @@
   "f1": 0.5075,
   "canary_passed": true,
   "train_size": 139,
-  "evaluated_at": "2026-11-09T16:21:29.172328+00:00"
+  "evaluated_at": "2026-11-09T16:21:29.172328+00:00",
+  "high_water_roc_auc": 0.8943,
+  "high_water_recall": 0.85
 }

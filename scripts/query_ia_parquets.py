@@ -3,10 +3,11 @@
 
 import duckdb
 
+
 def main():
     con = duckdb.connect()
     con.execute("INSTALL httpfs; LOAD httpfs;")
-    
+
     manifest_url = "https://archive.org/download/causaganha-catalog/manifest.parquet"
     print("Consultando manifest do IA...")
     df = con.execute(f"""
@@ -18,6 +19,7 @@ def main():
         LIMIT 40
     """).df()
     print(df.to_string())
+
 
 if __name__ == "__main__":
     main()

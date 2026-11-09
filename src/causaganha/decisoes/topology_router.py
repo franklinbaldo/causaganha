@@ -9,7 +9,6 @@ de cabeçalho institucional.
 from __future__ import annotations
 
 import enum
-import re
 import unicodedata
 from typing import Any
 
@@ -77,7 +76,9 @@ class TopologyRouter:
         """Determina a topologia da decisão a partir dos metadados e cabeçalho."""
         meta = metadata or {}
 
-        doc_type = _norm(meta.get("doc_type") or meta.get("tipoComunicacao") or meta.get("tipo_comunicacao"))
+        doc_type = _norm(
+            meta.get("doc_type") or meta.get("tipoComunicacao") or meta.get("tipo_comunicacao")
+        )
         classe = _norm(
             meta.get("classe_processual")
             or meta.get("classe")
@@ -92,7 +93,6 @@ class TopologyRouter:
             or meta.get("comarca")
         )
         relator = _norm(meta.get("relator"))
-        juiz = _norm(meta.get("judge_name") or meta.get("juiz"))
 
         # 1. Metadado explícito de doc_type
         if "acordao" in doc_type:
@@ -107,7 +107,18 @@ class TopologyRouter:
             return DecisionTopology.ACORDAO
 
         # 3. Metadado de Órgão Julgador
-        if any(term in orgao for term in ["camara", "turma", "pleno", "secao", "tribunal pleno", "colegiado", "turma recursal"]):
+        if any(
+            term in orgao
+            for term in [
+                "camara",
+                "turma",
+                "pleno",
+                "secao",
+                "tribunal pleno",
+                "colegiado",
+                "turma recursal",
+            ]
+        ):
             return DecisionTopology.ACORDAO
 
         if any(term in orgao for term in ["vara", "juizado", "nucleo de justica", "gabinete da"]):

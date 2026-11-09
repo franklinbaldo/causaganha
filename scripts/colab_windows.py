@@ -67,8 +67,7 @@ def main() -> int:
     command = requested_command(forwarded_arguments())
     if os.name == "nt" and command in BLOCKED_WINDOWS_COMMANDS:
         print(
-            f"ERROR: 'colab {command}' needs a Unix TTY. "
-            "Use WSL or a non-interactive command.",
+            f"ERROR: 'colab {command}' needs a Unix TTY. Use WSL or a non-interactive command.",
             file=sys.stderr,
         )
         return 2

@@ -21,6 +21,7 @@ import numpy as np
 import pandas as pd
 
 import sys
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -34,10 +35,10 @@ Avalie o recorte do dispositivo extraído pelo classificador para o seguinte pro
 
 [METADADOS DO DJEN]
 - Identificador: {doc_id}
-- Tribunal: {metadata.get('court', 'N/A')}
-- Juiz/Relator: {metadata.get('judge_name', 'N/A')}
-- Classe: {metadata.get('classe_processual', 'N/A')}
-- Data: {metadata.get('validated_at') or metadata.get('data_decisao', 'N/A')}
+- Tribunal: {metadata.get("court", "N/A")}
+- Juiz/Relator: {metadata.get("judge_name", "N/A")}
+- Classe: {metadata.get("classe_processual", "N/A")}
+- Data: {metadata.get("validated_at") or metadata.get("data_decisao", "N/A")}
 
 [RECORTE EXTRAÍDO DO DISPOSITIVO]
 \"\"\"
@@ -132,9 +133,9 @@ def run_audit_sampling(
 
     print("\n--- RESUMO DE QUALIDADE DO LOTE ---")
     print(f"Decisões processadas    : {total_processed}")
-    print(f"Anomalias estruturais   : {n_anomalies} ({n_anomalies/total_processed*100:.1f}%)")
-    print(f"Baixa confiança (<0.60) : {n_low_conf} ({n_low_conf/total_processed*100:.1f}%)")
-    print(f"Fallbacks acionados     : {n_fallbacks} ({n_fallbacks/total_processed*100:.1f}%)")
+    print(f"Anomalias estruturais   : {n_anomalies} ({n_anomalies / total_processed * 100:.1f}%)")
+    print(f"Baixa confiança (<0.60) : {n_low_conf} ({n_low_conf / total_processed * 100:.1f}%)")
+    print(f"Fallbacks acionados     : {n_fallbacks} ({n_fallbacks / total_processed * 100:.1f}%)")
     print(f"Comprimento médio cut   : {res_df['char_count'].mean():.0f} caracteres")
 
     # Estratégia de Amostragem Inteligente para LLM Judge
@@ -148,7 +149,8 @@ def run_audit_sampling(
     # 2. Casos de Baixa Confiança / Fallback (evitando duplicar)
     already_ids = {s["doc_id"] for s in audit_samples}
     uncertain = res_df[
-        (~res_df["doc_id"].isin(already_ids)) & ((res_df["confidence"] < 0.60) | res_df["fallback_used"])
+        (~res_df["doc_id"].isin(already_ids))
+        & ((res_df["confidence"] < 0.60) | res_df["fallback_used"])
     ].copy()
     for _, row in uncertain.iterrows():
         audit_samples.append({**row.to_dict(), "audit_reason": "LOW_CONFIDENCE_OR_FALLBACK"})
@@ -156,7 +158,9 @@ def run_audit_sampling(
     # 3. Amostra de Controle (Alta Confiança) para fechar o tamanho desejado
     already_ids = {s["doc_id"] for s in audit_samples}
     remaining_needed = max(0, sample_size - len(audit_samples))
-    high_conf = res_df[(~res_df["doc_id"].isin(already_ids)) & (res_df["confidence"] >= 0.70)].copy()
+    high_conf = res_df[
+        (~res_df["doc_id"].isin(already_ids)) & (res_df["confidence"] >= 0.70)
+    ].copy()
 
     if remaining_needed > 0 and len(high_conf) > 0:
         ctrl_sample = high_conf.sample(n=min(remaining_needed, len(high_conf)), random_state=seed)
@@ -193,7 +197,7 @@ def run_audit_sampling(
     out_report = output_dir / "audit_active_learning_report.md"
     with open(out_report, "w", encoding="utf-8") as f:
         f.write("# Relatório de Auditoria e Active Learning Flywheel\n\n")
-        f.write(f"- **Data de Geração**: 2026-11-09\n")
+        f.write("- **Data de Geração**: 2026-11-09\n")
         f.write(f"- **Lote Analisado**: `{input_path.name}` ({total_processed} decisões)\n")
         f.write(f"- **Total Selecionado para LLM**: {len(export_records)} casos\n\n")
         f.write("## Distribuição da Amostra\n\n")
@@ -212,7 +216,7 @@ def run_audit_sampling(
                 f"{r['is_anomaly']} | {r['fallback_used']} | {r['char_count']} | {judge} |\n"
             )
 
-    print(f"Auditoria salva com sucesso em:")
+    print("Auditoria salva com sucesso em:")
     print(f"  JSONL: {out_jsonl}")
     print(f"  Report: {out_report}")
     return out_jsonl

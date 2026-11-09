@@ -7,11 +7,11 @@ e exibe a árvore de seções canônicas e entidades jurídicas estruturadas.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 import pandas as pd
 
 import sys
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
@@ -46,14 +46,18 @@ def main():
         struct = segmenter.segment(text, metadata=meta)
         struct_dict = struct.to_dict()
 
-        print(f"\n>>> PROCESSO [{row.get('text_uuid', f'doc_{idx}')}] | TOPOLOGIA: {struct.topology.value}")
+        print(
+            f"\n>>> PROCESSO [{row.get('text_uuid', f'doc_{idx}')}] | TOPOLOGIA: {struct.topology.value}"
+        )
         print(f"    Tribunal: {meta.get('court')} | Classe: {meta.get('classe_processual')}")
         print(f"    Juiz/Relator: {meta.get('judge_name')}")
         print(f"    Entidades Extraídas: {struct_dict['entities']}")
         print("    --- SEÇÕES CANÔNICAS DECOMPOSTAS ---")
         for sec_name, sec_info in struct_dict["sections"].items():
             txt_preview = sec_info["text"][:80].replace("\n", " ")
-            print(f"      • {sec_name.upper():<20} [{sec_info['start']:>5}:{sec_info['end']:>5}] ({sec_info['char_count']:>4} chars | conf: {sec_info['confidence']:.2f}) -> {txt_preview!r}...")
+            print(
+                f"      • {sec_name.upper():<20} [{sec_info['start']:>5}:{sec_info['end']:>5}] ({sec_info['char_count']:>4} chars | conf: {sec_info['confidence']:.2f}) -> {txt_preview!r}..."
+            )
 
     print("\n" + "=" * 70)
     print("Decomposição estrutural concluída com sucesso em tempo real!")

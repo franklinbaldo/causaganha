@@ -14,15 +14,14 @@ import argparse
 import json
 import time
 from pathlib import Path
-import numpy as np
 import pandas as pd
 
 import sys
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
 from causaganha.decisoes.hybrid_segmenter import HybridDispositifSegmenter
-from causaganha.decisoes.topology_router import TopologyRouter
 
 
 def format_thx02_audit_prompt(doc_id: str, metadata: dict, snippet: str, full_tail: str) -> str:
@@ -32,9 +31,9 @@ Você é o Auditor Judiciário Chefe do CausaGanha. Sua missão é validar se o 
 <|im_start|>user
 [METADADOS DO PROCESSO]
 - ID: {doc_id}
-- Tribunal: {metadata.get('court', 'TJRO')}
-- Classe: {metadata.get('classe_processual', 'N/A')}
-- Juiz/Relator: {metadata.get('judge_name', 'N/A')}
+- Tribunal: {metadata.get("court", "TJRO")}
+- Classe: {metadata.get("classe_processual", "N/A")}
+- Juiz/Relator: {metadata.get("judge_name", "N/A")}
 
 [CORTE PROPOSTO PELA RANDOM FOREST]
 \"\"\"
@@ -61,43 +60,74 @@ Avalie o corte e responda ESTRITAMENTE em formato JSON:
 def simulate_or_parse_thx02_verdict(
     audit_case: dict,
     llm_response_json: dict | None = None,
+    mode: str = "heuristic_simulation",
 ) -> dict:
-    """Processa o veredito do THX-02 (ou aplica heurística de fallback estruturado)."""
+    """Processa o veredito da auditoria e extrai os spans corrigidos para o retreinamento."""
     if llm_response_json:
+        llm_response_json["audit_source"] = "live_thx02"
         return llm_response_json
 
-    # Heurística de auto-supervisão analítica quando rodando localmente sem GPU
+    # Heurística analítica estruturada (marcada explicitamente como simulação heurística)
     snippet = audit_case["snippet"]
     conf = audit_case["confidence"]
-    is_anomaly = audit_case["is_anomaly"]
-
-    # Se a Random Forest capturou menos de 60 caracteres e há âncora canônica adiante no texto
     full_text = audit_case["full_text"]
     import re
-    has_anchor = bool(re.search(r"\b(?:ante|diante|pelo)\s+ao?\s+exposto|julgo\s+(?:procedente|improcedente)", snippet, re.IGNORECASE))
+    from causaganha.decisoes.hybrid_segmenter import REGEX_ANCHORS
+
+    has_anchor = bool(
+        re.search(
+            r"\b(?:ante|diante|pelo)\s+ao?\s+exposto|julgo\s+(?:procedente|improcedente)",
+            snippet,
+            re.IGNORECASE,
+        )
+    )
     has_cit = bool(re.search(r"\b(?:stj|stf|resp|re\s+\d+)\b", snippet, re.IGNORECASE))
 
+    # Busca o span canônico correto no documento completo para guiar o retreinamento
+    corrected_start = audit_case.get("start", 0)
+    corrected_end = audit_case.get("end", len(full_text))
+
     if len(snippet) < 70 or not has_anchor:
-        # THX detecta truncamento
+        # Busca a âncora real no texto completo
+        anchors = list(REGEX_ANCHORS.finditer(full_text))
+        if anchors:
+            # Seleciona a âncora mais próxima do terço final
+            best_m = anchors[-1]
+            corrected_start = best_m.start()
+            corrected_end = len(full_text)
         return {
             "veredicto": "FALHA_TRUNCAMENTO",
+            "audit_source": "heuristic_simulation",
             "qualidade_score": 2,
             "motivo": "O recorte foi muito curto ou cortou antes da oração dispositiva de mérito.",
             "ajuste_necessario": True,
+            "corrected_spans": [[corrected_start, corrected_end]],
+            "corrected_snippet": full_text[corrected_start:corrected_end],
         }
     elif has_cit and len(snippet) > 1500:
+        # Se incluiu jurisprudência, busca o corte após a citação
+        anchors = list(REGEX_ANCHORS.finditer(snippet))
+        if len(anchors) > 1:
+            corrected_start = audit_case["start"] + anchors[-1].start()
+            corrected_end = audit_case["end"]
         return {
             "veredicto": "FALHA_FALSO_POSITIVO_CITACAO",
+            "audit_source": "heuristic_simulation",
             "qualidade_score": 2,
             "motivo": "O corte incluiu transcrição de jurisprudência do STJ anterior à decisão real.",
             "ajuste_necessario": True,
+            "corrected_spans": [[corrected_start, corrected_end]],
+            "corrected_snippet": full_text[corrected_start:corrected_end],
         }
     else:
         return {
             "veredicto": "CORRETO",
+            "audit_source": "heuristic_simulation",
             "qualidade_score": 5 if conf > 0.70 else 4,
             "motivo": "Dispositivo delimitado com precisão.",
             "ajuste_necessario": False,
+            "corrected_spans": [[audit_case["start"], audit_case["end"]]],
+            "corrected_snippet": snippet,
         }
 
 
@@ -150,12 +180,18 @@ def run_flywheel_cycle(
         )
 
     elap_inf = time.perf_counter() - t0_inf
-    print(f"   Inferência concluída em {elap_inf:.2f} s ({len(candidates)/elap_inf:.0f} docs/s em CPU pura)!")
+    print(
+        f"   Inferência concluída em {elap_inf:.2f} s ({len(candidates) / elap_inf:.0f} docs/s em CPU pura)!"
+    )
 
     # Fase 2: Amostragem Ativa dos casos problemáticos
     print("\n3. Filtrando casos suspeitos para o THX-02 (Active Learning Sampling)...")
     anomalies = [c for c in candidates if c["is_anomaly"]]
-    uncertain = [c for c in candidates if (c["confidence"] < 0.60 or c["fallback_used"]) and not c["is_anomaly"]]
+    uncertain = [
+        c
+        for c in candidates
+        if (c["confidence"] < 0.60 or c["fallback_used"]) and not c["is_anomaly"]
+    ]
     controls = [c for c in candidates if c["confidence"] >= 0.75 and not c["is_anomaly"]]
 
     selected = []
@@ -167,13 +203,18 @@ def run_flywheel_cycle(
     remaining = max(0, sample_size - len(selected))
     if remaining > 0 and controls:
         import random
+
         random.seed(42)
         selected.extend(random.sample(controls, min(remaining, len(controls))))
 
     print(f"   Amostra selecionada para o THX-02: {len(selected)} decisões")
     print(f"   • Anomalias de Isolation Forest : {len([s for s in selected if s['is_anomaly']])}")
-    print(f"   • Baixa Confiança / Fallback   : {len([s for s in selected if (s['confidence'] < 0.60 or s['fallback_used']) and not s['is_anomaly']])}")
-    print(f"   • Casos de Controle            : {len([s for s in selected if s['confidence'] >= 0.75])}")
+    print(
+        f"   • Baixa Confiança / Fallback   : {len([s for s in selected if (s['confidence'] < 0.60 or s['fallback_used']) and not s['is_anomaly']])}"
+    )
+    print(
+        f"   • Casos de Controle            : {len([s for s in selected if s['confidence'] >= 0.75])}"
+    )
 
     # Fase 3: Auditoria do THX-02
     print("\n4. Executando Auditoria THX-02 e Verificação de Falhas...")
@@ -182,17 +223,20 @@ def run_flywheel_cycle(
 
     for item in selected:
         tail = item["full_text"][-2000:]
-        prompt = format_thx02_audit_prompt(item["doc_id"], item["metadata"], item["snippet"], tail)
+        _prompt = format_thx02_audit_prompt(item["doc_id"], item["metadata"], item["snippet"], tail)
         verdict = simulate_or_parse_thx02_verdict(item)
 
         audit_record = {
             "doc_id": item["doc_id"],
             "confidence_rf": round(item["confidence"], 4),
             "is_anomaly": item["is_anomaly"],
+            "audit_source": verdict.get("audit_source", "heuristic_simulation"),
             "veredicto_thx": verdict["veredicto"],
             "qualidade_score": verdict["qualidade_score"],
             "motivo": verdict["motivo"],
             "snippet_original": item["snippet"],
+            "corrected_spans": verdict.get("corrected_spans", []),
+            "corrected_snippet": verdict.get("corrected_snippet", ""),
             "full_text": item["full_text"],
             "metadata": item["metadata"],
         }
@@ -201,7 +245,7 @@ def run_flywheel_cycle(
         if verdict["veredicto"] != "CORRETO":
             failures_to_retrain.append(audit_record)
 
-    print(f"   Auditoria concluída!")
+    print("   Auditoria concluída!")
     print(f"   • Casos validados como CORRETOS   : {len(selected) - len(failures_to_retrain)}")
     print(f"   • FALHAS IDENTIFICADAS PELO THX-02: {len(failures_to_retrain)}")
 

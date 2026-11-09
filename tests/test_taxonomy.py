@@ -68,7 +68,9 @@ def test_classify_acordao_apelacao(registry):
         "ACÓRDÃO: Vistos, relatados e discutidos estes autos, acordam os Desembargadores em "
         "dar provimento ao recurso de apelação."
     )
-    res = registry.classify(text, metadata={"procedural_class": "apelação", "relator": "Des. Silva"})
+    res = registry.classify(
+        text, metadata={"procedural_class": "apelação", "relator": "Des. Silva"}
+    )
     assert res.macro_category == MacroCategory.ACORDAO
     assert res.specific_category == "ACORDAO_APELACAO"
     assert "segundo_grau" in res.tags
@@ -139,3 +141,32 @@ def test_dynamic_registry_extensibility(registry):
     assert res.specific_category == "EDITAL_QUADRO_GERAL_CREDORES"
     assert res.rule_matched == "falencia_specialized"
     assert "art_52_lei_11101" in res.tags
+
+
+def test_conflict_sentenca_mentioning_edital(registry):
+    """Garante que 'doc_type=sentença' não vire EDITAL por mera menção no corpo."""
+    text = "SENTENÇA. O réu foi citado por edital de citação. Julgo procedente o pedido."
+    res = registry.classify(text, metadata={"doc_type": "sentença"})
+    assert res.macro_category == MacroCategory.SENTENCA
+    assert res.specific_category == "SENTENCA_PROCEDENCIA"
+    assert "contem_mencao_edital" in res.tags
+
+
+def test_conflict_sentenca_mentioning_intimacao(registry):
+    """Garante que sentença intimando partes ao final não vire PUBLICACAO_COMUNICACAO."""
+    text = "SENTENÇA. Analisados os autos. Julgo improcedente a ação. Ficam as partes intimadas para recorrer."
+    res = registry.classify(text, metadata={"doc_type": "sentença"})
+    assert res.macro_category == MacroCategory.SENTENCA
+    assert res.specific_category == "SENTENCA_IMPROCEDENCIA"
+    assert "contem_intimacao_partes" in res.tags
+
+
+def test_conflict_monocratica_with_relator(registry):
+    """Garante que 'doc_type=decisão monocrática' com relator vire DECISAO_MONOCRATICA e não ACORDAO."""
+    text = "DECISÃO MONOCRÁTICA. Trata-se de recurso especial. Nego seguimento ao recurso, com base no art. 932 do CPC."
+    res = registry.classify(
+        text, metadata={"doc_type": "decisão monocrática", "relator": "Ministro Fulano"}
+    )
+    assert res.macro_category == MacroCategory.DECISAO_MONOCRATICA
+    assert res.specific_category == "DECISAO_MONOCRATICA_RELATOR"
+    assert "decisao_unipessoal" in res.tags

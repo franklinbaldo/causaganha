@@ -11,7 +11,6 @@ import json
 import os
 import sys
 import time
-from typing import Any
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -119,6 +118,7 @@ def main():
     print("=" * 65)
 
     import torch
+
     cuda_avail = torch.cuda.is_available()
     device_name = torch.cuda.get_device_name(0) if cuda_avail else "No GPU"
     vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) if cuda_avail else 0.0
@@ -134,6 +134,7 @@ def main():
 
     # Monkeypatch Qwen3_5Model para garantir torch_dtype=bfloat16 e device_map
     from transformers import Qwen3_5Model
+
     orig_from_pretrained = Qwen3_5Model.from_pretrained
 
     @classmethod
@@ -167,7 +168,7 @@ def main():
     t0_inf = time.perf_counter()
     warmup_res = model.decide(state=sample_text, questions=QUESTIONS, think=False, tta=1)
     t_warmup = time.perf_counter() - t0_inf
-    print(f"Latência do aquecimento: {t_warmup:.3f}s ({t_warmup*1000:.1f} ms)!")
+    print(f"Latência do aquecimento: {t_warmup:.3f}s ({t_warmup * 1000:.1f} ms)!")
     print(f"Resposta do aquecimento:\n{json.dumps(warmup_res, indent=2, ensure_ascii=False)}")
 
     # 3. Teste Fixture (12 Casos do CausaGanha)
@@ -213,8 +214,8 @@ def main():
         resolved_win = resolve_winner(outcome, raw_rec)
         winner = winner_direct if winner_direct in {"A", "P", "draw"} else resolved_win
 
-        match_out = (outcome == gold_out)
-        match_win = (winner == gold_win)
+        match_out = outcome == gold_out
+        match_win = winner == gold_win
         if match_out:
             correct_outcome += 1
         if match_win:
@@ -222,20 +223,24 @@ def main():
 
         mark_out = "✓" if match_out else "✗"
         mark_win = "✓" if match_win else "✗"
-        print(f"[{i:02d}/{len(documents):02d}] {doc_id} ({len(text)} chars) -> Latência: {elapsed_ms:.1f} ms | Resultado: {outcome} ({prob_out:.1%}) [{mark_out}] | Vencedor: {winner} [{mark_win}]")
+        print(
+            f"[{i:02d}/{len(documents):02d}] {doc_id} ({len(text)} chars) -> Latência: {elapsed_ms:.1f} ms | Resultado: {outcome} ({prob_out:.1%}) [{mark_out}] | Vencedor: {winner} [{mark_win}]"
+        )
 
-        results.append({
-            "id": doc_id,
-            "latency_ms": elapsed_ms,
-            "outcome": outcome,
-            "outcome_probability": prob_out,
-            "gold_outcome": gold_out,
-            "match_outcome": match_out,
-            "winner": winner,
-            "gold_winner": gold_win,
-            "match_winner": match_win,
-            "raw_response": raw_res,
-        })
+        results.append(
+            {
+                "id": doc_id,
+                "latency_ms": elapsed_ms,
+                "outcome": outcome,
+                "outcome_probability": prob_out,
+                "gold_outcome": gold_out,
+                "match_outcome": match_out,
+                "winner": winner,
+                "gold_winner": gold_win,
+                "match_winner": match_win,
+                "raw_response": raw_res,
+            }
+        )
 
     # Estatísticas
     latencies.sort()
@@ -274,6 +279,7 @@ def main():
         for r in results:
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
     print("\nResultados gravados em /content/output/colab_thx02_summary.json e results.jsonl!")
+
 
 if __name__ == "__main__":
     main()

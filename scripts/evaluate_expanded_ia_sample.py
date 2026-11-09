@@ -13,10 +13,11 @@ import pandas as pd
 from collections import Counter
 
 import sys
+
 ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 
-from causaganha.decisoes.topology_router import DecisionTopology, TopologyRouter
+from causaganha.decisoes.topology_router import TopologyRouter
 from causaganha.decisoes.structural_segmenter import FullDocumentStructuralSegmenter
 
 
@@ -50,11 +51,13 @@ def main():
     df["predicted_topology"] = router_results
     top_counts = df["predicted_topology"].value_counts().to_dict()
 
-    print(f"Tempo total do roteador: {elapsed_router*1000:.2f} ms ({elapsed_router*1000/n_total:.4f} ms/doc)")
+    print(
+        f"Tempo total do roteador: {elapsed_router * 1000:.2f} ms ({elapsed_router * 1000 / n_total:.4f} ms/doc)"
+    )
     print(f"Throughput do roteador : {n_total / elapsed_router:.0f} decisões/segundo")
     print("Distribuição de Topologias Roteadas:")
     for top_name, count in top_counts.items():
-        print(f"  • {top_name:<16}: {count:>5} ({count/n_total*100:>5.1f}%)")
+        print(f"  • {top_name:<16}: {count:>5} ({count / n_total * 100:>5.1f}%)")
 
     # Matriz cruzada: document_type vs predicted_topology
     print("\nCruzamento: document_type original vs predicted_topology:")
@@ -91,8 +94,10 @@ def main():
 
     print(f"Tempo total de segmentação : {elapsed_seg:.3f} s")
     print(f"Latência média por documento: {avg_seg_ms:.2f} ms")
-    print(f"Throughput de decomposição  : {len(sample_df) / elapsed_seg:.1f} documentos/segundo em CPU pura")
-    print(f"Volume textual processado   : {total_chars_segmented/1024:.1f} KB")
+    print(
+        f"Throughput de decomposição  : {len(sample_df) / elapsed_seg:.1f} documentos/segundo em CPU pura"
+    )
+    print(f"Volume textual processado   : {total_chars_segmented / 1024:.1f} KB")
 
     print("\nTaxa de Detecção de Seções Canônicas na Amostra:")
     for sec_name, count in section_counts.most_common():
@@ -103,7 +108,9 @@ def main():
     # Salva dataset expandido consolidado
     consolidated_path = ROOT_DIR / "data/benchmark/ia_expanded_decisions.parquet"
     df.to_parquet(consolidated_path, index=False)
-    print(f"\nDataset consolidado salvo em: {consolidated_path} ({consolidated_path.stat().st_size/1024:.1f} KB)")
+    print(
+        f"\nDataset consolidado salvo em: {consolidated_path} ({consolidated_path.stat().st_size / 1024:.1f} KB)"
+    )
     print("=" * 75)
 
 

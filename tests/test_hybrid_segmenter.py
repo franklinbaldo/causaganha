@@ -12,7 +12,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import pytest
-import numpy as np
 
 from causaganha.decisoes.hybrid_segmenter import (
     HybridDispositifSegmenter,
@@ -169,3 +168,30 @@ def test_rule_based_fallback_unfitted():
     assert isinstance(res, DispositifResult)
     assert len(res.snippet) <= 50
     assert res.confidence > 0.0
+
+
+def test_predict_json_serializable():
+    """Garante que o resultado completo de predict(), incluindo metadados e taxonomia, é serializável em JSON."""
+    import json
+
+    segmenter = HybridDispositifSegmenter()
+    doc_text = "Processo nº 123. Vistos. Ante o exposto, julgo procedente a ação. Publique-se."
+    res = segmenter.predict(doc_text, metadata={"doc_type": "sentença"})
+
+    # to_dict() deve produzir um dicionário puramente JSON-serializável
+    d = res.to_dict()
+    assert isinstance(d, dict)
+    json_str = json.dumps(d)
+    assert "julgo procedente" in json_str
+    assert "taxonomy" in d["metadata_used"]
+
+
+def test_short_text_non_decisive_certidao():
+    """Garante que textos curtos sem âncora decisória (ex: certidões de decurso de prazo) não recebem confiança 1.0."""
+    segmenter = HybridDispositifSegmenter()
+    certidao = "CERTIDÃO. Certifico que decorreu o prazo legal sem manifestação da parte executada. Dou fé."
+
+    res = segmenter.predict(certidao)
+    assert res.confidence == 0.0
+    assert res.snippet == ""
+    assert res.metadata_used.get("has_dispositif") is False

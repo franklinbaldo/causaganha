@@ -17,9 +17,7 @@ from __future__ import annotations
 
 import json
 import os
-import sys
 import time
-from typing import Any
 
 os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
 
@@ -83,6 +81,7 @@ def main():
     print("=" * 70)
 
     import torch
+
     cuda_avail = torch.cuda.is_available()
     device_name = torch.cuda.get_device_name(0) if cuda_avail else "No GPU"
     vram_gb = torch.cuda.get_device_properties(0).total_memory / (1024**3) if cuda_avail else 0.0
@@ -92,6 +91,7 @@ def main():
 
     # Monkeypatch Qwen3_5Model para garantir torch_dtype=bfloat16
     from transformers import Qwen3_5Model
+
     orig_from_pretrained = Qwen3_5Model.from_pretrained
 
     @classmethod
@@ -131,7 +131,9 @@ def main():
         doc_id = doc["text_uuid"]
         gold_out = doc["gold_outcome"]
         gold_win = doc["gold_winner"]
-        print(f"\n--- Documento [{idx:02d}/{len(documents):02d}] {doc_id} (Gold: {gold_out} | Win: {gold_win}) ---")
+        print(
+            f"\n--- Documento [{idx:02d}/{len(documents):02d}] {doc_id} (Gold: {gold_out} | Win: {gold_win}) ---"
+        )
 
         for m_key in method_keys:
             m_data = doc["methods"][m_key]
@@ -154,30 +156,34 @@ def main():
             pred_win = answers.get("winner_direct", {}).get("choice", "unknown")
             win_prob = answers.get("winner_direct", {}).get("probability", 0.0)
 
-            match_out = (pred_outcome == gold_out)
+            match_out = pred_outcome == gold_out
             match_win = (pred_win == gold_win) if gold_win != "unknown" else True
 
             status_out = "✓" if match_out else "✗"
-            print(f"  [{m_key:<16}] Out: {pred_outcome:<23} ({out_prob:.1%}) [{status_out}] | Chars: {char_count:<4} | Lat: {inf_ms:6.1f} ms")
+            print(
+                f"  [{m_key:<16}] Out: {pred_outcome:<23} ({out_prob:.1%}) [{status_out}] | Chars: {char_count:<4} | Lat: {inf_ms:6.1f} ms"
+            )
 
-            results.append({
-                "text_uuid": doc_id,
-                "doc_type": doc["doc_type"],
-                "method": m_key,
-                "char_count": char_count,
-                "extraction_ms": extract_ms,
-                "inference_ms": inf_ms,
-                "total_ms": total_ms,
-                "fallback_used": fallback,
-                "gold_outcome": gold_out,
-                "pred_outcome": pred_outcome,
-                "outcome_prob": out_prob,
-                "match_outcome": match_out,
-                "gold_winner": gold_win,
-                "pred_winner": pred_win,
-                "winner_prob": win_prob,
-                "match_winner": match_win,
-            })
+            results.append(
+                {
+                    "text_uuid": doc_id,
+                    "doc_type": doc["doc_type"],
+                    "method": m_key,
+                    "char_count": char_count,
+                    "extraction_ms": extract_ms,
+                    "inference_ms": inf_ms,
+                    "total_ms": total_ms,
+                    "fallback_used": fallback,
+                    "gold_outcome": gold_out,
+                    "pred_outcome": pred_outcome,
+                    "outcome_prob": out_prob,
+                    "match_outcome": match_out,
+                    "gold_winner": gold_win,
+                    "pred_winner": pred_win,
+                    "winner_prob": win_prob,
+                    "match_winner": match_win,
+                }
+            )
 
     # 3. Consolidação Estatística por Método
     print("\n" + "=" * 75)
@@ -216,7 +222,9 @@ def main():
     print(header)
     print("-" * len(header))
     for m_key, m_stats in matrix.items():
-        print(f"{m_key:<18} | {m_stats['outcome_accuracy']:10.1%} | {m_stats['winner_accuracy']:9.1%} | {m_stats['avg_chars']:6.0f} | {m_stats['avg_extraction_ms']:6.3f} ms | {m_stats['avg_inference_ms']:8.1f} ms | {m_stats['avg_total_ms']:7.1f} ms | {m_stats['avg_outcome_confidence']:9.1%} | {m_stats['fallback_rate']:7.1%}")
+        print(
+            f"{m_key:<18} | {m_stats['outcome_accuracy']:10.1%} | {m_stats['winner_accuracy']:9.1%} | {m_stats['avg_chars']:6.0f} | {m_stats['avg_extraction_ms']:6.3f} ms | {m_stats['avg_inference_ms']:8.1f} ms | {m_stats['avg_total_ms']:7.1f} ms | {m_stats['avg_outcome_confidence']:9.1%} | {m_stats['fallback_rate']:7.1%}"
+        )
 
     # Salva arquivos de saída
     os.makedirs("/content/output", exist_ok=True)
@@ -227,6 +235,7 @@ def main():
             f.write(json.dumps(r, ensure_ascii=False) + "\n")
 
     print("\nResultados completos salvos em /content/output/!")
+
 
 if __name__ == "__main__":
     main()

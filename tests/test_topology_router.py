@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import pytest
 from causaganha.decisoes.topology_router import DecisionTopology, TopologyRouter
 
 
@@ -45,7 +44,9 @@ def test_route_by_sentenca_class():
 
 def test_route_fallback_header():
     # Sem metadados, deduz pelo texto institucional do cabeçalho
-    text_acordao = "PODER JUDICIÁRIO. Tribunal de Justiça de Rondônia. ACÓRDÃO. Sessão eletrônica n. 953."
+    text_acordao = (
+        "PODER JUDICIÁRIO. Tribunal de Justiça de Rondônia. ACÓRDÃO. Sessão eletrônica n. 953."
+    )
     assert TopologyRouter.route({}, text=text_acordao) == DecisionTopology.ACORDAO
 
     text_sentenca = "PODER JUDICIÁRIO. Comarca de Ariquemes. 2ª Vara Cível. SENTENÇA. Vistos etc."

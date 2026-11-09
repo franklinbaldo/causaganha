@@ -3,7 +3,6 @@ import sys
 import time
 import json
 import socket
-import torch
 
 # 1. Bloqueio estrito de rede em nivel de sistema operacional / processo
 os.environ["HF_HUB_OFFLINE"] = "1"
@@ -15,8 +14,12 @@ os.environ["THX02_DEVICE"] = "cpu"
 
 # Bloqueio total no socket do Python para provar execucao 100% offline
 orig_connect = socket.socket.connect
+
+
 def blocked_connect(self, address):
     raise RuntimeError(f"PROVA DE ISOLAMENTO: Tentativa de conexao bloqueada para {address}")
+
+
 socket.socket.connect = blocked_connect
 
 sys.modules.setdefault("fla", None)
@@ -43,8 +46,8 @@ questions = {
             "procedente": "Julga procedente o pedido inicial",
             "improcedente": "Julga improcedente o pedido inicial",
             "parcialmente_procedente": "Julga parcialmente procedente o pedido",
-            "desconhecido": "Resultado desconhecido ou outro"
-        }
+            "desconhecido": "Resultado desconhecido ou outro",
+        },
     },
     "tipo_decisao": {
         "type": "choice",
@@ -53,8 +56,8 @@ questions = {
             "sentenca": "Sentença",
             "acordao": "Acórdão",
             "decisao_monocratica": "Decisão monocrática",
-            "despacho": "Despacho ou outro provimento"
-        }
+            "despacho": "Despacho ou outro provimento",
+        },
     },
     "polo_vencedor": {
         "type": "choice",
@@ -63,9 +66,9 @@ questions = {
             "ativo": "Polo ativo / autor",
             "passivo": "Polo passivo / réu",
             "nenhum": "Nenhum ou ambos parcialmente",
-            "desconhecido": "Não informado ou inconclusivo"
-        }
-    }
+            "desconhecido": "Não informado ou inconclusivo",
+        },
+    },
 }
 
 t_inf0 = time.time()
