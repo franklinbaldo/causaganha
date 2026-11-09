@@ -6,10 +6,17 @@ from typing import Any
 
 from causaganha.decisoes.ner.cnj import CnjExtractor
 from causaganha.decisoes.ner.date import TemporalDateExtractor
-from causaganha.decisoes.ner.models import CnjValue, EntityRole, EntityType, JudicialMention
+from causaganha.decisoes.ner.models import (
+    CnjValue,
+    EntityRole,
+    EntityType,
+    JudicialMention,
+    PersonValue,
+)
 from causaganha.decisoes.ner.money import MonetaryValueExtractor
 from causaganha.decisoes.ner.norma import LegalReferenceParser
 from causaganha.decisoes.ner.org import OrganizationTrieExtractor
+from causaganha.decisoes.ner.person_advogado import PersonAdvogadoExtractor
 from causaganha.decisoes.structural_segmenter import SectionSpan
 from causaganha.processos.cnj import formatar_cnj, normalizar_cnj, validar_digito_verificador
 
@@ -23,6 +30,7 @@ class CompositeEntityExtractor:
         self.money = MonetaryValueExtractor()
         self.date = TemporalDateExtractor()
         self.org = OrganizationTrieExtractor()
+        self.person = PersonAdvogadoExtractor()
 
     def extract_from_text(
         self,
@@ -38,6 +46,82 @@ class CompositeEntityExtractor:
         mentions.extend(self.money.extract(text, default_section))
         mentions.extend(self.date.extract(text, default_section))
         mentions.extend(self.org.extract(text, default_section))
+        mentions.extend(self.person.extract(text, default_section, metadata=meta))
+        return self._inject_sovereign_metadata(mentions, meta)
+
+    def _inject_sovereign_metadata(
+        self,
+        mentions: list[JudicialMention],
+        meta: dict[str, Any],
+    ) -> list[JudicialMention]:
+        djen_raw = (
+            meta.get("numero_processo")
+            or meta.get("numeroprocessocommascara")
+            or meta.get("numero_processo_mascara")
+            or meta.get("cnj")
+            or meta.get("process_number")
+        )
+        djen_clean = normalizar_cnj(str(djen_raw)) if djen_raw else ""
+
+        has_main = any(m.role == EntityRole.PROCESSO_PRINCIPAL for m in mentions)
+        if not has_main and djen_clean and len(djen_clean) == 20:
+            formatted_djen = formatar_cnj(djen_clean)
+            mentions.insert(
+                0,
+                JudicialMention(
+                    literal=formatted_djen,
+                    start=0,
+                    end=0,
+                    section="METADADOS_DJEN",
+                    entity_type=EntityType.CNJ,
+                    normalized_value=CnjValue(
+                        numero_formatado=formatted_djen,
+                        sequencial=djen_clean[:7],
+                        digito_verificador=djen_clean[7:9],
+                        ano=int(djen_clean[9:13]),
+                        ramo_justica=int(djen_clean[13:14]),
+                        tribunal=int(djen_clean[14:16]),
+                        origem=djen_clean[16:20],
+                        is_valid_mod97=validar_digito_verificador(djen_clean),
+                    ),
+                    role=EntityRole.PROCESSO_PRINCIPAL,
+                    confidence=1.0,
+                    evidence="Fonte Primária Oficial: Metadados do DJEN",
+                ),
+            )
+
+        autor_djen = meta.get("polo_ativo") or meta.get("autor")
+        if autor_djen and not any(m.role == EntityRole.POLO_ATIVO for m in mentions):
+            mentions.append(
+                JudicialMention(
+                    literal=str(autor_djen),
+                    start=0,
+                    end=0,
+                    section="METADADOS_DJEN",
+                    entity_type=EntityType.PESSOA,
+                    normalized_value=PersonValue(nome=str(autor_djen), polo="ATIVO"),
+                    role=EntityRole.POLO_ATIVO,
+                    confidence=1.0,
+                    evidence="Fonte Primária Oficial: Polo Ativo do DJEN",
+                )
+            )
+
+        reu_djen = meta.get("polo_passivo") or meta.get("reu")
+        if reu_djen and not any(m.role == EntityRole.POLO_PASSIVO for m in mentions):
+            mentions.append(
+                JudicialMention(
+                    literal=str(reu_djen),
+                    start=0,
+                    end=0,
+                    section="METADADOS_DJEN",
+                    entity_type=EntityType.PESSOA,
+                    normalized_value=PersonValue(nome=str(reu_djen), polo="PASSIVO"),
+                    role=EntityRole.POLO_PASSIVO,
+                    confidence=1.0,
+                    evidence="Fonte Primária Oficial: Polo Passivo do DJEN",
+                )
+            )
+
         return sorted(mentions, key=lambda m: m.start)
 
     def extract_from_sections(
@@ -53,17 +137,10 @@ class CompositeEntityExtractor:
         - Valores: varre DISPOSITIVO, HONORARIOS_CUSTAS, CABECALHO e FUNDAMENTACAO.
         - Datas: varre ENCERRAMENTO, CABECALHO e DISPOSITIVO.
         - Organizações: varre todas as seções.
+        - Pessoas, Advogados e OABs: varre CABECALHO, RELATORIO, DISPOSITIVO e ENCERRAMENTO com vinculação ao DJEN.
         """
         meta = metadata or {}
         all_mentions: list[JudicialMention] = []
-
-        djen_raw = (
-            meta.get("numero_processo")
-            or meta.get("numero_processo_mascara")
-            or meta.get("cnj")
-            or meta.get("process_number")
-        )
-        djen_clean = normalizar_cnj(str(djen_raw)) if djen_raw else ""
 
         for sec_name, span in sections.items():
             sec_type = (
@@ -77,7 +154,6 @@ class CompositeEntityExtractor:
             # 1. CNJ (Validado contra os metadados do DJEN)
             if sec_type in {"CABECALHO", "ENCERRAMENTO"}:
                 for m in self.cnj.extract(text, sec_type, metadata=meta):
-                    # Ajusta offset absoluto
                     m.start += base_offset
                     m.end += base_offset
                     all_mentions.append(m)
@@ -108,36 +184,14 @@ class CompositeEntityExtractor:
                 m.end += base_offset
                 all_mentions.append(m)
 
-        # Se o metadado oficial do DJEN existe e o texto não o mencionou expressamente,
-        # injeta o processo principal canônico a partir dos metadados oficiais do DJEN
-        has_main = any(m.role == EntityRole.PROCESSO_PRINCIPAL for m in all_mentions)
-        if not has_main and djen_clean:
-            formatted_djen = formatar_cnj(djen_clean)
-            all_mentions.insert(
-                0,
-                JudicialMention(
-                    literal=formatted_djen,
-                    start=0,
-                    end=0,
-                    section="METADADOS_DJEN",
-                    entity_type=EntityType.CNJ,
-                    normalized_value=CnjValue(
-                        numero_formatado=formatted_djen,
-                        sequencial=djen_clean[:7],
-                        digito_verificador=djen_clean[7:9],
-                        ano=int(djen_clean[9:13]),
-                        ramo_justica=int(djen_clean[13:14]),
-                        tribunal=int(djen_clean[14:16]),
-                        origem=djen_clean[16:20],
-                        is_valid_mod97=validar_digito_verificador(djen_clean),
-                    ),
-                    role=EntityRole.PROCESSO_PRINCIPAL,
-                    confidence=1.0,
-                    evidence="Fonte Primária Oficial: Metadados do DJEN",
-                ),
-            )
+            # 6. Pessoas, Advogados e OABs (Vinculados aos metadados do DJEN)
+            if sec_type in {"CABECALHO", "RELATORIO", "DISPOSITIVO", "ENCERRAMENTO"}:
+                for m in self.person.extract(text, sec_type, metadata=meta):
+                    m.start += base_offset
+                    m.end += base_offset
+                    all_mentions.append(m)
 
-        return sorted(all_mentions, key=lambda m: m.start)
+        return self._inject_sovereign_metadata(all_mentions, meta)
 
     @staticmethod
     def group_by_type(mentions: list[JudicialMention]) -> dict[str, list[dict[str, Any]]]:

@@ -1,112 +1,190 @@
-# Relatório de Experimentos: Judicial Multi-Algorithm NER
+# Relatório de Experimentos: Judicial Multi-Algorithm NER (Grounded em Dados DJEN Reais)
 
-Avaliação empírica em CPU na base real do DJEN (`ia_expanded_decisions.parquet`).
+Este relatório documenta a avaliação empírica do pipeline de NER especializado sobre **três corpora reais do DJEN**:
+1. **Benchmark de Ouro** (`data/benchmark/decisions/*.md`): 100 decisões judiciais completas com frontmatter YAML e anotações ricas.
+2. **Amostra Multitribunal Nacional** (`data/segmenter_samples/*.jsonl`): 849 intimações reais de 66 arquivos cobrindo tribunais de todos os estados (TJSP, TJRJ, TJBA, TJRO, TRF2, TRF3, TRF5, etc.).
+3. **Tabela Consolidada de Ouro** (`data/benchmark/gold_benchmark.parquet`): 300 decisões com classes processuais e valores.
 
-## 1. Latência e Throughput por Algoritmo Especializado (1 Core CPU)
+## 1. Desempenho e Throughput em CPU (Intel/AMD x86_64, 1 Core)
 
-| Extrator / Algoritmo | Throughput (doc/s) | Média (ms) | p95 (ms) | Entidades Extraídas |
-| :--- | :--- | :--- | :--- | :--- |
-| **1. CNJ (Regex + Modulo 97)** | 13840.0 | 0.07 | 0.22 | 654 |
-| **2. Normas (Parser Léxico + Anáfora)** | 3434.1 | 0.29 | 1.30 | 1550 |
-| **3. Valores (Moeda, % e Papel)** | 7366.5 | 0.14 | 0.42 | 516 |
-| **4. Datas (Prazos e ISO)** | 4438.9 | 0.22 | 0.70 | 1313 |
-| **5. Organizações (Grandes Litigantes)** | 822.3 | 1.22 | 3.66 | 1300 |
-| **6. PIPELINE COMPOSTO SECCIONAL** | 527.0 | 1.90 | 6.36 | 4548 |
+| Algoritmo Especializado | Mecanismo | Throughput (doc/s) | Média (ms) | p95 (ms) | Entidades |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. CNJ** | Regex + Módulo 97 | 6189.9 | 0.16 | 0.43 | 231 |
+| **2. Normas** | Parser Léxico + Anáfora | 1462.4 | 0.68 | 1.90 | 821 |
+| **3. Valores** | Regex Moeda/% + Janela Seccional | 3201.0 | 0.31 | 0.88 | 229 |
+| **4. Datas** | Prazos CPC + ISO-8601 | 1944.5 | 0.51 | 1.39 | 543 |
+| **5. Organizações** | Trie/Aho-Corasick Top 100 CNJ | 352.4 | 2.84 | 7.86 | 388 |
+| **6. Pessoas, Advogados e OAB** | Grounding DJEN + Contexto | 1027.9 | 0.97 | 2.48 | 480 |
+| **7. PIPELINE COMPOSTO SECCIONAL** | Orquestrador + Grafo | **130.6** | **7.66** | **20.40** | **2384** |
 
-## 2. Indicadores de Precisão Mecânica e Resolução
+## 2. Aferição de Qualidade e Concordância com Metadados Oficiais
 
-- **Números CNJ**: 654 detectados, com **100.0% validados com sucesso pelo algoritmo Módulo 97 da Res. 65/2008**.
-- **Referências Normativas**: 1550 citações identificadas. Top diplomas: `CPC` (854), `PENDENTE_CONTEXTO` (425), `LEI_9099_JUIZADOS` (42), `CP` (33).
-- **Valores Financeiros**: 516 quantias distribuídas entre condenações de mérito, valor da causa, astreintes e percentuais de sucumbência.
-- **Grandes Litigantes**: 1300 ocorrências mapeadas diretamente aos identificadores canônicos do CNJ.
+- **Validação CNJ Módulo 97 (Res. CNJ nº 65/2008)**: **230/231 (99.6%)** de dígitos verificadores matematicamente íntegros no texto das decisões.
+- **Recall de Fundamentos Legais (`legal_bases`)**: **218/218 (100.0%)** das normas fundamentadoras identificadas.
+- **Grounding de Magistrados e Relatores (`judge_name`)**: **50/50 (100.0%)** dos magistrados constantes no metadado ouro foram localizados no texto e devidamente classificados no papel `MAGISTRADO`.
+- **Inscrições na OAB e Advogados**: Identificadas 480 menções de patronos e inscrições na OAB com extração precisa de estado, número e tipo.
+- **Corpus Multitribunal (849 intimações reais)**: Processado a **223.0 docs/s**, extraindo um total de **13,676 entidades** (16.1 por documento).
 
-## 3. Amostra de Documento Anotado com Grafo Seccional
+## 3. Distribuição de Entidades no Corpus Multitribunal (849 Decisões Reais)
+
+| Tipo de Entidade | Total Extraído | Média por Documento | Papéis Principais Identificados |
+| :--- | :--- | :--- | :--- |
+| `NORMA` | 5,277 | 6.2 | Normas de mérito/admissibilidade, processos citados, condenações |
+| `DATA` | 2,935 | 3.5 | Normas de mérito/admissibilidade, processos citados, condenações |
+| `CNJ` | 1,678 | 2.0 | Normas de mérito/admissibilidade, processos citados, condenações |
+| `ORGANIZACAO` | 1,549 | 1.8 | Normas de mérito/admissibilidade, processos citados, condenações |
+| `VALOR` | 1,471 | 1.7 | Normas de mérito/admissibilidade, processos citados, condenações |
+| `OAB` | 686 | 0.8 | Normas de mérito/admissibilidade, processos citados, condenações |
+| `PESSOA` | 80 | 0.1 | Normas de mérito/admissibilidade, processos citados, condenações |
+
+## 4. Exemplo de Decisão Real Anotada no Grafo Seccional
 
 ```json
-// Decisão analisada: 10 entidades extraídas nas seções
-[
-  {
-    "literal": "ESTADO DE RONDÔNIA",
-    "start": 40,
-    "end": 58,
-    "char_count": 18,
-    "section": "CABECALHO",
-    "entity_type": "ORGANIZACAO",
-    "normalized_value": {
-      "canonical_name": "ESTADO_DE_RONDONIA",
-      "catalog_role": "ORGAO_PUBLICO"
-    },
-    "role": "ORGAO_PUBLICO",
-    "confidence": 0.99,
-    "evidence": "Grande litigante do catálogo CNJ identificado em CABECALHO"
+{
+  "arquivo": "TJRO-2026-05-27-1051730411150002516.md",
+  "metadados_oficiais_djen": {
+    "assunto_principal": "Aposentadoria Rural",
+    "classe_processual": "Procedimento Comum Cível",
+    "confidence_score": 1.0,
+    "court": "TJRO",
+    "decision_reasoning": "A autora comprovou o preenchimento dos requisitos para a concessão do benefício de aposentadoria por idade rural.",
+    "decision_type": "sentença",
+    "fase_processual": "conhecimento",
+    "intimation_id": 1051730411150002516,
+    "is_human_verified": false,
+    "judge_name": "Ana Lucia Mortari",
+    "keywords": [
+      "aposentadoria por idade rural",
+      "INSS",
+      "honorários advocatícios",
+      "duplo grau de jurisdição"
+    ],
+    "legal_bases": [
+      "art. 5º, I, da Lei Estadual nº 3.896/16",
+      "artigo 85, §3º, I, do CPC",
+      "Súmula 111 do STJ",
+      "art. 496, I, do CPC",
+      "Súmula 490 do STJ"
+    ],
+    "llm_model": "gemini/gemini-2.5-flash-lite",
+    "outcome": "procedente",
+    "plaintiff_won": true,
+    "precedents": {},
+    "proposed_regex": null,
+    "schema_version": "1.2.0",
+    "summary": "O juiz julgou procedente o pedido de concessão de aposentadoria por idade rural, condenando o INSS ao pagamento de honorários advocatícios.",
+    "text_uuid": "9c08cba0f1f84e56b5edd0910cd54c3e",
+    "validated_at": "2026-05-27T23:50:03.677902",
+    "valor_causa": null,
+    "valor_condenacao": null
   },
-  {
-    "literal": "BANCO DO BRASIL",
-    "start": 147,
-    "end": 162,
-    "char_count": 15,
-    "section": "RELATORIO",
-    "entity_type": "ORGANIZACAO",
-    "normalized_value": {
-      "canonical_name": "BANCO_DO_BRASIL_SA",
-      "catalog_role": "INSTITUICAO_FINANCEIRA"
+  "secoes_detectadas": [
+    "cabecalho",
+    "relatorio",
+    "fundamentacao",
+    "dispositivo"
+  ],
+  "amostra_entidades": [
+    {
+      "literal": "ESTADO DE RONDÔNIA",
+      "start": 20,
+      "end": 38,
+      "char_count": 18,
+      "section": "CABECALHO",
+      "entity_type": "ORGANIZACAO",
+      "normalized_value": {
+        "canonical_name": "ESTADO_DE_RONDONIA",
+        "catalog_role": "ORGAO_PUBLICO"
+      },
+      "role": "ORGAO_PUBLICO",
+      "confidence": 0.99,
+      "evidence": "Grande litigante do catálogo CNJ identificado em CABECALHO"
     },
-    "role": "INSTITUICAO_FINANCEIRA",
-    "confidence": 0.99,
-    "evidence": "Grande litigante do catálogo CNJ identificado em RELATORIO"
-  },
-  {
-    "literal": "BANCO DO BRASIL S/A",
-    "start": 328,
-    "end": 347,
-    "char_count": 19,
-    "section": "RELATORIO",
-    "entity_type": "ORGANIZACAO",
-    "normalized_value": {
-      "canonical_name": "BANCO_DO_BRASIL_SA",
-      "catalog_role": "INSTITUICAO_FINANCEIRA"
+    {
+      "literal": "7000685-89.2025.8.22.0011",
+      "start": 235,
+      "end": 260,
+      "char_count": 25,
+      "section": "CABECALHO",
+      "entity_type": "CNJ",
+      "normalized_value": {
+        "numero_formatado": "7000685-89.2025.8.22.0011",
+        "sequencial": "7000685",
+        "digito_verificador": "89",
+        "ano": 2025,
+        "ramo_justica": 8,
+        "tribunal": 22,
+        "origem": "0011",
+        "is_valid_mod97": true
+      },
+      "role": "PROCESSO_PRINCIPAL",
+      "confidence": 1.0,
+      "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
     },
-    "role": "INSTITUICAO_FINANCEIRA",
-    "confidence": 0.99,
-    "evidence": "Grande litigante do catálogo CNJ identificado em RELATORIO"
-  },
-  {
-    "literal": "art. 12, inciso I",
-    "start": 653,
-    "end": 670,
-    "char_count": 17,
-    "section": "RELATORIO",
-    "entity_type": "NORMA",
-    "normalized_value": {
-      "diploma": "PENDENTE_CONTEXTO",
-      "artigo": "12",
-      "paragrafo": null,
-      "inciso": "I",
-      "alinea": null,
-      "lei_ano": null,
-      "raw_reference": "art. 12, inciso I"
+    {
+      "literal": "CELIO DA CRUZ",
+      "start": 466,
+      "end": 489,
+      "char_count": 13,
+      "section": "CABECALHO",
+      "entity_type": "PESSOA",
+      "normalized_value": {
+        "nome": "CELIO DA CRUZ",
+        "cpf_cnpj": null,
+        "polo": "ADVOGADO"
+      },
+      "role": "ADVOGADO",
+      "confidence": 0.9,
+      "evidence": "Advogado associado à OAB identificada no texto"
     },
-    "role": "TESE_ALEGADA",
-    "confidence": 0.75,
-    "evidence": "Citado no Relatório nas alegações das partes"
-  },
-  {
-    "literal": "2%",
-    "start": 760,
-    "end": 762,
-    "char_count": 2,
-    "section": "FUNDAMENTACAO",
-    "entity_type": "VALOR",
-    "normalized_value": {
-      "amount": 2.0,
-      "currency": "PERCENT",
-      "is_percentage": true,
-      "raw_text": "2%",
-      "qualifier": "percentual_generico"
+    {
+      "literal": "CELIO DA CRUZ",
+      "start": 474,
+      "end": 487,
+      "char_count": 13,
+      "section": "CABECALHO",
+      "entity_type": "PESSOA",
+      "normalized_value": {
+        "nome": "CELIO DA CRUZ",
+        "cpf_cnpj": null,
+        "polo": "ADVOGADO"
+      },
+      "role": "ADVOGADO",
+      "confidence": 0.85,
+      "evidence": "Advogado extraído do rótulo de cabeçalho na ausência de metadado DJEN"
     },
-    "role": "VALOR_MENCIONADO",
-    "confidence": 0.95,
-    "evidence": "Percentual citado no texto"
-  }
-]
+    {
+      "literal": "OAB nº RO5443A",
+      "start": 489,
+      "end": 503,
+      "char_count": 14,
+      "section": "CABECALHO",
+      "entity_type": "OAB",
+      "normalized_value": {
+        "uf": "RO",
+        "numero": "5443",
+        "tipo_inscricao": "A",
+        "nome_advogado": "CELIO DA CRUZ"
+      },
+      "role": "ADVOGADO",
+      "confidence": 0.95,
+      "evidence": "Inscrição na OAB identificada no texto"
+    },
+    {
+      "literal": "INSS",
+      "start": 509,
+      "end": 513,
+      "char_count": 4,
+      "section": "CABECALHO",
+      "entity_type": "ORGANIZACAO",
+      "normalized_value": {
+        "canonical_name": "INSS_INSTITUTO_NACIONAL_SEGURO_SOCIAL",
+        "catalog_role": "ORGAO_PUBLICO"
+      },
+      "role": "ORGAO_PUBLICO",
+      "confidence": 0.99,
+      "evidence": "Grande litigante do catálogo CNJ identificado em CABECALHO"
+    }
+  ]
+}
 ```

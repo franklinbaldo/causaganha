@@ -11,10 +11,13 @@ from causaganha.decisoes.ner.models import (
     JudicialMention,
     MoneyValue,
     NormaRef,
+    OabValue,
+    PersonValue,
 )
 from causaganha.decisoes.ner.money import MonetaryValueExtractor
 from causaganha.decisoes.ner.norma import LegalReferenceParser
 from causaganha.decisoes.ner.org import OrganizationTrieExtractor
+from causaganha.decisoes.ner.person_advogado import PersonAdvogadoExtractor
 
 __all__ = [
     "CnjExtractor",
@@ -28,7 +31,10 @@ __all__ = [
     "MonetaryValueExtractor",
     "MoneyValue",
     "NormaRef",
+    "OabValue",
     "OrganizationTrieExtractor",
+    "PersonAdvogadoExtractor",
+    "PersonValue",
     "TemporalDateExtractor",
     "validate_cnj_modulo_97",
 ]

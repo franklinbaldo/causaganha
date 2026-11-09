@@ -116,6 +116,12 @@ class CnjValue:
     origem: str
     is_valid_mod97: bool
 
+    @property
+    def numero_limpo(self) -> str:
+        import re
+
+        return re.sub(r"\D", "", self.numero_formatado)
+
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
@@ -132,6 +138,31 @@ class DateValue:
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
+
+
+@dataclass
+class PersonValue:
+    nome: str
+    cpf_cnpj: str | None = None
+    polo: str | None = None  # "ATIVO", "PASSIVO", "TERCEIRO", "MAGISTRADO", "ADVOGADO"
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+
+@dataclass
+class OabValue:
+    uf: str  # ex: "RO", "SP"
+    numero: str  # ex: "1234", "12345"
+    tipo_inscricao: str | None = None  # ex: "A", "E", "B"
+    nome_advogado: str | None = None
+
+    def to_dict(self) -> dict[str, Any]:
+        return asdict(self)
+
+    @property
+    def formatado(self) -> str:
+        return f"OAB/{self.uf.upper()} {self.numero}"
 
 
 @dataclass

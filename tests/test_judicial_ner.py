@@ -263,3 +263,90 @@ def test_composite_injects_djen_process_when_not_in_text():
     assert cnjs[0].section == "METADADOS_DJEN"
     assert cnjs[0].normalized_value.numero_formatado == "7019913-62.2025.8.22.0007"
     assert "Metadados do DJEN" in cnjs[0].evidence
+
+
+def test_person_advogado_grounded_by_djen_metadata():
+    """Garante que partes, advogados e OABs sejam identificados e vinculados com autoridade aos metadados do DJEN."""
+    from causaganha.decisoes.ner.person_advogado import PersonAdvogadoExtractor
+
+    extractor = PersonAdvogadoExtractor()
+    text = (
+        "Requerente: Carlos Eduardo Santos. "
+        "Advogada: Dra. Patricia Lima, OAB/RO 12345. "
+        "Requerido: Banco Santander Brasil S/A. "
+        "Juiz de Direito: Dr. Wilson Martins."
+    )
+
+    meta_djen = {
+        "polo_ativo": "Carlos Eduardo Santos",
+        "polo_passivo": "Banco Santander Brasil S/A",
+        "advogado": "Patricia Lima",
+        "oab": "12345",
+        "uf_oab": "RO",
+        "judge_name": "Wilson Martins",
+    }
+
+    mentions = extractor.extract(text, section="CABECALHO", metadata=meta_djen)
+
+    # 1. Polo Ativo (autor) confirmado pelo DJEN
+    m_autor = [m for m in mentions if m.role == EntityRole.POLO_ATIVO][0]
+    assert m_autor.literal == "Carlos Eduardo Santos"
+    assert m_autor.confidence == 1.0
+    assert "polo ativo confirmado pelos metadados oficiais do djen" in m_autor.evidence.lower()
+
+    # 2. OAB confirmada pelo DJEN
+    m_oab = [m for m in mentions if m.entity_type == EntityType.OAB][0]
+    assert m_oab.normalized_value.numero == "12345"
+    assert m_oab.normalized_value.uf == "RO"
+    assert m_oab.confidence == 1.0
+
+    # 3. Advogada confirmada pelo DJEN
+    m_adv = [
+        m for m in mentions if m.entity_type == EntityType.PESSOA and m.role == EntityRole.ADVOGADO
+    ][0]
+    assert "Patricia Lima" in m_adv.literal
+    assert m_adv.confidence == 1.0
+
+    # 4. Magistrado confirmado pelo DJEN
+    m_juiz = [m for m in mentions if m.role == EntityRole.MAGISTRADO][0]
+    assert "Wilson Martins" in m_juiz.literal
+    assert m_juiz.confidence == 1.0
+
+
+def test_composite_injects_djen_parties_when_omitted_in_text():
+    """Garante que as partes oficiais do DJEN sejam preservadas no grafo mesmo se o texto omitir seus nomes."""
+    composite = CompositeEntityExtractor()
+    sections = {
+        "cabecalho": SectionSpan(
+            section_type=SectionType.CABECALHO,
+            start=0,
+            end=60,
+            text="PODER JUDICIÁRIO. Processo de Execução.",
+            confidence=0.95,
+        ),
+        "dispositivo": SectionSpan(
+            section_type=SectionType.DISPOSITIVO,
+            start=61,
+            end=140,
+            text="Defiro a penhora online via Sisbajud.",
+            confidence=0.92,
+        ),
+    }
+
+    meta = {
+        "numero_processo": "70199136220258220007",
+        "polo_ativo": "Empresa Alfa Ltda",
+        "polo_passivo": "Devedor Beta",
+    }
+    mentions = composite.extract_from_sections(sections, metadata=meta)
+
+    # Verifica que polo ativo e polo passivo foram injetados com autoridade a partir dos metadados do DJEN
+    autor = [m for m in mentions if m.role == EntityRole.POLO_ATIVO][0]
+    assert autor.literal == "Empresa Alfa Ltda"
+    assert autor.section == "METADADOS_DJEN"
+    assert "Fonte Primária Oficial" in autor.evidence
+
+    reu = [m for m in mentions if m.role == EntityRole.POLO_PASSIVO][0]
+    assert reu.literal == "Devedor Beta"
+    assert reu.section == "METADADOS_DJEN"
+    assert "Fonte Primária Oficial" in reu.evidence
