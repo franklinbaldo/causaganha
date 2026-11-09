@@ -16,6 +16,7 @@ line-length = 100
 # as Python reports undefined names by construction.
 extend-exclude = [
     "notebooks",
+    "output",
     ".claude",
     "vulture_whitelist.py",
     "experiments/archive/train_privacy_filter.py",
@@ -28,6 +29,10 @@ extend-exclude = [
 extend-select = ["TRY", "BLE"]
 
 [lint.per-file-ignores]
+# Scripts utilizam sys.path.insert antes de imports locais
+"scripts/*" = ["E402", "TRY003"]
+"scripts/**" = ["E402", "TRY003"]
+
 # Decimal traps must be disabled before ibis/sqlglot are imported (see the
 # comment beside each statement), so these two modules run one statement ahead
 # of their import block on purpose.

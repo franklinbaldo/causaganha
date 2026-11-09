@@ -299,7 +299,7 @@ def main():
     test_latencies = []
     for doc in all_eval_docs:
         t0 = time.perf_counter()
-        res = segmenter.predict(doc["text"], doc["metadata"])
+        _res = segmenter.predict(doc["text"], doc["metadata"])
         elap_ms = (time.perf_counter() - t0) * 1000.0
         test_latencies.append(elap_ms)
 

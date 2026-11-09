@@ -4,9 +4,9 @@ from pathlib import Path
 
 def main():
     with open("output/colab_thx02_results.jsonl", encoding="utf-8") as f:
-        colab_res = [json.loads(l) for l in f]
+        colab_res = [json.loads(line) for line in f]
     with open("tests/fixtures/thx02_spike.jsonl", encoding="utf-8") as f:
-        fixtures = [json.loads(l) for l in f]
+        fixtures = [json.loads(line) for line in f]
 
     correct_out = 0
     correct_win = 0
