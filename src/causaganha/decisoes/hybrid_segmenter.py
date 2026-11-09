@@ -16,7 +16,7 @@ from typing import Any
 import joblib
 import numpy as np
 
-from causaganha.decisoes.taxonomy import DocumentTaxonomyRegistry
+from causaganha.decisoes.taxonomy import DocumentTaxonomyRegistry, MacroCategory
 
 # Padrões canônicos de abertura de dispositivo
 CANONICAL_ANCHORS = [
@@ -29,6 +29,10 @@ CANONICAL_ANCHORS = [
     r"\b(?:a\s*c\s*o\s*r\s*d\s*a\s*m|acordam)\b",
     r"\bvistos,\s*relatados\s*e\s*discutidos\b",
     r"\bjulgo\s+(?:procedente|improcedente|parcialmente|extinto)\b",
+    r"\b(?:defiro|indefiro)\b",
+    r"\b(?:acolho|rejeito)\b",
+    r"\b(?:concedo|denego)\b",
+    r"\bdetermino\b",
     r"\bhomologo\s+o\s+acordo\b",
     r"\bextingo\s+o\s+processo\b",
     r"\bconcedo\s+a\s+ordem\b",
@@ -377,20 +381,46 @@ class HybridDispositifSegmenter:
             snippet = text.strip()
             # Distingue se o texto curto realmente contém um dispositivo decisório ou é certidão/expediente
             has_anchor = bool(REGEX_ANCHORS.search(snippet))
-            if has_anchor:
+
+            # Verifica se os metadados declaram categoricamente um ato decisório
+            # (interlocutória, decisão, sentença, tutela)
+            doc_type_meta = normalize_str(meta.get("doc_type") or meta.get("document_type"))
+            is_decisive_meta = any(
+                t in doc_type_meta
+                for t in [
+                    "decisao",
+                    "interlocutoria",
+                    "sentenca",
+                    "tutela",
+                    "liminar",
+                    "monocratica",
+                ]
+            )
+            if not is_decisive_meta and meta.get("taxonomy_classification"):
+                tc = meta["taxonomy_classification"]
+                if tc.macro_category in {
+                    MacroCategory.DECISAO_INTERLOCUTORIA,
+                    MacroCategory.SENTENCA,
+                    MacroCategory.DECISAO_MONOCRATICA,
+                }:
+                    is_decisive_meta = True
+
+            if has_anchor or (is_decisive_meta and len(snippet) >= 20):
                 if len(snippet) > max_snippet_chars:
                     snippet = snippet[-max_snippet_chars:]
+                meta["has_dispositif"] = True
                 return DispositifResult(
                     start=max(0, n_total - len(snippet)),
                     end=n_total,
                     snippet=snippet,
-                    confidence=0.70,  # Confiança calibrada para textos ultracurtos
+                    confidence=0.75,  # Confiança calibrada para atos decisórios curtos
                     is_anomaly=False,
                     fallback_used=True,
                     metadata_used=meta,
                 )
             else:
-                # Textos curtos sem âncora decisória (ex: certidões de decurso de prazo, avisos) não têm dispositivo
+                # Textos curtos sem âncora decisória e sem metadado decisório
+                # (ex: certidões de decurso de prazo, avisos de cartório) não têm dispositivo
                 meta["has_dispositif"] = False
                 meta["passthrough_short_non_decisive"] = True
                 return DispositifResult(

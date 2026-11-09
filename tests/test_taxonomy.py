@@ -170,3 +170,46 @@ def test_conflict_monocratica_with_relator(registry):
     assert res.macro_category == MacroCategory.DECISAO_MONOCRATICA
     assert res.specific_category == "DECISAO_MONOCRATICA_RELATOR"
     assert "decisao_unipessoal" in res.tags
+
+
+def test_acordao_with_contra_sentenca_does_not_become_sentenca(registry):
+    """Garante que acórdão mencionando 'contra sentença' ou 'contra a sentença' permaneça ACÓRDÃO."""
+    # Variante 1: 'contra sentença'
+    text1 = (
+        "EMENTA: APELAÇÃO CÍVEL. AÇÃO DE COBRANÇA. RECURSO INTERPOSTO CONTRA SENTENÇA DE PROCEDÊNCIA. "
+        "VISTOS, RELATADOS E DISCUTIDOS OS AUTOS, ACORDAM OS DESEMBARGADORES EM DAR PROVIMENTO AO RECURSO."
+    )
+    res1 = registry.classify(text1, metadata={"procedural_class": "apelação cível"})
+    assert res1.macro_category == MacroCategory.ACORDAO
+    assert res1.specific_category == "ACORDAO_APELACAO"
+    assert "colegiado" in res1.tags
+
+    # Variante 2: 'contra a sentença'
+    text2 = (
+        "APELAÇÃO CÍVEL. RECURSO CONTRA A SENTENÇA QUE JULGOU IMPROCEDENTE O PEDIDO INICIAL. "
+        "ACÓRDÃO: Vistos, relatados e discutidos estes autos, acordam os Desembargadores em negar provimento."
+    )
+    res2 = registry.classify(text2)
+    assert res2.macro_category == MacroCategory.ACORDAO
+    assert res2.specific_category == "ACORDAO_APELACAO"
+
+    # Variante 3: 'em face da sentença'
+    text3 = (
+        "RECURSO DE APELAÇÃO INTERPOSTO EM FACE DA SENTENÇA QUE EXTINGUIU O PROCESSO SEM JULGAMENTO DO MÉRITO. "
+        "ACORDAM OS MEMBROS DA CÂMARA EM CONHECER DO RECURSO E DAR-LHE PROVIMENTO."
+    )
+    res3 = registry.classify(text3)
+    assert res3.macro_category == MacroCategory.ACORDAO
+
+
+def test_legitimate_sentenca_not_affected_by_exclusion(registry):
+    """Garante que sentenças de 1º grau legítimas continuem sendo classificadas como SENTENCA."""
+    text = (
+        "PODER JUDICIÁRIO. 1ª VARA CÍVEL. Processo nº 0001234-56.2025.8.22.0001.\n"
+        "SENTENÇA.\n"
+        "Vistos etc. Trata-se de ação ordinária.\n"
+        "Ante o exposto, julgo procedente o pedido formulado pelo autor para condenar o réu."
+    )
+    res = registry.classify(text)
+    assert res.macro_category == MacroCategory.SENTENCA
+    assert res.specific_category == "SENTENCA_PROCEDENCIA"

@@ -154,28 +154,120 @@ class DocumentTaxonomyRegistry:
         self.register_rule("monocratica_specialized", 105, match_monocratica, classify_monocratica)
 
         # -------------------------------------------------------------
-        # 2. SENTENÇAS DE 1º GRAU (Prioridade 100)
+        # 2. ACÓRDÃOS COLEGIAIS (Prioridade 102 - Precede Sentença)
+        # -------------------------------------------------------------
+        def match_acordao(text: str, meta: dict[str, Any]) -> bool:
+            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
+            # Decisões monocráticas já foram filtradas na prioridade 105
+            if "acordao" in doc_type:
+                return True
+            header = text[:500]
+            # Exige evidência colegiada clara: acórdão no cabeçalho ou "acordam os"
+            if "acordam os" in text or re.search(r"\bacordao\b", header):
+                return True
+            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
+            if any(
+                c in classe for c in ["apelacao", "agravo de instrumento", "recurso inominado"]
+            ) and (
+                "acordam" in text or "turma" in header or "camara" in header or "colegiado" in text
+            ):
+                return True
+            return False
+
+        def classify_acordao(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
+            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
+            tags = ["colegiado", "segundo_grau"]
+
+            if "apelacao" in classe or "apelacao" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_APELACAO",
+                    tags=tags + ["merito_recursal"],
+                    confidence=0.98,
+                    cnj_class_hint="198",
+                )
+            if "agravo de instrumento" in classe or "agravo de instrumento" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_AGRAVO_INSTRUMENTO",
+                    tags=tags + ["tutela_recursal", "interlocutoria"],
+                    confidence=0.98,
+                    cnj_class_hint="202",
+                )
+            if "embargos de declaracao" in classe or "embargos de declaracao" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_EMBARGOS_DECLARACAO",
+                    tags=tags + ["integracao_julgamento"],
+                    confidence=0.98,
+                    cnj_class_hint="1689",
+                )
+            if (
+                "especial" in classe
+                or "extraordinario" in classe
+                or "resp" in text[:300]
+                or "stj" in text[:300]
+            ):
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_CORTE_SUPERIOR",
+                    tags=tags + ["tribunal_superior", "precedente_qualificado"],
+                    confidence=0.97,
+                )
+            return TaxonomyClassification(
+                macro_category=MacroCategory.ACORDAO,
+                specific_category="ACORDAO_COLEGIADO_GENERICO",
+                tags=tags,
+                confidence=0.92,
+            )
+
+        self.register_rule("acordao_specialized", 102, match_acordao, classify_acordao)
+
+        # -------------------------------------------------------------
+        # 3. SENTENÇAS DE 1º GRAU (Prioridade 100)
         # -------------------------------------------------------------
         def match_sentenca(text: str, meta: dict[str, Any]) -> bool:
             doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
+            # Se o doc_type explicitamente categoriza como recurso colegiado, monocrática ou ato cartorário
+            if any(
+                term in doc_type
+                for term in ["acordao", "monocratica", "despacho", "edital", "certidao"]
+            ):
+                return False
             if "sentenca" in doc_type:
                 return True
-            header = text[:350]
-            # Se o cabeçalho indica explicitamente certidão, trânsito em julgado, ato ordinatório ou edital, não é sentença
+
+            header = text[:400]
+            # Se o cabeçalho indica explicitamente certidão, trânsito em julgado, ato ordinatório, edital ou acórdão
             if re.search(
-                r"\b(?:certid[aã]o|transito\s+em\s+julgado|ato\s+ordinat[oó]rio|edital\s+de)\b",
+                r"\b(?:certid[aã]o|transito\s+em\s+julgado|ato\s+ordinat[oó]rio|edital\s+de|ac[oó]rd[aã]o|acordam\s+os)\b",
                 header,
             ):
                 return False
-            if re.search(r"\bsenten[cç]a\b", header) and not re.search(
-                r"\b(?:da|daquela|r\.)\s+senten[cç]a\b", header
+            if "acordam os" in text:
+                return False
+
+            # Se contém "sentença" no cabeçalho, devemos verificar se é menção recursal à decisão recorrida
+            # Ex: "contra sentença", "contra a sentença", "em face da sentença", "da r. sentença", "apelou da sentença"
+            if re.search(r"\bsenten[cç]a\b", header):
+                is_mencao_recursal = bool(
+                    re.search(
+                        r"\b(?:contra|em\s+face\s+d[ae]|combate\s+a|reforma\s+d[ae]|anula[cç][aã]o\s+d[ae]|impugna(?:\s+a)?|da|daquela|dessa|r\.)\s+(?:r\.\s+|a\s+|da\s+)?senten[cç]a\b",
+                        header,
+                    )
+                    or re.search(r"\b(?:apela[cç][aã]o|recurso\s+inominado|agravo)\b", header)
+                )
+                if not is_mencao_recursal:
+                    return True
+
+            # Se não há doc_type conflitante, verifica comando terminativo forte de 1º grau (desde que não seja colegiado)
+            if (
+                doc_type in {"", "outro"}
+                and re.search(r"\bjulgo\s+(?:procedente|improcedente|parcialmente|extinto)\b", text)
+                and not bool(re.search(r"\b(?:acordam\s+os|ac[oó]rd[aã]o)\b", text))
             ):
                 return True
-            # Se não há doc_type conflitante, verifica comando terminativo forte
-            if doc_type in {"", "outro"} and re.search(
-                r"\bjulgo\s+(?:procedente|improcedente|parcialmente|extinto)\b", text
-            ):
-                return True
+
             return False
 
         def classify_sentenca(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
@@ -239,67 +331,6 @@ class DocumentTaxonomyRegistry:
             )
 
         self.register_rule("sentenca_specialized", 100, match_sentenca, classify_sentenca)
-
-        # -------------------------------------------------------------
-        # 3. ACÓRDÃOS COLEGIAIS (Prioridade 95)
-        # -------------------------------------------------------------
-        def match_acordao(text: str, meta: dict[str, Any]) -> bool:
-            doc_type = _normalize(meta.get("doc_type") or meta.get("document_type"))
-            # Decisões monocráticas já foram filtradas na prioridade 105
-            if "acordao" in doc_type:
-                return True
-            header = text[:350]
-            # Exige evidência colegiada clara: acórdão no cabeçalho ou "acordam os"
-            return bool("acordam os" in text or re.search(r"\bacordao\b", header))
-
-        def classify_acordao(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
-            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
-            tags = ["colegiado", "segundo_grau"]
-
-            if "apelacao" in classe or "apelacao" in text[:400]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_APELACAO",
-                    tags=tags + ["merito_recursal"],
-                    confidence=0.98,
-                    cnj_class_hint="198",
-                )
-            if "agravo de instrumento" in classe or "agravo de instrumento" in text[:400]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_AGRAVO_INSTRUMENTO",
-                    tags=tags + ["tutela_recursal", "interlocutoria"],
-                    confidence=0.98,
-                    cnj_class_hint="202",
-                )
-            if "embargos de declaracao" in classe or "embargos de declaracao" in text[:400]:
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_EMBARGOS_DECLARACAO",
-                    tags=tags + ["integracao_julgamento"],
-                    confidence=0.98,
-                    cnj_class_hint="1689",
-                )
-            if (
-                "especial" in classe
-                or "extraordinario" in classe
-                or "resp" in text[:300]
-                or "stj" in text[:300]
-            ):
-                return TaxonomyClassification(
-                    macro_category=MacroCategory.ACORDAO,
-                    specific_category="ACORDAO_CORTE_SUPERIOR",
-                    tags=tags + ["tribunal_superior", "precedente_qualificado"],
-                    confidence=0.97,
-                )
-            return TaxonomyClassification(
-                macro_category=MacroCategory.ACORDAO,
-                specific_category="ACORDAO_COLEGIADO_GENERICO",
-                tags=tags,
-                confidence=0.92,
-            )
-
-        self.register_rule("acordao_specialized", 95, match_acordao, classify_acordao)
 
         # -------------------------------------------------------------
         # 4. DECISÕES INTERLOCUTÓRIAS E TUTELAS DE URGÊNCIA (Prioridade 90)

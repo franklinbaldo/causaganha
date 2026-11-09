@@ -96,7 +96,7 @@ ANCHORS_VOTO = re.compile(
 )
 
 ANCHORS_DISPOSITIVO = re.compile(
-    r"\b(?:dispositivo\s*:|dispositivo\b|ante\s+(?:ao|o)\s+exposto|diante\s+do\s+exposto|isto\s+posto|pelo\s+exposto|julgo\s+(?:procedente|improcedente|parcialmente|extinto)|acordam\s+os\s+desembargadores|homologo\s+o\s+acordo|dou\s+provimento|nego\s+provimento)\b",
+    r"\b(?:dispositivo\s*:|dispositivo\b|ante\s+(?:ao|o)\s+exposto|diante\s+do\s+exposto|isto\s+posto|pelo\s+exposto|julgo\s+(?:procedente|improcedente|parcialmente|extinto)|defiro|indefiro|acolho|rejeito|determino|concedo\s+(?:a|o)|denego\s+(?:a|o)|acordam\s+os\s+desembargadores|homologo\s+o\s+acordo|dou\s+provimento|nego\s+provimento)\b",
     re.IGNORECASE,
 )
 

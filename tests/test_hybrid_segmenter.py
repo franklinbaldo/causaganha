@@ -195,3 +195,45 @@ def test_short_text_non_decisive_certidao():
     assert res.confidence == 0.0
     assert res.snippet == ""
     assert res.metadata_used.get("has_dispositif") is False
+
+
+def test_short_interlocutoria_defiro_tutela():
+    """Garante que decisões interlocutórias curtas com 'Defiro a tutela...' têm dispositivo recortado."""
+    segmenter = HybridDispositifSegmenter()
+    text = (
+        "Vistos. Defiro a tutela provisória de urgência antecipada para determinar que a parte ré "
+        "cesse imediatamente as cobranças indevidas, sob pena de multa diária. Intime-se com urgência."
+    )
+    # Teste 1: com metadado explícito de decisão interlocutória
+    res_with_meta = segmenter.predict(text, metadata={"doc_type": "decisão interlocutória"})
+    assert res_with_meta.snippet != ""
+    assert "defiro a tutela" in res_with_meta.snippet.lower()
+    assert res_with_meta.confidence >= 0.70
+    assert res_with_meta.metadata_used.get("has_dispositif") is True
+
+    # Teste 2: sem metadado prévio (autodetecção pelo comando âncora)
+    res_no_meta = segmenter.predict(text)
+    assert res_no_meta.snippet != ""
+    assert "defiro a tutela" in res_no_meta.snippet.lower()
+    assert res_no_meta.confidence >= 0.70
+
+
+def test_short_interlocutoria_indefiro_liminar():
+    """Garante que decisões curtas de indeferimento de liminar têm dispositivo reconhecido."""
+    segmenter = HybridDispositifSegmenter()
+    text = "Vistos etc. Indefiro a tutela de urgência pleiteada por ausência do periculum in mora demonstrado. Cite-se o réu."
+    res = segmenter.predict(text, metadata={"doc_type": "decisão interlocutória"})
+    assert res.snippet != ""
+    assert "indefiro a tutela" in res.snippet.lower()
+    assert res.confidence >= 0.70
+    assert res.metadata_used.get("has_dispositif") is True
+
+
+def test_short_sentenca_julgo_procedente():
+    """Garante que sentenças ultracurtas com comando terminativo também funcionam."""
+    segmenter = HybridDispositifSegmenter()
+    text = "Vistos. Ante o exposto, julgo procedente o pedido para condenar o réu ao pagamento de R$ 5.000,00. P.R.I."
+    res = segmenter.predict(text, metadata={"doc_type": "sentença"})
+    assert res.snippet != ""
+    assert "julgo procedente" in res.snippet.lower()
+    assert res.confidence >= 0.70

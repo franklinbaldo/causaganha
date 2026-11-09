@@ -114,6 +114,11 @@ def run_training_step(
             "text": "TRIBUNAL DE JUSTIÇA. Apelação Cível. VOTO CONDUTOR: Conforme precedentes. ACÓRDÃO: Acordam os Desembargadores em dar provimento ao recurso, à unanimidade. Porto Velho, 2025. Desembargador Relator.",
             "expected_needle": "dar provimento",
         },
+        {
+            "text": "Vistos. Defiro a tutela provisória de urgência para determinar a imediata suspensão das cobranças indevidas. Intime-se a requerida com urgência.",
+            "expected_needle": "defiro a tutela",
+            "metadata": {"doc_type": "decisão interlocutória"},
+        },
     ]
 
     gate = ModelRatchetGate(state_file=ratchet_state_file, canary_cases=canaries)

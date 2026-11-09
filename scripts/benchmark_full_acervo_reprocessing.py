@@ -14,7 +14,6 @@ em cenários mono-core (1 CPU), multi-core (8 vCPUs) e cluster distribuído (32-
 from __future__ import annotations
 
 import argparse
-import concurrent.futures
 from dataclasses import dataclass
 from pathlib import Path
 import sys
@@ -107,8 +106,12 @@ def format_duration(seconds: float) -> str:
 
 def main():
     parser = argparse.ArgumentParser(description="Acervo Reprocessing Benchmark")
-    parser.add_argument("--limit", type=int, default=500, help="Quantidade de decisões para teste de latência")
-    parser.add_argument("--workers", type=int, default=4, help="Número de workers para teste multi-core")
+    parser.add_argument(
+        "--limit", type=int, default=500, help="Quantidade de decisões para teste de latência"
+    )
+    parser.add_argument(
+        "--workers", type=int, default=4, help="Número de workers para teste multi-core"
+    )
     args = parser.parse_args()
 
     dataset_path = ROOT_DIR / "data/benchmark/ia_expanded_decisions.parquet"
@@ -130,7 +133,9 @@ def main():
         meta = {
             "court": row.get("court") or "TJRO",
             "doc_type": row.get("document_type") or row.get("decision_type") or "sentença",
-            "classe_processual": row.get("classe_processual") or row.get("procedural_class") or "procedimento comum",
+            "classe_processual": row.get("classe_processual")
+            or row.get("procedural_class")
+            or "procedimento comum",
             "judge_name": row.get("judge_name"),
             "relator": row.get("relator"),
         }
@@ -220,7 +225,9 @@ def main():
     print(f"{'Componente':<45} | {'Throughput':<12} | {'Média (ms)':<10} | {'p95 (ms)':<8}")
     print("-" * 80)
     for r in results:
-        print(f"{r.pipeline_name:<45} | {r.throughput_docs_per_s:>8.1f} doc/s | {r.latency_mean_ms:>8.2f} ms | {r.latency_p95_ms:>6.2f} ms")
+        print(
+            f"{r.pipeline_name:<45} | {r.throughput_docs_per_s:>8.1f} doc/s | {r.latency_mean_ms:>8.2f} ms | {r.latency_p95_ms:>6.2f} ms"
+        )
 
     # Projeção de Escala do Acervo
     full_throughput_1core = results[3].throughput_docs_per_s
@@ -239,23 +246,31 @@ def main():
 
     # Cenário A: Apenas Segmentação de Dispositivo (Random Forest 22 features)
     print("\n[CENÁRIO A: RECORTE CIRÚRGICO DE DISPOSITIVO (RANDOM FOREST)]")
-    print(f"{'Tamanho do Acervo':<18} | {'1 Core (Notebook/VM)':<20} | {'8 Cores (Servidor Comum)':<24} | {'32 Cores (Worker Node)':<22}")
+    print(
+        f"{'Tamanho do Acervo':<18} | {'1 Core (Notebook/VM)':<20} | {'8 Cores (Servidor Comum)':<24} | {'32 Cores (Worker Node)':<22}"
+    )
     print("-" * 90)
     for label, count, _desc in acervo_sizes:
         t_1c = count / disp_throughput_1core
         t_8c = count / (disp_throughput_1core * 7.2)  # 90% scaling efficiency
         t_32c = count / (disp_throughput_1core * 27.0)  # 85% scaling efficiency
-        print(f"{label:<18} | {format_duration(t_1c):<20} | {format_duration(t_8c):<24} | {format_duration(t_32c):<22}")
+        print(
+            f"{label:<18} | {format_duration(t_1c):<20} | {format_duration(t_8c):<24} | {format_duration(t_32c):<22}"
+        )
 
     # Cenário B: Pipeline Completo Integrado (Taxonomia + Dispositivo + Estrutura 7 Seções)
     print("\n[CENÁRIO B: PIPELINE COMPLETO INTEGRADO (TAXONOMIA + RF + ESTRUTURA 7 SEÇÕES)]")
-    print(f"{'Tamanho do Acervo':<18} | {'1 Core (Notebook/VM)':<20} | {'8 Cores (Servidor Comum)':<24} | {'32 Cores (Worker Node)':<22}")
+    print(
+        f"{'Tamanho do Acervo':<18} | {'1 Core (Notebook/VM)':<20} | {'8 Cores (Servidor Comum)':<24} | {'32 Cores (Worker Node)':<22}"
+    )
     print("-" * 90)
     for label, count, _desc in acervo_sizes:
         t_1c = count / full_throughput_1core
         t_8c = count / (full_throughput_1core * 7.2)
         t_32c = count / (full_throughput_1core * 27.0)
-        print(f"{label:<18} | {format_duration(t_1c):<20} | {format_duration(t_8c):<24} | {format_duration(t_32c):<22}")
+        print(
+            f"{label:<18} | {format_duration(t_1c):<20} | {format_duration(t_8c):<24} | {format_duration(t_32c):<22}"
+        )
 
     # Comparações com LLM (Custo e Tempo de API)
     print("\n" + "=" * 80)
@@ -263,9 +278,15 @@ def main():
     print("=" * 80)
     print("| Método | Throughput | Tempo (1 Milhão) | Tempo (20 Milhões) | Custo Estimado (20M) |")
     print("| :--- | :--- | :--- | :--- | :--- |")
-    print(f"| **RF Híbrida (8 vCPUs)** | ~{disp_throughput_1core * 7.2:.0f} docs/s | **{format_duration(1_000_000 / (disp_throughput_1core * 7.2))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 7.2))}** | **$0** (Hardware existente) |")
-    print(f"| **RF Híbrida (32 vCPUs)**| ~{disp_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (disp_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 27.0))}** | **~$15 em cloud spot** |")
-    print(f"| **Pipeline Full (32 vCPUs)**| ~{full_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (full_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (full_throughput_1core * 27.0))}** | **~$45 em cloud spot** |")
+    print(
+        f"| **RF Híbrida (8 vCPUs)** | ~{disp_throughput_1core * 7.2:.0f} docs/s | **{format_duration(1_000_000 / (disp_throughput_1core * 7.2))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 7.2))}** | **$0** (Hardware existente) |"
+    )
+    print(
+        f"| **RF Híbrida (32 vCPUs)**| ~{disp_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (disp_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 27.0))}** | **~$15 em cloud spot** |"
+    )
+    print(
+        f"| **Pipeline Full (32 vCPUs)**| ~{full_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (full_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (full_throughput_1core * 27.0))}** | **~$45 em cloud spot** |"
+    )
     print("| **LLM (15 RPM free tier)**| 0.25 docs/s | 46 dias | 2.5 anos | Rate limit fatal |")
     print("| **LLM pago (50 req/s)** | 50 docs/s | 5.5 horas | 4.6 dias | ~$30.000 - $60.000 USD |")
     print("=" * 80)
@@ -277,32 +298,58 @@ def main():
         f.write("# Benchmark de Reprocessamento do Acervo Completo CausaGanha\n\n")
         f.write("Medições empíricas em CPU (Intel / AMD x86_64) no acervo expanded do DJEN.\n\n")
         f.write("## 1. Latência e Throughput por Componente (1 Core)\n\n")
-        f.write("| Componente | Throughput (docs/s) | Média (ms) | p50 (ms) | p95 (ms) | p99 (ms) |\n")
+        f.write(
+            "| Componente | Throughput (docs/s) | Média (ms) | p50 (ms) | p95 (ms) | p99 (ms) |\n"
+        )
         f.write("| :--- | :--- | :--- | :--- | :--- | :--- |\n")
         for r in results:
-            f.write(f"| {r.pipeline_name} | {r.throughput_docs_per_s:.1f} | {r.latency_mean_ms:.2f} | {r.latency_p50_ms:.2f} | {r.latency_p95_ms:.2f} | {r.latency_p99_ms:.2f} |\n")
+            f.write(
+                f"| {r.pipeline_name} | {r.throughput_docs_per_s:.1f} | {r.latency_mean_ms:.2f} | {r.latency_p50_ms:.2f} | {r.latency_p95_ms:.2f} | {r.latency_p99_ms:.2f} |\n"
+            )
 
         f.write("\n## 2. Estimativa de Tempo de Reprocessamento por Volume de Acervo\n\n")
         f.write("### Cenário A: Recorte Cirúrgico de Dispositivo (Random Forest 22 features)\n\n")
-        f.write("| Volume | Descrição | 1 Core (Local) | 8 Cores (Servidor) | 32 Cores (Node Cloud) |\n")
+        f.write(
+            "| Volume | Descrição | 1 Core (Local) | 8 Cores (Servidor) | 32 Cores (Node Cloud) |\n"
+        )
         f.write("| :--- | :--- | :--- | :--- | :--- |\n")
         for label, count, desc in acervo_sizes:
-            f.write(f"| {label} | {desc} | {format_duration(count / disp_throughput_1core)} | {format_duration(count / (disp_throughput_1core * 7.2))} | {format_duration(count / (disp_throughput_1core * 27.0))} |\n")
+            f.write(
+                f"| {label} | {desc} | {format_duration(count / disp_throughput_1core)} | {format_duration(count / (disp_throughput_1core * 7.2))} | {format_duration(count / (disp_throughput_1core * 27.0))} |\n"
+            )
 
-        f.write("\n### Cenário B: Pipeline Completo (Taxonomia + Dispositivo + Estrutura 7 Seções)\n\n")
-        f.write("| Volume | Descrição | 1 Core (Local) | 8 Cores (Servidor) | 32 Cores (Node Cloud) |\n")
+        f.write(
+            "\n### Cenário B: Pipeline Completo (Taxonomia + Dispositivo + Estrutura 7 Seções)\n\n"
+        )
+        f.write(
+            "| Volume | Descrição | 1 Core (Local) | 8 Cores (Servidor) | 32 Cores (Node Cloud) |\n"
+        )
         f.write("| :--- | :--- | :--- | :--- | :--- |\n")
         for label, count, desc in acervo_sizes:
-            f.write(f"| {label} | {desc} | {format_duration(count / full_throughput_1core)} | {format_duration(count / (full_throughput_1core * 7.2))} | {format_duration(count / (full_throughput_1core * 27.0))} |\n")
+            f.write(
+                f"| {label} | {desc} | {format_duration(count / full_throughput_1core)} | {format_duration(count / (full_throughput_1core * 7.2))} | {format_duration(count / (full_throughput_1core * 27.0))} |\n"
+            )
 
         f.write("\n## 3. Comparativo de Custo e Viabilidade vs. LLMs em Nuvem\n\n")
-        f.write("| Método | Throughput | Tempo (1 Milhão) | Tempo (20 Milhões) | Custo Estimado (20M) |\n")
+        f.write(
+            "| Método | Throughput | Tempo (1 Milhão) | Tempo (20 Milhões) | Custo Estimado (20M) |\n"
+        )
         f.write("| :--- | :--- | :--- | :--- | :--- |\n")
-        f.write(f"| **RF Híbrida (8 vCPUs)** | ~{disp_throughput_1core * 7.2:.0f} docs/s | **{format_duration(1_000_000 / (disp_throughput_1core * 7.2))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 7.2))}** | **$0** (Hardware existente) |\n")
-        f.write(f"| **RF Híbrida (32 vCPUs)**| ~{disp_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (disp_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 27.0))}** | **~$15 em cloud spot** |\n")
-        f.write(f"| **Pipeline Full (32 vCPUs)**| ~{full_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (full_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (full_throughput_1core * 27.0))}** | **~$45 em cloud spot** |\n")
-        f.write("| **LLM (15 RPM free tier)**| 0.25 docs/s | 46 dias | 2.5 anos | Inviável por rate limit |\n")
-        f.write("| **LLM pago (50 req/s)** | 50 docs/s | 5.5 horas | 4.6 dias | ~$30.000 - $60.000 USD |\n")
+        f.write(
+            f"| **RF Híbrida (8 vCPUs)** | ~{disp_throughput_1core * 7.2:.0f} docs/s | **{format_duration(1_000_000 / (disp_throughput_1core * 7.2))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 7.2))}** | **$0** (Hardware existente) |\n"
+        )
+        f.write(
+            f"| **RF Híbrida (32 vCPUs)**| ~{disp_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (disp_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (disp_throughput_1core * 27.0))}** | **~$15 em cloud spot** |\n"
+        )
+        f.write(
+            f"| **Pipeline Full (32 vCPUs)**| ~{full_throughput_1core * 27.0:.0f} docs/s| **{format_duration(1_000_000 / (full_throughput_1core * 27.0))}** | **{format_duration(20_000_000 / (full_throughput_1core * 27.0))}** | **~$45 em cloud spot** |\n"
+        )
+        f.write(
+            "| **LLM (15 RPM free tier)**| 0.25 docs/s | 46 dias | 2.5 anos | Inviável por rate limit |\n"
+        )
+        f.write(
+            "| **LLM pago (50 req/s)** | 50 docs/s | 5.5 horas | 4.6 dias | ~$30.000 - $60.000 USD |\n"
+        )
 
     print(f"\nRelatório completo gravado em: {out_md}")
 
