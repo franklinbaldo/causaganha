@@ -203,12 +203,53 @@ def main():
         if len(np.unique(y_test)) > 1:
             print(f"ROC AUC: {roc_auc_score(y_test, y_test_prob):.4f}")
 
-    # Salva o modelo treinado
+    from causaganha.decisoes.model_ratchet import ModelRatchetGate
+
+    # Avaliação de Catraca (Model Ratchet Gatekeeper)
     model_dir = ROOT_DIR / "models"
     model_dir.mkdir(parents=True, exist_ok=True)
-    model_file = model_dir / "hybrid_dispositif_forest.joblib"
-    segmenter.save(model_file)
-    print(f"\nModelo salvo com sucesso em: {model_file} ({model_file.stat().st_size / 1024:.1f} KB)!")
+    prod_model_file = model_dir / "hybrid_dispositif_forest.joblib"
+    temp_cand_file = model_dir / "candidate_eval.joblib"
+    segmenter.save(temp_cand_file)
+
+    ratchet_state_file = model_dir / "ratchet_state.json"
+    canaries = [
+        {
+            "text": "PODER JUDICIÁRIO. Processo de cobrança. FUNDAMENTAÇÃO: Analisadas as provas. DISPOSITIVO: Ante o exposto, julgo procedente o pedido formulado na inicial. Publique-se. Juiz de Direito.",
+            "expected_needle": "julgo procedente",
+        },
+        {
+            "text": "TRIBUNAL DE JUSTIÇA. Apelação Cível. VOTO CONDUTOR: Conforme precedentes. ACÓRDÃO: Acordam os Desembargadores em dar provimento ao recurso, à unanimidade. Porto Velho, 2025. Desembargador Relator.",
+            "expected_needle": "dar provimento",
+        },
+    ]
+
+    gate = ModelRatchetGate(state_file=ratchet_state_file, canary_cases=canaries)
+    X_test, y_test, _, _ = load_dataset(test_path)
+    decision = gate.evaluate_and_gate(
+        candidate_segmenter=segmenter,
+        X_test=X_test,
+        y_test=y_test,
+        candidate_model_path=temp_cand_file,
+        production_model_path=prod_model_file,
+    )
+
+    print("\n" + "=" * 65)
+    print("VEREDITO DA CATRACA (PREVENÇÃO DE REGRESSÃO)")
+    print("=" * 65)
+    if decision.promoted:
+        print(f"✅ {decision.reason}")
+        print(f"   Métricas Atuais: AUC={decision.current_metrics.roc_auc:.4f} | Recall={decision.current_metrics.recall:.4f} | F1={decision.current_metrics.f1:.4f}")
+        if decision.baseline_metrics:
+            print(f"   Baseline Anterior: AUC={decision.baseline_metrics.roc_auc:.4f} | Recall={decision.baseline_metrics.recall:.4f}")
+            print(f"   Diferenças: {decision.metric_diffs}")
+    else:
+        print(f"❌ {decision.reason}")
+        print("   ⚠️  O modelo candidato NÃO foi promovido para produção.")
+        print(f"   O modelo anterior foi preservado intacto em: {prod_model_file}")
+
+    if temp_cand_file.exists():
+        temp_cand_file.unlink()
 
     # Teste de latência ponta a ponta
     print("\n--- BENCHMARK DE VELOCIDADE EM PRODUÇÃO (CPU) ---")
