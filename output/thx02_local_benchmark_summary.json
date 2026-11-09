@@ -1,0 +1,27 @@
+{
+  "hardware": {
+    "device": "cpu",
+    "dtype": "bfloat16",
+    "threads": 8,
+    "load_time_s": 19.73,
+    "ram_initial_mb": 257.6,
+    "ram_loaded_mb": 5527.3,
+    "ram_max_mb": 7533.5,
+    "ram_weights_delta_mb": 5269.8
+  },
+  "performance": {
+    "total_documents": 3,
+    "total_questions": 12,
+    "latency_p50_s": 208.74,
+    "latency_p95_s": 215.3,
+    "latency_mean_s": 208.98,
+    "documents_per_minute": 0.29,
+    "questions_per_minute": 1.15
+  },
+  "quality": {
+    "outcome_accuracy": 1.0,
+    "winner_accuracy": 1.0,
+    "threshold": 0.7,
+    "abstained_count": 1
+  }
+}

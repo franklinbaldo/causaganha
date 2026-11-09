@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""Treinamento e Avaliação da Random Forest Híbrida de Dispositivo Judicial.
+
+Treina sobre os spans gold anotados de data/segmenter_splits/train.jsonl e
+avalia a precisão de fronteira, F1, ROC-AUC e latência de inferência no CPU.
+Incorpora metadados do DJEN (juiz, comarca, partes, classe processual, data).
+"""
+
+from __future__ import annotations
+
+import json
+import time
+from pathlib import Path
+import numpy as np
+from sklearn.metrics import classification_report, roc_auc_score
+
+import sys
+
+ROOT_DIR = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT_DIR / "src"))
+
+from causaganha.decisoes.hybrid_segmenter import HybridDispositifSegmenter
+
+
+def load_dataset(jsonl_path: Path):
+    segmenter = HybridDispositifSegmenter()
+    X = []
+    y = []
+    doc_records = []
+    doc_profiles = []
+
+    with open(jsonl_path, encoding="utf-8") as f:
+        for line in f:
+            if not line.strip():
+                continue
+            doc = json.loads(line)
+            text = doc["text"]
+            labels = doc.get("label", [])
+            info = doc.get("info", {})
+
+            # Limites de dispositivo estruturados
+            disp_starts = [
+                s["start"]
+                for s in labels
+                if s["category"] in {"dispositivo_abertura", "acordao_decisorio_inicio"}
+            ]
+            disp_start = min(disp_starts) if disp_starts else None
+
+            encerr_starts = [
+                s["start"]
+                for s in labels
+                if s["category"] in {"encerramento_inicio", "encerramento_fim"}
+            ]
+            disp_end = min(encerr_starts) if encerr_starts else len(text)
+
+            # Spans pontuais de resultado / dispositivo
+            disp_spans = [
+                (s["start"], s["end"])
+                for s in labels
+                if s["category"]
+                in {
+                    "dispositivo_abertura",
+                    "resultado",
+                    "acordao_decisorio_inicio",
+                    "valor_condenacao",
+                    "honorarios_inicio",
+                    "custas_inicio",
+                }
+            ]
+
+            units = segmenter.split_document_units(text)
+            total_paras = len(units)
+            total_chars = len(text)
+
+            meta = {
+                "judge_name": info.get("relator") or info.get("judge_name"),
+                "court": info.get("tribunal", "TJRO"),
+                "doc_type": info.get("doc_type"),
+                "classe_processual": info.get("classe"),
+                "polo_ativo": info.get("polo_ativo"),
+                "polo_passivo": info.get("polo_passivo"),
+                "data_decisao": info.get("data_decisao") or info.get("data_disponibilizacao"),
+            }
+
+            # Preenche metadados via regex do cabeçalho se faltarem
+            extracted = segmenter.extract_header_metadata(text)
+            for k, v in extracted.items():
+                if not meta.get(k):
+                    meta[k] = v
+            meta["taxonomy_classification"] = segmenter.taxonomy_registry.classify(text, meta)
+
+            doc_feats = []
+            for idx, u in enumerate(units):
+                p_text = u["text"]
+                p_start = u["start"]
+                p_end = u["end"]
+
+                # Determina se a unidade faz parte do dispositivo
+                is_disp = 0
+                if disp_start is not None and disp_start <= p_start < disp_end:
+                    is_disp = 1
+                else:
+                    for d_start, d_end in disp_spans:
+                        if max(p_start, d_start) < min(p_end, d_end):
+                            is_disp = 1
+                            break
+
+                feats = segmenter.extract_features(
+                    paragraph=p_text,
+                    para_idx=idx,
+                    total_paras=total_paras,
+                    char_offset=p_start,
+                    total_chars=total_chars,
+                    metadata=meta,
+                )
+                X.append(feats)
+                y.append(is_disp)
+                doc_feats.append(feats)
+
+            if doc_feats:
+                doc_profiles.append(np.mean(doc_feats, axis=0))
+
+            doc_records.append({"text": text, "metadata": meta, "disp_spans": disp_spans})
+
+    return np.array(X), np.array(y), np.array(doc_profiles), doc_records
+
+
+def main():
+    print("=" * 65)
+    print("TREINANDO RANDOM FOREST HÍBRIDA DE DISPOSITIVO JUDICIAL")
+    print("=" * 65)
+
+    train_path = ROOT_DIR / "data/segmenter_splits/train.jsonl"
+    val_path = ROOT_DIR / "data/segmenter_splits/val.jsonl"
+    test_path = ROOT_DIR / "data/segmenter_splits/test.jsonl"
+    pool_path = ROOT_DIR / "data/audit/active_learning_pool.jsonl"
+
+    print(f"Carregando dados de treino: {train_path}...")
+    X_train, y_train, prof_train, train_docs = load_dataset(train_path)
+
+    # Incorpora feedback do pool de Active Learning (THX-02) se disponível
+    if pool_path.exists():
+        print(f"Incorporando correções da Flywheel de Active Learning: {pool_path}...")
+        segmenter_pool = HybridDispositifSegmenter()
+        X_p, y_p = [], []
+        with open(pool_path, encoding="utf-8") as f:
+            for line in f:
+                if not line.strip():
+                    continue
+                rec = json.loads(line)
+                full_text = rec["full_text"]
+                meta = rec.get("metadata", {})
+                meta["taxonomy_classification"] = segmenter_pool.taxonomy_registry.classify(
+                    full_text, meta
+                )
+                units = segmenter_pool.split_document_units(full_text)
+                tot_u = len(units)
+                tot_c = len(full_text)
+                corrected_spans = rec.get("corrected_spans") or []
+                for idx_u, u in enumerate(units):
+                    p_txt = u["text"]
+                    p_start = u["start"]
+                    p_end = u["end"]
+                    is_d = 0
+                    if corrected_spans:
+                        for d_start, d_end in corrected_spans:
+                            if max(p_start, d_start) < min(p_end, d_end):
+                                is_d = 1
+                                break
+                    else:
+                        pos_r = idx_u / max(tot_u - 1, 1)
+                        is_d = (
+                            1
+                            if (
+                                pos_r > 0.65
+                                and any(
+                                    w in p_txt.lower()
+                                    for w in [
+                                        "julgo",
+                                        "exposto",
+                                        "acordam",
+                                        "provimento",
+                                        "homologo",
+                                    ]
+                                )
+                            )
+                            else 0
+                        )
+                    feats = segmenter_pool.extract_features(
+                        p_txt, idx_u, tot_u, p_start, tot_c, meta
+                    )
+                    X_p.append(feats)
+                    y_p.append(is_d)
+        if X_p:
+            X_train = np.vstack([X_train, np.array(X_p)])
+            y_train = np.concatenate([y_train, np.array(y_p)])
+            print(f"  + {len(X_p)} unidades aprendidas do THX-02 adicionadas ao treino!")
+
+    print(
+        f"X_train final shape: {X_train.shape} | Dispositivo pos: {sum(y_train)} / neg: {len(y_train) - sum(y_train)}"
+    )
+
+    print(f"\nCarregando dados de validação: {val_path}...")
+    X_val, y_val, prof_val, val_docs = load_dataset(val_path)
+    print(
+        f"X_val shape: {X_val.shape} | Dispositivo pos: {sum(y_val)} / neg: {len(y_val) - sum(y_val)}"
+    )
+
+    segmenter = HybridDispositifSegmenter()
+
+    t0_fit = time.perf_counter()
+    segmenter.fit(X_train, y_train, doc_profiles=prof_train)
+    fit_time = time.perf_counter() - t0_fit
+    print(f"\nTreinamento concluído em {fit_time:.3f} segundos no CPU!")
+
+    # Feature Importance
+    importances = segmenter.rf_model.feature_importances_
+    sorted_idx = np.argsort(importances)[::-1]
+    print("\n--- IMPORTÂNCIA DAS FEATURES RANKIADAS ---")
+    for idx in sorted_idx:
+        name = HybridDispositifSegmenter.FEATURE_NAMES[idx]
+        bar = "█" * int(importances[idx] * 50)
+        print(f"  {name:<22}: {importances[idx]:.4f} | {bar}")
+
+    # Avaliação no split de validação
+    y_pred = segmenter.rf_model.predict(X_val)
+    y_prob = segmenter.rf_model.predict_proba(X_val)[:, 1]
+
+    print("\n--- RELATÓRIO DE CLASSIFICAÇÃO (VALIDAÇÃO) ---")
+    print(classification_report(y_val, y_pred, target_names=["Outro", "Dispositivo"]))
+    if len(np.unique(y_val)) > 1:
+        print(f"ROC AUC: {roc_auc_score(y_val, y_prob):.4f}")
+
+    # Avaliação no split de teste se existir
+    if test_path.exists():
+        print(f"\n--- RELATÓRIO DE CLASSIFICAÇÃO (TESTE: {test_path.name}) ---")
+        X_test, y_test, prof_test, test_docs = load_dataset(test_path)
+        y_test_pred = segmenter.rf_model.predict(X_test)
+        y_test_prob = segmenter.rf_model.predict_proba(X_test)[:, 1]
+        print(classification_report(y_test, y_test_pred, target_names=["Outro", "Dispositivo"]))
+        if len(np.unique(y_test)) > 1:
+            print(f"ROC AUC: {roc_auc_score(y_test, y_test_prob):.4f}")
+
+    from causaganha.decisoes.model_ratchet import ModelRatchetGate
+
+    # Avaliação de Catraca (Model Ratchet Gatekeeper)
+    model_dir = ROOT_DIR / "models"
+    model_dir.mkdir(parents=True, exist_ok=True)
+    prod_model_file = model_dir / "hybrid_dispositif_forest.joblib"
+    temp_cand_file = model_dir / "candidate_eval.joblib"
+    segmenter.save(temp_cand_file)
+
+    ratchet_state_file = model_dir / "ratchet_state.json"
+    canaries = [
+        {
+            "text": "PODER JUDICIÁRIO. Processo de cobrança. FUNDAMENTAÇÃO: Analisadas as provas. DISPOSITIVO: Ante o exposto, julgo procedente o pedido formulado na inicial. Publique-se. Juiz de Direito.",
+            "expected_needle": "julgo procedente",
+        },
+        {
+            "text": "TRIBUNAL DE JUSTIÇA. Apelação Cível. VOTO CONDUTOR: Conforme precedentes. ACÓRDÃO: Acordam os Desembargadores em dar provimento ao recurso, à unanimidade. Porto Velho, 2025. Desembargador Relator.",
+            "expected_needle": "dar provimento",
+        },
+        {
+            "text": "Vistos. Defiro a tutela provisória de urgência para determinar a imediata suspensão das cobranças indevidas. Intime-se a requerida com urgência.",
+            "expected_needle": "defiro a tutela",
+            "metadata": {"doc_type": "decisão interlocutória"},
+        },
+    ]
+
+    gate = ModelRatchetGate(state_file=ratchet_state_file, canary_cases=canaries)
+    X_test, y_test, _, _ = load_dataset(test_path)
+    decision = gate.evaluate_and_gate(
+        candidate_segmenter=segmenter,
+        X_test=X_test,
+        y_test=y_test,
+        candidate_model_path=temp_cand_file,
+        production_model_path=prod_model_file,
+    )
+
+    print("\n" + "=" * 65)
+    print("VEREDITO DA CATRACA (PREVENÇÃO DE REGRESSÃO)")
+    print("=" * 65)
+    if decision.promoted:
+        print(f"✅ {decision.reason}")
+        print(
+            f"   Métricas Atuais: AUC={decision.current_metrics.roc_auc:.4f} | Recall={decision.current_metrics.recall:.4f} | F1={decision.current_metrics.f1:.4f}"
+        )
+        if decision.baseline_metrics:
+            print(
+                f"   Baseline Anterior: AUC={decision.baseline_metrics.roc_auc:.4f} | Recall={decision.baseline_metrics.recall:.4f}"
+            )
+            print(f"   Diferenças: {decision.metric_diffs}")
+    else:
+        print(f"❌ {decision.reason}")
+        print("   ⚠️  O modelo candidato NÃO foi promovido para produção.")
+        print(f"   O modelo anterior foi preservado intacto em: {prod_model_file}")
+
+    if temp_cand_file.exists():
+        temp_cand_file.unlink()
+
+    # Teste de latência ponta a ponta
+    print("\n--- BENCHMARK DE VELOCIDADE EM PRODUÇÃO (CPU) ---")
+    all_eval_docs = val_docs + (test_docs if test_path.exists() else [])
+    test_latencies = []
+    for doc in all_eval_docs:
+        t0 = time.perf_counter()
+        _res = segmenter.predict(doc["text"], doc["metadata"])
+        elap_ms = (time.perf_counter() - t0) * 1000.0
+        test_latencies.append(elap_ms)
+
+    avg_ms = sum(test_latencies) / len(test_latencies)
+    print(f"Documentos avaliados: {len(all_eval_docs)}")
+    print(f"Latência média por documento: {avg_ms:.3f} ms ({avg_ms * 1000:.1f} µs)!")
+    print(f"Throughput em CPU: {1000.0 / avg_ms:.0f} documentos/segundo!")
+
+
+if __name__ == "__main__":
+    main()

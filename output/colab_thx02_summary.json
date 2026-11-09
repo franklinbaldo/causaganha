@@ -1,0 +1,14 @@
+{
+  "hardware": "Tesla T4",
+  "cuda_available": true,
+  "vram_gb": 14.56317138671875,
+  "total_documents": 12,
+  "outcome_accuracy": 1.0,
+  "winner_accuracy": 0.8333333333333334,
+  "latency_p50_ms": 4487.612420000005,
+  "latency_p95_ms": 4673.870695000005,
+  "latency_p99_ms": 4673.870695000005,
+  "latency_avg_ms": 4474.914768916686,
+  "throughput_decisions_per_sec": 0.2234679433329377,
+  "model_load_time_seconds": 38.75562032899995
+}

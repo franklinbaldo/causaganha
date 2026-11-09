@@ -1,0 +1,46 @@
+{
+  "canonical_regex": {
+    "total_documents": 20,
+    "outcome_accuracy": 0.6,
+    "winner_accuracy": 0.9,
+    "avg_chars": 1400.75,
+    "avg_extraction_ms": 0.16592499596299604,
+    "avg_inference_ms": 5363.718130300003,
+    "avg_total_ms": 5363.884055295966,
+    "avg_outcome_confidence": 0.0,
+    "fallback_rate": 0.25
+  },
+  "tail_window": {
+    "total_documents": 20,
+    "outcome_accuracy": 0.55,
+    "winner_accuracy": 0.9,
+    "avg_chars": 1812.1,
+    "avg_extraction_ms": 0.0008950009942054749,
+    "avg_inference_ms": 6315.055149699995,
+    "avg_total_ms": 6315.056044700989,
+    "avg_outcome_confidence": 0.0,
+    "fallback_rate": 0.0
+  },
+  "paragraph_scorer": {
+    "total_documents": 20,
+    "outcome_accuracy": 0.5,
+    "winner_accuracy": 0.55,
+    "avg_chars": 2176.9,
+    "avg_extraction_ms": 0.06514500128105283,
+    "avg_inference_ms": 7030.542775949993,
+    "avg_total_ms": 7030.607920951274,
+    "avg_outcome_confidence": 0.0,
+    "fallback_rate": 0.0
+  },
+  "block_chunk": {
+    "total_documents": 20,
+    "outcome_accuracy": 0.3,
+    "winner_accuracy": 0.7,
+    "avg_chars": 373.3,
+    "avg_extraction_ms": 0.04763000033563003,
+    "avg_inference_ms": 3037.8220847999955,
+    "avg_total_ms": 3037.869714800331,
+    "avg_outcome_confidence": 0.0,
+    "fallback_rate": 0.4
+  }
+}
