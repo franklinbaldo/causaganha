@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://archive.org https://comunicaapi.pje.jus.br https://djen-proxy-mhgmawcn3a-rj.a.run.app https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self';" />
-  <title>Auditoria Interativa DJEN — Antes e Depois | CausaGanha</title>
+  <title>Auditoria Interativa DJEN — Segmentação em 5 Seções & Antes vs Depois | CausaGanha</title>
   <style>
     :root {
       --bg-canvas: #f8faf9;
@@ -27,7 +27,7 @@
       --danger-light: #fef2f2;
       --purple: #7c3aed;
       --purple-light: #f5f3ff;
-      --radius: 4px;
+      --radius: 6px;
       --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
     }
@@ -36,123 +36,162 @@
     body { font-family: var(--font-sans); background: var(--bg-canvas); color: var(--text-main); line-height: 1.5; }
 
     /* Header */
-    header { background: var(--bg-dark); color: #fff; border-bottom: 2px solid var(--accent); padding: 1rem 1.5rem; }
+    header { background: var(--bg-dark); color: #fff; border-bottom: 2px solid var(--accent); padding: 0.75rem 1.5rem; }
     .header-content { max-width: 1400px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
     .brand { display: flex; align-items: center; gap: 0.75rem; text-decoration: none; color: #fff; font-weight: 800; font-size: 1.25rem; letter-spacing: -0.03em; }
-    .brand-badge { background: var(--accent); color: var(--bg-dark); padding: 0.25rem 0.5rem; font-family: var(--font-mono); font-weight: 900; font-size: 0.85rem; border: 1px solid #fff; }
+    .brand-badge { background: var(--accent); color: var(--bg-dark); padding: 0.2rem 0.5rem; font-family: var(--font-mono); font-weight: 900; font-size: 0.85rem; border: 1px solid #fff; border-radius: 3px; }
     .nav-links { display: flex; gap: 1.25rem; font-size: 0.9rem; }
     .nav-links a { color: #d1d5db; text-decoration: none; font-weight: 500; }
     .nav-links a:hover, .nav-links a.active { color: #fff; text-decoration: underline; }
 
-    /* Hero / KPI Banner */
-    .hero { background: var(--bg-surface-muted); border-bottom: 1px solid var(--border-color); padding: 2rem 1.5rem; }
-    .hero-container { max-width: 1400px; margin: 0 auto; }
-    .hero-title { font-size: 1.75rem; font-weight: 900; letter-spacing: -0.03em; margin-bottom: 0.5rem; }
-    .hero-subtitle { color: var(--text-muted); font-size: 1.05rem; max-width: 800px; margin-bottom: 1.5rem; }
-
-    .kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; }
-    .kpi-card { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 1rem 1.25rem; border-left: 4px solid var(--accent); }
-    .kpi-val { font-size: 1.5rem; font-weight: 900; font-family: var(--font-mono); color: var(--bg-dark); }
-    .kpi-label { font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; margin-top: 0.25rem; }
+    /* Compact Hero */
+    .hero { background: var(--bg-surface-muted); border-bottom: 1px solid var(--border-color); padding: 0.9rem 1.5rem; }
+    .hero-container { max-width: 1400px; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; }
+    .hero-title { font-size: 1.25rem; font-weight: 900; letter-spacing: -0.02em; }
+    .hero-subtitle { color: var(--text-muted); font-size: 0.85rem; }
+    .kpi-row { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+    .kpi-chip { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 0.3rem 0.65rem; border-radius: 4px; border-left: 3px solid var(--accent); font-size: 0.78rem; display: flex; gap: 0.4rem; align-items: baseline; }
+    .kpi-val { font-weight: 900; font-family: var(--font-mono); color: var(--bg-dark); }
+    .kpi-lbl { color: var(--text-muted); font-size: 0.72rem; }
 
     /* Main Layout */
-    .main-container { max-width: 1400px; margin: 1.5rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: 360px 1fr; gap: 1.5rem; }
+    .main-container { max-width: 1400px; margin: 1rem auto; padding: 0 1.5rem; display: grid; grid-template-columns: 340px 1fr; gap: 1.25rem; }
     @media (max-width: 1024px) { .main-container { grid-template-columns: 1fr; } }
 
     /* Sidebar / Filters */
-    .sidebar { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 1.25rem; height: calc(100vh - 120px); position: sticky; top: 1rem; display: flex; flex-direction: column; overflow: hidden; }
-    .search-box { margin-bottom: 1rem; }
-    .search-input { width: 100%; padding: 0.6rem 0.8rem; border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.9rem; font-family: inherit; }
+    .sidebar { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 1rem; height: calc(100vh - 120px); position: sticky; top: 1rem; display: flex; flex-direction: column; overflow: hidden; }
+    .search-box { margin-bottom: 0.75rem; }
+    .search-input { width: 100%; padding: 0.55rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.85rem; font-family: inherit; }
     .search-input:focus { outline: none; border-color: var(--accent); ring: 2px var(--accent-light); }
 
-    .filter-group { margin-bottom: 1rem; }
-    .filter-label { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.35rem; display: block; }
-    .filter-select { width: 100%; padding: 0.5rem; border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.85rem; background: var(--bg-surface); }
+    .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-bottom: 0.75rem; }
+    .filter-label { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.25rem; display: block; }
+    .filter-select { width: 100%; padding: 0.45rem; border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.78rem; background: var(--bg-surface); }
 
-    .doc-list-header { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin: 0.5rem 0; display: flex; justify-content: space-between; }
-    .doc-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.5rem; padding-right: 0.25rem; }
-    .doc-item { padding: 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-canvas); cursor: pointer; transition: all 0.15s ease; }
+    .doc-list-header { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin: 0.4rem 0; display: flex; justify-content: space-between; }
+    .doc-list { overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 0.45rem; padding-right: 0.25rem; }
+    .doc-item { padding: 0.65rem 0.75rem; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-canvas); cursor: pointer; transition: all 0.15s ease; }
     .doc-item:hover { border-color: var(--accent); background: #fff; }
     .doc-item.active { border-color: var(--accent-dark); border-left: 4px solid var(--accent); background: var(--accent-light); }
-    .doc-meta { display: flex; justify-content: space-between; font-size: 0.75rem; font-family: var(--font-mono); color: var(--text-muted); margin-bottom: 0.25rem; }
-    .doc-title { font-weight: 700; font-size: 0.85rem; line-height: 1.2; margin-bottom: 0.35rem; }
-    .doc-tags { display: flex; gap: 0.35rem; flex-wrap: wrap; }
+    .doc-meta { display: flex; justify-content: space-between; font-size: 0.72rem; font-family: var(--font-mono); color: var(--text-muted); margin-bottom: 0.2rem; }
+    .doc-title { font-weight: 700; font-size: 0.82rem; line-height: 1.2; margin-bottom: 0.3rem; }
+    .doc-tags { display: flex; gap: 0.3rem; flex-wrap: wrap; }
 
     /* Badges */
-    .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
+    .badge { display: inline-flex; align-items: center; padding: 0.15rem 0.45rem; border-radius: 999px; font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.03em; }
     .badge-procedente { background: var(--accent-light); color: var(--accent-dark); border: 1px solid var(--accent); }
     .badge-improcedente { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); }
     .badge-parcial { background: var(--info-light); color: var(--info); border: 1px solid var(--info); }
     .badge-acordo { background: var(--purple-light); color: var(--purple); border: 1px solid var(--purple); }
     .badge-extinto { background: #f3f4f6; color: #4b5563; border: 1px solid #9ca3af; }
     .badge-unknown { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
-    .badge-polo { background: var(--bg-dark); color: #fff; font-family: var(--font-mono); font-size: 0.7rem; padding: 0.15rem 0.45rem; border-radius: 3px; }
+    .badge-polo { background: var(--bg-dark); color: #fff; font-family: var(--font-mono); font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 3px; }
 
-    /* Comparison Area */
-    .content-area { display: flex; flex-direction: column; gap: 1.5rem; }
-
-    .control-bar { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 0.75rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
-    .nav-stepper { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
-    .stepper-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.82rem; font-weight: 700; color: var(--text-main); cursor: pointer; transition: all 0.15s ease; user-select: none; }
+    /* Control Bar & Stepper */
+    .control-bar { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.65rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.75rem; }
+    .nav-stepper { display: flex; align-items: center; gap: 0.45rem; flex-wrap: wrap; }
+    .stepper-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.4rem 0.8rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.8rem; font-weight: 700; color: var(--text-main); cursor: pointer; transition: all 0.15s ease; user-select: none; }
     .stepper-btn:hover { background: var(--bg-dark); color: #fff; border-color: var(--bg-dark); }
     .stepper-btn-primary { background: var(--accent); color: var(--bg-dark); border-color: var(--accent-dark); }
     .stepper-btn-primary:hover { background: var(--accent-hover); color: #fff; }
-    .stepper-counter { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.65rem; background: var(--bg-surface-muted); border: 1px solid var(--border-color); border-radius: var(--radius); white-space: nowrap; color: var(--bg-dark); }
-    .keyboard-hint { font-size: 0.72rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.25rem; }
-    .kbd { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3px; padding: 0.1rem 0.35rem; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; color: #374151; }
-    .view-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
+    .stepper-counter { font-family: var(--font-mono); font-size: 0.78rem; font-weight: 800; padding: 0.35rem 0.65rem; background: var(--bg-surface-muted); border: 1px solid var(--border-color); border-radius: var(--radius); white-space: nowrap; color: var(--bg-dark); }
+    .keyboard-hint { font-size: 0.7rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.25rem; }
+    .kbd { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3px; padding: 0.1rem 0.35rem; font-family: var(--font-mono); font-size: 0.68rem; font-weight: 700; color: #374151; }
+
+    .view-controls { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
     .view-mode-group { display: flex; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; }
-    .view-btn { padding: 0.4rem 0.8rem; background: var(--bg-surface); border: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
+    .view-btn { padding: 0.35rem 0.7rem; background: var(--bg-surface); border: none; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
     .view-btn.active { background: var(--bg-dark); color: #fff; }
 
-    .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
+    /* SEGMENTATION PROGRESS BANNER */
+    .segmentation-banner { background: var(--bg-surface); border: 2px solid var(--accent); border-radius: var(--radius); padding: 0.85rem 1.15rem; margin-bottom: 0.85rem; box-shadow: 0 2px 4px rgba(0,0,0,0.03); }
+    .seg-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem; }
+    .seg-title { font-size: 0.85rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.04em; color: var(--bg-dark); display: flex; align-items: center; gap: 0.4rem; }
+    .seg-badge-pill { background: var(--accent-light); color: var(--accent-dark); border: 1px solid var(--accent); padding: 0.15rem 0.5rem; border-radius: 999px; font-size: 0.7rem; font-weight: 800; }
+    
+    .seg-track { height: 16px; border-radius: 8px; overflow: hidden; display: flex; background: #e5e7eb; margin-bottom: 0.6rem; border: 1px solid #cbd5e1; }
+    .seg-chunk { height: 100%; transition: all 0.2s ease; cursor: pointer; position: relative; }
+    .seg-chunk:hover { filter: brightness(1.2); }
+
+    .seg-legend { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+    .seg-pill { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.72rem; font-weight: 800; cursor: pointer; transition: all 0.15s ease; border: 1px solid; user-select: none; }
+    .seg-pill:hover { transform: translateY(-1px); filter: brightness(0.95); }
+    .pill-cabecalho { background: var(--info-light); color: var(--info); border-color: #bae6fd; }
+    .pill-relatorio { background: var(--warning-light); color: var(--warning); border-color: #fde68a; }
+    .pill-fundamentacao { background: var(--purple-light); color: var(--purple); border-color: #ddd6fe; }
+    .pill-voto { background: var(--purple-light); color: var(--purple); border-color: #ddd6fe; }
+    .pill-dispositivo { background: #dcfce7; color: var(--accent-dark); border-color: #86efac; font-weight: 900; }
+    .pill-encerramento { background: #f3f4f6; color: #4b5563; border-color: #d1d5db; }
+    .seg-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+    /* Comparison Grid */
+    .comparison-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
     .comparison-grid.single-col { grid-template-columns: 1fr; }
     @media (max-width: 900px) { .comparison-grid { grid-template-columns: 1fr; } }
 
-    /* Panel Styling */
-    .panel { background: var(--bg-surface); border: 1px solid var(--border-color); display: flex; flex-direction: column; min-height: 600px; }
-    .panel-header { padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
-    .panel-title { font-weight: 800; font-size: 1.05rem; display: flex; align-items: center; gap: 0.5rem; }
-    .panel-tag { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 3px; }
-    .tag-before { background: #fee2e2; color: #991b1b; }
-    .tag-after { background: var(--accent-light); color: var(--accent-dark); }
+    /* Panels */
+    .panel { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); display: flex; flex-direction: column; min-height: 600px; }
+    .panel-header { padding: 0.85rem 1.15rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; background: #fafafa; border-radius: var(--radius) var(--radius) 0 0; }
+    .panel-title { font-weight: 800; font-size: 0.95rem; display: flex; align-items: center; gap: 0.4rem; }
+    .panel-tag { font-size: 0.7rem; font-weight: 800; text-transform: uppercase; padding: 0.2rem 0.5rem; border-radius: 3px; }
+    .tag-before { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .tag-after { background: var(--accent-light); color: var(--accent-dark); border: 1px solid var(--accent); }
 
-    .panel-body { padding: 1.25rem; overflow-y: auto; flex: 1; max-height: 750px; font-size: 0.9rem; }
+    .panel-body { padding: 1.15rem; overflow-y: auto; flex: 1; max-height: 800px; font-size: 0.88rem; }
 
-    /* Before Box */
-    .raw-text-box { font-family: var(--font-mono); font-size: 0.85rem; line-height: 1.6; color: #374151; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: var(--radius); }
+    /* Raw Text & Highlighted Raw Blocks */
+    .raw-view-toggle { margin-bottom: 0.75rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; background: #fffbeb; border: 1px solid #fde68a; padding: 0.4rem 0.75rem; border-radius: 4px; color: #92400e; }
+    .raw-section-block { margin-bottom: 0.85rem; border-radius: 4px; overflow: hidden; border: 1px solid; }
+    .raw-cut-marker { padding: 0.35rem 0.65rem; font-size: 0.72rem; font-weight: 900; font-family: var(--font-mono); text-transform: uppercase; display: flex; justify-content: space-between; align-items: center; }
+    .raw-section-text { padding: 0.75rem; font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #ffffff; color: #1f2937; }
 
-    /* After / Structured Box */
-    .dossier-header { background: #fafafa; border: 1px solid var(--border-color); padding: 1rem; border-radius: var(--radius); margin-bottom: 1.25rem; }
-    .dossier-headline { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.75rem; }
-    .dossier-cnj { font-family: var(--font-mono); font-weight: 800; font-size: 1.05rem; color: var(--bg-dark); }
-    .mod97-badge { background: #dcfce7; color: #166534; font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.4rem; border-radius: 3px; border: 1px solid #86efac; }
+    .raw-block-cabecalho { border-color: #bae6fd; }
+    .raw-cut-cabecalho { background: #e0f2fe; color: #0369a1; border-bottom: 1px solid #bae6fd; }
 
-    .entity-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 0.75rem; margin-top: 0.75rem; }
-    .entity-item { background: #fff; border: 1px solid #e5e7eb; padding: 0.5rem 0.75rem; border-radius: var(--radius); }
-    .entity-lbl { font-size: 0.65rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.15rem; }
-    .entity-val { font-size: 0.85rem; font-weight: 600; color: var(--bg-dark); word-break: break-word; }
+    .raw-block-relatorio { border-color: #fde68a; }
+    .raw-cut-relatorio { background: #fef3c7; color: #92400e; border-bottom: 1px solid #fde68a; }
 
-    /* Sectional Visualizer */
-    .sections-container { display: flex; flex-direction: column; gap: 1rem; }
-    .section-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; }
-    .section-head { padding: 0.5rem 0.75rem; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; }
-    .section-content { padding: 0.85rem 1rem; font-size: 0.88rem; line-height: 1.6; white-space: pre-wrap; background: #fff; }
+    .raw-block-fundamentacao, .raw-block-voto { border-color: #ddd6fe; }
+    .raw-cut-fundamentacao, .raw-cut-voto { background: #ede9fe; color: #6d28d9; border-bottom: 1px solid #ddd6fe; }
 
-    .sec-cabecalho { border-left: 4px solid var(--info); }
+    .raw-block-dispositivo { border-color: #86efac; border-width: 2px; }
+    .raw-cut-dispositivo { background: #dcfce7; color: #166534; font-weight: 900; border-bottom: 1px solid #86efac; }
+
+    .raw-block-encerramento { border-color: #d1d5db; }
+    .raw-cut-encerramento { background: #f3f4f6; color: #374151; border-bottom: 1px solid #d1d5db; }
+
+    /* Dossier Strip */
+    .dossier-compact-bar { background: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 1rem; }
+    .dossier-main-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .dossier-cnj { font-family: var(--font-mono); font-weight: 900; font-size: 1.05rem; color: var(--bg-dark); }
+    .mod97-badge { background: #dcfce7; color: #166534; font-size: 0.68rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 3px; border: 1px solid #86efac; }
+    
+    .entity-strip { display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted); }
+    .entity-chip { background: #fff; border: 1px solid #e5e7eb; border-radius: 3px; padding: 0.2rem 0.45rem; display: inline-flex; gap: 0.3rem; }
+    .entity-chip strong { color: var(--text-main); }
+
+    /* DISPOSITIVO SPOTLIGHT CARD */
+    .dispositivo-card { border: 2px solid var(--accent); background: #f0fdf4; border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.15); }
+    .dispositivo-head { background: #dcfce7; color: var(--accent-dark); padding: 0.65rem 0.9rem; font-weight: 900; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.05em; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #86efac; }
+    .dispositivo-body { padding: 0.9rem 1.15rem; font-size: 0.9rem; line-height: 1.6; white-space: pre-wrap; font-weight: 500; color: #064e3b; }
+    .dispositivo-meta-bar { background: #ecfdf5; border-top: 1px dashed #86efac; padding: 0.5rem 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-size: 0.78rem; font-weight: 700; color: #047857; }
+
+    /* Other Section Cards */
+    .section-card { border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; margin-bottom: 0.85rem; }
+    .section-head { padding: 0.5rem 0.85rem; font-size: 0.75rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.04em; display: flex; justify-content: space-between; align-items: center; }
+    .section-content { padding: 0.85rem 1rem; font-size: 0.85rem; line-height: 1.6; white-space: pre-wrap; background: #fff; }
+
+    .sec-cabecalho { border-left: 5px solid var(--info); }
     .sec-cabecalho .section-head { background: var(--info-light); color: var(--info); }
-    .sec-relatorio { border-left: 4px solid var(--warning); }
+    .sec-relatorio { border-left: 5px solid var(--warning); }
     .sec-relatorio .section-head { background: var(--warning-light); color: var(--warning); }
-    .sec-fundamentacao { border-left: 4px solid var(--purple); }
-    .sec-fundamentacao .section-head { background: var(--purple-light); color: var(--purple); }
-    .sec-dispositivo { border-left: 6px solid var(--accent); background: #f0fdf4; }
-    .sec-dispositivo .section-head { background: #dcfce7; color: var(--accent-dark); font-weight: 900; }
-    .sec-dispositivo .section-content { background: #f0fdf4; font-weight: 500; border-top: 1px dashed #86efac; }
-    .sec-encerramento { border-left: 4px solid #6b7280; }
+    .sec-fundamentacao, .sec-voto { border-left: 5px solid var(--purple); }
+    .sec-fundamentacao .section-head, .sec-voto .section-head { background: var(--purple-light); color: var(--purple); }
+    .sec-encerramento { border-left: 5px solid #6b7280; }
     .sec-encerramento .section-head { background: #f3f4f6; color: #374151; }
 
     /* Footer */
-    footer { border-top: 1px solid var(--border-color); background: var(--bg-surface-muted); padding: 1.5rem; text-align: center; font-size: 0.85rem; color: var(--text-muted); margin-top: 3rem; }
+    footer { border-top: 1px solid var(--border-color); background: var(--bg-surface-muted); padding: 1.25rem; text-align: center; font-size: 0.8rem; color: var(--text-muted); margin-top: 2rem; }
   </style>
 </head>
 <body>
@@ -174,30 +213,29 @@
     </div>
   </header>
 
-  <!-- Hero & KPIs -->
+  <!-- Compact Hero -->
   <section class="hero">
     <div class="hero-container">
-      <h1 class="hero-title">Auditoria Interativa: Antes vs. Depois do Pipeline</h1>
-      <p class="hero-subtitle">
-        Compare lado a lado o texto bruto do DJEN com o resultado estruturado em 5 seções canônicas, classificação de mérito CPC e extração de entidades jurimétricas pelo CausaGanha.
-      </p>
-
-      <div class="kpi-grid">
-        <div class="kpi-card">
-          <div class="kpi-val">1.000</div>
-          <div class="kpi-label">Documentos Reais DJEN</div>
+      <div>
+        <h1 class="hero-title">Auditoria: Segmentação em 5 Seções Canônicas & Desfecho CPC</h1>
+        <p class="hero-subtitle">Visualização direta da quebra estrutural do texto bruto do DJEN pelo segmentador Viterbi/HMM.</p>
+      </div>
+      <div class="kpi-row">
+        <div class="kpi-chip">
+          <span class="kpi-val">1.000</span>
+          <span class="kpi-lbl">Amostras Reais</span>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-val">42.8 doc/s</div>
-          <div class="kpi-label">Throughput em CPU 100% Local</div>
+        <div class="kpi-chip">
+          <span class="kpi-val">42.8 doc/s</span>
+          <span class="kpi-lbl">Throughput CPU</span>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-val">19.26 ms</div>
-          <div class="kpi-label">Latência Mediana (P50)</div>
+        <div class="kpi-chip">
+          <span class="kpi-val">19.26 ms</span>
+          <span class="kpi-lbl">Latência P50</span>
         </div>
-        <div class="kpi-card">
-          <div class="kpi-val">R$ 0,00</div>
-          <div class="kpi-label">Custo de API / GPU Externa</div>
+        <div class="kpi-chip">
+          <span class="kpi-val">R$ 0,00</span>
+          <span class="kpi-lbl">Custo de API</span>
         </div>
       </div>
     </div>
@@ -209,31 +247,32 @@
     <!-- Sidebar / Filters -->
     <aside class="sidebar">
       <div class="search-box">
-        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por CNJ, OAB, nome, juiz...">
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por CNJ, OAB, parte, juiz...">
       </div>
 
-      <div class="filter-group">
-        <label class="filter-label" for="filterCourt">Filtrar por Tribunal</label>
-        <select id="filterCourt" class="filter-select">
-          <option value="ALL">Todos os Tribunais</option>
-        </select>
-      </div>
-
-      <div class="filter-group">
-        <label class="filter-label" for="filterOutcome">Filtrar por Desfecho (CPC)</label>
-        <select id="filterOutcome" class="filter-select">
-          <option value="ALL">Todos os Desfechos</option>
-          <option value="procedente">Procedente</option>
-          <option value="improcedente">Improcedente</option>
-          <option value="parcialmente procedente">Parcialmente Procedente</option>
-          <option value="extinto sem mérito">Extinto sem Mérito (art. 485)</option>
-          <option value="acordo">Acordo Homologado</option>
-          <option value="unknown">Despacho / Outros</option>
-        </select>
+      <div class="filter-row">
+        <div>
+          <label class="filter-label" for="filterCourt">Tribunal</label>
+          <select id="filterCourt" class="filter-select">
+            <option value="ALL">Todos</option>
+          </select>
+        </div>
+        <div>
+          <label class="filter-label" for="filterOutcome">Desfecho</label>
+          <select id="filterOutcome" class="filter-select">
+            <option value="ALL">Todos</option>
+            <option value="procedente">Procedente</option>
+            <option value="improcedente">Improcedente</option>
+            <option value="parcialmente procedente">Parcial</option>
+            <option value="extinto sem mérito">Extinto art. 485</option>
+            <option value="acordo">Acordo</option>
+            <option value="unknown">Outros</option>
+          </select>
+        </div>
       </div>
 
       <div class="doc-list-header">
-        <span>Amostras Disponíveis</span>
+        <span>Amostras no Acervo</span>
         <span id="docCount">0 casos</span>
       </div>
 
@@ -245,6 +284,7 @@
     <!-- Main Comparison Canvas -->
     <section class="content-area">
 
+      <!-- Navigation Stepper Bar -->
       <div class="control-bar">
         <div class="nav-stepper">
           <button class="stepper-btn" id="btnPrevDoc" title="Decisão Anterior (ou seta esquerda ◀)">◀ Anterior</button>
@@ -252,14 +292,14 @@
           <button class="stepper-btn stepper-btn-primary" id="btnNextDoc" title="Próxima Decisão (ou seta direita ▶)">Próxima ▶</button>
           <button class="stepper-btn" id="btnRandomDoc" title="Sortear Outra Decisão Aleatória (ou tecla R / Espaço)">🎲 Sortear</button>
           <span class="keyboard-hint" title="Use as setas do teclado para alternar rapidamente entre decisões">
-            <span class="kbd">◀</span> <span class="kbd">▶</span> alternar
+            <span class="kbd">◀</span> <span class="kbd">▶</span> navegar
           </span>
         </div>
 
         <div class="view-controls">
           <div>
-            <span style="font-weight: 700; font-size: 0.9rem;" id="selectedDocLabel">Documento Selecionado</span>
-            <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;" id="selectedDocMeta"></span>
+            <span style="font-weight: 700; font-size: 0.85rem;" id="selectedDocLabel">Documento Selecionado</span>
+            <span style="color: var(--text-muted); font-size: 0.75rem; margin-left: 0.4rem;" id="selectedDocMeta"></span>
           </div>
           <div class="view-mode-group">
             <button class="view-btn active" data-mode="split">Lado a Lado</button>
@@ -269,21 +309,45 @@
         </div>
       </div>
 
+      <!-- SEGMENTATION PROGRESS BANNER -->
+      <div class="segmentation-banner">
+        <div class="seg-title-row">
+          <div class="seg-title">
+            <span>✂️ Segmentação Estrutural Monotônica</span>
+            <span class="seg-badge-pill" id="segCountPill">5 Seções Detectadas</span>
+          </div>
+          <div class="seg-stats" id="segTotalChars">0 caracteres totais</div>
+        </div>
+        <!-- Progress Bar showing the proportions of each section -->
+        <div class="seg-track" id="segBarTrack">
+          <!-- Injected via JS -->
+        </div>
+        <!-- Legend Pills -->
+        <div class="seg-legend" id="segLegend">
+          <!-- Injected via JS -->
+        </div>
+      </div>
+
+      <!-- Comparison Grid (Before vs. After) -->
       <div class="comparison-grid" id="comparisonGrid">
 
         <!-- Column Before -->
         <article class="panel" id="panelBefore">
           <div class="panel-header">
             <div class="panel-title">
-              <span>📄 Como era no DJEN</span>
+              <span>📄 Antes: Texto no DJEN</span>
             </div>
-            <span class="panel-tag tag-before">Texto Bruto / Desestruturado</span>
+            <span class="panel-tag tag-before">Bloco Único / Desestruturado</span>
           </div>
           <div class="panel-body">
-            <div style="background: #fffbeb; border: 1px solid #fde68a; padding: 0.75rem; border-radius: var(--radius); margin-bottom: 1rem; font-size: 0.8rem; color: #92400e;">
-              ⚠️ <strong>Limitação original:</strong> Bloco corrido de texto, sem marcação de início do dispositivo, sem identificação formal de procedência/improcedência e sem separação de valores.
+            <div class="raw-view-toggle">
+              <span>⚠️ Visualização dos limites de corte detectados pelo segmentador:</span>
+              <label style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem; font-weight: 700;">
+                <input type="checkbox" id="chkHighlightCuts" checked>
+                Destacar Seções
+              </label>
             </div>
-            <div class="raw-text-box" id="rawTextContent">Carregando decisão...</div>
+            <div id="rawTextContent">Carregando decisão...</div>
           </div>
         </article>
 
@@ -291,57 +355,48 @@
         <article class="panel" id="panelAfter">
           <div class="panel-header">
             <div class="panel-title">
-              <span>✨ Como fica no CausaGanha</span>
+              <span>✨ Depois: 5 Seções Canônicas & Desfecho</span>
             </div>
-            <span class="panel-tag tag-after">Estruturado em 5 Seções & Entidades</span>
+            <span class="panel-tag tag-after">Classificado & Qualificado</span>
           </div>
           <div class="panel-body">
 
-            <!-- Dossier Header -->
-            <div class="dossier-header">
-              <div class="dossier-headline">
+            <!-- Compact Dossier Bar -->
+            <div class="dossier-compact-bar">
+              <div class="dossier-main-row">
                 <div>
                   <span class="dossier-cnj" id="dossierCnj">0000000-00.0000.0.00.0000</span>
-                  <span class="mod97-badge" id="mod97Badge">Módulo 97 Válido</span>
+                  <span class="mod97-badge" id="mod97Badge">Módulo 97 CNJ</span>
                 </div>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                <div style="display: flex; gap: 0.4rem; align-items: center;">
                   <span class="badge" id="dossierOutcomeBadge">Procedente</span>
-                  <span class="badge badge-polo" id="dossierPoloBadge">Polo A Vencedor</span>
+                  <span class="badge badge-polo" id="dossierPoloBadge">Polo A</span>
                 </div>
               </div>
-
-              <!-- Entities Grid -->
-              <div class="entity-grid">
-                <div class="entity-item">
-                  <div class="entity-lbl">Polo Ativo (Autor)</div>
-                  <div class="entity-val" id="dossierAutor">Não identificado</div>
-                </div>
-                <div class="entity-item">
-                  <div class="entity-lbl">Polo Passivo (Réu)</div>
-                  <div class="entity-val" id="dossierReu">Não identificado</div>
-                </div>
-                <div class="entity-item">
-                  <div class="entity-lbl">Advogado / OAB</div>
-                  <div class="entity-val" id="dossierAdv">Não identificado</div>
-                </div>
-                <div class="entity-item">
-                  <div class="entity-lbl">Magistrado Assinante</div>
-                  <div class="entity-val" id="dossierMagistrado">Não identificado</div>
-                </div>
-                <div class="entity-item">
-                  <div class="entity-lbl">Valor da Condenação</div>
-                  <div class="entity-val" style="color: var(--accent-dark); font-weight: 800;" id="dossierCondenacao">-</div>
-                </div>
-                <div class="entity-item">
-                  <div class="entity-lbl">Taxa Êxito Econômico</div>
-                  <div class="entity-val" style="color: var(--info); font-weight: 800;" id="dossierTaxa">-</div>
-                </div>
+              <div class="entity-strip" id="entityStrip">
+                <!-- Entities Injected via JS -->
               </div>
             </div>
 
-            <!-- Sections Container -->
+            <!-- DISPOSITIVO CALLOUT (FIRST AND PROMINENT) -->
+            <div class="dispositivo-card" id="dispositivoCard">
+              <div class="dispositivo-head">
+                <span>🎯 Seção 4: Dispositivo (Comando Judicial)</span>
+                <span id="dispositivoBadgeMini" class="badge badge-procedente">PROCEDENTE</span>
+              </div>
+              <div class="dispositivo-body" id="dispositivoText">
+                Carregando dispositivo...
+              </div>
+              <div class="dispositivo-meta-bar" id="dispositivoMetaBar">
+                <span>Polo Vencedor: <strong id="dispWinnerPolo">-</strong></span>
+                <span>Condenação: <strong id="dispCondenacao">-</strong></span>
+                <span>Taxa de Êxito: <strong id="dispTaxa">-</strong></span>
+              </div>
+            </div>
+
+            <!-- All Other Sections Container -->
             <div class="sections-container" id="sectionsContainer">
-              <!-- Sections injected via JS -->
+              <!-- Other sections injected via JS -->
             </div>
 
           </div>
@@ -355,8 +410,8 @@
 
   <!-- Footer -->
   <footer>
-    <p>CausaGanha — Auditoria Empírica do Pipeline de Extração e Resolução Recursal (CPC 2015).</p>
-    <p style="margin-top: 0.25rem; font-size: 0.75rem;">Dados reais do Diário de Justiça Eletrônico Nacional (DJEN). Inferência puramente offline em CPU.</p>
+    <p>CausaGanha — Pipeline de Segmentação Monotônica Viterbi/HMM e Resolução Recursal (CPC 2015).</p>
+    <p style="margin-top: 0.25rem; font-size: 0.72rem;">Inferência 100% offline em CPU local. Zero dependência de APIs externas pagas.</p>
   </footer>
 
   <!-- Script for Interactive Viewer -->
@@ -525,6 +580,132 @@
       return 'badge-unknown';
     }
 
+    function renderSegmentationRibbon(c) {
+      const track = document.getElementById('segBarTrack');
+      const legend = document.getElementById('segLegend');
+      const countPill = document.getElementById('segCountPill');
+      const totalCharsEl = document.getElementById('segTotalChars');
+      if (!track || !legend) return;
+
+      track.innerHTML = '';
+      legend.innerHTML = '';
+
+      const secoes = c.secoes || {};
+      const orderedKeys = ['cabecalho', 'relatorio', 'fundamentacao', 'voto', 'dispositivo', 'encerramento'];
+      const colors = {
+        cabecalho: '#0284c7',
+        relatorio: '#d97706',
+        fundamentacao: '#7c3aed',
+        voto: '#7c3aed',
+        dispositivo: '#10b981',
+        encerramento: '#4b5563'
+      };
+      const labels = {
+        cabecalho: '1. Cabeçalho',
+        relatorio: '2. Relatório',
+        fundamentacao: '3. Fundamentação',
+        voto: '3. Voto Relator',
+        dispositivo: '4. Dispositivo (Comando)',
+        encerramento: '5. Encerramento'
+      };
+
+      let totalChars = 0;
+      let activeSectionCount = 0;
+      orderedKeys.forEach(k => {
+        if (secoes[k] && secoes[k].texto && secoes[k].texto.trim()) {
+          totalChars += secoes[k].caracteres || secoes[k].texto.length;
+          activeSectionCount++;
+        }
+      });
+
+      if (countPill) countPill.textContent = `${activeSectionCount} Seções Identificadas`;
+      if (totalCharsEl) totalCharsEl.textContent = `${totalChars.toLocaleString('pt-BR')} caracteres`;
+      if (totalChars === 0) totalChars = 1;
+
+      orderedKeys.forEach(k => {
+        const sec = secoes[k];
+        if (sec && sec.texto && sec.texto.trim()) {
+          const chars = sec.caracteres || sec.texto.length;
+          const pct = Math.max(3, Math.round((chars / totalChars) * 100));
+
+          // Progress Chunk
+          const chunk = document.createElement('div');
+          chunk.className = `seg-chunk chunk-${k}`;
+          chunk.style.width = `${pct}%`;
+          chunk.style.backgroundColor = colors[k];
+          chunk.title = `${labels[k]}: ${chars} caracteres (${pct}%)`;
+          chunk.onclick = () => scrollToSection(k);
+          track.appendChild(chunk);
+
+          // Legend Pill
+          const pill = document.createElement('div');
+          pill.className = `seg-pill pill-${k}`;
+          pill.innerHTML = `
+            <span class="seg-dot" style="background:${colors[k]};"></span>
+            <span>${labels[k]}</span>
+            <span style="font-family: var(--font-mono); font-size: 0.68rem; opacity: 0.85;">${chars}c (${pct}%)</span>
+          `;
+          pill.onclick = () => scrollToSection(k);
+          legend.appendChild(pill);
+        }
+      });
+    }
+
+    function scrollToSection(secKey) {
+      if (secKey === 'dispositivo') {
+        const target = document.getElementById('dispositivoCard');
+        if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        return;
+      }
+      const target = document.querySelector(`.sec-${secKey}`);
+      if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    }
+
+    function renderRawLeft(c) {
+      const container = document.getElementById('rawTextContent');
+      const highlight = document.getElementById('chkHighlightCuts')?.checked ?? true;
+
+      if (!highlight) {
+        container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 4px;">${escapeHtml(c.texto_bruto_djen || c.texto_limpo)}</div>`;
+        return;
+      }
+
+      const secoes = c.secoes || {};
+      const orderedKeys = ['cabecalho', 'relatorio', 'fundamentacao', 'voto', 'dispositivo', 'encerramento'];
+      const labels = {
+        cabecalho: '✂️ SEÇÃO 1: CABEÇALHO & QUALIFICAÇÃO',
+        relatorio: '✂️ SEÇÃO 2: RELATÓRIO PROCESSUAL',
+        fundamentacao: '✂️ SEÇÃO 3: FUNDAMENTAÇÃO JURÍDICA',
+        voto: '✂️ SEÇÃO 3: VOTO DO RELATOR',
+        dispositivo: '🎯 SEÇÃO 4: DISPOSITIVO (COMANDO ADJUDICATÓRIO)',
+        encerramento: '✂️ SEÇÃO 5: ENCERRAMENTO & ASSINATURA'
+      };
+
+      let html = '';
+      let foundAny = false;
+      orderedKeys.forEach(k => {
+        const sec = secoes[k];
+        if (sec && sec.texto && sec.texto.trim()) {
+          foundAny = true;
+          html += `
+            <div class="raw-section-block raw-block-${k}">
+              <div class="raw-cut-marker raw-cut-${k}">
+                <span>${labels[k]}</span>
+                <span style="font-size: 0.68rem; opacity: 0.85;">${sec.caracteres} chars</span>
+              </div>
+              <div class="raw-section-text">${escapeHtml(sec.texto)}</div>
+            </div>
+          `;
+        }
+      });
+
+      if (!foundAny) {
+        container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 4px;">${escapeHtml(c.texto_bruto_djen || c.texto_limpo)}</div>`;
+      } else {
+        container.innerHTML = html;
+      }
+    }
+
     function selectCase(index, filteredIdx, totalFiltered) {
       if (index < 0 || index >= casesData.length) return;
       currentCaseIndex = index;
@@ -554,12 +735,15 @@
 
       // Top label
       document.getElementById('selectedDocLabel').textContent = `Caso #${c.id} — ${c.tribunal} (${c.tipo_documento || 'Sentença'})`;
-      document.getElementById('selectedDocMeta').textContent = `Processamento: ${c.latencia_total_ms || 20}ms`;
+      document.getElementById('selectedDocMeta').textContent = `Latência: ${c.latencia_total_ms || 20}ms`;
 
-      // Before Column: Raw Text
-      document.getElementById('rawTextContent').textContent = c.texto_bruto_djen || c.texto_limpo;
+      // 1. Render Top Segmentation Ribbon (Proportional Progress Track)
+      renderSegmentationRibbon(c);
 
-      // After Column: Dossier
+      // 2. Render Left Panel (Highlighted cuts on raw text)
+      renderRawLeft(c);
+
+      // 3. Render Right Panel (Dossier Strip + Dispositivo + Sections)
       document.getElementById('dossierCnj').textContent = c.cnj || 'CNJ não especificado';
       document.getElementById('mod97Badge').style.display = (c.cnj && c.cnj !== 'Não detectado') ? 'inline-block' : 'none';
 
@@ -576,26 +760,45 @@
       };
       poloBadge.textContent = poloMap[c.polo_vencedor] || `Polo ${c.polo_vencedor}`;
 
-      // Entities
-      document.getElementById('dossierAutor').textContent = c.autor || 'Não identificado';
-      document.getElementById('dossierReu').textContent = c.reu || 'Não identificado';
-      document.getElementById('dossierAdv').textContent = c.oab !== 'Não identificada' ? `${c.advogado || 'Advogado'} (${c.oab})` : (c.advogado || 'Não identificado');
-      document.getElementById('dossierMagistrado').textContent = c.magistrado || 'Não identificado';
-      document.getElementById('dossierCondenacao').textContent = c.valor_condenacao || (c.valor_causa ? `Causa: ${c.valor_causa}` : 'Não aplicável');
-      document.getElementById('dossierTaxa').textContent = c.taxa_sucesso_economico || '-';
+      // Entity Strip
+      const entityStrip = document.getElementById('entityStrip');
+      entityStrip.innerHTML = `
+        <span class="entity-chip"><strong>Autor:</strong> ${escapeHtml(c.autor || 'Não identificado')}</span>
+        <span class="entity-chip"><strong>Réu:</strong> ${escapeHtml(c.reu || 'Não identificado')}</span>
+        <span class="entity-chip"><strong>Adv:</strong> ${escapeHtml(c.advogado || 'Não identificado')} ${c.oab && c.oab !== 'Não identificada' ? `(${c.oab})` : ''}</span>
+        <span class="entity-chip"><strong>Magistrado:</strong> ${escapeHtml(c.magistrado || 'Não identificado')}</span>
+      `;
 
-      // Sections
+      // Dispositivo Spotlight Card
+      const dispSec = c.secoes && (c.secoes.dispositivo || c.secoes.DISPOSITIVO);
+      const dispTextEl = document.getElementById('dispositivoText');
+      const dispBadgeMini = document.getElementById('dispositivoBadgeMini');
+      if (dispBadgeMini) {
+        dispBadgeMini.textContent = c.desfecho_cpc.toUpperCase();
+        dispBadgeMini.className = `badge ${getOutcomeBadgeClass(c.desfecho_cpc)}`;
+      }
+
+      if (dispSec && dispSec.texto && dispSec.texto.trim()) {
+        dispTextEl.textContent = dispSec.texto;
+      } else {
+        dispTextEl.textContent = 'Dispositivo formalmente inferido a partir do encerramento da decisão.';
+      }
+
+      document.getElementById('dispWinnerPolo').textContent = poloMap[c.polo_vencedor] || c.polo_vencedor;
+      document.getElementById('dispCondenacao').textContent = c.valor_condenacao || (c.valor_causa ? `Causa: ${c.valor_causa}` : 'Não aplicável');
+      document.getElementById('dispTaxa').textContent = c.taxa_sucesso_economico || 'N/A';
+
+      // Other Sections (Cabecalho, Relatorio, Fundamentacao, Encerramento)
       const secContainer = document.getElementById('sectionsContainer');
       secContainer.innerHTML = '';
 
-      const orderedSections = ['cabecalho', 'relatorio', 'fundamentacao', 'voto', 'dispositivo', 'encerramento'];
+      const orderedSections = ['cabecalho', 'relatorio', 'fundamentacao', 'voto', 'encerramento'];
       const secTitles = {
-        cabecalho: '1. Cabeçalho & Qualificação',
+        cabecalho: '1. Cabeçalho & Qualificação Inicial',
         relatorio: '2. Relatório Processual',
-        fundamentacao: '3. Fundamentação Jurídica & Teses',
+        fundamentacao: '3. Fundamentação Jurídica & Motivação',
         voto: '3. Voto Condutor do Relator',
-        dispositivo: '4. Dispositivo / Comando Condenatório',
-        encerramento: '5. Encerramento & Assinatura'
+        encerramento: '5. Encerramento & Assinatura Digital'
       };
 
       orderedSections.forEach(secKey => {
@@ -606,7 +809,7 @@
           card.innerHTML = `
             <div class="section-head">
               <span>${secTitles[secKey] || sec.nome}</span>
-              <span style="font-size: 0.7rem; font-family: var(--font-mono); opacity: 0.8;">${sec.caracteres} chars</span>
+              <span style="font-size: 0.7rem; font-family: var(--font-mono); opacity: 0.85;">${sec.caracteres} caracteres</span>
             </div>
             <div class="section-content">${escapeHtml(sec.texto)}</div>
           `;
@@ -651,6 +854,13 @@
     document.getElementById('btnPrevDoc').addEventListener('click', prevCase);
     document.getElementById('btnNextDoc').addEventListener('click', nextCase);
     document.getElementById('btnRandomDoc').addEventListener('click', randomCase);
+
+    // Toggle cut highlights in raw text
+    document.getElementById('chkHighlightCuts')?.addEventListener('change', () => {
+      if (casesData[currentCaseIndex]) {
+        renderRawLeft(casesData[currentCaseIndex]);
+      }
+    });
 
     // Keyboard navigation (ArrowLeft / ArrowRight / Space / R)
     window.addEventListener('keydown', (e) => {
