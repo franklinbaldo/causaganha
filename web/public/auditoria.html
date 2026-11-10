@@ -85,7 +85,16 @@
     .badge-acordo { background: var(--purple-light); color: var(--purple); border: 1px solid var(--purple); }
     .badge-extinto { background: #f3f4f6; color: #4b5563; border: 1px solid #9ca3af; }
     .badge-unknown { background: #f3f4f6; color: #6b7280; border: 1px solid #d1d5db; }
+    .badge-provido { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-nao-provido { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
+    .badge-parcial-provido { background: #e0f2fe; color: #0369a1; border: 1px solid #7dd3fc; }
+    .badge-nao-conhecido { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+    .badge-execucao { background: #ecfdf5; color: #047857; border: 1px solid #34d399; }
+    .badge-despacho { background: #f3f4f6; color: #374151; border: 1px solid #cbd5e1; }
+    .badge-tutela-def { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
+    .badge-tutela-indef { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
     .badge-polo { background: var(--bg-dark); color: #fff; font-family: var(--font-mono); font-size: 0.68rem; padding: 0.15rem 0.45rem; border-radius: 3px; }
+    .badge-macro { background: #f8fafc; color: #1e293b; border: 1px solid #cbd5e1; font-family: var(--font-mono); font-size: 0.65rem; padding: 0.1rem 0.35rem; border-radius: 3px; }
 
     /* Control Bar & Stepper */
     .control-bar { background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.65rem 1rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.65rem; margin-bottom: 0.75rem; }
@@ -302,17 +311,36 @@
           </select>
         </div>
         <div>
-          <label class="filter-label" for="filterOutcome">Desfecho</label>
-          <select id="filterOutcome" class="filter-select">
-            <option value="ALL">Todos</option>
-            <option value="procedente">Procedente</option>
-            <option value="improcedente">Improcedente</option>
-            <option value="parcialmente procedente">Parcial</option>
-            <option value="extinto sem mérito">Extinto art. 485</option>
-            <option value="acordo">Acordo</option>
-            <option value="unknown">Outros</option>
+          <label class="filter-label" for="filterMacro">Topologia (Eixo 1)</label>
+          <select id="filterMacro" class="filter-select">
+            <option value="ALL">Todas</option>
+            <option value="ACORDAO">Acórdão (2º Grau)</option>
+            <option value="SENTENCA">Sentença (1º Grau)</option>
+            <option value="DECISAO_INTERLOCUTORIA">Decisão Interlocutória</option>
+            <option value="DESPACHO">Despacho de Expediente</option>
           </select>
         </div>
+      </div>
+
+      <div style="margin-bottom: 0.75rem;">
+        <label class="filter-label" for="filterOutcome">Desfecho Operativo (Eixo 2)</label>
+        <select id="filterOutcome" class="filter-select">
+          <option value="ALL">Todos os Desfechos</option>
+          <option value="não provido">Não Provido (Recurso)</option>
+          <option value="provido">Provido (Recurso)</option>
+          <option value="parcialmente provido">Parcial Provimento</option>
+          <option value="não conhecido">Não Conhecido</option>
+          <option value="procedente">Procedente (1º Grau)</option>
+          <option value="improcedente">Improcedente</option>
+          <option value="parcialmente procedente">Parcialmente Procedente</option>
+          <option value="extinção da execução">Extinção Execução (924)</option>
+          <option value="extinto sem mérito">Extinto sem Mérito (485)</option>
+          <option value="despacho de expediente">Despacho de Expediente</option>
+          <option value="tutela deferida">Tutela Deferida</option>
+          <option value="tutela indeferida">Tutela Indeferida</option>
+          <option value="acordo">Acordo / Transação</option>
+          <option value="unknown">Abstenção / Inconclusivo</option>
+        </select>
       </div>
 
       <div class="doc-list-header">
@@ -594,14 +622,16 @@
     function getFilteredCases() {
       const q = document.getElementById('searchInput').value.toLowerCase().trim();
       const court = document.getElementById('filterCourt').value;
+      const macro = document.getElementById('filterMacro') ? document.getElementById('filterMacro').value : 'ALL';
       const outcome = document.getElementById('filterOutcome').value;
 
       return casesData.filter(c => {
         if (court !== 'ALL' && c.tribunal !== court) return false;
+        if (macro !== 'ALL' && (c.macro_categoria || '').toUpperCase() !== macro.toUpperCase()) return false;
         if (outcome !== 'ALL' && c.desfecho_cpc !== outcome) return false;
         if (q) {
           const searchable = [
-            c.cnj, c.autor, c.reu, c.advogado, c.oab, c.magistrado, c.tribunal, c.desfecho_cpc, c.texto_limpo
+            c.cnj, c.autor, c.reu, c.advogado, c.oab, c.magistrado, c.tribunal, c.desfecho_cpc, c.macro_categoria, c.especie_ato, c.texto_limpo
           ].filter(Boolean).join(' ').toLowerCase();
           if (!searchable.includes(q)) return false;
         }
@@ -659,6 +689,7 @@
         };
 
         const outcomeBadgeClass = getOutcomeBadgeClass(c.desfecho_cpc);
+        const macroBadge = c.macro_categoria ? `<span class="badge badge-macro">${c.macro_categoria}</span>` : '';
         item.innerHTML = `
           <div class="doc-meta">
             <span>${c.tribunal} • ${c.classe || 'Sentença'}</span>
@@ -666,6 +697,7 @@
           </div>
           <div class="doc-title">${c.cnj !== 'Não detectado' ? c.cnj : (c.autor !== 'Não identificado' ? c.autor : 'Decisão ' + c.doc_id)}</div>
           <div class="doc-tags">
+            ${macroBadge}
             <span class="badge ${outcomeBadgeClass}">${c.desfecho_cpc}</span>
             <span class="badge badge-polo">Polo ${c.polo_vencedor}</span>
           </div>
@@ -677,10 +709,18 @@
     function getOutcomeBadgeClass(outcome) {
       if (!outcome) return 'badge-unknown';
       const o = outcome.toLowerCase();
+      if (o.includes('não provido') || o.includes('improvido') || o.includes('desprovido')) return 'badge-nao-provido';
+      if (o.includes('parcialmente provido')) return 'badge-parcial-provido';
+      if (o.includes('provido')) return 'badge-provido';
+      if (o.includes('não conhecido')) return 'badge-nao-conhecido';
+      if (o.includes('execução') || o.includes('924')) return 'badge-execucao';
+      if (o.includes('despacho')) return 'badge-despacho';
+      if (o.includes('tutela deferida')) return 'badge-tutela-def';
+      if (o.includes('tutela indeferida')) return 'badge-tutela-indef';
       if (o.includes('procedente') && !o.includes('parcial') && !o.includes('improcedente')) return 'badge-procedente';
       if (o.includes('improcedente')) return 'badge-improcedente';
       if (o.includes('parcial')) return 'badge-parcial';
-      if (o.includes('acordo')) return 'badge-acordo';
+      if (o.includes('acordo') || o.includes('leiga')) return 'badge-acordo';
       if (o.includes('extinto')) return 'badge-extinto';
       return 'badge-unknown';
     }
@@ -1324,6 +1364,7 @@
 
     document.getElementById('searchInput').addEventListener('input', onFilterChange);
     document.getElementById('filterCourt').addEventListener('change', onFilterChange);
+    document.getElementById('filterMacro')?.addEventListener('change', onFilterChange);
     document.getElementById('filterOutcome').addEventListener('change', onFilterChange);
 
     // Initial boot

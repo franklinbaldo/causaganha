@@ -31,10 +31,19 @@ DEFAULT_SECTION_WEIGHTS: dict[str, float] = {
 # Prioridade de especificidade jurídica para desempate entre categorias
 SPECIFICITY_PRIORITY: dict[str, int] = {
     "acordo": 10,
+    "parcialmente provido": 9,
     "parcialmente procedente": 8,
+    "extinção da execução": 8,
+    "não conhecido": 8,
     "extinto sem mérito": 7,
+    "tutela deferida": 7,
+    "tutela indeferida": 7,
+    "homologação de decisão leiga": 7,
+    "provido": 6,
+    "não provido": 6,
     "procedente": 5,
     "improcedente": 5,
+    "despacho de expediente": 4,
 }
 
 
@@ -290,8 +299,8 @@ class RegexTournament:
                     if reg.matches(doc_text):
                         if doc_label == cat:
                             tp += 1
-                        else:
-                            # Deu match mas a decisão tinha outro resultado (falso positivo!)
+                        elif doc_label not in {"unknown", "", "none", "indefinido"}:
+                            # Deu match mas a decisão tinha outro resultado conhecido (falso positivo!)
                             fp += 1
 
                 reg.update_metrics(tp, fp, total_real_positives)
@@ -323,6 +332,9 @@ class RegexTournament:
         if not promoted:
             # Fallback para as melhores candidatas se ainda nenhuma atingiu o critério estrito
             promoted = [r for r in pool if r.score > 0]
+        if not promoted and pool:
+            # Fallback para regras sementes candidatas caso o torneio ainda não tenha rodado
+            promoted = pool[: self.top_k]
         return promoted[: self.top_k]
 
     def classify_with_explanation(
@@ -473,103 +485,211 @@ def build_default_tournament() -> RegexTournament:
     """Inicializa o torneio com o catálogo de regexes sementes e variantes conhecidas."""
     t = RegexTournament(top_k=3, fp_penalty=2.0, min_precision=0.75)
 
+    def _seed(
+        pattern: str,
+        category: str,
+        pattern_id: str,
+        negative_pattern: str | None = None,
+        scope: str = "all",
+    ) -> CompetitiveRegex:
+        r = t.register(
+            pattern=pattern,
+            category=category,
+            pattern_id=pattern_id,
+            negative_pattern=negative_pattern,
+            scope=scope,
+        )
+        r.status = "PROMOTED"
+        r.precision = 0.95
+        r.score = 100.0
+        return r
+
     # 1. PROCEDENTE
-    t.register(
+    _seed(
         r"\bjulgo\s+procedentes?\b",
         "procedente",
         "proc_julgo_procedente",
         negative_pattern=r"(?:parcialmente|em\s+parte|não\s+acolho|deixo\s+de|improcedente)",
     )
-    t.register(r"\bacolho\s+integralmente\b", "procedente", "proc_acolho_integral")
-    t.register(
+    _seed(r"\bacolho\s+integralmente\b", "procedente", "proc_acolho_integral")
+    _seed(
         r"\bprocedente\s+(?:a\s+)?(?:ação|pedido|pretensão)\b",
         "procedente",
         "proc_procedente_pedido",
         negative_pattern=r"(?:parcialmente|em\s+parte)",
     )
-    t.register(r"\bcondeno\s+o\s+r[eé]u\b", "procedente", "proc_condeno_reu")
-    t.register(
+    _seed(r"\bcondeno\s+o\s+r[eé]u\b", "procedente", "proc_condeno_reu")
+    _seed(
         r"\bjulgo\s+procedente\s+o\s+pedido\b",
         "procedente",
         "proc_julgo_proc_pedido",
         negative_pattern=r"(?:parcialmente|em\s+parte)",
     )
-    t.register(r"\bacolher\s+o\s+pedido\s+inicial\b", "procedente", "proc_acolher_pedido_inicial")
+    _seed(r"\bacolher\s+o\s+pedido\s+inicial\b", "procedente", "proc_acolher_pedido_inicial")
 
     # 2. IMPROCEDENTE
-    t.register(
+    _seed(
         r"\bjulgo\s+improcedentes?\b",
         "improcedente",
         "improc_julgo_improcedente",
         negative_pattern=r"(?:não\s+julgo|deixo\s+de|parcialmente)",
     )
-    t.register(
-        r"\brejeito\s+(?:integralmente\s+)?o\s+pedido\b", "improcedente", "improc_rejeito_pedido"
-    )
-    t.register(
+    _seed(r"\brejeito\s+(?:integralmente\s+)?o\s+pedido\b", "improcedente", "improc_rejeito_pedido")
+    _seed(
         r"\bimprocedente\s+(?:a\s+)?(?:ação|pedido)\b",
         "improcedente",
         "improc_pedido_improcedente",
         negative_pattern=r"(?:não\s+é\s+caso|parcialmente)",
     )
-    t.register(
+    _seed(
         r"\bjulgo\s+improcedente\s+a\s+pretensão\b", "improcedente", "improc_julgo_improc_pretensao"
     )
 
     # 3. PARCIALMENTE PROCEDENTE
-    t.register(
+    _seed(
         r"\b(?:julgo|julgando)\s+parcialmente\s+procedentes?\b",
         "parcialmente procedente",
         "parcial_julgo_parcial",
     )
-    t.register(
+    _seed(
         r"\b(?:julgo|julgando)\s+procedente\s+em\s+parte\b",
         "parcialmente procedente",
         "parcial_procedente_em_parte",
     )
-    t.register(
+    _seed(
         r"\bacolho\s+(?:em\s+parte|parcialmente)\b",
         "parcialmente procedente",
         "parcial_acolho_em_parte",
     )
-    t.register(
-        r"\bparcialmente\s+procedente\b", "parcialmente procedente", "parcial_parcialmente_proc"
-    )
-    t.register(
-        r"\bprocedência\s+parcial\b", "parcialmente procedente", "parcial_procedencia_parcial"
-    )
+    _seed(r"\bparcialmente\s+procedente\b", "parcialmente procedente", "parcial_parcialmente_proc")
+    _seed(r"\bprocedência\s+parcial\b", "parcialmente procedente", "parcial_procedencia_parcial")
 
-    # 4. EXTINTO SEM MÉRITO (CPC art. 485)
-    t.register(
-        r"\b(?:extingo|julgo\s+extinto)\s+o\s+processo\s+sem\s+resolução\s+(?:de|do)\s+mérito\b",
+    # 4. EXTINTO SEM MÉRITO (CPC art. 485 e Lei 9.099/95 art. 51)
+    _seed(
+        r"\b(?:extingo|julgo\s+extinto)\s+(?:o\s+processo\s+)?sem\s+resolução\s+(?:de|do)\s+mérito\b",
         "extinto sem mérito",
         "extinto_sem_resolucao",
     )
-    t.register(
+    _seed(
         r"\bextinto\s+sem\s+resolução\s+do\s+mérito\b",
         "extinto sem mérito",
         "extinto_sem_resolucao_2",
     )
-    t.register(
+    _seed(
         r"\bart\.?\s*485\b",
         "extinto sem mérito",
         "extinto_art_485",
         negative_pattern=r"(?:não\s+se\s+aplica|afasto\s+o\s+art|rejeito\s+o\s+art)",
     )
-    t.register(
-        r"\bindefiro\s+a\s+petição\s+inicial\b", "extinto sem mérito", "extinto_indefiro_inicial"
+    _seed(
+        r"\bart\.?\s*51,\s*(?:inciso\s+)?(?:I|II|III|IV)\b",
+        "extinto sem mérito",
+        "extinto_art_51_lei_9099",
     )
-    t.register(r"\bjulgo\s+extinto\s+o\s+processo\b", "extinto sem mérito", "extinto_julgo_extinto")
+    _seed(r"\bindefiro\s+a\s+petição\s+inicial\b", "extinto sem mérito", "extinto_indefiro_inicial")
+    _seed(r"\bjulgo\s+extinto\s+o\s+processo\b", "extinto sem mérito", "extinto_julgo_extinto")
 
     # 5. ACORDO (CPC art. 487, III, b)
-    t.register(
+    _seed(
         r"\bhomologo\s+(?:por\s+sentença\s+)?o\s+acordo\b",
         "acordo",
         "acordo_homologo_acordo",
         negative_pattern=r"(?:rejeito|deixo\s+de)",
     )
-    t.register(r"\bhomologo\s+a\s+transação\b", "acordo", "acordo_homologo_transacao")
-    t.register(r"\bhomologo\s+a\s+avença\b", "acordo", "acordo_homologo_avenca")
-    t.register(r"\bhomologação\s+de\s+acordo\b", "acordo", "acordo_homologacao")
+    _seed(r"\bhomologo\s+a\s+transação\b", "acordo", "acordo_homologo_transacao")
+    _seed(r"\bhomologo\s+a\s+avença\b", "acordo", "acordo_homologo_avenca")
+    _seed(r"\bhomologação\s+de\s+acordo\b", "acordo", "acordo_homologacao")
+
+    # 6. EXTINÇÃO DA EXECUÇÃO (CPC art. 924)
+    _seed(r"\bart\.?\s*924\b", "extinção da execução", "exec_art_924")
+    _seed(r"\bsatisfação\s+da\s+obrigação\b", "extinção da execução", "exec_satisfacao_obrigacao")
+    _seed(
+        r"\bextinção\s+d[ao]\s+cumprimento\s+de\s+sentença\b",
+        "extinção da execução",
+        "exec_extincao_cumprimento",
+    )
+    _seed(
+        r"\bjulgo\s+extint[ao]\s+(?:a\s+presente\s+execução|o\s+cumprimento\s+de\s+sentença)\b",
+        "extinção da execução",
+        "exec_julgo_extinta_exec",
+    )
+
+    # 7. RECURSAIS / ACÓRDÃOS (2º Grau)
+    _seed(
+        r"\b(?:nego|negaram|negou|negar|negando|nega-se)\s+provimento\b",
+        "não provido",
+        "rec_negou_provimento",
+    )
+    _seed(r"\bdesprovido\s+o\s+recurso\b", "não provido", "rec_desprovido")
+    _seed(r"\brecurso\s+não\s+provido\b", "não provido", "rec_recurso_nao_provido")
+    _seed(r"\brecurso\s+improvido\b", "não provido", "rec_improvido")
+
+    _seed(
+        r"\b(?:deram|deu|dou|dar|dando|da-se)\s+parcial\s+provimento\b",
+        "parcialmente provido",
+        "rec_parcial_provimento",
+    )
+    _seed(
+        r"\brecurso\s+parcialmente\s+provido\b",
+        "parcialmente provido",
+        "rec_recurso_parcialmente_provido",
+    )
+    _seed(
+        r"\b(?:dou|deu|deram|dar|dando)\s+provimento\s+em\s+parte\b",
+        "parcialmente provido",
+        "rec_provimento_em_parte",
+    )
+
+    _seed(
+        r"\b(?:dou|deu|deram|dar|dando|da-se)\s+provimento\b",
+        "provido",
+        "rec_deu_provimento",
+        negative_pattern=r"(?:parcial|em\s+parte|não)",
+    )
+    _seed(
+        r"\brecurso\s+provido\b",
+        "provido",
+        "rec_recurso_provido",
+        negative_pattern=r"(?:parcial|não)",
+    )
+
+    _seed(
+        r"\b(?:não\s+conhec(?:eram|eu|o|endo)|não\s+conhecer)\b",
+        "não conhecido",
+        "rec_nao_conhecido",
+    )
+    _seed(r"\brecurso\s+não\s+conhecido\b", "não conhecido", "rec_recurso_nao_conhecido")
+
+    # 8. TUTELAS DE URGÊNCIA / LIMINARES
+    _seed(
+        r"\b(?:defiro|concedo)\s+(?:o\s+pedido\s+de\s+)?(?:a\s+)?(?:tutela\s+de\s+urgência|liminar|efeito\s+suspensivo)\b",
+        "tutela deferida",
+        "tut_deferida",
+    )
+    _seed(
+        r"\b(?:indefiro|denego)\s+(?:o\s+pedido\s+de\s+)?(?:a\s+)?(?:tutela\s+de\s+urgência|liminar|efeito\s+suspensivo)\b",
+        "tutela indeferida",
+        "tut_indeferida",
+    )
+
+    # 9. DESPACHOS DE MERO EXPEDIENTE
+    _seed(r"\bdê-se\s+vista\b", "despacho de expediente", "desp_de_se_vista")
+    _seed(r"\bdesigno\s+(?:sessão|audiência)\b", "despacho de expediente", "desp_designo_audiencia")
+    _seed(
+        r"\bintime-se\s+(?:a\s+parte|o\s+autor|o\s+réu|as\s+partes)\b",
+        "despacho de expediente",
+        "desp_intime_se",
+    )
+    _seed(r"\baguarde-se\s+manifestação\b", "despacho de expediente", "desp_aguarde_se")
+    _seed(r"\bcumpra-se\s+o\s+despacho\b", "despacho de expediente", "desp_cumpra_se")
+
+    # 10. HOMOLOGAÇÃO DE DECISÃO LEIGA (Lei 9.099/95 art. 40)
+    _seed(
+        r"\bhomologo\s+(?:a\s+decisão\s+leiga|o\s+projeto\s+de\s+sentença)\b",
+        "homologação de decisão leiga",
+        "leiga_homologo",
+    )
+
+    return t
 
     return t

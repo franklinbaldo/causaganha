@@ -38,17 +38,32 @@ def main():
     ner_extractor = CompositeEntityExtractor()
 
     selected_rows = []
-    # Garante casos de todos os tribunais e desfechos
-    for desfecho in [
+    # Garante casos representativos de todos os desfechos e categorias multi-eixo
+    outcomes_to_sample = [
+        "não provido",
+        "provido",
+        "parcialmente provido",
         "procedente",
         "improcedente",
         "parcialmente procedente",
+        "extinção da execução",
         "extinto sem mérito",
+        "despacho de expediente",
         "acordo",
+        "não conhecido",
+        "tutela deferida",
+        "tutela indeferida",
         "unknown",
-    ]:
+    ]
+    for desfecho in outcomes_to_sample:
         sub = df_results[df_results["desfecho_cpc"] == desfecho]
-        selected_rows.extend(sub.head(10).to_dict(orient="records"))
+        if not sub.empty:
+            selected_rows.extend(sub.head(6).to_dict(orient="records"))
+
+    # Se a amostragem for menor que 40, completa com amostra aleatória estratificada
+    if len(selected_rows) < 40:
+        remaining = df_results[~df_results["doc_id"].isin([r["doc_id"] for r in selected_rows])]
+        selected_rows.extend(remaining.head(40 - len(selected_rows)).to_dict(orient="records"))
 
     visualizer_cases = []
 
@@ -258,6 +273,12 @@ def main():
                 "tipo_documento": str(row["tipo_documento"])
                 if pd.notna(row["tipo_documento"])
                 else "Sentença",
+                "macro_categoria": str(
+                    row.get("macro_categoria") or row.get("topologia") or "OUTRO"
+                ),
+                "especie_ato": str(
+                    row.get("especie_ato") or row.get("tipo_documento") or "DOCUMENTO_GENERICO"
+                ),
                 "texto_bruto_djen": raw_text,
                 "texto_limpo": clean_text,
                 "secoes": sections_dict,
