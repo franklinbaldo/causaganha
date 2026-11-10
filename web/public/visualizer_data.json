@@ -543,6 +543,26 @@
         "evidence": "Fixado como obrigação de pagar / condenação de mérito"
       },
       {
+        "literal": "art. 373, § 1º, do Código de Processo Civil",
+        "start": 1603,
+        "end": 1646,
+        "char_count": 43,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "373",
+          "paragrafo": "1º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 373, § 1º, do Código de Processo Civil"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
         "literal": "Banco Bradesco S/A",
         "start": 1853,
         "end": 1871,
@@ -571,6 +591,166 @@
         "role": "INSTITUICAO_FINANCEIRA",
         "confidence": 0.99,
         "evidence": "Grande litigante do catálogo CNJ identificado em CABECALHO"
+      },
+      {
+        "literal": "art. 355",
+        "start": 4246,
+        "end": 4254,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "355",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 355"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 130",
+        "start": 5462,
+        "end": 5470,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "PENDENTE_CONTEXTO",
+          "artigo": "130",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 130"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.75,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 17 do CPC",
+        "start": 6660,
+        "end": 6674,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "17",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 17 do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 5º, inciso XXXV",
+        "start": 7268,
+        "end": 7288,
+        "char_count": 20,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CF/88",
+          "artigo": "5º",
+          "paragrafo": null,
+          "inciso": "XXXV",
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 5º, inciso XXXV"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 27 do Código de Defesa do Consumidor",
+        "start": 7608,
+        "end": 7651,
+        "char_count": 43,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 27 do Código de Defesa do Consumidor"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 27 do CDC",
+        "start": 8056,
+        "end": 8070,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 27 do CDC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 206, § 3º, inciso V, do Código Civil",
+        "start": 9048,
+        "end": 9089,
+        "char_count": 41,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CC",
+          "artigo": "206",
+          "paragrafo": "3º",
+          "inciso": "V",
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 206, § 3º, inciso V, do Código Civil"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 27 do Código de Defesa do Consumidor",
+        "start": 9121,
+        "end": 9162,
+        "char_count": 41,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 27 do Código de Defesa do Consumidor"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "0009681-98.2017.8.06.0084",
@@ -632,6 +812,66 @@
         "role": "DATA_GENERICA",
         "confidence": 0.99,
         "evidence": "Data numérica identificada em CABECALHO"
+      },
+      {
+        "literal": "art. 27 do CDC",
+        "start": 10828,
+        "end": 10842,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 27 do CDC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 99, §3º do CPC",
+        "start": 11194,
+        "end": 11213,
+        "char_count": 19,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "99",
+          "paragrafo": "3º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 99, §3º do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 373",
+        "start": 12171,
+        "end": 12179,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "373",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 373"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "art. 1º",
@@ -889,6 +1129,60 @@
         "evidence": "Data numérica identificada em RELATORIO"
       },
       {
+        "literal": "R$1.500,00",
+        "start": 18106,
+        "end": 18116,
+        "char_count": 10,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1500.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$1.500,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$5.000,00",
+        "start": 18212,
+        "end": 18222,
+        "char_count": 10,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 5000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$5.000,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$5.000,00",
+        "start": 18453,
+        "end": 18463,
+        "char_count": 10,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 5000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$5.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
+      },
+      {
         "literal": "30/03/2021",
         "start": 18840,
         "end": 18850,
@@ -985,6 +1279,24 @@
         "evidence": "Grande litigante do catálogo CNJ identificado em RELATORIO"
       },
       {
+        "literal": "R$ 1.000,00",
+        "start": 20185,
+        "end": 20196,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
+      },
+      {
         "literal": "art. 42, parágrafo único, do CDC",
         "start": 20429,
         "end": 20461,
@@ -1063,6 +1375,42 @@
         "role": "DATA_GENERICA",
         "confidence": 0.99,
         "evidence": "Data numérica identificada em RELATORIO"
+      },
+      {
+        "literal": "R$ 1.050,47",
+        "start": 21913,
+        "end": 21924,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1050.47,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.050,47",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 2.000,00",
+        "start": 22038,
+        "end": 22049,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 2000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 2.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
       },
       {
         "literal": "30/03/2021",
@@ -2314,7 +2662,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 99,
+      "total_entidades": 117,
       "cnjs": [
         "3000684-77.2025.8.06.0122",
         "0009681-98.2017.8.06.0084",
@@ -2365,6 +2713,36 @@
           "literal": "R$ 5.000,00",
           "papel": "VALOR_CONDENACAO_PRINCIPAL",
           "secao": "CABECALHO"
+        },
+        {
+          "literal": "R$1.500,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$5.000,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$5.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 1.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 1.050,47",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 2.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
         },
         {
           "literal": "R$ 1.000,00",
@@ -2458,12 +2836,19 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 373 § 1º do CPC",
+        "art. 355 do CPC",
+        "art. 130",
+        "art. 17 do CPC",
+        "art. 5º inc. XXXV do CF/88",
+        "art. 27 do CDC",
+        "art. 206 § 3º inc. V do CC",
+        "art. 99 § 3º do CPC",
+        "art. 373 do CPC",
         "art. 1º",
         "art. 8º",
         "art. 1º § único",
         "art. 39 do CDC",
-        "art. 27 do CDC",
-        "art. 373 do CPC",
         "art. 14 § 3º do CDC",
         "art. 42 § único do CDC",
         "art. 14 do CDC",
@@ -2485,7 +2870,7 @@
         "prazo de 15 (quinze) dias"
       ]
     },
-    "total_entidades": 99,
+    "total_entidades": 117,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 0.86,
     "polo_vencedor": "A",
@@ -2594,6 +2979,42 @@
         "evidence": "Citado no Relatório nas alegações das partes"
       },
       {
+        "literal": "R$ 1.000,00",
+        "start": 787,
+        "end": 798,
+        "char_count": 11,
+        "section": "VOTO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
+      },
+      {
+        "literal": "R$ 1.000,00",
+        "start": 847,
+        "end": 858,
+        "char_count": 11,
+        "section": "VOTO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
+      },
+      {
         "literal": "art. 48 da Lei 9099",
         "start": 1017,
         "end": 1036,
@@ -2689,7 +3110,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 8,
+      "total_entidades": 10,
       "cnjs": [
         "3000634-49.2023.8.06.0016"
       ],
@@ -2704,6 +3125,16 @@
       "magistrados": [],
       "orgaos_julgadores": [],
       "valores_identificados": [
+        {
+          "literal": "R$ 1.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "VOTO"
+        },
+        {
+          "literal": "R$ 1.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "VOTO"
+        },
         {
           "literal": "R$ 1.000,00",
           "papel": "VALOR_CONDENACAO_PRINCIPAL",
@@ -2727,7 +3158,7 @@
       ],
       "datas_relevantes": []
     },
-    "total_entidades": 8,
+    "total_entidades": 10,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 0.72,
     "polo_vencedor": "A",
@@ -3114,6 +3545,24 @@
         "evidence": "Cominação expressa de prazo processual"
       },
       {
+        "literal": "10%",
+        "start": 7582,
+        "end": 7585,
+        "char_count": 3,
+        "section": "ENCERRAMENTO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 10.0,
+          "currency": "PERCENT",
+          "is_percentage": true,
+          "raw_text": "10%",
+          "qualifier": "percentual_generico"
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.95,
+        "evidence": "Percentual citado no texto"
+      },
+      {
         "literal": "Sílvio Jacinto Pereira",
         "start": 7786,
         "end": 7825,
@@ -3131,7 +3580,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 18,
+      "total_entidades": 19,
       "cnjs": [
         "6034298-92.2025.8.09.0007"
       ],
@@ -3167,6 +3616,11 @@
           "literal": "R$ 11.000,00",
           "papel": "VALOR_CONDENACAO_PRINCIPAL",
           "secao": "DISPOSITIVO"
+        },
+        {
+          "literal": "10%",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "ENCERRAMENTO"
         }
       ],
       "normas_aplicadas": [
@@ -3183,7 +3637,7 @@
         "prazo de 05 (cinco) dias"
       ]
     },
-    "total_entidades": 18,
+    "total_entidades": 19,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "A",
@@ -3498,6 +3952,26 @@
         "evidence": "Percentual citado no texto"
       },
       {
+        "literal": "art. 54",
+        "start": 2060,
+        "end": 2067,
+        "char_count": 7,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "PENDENTE_CONTEXTO",
+          "artigo": "54",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 54"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.75,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Luiz Antônio Afonso Júnior",
         "start": 2158,
         "end": 2202,
@@ -3515,7 +3989,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 14,
+      "total_entidades": 15,
       "cnjs": [
         "5049957-58.2026.8.09.0029"
       ],
@@ -3546,13 +4020,14 @@
         "art. 406 do CC",
         "art. 346 do CPC",
         "art. 52 do CPC",
-        "art. 523 § 1º do CPC"
+        "art. 523 § 1º do CPC",
+        "art. 54"
       ],
       "datas_relevantes": [
         "prazo de 15 (quinze) dias"
       ]
     },
-    "total_entidades": 14,
+    "total_entidades": 15,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "A",
@@ -3761,6 +4236,106 @@
         "role": "VALOR_DA_CAUSA",
         "confidence": 0.98,
         "evidence": "Valor citado no cabeçalho"
+      },
+      {
+        "literal": "art. 932",
+        "start": 3132,
+        "end": 3140,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "932",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 932"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 677",
+        "start": 3363,
+        "end": 3371,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "677",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 677"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 178, do Código de Processo Civil",
+        "start": 3449,
+        "end": 3486,
+        "char_count": 37,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "178",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 178, do Código de Processo Civil"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 17 do Código de Defesa do Consumidor",
+        "start": 3877,
+        "end": 3920,
+        "char_count": 43,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "17",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 17 do Código de Defesa do Consumidor"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 27 do CDC",
+        "start": 4601,
+        "end": 4615,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 27 do CDC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "5/6/2018",
@@ -4901,7 +5476,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 67,
+      "total_entidades": 72,
       "cnjs": [
         "0807745-04.2022.8.10.0024",
         "0801546-04.2020.8.10.0034",
@@ -4995,6 +5570,10 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 932 do CPC",
+        "art. 677 do CPC",
+        "art. 178 do CPC",
+        "art. 17 do CDC",
         "art. 27 do CDC",
         "art. 595 do CC",
         "art. 2º do CC",
@@ -5024,7 +5603,7 @@
         "07/03/2017"
       ]
     },
-    "total_entidades": 67,
+    "total_entidades": 72,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 0.72,
     "polo_vencedor": "A",
@@ -5233,6 +5812,106 @@
         "role": "VALOR_DA_CAUSA",
         "confidence": 0.98,
         "evidence": "Valor citado no cabeçalho"
+      },
+      {
+        "literal": "art. 932",
+        "start": 3340,
+        "end": 3348,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "932",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 932"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 677",
+        "start": 3571,
+        "end": 3579,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "677",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 677"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 178, do Código de Processo Civil",
+        "start": 3657,
+        "end": 3694,
+        "char_count": 37,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "178",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 178, do Código de Processo Civil"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 17 do Código de Defesa do Consumidor",
+        "start": 4062,
+        "end": 4105,
+        "char_count": 43,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "17",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 17 do Código de Defesa do Consumidor"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 27 do CDC",
+        "start": 4786,
+        "end": 4800,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 27 do CDC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "5/6/2018",
@@ -6373,7 +7052,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 67,
+      "total_entidades": 72,
       "cnjs": [
         "0806630-45.2022.8.10.0024",
         "0801546-04.2020.8.10.0034",
@@ -6467,6 +7146,10 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 932 do CPC",
+        "art. 677 do CPC",
+        "art. 178 do CPC",
+        "art. 17 do CDC",
         "art. 27 do CDC",
         "art. 595 do CC",
         "art. 2º do CC",
@@ -6496,7 +7179,7 @@
         "07/03/2017"
       ]
     },
-    "total_entidades": 67,
+    "total_entidades": 72,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 0.72,
     "polo_vencedor": "A",
@@ -6601,6 +7284,126 @@
         "role": "ADVOGADO",
         "confidence": 0.95,
         "evidence": "Inscrição na OAB identificada no texto"
+      },
+      {
+        "literal": "art. 321",
+        "start": 673,
+        "end": 681,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "321",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 321"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 932 do Código de Processo Civil",
+        "start": 1234,
+        "end": 1270,
+        "char_count": 36,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "932",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 932 do Código de Processo Civil"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 932, do CPC",
+        "start": 1576,
+        "end": 1592,
+        "char_count": 16,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "932",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 932, do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 321",
+        "start": 2719,
+        "end": 2727,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "321",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 321"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 5º, inciso XXXV",
+        "start": 3121,
+        "end": 3141,
+        "char_count": 20,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CF/88",
+          "artigo": "5º",
+          "paragrafo": null,
+          "inciso": "XXXV",
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 5º, inciso XXXV"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 153, § 4º",
+        "start": 3433,
+        "end": 3447,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CF/88",
+          "artigo": "153",
+          "paragrafo": "4º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 153, § 4º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "ART. 118",
@@ -7099,7 +7902,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 28,
+      "total_entidades": 34,
       "cnjs": [
         "0801362-42.2020.8.10.0036",
         "00097722820188060126",
@@ -7140,14 +7943,16 @@
         }
       ],
       "normas_aplicadas": [
-        "art. 118",
+        "art. 321 do CPC",
+        "art. 932 do CPC",
         "art. 5º inc. XXXV do CF/88",
+        "art. 153 § 4º do CF/88",
+        "art. 118",
         "art. 5º inc. XXV do CF/88",
         "art. 75 do CF/88",
         "art. 288",
         "art. 290",
-        "art. 5º do CF/88",
-        "art. 932 do CPC"
+        "art. 5º do CF/88"
       ],
       "datas_relevantes": [
         "18/12/2019",
@@ -7156,7 +7961,7 @@
         "20 de abril de 2023"
       ]
     },
-    "total_entidades": 28,
+    "total_entidades": 34,
     "desfecho_cpc": "procedente",
     "confianca_desfecho": 0.79,
     "polo_vencedor": "A",
@@ -7268,10 +8073,43 @@
         "role": "POLO_ATIVO",
         "confidence": 0.85,
         "evidence": "Polo Ativo extraído do rótulo de cabeçalho na ausência de metadado DJEN"
+      },
+      {
+        "literal": "SILVANIRA DE LIMA SOUSA",
+        "start": 189,
+        "end": 222,
+        "char_count": 23,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "PESSOA",
+        "normalized_value": {
+          "nome": "SILVANIRA DE LIMA SOUSA",
+          "cpf_cnpj": null,
+          "polo": "ADVOGADO"
+        },
+        "role": "ADVOGADO",
+        "confidence": 0.9,
+        "evidence": "Advogado associado à OAB identificada no texto"
+      },
+      {
+        "literal": "OAB CE050852",
+        "start": 222,
+        "end": 234,
+        "char_count": 12,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "OAB",
+        "normalized_value": {
+          "uf": "CE",
+          "numero": "050852",
+          "tipo_inscricao": null,
+          "nome_advogado": "SILVANIRA DE LIMA SOUSA"
+        },
+        "role": "ADVOGADO",
+        "confidence": 0.95,
+        "evidence": "Inscrição na OAB identificada no texto"
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 4,
+      "total_entidades": 6,
       "cnjs": [
         "5001567-03.2025.8.01.0001"
       ],
@@ -7292,22 +8130,31 @@
           "tipo": "PESSOA"
         }
       ],
-      "advogados_oab": [],
+      "advogados_oab": [
+        {
+          "nome": "SILVANIRA DE LIMA SOUSA",
+          "oab": null
+        },
+        {
+          "nome": "SILVANIRA DE LIMA SOUSA",
+          "oab": "OAB/CE 050852"
+        }
+      ],
       "magistrados": [],
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [],
       "datas_relevantes": []
     },
-    "total_entidades": 4,
+    "total_entidades": 6,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "P",
     "cnj": "5001567-03.2025.8.01.0001",
     "autor": "Raimundo Nonato Paiva da Silva",
     "reu": "Banco Pan",
-    "advogado": "Não identificado",
-    "oab": "Não identificada",
+    "advogado": "SILVANIRA DE LIMA SOUSA",
+    "oab": "OAB/CE 050852",
     "magistrado": "Não identificado",
     "valor_condenacao": null,
     "valor_causa": null,
@@ -7345,6 +8192,26 @@
     },
     "entidades": [
       {
+        "literal": "art. 932",
+        "start": 52,
+        "end": 60,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "932",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 932"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
         "literal": "15%",
         "start": 200,
         "end": 203,
@@ -7361,6 +8228,26 @@
         "role": "PERCENTUAL_SUCUMBENCIA",
         "confidence": 0.95,
         "evidence": "Percentual fixado para honorários advocatícios"
+      },
+      {
+        "literal": "art. 98, §3º, do CPC",
+        "start": 336,
+        "end": 356,
+        "char_count": 20,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, §3º, do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "22 de junho de 2023",
@@ -7384,7 +8271,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 2,
+      "total_entidades": 4,
       "cnjs": [],
       "partes_litigantes": [],
       "advogados_oab": [],
@@ -7397,12 +8284,15 @@
           "secao": "CABECALHO"
         }
       ],
-      "normas_aplicadas": [],
+      "normas_aplicadas": [
+        "art. 932 do CPC",
+        "art. 98 § 3º do CPC"
+      ],
       "datas_relevantes": [
         "22 de junho de 2023"
       ]
     },
-    "total_entidades": 2,
+    "total_entidades": 4,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.77,
     "polo_vencedor": "P",
@@ -7415,7 +8305,7 @@
     "valor_condenacao": null,
     "valor_causa": null,
     "taxa_sucesso_economico": null,
-    "normas_aplicadas": null,
+    "normas_aplicadas": "art. 932 do CPC, art. 98 § 3º do CPC",
     "latencia_total_ms": 13.61
   },
   {
@@ -7848,6 +8738,26 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 10",
+        "start": 9685,
+        "end": 9692,
+        "char_count": 7,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "PENDENTE_CONTEXTO",
+          "artigo": "10",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 10"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.75,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Marcon Roubert da Silva  Juiz",
         "start": 9761,
         "end": 9801,
@@ -7865,7 +8775,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 20,
+      "total_entidades": 21,
       "cnjs": [
         "8008574-41.2022.8.05.0113",
         "80065487020228050113",
@@ -7895,14 +8805,15 @@
         "art. 243 do CF/88",
         "art. 5º do CF/88",
         "art. 46 do LEI Nº 9.099/95",
-        "art. 15"
+        "art. 15",
+        "art. 10"
       ],
       "datas_relevantes": [
         "11/04/2024",
         "14/09/2022"
       ]
     },
-    "total_entidades": 20,
+    "total_entidades": 21,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.77,
     "polo_vencedor": "P",
@@ -7985,6 +8896,44 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "ART. 14, § 3º",
+        "start": 983,
+        "end": 996,
+        "char_count": 13,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CDC",
+          "artigo": "14",
+          "paragrafo": "3º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "ART. 14, § 3º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "R$ 4.895,89",
+        "start": 2081,
+        "end": 2092,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 4895.89,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 4.895,89",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
       },
       {
         "literal": "art. 15, inci",
@@ -8227,6 +9176,26 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 98, § 3",
+        "start": 7841,
+        "end": 7853,
+        "char_count": 12,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, § 3"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Marcon Roubert da Silva  Juiz",
         "start": 7918,
         "end": 7958,
@@ -8244,7 +9213,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 14,
+      "total_entidades": 17,
       "cnjs": [
         "8001410-11.2025.8.05.0213",
         "80012374120228050035",
@@ -8258,26 +9227,32 @@
       "orgaos_julgadores": [],
       "valores_identificados": [
         {
+          "literal": "R$ 4.895,89",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
+        {
           "literal": "20%",
           "papel": "PERCENTUAL_SUCUMBENCIA",
           "secao": "HONORARIOS_CUSTAS"
         }
       ],
       "normas_aplicadas": [
+        "art. 14 § 3º do CDC",
         "art. 15 inc. i do CPC",
         "art. 932 inc. IV do CPC",
         "art. 14 do CDC",
         "art. 14 § 3º inc. i do CDC",
-        "art. 14 § 3º do CDC",
         "art. 46 do LEI Nº 9.099/95",
-        "art. 15"
+        "art. 15",
+        "art. 98 § 3 do CPC"
       ],
       "datas_relevantes": [
         "06/09/2024",
         "17/07/2025"
       ]
     },
-    "total_entidades": 14,
+    "total_entidades": 17,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.77,
     "polo_vencedor": "P",
@@ -8360,6 +9335,114 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "R$ 558,92",
+        "start": 1428,
+        "end": 1437,
+        "char_count": 9,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 558.92,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 558,92",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$550,00",
+        "start": 1548,
+        "end": 1556,
+        "char_count": 8,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 550.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$550,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$205,00",
+        "start": 1588,
+        "end": 1596,
+        "char_count": 8,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 205.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$205,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$65,00",
+        "start": 1623,
+        "end": 1630,
+        "char_count": 7,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 65.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$65,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$820,00",
+        "start": 1644,
+        "end": 1652,
+        "char_count": 8,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 820.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$820,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 1.640,00",
+        "start": 1772,
+        "end": 1783,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1640.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.640,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
       },
       {
         "literal": "R$550,00",
@@ -8535,6 +9618,26 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 98, §3",
+        "start": 6884,
+        "end": 6895,
+        "char_count": 11,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, §3"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Marcon Roubert da Silva Juiz",
         "start": 6970,
         "end": 7009,
@@ -8552,7 +9655,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 11,
+      "total_entidades": 18,
       "cnjs": [
         "0000546-26.2012.8.05.0194",
         "8002485-22.2022.8.05.0074"
@@ -8564,6 +9667,36 @@
       ],
       "orgaos_julgadores": [],
       "valores_identificados": [
+        {
+          "literal": "R$ 558,92",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$550,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$205,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$65,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$820,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 1.640,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
         {
           "literal": "R$550,00",
           "papel": "VALOR_MENCIONADO",
@@ -8588,13 +9721,14 @@
       "normas_aplicadas": [
         "art. 15 do CPC",
         "art. 932 do CPC",
-        "art. 373 do CPC"
+        "art. 373 do CPC",
+        "art. 98 § 3 do CPC"
       ],
       "datas_relevantes": [
         "08/10/2025"
       ]
     },
-    "total_entidades": 11,
+    "total_entidades": 18,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.87,
     "polo_vencedor": "P",
@@ -9070,6 +10204,26 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 98 do CPC",
+        "start": 12251,
+        "end": 12265,
+        "char_count": 14,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98 do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Marcon Roubert da Silva Juiz",
         "start": 12315,
         "end": 12353,
@@ -9087,7 +10241,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 22,
+      "total_entidades": 23,
       "cnjs": [
         "8000564-15.2025.8.05.0012",
         "8002656-70.2019.8.05.0110",
@@ -9139,7 +10293,8 @@
         "art. 932 do CPC",
         "art. 74 do CPC",
         "art. 37 do CF/88",
-        "art. 54"
+        "art. 54",
+        "art. 98 do CPC"
       ],
       "datas_relevantes": [
         "01/11/2023",
@@ -9147,7 +10302,7 @@
         "11/02/2025"
       ]
     },
-    "total_entidades": 22,
+    "total_entidades": 23,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.87,
     "polo_vencedor": "P",
@@ -9230,6 +10385,78 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "R$2.559,83",
+        "start": 1367,
+        "end": 1377,
+        "char_count": 10,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 2559.83,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$2.559,83",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$319,97",
+        "start": 1406,
+        "end": 1414,
+        "char_count": 8,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 319.97,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$319,97",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$10.000,00",
+        "start": 1961,
+        "end": 1972,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 10000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$10.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
+      },
+      {
+        "literal": "R$5.000,00",
+        "start": 3021,
+        "end": 3031,
+        "char_count": 10,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 5000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$5.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
       },
       {
         "literal": "artigo 43 da Lei 9.099/95",
@@ -9406,7 +10633,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 10,
+      "total_entidades": 14,
       "cnjs": [
         "8001586-16.2025.8.05.0172",
         "8000046-58.2020.8.05.0090"
@@ -9418,6 +10645,26 @@
       ],
       "orgaos_julgadores": [],
       "valores_identificados": [
+        {
+          "literal": "R$2.559,83",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$319,97",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$10.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$5.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
         {
           "literal": "R$5.000,00",
           "papel": "VALOR_CONDENACAO_PRINCIPAL",
@@ -9439,7 +10686,7 @@
         "15/02/2023"
       ]
     },
-    "total_entidades": 10,
+    "total_entidades": 14,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.87,
     "polo_vencedor": "P",
@@ -9522,6 +10769,24 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "R$ 5.000,00",
+        "start": 1843,
+        "end": 1854,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 5000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 5.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
       },
       {
         "literal": "art. 373",
@@ -9623,6 +10888,26 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 98, § 3",
+        "start": 5143,
+        "end": 5155,
+        "char_count": 12,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, § 3"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Marcon Roubert da Silva Juiz",
         "start": 5220,
         "end": 5260,
@@ -9640,7 +10925,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 7,
+      "total_entidades": 9,
       "cnjs": [
         "0501458-69.2017.8.05.0006",
         "8003403-43.2018.8.05.0243"
@@ -9653,6 +10938,11 @@
       "orgaos_julgadores": [],
       "valores_identificados": [
         {
+          "literal": "R$ 5.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
+        {
           "literal": "20%",
           "papel": "PERCENTUAL_SUCUMBENCIA",
           "secao": "HONORARIOS_CUSTAS"
@@ -9660,13 +10950,14 @@
       ],
       "normas_aplicadas": [
         "art. 373 do CPC",
-        "art. 6º do CPC"
+        "art. 6º do CPC",
+        "art. 98 § 3 do CPC"
       ],
       "datas_relevantes": [
         "26/03/2021"
       ]
     },
-    "total_entidades": 7,
+    "total_entidades": 9,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.87,
     "polo_vencedor": "P",
@@ -9970,6 +11261,26 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 98, § 3",
+        "start": 7078,
+        "end": 7090,
+        "char_count": 12,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, § 3"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Marcon Roubert da Silva  Juiz",
         "start": 7155,
         "end": 7196,
@@ -9987,7 +11298,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 13,
+      "total_entidades": 14,
       "cnjs": [
         "8031921-80.2024.8.05.0001",
         "80999419420228050001"
@@ -10011,13 +11322,14 @@
         "art. 932 inc. IV do CPC",
         "art. 373 do CPC",
         "art. 46 do LEI Nº 9.099/95",
-        "art. 15"
+        "art. 15",
+        "art. 98 § 3 do CPC"
       ],
       "datas_relevantes": [
         "06/02/2024"
       ]
     },
-    "total_entidades": 13,
+    "total_entidades": 14,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.77,
     "polo_vencedor": "P",
@@ -10313,6 +11625,42 @@
         "role": "VALOR_DA_CAUSA",
         "confidence": 0.98,
         "evidence": "Valor citado no cabeçalho"
+      },
+      {
+        "literal": "R$ 4.000,00",
+        "start": 4714,
+        "end": 4725,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 4000.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 4.000,00",
+          "qualifier": "condenacao_principal"
+        },
+        "role": "VALOR_CONDENACAO_PRINCIPAL",
+        "confidence": 0.98,
+        "evidence": "Fixado como obrigação de pagar / condenação de mérito"
+      },
+      {
+        "literal": "1%",
+        "start": 4789,
+        "end": 4791,
+        "char_count": 2,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1.0,
+          "currency": "PERCENT",
+          "is_percentage": true,
+          "raw_text": "1%",
+          "qualifier": "percentual_generico"
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.95,
+        "evidence": "Percentual citado no texto"
       },
       {
         "literal": "BANCO ITAU",
@@ -10865,7 +12213,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 41,
+      "total_entidades": 43,
       "cnjs": [
         "8000233-34.2025.8.05.0044",
         "80003991820218050267",
@@ -10926,6 +12274,16 @@
         {
           "literal": "R$ 4.000,00",
           "papel": "VALOR_CONDENACAO_PRINCIPAL",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "1%",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 4.000,00",
+          "papel": "VALOR_CONDENACAO_PRINCIPAL",
           "secao": "FUNDAMENTACAO"
         },
         {
@@ -10966,7 +12324,7 @@
         "26/07/2023"
       ]
     },
-    "total_entidades": 41,
+    "total_entidades": 43,
     "desfecho_cpc": "improcedente",
     "confianca_desfecho": 0.87,
     "polo_vencedor": "P",
@@ -11322,6 +12680,26 @@
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
       },
       {
+        "literal": "art. 38 da Lei 9099/95",
+        "start": 1085,
+        "end": 1107,
+        "char_count": 22,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI 9099/95",
+          "artigo": "38",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 38 da Lei 9099/95"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
         "literal": "art. 355",
         "start": 1801,
         "end": 1809,
@@ -11635,6 +13013,66 @@
         "evidence": "Data numérica identificada em DISPOSITIVO"
       },
       {
+        "literal": "art. 55 da Lei 9.099/95",
+        "start": 10150,
+        "end": 10173,
+        "char_count": 23,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI_9099_JUIZADOS",
+          "artigo": "55",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 55 da Lei 9.099/95"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
+        "literal": "art. 55 da Lei 9.099/95",
+        "start": 10241,
+        "end": 10264,
+        "char_count": 23,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI_9099_JUIZADOS",
+          "artigo": "55",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 55 da Lei 9.099/95"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
+        "literal": "art. 40 da Lei 9.099/95",
+        "start": 10428,
+        "end": 10451,
+        "char_count": 23,
+        "section": "ENCERRAMENTO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI_9099_JUIZADOS",
+          "artigo": "40",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 40 da Lei 9.099/95"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção ENCERRAMENTO"
+      },
+      {
         "literal": "Bruno dos Anjos",
         "start": 10623,
         "end": 10661,
@@ -11652,7 +13090,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 18,
+      "total_entidades": 22,
       "cnjs": [
         "3002394-94.2025.8.06.0167"
       ],
@@ -11676,6 +13114,7 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 38 do LEI 9099/95",
         "art. 355 do CPC",
         "art. 6º inc. VIII do CPC",
         "art. 373 § 1º do CPC",
@@ -11684,14 +13123,16 @@
         "art. 6º do CDC",
         "art. 31",
         "art. 42 do CDC",
-        "art. 487 inc. I do CPC"
+        "art. 487 inc. I do CPC",
+        "art. 55 do LEI_9099_JUIZADOS",
+        "art. 40 do LEI_9099_JUIZADOS"
       ],
       "datas_relevantes": [
         "30/03/2021",
         "21/10/2020"
       ]
     },
-    "total_entidades": 18,
+    "total_entidades": 22,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -11819,6 +13260,26 @@
         "role": "DATA_GENERICA",
         "confidence": 0.99,
         "evidence": "Data numérica identificada em CABECALHO"
+      },
+      {
+        "literal": "art. 38",
+        "start": 2142,
+        "end": 2149,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI_9099_JUIZADOS",
+          "artigo": "38",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 38"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "artigo 355, inciso I, do Código de Processo Civil",
@@ -12176,7 +13637,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 22,
+      "total_entidades": 23,
       "cnjs": [],
       "partes_litigantes": [],
       "advogados_oab": [],
@@ -12205,6 +13666,7 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 38 do LEI_9099_JUIZADOS",
         "art. 355 inc. I do CPC",
         "art. 5º do CF/88",
         "art. 6º do CDC",
@@ -12225,7 +13687,7 @@
         "05/12/2017"
       ]
     },
-    "total_entidades": 22,
+    "total_entidades": 23,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 0.99,
     "polo_vencedor": "draw",
@@ -12326,6 +13788,24 @@
         "evidence": "Polo Ativo extraído do rótulo de cabeçalho na ausência de metadado DJEN"
       },
       {
+        "literal": "R$ 27.908,02",
+        "start": 719,
+        "end": 731,
+        "char_count": 12,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 27908.02,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 27.908,02",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
         "literal": "0010297-44.2023.5.18.0128",
         "start": 861,
         "end": 886,
@@ -12380,6 +13860,114 @@
         "role": "ORGAO_PUBLICO",
         "confidence": 0.99,
         "evidence": "Grande litigante do catálogo CNJ identificado em RELATORIO"
+      },
+      {
+        "literal": "R$ 17.779,90",
+        "start": 2206,
+        "end": 2218,
+        "char_count": 12,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 17779.9,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 17.779,90",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 7.591,03",
+        "start": 2278,
+        "end": 2289,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 7591.03,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 7.591,03",
+          "qualifier": "honorarios_advocaticios"
+        },
+        "role": "VALOR_HONORARIOS",
+        "confidence": 0.98,
+        "evidence": "Associado a honorários sucumbenciais"
+      },
+      {
+        "literal": "R$ 2.537,09",
+        "start": 2322,
+        "end": 2333,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 2537.09,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 2.537,09",
+          "qualifier": "honorarios_advocaticios"
+        },
+        "role": "VALOR_HONORARIOS",
+        "confidence": 0.98,
+        "evidence": "Associado a honorários sucumbenciais"
+      },
+      {
+        "literal": "40%",
+        "start": 2714,
+        "end": 2717,
+        "char_count": 3,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 40.0,
+          "currency": "PERCENT",
+          "is_percentage": true,
+          "raw_text": "40%",
+          "qualifier": "percentual_generico"
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.95,
+        "evidence": "Percentual citado no texto"
+      },
+      {
+        "literal": "R$ 25.370,93",
+        "start": 2865,
+        "end": 2877,
+        "char_count": 12,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 25370.93,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 25.370,93",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 17.779,90",
+        "start": 3350,
+        "end": 3362,
+        "char_count": 12,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 17779.9,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 17.779,90",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
       },
       {
         "literal": "Ministério Público",
@@ -12675,7 +14263,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 21,
+      "total_entidades": 28,
       "cnjs": [
         "5050959-30.2025.8.09.0019",
         "0010297-44.2023.5.18.0128"
@@ -12698,6 +14286,41 @@
       ],
       "orgaos_julgadores": [],
       "valores_identificados": [
+        {
+          "literal": "R$ 27.908,02",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 17.779,90",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 7.591,03",
+          "papel": "VALOR_HONORARIOS",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 2.537,09",
+          "papel": "VALOR_HONORARIOS",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "40%",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 25.370,93",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 17.779,90",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
         {
           "literal": "R$ 27.908,02",
           "papel": "VALOR_MENCIONADO",
@@ -12744,7 +14367,7 @@
       ],
       "datas_relevantes": []
     },
-    "total_entidades": 21,
+    "total_entidades": 28,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -12897,6 +14520,42 @@
         "role": "TESE_ALEGADA",
         "confidence": 0.98,
         "evidence": "Citado no Relatório nas alegações das partes"
+      },
+      {
+        "literal": "R$ 850,00",
+        "start": 2051,
+        "end": 2060,
+        "char_count": 9,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 850.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 850,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 1.660,00",
+        "start": 2292,
+        "end": 2303,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1660.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.660,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
       },
       {
         "literal": "art. 373, inciso II, do Código de Processo Civil",
@@ -13090,7 +14749,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 15,
+      "total_entidades": 17,
       "cnjs": [
         "6002098-32.2025.8.09.0007"
       ],
@@ -13107,6 +14766,16 @@
       ],
       "orgaos_julgadores": [],
       "valores_identificados": [
+        {
+          "literal": "R$ 850,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 1.660,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
         {
           "literal": "R$ 850,00",
           "papel": "VALOR_MENCIONADO",
@@ -13137,7 +14806,7 @@
         "prazo de 15 (quinze) dias"
       ]
     },
-    "total_entidades": 15,
+    "total_entidades": 17,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -13214,6 +14883,66 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "art. 355",
+        "start": 942,
+        "end": 950,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "355",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 355"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 1º",
+        "start": 986,
+        "end": 995,
+        "char_count": 9,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "Art. 1º",
+        "start": 1032,
+        "end": 1039,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "Art. 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "26/10/2018",
@@ -13720,7 +15449,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 26,
+      "total_entidades": 29,
       "cnjs": [
         "1062717-45.2023.8.11.0001",
         "1000758-20.2016.8.11.0001",
@@ -13733,6 +15462,8 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 355 do CPC",
+        "art. 1º do CPC",
         "art. 5º inc. XXXV do CF/88",
         "art. 5º do CF/88",
         "art. 55",
@@ -13756,7 +15487,7 @@
         "05 de junho de 2023"
       ]
     },
-    "total_entidades": 26,
+    "total_entidades": 29,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -13833,6 +15564,86 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "art. 345",
+        "start": 673,
+        "end": 681,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "345",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 345"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 355",
+        "start": 1020,
+        "end": 1028,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "355",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 355"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 1º",
+        "start": 1064,
+        "end": 1073,
+        "char_count": 9,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "Art. 1º",
+        "start": 1110,
+        "end": 1117,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "Art. 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "28/12/2018",
@@ -14279,7 +16090,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 23,
+      "total_entidades": 27,
       "cnjs": [
         "1079695-97.2023.8.11.0001",
         "1002789-40.2021.8.11.0000",
@@ -14292,6 +16103,9 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 345 do CPC",
+        "art. 355 do CPC",
+        "art. 1º do CPC",
         "art. 54",
         "art. 55",
         "art. 7 do CF/88",
@@ -14311,7 +16125,7 @@
         "05 de junho de 2023"
       ]
     },
-    "total_entidades": 23,
+    "total_entidades": 27,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -14388,6 +16202,86 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "art. 345",
+        "start": 673,
+        "end": 681,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "345",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 345"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 355",
+        "start": 1020,
+        "end": 1028,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "355",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 355"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 1º",
+        "start": 1064,
+        "end": 1073,
+        "char_count": 9,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "Art. 1º",
+        "start": 1110,
+        "end": 1117,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "Art. 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "29/12/2018",
@@ -14834,7 +16728,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 23,
+      "total_entidades": 27,
       "cnjs": [
         "1079882-08.2023.8.11.0001",
         "1002789-40.2021.8.11.0000",
@@ -14847,6 +16741,9 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 345 do CPC",
+        "art. 355 do CPC",
+        "art. 1º do CPC",
         "art. 54",
         "art. 55",
         "art. 7 do CF/88",
@@ -14866,7 +16763,7 @@
         "05 de junho de 2023"
       ]
     },
-    "total_entidades": 23,
+    "total_entidades": 27,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -14943,6 +16840,86 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "art. 345",
+        "start": 655,
+        "end": 663,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "345",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 345"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 355",
+        "start": 1002,
+        "end": 1010,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "355",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 355"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "artigo 1º",
+        "start": 1046,
+        "end": 1055,
+        "char_count": 9,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "Art. 1º",
+        "start": 1092,
+        "end": 1099,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "1º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "Art. 1º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "22/12/2018",
@@ -15389,7 +17366,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 23,
+      "total_entidades": 27,
       "cnjs": [
         "1078998-76.2023.8.11.0001",
         "1002789-40.2021.8.11.0000",
@@ -15402,6 +17379,9 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 345 do CPC",
+        "art. 355 do CPC",
+        "art. 1º do CPC",
         "art. 54",
         "art. 55",
         "art. 7 do CF/88",
@@ -15421,7 +17401,7 @@
         "05 de junho de 2023"
       ]
     },
-    "total_entidades": 23,
+    "total_entidades": 27,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -15498,6 +17478,46 @@
         "role": "PROCESSO_PRINCIPAL",
         "confidence": 1.0,
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
+      },
+      {
+        "literal": "artigo 38 da Lei nº 9.099/95",
+        "start": 284,
+        "end": 312,
+        "char_count": 28,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI Nº 9.099/95",
+          "artigo": "38",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 38 da Lei nº 9.099/95"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 5º",
+        "start": 816,
+        "end": 823,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "PENDENTE_CONTEXTO",
+          "artigo": "5º",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 5º"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.75,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "art. 7º, parágrafo único",
@@ -15598,6 +17618,60 @@
         "role": "TESE_ALEGADA",
         "confidence": 0.9,
         "evidence": "Citado no Relatório nas alegações das partes"
+      },
+      {
+        "literal": "R$ 5.686,00",
+        "start": 4179,
+        "end": 4190,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 5686.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 5.686,00",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 1",
+        "start": 4322,
+        "end": 4326,
+        "char_count": 4,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1.0,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
+        "literal": "R$ 933,93",
+        "start": 4430,
+        "end": 4439,
+        "char_count": 9,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 933.93,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 933,93",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
       },
       {
         "literal": "artigo 3º §3 da Lei 14.034/2020",
@@ -15969,7 +18043,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 25,
+      "total_entidades": 30,
       "cnjs": [
         "1065691-89.2022.8.11.0001"
       ],
@@ -15978,6 +18052,21 @@
       "magistrados": [],
       "orgaos_julgadores": [],
       "valores_identificados": [
+        {
+          "literal": "R$ 5.686,00",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 1",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
+        {
+          "literal": "R$ 933,93",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        },
         {
           "literal": "R$ 5.686,00",
           "papel": "VALOR_MENCIONADO",
@@ -16010,6 +18099,8 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 38 do LEI Nº 9.099/95",
+        "art. 5º",
         "art. 7º § único do CDC",
         "art. 55 do CPC",
         "art. 6º",
@@ -16029,7 +18120,7 @@
         "31 de dezembro de 2020"
       ]
     },
-    "total_entidades": 25,
+    "total_entidades": 30,
     "desfecho_cpc": "parcialmente procedente",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -16721,6 +18812,26 @@
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
       },
       {
+        "literal": "art. 136",
+        "start": 700,
+        "end": 708,
+        "char_count": 8,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "PENDENTE_CONTEXTO",
+          "artigo": "136",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 136"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.75,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
         "literal": "art. 330, § 1º, inciso III, do Código de Processo Civil",
         "start": 1845,
         "end": 1900,
@@ -16860,6 +18971,46 @@
         "evidence": "Percentual fixado para honorários advocatícios"
       },
       {
+        "literal": "art. 85, § 2º, do CPC",
+        "start": 6225,
+        "end": 6246,
+        "char_count": 21,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "85",
+          "paragrafo": "2º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 85, § 2º, do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
+        "literal": "art. 98, § 3º, do CPC",
+        "start": 6369,
+        "end": 6390,
+        "char_count": 21,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, § 3º, do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "Rodrigo de Melo Brustolin",
         "start": 6787,
         "end": 6831,
@@ -16877,7 +19028,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 9,
+      "total_entidades": 12,
       "cnjs": [
         "6005967-02.2024.8.09.0051",
         "5226118-95.2019.8.09.0051"
@@ -16896,16 +19047,19 @@
         }
       ],
       "normas_aplicadas": [
+        "art. 136",
         "art. 330 § 1º inc. III do CPC",
         "art. 14 § 3º inc. II do CDC",
-        "art. 485 inc. VI do CPC"
+        "art. 485 inc. VI do CPC",
+        "art. 85 § 2º do CPC",
+        "art. 98 § 3º do CPC"
       ],
       "datas_relevantes": [
         "08 de agosto de 2022",
         "09/08/2022"
       ]
     },
-    "total_entidades": 9,
+    "total_entidades": 12,
     "desfecho_cpc": "extinto sem mérito",
     "confianca_desfecho": 0.82,
     "polo_vencedor": "unknown",
@@ -17057,6 +19211,46 @@
         "role": "DATA_GENERICA",
         "confidence": 0.99,
         "evidence": "Data numérica identificada em CABECALHO"
+      },
+      {
+        "literal": "art. 38",
+        "start": 388,
+        "end": 395,
+        "char_count": 7,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "38",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 38"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
+        "literal": "art. 27, da Lei nº 12.153/2009",
+        "start": 429,
+        "end": 459,
+        "char_count": 30,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI Nº 12.153/2009",
+          "artigo": "27",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 27, da Lei nº 12.153/2009"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "art. 4º",
@@ -17560,10 +19754,30 @@
         "role": "DISPOSITIVO_LEGAL_APLICADO",
         "confidence": 0.9,
         "evidence": "Citado no Dispositivo como fundamento da ordem judicial"
+      },
+      {
+        "literal": "art. 55, da Lei 9.099/95",
+        "start": 8413,
+        "end": 8437,
+        "char_count": 24,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "LEI_9099_JUIZADOS",
+          "artigo": "55",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 55, da Lei 9.099/95"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 30,
+      "total_entidades": 33,
       "cnjs": [
         "1068123-50.2025.8.13.0024",
         "5011237-65.2023.8.13.0433",
@@ -17591,6 +19805,8 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 38 do CPC",
+        "art. 27 do LEI Nº 12.153/2009",
         "art. 4º do CPC",
         "art. 6º do CPC",
         "art. 6º do CF/88",
@@ -17612,7 +19828,7 @@
         "17/05/2019"
       ]
     },
-    "total_entidades": 30,
+    "total_entidades": 33,
     "desfecho_cpc": "extinto sem mérito",
     "confianca_desfecho": 0.98,
     "polo_vencedor": "unknown",
@@ -17706,6 +19922,26 @@
         "evidence": "Grande litigante do catálogo CNJ identificado em DISPOSITIVO"
       },
       {
+        "literal": "art. 1",
+        "start": 1577,
+        "end": 1583,
+        "char_count": 6,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CC",
+          "artigo": "1",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 1"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.9,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
+      },
+      {
         "literal": "12%",
         "start": 1808,
         "end": 1811,
@@ -17722,10 +19958,30 @@
         "role": "PERCENTUAL_SUCUMBENCIA",
         "confidence": 0.95,
         "evidence": "Percentual fixado para honorários advocatícios"
+      },
+      {
+        "literal": "art. 85 do CPC",
+        "start": 1992,
+        "end": 2006,
+        "char_count": 14,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "85",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 85 do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 3,
+      "total_entidades": 5,
       "cnjs": [
         "0803031-21.2019.8.12.0001"
       ],
@@ -17746,10 +20002,13 @@
           "secao": "HONORARIOS_CUSTAS"
         }
       ],
-      "normas_aplicadas": [],
+      "normas_aplicadas": [
+        "art. 1 do CC",
+        "art. 85 do CPC"
+      ],
       "datas_relevantes": []
     },
-    "total_entidades": 3,
+    "total_entidades": 5,
     "desfecho_cpc": "extinto sem mérito",
     "confianca_desfecho": 0.82,
     "polo_vencedor": "unknown",
@@ -18632,10 +20891,30 @@
         "role": "PERCENTUAL_SUCUMBENCIA",
         "confidence": 0.95,
         "evidence": "Percentual fixado para honorários advocatícios"
+      },
+      {
+        "literal": "art. 98, §3º, do CPC",
+        "start": 4015,
+        "end": 4035,
+        "char_count": 20,
+        "section": "HONORARIOS_CUSTAS",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "98",
+          "paragrafo": "3º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 98, §3º, do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção HONORARIOS_CUSTAS"
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 8,
+      "total_entidades": 9,
       "cnjs": [
         "0892560-62.2022.8.14.0301"
       ],
@@ -18660,11 +20939,12 @@
         "art. 330 § 3º do CPC",
         "art. 330 § 2º do CPC",
         "art. 330 do CPC",
-        "art. 485 inc. IV do CPC"
+        "art. 485 inc. IV do CPC",
+        "art. 98 § 3º do CPC"
       ],
       "datas_relevantes": []
     },
-    "total_entidades": 8,
+    "total_entidades": 9,
     "desfecho_cpc": "extinto sem mérito",
     "confianca_desfecho": 0.98,
     "polo_vencedor": "unknown",
@@ -18742,6 +21022,24 @@
         "role": "POLO_ATIVO",
         "confidence": 0.85,
         "evidence": "Polo Ativo extraído do rótulo de cabeçalho na ausência de metadado DJEN"
+      },
+      {
+        "literal": "R$ 1.488,70",
+        "start": 313,
+        "end": 324,
+        "char_count": 11,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 1488.7,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 1.488,70",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
       },
       {
         "literal": "29 de setembro de 2025",
@@ -18861,7 +21159,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 7,
+      "total_entidades": 8,
       "cnjs": [],
       "partes_litigantes": [
         {
@@ -18875,7 +21173,13 @@
         "ROSSINI AMORIM BASTOS"
       ],
       "orgaos_julgadores": [],
-      "valores_identificados": [],
+      "valores_identificados": [
+        {
+          "literal": "R$ 1.488,70",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        }
+      ],
       "normas_aplicadas": [
         "art. 485 inc. VIII do CPC"
       ],
@@ -18886,7 +21190,7 @@
         "11 de março de 2026"
       ]
     },
-    "total_entidades": 7,
+    "total_entidades": 8,
     "desfecho_cpc": "extinto sem mérito",
     "confianca_desfecho": 0.98,
     "polo_vencedor": "unknown",
@@ -19176,6 +21480,24 @@
         "evidence": "Inferido provisoriamente do cabeçalho por ausência de metadados do DJEN"
       },
       {
+        "literal": "R$ 82,70",
+        "start": 466,
+        "end": 474,
+        "char_count": 8,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 82.7,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 82,70",
+          "qualifier": null
+        },
+        "role": "VALOR_MENCIONADO",
+        "confidence": 0.98,
+        "evidence": "Quantia monetária citada na seção RELATORIO"
+      },
+      {
         "literal": "Ministério Público",
         "start": 596,
         "end": 614,
@@ -19232,7 +21554,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 4,
+      "total_entidades": 5,
       "cnjs": [
         "0000433-08.2023.8.17.2440"
       ],
@@ -19240,7 +21562,13 @@
       "advogados_oab": [],
       "magistrados": [],
       "orgaos_julgadores": [],
-      "valores_identificados": [],
+      "valores_identificados": [
+        {
+          "literal": "R$ 82,70",
+          "papel": "VALOR_MENCIONADO",
+          "secao": "RELATORIO"
+        }
+      ],
       "normas_aplicadas": [
         "art. 922 do CPC"
       ],
@@ -19248,7 +21576,7 @@
         "prazo de 5 (cinco) dias"
       ]
     },
-    "total_entidades": 4,
+    "total_entidades": 5,
     "desfecho_cpc": "acordo",
     "confianca_desfecho": 0.92,
     "polo_vencedor": "draw",
@@ -20521,6 +22849,24 @@
         "evidence": "Grande litigante do catálogo CNJ identificado em CABECALHO"
       },
       {
+        "literal": "R$ 4.920.049,50",
+        "start": 309,
+        "end": 324,
+        "char_count": 15,
+        "section": "RELATORIO",
+        "entity_type": "VALOR",
+        "normalized_value": {
+          "amount": 4920049.5,
+          "currency": "BRL",
+          "is_percentage": false,
+          "raw_text": "R$ 4.920.049,50",
+          "qualifier": "valor_da_causa"
+        },
+        "role": "VALOR_DA_CAUSA",
+        "confidence": 0.98,
+        "evidence": "Indicado como valor atribuído à causa"
+      },
+      {
         "literal": "Banco da Amazônia S.a Ariquemes",
         "start": 363,
         "end": 394,
@@ -20679,7 +23025,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 10,
+      "total_entidades": 11,
       "cnjs": [],
       "partes_litigantes": [
         {
@@ -20712,7 +23058,13 @@
         "Marcus Vinicius dos Santos Oliveira"
       ],
       "orgaos_julgadores": [],
-      "valores_identificados": [],
+      "valores_identificados": [
+        {
+          "literal": "R$ 4.920.049,50",
+          "papel": "VALOR_DA_CAUSA",
+          "secao": "RELATORIO"
+        }
+      ],
       "normas_aplicadas": [
         "art. 487 do CPC",
         "art. 924 inc. III do CPC"
@@ -20721,7 +23073,7 @@
         "5 de janeiro de 2026"
       ]
     },
-    "total_entidades": 10,
+    "total_entidades": 11,
     "desfecho_cpc": "acordo",
     "confianca_desfecho": 1.0,
     "polo_vencedor": "draw",
@@ -21005,6 +23357,26 @@
         "evidence": "Grande litigante do catálogo CNJ identificado em CABECALHO"
       },
       {
+        "literal": "artigo 311, parágrafo 1º, do Código Penal",
+        "start": 785,
+        "end": 826,
+        "char_count": 41,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CP",
+          "artigo": "311",
+          "paragrafo": "1º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 311, parágrafo 1º, do Código Penal"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
+      },
+      {
         "literal": "9 de outubro de 2023",
         "start": 905,
         "end": 925,
@@ -21201,6 +23573,26 @@
         "role": "DATA_GENERICA",
         "confidence": 0.99,
         "evidence": "Data por extenso identificada em CABECALHO"
+      },
+      {
+        "literal": "artigo 311, §1º, do Código Penal",
+        "start": 8495,
+        "end": 8527,
+        "char_count": 32,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CP",
+          "artigo": "311",
+          "paragrafo": "1º",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "artigo 311, §1º, do Código Penal"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "15 de outubro de 2024",
@@ -22731,7 +25123,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 102,
+      "total_entidades": 104,
       "cnjs": [
         "7000280-56.2024.7.02.0002",
         "7000101-25.2024.7.02.0002",
@@ -22777,9 +25169,9 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 311 § 1º do CP",
         "art. 427 do CP",
         "art. 428 do CP",
-        "art. 311 § 1º do CP",
         "art. 439 do CP",
         "art. 311 do CP",
         "art. 69 do CP",
@@ -22813,7 +25205,7 @@
         "prazo de 10 dias"
       ]
     },
-    "total_entidades": 102,
+    "total_entidades": 104,
     "desfecho_cpc": "unknown",
     "confianca_desfecho": 0.0,
     "polo_vencedor": "unknown",
@@ -23020,6 +25412,26 @@
         "role": "ADVOGADO",
         "confidence": 0.95,
         "evidence": "Inscrição na OAB identificada no texto"
+      },
+      {
+        "literal": "art. 427 do CP",
+        "start": 386,
+        "end": 400,
+        "char_count": 14,
+        "section": "CABECALHO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CP",
+          "artigo": "427",
+          "paragrafo": null,
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 427 do CP"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção CABECALHO"
       },
       {
         "literal": "Ministério Público",
@@ -23329,7 +25741,7 @@
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 25,
+      "total_entidades": 26,
       "cnjs": [
         "7000053-32.2025.7.02.0002"
       ],
@@ -23374,6 +25786,7 @@
       "orgaos_julgadores": [],
       "valores_identificados": [],
       "normas_aplicadas": [
+        "art. 427 do CP",
         "art. 315 do CP",
         "art. 28 do CPP",
         "art. 30",
@@ -23381,7 +25794,6 @@
         "art. 428 do CPP",
         "art. 430 do CPP",
         "art. 430 do CP",
-        "art. 427 do CP",
         "art. 428"
       ],
       "datas_relevantes": [
@@ -23389,7 +25801,7 @@
         "19 de dezembro de 2018"
       ]
     },
-    "total_entidades": 25,
+    "total_entidades": 26,
     "desfecho_cpc": "unknown",
     "confianca_desfecho": 0.0,
     "polo_vencedor": "unknown",
@@ -25073,10 +27485,30 @@
         "role": "ADVOGADO",
         "confidence": 0.95,
         "evidence": "Inscrição na OAB identificada no texto"
+      },
+      {
+        "literal": "art. 200, parágrafo único, do CPC",
+        "start": 412,
+        "end": 445,
+        "char_count": 33,
+        "section": "ENCERRAMENTO",
+        "entity_type": "NORMA",
+        "normalized_value": {
+          "diploma": "CPC",
+          "artigo": "200",
+          "paragrafo": "único",
+          "inciso": null,
+          "alinea": null,
+          "lei_ano": null,
+          "raw_reference": "art. 200, parágrafo único, do CPC"
+        },
+        "role": "REFERENCIA_NORMATIVA",
+        "confidence": 0.98,
+        "evidence": "Referência normativa na seção ENCERRAMENTO"
       }
     ],
     "resumo_entidades": {
-      "total_entidades": 6,
+      "total_entidades": 7,
       "cnjs": [
         "5002276-04.2026.8.01.0001"
       ],
@@ -25110,10 +27542,12 @@
       "magistrados": [],
       "orgaos_julgadores": [],
       "valores_identificados": [],
-      "normas_aplicadas": [],
+      "normas_aplicadas": [
+        "art. 200 § único do CPC"
+      ],
       "datas_relevantes": []
     },
-    "total_entidades": 6,
+    "total_entidades": 7,
     "desfecho_cpc": "unknown",
     "confianca_desfecho": 0.0,
     "polo_vencedor": "unknown",
@@ -25126,7 +27560,7 @@
     "valor_condenacao": null,
     "valor_causa": null,
     "taxa_sucesso_economico": null,
-    "normas_aplicadas": null,
+    "normas_aplicadas": "art. 200 § único do CPC",
     "latencia_total_ms": 12.82
   }
 ]
