@@ -92,6 +92,15 @@
     .content-area { display: flex; flex-direction: column; gap: 1.5rem; }
 
     .control-bar { background: var(--bg-surface); border: 1px solid var(--border-color); padding: 0.75rem 1.25rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem; }
+    .nav-stepper { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .stepper-btn { display: inline-flex; align-items: center; gap: 0.35rem; padding: 0.45rem 0.85rem; background: var(--bg-surface); border: 1px solid var(--border-color); border-radius: var(--radius); font-size: 0.82rem; font-weight: 700; color: var(--text-main); cursor: pointer; transition: all 0.15s ease; user-select: none; }
+    .stepper-btn:hover { background: var(--bg-dark); color: #fff; border-color: var(--bg-dark); }
+    .stepper-btn-primary { background: var(--accent); color: var(--bg-dark); border-color: var(--accent-dark); }
+    .stepper-btn-primary:hover { background: var(--accent-hover); color: #fff; }
+    .stepper-counter { font-family: var(--font-mono); font-size: 0.8rem; font-weight: 700; padding: 0.35rem 0.65rem; background: var(--bg-surface-muted); border: 1px solid var(--border-color); border-radius: var(--radius); white-space: nowrap; color: var(--bg-dark); }
+    .keyboard-hint { font-size: 0.72rem; color: var(--text-muted); display: inline-flex; align-items: center; gap: 0.25rem; margin-left: 0.25rem; }
+    .kbd { background: #f3f4f6; border: 1px solid #d1d5db; border-radius: 3px; padding: 0.1rem 0.35rem; font-family: var(--font-mono); font-size: 0.7rem; font-weight: 700; color: #374151; }
+    .view-controls { display: flex; align-items: center; gap: 1rem; flex-wrap: wrap; }
     .view-mode-group { display: flex; border: 1px solid var(--border-color); border-radius: var(--radius); overflow: hidden; }
     .view-btn { padding: 0.4rem 0.8rem; background: var(--bg-surface); border: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; }
     .view-btn.active { background: var(--bg-dark); color: #fff; }
@@ -237,14 +246,26 @@
     <section class="content-area">
 
       <div class="control-bar">
-        <div>
-          <span style="font-weight: 700; font-size: 0.9rem;" id="selectedDocLabel">Documento Selecionado</span>
-          <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;" id="selectedDocMeta"></span>
+        <div class="nav-stepper">
+          <button class="stepper-btn" id="btnPrevDoc" title="Decisão Anterior (ou seta esquerda ◀)">◀ Anterior</button>
+          <span class="stepper-counter" id="stepperCounter">Carregando...</span>
+          <button class="stepper-btn stepper-btn-primary" id="btnNextDoc" title="Próxima Decisão (ou seta direita ▶)">Próxima ▶</button>
+          <button class="stepper-btn" id="btnRandomDoc" title="Sortear Outra Decisão Aleatória (ou tecla R / Espaço)">🎲 Sortear</button>
+          <span class="keyboard-hint" title="Use as setas do teclado para alternar rapidamente entre decisões">
+            <span class="kbd">◀</span> <span class="kbd">▶</span> alternar
+          </span>
         </div>
-        <div class="view-mode-group">
-          <button class="view-btn active" data-mode="split">Lado a Lado</button>
-          <button class="view-btn" data-mode="after">Apenas Estruturado</button>
-          <button class="view-btn" data-mode="before">Apenas Bruto</button>
+
+        <div class="view-controls">
+          <div>
+            <span style="font-weight: 700; font-size: 0.9rem;" id="selectedDocLabel">Documento Selecionado</span>
+            <span style="color: var(--text-muted); font-size: 0.8rem; margin-left: 0.5rem;" id="selectedDocMeta"></span>
+          </div>
+          <div class="view-mode-group">
+            <button class="view-btn active" data-mode="split">Lado a Lado</button>
+            <button class="view-btn" data-mode="after">Apenas Estruturado</button>
+            <button class="view-btn" data-mode="before">Apenas Bruto</button>
+          </div>
         </div>
       </div>
 
@@ -342,26 +363,61 @@
   <script>
     let casesData = [];
     let currentCaseIndex = 0;
+    let currentFilteredIndex = 0;
+
+    function getBaseUrl() {
+      const path = window.location.pathname;
+      if (path.includes('/causaganha/')) {
+        return '/causaganha/';
+      }
+      return '/';
+    }
 
     async function loadData() {
-      try {
-        const res = await fetch('/visualizer_data.json');
-        if (!res.ok) throw new Error('Fetch failed');
-        casesData = await res.json();
-      } catch (e) {
-        console.warn('Fallback to local audit data file...');
+      const pathname = window.location.pathname;
+      const baseDir = pathname.substring(0, pathname.lastIndexOf('/') + 1);
+      const candidates = [
+        new URL('visualizer_data.json', window.location.href).href,
+        getBaseUrl() + 'visualizer_data.json',
+        baseDir + 'visualizer_data.json',
+        'visualizer_data.json',
+        './visualizer_data.json',
+        '../visualizer_data.json',
+        '/causaganha/visualizer_data.json',
+        '/visualizer_data.json'
+      ];
+
+      let lastError = null;
+      for (const url of candidates) {
         try {
-          const resLocal = await fetch('../data/audit/visualizer_data.json');
-          casesData = await resLocal.json();
-        } catch (e2) {
-          console.error('Failed to load JSON data', e2);
-          document.getElementById('rawTextContent').innerText = 'Erro ao carregar dados do visualizador.';
-          return;
+          const res = await fetch(url);
+          if (res.ok) {
+            casesData = await res.json();
+            break;
+          }
+        } catch (e) {
+          lastError = e;
         }
       }
+
+      if (!casesData || casesData.length === 0) {
+        console.error('Failed to load JSON data from all candidate URLs', lastError);
+        document.getElementById('rawTextContent').innerHTML = `
+          <div style="padding: 1rem; color: #dc2626;">
+            <strong>Erro ao carregar dados do visualizador.</strong><br>
+            <span style="font-size: 0.8rem; color: #6b7280;">Não foi possível carregar o arquivo <code>visualizer_data.json</code>.</span><br><br>
+            <button id="btnRetryLoad" class="stepper-btn stepper-btn-primary">Tentar novamente</button>
+          </div>
+        `;
+        const retryBtn = document.getElementById('btnRetryLoad');
+        if (retryBtn) retryBtn.onclick = () => loadData();
+        return;
+      }
+
       populateCourtFilter();
       renderDocList();
-      selectCase(0);
+      // Start randomly right away, requiring zero clicks from the user!
+      randomCase();
     }
 
     function populateCourtFilter() {
@@ -393,6 +449,33 @@
       });
     }
 
+    function nextCase() {
+      const filtered = getFilteredCases();
+      if (!filtered.length) return;
+      currentFilteredIndex = (currentFilteredIndex + 1) % filtered.length;
+      const target = filtered[currentFilteredIndex];
+      const realIdx = casesData.findIndex(x => x.id === target.id);
+      selectCase(realIdx, currentFilteredIndex, filtered.length);
+    }
+
+    function prevCase() {
+      const filtered = getFilteredCases();
+      if (!filtered.length) return;
+      currentFilteredIndex = (currentFilteredIndex - 1 + filtered.length) % filtered.length;
+      const target = filtered[currentFilteredIndex];
+      const realIdx = casesData.findIndex(x => x.id === target.id);
+      selectCase(realIdx, currentFilteredIndex, filtered.length);
+    }
+
+    function randomCase() {
+      const filtered = getFilteredCases();
+      if (!filtered.length) return;
+      currentFilteredIndex = Math.floor(Math.random() * filtered.length);
+      const target = filtered[currentFilteredIndex];
+      const realIdx = casesData.findIndex(x => x.id === target.id);
+      selectCase(realIdx, currentFilteredIndex, filtered.length);
+    }
+
     function renderDocList() {
       const filtered = getFilteredCases();
       const listEl = document.getElementById('docList');
@@ -401,15 +484,18 @@
 
       if (filtered.length === 0) {
         listEl.innerHTML = '<div style="padding: 1rem; color: #9ca3af; text-align: center;">Nenhum caso com os filtros atuais.</div>';
+        const counterEl = document.getElementById('stepperCounter');
+        if (counterEl) counterEl.textContent = '0 casos';
         return;
       }
 
-      filtered.forEach((c) => {
+      filtered.forEach((c, idx) => {
         const item = document.createElement('div');
+        item.setAttribute('data-case-id', c.id);
         item.className = `doc-item ${c.id === casesData[currentCaseIndex]?.id ? 'active' : ''}`;
         item.onclick = () => {
           const realIdx = casesData.findIndex(x => x.id === c.id);
-          selectCase(realIdx);
+          selectCase(realIdx, idx, filtered.length);
         };
 
         const outcomeBadgeClass = getOutcomeBadgeClass(c.desfecho_cpc);
@@ -439,15 +525,32 @@
       return 'badge-unknown';
     }
 
-    function selectCase(index) {
+    function selectCase(index, filteredIdx, totalFiltered) {
       if (index < 0 || index >= casesData.length) return;
       currentCaseIndex = index;
       const c = casesData[index];
 
-      // Update Active class in sidebar
+      const filtered = getFilteredCases();
+      if (filteredIdx === undefined) {
+        filteredIdx = filtered.findIndex(x => x.id === c.id);
+        if (filteredIdx === -1) filteredIdx = 0;
+      }
+      currentFilteredIndex = filteredIdx;
+      const total = totalFiltered || (filtered.length || casesData.length);
+
+      // Update Stepper Counter
+      const counterEl = document.getElementById('stepperCounter');
+      if (counterEl) {
+        counterEl.textContent = `Caso ${filteredIdx + 1} de ${total}`;
+      }
+
+      // Update Active class in sidebar and scroll into view smoothly
       document.querySelectorAll('.doc-item').forEach(el => el.classList.remove('active'));
-      const activeEl = Array.from(document.querySelectorAll('.doc-item')).find(el => el.innerHTML.includes(`ID: ${c.doc_id}`) || el.innerHTML.includes(`#${c.id}`));
-      if (activeEl) activeEl.classList.add('active');
+      const activeEl = document.querySelector(`.doc-item[data-case-id="${c.id}"]`);
+      if (activeEl) {
+        activeEl.classList.add('active');
+        activeEl.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      }
 
       // Top label
       document.getElementById('selectedDocLabel').textContent = `Caso #${c.id} — ${c.tribunal} (${c.tipo_documento || 'Sentença'})`;
@@ -544,10 +647,47 @@
       });
     });
 
-    // Listeners for filters
-    document.getElementById('searchInput').addEventListener('input', renderDocList);
-    document.getElementById('filterCourt').addEventListener('change', renderDocList);
-    document.getElementById('filterOutcome').addEventListener('change', renderDocList);
+    // Stepper & random buttons
+    document.getElementById('btnPrevDoc').addEventListener('click', prevCase);
+    document.getElementById('btnNextDoc').addEventListener('click', nextCase);
+    document.getElementById('btnRandomDoc').addEventListener('click', randomCase);
+
+    // Keyboard navigation (ArrowLeft / ArrowRight / Space / R)
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+        e.preventDefault();
+        nextCase();
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        prevCase();
+      } else if (e.key === ' ' || e.key === 'r' || e.key === 'R') {
+        e.preventDefault();
+        randomCase();
+      }
+    });
+
+    // Listeners for filters with auto-reselection
+    function onFilterChange() {
+      renderDocList();
+      const filtered = getFilteredCases();
+      if (filtered.length > 0) {
+        const isCurrentInFiltered = filtered.some(c => c.id === casesData[currentCaseIndex]?.id);
+        if (!isCurrentInFiltered) {
+          const target = filtered[0];
+          const realIdx = casesData.findIndex(x => x.id === target.id);
+          selectCase(realIdx, 0, filtered.length);
+        } else {
+          const fIdx = filtered.findIndex(c => c.id === casesData[currentCaseIndex]?.id);
+          const counterEl = document.getElementById('stepperCounter');
+          if (counterEl) counterEl.textContent = `Caso ${fIdx + 1} de ${filtered.length}`;
+        }
+      }
+    }
+
+    document.getElementById('searchInput').addEventListener('input', onFilterChange);
+    document.getElementById('filterCourt').addEventListener('change', onFilterChange);
+    document.getElementById('filterOutcome').addEventListener('change', onFilterChange);
 
     // Initial boot
     loadData();
