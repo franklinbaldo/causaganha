@@ -353,7 +353,9 @@ class PersonAdvogadoExtractor:
             )
             for m in sig_pattern.finditer(clean_text):
                 nome = (m.group("nome1") or m.group("nome2") or "").strip()
-                if len(nome) > 4 and not any(w in nome.lower() for w in ["tribunal", "comarca", "justiça", "estado"]):
+                if len(nome) > 4 and not any(
+                    w in nome.lower() for w in ["tribunal", "comarca", "justiça", "estado"]
+                ):
                     mentions.append(
                         JudicialMention(
                             literal=nome,
