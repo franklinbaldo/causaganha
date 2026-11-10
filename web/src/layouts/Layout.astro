@@ -29,6 +29,7 @@ const pathname = Astro.url.pathname;
 const primary = [
   { href: BASE + 'processo', label: 'Processo', match: '/processo' },
   { href: BASE + 'publicacoes', label: 'Publicações', match: '/publicacoes' },
+  { href: BASE + 'auditoria', label: 'Auditoria DJEN', match: '/auditoria' },
   { href: BASE + 'minhas-consultas', label: 'Salvos', match: '/minhas-consultas' },
   { href: BASE + 'agentes', label: 'Agentes', match: '/agentes' },
 ];
@@ -140,6 +141,7 @@ const primary = [
         <nav class={css({ display: 'flex', flexWrap: 'wrap', gap: '5' })} aria-label="Rodapé">
           <a class={navLink()} href={BASE + 'processo'}>Processo</a>
           <a class={navLink()} href={BASE + 'publicacoes'}>Publicações</a>
+          <a class={navLink()} href={BASE + 'auditoria'}>Auditoria</a>
           <a class={navLink()} href={BASE + 'agentes'}>Agentes</a>
           <a class={navLink()} href={BASE + 'sobre'}>Sobre</a>
         </nav>

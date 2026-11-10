@@ -2,5 +2,6 @@
 
 | Iteração | Taxa de Erro | Falhas | Tamanho Treino | Val AUC | Test AUC | Catraca | Tempo (s) |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| 1 | 100.0% | 5 | 2959 | 0.8574 | 0.8937 | PROMOVIDO | 31.36 |
+| 1 | 95.0% | 38 | 3815 | 0.8396 | 0.8922 | PROMOVIDO | 24.41 |
+| 2 | 95.0% | 38 | 5061 | 0.7982 | 0.8477 | BLOQUEADO | 24.72 |
 

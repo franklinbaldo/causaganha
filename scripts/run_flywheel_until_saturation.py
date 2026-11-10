@@ -154,9 +154,15 @@ def main():
     parser.add_argument(
         "--saturation-error", type=float, default=0.10, help="Taxa de erro para declarar saturação"
     )
+    parser.add_argument(
+        "--dataset",
+        type=str,
+        default=str(ROOT_DIR / "data/benchmark/ia_expanded_decisions.parquet"),
+        help="Caminho do dataset parquet para inferência e amostragem ativa",
+    )
     args = parser.parse_args()
 
-    dataset_path = ROOT_DIR / "data/benchmark/ia_expanded_decisions.parquet"
+    dataset_path = Path(args.dataset)
     model_path = ROOT_DIR / "models/hybrid_dispositif_forest.joblib"
     pool_path = ROOT_DIR / "data/audit/active_learning_pool.jsonl"
 
