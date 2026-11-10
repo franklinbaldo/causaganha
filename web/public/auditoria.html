@@ -165,7 +165,7 @@
     .copy-feedback { position: fixed; bottom: 2rem; right: 2rem; background: #059669; color: #fff; padding: 0.65rem 1.25rem; border-radius: 6px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,0.25); display: none; z-index: 9999; }
 
     /* Dossier Strip */
-    .dossier-compact-bar { background: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 1rem; }
+    .dossier-compact-bar { background: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 0.85rem; }
     .dossier-main-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
     .dossier-cnj { font-family: var(--font-mono); font-weight: 900; font-size: 1.05rem; color: var(--bg-dark); }
     .mod97-badge { background: #dcfce7; color: #166534; font-size: 0.68rem; font-weight: 800; padding: 0.15rem 0.4rem; border-radius: 3px; border: 1px solid #86efac; }
@@ -173,6 +173,46 @@
     .entity-strip { display: flex; gap: 0.5rem; flex-wrap: wrap; font-size: 0.75rem; color: var(--text-muted); }
     .entity-chip { background: #fff; border: 1px solid #e5e7eb; border-radius: 3px; padding: 0.2rem 0.45rem; display: inline-flex; gap: 0.3rem; }
     .entity-chip strong { color: var(--text-main); }
+
+    /* Granular Entities Dossier (NER) */
+    .entity-dossier-card { background: #fff; border: 1px solid #c7d2fe; border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; box-shadow: 0 2px 4px rgba(99, 102, 241, 0.05); }
+    .entity-dossier-header { background: #f5f3ff; border-bottom: 1px solid #ddd6fe; padding: 0.6rem 0.9rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; font-weight: 800; font-size: 0.85rem; color: #4338ca; }
+    .entity-dossier-body { padding: 0.75rem 0.9rem; display: flex; flex-direction: column; gap: 0.55rem; }
+    .entity-cat-row { display: flex; align-items: flex-start; gap: 0.5rem; font-size: 0.76rem; flex-wrap: wrap; }
+    .entity-cat-lbl { font-weight: 800; color: #4b5563; min-width: 130px; display: inline-flex; align-items: center; gap: 0.3rem; padding-top: 0.15rem; }
+    .entity-cat-chips { display: flex; flex-wrap: wrap; gap: 0.35rem; flex: 1; }
+    .entity-badge { display: inline-flex; align-items: baseline; gap: 0.3rem; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600; line-height: 1.4; border: 1px solid transparent; }
+    .entity-badge-tag { font-size: 0.62rem; font-weight: 800; text-transform: uppercase; padding: 0.05rem 0.25rem; border-radius: 3px; }
+
+    /* Inline Entity Highlighting */
+    .ner-tag { display: inline-flex; align-items: baseline; gap: 0.2rem; padding: 0.05rem 0.28rem; border-radius: 3px; font-weight: 600; text-decoration: none; line-height: 1.4; margin: 0 0.08rem; }
+    .ner-lbl { font-size: 0.6rem; font-weight: 900; text-transform: uppercase; letter-spacing: 0.03em; padding: 0 0.25rem; border-radius: 2px; }
+
+    .ner-parte { background: #dbeafe; color: #1e40af; border: 1px solid #bfdbfe; }
+    .ner-parte .ner-lbl { background: #1e40af; color: #fff; }
+
+    .ner-advogado, .ner-oab { background: #ede9fe; color: #6d28d9; border: 1px solid #ddd6fe; }
+    .ner-advogado .ner-lbl, .ner-oab .ner-lbl { background: #6d28d9; color: #fff; }
+
+    .ner-magistrado { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
+    .ner-magistrado .ner-lbl { background: #92400e; color: #fff; }
+
+    .ner-cnj { background: #cffafe; color: #0e7490; border: 1px solid #a5f3fc; }
+    .ner-cnj .ner-lbl { background: #0e7490; color: #fff; }
+
+    .ner-valor { background: #dcfce7; color: #166534; border: 1px solid #86efac; font-weight: 700; }
+    .ner-valor .ner-lbl { background: #166534; color: #fff; }
+
+    .ner-norma { background: #ffedd5; color: #c2410c; border: 1px solid #fed7aa; }
+    .ner-norma .ner-lbl { background: #c2410c; color: #fff; }
+
+    .ner-org { background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb; }
+    .ner-org .ner-lbl { background: #4b5563; color: #fff; }
+
+    .ner-data { background: #f1f5f9; color: #475569; border: 1px solid #e2e8f0; }
+    .ner-data .ner-lbl { background: #64748b; color: #fff; }
+
+    .ner-toggle-control { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.74rem; font-weight: 700; cursor: pointer; background: #fff; border: 1px solid var(--border-color); padding: 0.2rem 0.55rem; border-radius: var(--radius); }
 
     /* DISPOSITIVO SPOTLIGHT CARD */
     .dispositivo-card { border: 2px solid var(--accent); background: #f0fdf4; border-radius: var(--radius); margin-bottom: 1rem; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.15); }
@@ -346,11 +386,17 @@
           </div>
           <div class="panel-body">
             <div class="raw-view-toggle">
-              <span>⚠️ Visualização dos limites de corte detectados pelo segmentador:</span>
-              <label style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem; font-weight: 700;">
-                <input type="checkbox" id="chkHighlightCuts" checked>
-                Destacar Seções
-              </label>
+              <span>⚠️ Visualização e segmentação granular:</span>
+              <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+                <label style="cursor: pointer; display: flex; align-items: center; gap: 0.35rem; font-weight: 700;">
+                  <input type="checkbox" id="chkHighlightCuts" checked>
+                  Cortes de Seções
+                </label>
+                <label class="ner-toggle-control" title="Destacar entidades identificadas (partes, advogados, juiz, leis, valores)">
+                  <input type="checkbox" id="chkHighlightEntities" checked>
+                  🏷️ Destacar Entidades (NER)
+                </label>
+              </div>
             </div>
             <div id="rawTextContent">Carregando decisão...</div>
           </div>
@@ -383,6 +429,22 @@
               </div>
               <div class="entity-strip" id="entityStrip">
                 <!-- Entities Injected via JS -->
+              </div>
+            </div>
+
+            <!-- GRANULAR ENTITIES CARD (MULTI-ALGORITHM NER) -->
+            <div class="entity-dossier-card" id="entityDossierCard">
+              <div class="entity-dossier-header">
+                <div style="display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;">
+                  <span>🏷️ Segmentação Granular: Entidades Judiciais (NER)</span>
+                  <span class="seg-badge-pill" id="entityTotalBadge" style="background:#ede9fe; color:#6d28d9; border:1px solid #c4b5fd;">0 Entidades</span>
+                </div>
+                <div style="font-size: 0.72rem; color: #4338ca; font-weight: 700;">
+                  Módulo 97 • Roteamento Seccional • Extração 100% CPU
+                </div>
+              </div>
+              <div class="entity-dossier-body" id="entityDossierBody">
+                <!-- Granular entity categories injected via JS -->
               </div>
             </div>
 
@@ -704,12 +766,215 @@
       if (target) target.scrollIntoView({ block: 'start', behavior: 'smooth' });
     }
 
+    function highlightSection(rawText, mentions) {
+      if (!rawText) return '';
+      const shouldHighlight = document.getElementById('chkHighlightEntities')?.checked ?? true;
+      if (!shouldHighlight || !mentions || mentions.length === 0) {
+        return escapeHtml(rawText);
+      }
+
+      const litMap = new Map();
+      mentions.forEach(m => {
+        const lit = (m.literal || '').trim();
+        if (lit.length >= 3 && !litMap.has(lit)) {
+          litMap.set(lit, m);
+        }
+      });
+
+      const sortedLiterals = Array.from(litMap.keys()).sort((a, b) => b.length - a.length);
+
+      let text = rawText;
+      const tokens = [];
+
+      sortedLiterals.forEach((lit, idx) => {
+        if (!text.includes(lit)) return;
+        const m = litMap.get(lit);
+        const type = m.entity_type;
+        const role = m.role;
+        let cls = 'ner-generic';
+        let lbl = type;
+
+        if (type === 'PESSOA') {
+          if (role === 'MAGISTRADO') { cls = 'ner-magistrado'; lbl = 'JUIZ'; }
+          else if (role === 'ADVOGADO') { cls = 'ner-advogado'; lbl = 'ADV'; }
+          else if (role === 'POLO_ATIVO') { cls = 'ner-parte'; lbl = 'AUTOR'; }
+          else if (role === 'POLO_PASSIVO') { cls = 'ner-parte'; lbl = 'RÉU'; }
+          else { cls = 'ner-parte'; lbl = 'PARTE'; }
+        } else if (type === 'OAB') {
+          cls = 'ner-oab'; lbl = 'OAB';
+        } else if (type === 'CNJ') {
+          cls = 'ner-cnj'; lbl = 'CNJ';
+        } else if (type === 'VALOR') {
+          cls = 'ner-valor'; lbl = 'VALOR';
+        } else if (type === 'NORMA') {
+          cls = 'ner-norma'; lbl = 'LEI';
+        } else if (type === 'ORGANIZACAO') {
+          cls = 'ner-org'; lbl = 'PJ';
+        } else if (type === 'DATA') {
+          cls = 'ner-data'; lbl = 'DATA';
+        }
+
+        const token = '___NER_TOKEN_' + idx + '___';
+        tokens.push({
+          token,
+          html: `<mark class="ner-tag ${cls}" title="${type} (${role}): ${escapeHtml(lit)}">${escapeHtml(lit)}<span class="ner-lbl">${lbl}</span></mark>`
+        });
+
+        text = text.split(lit).join(token);
+      });
+
+      let escaped = escapeHtml(text);
+      tokens.forEach(t => {
+        escaped = escaped.split(t.token).join(t.html);
+      });
+
+      return escaped;
+    }
+
+    function renderEntityDossier(c) {
+      const container = document.getElementById('entityDossierBody');
+      const badge = document.getElementById('entityTotalBadge');
+      if (!container) return;
+
+      const mentions = c.entidades || [];
+      const resumo = c.resumo_entidades || {};
+      const total = c.total_entidades || mentions.length;
+
+      if (badge) {
+        badge.textContent = `${total} Entidade${total !== 1 ? 's' : ''} Identificada${total !== 1 ? 's' : ''}`;
+      }
+
+      if (total === 0) {
+        container.innerHTML = '<div style="font-size:0.75rem; color:#9ca3af; padding:0.5rem;">Nenhuma entidade específica isolada pelo NER para esta publicação.</div>';
+        return;
+      }
+
+      let html = '';
+
+      // 1. Partes & Litigantes
+      const partes = resumo.partes_litigantes || [];
+      if (partes.length > 0) {
+        html += `
+          <div class="entity-cat-row">
+            <span class="entity-cat-lbl">👥 Partes & Litigantes:</span>
+            <div class="entity-cat-chips">
+              ${partes.map(p => `
+                <span class="entity-badge ner-parte" title="Parte Processual">
+                  <strong>${escapeHtml(p.nome)}</strong>
+                  <span class="entity-badge-tag ner-lbl">${p.polo || 'PARTE'}</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // 2. Representação Jurídica (Advogados & OAB)
+      const advs = resumo.advogados_oab || [];
+      if (advs.length > 0) {
+        html += `
+          <div class="entity-cat-row">
+            <span class="entity-cat-lbl">⚖️ Advogados & OAB:</span>
+            <div class="entity-cat-chips">
+              ${advs.map(a => `
+                <span class="entity-badge ner-advogado" title="Representação Jurídica">
+                  <span>${escapeHtml(a.nome || 'Advogado')}</span>
+                  ${a.oab ? `<span class="entity-badge-tag ner-lbl">${escapeHtml(a.oab)}</span>` : ''}
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // 3. Magistratura & Órgão
+      const mags = resumo.magistrados || [];
+      const orgaos = resumo.orgaos_julgadores || [];
+      if (mags.length > 0 || orgaos.length > 0) {
+        html += `
+          <div class="entity-cat-row">
+            <span class="entity-cat-lbl">🏛️ Magistratura & Órgão:</span>
+            <div class="entity-cat-chips">
+              ${mags.map(m => `
+                <span class="entity-badge ner-magistrado" title="Magistrado Prolator">
+                  <span>${escapeHtml(m)}</span>
+                  <span class="entity-badge-tag ner-lbl">JUIZ</span>
+                </span>
+              `).join('')}
+              ${orgaos.map(o => `
+                <span class="entity-badge ner-org" title="Órgão Julgador">
+                  <span>${escapeHtml(o)}</span>
+                  <span class="entity-badge-tag ner-lbl">ÓRGÃO</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // 4. Valores & Condenações
+      const valores = resumo.valores_identificados || [];
+      if (valores.length > 0) {
+        html += `
+          <div class="entity-cat-row">
+            <span class="entity-cat-lbl">💰 Valores & Cifras:</span>
+            <div class="entity-cat-chips">
+              ${valores.slice(0, 8).map(v => `
+                <span class="entity-badge ner-valor" title="Valor: ${v.papel || ''} (${v.secao || ''})">
+                  <strong>${escapeHtml(v.literal)}</strong>
+                  <span class="entity-badge-tag ner-lbl">${(v.papel || 'VALOR').replace('VALOR_', '').toLowerCase()}</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // 5. Normas e Leis Citadas
+      const normas = resumo.normas_aplicadas || [];
+      if (normas.length > 0) {
+        html += `
+          <div class="entity-cat-row">
+            <span class="entity-cat-lbl">📜 Dispositivos Legais:</span>
+            <div class="entity-cat-chips">
+              ${normas.slice(0, 10).map(n => `
+                <span class="entity-badge ner-norma" title="Fundamento Legal">
+                  <span>${escapeHtml(n)}</span>
+                  <span class="entity-badge-tag ner-lbl">NORMA</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      // 6. CNJ & Processos
+      const cnjs = resumo.cnjs || [];
+      if (cnjs.length > 0) {
+        html += `
+          <div class="entity-cat-row">
+            <span class="entity-cat-lbl">🔢 Processo CNJ:</span>
+            <div class="entity-cat-chips">
+              ${cnjs.map(num => `
+                <span class="entity-badge ner-cnj" title="Processo Judicial Oficial">
+                  <code>${escapeHtml(num)}</code>
+                  <span class="entity-badge-tag ner-lbl">MOD 97</span>
+                </span>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }
+
+      container.innerHTML = html;
+    }
+
     function renderRawLeft(c) {
       const container = document.getElementById('rawTextContent');
       const highlight = document.getElementById('chkHighlightCuts')?.checked ?? true;
 
       if (!highlight) {
-        container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 4px;">${escapeHtml(c.texto_bruto_djen || c.texto_limpo)}</div>`;
+        container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 4px;">${highlightSection(c.texto_bruto_djen || c.texto_limpo, c.entidades)}</div>`;
         return;
       }
 
@@ -736,14 +1001,14 @@
                 <span>${labels[k]}</span>
                 <span style="font-size: 0.68rem; opacity: 0.85;">${sec.caracteres} chars</span>
               </div>
-              <div class="raw-section-text">${escapeHtml(sec.texto)}</div>
+              <div class="raw-section-text">${highlightSection(sec.texto, c.entidades)}</div>
             </div>
           `;
         }
       });
 
       if (!foundAny) {
-        container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 4px;">${escapeHtml(c.texto_bruto_djen || c.texto_limpo)}</div>`;
+        container.innerHTML = `<div style="font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.6; white-space: pre-wrap; background: #fafafa; padding: 1rem; border: 1px solid #e5e7eb; border-radius: 4px;">${highlightSection(c.texto_bruto_djen || c.texto_limpo, c.entidades)}</div>`;
       } else {
         container.innerHTML = html;
       }
@@ -812,6 +1077,9 @@
         <span class="entity-chip"><strong>Magistrado:</strong> ${escapeHtml(c.magistrado || 'Não identificado')}</span>
       `;
 
+      // Granular Entities Dossier (Multi-Algorithm NER)
+      renderEntityDossier(c);
+
       // Dispositivo Spotlight Card
       const dispSec = c.secoes && (c.secoes.dispositivo || c.secoes.DISPOSITIVO);
       const dispTextEl = document.getElementById('dispositivoText');
@@ -822,7 +1090,7 @@
       }
 
       if (dispSec && dispSec.texto && dispSec.texto.trim()) {
-        dispTextEl.textContent = dispSec.texto;
+        dispTextEl.innerHTML = highlightSection(dispSec.texto, c.entidades);
       } else {
         dispTextEl.textContent = 'Dispositivo formalmente inferido a partir do encerramento da decisão.';
       }
@@ -854,7 +1122,7 @@
               <span>${secTitles[secKey] || sec.nome}</span>
               <span style="font-size: 0.7rem; font-family: var(--font-mono); opacity: 0.85;">${sec.caracteres} caracteres</span>
             </div>
-            <div class="section-content">${escapeHtml(sec.texto)}</div>
+            <div class="section-content">${highlightSection(sec.texto, c.entidades)}</div>
           `;
           secContainer.appendChild(card);
         }
@@ -1011,6 +1279,13 @@
     document.getElementById('chkHighlightCuts')?.addEventListener('change', () => {
       if (casesData[currentCaseIndex]) {
         renderRawLeft(casesData[currentCaseIndex]);
+      }
+    });
+
+    // Toggle entity highlights in text (NER)
+    document.getElementById('chkHighlightEntities')?.addEventListener('change', () => {
+      if (casesData[currentCaseIndex]) {
+        selectCase(currentCaseIndex);
       }
     });
 
