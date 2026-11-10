@@ -691,5 +691,3 @@ def build_default_tournament() -> RegexTournament:
     )
 
     return t
-
-    return t
