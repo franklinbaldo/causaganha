@@ -160,6 +160,10 @@
     .raw-block-encerramento { border-color: #d1d5db; }
     .raw-cut-encerramento { background: #f3f4f6; color: #374151; border-bottom: 1px solid #d1d5db; }
 
+    /* JSON Code View */
+    .json-box { background: #0f172a; color: #e2e8f0; padding: 1rem; border-radius: var(--radius); font-family: var(--font-mono); font-size: 0.82rem; line-height: 1.55; overflow: auto; max-height: 750px; white-space: pre; border: 1px solid #334155; }
+    .copy-feedback { position: fixed; bottom: 2rem; right: 2rem; background: #059669; color: #fff; padding: 0.65rem 1.25rem; border-radius: 6px; font-weight: 800; font-size: 0.85rem; box-shadow: 0 4px 14px rgba(0,0,0,0.25); display: none; z-index: 9999; }
+
     /* Dossier Strip */
     .dossier-compact-bar { background: #fafafa; border: 1px solid var(--border-color); border-radius: var(--radius); padding: 0.75rem 1rem; margin-bottom: 1rem; }
     .dossier-main-row { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 0.5rem; }
@@ -305,6 +309,7 @@
             <button class="view-btn active" data-mode="split">Lado a Lado</button>
             <button class="view-btn" data-mode="after">Apenas Estruturado</button>
             <button class="view-btn" data-mode="before">Apenas Bruto</button>
+            <button class="view-btn" data-mode="json">{ } Ver JSON</button>
           </div>
         </div>
       </div>
@@ -357,7 +362,10 @@
             <div class="panel-title">
               <span>✨ Depois: 5 Seções Canônicas & Desfecho</span>
             </div>
-            <span class="panel-tag tag-after">Classificado & Qualificado</span>
+            <div style="display: flex; gap: 0.45rem; align-items: center;">
+              <button class="stepper-btn" id="btnQuickCopyJson" title="Copiar resultado JSON desta decisão" style="font-size: 0.75rem; padding: 0.25rem 0.55rem;">📋 Copiar JSON</button>
+              <span class="panel-tag tag-after">Classificado & Qualificado</span>
+            </div>
           </div>
           <div class="panel-body">
 
@@ -399,6 +407,41 @@
               <!-- Other sections injected via JS -->
             </div>
 
+            <!-- Accordion Raw JSON view -->
+            <div class="section-card sec-json" style="margin-top: 1.25rem; border: 1px solid #cbd5e1;">
+              <div class="section-head" style="background: #f1f5f9; color: #1e293b; cursor: pointer; display: flex; justify-content: space-between; align-items: center;" id="toggleJsonAccordion">
+                <span>📦 Inspecionar Payload JSON desta Decisão</span>
+                <span id="jsonAccordionIndicator" style="font-size: 0.72rem; font-weight: 800; color: var(--info);">Clique para expandir ▾</span>
+              </div>
+              <div class="section-content" id="jsonAccordionBody" style="display: none; background: #0f172a; padding: 0.85rem;">
+                <div style="display: flex; justify-content: flex-end; margin-bottom: 0.5rem; gap: 0.4rem;">
+                  <button class="stepper-btn stepper-btn-primary" id="btnCopyAccordionJson" style="font-size: 0.72rem; padding: 0.25rem 0.6rem;">📋 Copiar JSON</button>
+                </div>
+                <pre class="json-box" id="jsonAccordionPre" style="font-size: 0.78rem; max-height: 400px; margin: 0;"></pre>
+              </div>
+            </div>
+
+          </div>
+        </article>
+
+        <!-- Column JSON View Panel -->
+        <article class="panel" id="panelJson" style="display: none;">
+          <div class="panel-header">
+            <div class="panel-title">
+              <span>📦 Resultado Completo em JSON (Payload Canônico)</span>
+            </div>
+            <div style="display: flex; gap: 0.45rem; align-items: center;">
+              <button class="stepper-btn stepper-btn-primary" id="btnCopyJsonFromPanel" title="Copiar para área de transferência">📋 Copiar JSON</button>
+              <button class="stepper-btn" id="btnDownloadSingleJson" title="Baixar arquivo JSON desta decisão">⬇️ Baixar .json</button>
+              <span class="panel-tag" style="background: #ede9fe; color: #6d28d9; border: 1px solid #c4b5fd;">application/json</span>
+            </div>
+          </div>
+          <div class="panel-body">
+            <div style="margin-bottom: 0.65rem; font-size: 0.8rem; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+              <span>Payload estruturado completo: 5 seções canônicas, dados processuais, entidades e resolução do CPC.</span>
+              <span id="jsonCharCount" style="font-family: var(--font-mono); font-weight: 700; color: var(--bg-dark);"></span>
+            </div>
+            <pre class="json-box" id="jsonBoxContent">Carregando JSON...</pre>
           </div>
         </article>
 
@@ -816,6 +859,81 @@
           secContainer.appendChild(card);
         }
       });
+
+      // 4. Update JSON Views
+      renderJsonViews(c);
+    }
+
+    function renderJsonViews(c) {
+      if (!c) return;
+      const jsonStr = JSON.stringify(c, null, 2);
+
+      const jsonBox = document.getElementById('jsonBoxContent');
+      if (jsonBox) jsonBox.textContent = jsonStr;
+
+      const charCountEl = document.getElementById('jsonCharCount');
+      if (charCountEl) {
+        charCountEl.textContent = `${jsonStr.length.toLocaleString('pt-BR')} caracteres (${(jsonStr.length / 1024).toFixed(1)} KB)`;
+      }
+
+      const accordionPre = document.getElementById('jsonAccordionPre');
+      if (accordionPre) accordionPre.textContent = jsonStr;
+    }
+
+    function copyJsonToClipboard() {
+      if (!casesData[currentCaseIndex]) return;
+      const jsonStr = JSON.stringify(casesData[currentCaseIndex], null, 2);
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(jsonStr).then(() => {
+          showToast('✓ JSON copiado com sucesso!');
+        }).catch(() => fallbackCopy(jsonStr));
+      } else {
+        fallbackCopy(jsonStr);
+      }
+    }
+
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      try {
+        document.execCommand('copy');
+        showToast('✓ JSON copiado com sucesso!');
+      } catch (err) {
+        alert('Não foi possível copiar automaticamente.');
+      }
+      document.body.removeChild(ta);
+    }
+
+    function downloadCurrentJson() {
+      if (!casesData[currentCaseIndex]) return;
+      const c = casesData[currentCaseIndex];
+      const blob = new Blob([JSON.stringify(c, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `decisao_${c.tribunal}_caso_${c.id}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast('⬇️ Download do JSON iniciado!');
+    }
+
+    function showToast(msg) {
+      let toast = document.getElementById('copyToast');
+      if (!toast) {
+        toast = document.createElement('div');
+        toast.id = 'copyToast';
+        toast.className = 'copy-feedback';
+        document.body.appendChild(toast);
+      }
+      toast.textContent = msg;
+      toast.style.display = 'block';
+      setTimeout(() => {
+        toast.style.display = 'none';
+      }, 2200);
     }
 
     function escapeHtml(text) {
@@ -833,21 +951,55 @@
         const grid = document.getElementById('comparisonGrid');
         const before = document.getElementById('panelBefore');
         const after = document.getElementById('panelAfter');
+        const panelJson = document.getElementById('panelJson');
 
         if (mode === 'split') {
           grid.className = 'comparison-grid';
           before.style.display = 'flex';
           after.style.display = 'flex';
+          if (panelJson) panelJson.style.display = 'none';
         } else if (mode === 'before') {
           grid.className = 'comparison-grid single-col';
           before.style.display = 'flex';
           after.style.display = 'none';
+          if (panelJson) panelJson.style.display = 'none';
         } else if (mode === 'after') {
           grid.className = 'comparison-grid single-col';
           before.style.display = 'none';
           after.style.display = 'flex';
+          if (panelJson) panelJson.style.display = 'none';
+        } else if (mode === 'json') {
+          grid.className = 'comparison-grid single-col';
+          before.style.display = 'none';
+          after.style.display = 'none';
+          if (panelJson) {
+            panelJson.style.display = 'flex';
+            renderJsonViews(casesData[currentCaseIndex]);
+          }
         }
       });
+    });
+
+    // Copy & Download JSON listeners
+    document.getElementById('btnQuickCopyJson')?.addEventListener('click', copyJsonToClipboard);
+    document.getElementById('btnCopyJsonFromPanel')?.addEventListener('click', copyJsonToClipboard);
+    document.getElementById('btnCopyAccordionJson')?.addEventListener('click', copyJsonToClipboard);
+    document.getElementById('btnDownloadSingleJson')?.addEventListener('click', downloadCurrentJson);
+
+    // Toggle JSON accordion in structured view
+    document.getElementById('toggleJsonAccordion')?.addEventListener('click', () => {
+      const body = document.getElementById('jsonAccordionBody');
+      const ind = document.getElementById('jsonAccordionIndicator');
+      if (body) {
+        if (body.style.display === 'none' || !body.style.display) {
+          body.style.display = 'block';
+          if (ind) ind.textContent = 'Clique para recolher ▴';
+          renderJsonViews(casesData[currentCaseIndex]);
+        } else {
+          body.style.display = 'none';
+          if (ind) ind.textContent = 'Clique para expandir ▾';
+        }
+      }
     });
 
     // Stepper & random buttons
