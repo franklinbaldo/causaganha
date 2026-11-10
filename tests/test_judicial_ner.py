@@ -350,3 +350,49 @@ def test_composite_injects_djen_parties_when_omitted_in_text():
     assert reu.literal == "Devedor Beta"
     assert reu.section == "METADADOS_DJEN"
     assert "Fonte Primária Oficial" in reu.evidence
+
+
+def test_entities_extracted_across_all_sections():
+    """Garante que entidades (valores, normas, CNJs, pessoas) sejam reconhecidas em todas as seções."""
+    composite = CompositeEntityExtractor()
+    sections = {
+        "relatorio": SectionSpan(
+            section_type=SectionType.RELATORIO,
+            start=0,
+            end=120,
+            text="O autor pugnou por danos morais de R$ 50.000,00 nos autos do processo 7019913-62.2025.8.22.0007.",
+            confidence=0.90,
+        ),
+        "honorarios_custas": SectionSpan(
+            section_type=SectionType.HONORARIOS_CUSTAS,
+            start=121,
+            end=220,
+            text="Condeno o réu em honorários nos termos do art. 85, § 2º, do CPC no valor de R$ 3.000,00.",
+            confidence=0.95,
+        ),
+    }
+
+    mentions = composite.extract_from_sections(sections)
+
+    # 1. Valor em R$ no Relatório deve ser extraído (antes era filtrado!)
+    valores_relatorio = [
+        m for m in mentions if m.entity_type == EntityType.VALOR and m.section == "RELATORIO"
+    ]
+    assert len(valores_relatorio) >= 1
+    assert "50.000,00" in valores_relatorio[0].literal
+
+    # 2. Norma jurídica em Honorários deve ser extraída (antes era filtrada!)
+    normas_honorarios = [
+        m
+        for m in mentions
+        if m.entity_type == EntityType.NORMA and m.section == "HONORARIOS_CUSTAS"
+    ]
+    assert len(normas_honorarios) >= 1
+    assert "art. 85" in normas_honorarios[0].literal.lower()
+
+    # 3. CNJ citado no Relatório deve ser extraído
+    cnjs_relatorio = [
+        m for m in mentions if m.entity_type == EntityType.CNJ and m.section == "RELATORIO"
+    ]
+    assert len(cnjs_relatorio) >= 1
+    assert "7019913" in cnjs_relatorio[0].literal

@@ -129,20 +129,21 @@ class CompositeEntityExtractor:
         sections: dict[str, SectionSpan],
         metadata: dict[str, Any] | None = None,
     ) -> list[JudicialMention]:
-        """Extrai entidades condicionadas pelas seções canônicas de um DocumentStructure.
+        """Extrai entidades de todas as seções canônicas de um DocumentStructure.
 
-        Aplica roteamento seccional inteligente para maximizar performance:
-        - CNJ: focado no CABECALHO e ENCERRAMENTO (com validação pelo metadado oficial do DJEN).
-        - Normas: varre FUNDAMENTACAO, VOTO, DISPOSITIVO e RELATORIO.
-        - Valores: varre DISPOSITIVO, HONORARIOS_CUSTAS, CABECALHO e FUNDAMENTACAO.
-        - Datas: varre ENCERRAMENTO, CABECALHO e DISPOSITIVO.
+        Varre todas as seções para garantir cobertura total de entidades,
+        registrando em cada menção a seção canônica em que ela ocorreu:
+        - CNJ: varre todas as seções (com validação pelo metadado oficial do DJEN).
+        - Normas: varre todas as seções (fundamentação, voto, dispositivo, relatório, ementa, honorários).
+        - Valores e Custas: varre todas as seções (dispositivo, honorários, cabeçalho, relatório, fundamentação).
+        - Datas e Prazos: varre todas as seções (encerramento, cabeçalho, dispositivo, relatório).
         - Organizações: varre todas as seções.
-        - Pessoas, Advogados e OABs: varre CABECALHO, RELATORIO, DISPOSITIVO e ENCERRAMENTO com vinculação ao DJEN.
+        - Pessoas, Advogados e OABs: varre todas as seções com vinculação ao DJEN.
         """
         meta = metadata or {}
         all_mentions: list[JudicialMention] = []
 
-        for sec_name, span in sections.items():
+        for _sec_name, span in sections.items():
             sec_type = (
                 span.section_type.value
                 if hasattr(span.section_type, "value")
@@ -157,44 +158,35 @@ class CompositeEntityExtractor:
                 m.end += base_offset
                 all_mentions.append(m)
 
-            # 2. Normas
-            if sec_type in {"FUNDAMENTACAO", "VOTO", "DISPOSITIVO", "RELATORIO", "EMENTA"}:
-                for m in self.norma.extract(text, sec_type):
-                    m.start += base_offset
-                    m.end += base_offset
-                    all_mentions.append(m)
+            # 2. Normas (em todas as seções)
+            for m in self.norma.extract(text, sec_type):
+                m.start += base_offset
+                m.end += base_offset
+                all_mentions.append(m)
 
-            # 3. Valores e Custas
-            if sec_type in {"DISPOSITIVO", "HONORARIOS_CUSTAS", "CABECALHO", "FUNDAMENTACAO"}:
-                for m in self.money.extract(text, sec_type):
-                    m.start += base_offset
-                    m.end += base_offset
-                    all_mentions.append(m)
+            # 3. Valores e Custas (em todas as seções)
+            for m in self.money.extract(text, sec_type):
+                m.start += base_offset
+                m.end += base_offset
+                all_mentions.append(m)
 
-            # 4. Datas e Prazos
+            # 4. Datas e Prazos (em todas as seções)
             for m in self.date.extract(text, sec_type):
                 m.start += base_offset
                 m.end += base_offset
                 all_mentions.append(m)
 
-            # 5. Organizações e Grandes Litigantes
+            # 5. Organizações e Grandes Litigantes (em todas as seções)
             for m in self.org.extract(text, sec_type):
                 m.start += base_offset
                 m.end += base_offset
                 all_mentions.append(m)
 
-            # 6. Pessoas, Advogados e OABs (Vinculados aos metadados do DJEN)
-            if sec_type in {
-                "CABECALHO",
-                "RELATORIO",
-                "FUNDAMENTACAO",
-                "DISPOSITIVO",
-                "ENCERRAMENTO",
-            }:
-                for m in self.person.extract(text, sec_type, metadata=meta):
-                    m.start += base_offset
-                    m.end += base_offset
-                    all_mentions.append(m)
+            # 6. Pessoas, Advogados e OABs (em todas as seções)
+            for m in self.person.extract(text, sec_type, metadata=meta):
+                m.start += base_offset
+                m.end += base_offset
+                all_mentions.append(m)
 
         return self._inject_sovereign_metadata(all_mentions, meta)
 
