@@ -62,10 +62,18 @@ def main():
 
         # Formata valores
         val_cond = row.get("valor_condenacao")
-        val_cond_str = f"R$ {float(val_cond):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if pd.notna(val_cond) else None
+        val_cond_str = (
+            f"R$ {float(val_cond):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            if pd.notna(val_cond)
+            else None
+        )
 
         val_causa = row.get("valor_causa")
-        val_causa_str = f"R$ {float(val_causa):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".") if pd.notna(val_causa) else None
+        val_causa_str = (
+            f"R$ {float(val_causa):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
+            if pd.notna(val_causa)
+            else None
+        )
 
         taxa = row.get("taxa_sucesso_economico")
         taxa_str = f"{float(taxa) * 100:.1f}%" if pd.notna(taxa) else None

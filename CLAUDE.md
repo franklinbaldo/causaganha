@@ -8,6 +8,7 @@ CausaGanha archives Brazilian judicial communications (DJEN) on Internet Archive
 
 - **Python backend** in `src/causaganha` and `src/djen_backup`
 - **Web frontend** in `web/` (Astro 7 + Svelte 5)
+- **Agent Operating Manual** in `AGENTS.md` (detailed architectural invariants, active learning flywheel, and jurimetrics rules)
 
 ## Architecture at a glance
 

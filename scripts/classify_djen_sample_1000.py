@@ -36,9 +36,15 @@ def clean_html_if_present(text: str) -> str:
     """Limpa markup HTML se presente preservando quebras de linha essenciais."""
     if not text:
         return ""
-    if re.search(r"<(?:b|p|div|html|body|table|tr|td|article|section|span|br|header|footer)\b|&[a-z]{2,8};", text, re.IGNORECASE):
+    if re.search(
+        r"<(?:b|p|div|html|body|table|tr|td|article|section|span|br|header|footer)\b|&[a-z]{2,8};",
+        text,
+        re.IGNORECASE,
+    ):
         text = html.unescape(text)
-        text = re.sub(r"<(?:br|p|div|header|section|footer|h\d|tr)[^>]*>", "\n", text, flags=re.IGNORECASE)
+        text = re.sub(
+            r"<(?:br|p|div|header|section|footer|h\d|tr)[^>]*>", "\n", text, flags=re.IGNORECASE
+        )
         text = re.sub(r"<[^>]+>", " ", text)
         text = re.sub(r"[ \t]+", " ", text)
         text = re.sub(r"\n\s*\n+", "\n\n", text)
@@ -156,7 +162,9 @@ def run_pipeline_on_sample(limit: int = 1000):
     lat_clf_list: list[float] = []
     lat_total_list: list[float] = []
 
-    print("\nExecutando inferência completa (Segmentação 5-seções + NER Seccional + Desfecho CPC)...")
+    print(
+        "\nExecutando inferência completa (Segmentação 5-seções + NER Seccional + Desfecho CPC)..."
+    )
     t0_exec = time.perf_counter()
 
     for idx, doc in enumerate(sample, start=1):
@@ -203,9 +211,17 @@ def run_pipeline_on_sample(limit: int = 1000):
         # Resolução Recursal Invariante de Polo Vencedor (CPC art. 1.008)
         recorrente_polo = None
         lower_text = text.lower()
-        if "apelação da ré" in lower_text or "recurso do réu" in lower_text or "recorrente: ré" in lower_text:
+        if (
+            "apelação da ré" in lower_text
+            or "recurso do réu" in lower_text
+            or "recorrente: ré" in lower_text
+        ):
             recorrente_polo = "P"
-        elif "apelação do autor" in lower_text or "recurso da autora" in lower_text or "recorrente: autor" in lower_text:
+        elif (
+            "apelação do autor" in lower_text
+            or "recurso da autora" in lower_text
+            or "recorrente: autor" in lower_text
+        ):
             recorrente_polo = "A"
 
         winner_polo = resolve_winner_polo(raw_outcome, recorrente_polo)
@@ -231,35 +247,93 @@ def run_pipeline_on_sample(limit: int = 1000):
         normas_principais = []
 
         for m in mentions:
-            if m.entity_type == EntityType.CNJ and m.role == EntityRole.PROCESSO_PRINCIPAL and not cnj_principal:
-                cnj_principal = m.normalized_value.numero_formatado if hasattr(m.normalized_value, "numero_formatado") else m.literal
-            elif m.entity_type == EntityType.PESSOA and m.role == EntityRole.POLO_ATIVO and not autor_nome:
-                autor_nome = m.normalized_value.nome if hasattr(m.normalized_value, "nome") else m.literal
-            elif m.entity_type == EntityType.PESSOA and m.role == EntityRole.POLO_PASSIVO and not reu_nome:
-                reu_nome = m.normalized_value.nome if hasattr(m.normalized_value, "nome") else m.literal
-            elif m.entity_type == EntityType.OAB and m.role == EntityRole.ADVOGADO and not oab_formatada:
-                oab_formatada = m.normalized_value.formatado if hasattr(m.normalized_value, "formatado") else m.literal
+            if (
+                m.entity_type == EntityType.CNJ
+                and m.role == EntityRole.PROCESSO_PRINCIPAL
+                and not cnj_principal
+            ):
+                cnj_principal = (
+                    m.normalized_value.numero_formatado
+                    if hasattr(m.normalized_value, "numero_formatado")
+                    else m.literal
+                )
+            elif (
+                m.entity_type == EntityType.PESSOA
+                and m.role == EntityRole.POLO_ATIVO
+                and not autor_nome
+            ):
+                autor_nome = (
+                    m.normalized_value.nome if hasattr(m.normalized_value, "nome") else m.literal
+                )
+            elif (
+                m.entity_type == EntityType.PESSOA
+                and m.role == EntityRole.POLO_PASSIVO
+                and not reu_nome
+            ):
+                reu_nome = (
+                    m.normalized_value.nome if hasattr(m.normalized_value, "nome") else m.literal
+                )
+            elif (
+                m.entity_type == EntityType.OAB
+                and m.role == EntityRole.ADVOGADO
+                and not oab_formatada
+            ):
+                oab_formatada = (
+                    m.normalized_value.formatado
+                    if hasattr(m.normalized_value, "formatado")
+                    else m.literal
+                )
                 if hasattr(m.normalized_value, "nome_advogado") and not advogado_nome:
                     advogado_nome = m.normalized_value.nome_advogado
-            elif m.entity_type == EntityType.PESSOA and m.role == EntityRole.MAGISTRADO and not juiz_nome:
-                juiz_nome = m.normalized_value.nome if hasattr(m.normalized_value, "nome") else m.literal
-            elif m.entity_type == EntityType.VALOR and m.role == EntityRole.VALOR_DA_CAUSA and not valor_causa:
-                if hasattr(m.normalized_value, "is_percentage") and not m.normalized_value.is_percentage:
+            elif (
+                m.entity_type == EntityType.PESSOA
+                and m.role == EntityRole.MAGISTRADO
+                and not juiz_nome
+            ):
+                juiz_nome = (
+                    m.normalized_value.nome if hasattr(m.normalized_value, "nome") else m.literal
+                )
+            elif (
+                m.entity_type == EntityType.VALOR
+                and m.role == EntityRole.VALOR_DA_CAUSA
+                and not valor_causa
+            ):
+                if (
+                    hasattr(m.normalized_value, "is_percentage")
+                    and not m.normalized_value.is_percentage
+                ):
                     valor_causa = m.normalized_value.amount
-            elif m.entity_type == EntityType.VALOR and m.role == EntityRole.VALOR_CONDENACAO_PRINCIPAL and not valor_condenacao:
-                if hasattr(m.normalized_value, "is_percentage") and not m.normalized_value.is_percentage:
+            elif (
+                m.entity_type == EntityType.VALOR
+                and m.role == EntityRole.VALOR_CONDENACAO_PRINCIPAL
+                and not valor_condenacao
+            ):
+                if (
+                    hasattr(m.normalized_value, "is_percentage")
+                    and not m.normalized_value.is_percentage
+                ):
                     valor_condenacao = m.normalized_value.amount
-            elif m.entity_type == EntityType.VALOR and m.role == EntityRole.VALOR_HONORARIOS and not honorarios_val:
+            elif (
+                m.entity_type == EntityType.VALOR
+                and m.role == EntityRole.VALOR_HONORARIOS
+                and not honorarios_val
+            ):
                 honorarios_val = m.literal
             elif m.entity_type == EntityType.NORMA and len(normas_principais) < 3:
-                canonical = m.normalized_value.canonical_string() if hasattr(m.normalized_value, "canonical_string") else m.literal
+                canonical = (
+                    m.normalized_value.canonical_string()
+                    if hasattr(m.normalized_value, "canonical_string")
+                    else m.literal
+                )
                 if canonical not in normas_principais:
                     normas_principais.append(canonical)
 
         # Métrica Econômica Contínua de Sucesso
         taxa_sucesso = None
         if valor_causa and valor_causa > 0 and valor_condenacao is not None:
-            taxa_sucesso = round(min(1.0, max(0.0, float(valor_condenacao) / float(valor_causa))), 4)
+            taxa_sucesso = round(
+                min(1.0, max(0.0, float(valor_condenacao) / float(valor_causa))), 4
+            )
 
         lat_total = (time.perf_counter() - st_total) * 1000.0
         lat_total_list.append(lat_total)
@@ -274,11 +348,21 @@ def run_pipeline_on_sample(limit: int = 1000):
             "secoes_detectadas": sec_str,
             "num_secoes": len(doc_struct.sections),
             "has_dispositivo": has_disp,
-            "chars_cabecalho": len(doc_struct.sections.get("cabecalho").text) if doc_struct.sections.get("cabecalho") else 0,
-            "chars_fundamentacao": len(doc_struct.sections.get("fundamentacao").text) if doc_struct.sections.get("fundamentacao") else (len(doc_struct.sections.get("voto").text) if doc_struct.sections.get("voto") else 0),
+            "chars_cabecalho": len(doc_struct.sections.get("cabecalho").text)
+            if doc_struct.sections.get("cabecalho")
+            else 0,
+            "chars_fundamentacao": len(doc_struct.sections.get("fundamentacao").text)
+            if doc_struct.sections.get("fundamentacao")
+            else (
+                len(doc_struct.sections.get("voto").text) if doc_struct.sections.get("voto") else 0
+            ),
             "chars_dispositivo": len(disp_text),
-            "chars_encerramento": len(doc_struct.sections.get("encerramento").text) if doc_struct.sections.get("encerramento") else 0,
-            "dispositivo_snippet": disp_text[:140].replace("\n", " ").strip() + "..." if disp_text else "N/A",
+            "chars_encerramento": len(doc_struct.sections.get("encerramento").text)
+            if doc_struct.sections.get("encerramento")
+            else 0,
+            "dispositivo_snippet": disp_text[:140].replace("\n", " ").strip() + "..."
+            if disp_text
+            else "N/A",
             "desfecho_cpc": raw_outcome,
             "confianca_desfecho": round(outcome_conf, 2),
             "polo_vencedor": winner_polo,
@@ -301,27 +385,31 @@ def run_pipeline_on_sample(limit: int = 1000):
 
         # Salva amostras ricas para inspeção profunda do usuário
         if len(sample_cases) < 50:
-            sample_cases.append({
-                "indice": idx,
-                "doc_id": doc["doc_id"],
-                "tribunal": court,
-                "desfecho_cpc": raw_outcome,
-                "polo_vencedor": winner_polo,
-                "cnj": cnj_principal,
-                "autor": autor_nome,
-                "reu": reu_nome,
-                "advogado": advogado_nome,
-                "oab": oab_formatada,
-                "magistrado": juiz_nome,
-                "valor_causa": valor_causa,
-                "valor_condenacao": valor_condenacao,
-                "taxa_sucesso": taxa_sucesso,
-                "secoes": {k: v.text[:300] for k, v in doc_struct.sections.items()},
-                "dispositivo_completo": disp_text[:600],
-            })
+            sample_cases.append(
+                {
+                    "indice": idx,
+                    "doc_id": doc["doc_id"],
+                    "tribunal": court,
+                    "desfecho_cpc": raw_outcome,
+                    "polo_vencedor": winner_polo,
+                    "cnj": cnj_principal,
+                    "autor": autor_nome,
+                    "reu": reu_nome,
+                    "advogado": advogado_nome,
+                    "oab": oab_formatada,
+                    "magistrado": juiz_nome,
+                    "valor_causa": valor_causa,
+                    "valor_condenacao": valor_condenacao,
+                    "taxa_sucesso": taxa_sucesso,
+                    "secoes": {k: v.text[:300] for k, v in doc_struct.sections.items()},
+                    "dispositivo_completo": disp_text[:600],
+                }
+            )
 
         if idx % 200 == 0 or idx == limit:
-            print(f"  .. {idx}/{limit} docs processados ({idx / (time.perf_counter() - t0_exec):.1f} doc/s | latência média: {np.mean(lat_total_list):.1f}ms)")
+            print(
+                f"  .. {idx}/{limit} docs processados ({idx / (time.perf_counter() - t0_exec):.1f} doc/s | latência média: {np.mean(lat_total_list):.1f}ms)"
+            )
 
     elap_total = time.perf_counter() - t0_exec
     throughput = len(sample) / max(elap_total, 0.001)
@@ -393,13 +481,20 @@ def run_pipeline_on_sample(limit: int = 1000):
     has_fund = (df_res["chars_fundamentacao"] > 0).sum()
     has_disp = (df_res["chars_dispositivo"] > 0).sum()
     has_enc = (df_res["chars_encerramento"] > 0).sum()
-    full_5_sec = ((df_res["chars_cabecalho"] > 0) & (df_res["chars_fundamentacao"] > 0) & (df_res["chars_dispositivo"] > 0) & (df_res["chars_encerramento"] > 0)).sum()
+    full_5_sec = (
+        (df_res["chars_cabecalho"] > 0)
+        & (df_res["chars_fundamentacao"] > 0)
+        & (df_res["chars_dispositivo"] > 0)
+        & (df_res["chars_encerramento"] > 0)
+    ).sum()
 
     print(f"  • Cabeçalho identificado     : {has_cab:>4d} ({has_cab / len(df_res) * 100:.1f}%)")
     print(f"  • Fundamentação/Voto isolada : {has_fund:>4d} ({has_fund / len(df_res) * 100:.1f}%)")
     print(f"  • Dispositivo isolado        : {has_disp:>4d} ({has_disp / len(df_res) * 100:.1f}%)")
     print(f"  • Encerramento isolado       : {has_enc:>4d} ({has_enc / len(df_res) * 100:.1f}%)")
-    print(f"  • Estrutura Canônica Completa: {full_5_sec:>4d} ({full_5_sec / len(df_res) * 100:.1f}%)")
+    print(
+        f"  • Estrutura Canônica Completa: {full_5_sec:>4d} ({full_5_sec / len(df_res) * 100:.1f}%)"
+    )
 
     # Cobertura de Entidades
     cnj_found = (df_res["cnj"] != "Não detectado").sum()
@@ -413,15 +508,33 @@ def run_pipeline_on_sample(limit: int = 1000):
     ratio_found = df_res["taxa_sucesso_economico"].notna().sum()
 
     print("\n--- 4. EXTRAÇÃO DE ENTIDADES E MÉTRICAS ECONÔMICAS ---")
-    print(f"  • Processo CNJ (Módulo 97)   : {cnj_found:>4d} ({cnj_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Polo Ativo identificado    : {autor_found:>4d} ({autor_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Polo Passivo identificado  : {reu_found:>4d} ({reu_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Advogados identificados    : {adv_found:>4d} ({adv_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Inscrições OAB identificadas: {oab_found:>4d} ({oab_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Magistrados identificados  : {juiz_found:>4d} ({juiz_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Valor da Causa identificado: {causa_found:>4d} ({causa_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Condenação Principal       : {cond_found:>4d} ({cond_found / len(df_res) * 100:.1f}%)")
-    print(f"  • Taxa Sucesso Econômico     : {ratio_found:>4d} ({ratio_found / len(df_res) * 100:.1f}%)")
+    print(
+        f"  • Processo CNJ (Módulo 97)   : {cnj_found:>4d} ({cnj_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Polo Ativo identificado    : {autor_found:>4d} ({autor_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Polo Passivo identificado  : {reu_found:>4d} ({reu_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Advogados identificados    : {adv_found:>4d} ({adv_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Inscrições OAB identificadas: {oab_found:>4d} ({oab_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Magistrados identificados  : {juiz_found:>4d} ({juiz_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Valor da Causa identificado: {causa_found:>4d} ({causa_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Condenação Principal       : {cond_found:>4d} ({cond_found / len(df_res) * 100:.1f}%)"
+    )
+    print(
+        f"  • Taxa Sucesso Econômico     : {ratio_found:>4d} ({ratio_found / len(df_res) * 100:.1f}%)"
+    )
 
 
 if __name__ == "__main__":

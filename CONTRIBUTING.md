@@ -44,6 +44,7 @@ npm run build
 
 ## Repository map
 
+- [AGENTS.md](AGENTS.md): operating manual and architectural invariants for autonomous AI agents
 - [src/causaganha](src/causaganha): main Python package
 - [src/djen_backup](src/djen_backup): ZIP and backfill utilities
 - [web](web): Astro + Svelte frontend

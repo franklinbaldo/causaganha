@@ -184,7 +184,13 @@ class CompositeEntityExtractor:
                 all_mentions.append(m)
 
             # 6. Pessoas, Advogados e OABs (Vinculados aos metadados do DJEN)
-            if sec_type in {"CABECALHO", "RELATORIO", "FUNDAMENTACAO", "DISPOSITIVO", "ENCERRAMENTO"}:
+            if sec_type in {
+                "CABECALHO",
+                "RELATORIO",
+                "FUNDAMENTACAO",
+                "DISPOSITIVO",
+                "ENCERRAMENTO",
+            }:
                 for m in self.person.extract(text, sec_type, metadata=meta):
                     m.start += base_offset
                     m.end += base_offset
