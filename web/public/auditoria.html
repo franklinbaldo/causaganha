@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://archive.org https://comunicaapi.pje.jus.br https://djen-proxy-mhgmawcn3a-rj.a.run.app https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self';" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self' https://archive.org https://comunicaapi.pje.jus.br https://djen-proxy-mhgmawcn3a-rj.a.run.app https://cdn.jsdelivr.net; worker-src 'self' blob: https://cdn.jsdelivr.net; object-src 'none'; base-uri 'self'; form-action 'self';" />
   <title>Auditoria Interativa DJEN — Antes e Depois | CausaGanha</title>
   <style>
     :root {
@@ -403,9 +403,9 @@
       if (!casesData || casesData.length === 0) {
         console.error('Failed to load JSON data from all candidate URLs', lastError);
         document.getElementById('rawTextContent').innerHTML = `
-          <div style="padding: 1rem; color: #dc2626;">
+          <div style="padding: 1.5rem; color: #dc2626; text-align: center;">
             <strong>Erro ao carregar dados do visualizador.</strong><br>
-            <span style="font-size: 0.8rem; color: #6b7280;">Não foi possível carregar o arquivo <code>visualizer_data.json</code>.</span><br><br>
+            <span style="font-size: 0.85rem; color: #6b7280;">Não foi possível carregar o arquivo <code>visualizer_data.json</code>.</span><br><br>
             <button id="btnRetryLoad" class="stepper-btn stepper-btn-primary">Tentar novamente</button>
           </div>
         `;

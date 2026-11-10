@@ -78,30 +78,49 @@ def main():
         taxa = row.get("taxa_sucesso_economico")
         taxa_str = f"{float(taxa) * 100:.1f}%" if pd.notna(taxa) else None
 
+        normas = row.get("normas_aplicadas")
+        normas_str = str(normas) if pd.notna(normas) else None
+
         visualizer_cases.append(
             {
                 "id": idx,
                 "doc_id": doc_id,
-                "tribunal": row["tribunal"],
-                "classe": row["classe_processual"],
-                "tipo_documento": row["tipo_documento"],
+                "tribunal": str(row["tribunal"]) if pd.notna(row["tribunal"]) else "DJEN",
+                "classe": str(row["classe_processual"])
+                if pd.notna(row["classe_processual"])
+                else "Sentença",
+                "tipo_documento": str(row["tipo_documento"])
+                if pd.notna(row["tipo_documento"])
+                else "Sentença",
                 "texto_bruto_djen": raw_text,
                 "texto_limpo": clean_text,
                 "secoes": sections_dict,
-                "desfecho_cpc": row["desfecho_cpc"],
-                "confianca_desfecho": row["confianca_desfecho"],
-                "polo_vencedor": row["polo_vencedor"],
-                "cnj": row["cnj"],
-                "autor": row["autor"],
-                "reu": row["reu"],
-                "advogado": row["advogado"],
-                "oab": row["oab"],
-                "magistrado": row["magistrado"],
+                "desfecho_cpc": str(row["desfecho_cpc"])
+                if pd.notna(row["desfecho_cpc"])
+                else "unknown",
+                "confianca_desfecho": float(row["confianca_desfecho"])
+                if pd.notna(row["confianca_desfecho"])
+                else 0.0,
+                "polo_vencedor": str(row["polo_vencedor"])
+                if pd.notna(row["polo_vencedor"])
+                else "unknown",
+                "cnj": str(row["cnj"]) if pd.notna(row["cnj"]) else "Não detectado",
+                "autor": str(row["autor"]) if pd.notna(row["autor"]) else "Não identificado",
+                "reu": str(row["reu"]) if pd.notna(row["reu"]) else "Não identificado",
+                "advogado": str(row["advogado"])
+                if pd.notna(row["advogado"])
+                else "Não identificado",
+                "oab": str(row["oab"]) if pd.notna(row["oab"]) else "Não identificada",
+                "magistrado": str(row["magistrado"])
+                if pd.notna(row["magistrado"])
+                else "Não identificado",
                 "valor_condenacao": val_cond_str,
                 "valor_causa": val_causa_str,
                 "taxa_sucesso_economico": taxa_str,
-                "normas_aplicadas": row["normas_aplicadas"],
-                "latencia_total_ms": row["lat_total_ms"],
+                "normas_aplicadas": normas_str,
+                "latencia_total_ms": round(float(row["lat_total_ms"]), 2)
+                if pd.notna(row.get("lat_total_ms"))
+                else 20.0,
             }
         )
 
@@ -112,10 +131,10 @@ def main():
     out_audit.parent.mkdir(parents=True, exist_ok=True)
 
     with open(out_public, "w", encoding="utf-8") as f:
-        json.dump(visualizer_cases, f, ensure_ascii=False, indent=2)
+        json.dump(visualizer_cases, f, ensure_ascii=False, indent=2, allow_nan=False)
 
     with open(out_audit, "w", encoding="utf-8") as f:
-        json.dump(visualizer_cases, f, ensure_ascii=False, indent=2)
+        json.dump(visualizer_cases, f, ensure_ascii=False, indent=2, allow_nan=False)
 
     print(f"✓ {len(visualizer_cases)} casos exportados com sucesso:")
     print(f"  • {out_public}")
