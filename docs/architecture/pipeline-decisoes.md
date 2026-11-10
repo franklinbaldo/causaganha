@@ -132,6 +132,15 @@ flowchart TD
 
 ---
 
+### 3.6. Esteira em 3 Estágios de Open NER (`OpenNerTournamentManager`)
+* **Arquivo:** `src/causaganha/decisoes/open_ner_tournament.py`
+* **Dinâmica dos Três Estágios:**
+  1. **Thx 1 (Explorador Aberto):** Recebe o trecho judicial bruto sem taxonomia pré-fixada e descobre livremente entidades emergentes (ex.: prazos improrrogáveis, tetos de multa diária, obrigações de fazer no Serasa, índices de correção monetária).
+  2. **Thx 2 (Engenheiro de Regex):** Transforma a descoberta em uma expressão regular com grupos de captura estruturados e travas negativas de exclusão.
+  3. **Thx 3 / Juiz (Adjudicação & Julgamento dos Melhores):** O Juiz testa a regex candidata contra o acervo real e avalia se o valor extraído é limpo ou ruidoso. **Apenas as regexes com precisão $\ge 90\%$ e zero/mínimo falso positivo são promovidas para o catálogo de produção**, descartando sumariamente candidatos ruins.
+
+---
+
 ## 4. Contrato do Dossiê Estruturado de Saída
 
 O resultado consolidado do pipeline é emitido como um documento JSON fortemente tipado:

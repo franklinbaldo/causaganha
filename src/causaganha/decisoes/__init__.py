@@ -1,5 +1,10 @@
 """Public decision/content discovery for CausaGanha product surfaces."""
 
+from causaganha.decisoes.open_ner_tournament import (
+    AdjudicationVerdict,
+    DiscoveredEntity,
+    OpenNerTournamentManager,
+)
 from causaganha.decisoes.planner import (
     DecisionSearchBudgetError,
     DecisionSearchPlan,
@@ -31,13 +36,16 @@ from causaganha.decisoes.tournament_ratchet import (
 )
 
 __all__ = [
+    "AdjudicationVerdict",
     "CompetitiveRegex",
     "DecisionSearchBudgetError",
     "DecisionSearchPlan",
     "DecisionTopology",
+    "DiscoveredEntity",
     "DocumentTaxonomyRegistry",
     "GateResult",
     "MacroCategory",
+    "OpenNerTournamentManager",
     "PublishedDecisionDataset",
     "RegexTournament",
     "TaxonomyClassification",
