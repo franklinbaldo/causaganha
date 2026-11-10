@@ -241,7 +241,9 @@ def main():
         )
         final_mag = (
             str(row["magistrado"])
-            if (pd.notna(row["magistrado"]) and str(row["magistrado"]).strip() != "Não identificado")
+            if (
+                pd.notna(row["magistrado"]) and str(row["magistrado"]).strip() != "Não identificado"
+            )
             else (magistrado_extraido or "Não identificado")
         )
 
@@ -301,7 +303,9 @@ def main():
 
     total_mencoes = sum(c["total_entidades"] for c in visualizer_cases)
     print(f"✓ {len(visualizer_cases)} casos exportados com sucesso:")
-    print(f"  • Total de entidades extraídas: {total_mencoes} (média {total_mencoes / len(visualizer_cases):.1f}/caso)")
+    print(
+        f"  • Total de entidades extraídas: {total_mencoes} (média {total_mencoes / len(visualizer_cases):.1f}/caso)"
+    )
     print(f"  • {out_public}")
     print(f"  • {out_audit}")
 

@@ -10,10 +10,57 @@ Implementa a dinâmica de seleção natural e ranqueamento de expressões regula
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 import json
 from pathlib import Path
 import re
 from typing import Any
+
+# Pesos canônicos por seção estrutural do documento judicial
+DEFAULT_SECTION_WEIGHTS: dict[str, float] = {
+    "dispositivo": 3.0,
+    "ementa": 1.5,
+    "voto": 1.2,
+    "fundamentacao": 0.6,
+    "relatorio": 0.2,
+    "cabecalho": 0.1,
+    "encerramento": 0.5,
+    "full": 1.0,
+}
+
+# Prioridade de especificidade jurídica para desempate entre categorias
+SPECIFICITY_PRIORITY: dict[str, int] = {
+    "acordo": 10,
+    "parcialmente procedente": 8,
+    "extinto sem mérito": 7,
+    "procedente": 5,
+    "improcedente": 5,
+}
+
+
+@dataclass
+class MatchCandidate:
+    """Evidência de correspondência encontrada por uma regra do torneio."""
+
+    category: str
+    rule: CompetitiveRegex
+    section: str
+    weight: float
+    effective_score: float
+    confidence: float
+    matched_snippet: str = ""
+
+
+@dataclass
+class ClassificationExplanation:
+    """Explicação detalhada do resultado competitivo da classificação."""
+
+    category: str
+    confidence: float
+    winning_rule: CompetitiveRegex | None
+    winning_section: str | None
+    effective_score: float
+    all_candidates: list[dict[str, Any]] = field(default_factory=list)
 
 
 class CompetitiveRegex:
@@ -27,6 +74,8 @@ class CompetitiveRegex:
         source: str = "seed",
         description: str = "",
         fp_penalty: float = 3.0,
+        negative_pattern: str | None = None,
+        scope: str = "all",
     ):
         self.pattern_id = pattern_id
         self.pattern = pattern
@@ -34,6 +83,8 @@ class CompetitiveRegex:
         self.source = source
         self.description = description
         self.fp_penalty = fp_penalty
+        self.negative_pattern = negative_pattern
+        self.scope = scope.lower().strip()
 
         self.tp: int = 0
         self.fp: int = 0
@@ -45,6 +96,7 @@ class CompetitiveRegex:
         self.status: str = "CANDIDATE"  # CANDIDATE, PROMOTED, DEMOTED
 
         self._compiled: re.Pattern[str] | None = None
+        self._negative_compiled: re.Pattern[str] | None = None
 
     @property
     def compiled(self) -> re.Pattern[str]:
@@ -52,11 +104,33 @@ class CompetitiveRegex:
             self._compiled = re.compile(self.pattern, re.IGNORECASE)
         return self._compiled
 
-    def matches(self, text: str) -> bool:
-        """Verifica se o padrão tem match no texto."""
+    @property
+    def negative_compiled(self) -> re.Pattern[str] | None:
+        if self.negative_pattern and self._negative_compiled is None:
+            self._negative_compiled = re.compile(self.negative_pattern, re.IGNORECASE)
+        return self._negative_compiled
+
+    def matches(self, text: str, section: str | None = None) -> bool:
+        """Verifica se o padrão tem match no texto, respeitando escopo e guardas negativas."""
         if not text:
             return False
-        return bool(self.compiled.search(text))
+        if self.scope != "all" and section is not None and section.lower() != self.scope:
+            return False
+
+        if not self.negative_compiled:
+            return bool(self.compiled.search(text))
+
+        # Com negative guard: valida se ao menos um match não está contaminado
+        for m in self.compiled.finditer(text):
+            # Janela de contexto local ao redor do match (100 caracteres antes e depois)
+            start_window = max(0, m.start() - 100)
+            end_window = min(len(text), m.end() + 100)
+            context = text[start_window:end_window]
+
+            if not self.negative_compiled.search(context):
+                return True
+
+        return False
 
     def update_metrics(self, tp: int, fp: int, total_positives_in_dataset: int) -> None:
         """Atualiza estatísticas, penalização e pontuação competitiva."""
@@ -99,6 +173,8 @@ class CompetitiveRegex:
             "category": self.category,
             "source": self.source,
             "description": self.description,
+            "negative_pattern": self.negative_pattern,
+            "scope": self.scope,
             "tp": self.tp,
             "fp": self.fp,
             "fn": self.fn,
@@ -116,6 +192,9 @@ class CompetitiveRegex:
             category=data["category"],
             source=data.get("source", "seed"),
             description=data.get("description", ""),
+            fp_penalty=data.get("fp_penalty", 3.0),
+            negative_pattern=data.get("negative_pattern"),
+            scope=data.get("scope", "all"),
         )
         r.tp = data.get("tp", 0)
         r.fp = data.get("fp", 0)
@@ -148,6 +227,8 @@ class RegexTournament:
         pattern_id: str | None = None,
         source: str = "seed",
         description: str = "",
+        negative_pattern: str | None = None,
+        scope: str = "all",
     ) -> CompetitiveRegex:
         """Registra uma nova regex candidata no pool de sua categoria."""
         cat = category.lower().strip()
@@ -156,7 +237,7 @@ class RegexTournament:
 
         # Evita duplicidade de padrão
         for existing in self.categories[cat]:
-            if existing.pattern == pattern:
+            if existing.pattern == pattern and existing.negative_pattern == negative_pattern:
                 return existing
 
         pid = (
@@ -170,6 +251,8 @@ class RegexTournament:
             source=source,
             description=description,
             fp_penalty=self.fp_penalty,
+            negative_pattern=negative_pattern,
+            scope=scope,
         )
         self.categories[cat].append(reg)
         return reg
@@ -242,28 +325,119 @@ class RegexTournament:
             promoted = [r for r in pool if r.score > 0]
         return promoted[: self.top_k]
 
-    def classify_best(self, text: str) -> tuple[str, float, CompetitiveRegex | None]:
-        """Aplica apenas as melhores regexes de cada categoria em ordem de pontuação."""
-        # Coleta as top regexes de todas as categorias
-        candidate_matches: list[tuple[str, CompetitiveRegex]] = []
-        for cat in self.categories:
+    def classify_with_explanation(
+        self,
+        text: str,
+        sections: dict[str, str] | None = None,
+        section_weights: dict[str, float] | None = None,
+    ) -> ClassificationExplanation:
+        """Classifica ponderando as evidências de cada seção e desempata por especificidade."""
+        weights = dict(DEFAULT_SECTION_WEIGHTS)
+        if section_weights:
+            weights.update(section_weights)
+
+        # Se sections não foi fornecido diretamente, avalia o texto integral como "full"
+        eval_sections: dict[str, str] = dict(sections) if sections else {"full": text}
+
+        candidates: list[MatchCandidate] = []
+
+        for cat, _ in self.categories.items():
             top_rules = self.get_top_k(cat)
             for r in top_rules:
-                if r.matches(text):
-                    candidate_matches.append((cat, r))
-                    break  # Primeira melhor da categoria acertou
+                # Testa contra cada seção avaliável
+                for sec_name, sec_text in eval_sections.items():
+                    if not sec_text:
+                        continue
+                    if r.matches(sec_text, section=sec_name):
+                        weight = weights.get(sec_name.lower(), 1.0)
+                        # Score base histórico ponderado pelo peso da seção
+                        base_score = max(
+                            r.score, (r.precision * 100.0) if r.precision > 0 else 10.0
+                        )
+                        effective_score = round(base_score * weight, 2)
 
-        if not candidate_matches:
-            return "unknown", 0.0, None
+                        # Confiança proporcional à precisão histórica e peso da seção
+                        section_conf_factor = 1.0 if weight >= 1.0 else 0.75
+                        conf = round(min(0.99, max(0.50, r.precision * section_conf_factor)), 4)
 
-        # Se mais de uma categoria deu match, vence a regex com maior score histórico
-        candidate_matches.sort(key=lambda x: x[1].score, reverse=True)
-        winner_cat, winner_reg = candidate_matches[0]
+                        candidates.append(
+                            MatchCandidate(
+                                category=cat,
+                                rule=r,
+                                section=sec_name,
+                                weight=weight,
+                                effective_score=effective_score,
+                                confidence=conf,
+                                matched_snippet=sec_text[:120],
+                            )
+                        )
+                        # Encontrou o melhor match da categoria nesta seção, avança
+                        break
 
-        # Confiança derivada da precisão histórica comprovada da regex
-        confidence = winner_reg.precision
+        if not candidates:
+            return ClassificationExplanation(
+                category="unknown",
+                confidence=0.0,
+                winning_rule=None,
+                winning_section=None,
+                effective_score=0.0,
+                all_candidates=[],
+            )
 
-        return winner_cat, confidence, winner_reg
+        # Ordena candidatos por pontuação efetiva decrescente
+        candidates.sort(
+            key=lambda c: (
+                c.effective_score,
+                SPECIFICITY_PRIORITY.get(c.category, 5),
+                c.confidence,
+            ),
+            reverse=True,
+        )
+
+        # Desempate por especificidade jurídica: se as duas melhores categorias têm scores muito próximos (<= 15%),
+        # a categoria juridicamente mais específica (ex: PARCIALMENTE PROCEDENTE sobre PROCEDENTE) prevalece
+        if len(candidates) >= 2:
+            top1 = candidates[0]
+            top2 = candidates[1]
+            if top1.category != top2.category and top1.effective_score > 0:
+                diff_ratio = abs(top1.effective_score - top2.effective_score) / top1.effective_score
+                if diff_ratio <= 0.15:
+                    p1 = SPECIFICITY_PRIORITY.get(top1.category, 5)
+                    p2 = SPECIFICITY_PRIORITY.get(top2.category, 5)
+                    if p2 > p1:
+                        candidates[0], candidates[1] = top2, top1
+
+        winner = candidates[0]
+        return ClassificationExplanation(
+            category=winner.category,
+            confidence=winner.confidence,
+            winning_rule=winner.rule,
+            winning_section=winner.section,
+            effective_score=winner.effective_score,
+            all_candidates=[
+                {
+                    "category": c.category,
+                    "pattern_id": c.rule.pattern_id,
+                    "section": c.section,
+                    "weight": c.weight,
+                    "effective_score": c.effective_score,
+                    "confidence": c.confidence,
+                }
+                for c in candidates
+            ],
+        )
+
+    def classify_best(
+        self,
+        text: str,
+        sections: dict[str, str] | None = None,
+        section_weights: dict[str, float] | None = None,
+    ) -> tuple[str, float, CompetitiveRegex | None]:
+        """Aplica apenas as melhores regexes de cada categoria em ordem de pontuação."""
+        res = self.classify_with_explanation(
+            text, sections=sections, section_weights=section_weights
+        )
+        return res.category, res.confidence, res.winning_rule
 
     def save_leaderboard(self, filepath: str | Path) -> None:
         """Persiste o ranking do torneio em arquivo JSON."""
@@ -300,24 +474,43 @@ def build_default_tournament() -> RegexTournament:
     t = RegexTournament(top_k=3, fp_penalty=2.0, min_precision=0.75)
 
     # 1. PROCEDENTE
-    t.register(r"\bjulgo\s+procedentes?\b(?!\s+em\s+parte)", "procedente", "proc_julgo_procedente")
+    t.register(
+        r"\bjulgo\s+procedentes?\b",
+        "procedente",
+        "proc_julgo_procedente",
+        negative_pattern=r"(?:parcialmente|em\s+parte|não\s+acolho|deixo\s+de|improcedente)",
+    )
     t.register(r"\bacolho\s+integralmente\b", "procedente", "proc_acolho_integral")
     t.register(
         r"\bprocedente\s+(?:a\s+)?(?:ação|pedido|pretensão)\b",
         "procedente",
         "proc_procedente_pedido",
+        negative_pattern=r"(?:parcialmente|em\s+parte)",
     )
     t.register(r"\bcondeno\s+o\s+r[eé]u\b", "procedente", "proc_condeno_reu")
-    t.register(r"\bjulgo\s+procedente\s+o\s+pedido\b", "procedente", "proc_julgo_proc_pedido")
+    t.register(
+        r"\bjulgo\s+procedente\s+o\s+pedido\b",
+        "procedente",
+        "proc_julgo_proc_pedido",
+        negative_pattern=r"(?:parcialmente|em\s+parte)",
+    )
     t.register(r"\bacolher\s+o\s+pedido\s+inicial\b", "procedente", "proc_acolher_pedido_inicial")
 
     # 2. IMPROCEDENTE
-    t.register(r"\bjulgo\s+improcedentes?\b", "improcedente", "improc_julgo_improcedente")
+    t.register(
+        r"\bjulgo\s+improcedentes?\b",
+        "improcedente",
+        "improc_julgo_improcedente",
+        negative_pattern=r"(?:não\s+julgo|deixo\s+de|parcialmente)",
+    )
     t.register(
         r"\brejeito\s+(?:integralmente\s+)?o\s+pedido\b", "improcedente", "improc_rejeito_pedido"
     )
     t.register(
-        r"\bimprocedente\s+(?:a\s+)?(?:ação|pedido)\b", "improcedente", "improc_pedido_improcedente"
+        r"\bimprocedente\s+(?:a\s+)?(?:ação|pedido)\b",
+        "improcedente",
+        "improc_pedido_improcedente",
+        negative_pattern=r"(?:não\s+é\s+caso|parcialmente)",
     )
     t.register(
         r"\bjulgo\s+improcedente\s+a\s+pretensão\b", "improcedente", "improc_julgo_improc_pretensao"
@@ -325,28 +518,30 @@ def build_default_tournament() -> RegexTournament:
 
     # 3. PARCIALMENTE PROCEDENTE
     t.register(
-        r"\bjulgo\s+parcialmente\s+procedentes?\b",
+        r"\b(?:julgo|julgando)\s+parcialmente\s+procedentes?\b",
         "parcialmente procedente",
         "parcial_julgo_parcial",
+    )
+    t.register(
+        r"\b(?:julgo|julgando)\s+procedente\s+em\s+parte\b",
+        "parcialmente procedente",
+        "parcial_procedente_em_parte",
+    )
+    t.register(
+        r"\bacolho\s+(?:em\s+parte|parcialmente)\b",
+        "parcialmente procedente",
+        "parcial_acolho_em_parte",
     )
     t.register(
         r"\bparcialmente\s+procedente\b", "parcialmente procedente", "parcial_parcialmente_proc"
     )
     t.register(
-        r"\bprocedente\s+em\s+parte\b", "parcialmente procedente", "parcial_procedente_em_parte"
-    )
-    t.register(
         r"\bprocedência\s+parcial\b", "parcialmente procedente", "parcial_procedencia_parcial"
-    )
-    t.register(
-        r"\bacolho\s+em\s+parte\s+o\s+pedido\b",
-        "parcialmente procedente",
-        "parcial_acolho_em_parte",
     )
 
     # 4. EXTINTO SEM MÉRITO (CPC art. 485)
     t.register(
-        r"\bextingo\s+o\s+processo\s+sem\s+resolução\s+(?:de|do)\s+mérito\b",
+        r"\b(?:extingo|julgo\s+extinto)\s+o\s+processo\s+sem\s+resolução\s+(?:de|do)\s+mérito\b",
         "extinto sem mérito",
         "extinto_sem_resolucao",
     )
@@ -355,7 +550,12 @@ def build_default_tournament() -> RegexTournament:
         "extinto sem mérito",
         "extinto_sem_resolucao_2",
     )
-    t.register(r"\bart\.?\s*485\b", "extinto sem mérito", "extinto_art_485")
+    t.register(
+        r"\bart\.?\s*485\b",
+        "extinto sem mérito",
+        "extinto_art_485",
+        negative_pattern=r"(?:não\s+se\s+aplica|afasto\s+o\s+art|rejeito\s+o\s+art)",
+    )
     t.register(
         r"\bindefiro\s+a\s+petição\s+inicial\b", "extinto sem mérito", "extinto_indefiro_inicial"
     )
@@ -363,7 +563,10 @@ def build_default_tournament() -> RegexTournament:
 
     # 5. ACORDO (CPC art. 487, III, b)
     t.register(
-        r"\bhomologo\s+(?:por\s+sentença\s+)?o\s+acordo\b", "acordo", "acordo_homologo_acordo"
+        r"\bhomologo\s+(?:por\s+sentença\s+)?o\s+acordo\b",
+        "acordo",
+        "acordo_homologo_acordo",
+        negative_pattern=r"(?:rejeito|deixo\s+de)",
     )
     t.register(r"\bhomologo\s+a\s+transação\b", "acordo", "acordo_homologo_transacao")
     t.register(r"\bhomologo\s+a\s+avença\b", "acordo", "acordo_homologo_avenca")

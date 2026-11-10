@@ -10,6 +10,11 @@ from causaganha.decisoes.published import (
     discover_published_decision_datasets,
     discover_published_juris_datasets,
 )
+from causaganha.decisoes.regex_tournament import (
+    CompetitiveRegex,
+    RegexTournament,
+    build_default_tournament,
+)
 from causaganha.decisoes.taxonomy import (
     DocumentTaxonomyRegistry,
     MacroCategory,
@@ -20,17 +25,26 @@ from causaganha.decisoes.topology_router import (
     DecisionTopology,
     TopologyRouter,
 )
+from causaganha.decisoes.tournament_ratchet import (
+    GateResult,
+    TournamentRatchet,
+)
 
 __all__ = [
+    "CompetitiveRegex",
     "DecisionSearchBudgetError",
     "DecisionSearchPlan",
     "DecisionTopology",
     "DocumentTaxonomyRegistry",
+    "GateResult",
     "MacroCategory",
     "PublishedDecisionDataset",
+    "RegexTournament",
     "TaxonomyClassification",
     "TaxonomyRule",
     "TopologyRouter",
+    "TournamentRatchet",
+    "build_default_tournament",
     "discover_published_decision_datasets",
     "discover_published_juris_datasets",
     "plan_decision_search",
