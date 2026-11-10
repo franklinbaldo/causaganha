@@ -98,7 +98,23 @@ class DocumentTaxonomyRegistry:
         self._rules.sort(key=lambda r: r.priority, reverse=True)
 
     def classify(self, text: str, metadata: dict[str, Any] | None = None) -> TaxonomyClassification:
-        meta = metadata or {}
+        meta_raw = metadata or {}
+        meta: dict[str, Any] = dict(meta_raw)
+        if not meta.get("doc_type"):
+            meta["doc_type"] = (
+                meta_raw.get("tipo_documento_hint")
+                or meta_raw.get("tipo_documento")
+                or meta_raw.get("document_type")
+                or ""
+            )
+        if not meta.get("classe_processual"):
+            meta["classe_processual"] = (
+                meta_raw.get("classe_hint")
+                or meta_raw.get("classe_processual")
+                or meta_raw.get("procedural_class")
+                or ""
+            )
+
         text_norm = _normalize(text[:3000])  # Prefixo significativo para cabeçalho e abertura
 
         for rule in self._rules:
@@ -202,6 +218,14 @@ class DocumentTaxonomyRegistry:
                     confidence=0.98,
                     cnj_class_hint="1689",
                 )
+            if "recurso inominado" in classe or "recurso inominado" in text[:400]:
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.ACORDAO,
+                    specific_category="ACORDAO_RECURSO_INOMINADO",
+                    tags=tags + ["turma_recursal", "juizados_especiais"],
+                    confidence=0.98,
+                    cnj_class_hint="460",
+                )
             if (
                 "especial" in classe
                 or "extraordinario" in classe
@@ -271,6 +295,7 @@ class DocumentTaxonomyRegistry:
             return False
 
         def classify_sentenca(text: str, meta: dict[str, Any]) -> TaxonomyClassification:
+            classe = _normalize(meta.get("classe_processual") or meta.get("procedural_class"))
             tags = ["primeiro_grau", "ato_decisorio"]
 
             # Registra menções incidentais como tags sem alterar a categoria
@@ -278,6 +303,30 @@ class DocumentTaxonomyRegistry:
                 tags.append("contem_mencao_edital")
             if "intimacao" in text or "intimad" in text:
                 tags.append("contem_intimacao_partes")
+
+            if (
+                "cumprimento de sentenca" in classe
+                or "execucao" in classe
+                or "art. 924" in text
+                or "satisfacao da obrigacao" in text
+            ):
+                tags.extend(["fase_executiva", "cumprimento_sentenca"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_CUMPRIMENTO_SENTENCA",
+                    tags=tags,
+                    confidence=0.97,
+                    cnj_class_hint="156",
+                )
+
+            if "decisao leiga" in text or "projeto de sentenca" in text:
+                tags.extend(["juizados_especiais", "homologacao_leiga", "lei_9099"])
+                return TaxonomyClassification(
+                    macro_category=MacroCategory.SENTENCA,
+                    specific_category="SENTENCA_HOMOLOGATORIA_LEIGA",
+                    tags=tags,
+                    confidence=0.97,
+                )
 
             if "homologo o acordo" in text or "homologacao de acordo" in text:
                 tags.extend(["autocomposicao", "acordo", "extincao_com_merito"])

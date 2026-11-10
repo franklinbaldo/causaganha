@@ -142,6 +142,24 @@ def main():
             f"  {idx}. Resultado: {winner_cat.upper():<24} (Conf: {conf * 100:.1f}%) | Regex Vencedora: {reg_id}"
         )
 
+    # 7. Demonstração de Segment-Aware Weighting (Dispositivo 3.0x vs Relatório 0.2x)
+    print("\n🛡️ TESTE DE RESILIÊNCIA CONTRA CITAÇÕES CONTRÁRIAS (Segment-Aware Weighting):")
+    tricky_sections = {
+        "relatorio": "O autor ingressou com ação de cobrança. O réu contestou requerendo que a ação fosse julgada improcedente.",
+        "dispositivo": "Ante o exposto, julgo procedente o pedido condenando o réu ao pagamento.",
+    }
+    explanation = tournament.classify_with_explanation(
+        "texto completo...", sections=tricky_sections
+    )
+    print(f"  Vencedor: {explanation.category.upper()} (Seção: {explanation.winning_section})")
+    print(
+        f"  Pontuação Efetiva: {explanation.effective_score} (Confiança: {explanation.confidence * 100:.1f}%)"
+    )
+    print(f"  Regra: {explanation.winning_rule.pattern_id if explanation.winning_rule else 'none'}")
+    print(
+        "  -> Multiplicador do dispositivo evitou que a menção de 'improcedente' no relatório sequestrasse a decisão."
+    )
+
     print("\n✓ Torneio finalizado com sucesso!")
 
 

@@ -32,6 +32,8 @@ Responde: **o que a decisão ou documento efetivamente diz?**
 
 Quando disponíveis, JURIS e STJ fornecem documentos/decisões usados como evidência textual. Teor não deve ser reconstruído a partir do nome de um movimento DataJud.
 
+A extração, segmentação estrutural, reconhecimento de entidades (NER) e classificação de mérito do teor judicial são documentadas em detalhe no [Pipeline de Inteligência Decisória](architecture/pipeline-decisoes.md).
+
 ## Regra central
 
 ```text

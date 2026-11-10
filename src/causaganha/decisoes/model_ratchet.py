@@ -86,7 +86,7 @@ class ModelRatchetGate:
                 "Corrija ou remova o arquivo para evitar sobrescrita indevida."
             )
             raise RatchetStateCorruptError(msg) from err
-        except Exception as err:
+        except (OSError, KeyError, TypeError) as err:
             msg = f"Catraca: Erro ao carregar {self.state_file}: {err}"
             raise RatchetStateLoadError(msg) from err
 

@@ -22,9 +22,8 @@ import numpy as np
 import pandas as pd
 import pyarrow.parquet as pq
 
-from causaganha.analysis.keyword_classifier import KeywordClassifier
-from causaganha.analysis.recurso_resolver import resolve_winner_polo
 from causaganha.decisoes.hybrid_segmenter import HybridDispositifSegmenter
+from causaganha.decisoes.multi_axis import MultiAxisJudicialClassifier
 from causaganha.decisoes.ner.composite import CompositeEntityExtractor
 from causaganha.decisoes.ner.models import EntityRole, EntityType
 from causaganha.decisoes.structural_segmenter import FullDocumentStructuralSegmenter
@@ -153,7 +152,7 @@ def run_pipeline_on_sample(limit: int = 1000):
         print(f"✓ Modelo Random Forest carregado de {prod_model.name}.")
 
     extractor = CompositeEntityExtractor()
-    kc = KeywordClassifier()
+    multi_classifier = MultiAxisJudicialClassifier()
 
     results: list[dict] = []
     sample_cases: list[dict] = []
@@ -163,7 +162,7 @@ def run_pipeline_on_sample(limit: int = 1000):
     lat_total_list: list[float] = []
 
     print(
-        "\nExecutando inferência completa (Segmentação 5-seções + NER Seccional + Desfecho CPC)..."
+        "\nExecutando inferência completa (Segmentação 5-seções + NER Seccional + Classificação Multi-Eixo)..."
     )
     t0_exec = time.perf_counter()
 
@@ -203,28 +202,21 @@ def run_pipeline_on_sample(limit: int = 1000):
         sec_names = [s.upper() for s in doc_struct.sections.keys()]
         sec_str = " | ".join(sec_names)
 
-        # --- ETAPA 2: Classificação de Desfecho Operativo (CPC 2015) ---
+        # --- ETAPA 2: Classificação Multi-Eixo (Taxonomia + Torneio Ponderado) ---
         st_clf = time.perf_counter()
-        text_to_classify = disp_text if (has_disp and len(disp_text) > 30) else text
-        raw_outcome, outcome_conf = kc.classify(text_to_classify)
+        sec_dict_text = {k: v.text for k, v in doc_struct.sections.items()}
+        if has_disp and "dispositivo" not in sec_dict_text:
+            sec_dict_text["dispositivo"] = disp_text
 
-        # Resolução Recursal Invariante de Polo Vencedor (CPC art. 1.008)
-        recorrente_polo = None
-        lower_text = text.lower()
-        if (
-            "apelação da ré" in lower_text
-            or "recurso do réu" in lower_text
-            or "recorrente: ré" in lower_text
-        ):
-            recorrente_polo = "P"
-        elif (
-            "apelação do autor" in lower_text
-            or "recurso da autora" in lower_text
-            or "recorrente: autor" in lower_text
-        ):
-            recorrente_polo = "A"
+        multi_res = multi_classifier.classify(
+            text,
+            metadata=meta_in,
+            sections=sec_dict_text,
+        )
+        raw_outcome = multi_res.desfecho_operativo
+        outcome_conf = multi_res.confianca_desfecho
+        winner_polo = multi_res.polo_vencedor
 
-        winner_polo = resolve_winner_polo(raw_outcome, recorrente_polo)
         lat_clf = (time.perf_counter() - st_clf) * 1000.0
         lat_clf_list.append(lat_clf)
 
@@ -342,9 +334,11 @@ def run_pipeline_on_sample(limit: int = 1000):
             "indice": idx,
             "doc_id": doc["doc_id"],
             "tribunal": court,
-            "topologia": doc_struct.topology.value,
+            "topologia": multi_res.macro_categoria,
             "classe_processual": doc["classe_hint"] or "Não especificada",
-            "tipo_documento": doc["tipo_documento_hint"],
+            "tipo_documento": multi_res.especie_ato,
+            "macro_categoria": multi_res.macro_categoria,
+            "especie_ato": multi_res.especie_ato,
             "secoes_detectadas": sec_str,
             "num_secoes": len(doc_struct.sections),
             "has_dispositivo": has_disp,

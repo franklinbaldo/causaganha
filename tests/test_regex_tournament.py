@@ -84,3 +84,68 @@ def test_tournament_save_and_load(tmp_path):
     t2.load_leaderboard(save_path)
     assert len(t2.categories) == len(t.categories)
     assert "procedente" in t2.categories
+
+
+def test_competitive_regex_with_negative_guard():
+    """Valida que uma regex de procedência não dispara em caso parcialmente procedente."""
+    reg = CompetitiveRegex(
+        pattern_id="proc_guarded",
+        pattern=r"\bjulgo\s+procedentes?\b",
+        category="procedente",
+        negative_pattern=r"(?:parcialmente|em\s+parte)",
+    )
+
+    # 1. Deve dar match em procedência pura
+    assert reg.matches("Ante o exposto, julgo procedente a presente ação indenizatória.")
+
+    # 2. NÃO deve dar match quando acompanhada da trava negativa (falso positivo evitado!)
+    assert not reg.matches("Ante o exposto, julgo procedente em parte a pretensão autoral.")
+    assert not reg.matches("Diante disso, julgo parcialmente procedente o pedido.")
+
+
+def test_segment_aware_weighting_defeats_citation_shadow():
+    """Valida que o peso do Dispositivo (3.0x) supera citações contrárias no Relatório (0.2x)."""
+    t = RegexTournament(top_k=2, min_precision=0.70)
+    # Regra de improcedente (que o autor citou no relatório)
+    r_improc = t.register(r"\bimprocedente\b", "improcedente", "r_improc")
+    r_improc.update_metrics(tp=20, fp=1, total_positives_in_dataset=20)  # score alto
+
+    # Regra de procedente (o julgamento real no dispositivo)
+    r_proc = t.register(r"\bjulgo\s+procedente\b", "procedente", "r_proc")
+    r_proc.update_metrics(tp=20, fp=1, total_positives_in_dataset=20)  # score alto
+
+    sections = {
+        "relatorio": "O réu contestou sustentando que a ação deveria ser julgada improcedente.",
+        "dispositivo": "Ante o exposto, julgo procedente o pedido para condenar o réu.",
+    }
+
+    explanation = t.classify_with_explanation(
+        text="texto longo...",
+        sections=sections,
+    )
+
+    # O dispositivo deve vencer com folga por causa do multiplicador 3.0x vs 0.2x
+    assert explanation.category == "procedente"
+    assert explanation.winning_section == "dispositivo"
+    assert explanation.effective_score > 0
+
+
+def test_specificity_tie_breaking():
+    """Valida que entre 'procedente' e 'parcialmente procedente' com scores próximos, a mais específica vence."""
+    t = RegexTournament(top_k=2, min_precision=0.70)
+    r_proc = t.register(r"\bprocedente\b", "procedente", "r_proc")
+    r_proc.score = 100.0
+    r_proc.precision = 0.95
+    r_proc.status = "PROMOTED"
+
+    r_parcial = t.register(r"\bparcialmente\s+procedente\b", "parcialmente procedente", "r_parcial")
+    r_parcial.score = 98.0  # Muito próximo (dentro da margem de 15%)
+    r_parcial.precision = 0.94
+    r_parcial.status = "PROMOTED"
+
+    # Texto que contém ambas as palavras
+    text = "Julgo a ação parcialmente procedente."
+    res = t.classify_with_explanation(text)
+
+    # Especificidade do CPC deve priorizar a procedência parcial
+    assert res.category == "parcialmente procedente"
