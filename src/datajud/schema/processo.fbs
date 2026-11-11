@@ -1,0 +1,70 @@
+// Esquema FlatBuffers para Documentos e Coleções de Processos do DataJud (Issue #1710)
+//
+// Projetado a partir das evidências reais coletadas em api_publica_* (TJRO, TJMG, STJ, TST)
+// Preserva proveniência completa, suporta múltiplos graus/índices e garante evolução sem perda.
+
+namespace DataJud.Schema;
+
+table CodigoNome {
+  codigo: long;
+  nome: string;
+}
+
+table OrgaoJulgador {
+  codigo: long;
+  nome: string;
+  codigo_municipio_ibge: long;
+}
+
+table ComplementoTabelado {
+  codigo: long;
+  nome: string;
+  descricao: string;
+  valor: string;
+}
+
+table Movimento {
+  codigo: long;
+  nome: string;
+  data_hora: string;
+  orgao_julgador: CodigoNome;
+  complementos_tabelados: [ComplementoTabelado];
+}
+
+table DocumentoDataJud {
+  // Proveniência do Envelope Elasticsearch
+  index_origem: string;
+  id_origem: string;
+  sort_epoch: long;
+
+  // Capa do Processo
+  numero_processo: string;
+  tribunal: string;
+  grau: string;
+  nivel_sigilo: int;
+  data_ajuizamento: string;
+  data_hora_ultima_atualizacao: string;
+  timestamp_captura: string;
+
+  // Tabelas / Classificações
+  classe: CodigoNome;
+  sistema: CodigoNome;
+  formato: CodigoNome;
+  orgao_julgador: OrgaoJulgador;
+  assuntos: [CodigoNome];
+
+  // Histórico de Movimentações
+  movimentos: [Movimento];
+
+  // Preservação de campos desconhecidos / evolução de schema sem perda (ADR 0011)
+  campos_desconhecidos_json: string;
+  payload_original_bruto_gz: [ubyte];
+}
+
+table ProcessoCNJCollection {
+  numero_processo: string;
+  total_documentos: int;
+  documentos: [DocumentoDataJud];
+}
+
+root_type ProcessoCNJCollection;
