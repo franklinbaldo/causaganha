@@ -38,6 +38,7 @@ from typing import Annotated
 import httpx
 from cyclopts import App, Parameter
 
+from datajud import backlog as backlog_engine
 from datajud import cdc as cdc_engine
 from datajud import service
 from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudError
@@ -314,6 +315,84 @@ def cdc_cmd(
         print(f"\nUpload IA concluído ({len(res.uploaded_files)} arquivos):")
         for uf in res.uploaded_files:
             print(f"  ✓ {uf}")
+
+    return 0
+
+
+@app.command(name="backlog")
+def backlog_cmd(
+    *,
+    tribunal: Annotated[
+        str, Parameter(help="Sigla do índice DataJud (ex.: tjro, tjce, tjsp).")
+    ] = DEFAULT_TRIBUNAL,
+    start_year: Annotated[int, Parameter(help="Ano inicial do backlog.")] = 2024,
+    end_year: Annotated[int, Parameter(help="Ano final do backlog.")] = 2026,
+    slice_by: Annotated[
+        str, Parameter(help="Fatiamento temporal: 'month' (mensal) ou 'year' (anual).")
+    ] = "month",
+    max_slices: Annotated[
+        int | None, Parameter(help="Máximo de fatias a processar nesta sessão.")
+    ] = None,
+    page_size: Annotated[int, Parameter(help="Tamanho do lote por página search_after.")] = 1000,
+    upload: Annotated[
+        bool,
+        Parameter(name="--upload", negative=[], help="Envia parquets ao Internet Archive."),
+    ] = False,
+    status: Annotated[
+        bool,
+        Parameter(name="--status", negative=[], help="Mostra o panorama de fatias do backlog."),
+    ] = False,
+    data_dir: Annotated[
+        Path, Parameter(help="Diretório base do backlog.")
+    ] = backlog_engine.DEFAULT_BACKLOG_DIR,
+) -> int:
+    """Coleta e ingestão de backlog histórico particionado em fatias temporais."""
+    store = backlog_engine.DataJudBacklogStore(data_dir / "backlog_slices.sqlite")
+
+    if status:
+        slices = store.list_slices(tribunal)
+        if not slices:
+            print(f"Nenhum backlog registrado para {tribunal.upper()} em {data_dir}.")
+            return 0
+        total_docs = sum(s.documentos_coletados for s in slices)
+        by_status: dict[str, int] = {}
+        for s in slices:
+            by_status[s.status] = by_status.get(s.status, 0) + 1
+
+        print(f"Status do Backlog — Tribunal: {tribunal.upper()} ({len(slices)} fatias)")
+        print(f"  Documentos coletados: {total_docs:,}")
+        for st, count in sorted(by_status.items()):
+            print(f"  {st.capitalize():<15}: {count}")
+        return 0
+
+    ia_key, ia_secret = service.ia_credentials()
+    print(f"DataJud Backlog — Tribunal: {tribunal.upper()}")
+    print(f"  Período       : {start_year} a {end_year} (fatiamento: {slice_by})")
+    print(f"  Page size     : {page_size:,}")
+    print(f"  Upload IA     : {upload}")
+
+    try:
+        res = asyncio.run(
+            backlog_engine.run_backlog(
+                tribunal,
+                start_year,
+                end_year,
+                slice_by=slice_by,
+                max_slices=max_slices,
+                page_size=page_size,
+                upload=upload,
+                base_dir=data_dir,
+                ia_key=ia_key,
+                ia_secret=ia_secret,
+            )
+        )
+    except (DataJudError, httpx.HTTPError) as exc:
+        print(f"ERROR no Backlog: {exc}", file=sys.stderr)
+        return 1
+
+    print("\nSessão de Backlog concluída:")
+    print(f"  Fatias processadas nesta sessão: {res['slices_processed']}")
+    print(f"  Documentos coletados           : {res['total_documents']:,}")
 
     return 0
 
