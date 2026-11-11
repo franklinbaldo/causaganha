@@ -391,7 +391,7 @@ async def sync_tribunal_cdc(
         checkpoint.status = "completed"
         store.upsert(checkpoint)
 
-    except Exception as exc:
+    except Exception as exc:  # per-session bulkhead, see docs/adr/0011
         checkpoint.status = "error"
         store.upsert(checkpoint)
         log.exception("datajud_cdc_sync_failed", tribunal=tribunal_slug, error=str(exc))
