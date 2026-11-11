@@ -95,16 +95,27 @@ Para o CNJ `7004981-27.2025.8.22.0021`, a busca por `numeroProcesso` no índice 
    - **Órgão Julgador:** 2ª Câmara Cível do Tribunal de Justiça
    - **Movimentos:** Linha do tempo recursal em 2ª instância.
 
-### Prova 2: Tramitação em Múltiplos Índices e Cortes Superiores (STJ e TST)
-Ao analisar os processos em `api_publica_stj` e `api_publica_tst`, observamos que os processos mantêm o **mesmo CNJ atribuído na origem estadual ou federal**:
-- `STJ_SUP_10735109120218260002`: CNJ com ramo 8 e região 26 $\rightarrow$ **TJSP** (São Paulo).
-- `STJ_SUP_50009135620228130528`: CNJ com ramo 8 e região 13 $\rightarrow$ **TJMG** (Minas Gerais).
-- `STJ_SUP_08066642120194058100`: CNJ com ramo 4 e região 05 $\rightarrow$ **TRF5** (Justiça Federal 5ª Região).
-- `TST_SUP_00111004620235030095`: CNJ com ramo 5 e região 03 $\rightarrow$ **TRT3** (Trabalhista Minas Gerais).
+### Prova 2: Cruzamento Empírico Pareado Efetivo (STJ + Tribunais de Origem)
 
-**Conclusão empírica:**  
-Um processo ajuizado no TJMG pode ter documentos no índice `api_publica_tjmg` (G1 e G2) e, ao subir em Recurso Especial, ter um documento correspondente em `api_publica_stj` (SUP).  
-Portanto, a busca pelo CNJ **precisa ser capaz de recuperar todos esses documentos em uma única agregação lógica**.
+Para afastar qualquer hipótese meramente teórica, executamos consultas pareadas para os **mesmos CNJs** entre a corte superior (`api_publica_stj`) e o índice do respectivo tribunal de origem.
+
+Os pares foram comprovados e persistidos em `fixtures/datajud_sample/pares_multindice_comprovados.json`:
+
+| CNJ | Ramo / Região | Tribunal de Origem | Documentos Origem | Documentos STJ | Total de Registros |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| `5021985-14.2025.4.04.0000` | J=4, TR=04 | **TRF4** (`api_publica_trf4`) | 1 (`TRF4_G2_...`) | 1 (`STJ_SUP_...`) | **2 documentos** em 2 índices |
+| `5039675-56.2025.4.04.0000` | J=4, TR=04 | **TRF4** (`api_publica_trf4`) | 1 (`TRF4_G2_...`) | 1 (`STJ_SUP_...`) | **2 documentos** em 2 índices |
+| `0088058-55.2023.8.16.0000` | J=8, TR=16 | **TJPR** (`api_publica_tjpr`) | 1 (`TJPR_G2_...`) | 1 (`STJ_SUP_...`) | **2 documentos** em 2 índices |
+| `0001311-51.2024.8.13.0647` | J=8, TR=13 | **TJMG** (`api_publica_tjmg`) | 2 (`TJMG_G1_...` e `TJMG_G2_...`) | 1 (`STJ_SUP_...`) | **3 documentos** em 2 índices |
+| `0012397-92.2012.8.26.0577` | J=8, TR=26 | **TJSP** (`api_publica_tjsp`) | 2 (`TJSP_G1_...` e `TJSP_G2_...`) | 1 (`STJ_SUP_...`) | **3 documentos** em 2 índices |
+
+**Evidência Inequívoca:**
+Um mesmo CNJ (como `0001311-51.2024.8.13.0647`) possui:
+- 1ª instância no TJMG (`TJMG_G1_...`)
+- 2ª instância no TJMG (`TJMG_G2_...`)
+- Recurso Especial no STJ (`STJ_SUP_...`)
+Totalizando 3 registros espalhados por 2 índices físicos do DataJud.
+Portanto, a busca pelo CNJ **precisa ser capaz de recuperar todos esses documentos em uma única agregação lógica**, sem que a identidade documental seja confundida com o CNJ.
 
 ---
 
@@ -229,32 +240,37 @@ table ProcessoCNJCollection {
 root_type ProcessoCNJCollection;
 ```
 
-### Prova de Integridade Zero-Loss
-Executado via `tests/datajud/test_schema_roundtrip.py` e `scripts/datajud/benchmark_formats.py`:
-- 100% dos 82 documentos reais coletados foram serializados no formato `ProcessoCNJCollection`.
-- Desserialização completa verificou:
-  $$\texttt{doc\_rec["\_id"] == doc\_orig["\_id"]}$$
-  $$\texttt{doc\_rec["\_index"] == doc\_orig["\_index"]}$$
-  $$\texttt{doc\_rec["\_source"] == doc\_orig["\_source"]}$$
-- **Resultado:** Zero divergências estruturais.
+### Implementação do Codec Canônico e Prova de Integridade
+
+O codec implementado em [`src/datajud/schema/flatbuffers_codec.py`](file:///C:/Users/76450694220/workspace/causaganha/src/datajud/schema/flatbuffers_codec.py) constrói todas as tabelas e vetores em estrita conformidade com o esquema `.fbs`:
+- Codificação tipada de todas as tabelas aninhadas (`CodigoNome`, `OrgaoJulgador`, `ComplementoTabelado`, `Movimento`).
+- Serialização de todos os documentos vinculados ao mesmo CNJ no vetor `documentos` de `ProcessoCNJCollection`.
+- Suporte a decodificação em três modos:
+  1. `typed`: decodificação de toda a árvore de objetos com validação de tipos.
+  2. `capa`: projeção seletiva sem carregar arrays de movimentos (leitura O(1) de metadados da capa).
+  3. `raw`: descompressão do payload original bruto para garantia absoluta de reversibilidade.
+
+### Esclarecimento sobre Equivalência Estrutural vs Hash de Bytes
+- **Equivalência Estrutural Profunda (Deep Equality):** Validada em 100% dos documentos nos testes automatizados (`tests/datajud/test_schema_roundtrip.py`). Todos os campos tipados (`classe`, `orgaoJulgador`, `assuntos`, `movimentos`) recuperados do FlatBuffers são rigorosamente iguais aos retornados pela API do DataJud.
+- **Payload Bruto Verbatim:** Para evitar perdas por ordenação de chaves ou formatação JSON, o campo `payload_original_bruto_gz` preserva o JSON exato recebido do cluster Elasticsearch.
 
 ---
 
-## 7. Resultados do Benchmark Comparativo Preliminar
+## 7. Resultados do Benchmark Comparativo Simétrico
 
-Testado sobre a amostra real agrupada em coleções por CNJ:
+Executado de forma estritamente simétrica em [`scripts/datajud/benchmark_formats.py`](file:///C:/Users/76450694220/workspace/causaganha/scripts/datajud/benchmark_formats.py), onde a desserialização recupera **100% dos documentos de todas as coleções**:
 
-| Formato | Tamanho Total | Encoding (ms) | Decoding (ms) | Taxa vs JSON | Complexidade Client |
+| Formato | Tamanho Total | Encoding (ms) | Decoding Integral (ms) | Projeção Capa (ms) | Ratio vs Bruto |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **JSON Canônico Bruto** | 563.535 B | 4,06 ms | 3,84 ms | 1.000x | Mínima (nativo) |
-| **JSON.gz (Nível 6)** | 73.650 B | 5,49 ms | 4,72 ms | **0,131x** | Baixa (gzip standard) |
-| **FlatBuffers + Zero-Loss** | 89.656 B | 15,68 ms | 4,64 ms | **0,159x** | Média (requer lib) |
-| **Parquet (Zstd + Gz payload)** | 93.521 B | 83,06 ms | 91,28 ms | **0,166x** | Alta (requer engine columnar) |
+| **1. JSON Canônico Bruto** | 765.825 B | 5,51 ms | 5,61 ms | - | 1.000x |
+| **2. JSON.gz (Nível 6)** | 91.482 B | 6,81 ms | 7,00 ms | - | **0,119x** |
+| **3. FlatBuffers (Tipado .fbs)** | 728.696 B | 115,15 ms | 64,48 ms | **2,34 ms** | 0,952x |
+| **4. Parquet (Zstd + Gz)** | 114.672 B | 122,38 ms | 96,82 ms | - | 0,150x |
 
-### Análise dos Números:
-- **JSON.gz** apresentou a **melhor taxa de compressão (87% menor que o bruto)** com excelente velocidade de serialização/leitura.
-- **FlatBuffers** oferece a vantagem de leitura de campos pontuais sem parsear a árvore inteira, porém adiciona dependência binária.
-- **Parquet** é ideal para o **índice de resolução** (consultas vetoriais analíticas sobre capa), mas excessivamente lento para serializar/desserializar documentos JSON individuais com listas de movimentos.
+### Análise dos Trade-offs Medidos:
+- **JSON.gz:** Apresenta a melhor taxa de compressão geral (88% menor que o bruto) e excelente velocidade tanto em escrita quanto em leitura completa, com complexidade de implementação mínima.
+- **FlatBuffers:** O custo de serialização/desserialização tipada completa em Python é superior, mas sua capacidade de **projeção seletiva (2,34 ms para ler a capa de todos os processos)** é 3x mais rápida que o decode do JSON.gz, pois permite saltar os arrays volumosos de movimentos via vtable.
+- **Parquet:** Permite compressão muito próxima ao JSON.gz (0,150x) e é o formato ideal para compor o **índice colunar de resolução** (consultas vetoriais sobre metadados de capa), enquanto o payload detalhado pode residir nos arquivos ZIP compactados.
 
 ---
 
