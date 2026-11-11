@@ -1,0 +1,3085 @@
+{
+  "total_tipos": 278,
+  "tipos": [
+    {
+      "id": 1,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 2,
+      "codigo": 51,
+      "nome": "Conclusão",
+      "complementos": [
+        {
+          "codigo": 3,
+          "nome": "para decisão",
+          "descricao": "tipo_de_conclusao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 3,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Certidão",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 4,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Outros documentos",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 5,
+      "codigo": 239,
+      "nome": "Não-Provimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 6,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Outros documentos",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 7,
+      "codigo": 132,
+      "nome": "Recebimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 8,
+      "codigo": 12311,
+      "nome": "Pedido de inclusão",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 9,
+      "codigo": 12200,
+      "nome": "Mérito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 10,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 11,
+      "codigo": 15216,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 12,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 13,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Petição (outras)",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 14,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 15,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 16,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Contestação",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 17,
+      "codigo": 51,
+      "nome": "Conclusão",
+      "complementos": [
+        {
+          "codigo": 3,
+          "nome": "para julgamento",
+          "descricao": "tipo_de_conclusao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 18,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Recurso inominado",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 19,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Contra-razões",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 20,
+      "codigo": 51,
+      "nome": "Conclusão",
+      "complementos": [
+        {
+          "codigo": 3,
+          "nome": "para despacho",
+          "descricao": "tipo_de_conclusao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 21,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "em grau de recurso",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 22,
+      "codigo": 12164,
+      "nome": "Outras Decisões",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 23,
+      "codigo": 898,
+      "nome": "Por decisão judicial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 24,
+      "codigo": 219,
+      "nome": "Procedência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 25,
+      "codigo": 12263,
+      "nome": "Intimação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 26,
+      "codigo": 1059,
+      "nome": "Sem efeito suspensivo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 27,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Certidão",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 28,
+      "codigo": 238,
+      "nome": "Provimento em Parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 29,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Embargos de declaração",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 30,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 31,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 32,
+      "codigo": 200,
+      "nome": "Não-Acolhimento de Embargos de Declaração",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 33,
+      "codigo": 787,
+      "nome": "Gratuidade da Justiça",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 34,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Replica",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 35,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Alegações finais",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 36,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Apelação",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 37,
+      "codigo": 15085,
+      "nome": "Emenda à Inicial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 38,
+      "codigo": 12387,
+      "nome": "Decisão de Saneamento e Organização",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 39,
+      "codigo": 11010,
+      "nome": "Mero expediente",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 40,
+      "codigo": 15163,
+      "nome": "Acolhimento em Parte de Embargos de Declaração",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 41,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 42,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "outros motivos",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 43,
+      "codigo": 792,
+      "nome": "Liminar",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 44,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 45,
+      "codigo": 334,
+      "nome": "Gratuidade da Justiça",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 46,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 47,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 48,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 49,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJBA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 50,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Denúncia",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 51,
+      "codigo": 391,
+      "nome": "Denúncia",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 52,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 53,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Ofício",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 54,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Mandado",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 55,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "entregue ao destinatário",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 56,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 57,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 58,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 59,
+      "codigo": 12140,
+      "nome": "Prisão em Flagrante em Prisão Preventiva",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 60,
+      "codigo": 15185,
+      "nome": "Cooperação Judiciária",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 61,
+      "codigo": 985,
+      "nome": "Mandado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 62,
+      "codigo": 15032,
+      "nome": "Manutenção da Prisão Preventiva",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 63,
+      "codigo": 394,
+      "nome": "Com efeito suspensivo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 64,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 65,
+      "codigo": 12614,
+      "nome": "Remessa para o CEJUSC ou Centros de Conciliação/Mediação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 66,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Aviso de recebimento (AR)",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 67,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 68,
+      "codigo": 339,
+      "nome": "Liminar",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 69,
+      "codigo": 12621,
+      "nome": "Recebimento no CEJUSC ou Centros de Conciliação/Mediação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 70,
+      "codigo": 12619,
+      "nome": "Recebimento do CEJUSC ou Centros de Conciliação/Mediação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 71,
+      "codigo": 220,
+      "nome": "Improcedência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 72,
+      "codigo": 237,
+      "nome": "Provimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 73,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo (inominado/ legal)",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 74,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Decisão",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 75,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Recurso especial",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 76,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo em recurso especial",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 77,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Decisão",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 78,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Pedido de reconsideração",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 79,
+      "codigo": 12115,
+      "nome": "Para julgamento de mérito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 80,
+      "codigo": 11022,
+      "nome": "Julgamento em Diligência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 81,
+      "codigo": 12291,
+      "nome": "Movimentação processual",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 82,
+      "codigo": 12270,
+      "nome": "Documento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 83,
+      "codigo": 12205,
+      "nome": "Retirado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 84,
+      "codigo": 12648,
+      "nome": "Determinação de Diligência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 85,
+      "codigo": 433,
+      "nome": "Recurso Especial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 86,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Informações",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 87,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Alvará",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 88,
+      "codigo": 443,
+      "nome": "Habeas corpus",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 89,
+      "codigo": 11020,
+      "nome": "Requisição de Informações",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 90,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 91,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "de interrogatório",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 92,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "recusa de prevenção/dependência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 93,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "inicial",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 94,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "não entregue ao destinatário",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 95,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "designada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 96,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "competência exclusiva",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 97,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "sorteio",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 98,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Acórdão",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 99,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "instrução",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 100,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "designada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 101,
+      "codigo": 14736,
+      "nome": "Inclusão no Juízo 100% Digital",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 102,
+      "codigo": 381,
+      "nome": "Recurso",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 103,
+      "codigo": 332,
+      "nome": "Antecipação de tutela",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 104,
+      "codigo": 12265,
+      "nome": "Expedida/certificada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 105,
+      "codigo": 11383,
+      "nome": "Ato ordinatório",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 106,
+      "codigo": 12266,
+      "nome": "Confirmada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 107,
+      "codigo": 51,
+      "nome": "Conclusão",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 108,
+      "codigo": 12313,
+      "nome": "Pedido de inclusão em pauta virtual",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 109,
+      "codigo": 12116,
+      "nome": "Para julgamento de mérito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 110,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 111,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "não-realizada",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 112,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para decisão",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 113,
+      "codigo": 11983,
+      "nome": "Retificação de movimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 114,
+      "codigo": 12309,
+      "nome": "Retirada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 115,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "suspeição",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 116,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "cancelada",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 117,
+      "codigo": 10966,
+      "nome": "Mudança de Classe Processual",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 118,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "competência exclusiva",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 119,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "recusa de prevenção/dependência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 120,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "competência exclusiva",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 121,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "julgamento",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 122,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "competência exclusiva",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 123,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para decisão",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 124,
+      "codigo": 785,
+      "nome": "Antecipação de tutela",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 125,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "cancelada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 126,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "conciliação",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 127,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "de interrogatório",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 128,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "redesignada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 129,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "não entregue ao destinatário",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 130,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "entregue ao destinatário",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 131,
+      "codigo": 12282,
+      "nome": "Expedida/Certificada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 132,
+      "codigo": 12143,
+      "nome": "Mudança de Assunto Processual",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 133,
+      "codigo": 11796,
+      "nome": "Declaração de competência em conflito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 134,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "prevenção",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 135,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "preliminar",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 136,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "erro material",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 137,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "admonitária",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 138,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "conciliação",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 139,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "prevenção",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 140,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "desaforamento",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 141,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "erro material",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 142,
+      "codigo": 12142,
+      "nome": "Mudança de Parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 143,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "conciliação",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 144,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "entregue ao destinatário",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 145,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "designada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 146,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "prevenção",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 147,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "dependência",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 148,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para despacho",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 149,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "instrução e julgamento",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 150,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Aviso de recebimento (AR)",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 151,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "não entregue ao destinatário",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 152,
+      "codigo": 12444,
+      "nome": "deferimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 153,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "sorteio",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 154,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "convertido em diligência",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 155,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "realizada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 156,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Ofício",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 157,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "convertido em diligência",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 158,
+      "codigo": 12430,
+      "nome": "Arquivamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 159,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Tutela Antecipada Incidental",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 160,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "admonitária",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 161,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "prevenção",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 162,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "sorteio",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 163,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "inicial",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 164,
+      "codigo": 12065,
+      "nome": "Cumprimento de Suspensão ou Sobrestamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 165,
+      "codigo": 12066,
+      "nome": "Cumprimento de Levantamento da Suspensão ",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 166,
+      "codigo": 461,
+      "nome": "Ausência das condições da ação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 167,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 168,
+      "codigo": 12614,
+      "nome": "Remessa para o CEJUSC ou Centros de Conciliação/Mediação",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "sorteio",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 169,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 170,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para decisão",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 171,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "dependência",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 172,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para despacho",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 173,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 174,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para despacho",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 175,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "dependência",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 176,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 177,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "impedimento",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 178,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "impedimento",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 179,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "sorteio",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 180,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "redesignada",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 181,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "antecipada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 182,
+      "codigo": 12451,
+      "nome": "Procedência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 183,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "para decisão",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 184,
+      "codigo": 12104,
+      "nome": "Inclusão em pauta",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 185,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "conciliação",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 186,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "suspeição",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 187,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "realizada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 188,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "admonitária",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 189,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "convertida em diligência",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 190,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 7,
+          "nome": "convertida em diligência",
+          "descricao": "destino"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 191,
+      "codigo": 12185,
+      "nome": "Decisão Interlocutória de Mérito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 192,
+      "codigo": 466,
+      "nome": "Homologação de Transação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 193,
+      "codigo": 246,
+      "nome": "Definitivo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 194,
+      "codigo": 849,
+      "nome": "Reativação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 195,
+      "codigo": 941,
+      "nome": "Incompetência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 196,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "cancelada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 197,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Carta",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 198,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "de justificação",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 199,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "em execução",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 200,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "desaforamento",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 201,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "criação de unidade judiciária",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 202,
+      "codigo": 450,
+      "nome": "Segurança",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 203,
+      "codigo": 1061,
+      "nome": "Disponibilização no Diário da Justiça Eletrônico",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "não-realizada",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 204,
+      "codigo": 92,
+      "nome": "Publicação",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "convertida em diligência",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 205,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "entregue ao destinatário",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 206,
+      "codigo": 848,
+      "nome": "Trânsito em julgado",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "para decisão",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 207,
+      "codigo": 22,
+      "nome": "Baixa Definitiva",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 208,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "convertida em diligência",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 209,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 210,
+      "codigo": 12434,
+      "nome": "Conhecimento para dar provimento ao Recurso Especial ",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 211,
+      "codigo": 12474,
+      "nome": "Distribuição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 212,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Impugnação",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 213,
+      "codigo": 417,
+      "nome": "Inclusão em pauta",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 214,
+      "codigo": 118,
+      "nome": "Protocolo de Petição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 215,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Recurso especial",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 216,
+      "codigo": 12440,
+      "nome": "conhecimento para conhecer em parte o recurso especial e negar provimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 217,
+      "codigo": 848,
+      "nome": "Trânsito em julgado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 218,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Parecer de Mérito (MP)",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 219,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Recurso extraordinário",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 220,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo em recurso extraordinário",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 221,
+      "codigo": 12475,
+      "nome": "Habeas Corpus de ofício",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 222,
+      "codigo": 432,
+      "nome": "Recurso Extraordinário",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 223,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo em recurso especial",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 224,
+      "codigo": 15621,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 225,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 226,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Procuração/substabelecimento com reserva de poderes",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 227,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Embargos de divergência",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 228,
+      "codigo": 242,
+      "nome": "Conhecimento em Parte e Não-Provimento ou Denegação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 229,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 230,
+      "codigo": 12436,
+      "nome": "Conhecimento para não conhecer do Recurso Especial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 231,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 232,
+      "codigo": 447,
+      "nome": "Habeas corpus",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 233,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 234,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "sucessão",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 235,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo (inominado/ legal)",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 236,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 237,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 17,
+          "nome": "sucessão",
+          "descricao": "motivo_da_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 238,
+      "codigo": 236,
+      "nome": "Negação de Seguimento",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo de Instrumento em Recurso de Revista",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 239,
+      "codigo": 981,
+      "nome": "Recebimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 240,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Agravo de Instrumento em Recurso de Revista",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 241,
+      "codigo": 265,
+      "nome": "Recurso Extraordinário com repercussão geral",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 242,
+      "codigo": 12435,
+      "nome": "Conhecimento para negar provimento ao recurso especial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 243,
+      "codigo": 430,
+      "nome": "Recurso especial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 244,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Petição inicial",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 245,
+      "codigo": 982,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "em diligência",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 246,
+      "codigo": 12293,
+      "nome": "Ato cumprido pela parte ou interessado (sem atributo)",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 247,
+      "codigo": 493,
+      "nome": "Entrega em carga/vista",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 248,
+      "codigo": 12283,
+      "nome": "Confirmada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 249,
+      "codigo": 12203,
+      "nome": "Adiado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 250,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Petição (outras)",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 251,
+      "codigo": 135,
+      "nome": "Apensamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 252,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Carta precatória",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 253,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "em execução",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 254,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Edital",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 255,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Contestação",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 256,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 257,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJSE",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 258,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Mandado",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 259,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 260,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Alegações finais",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 261,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Memoriais",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 262,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "de justificação",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 263,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Carta precatória",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 264,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Apelação",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 265,
+      "codigo": 1051,
+      "nome": "Decurso de Prazo",
+      "complementos": [
+        {
+          "codigo": 14,
+          "nome": "de interrogatório",
+          "descricao": "data"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 266,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "em grau de recurso",
+          "descricao": "motivo_da_remessa"
+        },
+        {
+          "codigo": 18,
+          "nome": "outros motivos",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 267,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Acórdão",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 268,
+      "codigo": 14999,
+      "nome": "Iniciada Tramitação Direta entre MP e Autoridade Policial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 269,
+      "codigo": 11008,
+      "nome": "Desmembramento de Feitos",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 270,
+      "codigo": 12329,
+      "nome": "Pedido conhecido em parte e procedente",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 271,
+      "codigo": 982,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "outros motivos",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 272,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Parecer",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 273,
+      "codigo": 51,
+      "nome": "Conclusão",
+      "complementos": [
+        {
+          "codigo": 3,
+          "nome": "para admissibilidade recursal",
+          "descricao": "tipo_de_conclusao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 274,
+      "codigo": 193,
+      "nome": "Julgamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 275,
+      "codigo": 14093,
+      "nome": "Voto do Relator",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 276,
+      "codigo": 14095,
+      "nome": "Outros Votos",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 277,
+      "codigo": 14732,
+      "nome": "Conversão de Autos Físicos em Eletrônicos",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 278,
+      "codigo": 230,
+      "nome": "Recurso prejudicado",
+      "complementos": [],
+      "tem_complementos": false
+    }
+  ]
+}

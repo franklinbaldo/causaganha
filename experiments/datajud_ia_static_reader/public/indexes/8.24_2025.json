@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "50371804820258240000",
+      "shard": "shards/shard_001.zip",
+      "offset": 36132,
+      "length": 992,
+      "tribunal": "STJ",
+      "classe": "Recurso Ordinário em Habeas Corpus",
+      "instancias": [
+        "STJ SUP"
+      ],
+      "compressed_size": 992
+    }
+  ]
+}

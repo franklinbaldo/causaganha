@@ -1,0 +1,41 @@
+{
+  "total": 3,
+  "processos": [
+    {
+      "cnj": "04655553120263000000",
+      "shard": "shards/shard_001.zip",
+      "offset": 31777,
+      "length": 359,
+      "tribunal": "STJ",
+      "classe": "Sentença Estrangeira",
+      "instancias": [
+        "STJ SUP"
+      ],
+      "compressed_size": 359
+    },
+    {
+      "cnj": "01389770720263000000",
+      "shard": "shards/shard_001.zip",
+      "offset": 32195,
+      "length": 1186,
+      "tribunal": "STJ",
+      "classe": "Habeas Corpus",
+      "instancias": [
+        "STJ SUP"
+      ],
+      "compressed_size": 1186
+    },
+    {
+      "cnj": "04641254420263000000",
+      "shard": "shards/shard_001.zip",
+      "offset": 39734,
+      "length": 423,
+      "tribunal": "STJ",
+      "classe": "Habeas Corpus",
+      "instancias": [
+        "STJ SUP"
+      ],
+      "compressed_size": 423
+    }
+  ]
+}

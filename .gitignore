@@ -88,6 +88,8 @@ web/public/data/
 analysis_results.txt
 
 # Runtime artifacts (generated locally, not for version control)
+tools/
+*.exe
 causaganha.db
 *.png
 !web/public/apple-touch-icon.png

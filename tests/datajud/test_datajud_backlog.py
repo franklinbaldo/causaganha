@@ -35,23 +35,23 @@ def test_backlog_store_init_and_pending_selection(tmp_path: Path):
     slices = store.init_slices("tjro", 2024, 2025, slice_by="month")
     assert len(slices) == 24
 
-    # The next pending slice should be the newest: 2025-12
+    # The next pending slice should be the oldest: 2024-01
     pending = store.get_next_pending_slice("tjro")
     assert pending is not None
-    assert pending.ano == 2025
-    assert pending.mes == 12
+    assert pending.ano == 2024
+    assert pending.mes == 1
     assert pending.status == "pending"
 
-    # Mark 2025-12 as completed
+    # Mark 2024-01 as completed
     pending.status = "completed"
     pending.documentos_coletados = 500
     store.update_slice(pending)
 
-    # Next pending should now be 2025-11
+    # Next pending should now be 2024-02
     next_pending = store.get_next_pending_slice("tjro")
     assert next_pending is not None
-    assert next_pending.ano == 2025
-    assert next_pending.mes == 11
+    assert next_pending.ano == 2024
+    assert next_pending.mes == 2
 
 
 def test_backlog_store_yearly_slices(tmp_path: Path):
@@ -62,6 +62,35 @@ def test_backlog_store_yearly_slices(tmp_path: Path):
     assert len(slices) == 4
     assert {s.ano for s in slices} == {2020, 2021, 2022, 2023}
     assert all(s.mes == 0 for s in slices)
+    assert all(s.dia == 0 for s in slices)
+
+
+def test_backlog_store_daily_slices(tmp_path: Path):
+    db_file = tmp_path / "backlog_daily.sqlite"
+    store = DataJudBacklogStore(db_file)
+
+    # Year 2024 is a leap year (366 days)
+    slices = store.init_slices("tjro", 2024, 2024, slice_by="day")
+    assert len(slices) == 366
+    assert all(s.ano == 2024 for s in slices)
+    assert all(1 <= s.mes <= 12 for s in slices)
+    assert all(1 <= s.dia <= 31 for s in slices)
+
+    # Next pending slice should be the first day of the year: 2024-01-01
+    pending = store.get_next_pending_slice("tjro")
+    assert pending is not None
+    assert pending.ano == 2024
+    assert pending.mes == 1
+    assert pending.dia == 1
+    assert pending.data_inicio == "20240101000000"
+    assert pending.data_fim == "20240101235959"
+
+    # Specific day query
+    day_slice = store.get_slice("tjro", 2024, 2, 29)
+    assert day_slice is not None
+    assert day_slice.dia == 29
+    assert day_slice.data_inicio == "20240229000000"
+    assert day_slice.data_fim == "20240229235959"
 
 
 # ── Run Backlog Slice & Orchestrator Tests ─────────────────────────────────

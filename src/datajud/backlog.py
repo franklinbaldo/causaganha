@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -42,7 +43,7 @@ DEFAULT_BACKLOG_DIR = Path("data/datajud/backlog")
 
 @dataclass
 class BacklogSlice:
-    """A bounded temporal partition of historical data (e.g. 2024-05)."""
+    """A bounded temporal partition of historical data (e.g. 2024-05 or 2026-01-21)."""
 
     tribunal: str
     ano: int
@@ -56,6 +57,7 @@ class BacklogSlice:
     tentativas: int = 0
     ultimo_erro: str | None = None
     atualizado_em: str = ""
+    dia: int = 0  # 0 = entire month or entire year
 
 
 class DataJudBacklogStore:
@@ -80,6 +82,7 @@ class DataJudBacklogStore:
                     tribunal TEXT NOT NULL,
                     ano INTEGER NOT NULL,
                     mes INTEGER NOT NULL,
+                    dia INTEGER NOT NULL DEFAULT 0,
                     data_inicio TEXT NOT NULL,
                     data_fim TEXT NOT NULL,
                     status TEXT NOT NULL,
@@ -89,7 +92,7 @@ class DataJudBacklogStore:
                     tentativas INTEGER NOT NULL DEFAULT 0,
                     ultimo_erro TEXT,
                     atualizado_em TEXT NOT NULL,
-                    PRIMARY KEY (tribunal, ano, mes)
+                    PRIMARY KEY (tribunal, ano, mes, dia)
                 );
                 """
             )
@@ -102,25 +105,63 @@ class DataJudBacklogStore:
         *,
         slice_by: str = "month",
     ) -> list[BacklogSlice]:
-        """Generate and insert pending slices for the given year range."""
+        """Generate and insert pending slices for the given year range up to current date."""
         tribunal_slug = tribunal.lower()
         slices: list[BacklogSlice] = []
-        now_iso = datetime.now(UTC).isoformat(timespec="seconds")
+        now_dt = datetime.now(UTC)
+        now_iso = now_dt.isoformat(timespec="seconds")
+        today = now_dt.date()
 
         for year in range(start_year, end_year + 1):
+            if year > today.year:
+                continue
             if slice_by == "year":
+                if year == today.year:
+                    data_fim = f"{year}{today.month:02d}{today.day:02d}235959"
+                else:
+                    data_fim = f"{year}1231235959"
                 slices.append(
                     BacklogSlice(
                         tribunal=tribunal_slug,
                         ano=year,
                         mes=0,
+                        dia=0,
                         data_inicio=f"{year}0101000000",
-                        data_fim=f"{year}1231235959",
+                        data_fim=data_fim,
                         atualizado_em=now_iso,
                     )
                 )
+            elif slice_by == "day":
+                for month in range(1, 13):
+                    if year == today.year and month > today.month:
+                        break
+                    if month in (1, 3, 5, 7, 8, 10, 12):
+                        last_day = 31
+                    elif month in (4, 6, 9, 11):
+                        last_day = 30
+                    else:
+                        last_day = (
+                            29 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 28
+                        )
+
+                    for day in range(1, last_day + 1):
+                        if year == today.year and month == today.month and day > today.day:
+                            break
+                        slices.append(
+                            BacklogSlice(
+                                tribunal=tribunal_slug,
+                                ano=year,
+                                mes=month,
+                                dia=day,
+                                data_inicio=f"{year}{month:02d}{day:02d}000000",
+                                data_fim=f"{year}{month:02d}{day:02d}235959",
+                                atualizado_em=now_iso,
+                            )
+                        )
             else:
                 for month in range(1, 13):
+                    if year == today.year and month > today.month:
+                        break
                     # Compute end day of month
                     if month in (1, 3, 5, 7, 8, 10, 12):
                         last_day = 31
@@ -131,11 +172,15 @@ class DataJudBacklogStore:
                             29 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 28
                         )
 
+                    if year == today.year and month == today.month:
+                        last_day = today.day
+
                     slices.append(
                         BacklogSlice(
                             tribunal=tribunal_slug,
                             ano=year,
                             mes=month,
+                            dia=0,
                             data_inicio=f"{year}{month:02d}01000000",
                             data_fim=f"{year}{month:02d}{last_day:02d}235959",
                             atualizado_em=now_iso,
@@ -143,20 +188,41 @@ class DataJudBacklogStore:
                     )
 
         with self._get_connection() as conn:
+            # Purge any future slices that may have been erroneously created
+            conn.execute(
+                """
+                DELETE FROM datajud_backlog_slices
+                WHERE tribunal = ? AND (
+                    ano > ? OR
+                    (ano = ? AND mes > ?) OR
+                    (ano = ? AND mes = ? AND dia > ?)
+                );
+                """,
+                (
+                    tribunal_slug,
+                    today.year,
+                    today.year,
+                    today.month,
+                    today.year,
+                    today.month,
+                    today.day,
+                ),
+            )
             for s in slices:
                 conn.execute(
                     """
                     INSERT INTO datajud_backlog_slices (
-                        tribunal, ano, mes, data_inicio, data_fim, status,
+                        tribunal, ano, mes, dia, data_inicio, data_fim, status,
                         search_after_cursor, documentos_coletados, batches_coletados,
                         tentativas, ultimo_erro, atualizado_em
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT(tribunal, ano, mes) DO NOTHING;
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    ON CONFLICT(tribunal, ano, mes, dia) DO NOTHING;
                     """,
                     (
                         s.tribunal,
                         s.ano,
                         s.mes,
+                        s.dia,
                         s.data_inicio,
                         s.data_fim,
                         s.status,
@@ -170,11 +236,13 @@ class DataJudBacklogStore:
                 )
         return self.list_slices(tribunal_slug)
 
-    def get_slice(self, tribunal: str, ano: int, mes: int) -> BacklogSlice | None:
+    def get_slice(
+        self, tribunal: str, ano: int, mes: int, dia: int = 0
+    ) -> BacklogSlice | None:
         with self._get_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM datajud_backlog_slices WHERE tribunal = ? AND ano = ? AND mes = ?",
-                (tribunal.lower(), ano, mes),
+                "SELECT * FROM datajud_backlog_slices WHERE tribunal = ? AND ano = ? AND mes = ? AND dia = ?",
+                (tribunal.lower(), ano, mes, dia),
             ).fetchone()
             if row is None:
                 return None
@@ -186,7 +254,7 @@ class DataJudBacklogStore:
                 """
                 SELECT * FROM datajud_backlog_slices
                 WHERE tribunal = ? AND status IN ('pending', 'in_progress')
-                ORDER BY ano DESC, mes DESC
+                ORDER BY ano ASC, mes ASC, dia ASC
                 LIMIT 1;
                 """,
                 (tribunal.lower(),),
@@ -210,7 +278,7 @@ class DataJudBacklogStore:
                     tentativas = ?,
                     ultimo_erro = ?,
                     atualizado_em = ?
-                WHERE tribunal = ? AND ano = ? AND mes = ?;
+                WHERE tribunal = ? AND ano = ? AND mes = ? AND dia = ?;
                 """,
                 (
                     s.status,
@@ -223,13 +291,14 @@ class DataJudBacklogStore:
                     s.tribunal.lower(),
                     s.ano,
                     s.mes,
+                    s.dia,
                 ),
             )
 
     def list_slices(self, tribunal: str) -> list[BacklogSlice]:
         with self._get_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM datajud_backlog_slices WHERE tribunal = ? ORDER BY ano DESC, mes DESC",
+                "SELECT * FROM datajud_backlog_slices WHERE tribunal = ? ORDER BY ano DESC, mes DESC, dia DESC",
                 (tribunal.lower(),),
             ).fetchall()
             return [self._row_to_slice(r) for r in rows]
@@ -241,10 +310,12 @@ class DataJudBacklogStore:
             if row["search_after_cursor"] is not None
             else None
         )
+        dia = row["dia"] if "dia" in row.keys() else 0
         return BacklogSlice(
             tribunal=row["tribunal"],
             ano=row["ano"],
             mes=row["mes"],
+            dia=dia,
             data_inicio=row["data_inicio"],
             data_fim=row["data_fim"],
             status=row["status"],
@@ -316,6 +387,7 @@ async def run_backlog_slice(
                 tribunal=tribunal_slug,
                 ano=slice_item.ano,
                 mes=slice_item.mes,
+                dia=slice_item.dia,
                 batch_seq=part_seq,
                 batch_size=len(batch_hits),
                 total=slice_item.documentos_coletados,
@@ -327,9 +399,12 @@ async def run_backlog_slice(
 
         # Pack completed slice processes into a ZIP
         if session_docs:
-            label = (
-                f"{slice_item.ano}_{slice_item.mes:02d}" if slice_item.mes else f"{slice_item.ano}"
-            )
+            if slice_item.dia:
+                label = f"{slice_item.ano}_{slice_item.mes:02d}_{slice_item.dia:02d}"
+            elif slice_item.mes:
+                label = f"{slice_item.ano}_{slice_item.mes:02d}"
+            else:
+                label = f"{slice_item.ano}"
             zip_path, _ = pack_daily_zip(
                 session_docs,
                 tribunal_slug,
@@ -353,6 +428,7 @@ async def run_backlog_slice(
             tribunal=tribunal_slug,
             ano=slice_item.ano,
             mes=slice_item.mes,
+            dia=slice_item.dia,
             error=str(exc),
         )
         raise
@@ -381,6 +457,8 @@ async def run_backlog(
     ia_key: str = "",
     ia_secret: str = "",
     client: DataJudClient | None = None,
+    on_slice_start: Callable[[BacklogSlice], None] | None = None,
+    on_slice_done: Callable[[BacklogSlice, int], None] | None = None,
 ) -> dict[str, Any]:
     """Orchestrate multi-year backlog ingestion across time-boxed slices."""
     tribunal_slug = tribunal.lower()
@@ -406,7 +484,11 @@ async def run_backlog(
             tribunal=tribunal_slug,
             ano=pending_slice.ano,
             mes=pending_slice.mes,
+            dia=pending_slice.dia,
         )
+
+        if on_slice_start is not None:
+            on_slice_start(pending_slice)
 
         docs, _ = await run_backlog_slice(
             pending_slice,
@@ -420,6 +502,9 @@ async def run_backlog(
 
         slices_processed += 1
         total_docs += docs
+
+        if on_slice_done is not None:
+            on_slice_done(pending_slice, docs)
 
     # Consolidate into canonical Parquet
     if consolidate:

@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DataJud IA Reader — Protótipo Estático Zero-Backend</title>
+  <script src="fzstd.umd.js"></script>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card-bg: #1e293b;
+      --border: #334155;
+      --primary: #38bdf8;
+      --primary-hover: #0ea5e9;
+      --accent: #10b981;
+      --text: #f8fafc;
+      --text-muted: #94a3b8;
+      --tag-bg: #334155;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      padding: 2rem 1rem;
+      line-height: 1.5;
+    }
+    .container { max-width: 1050px; margin: 0 auto; }
+    header { text-align: center; margin-bottom: 2rem; }
+    h1 { font-size: 1.8rem; font-weight: 700; color: #fff; margin-bottom: 0.5rem; }
+    p.subtitle { color: var(--text-muted); font-size: 0.95rem; }
+
+    /* Telemetria Dashboard */
+    .telemetry-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 1rem;
+      margin-bottom: 1.5rem;
+    }
+    .metric-card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      text-align: center;
+    }
+    .metric-val { font-size: 1.6rem; font-weight: 800; color: var(--primary); }
+    .metric-val.green { color: var(--accent); }
+    .metric-lbl { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; margin-top: 0.25rem; }
+
+    /* Barra de Busca */
+    .search-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .search-box { display: flex; gap: 0.75rem; margin-bottom: 0.75rem; }
+    input[type="text"] {
+      flex: 1;
+      background: #090d16;
+      border: 1px solid var(--border);
+      color: #fff;
+      padding: 0.75rem 1rem;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-family: monospace;
+    }
+    input[type="text"]:focus { outline: none; border-color: var(--primary); }
+    button.btn-search {
+      background: var(--primary);
+      color: #0f172a;
+      border: none;
+      padding: 0.75rem 1.5rem;
+      font-weight: 700;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button.btn-search:hover { background: var(--primary-hover); }
+
+    .sample-pills { display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center; }
+    .sample-pills span { font-size: 0.8rem; color: var(--text-muted); }
+    .pill {
+      background: var(--tag-bg);
+      color: #e2e8f0;
+      border: 1px solid var(--border);
+      padding: 0.25rem 0.6rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-family: monospace;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .pill:hover { border-color: var(--primary); color: var(--primary); }
+
+    /* Log de Execução HTTP */
+    .execution-log {
+      background: #090d16;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem;
+      font-family: monospace;
+      font-size: 0.8rem;
+      margin-bottom: 1.5rem;
+      max-height: 180px;
+      overflow-y: auto;
+    }
+    .log-line { margin-bottom: 0.35rem; display: flex; gap: 0.5rem; }
+    .log-badge { padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 700; font-size: 0.7rem; }
+    .badge-route { background: #1e3a8a; color: #93c5fd; }
+    .badge-range { background: #064e3b; color: #6ee7b7; }
+    .badge-wasm { background: #581c87; color: #d8b4fe; }
+    .badge-cache { background: #854d0e; color: #fef08a; }
+
+    /* Resultado do Processo */
+    .result-section {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.5rem;
+      display: none;
+    }
+    .process-header {
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1rem;
+      margin-bottom: 1.25rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+    .process-title { font-size: 1.3rem; font-weight: 800; color: #fff; font-family: monospace; }
+    .process-meta { color: var(--text-muted); font-size: 0.85rem; margin-top: 0.25rem; }
+    .badges-instancias { display: flex; gap: 0.5rem; }
+    .inst-badge {
+      background: #0284c7;
+      color: #fff;
+      font-size: 0.75rem;
+      font-weight: 700;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+    }
+
+    /* Tabs de Grau */
+    .tabs-nav { display: flex; gap: 0.5rem; border-bottom: 1px solid var(--border); margin-bottom: 1rem; }
+    .tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      padding: 0.5rem 1rem;
+      font-size: 0.9rem;
+      cursor: pointer;
+      border-bottom: 2px solid transparent;
+      font-weight: 600;
+    }
+    .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+
+    /* Linha do Tempo de Movimentos */
+    .timeline { position: relative; padding-left: 1.5rem; margin-top: 1rem; }
+    .timeline::before {
+      content: "";
+      position: absolute;
+      left: 6px;
+      top: 5px;
+      bottom: 5px;
+      width: 2px;
+      background: var(--border);
+    }
+    .timeline-item { position: relative; margin-bottom: 1.25rem; }
+    .timeline-point {
+      position: absolute;
+      left: -1.5rem;
+      top: 4px;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--card-bg);
+      border: 3px solid var(--primary);
+    }
+    .timeline-date { font-size: 0.75rem; color: var(--text-muted); font-family: monospace; }
+    .timeline-title { font-weight: 700; color: #fff; font-size: 0.95rem; }
+    .timeline-orgao { font-size: 0.8rem; color: #cbd5e1; margin-top: 0.15rem; }
+    .comp-box {
+      margin-top: 0.4rem;
+      background: #090d16;
+      border-left: 3px solid var(--accent);
+      padding: 0.35rem 0.6rem;
+      border-radius: 0 4px 4px 0;
+      font-size: 0.8rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>DataJud Internet Archive Static Reader</h1>
+      <p class="subtitle">Demonstração operacional de consulta a acervos estáticos no Internet Archive via HTTP Range (Zero Backend)</p>
+    </header>
+
+    <!-- Telemetria -->
+    <div class="telemetry-grid">
+      <div class="metric-card">
+        <div class="metric-val" id="metric-http-count">0</div>
+        <div class="metric-lbl">Requisições HTTP</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val green" id="metric-bytes">0 B</div>
+        <div class="metric-lbl">Dados Transferidos</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-latency">0 ms</div>
+        <div class="metric-lbl">Latência de Rede</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val" id="metric-decomp">0 ms</div>
+        <div class="metric-lbl">Descompressão WASM</div>
+      </div>
+    </div>
+
+    <!-- Barra de Busca -->
+    <div class="search-section">
+      <div class="search-box">
+        <input type="text" id="cnj-input" placeholder="Digite o número CNJ (ex: 0001311-51.2024.8.13.0647)" value="0001311-51.2024.8.13.0647">
+        <button class="btn-search" id="btn-search">Consultar Processo</button>
+      </div>
+      <div class="sample-pills">
+        <span>Exemplos reais comprovados:</span>
+        <button class="pill" data-cnj="0001311-51.2024.8.13.0647">0001311-51.2024.8.13.0647 (TJMG G1, G2 + STJ)</button>
+        <button class="pill" data-cnj="0012397-92.2012.8.26.0577">0012397-92.2012.8.26.0577 (TJSP G1, G2 + STJ)</button>
+        <button class="pill" data-cnj="7001234-56.2026.8.22.0001">7001234-56.2026.8.22.0001 (TJRO G1)</button>
+        <button class="pill" data-cnj="5001234-56.2025.4.04.7000">5001234-56.2025.4.04.7000 (TRF4 G1)</button>
+      </div>
+    </div>
+
+    <!-- Log de Execução HTTP -->
+    <div class="execution-log" id="execution-log">
+      <div class="log-line"><span class="log-badge badge-route">SISTEMA</span> Pronto para consulta. Clique em um CNJ acima para iniciar.</div>
+    </div>
+
+    <!-- Resultado do Processo -->
+    <div class="result-section" id="result-section">
+      <div class="process-header">
+        <div>
+          <div class="process-title" id="res-cnj">0000000-00.0000.0.00.0000</div>
+          <div class="process-meta" id="res-classe">Classe do Processo</div>
+        </div>
+        <div class="badges-instancias" id="res-badges"></div>
+      </div>
+
+      <div class="tabs-nav" id="tabs-nav"></div>
+      <div class="timeline" id="timeline"></div>
+    </div>
+  </div>
+
+  <script>
+    // Memória de cache local (simulando IndexedDB no browser)
+    const indexCache = new Map();
+    let catalogoTPU = null;
+
+    // Elementos da UI
+    const cnjInput = document.getElementById('cnj-input');
+    const btnSearch = document.getElementById('btn-search');
+    const logBox = document.getElementById('execution-log');
+    const resultSec = document.getElementById('result-section');
+    const mHttpCount = document.getElementById('metric-http-count');
+    const mBytes = document.getElementById('metric-bytes');
+    const mLatency = document.getElementById('metric-latency');
+    const mDecomp = document.getElementById('metric-decomp');
+
+    function log(type, badgeClass, message) {
+      const line = document.createElement('div');
+      line.className = 'log-line';
+      line.innerHTML = `<span class="log-badge ${badgeClass}">${type}</span> <span>${message}</span>`;
+      logBox.appendChild(line);
+      logBox.scrollTop = logBox.scrollHeight;
+    }
+
+    function parseCNJ(cnj) {
+      const digits = cnj.replace(/\D/g, '');
+      if (digits.length === 20) {
+        const ano = digits.slice(9, 13);
+        const j_tr = `${digits[13]}.${digits.slice(14, 16)}`;
+        return { j_tr, ano, cnjFormatado: cnj, cnjLimpo: digits };
+      }
+      return { j_tr: 'outros', ano: 'geral', cnjFormatado: cnj, cnjLimpo: digits };
+    }
+
+    async function carregarCatalogoTPU() {
+      if (!catalogoTPU) {
+        const resp = await fetch('catalogo_tpu.json');
+        const data = await resp.json();
+        catalogoTPU = new Map();
+        for (const t of data.tipos) {
+          catalogoTPU.set(t.id, t);
+        }
+      }
+      return catalogoTPU;
+    }
+
+    async function buscarProcesso(cnjBusca) {
+      logBox.innerHTML = '';
+      resultSec.style.display = 'none';
+      let httpRequests = 0;
+      let totalBytesTransferidos = 0;
+      let totalLatency = 0;
+
+      const { j_tr, ano, cnjLimpo } = parseCNJ(cnjBusca);
+      log('ROTEADOR', 'badge-route', `Analisando CNJ ${cnjBusca} -> Tribunal J.TR: ${j_tr}, Ano: ${ano}`);
+
+      // PASSO 1: Obter Micro-Índice de Roteamento (com Cache Local)
+      const indexKey = `${j_tr}_${ano}`;
+      let indexData = null;
+
+      if (indexCache.has(indexKey)) {
+        log('CACHE HIT', 'badge-cache', `Micro-índice ${indexKey}.json recuperado do Cache Local (0 HTTP requests!)`);
+        indexData = indexCache.get(indexKey);
+      } else {
+        const t0 = performance.now();
+        log('REQ 1: ÍNDICE', 'badge-route', `Buscando micro-índice estático indexes/${indexKey}.json...`);
+        try {
+          const resp = await fetch(`indexes/${indexKey}.json`);
+          if (!resp.ok) throw new Error(`Índice ${indexKey} não encontrado no acervo.`);
+          const rawText = await resp.text();
+          const t1 = performance.now();
+          httpRequests++;
+          totalBytesTransferidos += rawText.length;
+          totalLatency += (t1 - t0);
+          indexData = JSON.parse(rawText);
+          indexCache.set(indexKey, indexData);
+          log('REQ 1: OK', 'badge-route', `Índice carregado em ${(t1 - t0).toFixed(1)} ms (${rawText.length} bytes). Salvo em cache local.`);
+        } catch (err) {
+          log('ERRO', 'badge-route', err.message);
+          return;
+        }
+      }
+
+      // Localiza o processo no micro-índice
+      const meta = indexData.processos.find(p => p.cnj.replace(/\D/g, '') === cnjLimpo || p.cnj === cnjBusca);
+      if (!meta) {
+        log('NÃO ENCONTRADO', 'badge-route', `O CNJ ${cnjBusca} não consta na partição ${indexKey}.`);
+        return;
+      }
+
+      log('LOCALIZADO', 'badge-range', `Processo encontrado! Shard: ${meta.shard}, Offset: ${meta.offset}, Tamanho: ${meta.length} B`);
+
+      // PASSO 2: HTTP Range Request direto no Internet Archive / Shard ZIP
+      const tRange0 = performance.now();
+      log('REQ 2: RANGE', 'badge-range', `Executando HTTP Range: bytes=${meta.offset}-${meta.offset + meta.length - 1} em ${meta.shard}`);
+
+      let zstdBytes = null;
+      try {
+        const respRange = await fetch(meta.shard, {
+          headers: { 'Range': `bytes=${meta.offset}-${meta.offset + meta.length - 1}` }
+        });
+        if (respRange.status !== 206 && respRange.status !== 200) {
+          throw new Error(`Servidor respondeu HTTP ${respRange.status} para Range request.`);
+        }
+        const buf = await respRange.arrayBuffer();
+        const tRange1 = performance.now();
+        httpRequests++;
+        totalBytesTransferidos += buf.byteLength;
+        totalLatency += (tRange1 - tRange0);
+        zstdBytes = new Uint8Array(buf);
+        log('REQ 2: OK', 'badge-range', `HTTP 206 Partial Content: ${buf.byteLength} bytes recebidos em ${(tRange1 - tRange0).toFixed(1)} ms.`);
+      } catch (err) {
+        log('ERRO RANGE', 'badge-range', err.message);
+        return;
+      }
+
+      // PASSO 3: Descompressão Client-Side com Zstandard (WASM)
+      const tDecomp0 = performance.now();
+      let decompressedJson = null;
+      try {
+        const decompressedBytes = fzstd.decompress(zstdBytes);
+        const jsonStr = new TextDecoder().decode(decompressedBytes);
+        decompressedJson = JSON.parse(jsonStr);
+        const tDecomp1 = performance.now();
+        const decompTime = (tDecomp1 - tDecomp0).toFixed(2);
+        log('WASM ZSTD', 'badge-wasm', `Descompressão concluída em ${decompTime} ms (${zstdBytes.length} B -> ${decompressedBytes.length} B).`);
+        mDecomp.textContent = `${decompTime} ms`;
+      } catch (err) {
+        log('ERRO DECOMP', 'badge-wasm', `Falha ao descomprimir Zstandard: ${err.message}`);
+        return;
+      }
+
+      // Atualiza Telemetria
+      mHttpCount.textContent = httpRequests;
+      mBytes.textContent = `${(totalBytesTransferidos / 1024).toFixed(1)} KB`;
+      mLatency.textContent = `${totalLatency.toFixed(0)} ms`;
+
+      // PASSO 4: Reconstrução com Catálogo TPU e Renderização
+      await carregarCatalogoTPU();
+      renderizarProcesso(meta, decompressedJson);
+    }
+
+    function renderizarProcesso(meta, data) {
+      document.getElementById('res-cnj').textContent = meta.cnj;
+      document.getElementById('res-classe').textContent = `${meta.tribunal} • ${meta.classe || 'Classe não informada'}`;
+
+      const badgesBox = document.getElementById('res-badges');
+      badgesBox.innerHTML = '';
+      for (const inst of meta.instancias) {
+        const b = document.createElement('span');
+        b.className = 'inst-badge';
+        b.textContent = inst;
+        badgesBox.appendChild(b);
+      }
+
+      const tabsNav = document.getElementById('tabs-nav');
+      tabsNav.innerHTML = '';
+      const docs = data.documentos || [];
+
+      docs.forEach((doc, idx) => {
+        const btn = document.createElement('button');
+        btn.className = `tab-btn ${idx === 0 ? 'active' : ''}`;
+        const trib = doc.t || 'Tribunal';
+        const grau = doc.g || 'G';
+        btn.textContent = `${trib} (${grau})`;
+        btn.onclick = () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderizarMovimentos(doc);
+        };
+        tabsNav.appendChild(btn);
+      });
+
+      if (docs.length > 0) {
+        renderizarMovimentos(docs[0]);
+      }
+      resultSec.style.display = 'block';
+    }
+
+    function renderizarMovimentos(doc) {
+      const timeline = document.getElementById('timeline');
+      timeline.innerHTML = '';
+      const movs = doc.m || [];
+
+      if (movs.length === 0) {
+        timeline.innerHTML = '<p style="color:var(--text-muted);font-size:0.85rem">Nenhuma movimentação registrada.</p>';
+        return;
+      }
+
+      movs.forEach(item => {
+        const [tipoId, dataHora, orgao, valores] = item;
+        const template = catalogoTPU.get(tipoId) || { nome: `Movimento ${tipoId}`, complementos: [] };
+
+        const div = document.createElement('div');
+        div.className = 'timeline-item';
+
+        let dtFmt = 'Data não informada';
+        if (dataHora) {
+          dtFmt = dataHora.replace('T', ' ').replace('.000Z', ' UTC');
+        }
+
+        let compsHtml = '';
+        if (template.complementos && template.complementos.length > 0) {
+          compsHtml = template.complementos.map((c, cIdx) => {
+            const val = (valores && valores[cIdx] !== undefined) ? `: <strong>${valores[cIdx]}</strong>` : '';
+            return `<div class="comp-box">${c.nome || c.descricao || 'Complemento'}${val}</div>`;
+          }).join('');
+        }
+
+        let orgaoHtml = '';
+        if (orgao && orgao[1]) {
+          orgaoHtml = `<div class="timeline-orgao">${orgao[1]}</div>`;
+        }
+
+        div.innerHTML = `
+          <div class="timeline-point"></div>
+          <div class="timeline-date">${dtFmt}</div>
+          <div class="timeline-title">${template.nome || 'Andamento Processual'}</div>
+          ${orgaoHtml}
+          ${compsHtml}
+        `;
+        timeline.appendChild(div);
+      });
+    }
+
+    // Eventos
+    btnSearch.addEventListener('click', () => {
+      const cnj = cnjInput.value.trim();
+      if (cnj) buscarProcesso(cnj);
+    });
+
+    cnjInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') {
+        const cnj = cnjInput.value.trim();
+        if (cnj) buscarProcesso(cnj);
+      }
+    });
+
+    document.querySelectorAll('.pill').forEach(pill => {
+      pill.addEventListener('click', () => {
+        const cnj = pill.getAttribute('data-cnj');
+        cnjInput.value = cnj;
+        buscarProcesso(cnj);
+      });
+    });
+
+    // Inicia com um processo de exemplo ao carregar
+    window.addEventListener('DOMContentLoaded', () => {
+      buscarProcesso(cnjInput.value);
+    });
+  </script>
+</body>
+</html>

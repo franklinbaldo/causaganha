@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "00007544720245220006",
+      "shard": "shards/shard_001.zip",
+      "offset": 40216,
+      "length": 654,
+      "tribunal": "TST",
+      "classe": "Recurso de Revista",
+      "instancias": [
+        "TST SUP"
+      ],
+      "compressed_size": 654
+    }
+  ]
+}

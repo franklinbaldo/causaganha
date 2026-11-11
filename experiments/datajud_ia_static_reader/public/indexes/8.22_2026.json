@@ -1,0 +1,153 @@
+{
+  "total": 12,
+  "processos": [
+    {
+      "cnj": "70007797020268220021",
+      "shard": "shards/shard_001.zip",
+      "offset": 59,
+      "length": 919,
+      "tribunal": "TJRO",
+      "classe": "Recurso Inominado Cível",
+      "instancias": [
+        "TJRO JE",
+        "TJRO TR"
+      ],
+      "compressed_size": 919
+    },
+    {
+      "cnj": "70123336220268220001",
+      "shard": "shards/shard_001.zip",
+      "offset": 1037,
+      "length": 632,
+      "tribunal": "TJRO",
+      "classe": "Embargos de Declaração Cível",
+      "instancias": [
+        "TJRO TR"
+      ],
+      "compressed_size": 632
+    },
+    {
+      "cnj": "70038096420268220005",
+      "shard": "shards/shard_001.zip",
+      "offset": 1728,
+      "length": 1176,
+      "tribunal": "TJRO",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJRO G1",
+        "TJRO G2"
+      ],
+      "compressed_size": 1176
+    },
+    {
+      "cnj": "08009634420268229000",
+      "shard": "shards/shard_001.zip",
+      "offset": 2963,
+      "length": 388,
+      "tribunal": "TJRO",
+      "classe": "Habeas Corpus Criminal",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 388
+    },
+    {
+      "cnj": "08151352520268220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 3410,
+      "length": 438,
+      "tribunal": "TJRO",
+      "classe": "Agravo de Instrumento",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 438
+    },
+    {
+      "cnj": "08154271020268220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 3907,
+      "length": 378,
+      "tribunal": "TJRO",
+      "classe": "Agravo de Execução Penal",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 378
+    },
+    {
+      "cnj": "08009479020268229000",
+      "shard": "shards/shard_001.zip",
+      "offset": 4344,
+      "length": 376,
+      "tribunal": "TJRO",
+      "classe": "Agravo de Instrumento",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 376
+    },
+    {
+      "cnj": "08150893620268220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 4779,
+      "length": 472,
+      "tribunal": "TJRO",
+      "classe": "Agravo de Instrumento",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 472
+    },
+    {
+      "cnj": "70037480320268220007",
+      "shard": "shards/shard_001.zip",
+      "offset": 5748,
+      "length": 1408,
+      "tribunal": "TJRO",
+      "classe": "Apelação Criminal",
+      "instancias": [
+        "TJRO G1",
+        "TJRO G2"
+      ],
+      "compressed_size": 1408
+    },
+    {
+      "cnj": "70067283820268220001",
+      "shard": "shards/shard_001.zip",
+      "offset": 7215,
+      "length": 1515,
+      "tribunal": "TJRO",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJRO G1",
+        "TJRO G2"
+      ],
+      "compressed_size": 1515
+    },
+    {
+      "cnj": "08083808220268220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 8789,
+      "length": 691,
+      "tribunal": "TJRO",
+      "classe": "Agravo de Instrumento",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 691
+    },
+    {
+      "cnj": "08101735620268220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 12442,
+      "length": 763,
+      "tribunal": "TJRO",
+      "classe": "Habeas Corpus Criminal",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 763
+    }
+  ]
+}
