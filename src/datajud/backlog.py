@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -419,6 +420,8 @@ async def run_backlog(
     ia_key: str = "",
     ia_secret: str = "",
     client: DataJudClient | None = None,
+    on_slice_start: Callable[[BacklogSlice], None] | None = None,
+    on_slice_done: Callable[[BacklogSlice, int], None] | None = None,
 ) -> dict[str, Any]:
     """Orchestrate multi-year backlog ingestion across time-boxed slices."""
     tribunal_slug = tribunal.lower()
@@ -447,6 +450,9 @@ async def run_backlog(
             dia=pending_slice.dia,
         )
 
+        if on_slice_start is not None:
+            on_slice_start(pending_slice)
+
         docs, _ = await run_backlog_slice(
             pending_slice,
             store,
@@ -459,6 +465,9 @@ async def run_backlog(
 
         slices_processed += 1
         total_docs += docs
+
+        if on_slice_done is not None:
+            on_slice_done(pending_slice, docs)
 
     # Consolidate into canonical Parquet
     if consolidate:

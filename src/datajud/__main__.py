@@ -37,6 +37,18 @@ from typing import Annotated
 
 import httpx
 from cyclopts import App, Parameter
+from rich.console import Console
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    SpinnerColumn,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
+from rich.table import Table
 
 from datajud import backlog as backlog_engine
 from datajud import cdc as cdc_engine
@@ -348,51 +360,106 @@ def backlog_cmd(
 ) -> int:
     """Coleta e ingestão de backlog histórico particionado em fatias temporais."""
     store = backlog_engine.DataJudBacklogStore(data_dir / "backlog_slices.sqlite")
+    console = Console()
 
     if status:
         slices = store.list_slices(tribunal)
         if not slices:
-            print(f"Nenhum backlog registrado para {tribunal.upper()} em {data_dir}.")
+            console.print(f"[yellow]Nenhum backlog registrado para {tribunal.upper()} em {data_dir}.[/yellow]")
             return 0
-        total_docs = sum(s.documentos_coletados for s in slices)
-        by_status: dict[str, int] = {}
-        for s in slices:
-            by_status[s.status] = by_status.get(s.status, 0) + 1
 
-        print(f"Status do Backlog — Tribunal: {tribunal.upper()} ({len(slices)} fatias)")
-        print(f"  Documentos coletados: {total_docs:,}")
-        for st, count in sorted(by_status.items()):
-            print(f"  {st.capitalize():<15}: {count}")
+        table = Table(title=f"Status do Backlog — {tribunal.upper()} ({len(slices)} fatias)")
+        table.add_column("Status", style="bold")
+        table.add_column("Fatias", justify="right")
+        table.add_column("Processos Coletados", justify="right", style="green")
+
+        by_status: dict[str, list[backlog_engine.BacklogSlice]] = {}
+        for s in slices:
+            by_status.setdefault(s.status, []).append(s)
+
+        for st, items in sorted(by_status.items()):
+            docs = sum(item.documentos_coletados for item in items)
+            color = (
+                "green"
+                if st == "completed"
+                else ("yellow" if st == "in_progress" else ("red" if st == "error" else "cyan"))
+            )
+            table.add_row(f"[{color}]{st.capitalize()}[/{color}]", str(len(items)), f"{docs:,}")
+
+        console.print(table)
+        total_docs = sum(s.documentos_coletados for s in slices)
+        console.print(f"[bold]Total acumulado:[/bold] [green]{total_docs:,}[/green] processos coletados.")
         return 0
 
     ia_key, ia_secret = service.ia_credentials()
-    print(f"DataJud Backlog — Tribunal: {tribunal.upper()}")
-    print(f"  Período       : {start_year} a {end_year} (fatiamento: {slice_by})")
-    print(f"  Page size     : {page_size:,}")
-    print(f"  Upload IA     : {upload}")
+    console.print(f"[bold cyan]DataJud Backlog — Tribunal: {tribunal.upper()}[/bold cyan]")
+    console.print(f"  Período       : {start_year} a {end_year} (fatiamento: {slice_by})")
+    console.print(f"  Page size     : {page_size:,}")
+    console.print(f"  Upload IA     : {upload}")
 
-    try:
-        res = asyncio.run(
-            backlog_engine.run_backlog(
-                tribunal,
-                start_year,
-                end_year,
-                slice_by=slice_by,
-                max_slices=max_slices,
-                page_size=page_size,
-                upload=upload,
-                base_dir=data_dir,
-                ia_key=ia_key,
-                ia_secret=ia_secret,
-            )
+    # Discover target slices count for the progress bar
+    store.init_slices(tribunal.lower(), start_year, end_year, slice_by=slice_by)
+    all_slices = store.list_slices(tribunal.lower())
+    pending_count = sum(1 for s in all_slices if s.status in ("pending", "in_progress"))
+    target_count = min(pending_count, max_slices) if max_slices is not None else pending_count
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[bold blue]{task.description}"),
+        BarColumn(bar_width=35),
+        MofNCompleteColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+        TextColumn("[green]• {task.fields[docs]} docs[/green]"),
+        console=console,
+    ) as progress:
+        task_id = progress.add_task(
+            f"Backlog {tribunal.upper()}",
+            total=target_count,
+            docs=0,
         )
-    except (DataJudError, httpx.HTTPError) as exc:
-        print(f"ERROR no Backlog: {exc}", file=sys.stderr)
-        return 1
 
-    print("\nSessão de Backlog concluída:")
-    print(f"  Fatias processadas nesta sessão: {res['slices_processed']}")
-    print(f"  Documentos coletados           : {res['total_documents']:,}")
+        def _on_start(s: backlog_engine.BacklogSlice) -> None:
+            if s.dia:
+                date_str = f"{s.ano}-{s.mes:02d}-{s.dia:02d}"
+            elif s.mes:
+                date_str = f"{s.ano}-{s.mes:02d}"
+            else:
+                date_str = f"{s.ano}"
+            progress.update(task_id, description=f"Backlog {tribunal.upper()} [{date_str}]")
+
+        total_accum_docs = 0
+
+        def _on_done(s: backlog_engine.BacklogSlice, docs: int) -> None:
+            nonlocal total_accum_docs
+            total_accum_docs += docs
+            progress.update(task_id, advance=1, docs=total_accum_docs)
+
+        try:
+            res = asyncio.run(
+                backlog_engine.run_backlog(
+                    tribunal,
+                    start_year,
+                    end_year,
+                    slice_by=slice_by,
+                    max_slices=max_slices,
+                    page_size=page_size,
+                    upload=upload,
+                    base_dir=data_dir,
+                    ia_key=ia_key,
+                    ia_secret=ia_secret,
+                    on_slice_start=_on_start,
+                    on_slice_done=_on_done,
+                )
+            )
+        except (DataJudError, httpx.HTTPError) as exc:
+            console.print(f"[bold red]ERROR no Backlog:[/bold red] {exc}", file=sys.stderr)
+            return 1
+
+    console.print("\n[bold green]Sessão de Backlog concluída:[/bold green]")
+    console.print(f"  Fatias processadas nesta sessão: {res['slices_processed']}")
+    console.print(f"  Documentos coletados           : {res['total_documents']:,}")
 
     return 0
 
