@@ -24,7 +24,7 @@ from __future__ import annotations
 import asyncio
 import os
 from itertools import batched
-from typing import TYPE_CHECKING, Self
+from typing import TYPE_CHECKING, Any, Self
 
 import httpx
 import structlog
@@ -36,7 +36,7 @@ from datajud.models import normalizar_cnj
 
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import AsyncIterator, Sequence
     from types import TracebackType
 
 
@@ -52,6 +52,9 @@ _UA = "causaganha/datajud (+https://github.com/franklinbaldo/causaganha)"
 
 HTTP_UNAUTHORIZED = 401
 HTTP_TOO_MANY_REQUESTS = 429
+HTTP_BAD_GATEWAY = 502
+HTTP_SERVICE_UNAVAILABLE = 503
+HTTP_GATEWAY_TIMEOUT = 504
 
 # Capa fields fetched by default — avoids pulling the (potentially huge)
 # movimentos array when only the capa is needed.
@@ -328,6 +331,114 @@ class DataJudClient:
             {"chave": bucket.get("key"), "qtd": bucket.get("doc_count", 0)} for bucket in buckets
         ]
 
+    # ── CDC / Change Data Capture (search_after) ─────────────────────────
+
+    async def iter_updated_since(
+        self,
+        since_iso: str | None = None,
+        *,
+        until_iso: str | None = None,
+        page_size: int = 1000,
+        min_page_size: int = 100,
+        max_pages: int | None = None,
+        pause_between_pages: float = 0.5,
+        search_after: list[Any] | None = None,
+    ) -> AsyncIterator[tuple[list[dict], list[Any] | None]]:
+        """Yield pages of documents updated since `since_iso` using Elasticsearch CDC search_after.
+
+        Sorts deterministically by ``[{"dataHoraUltimaAtualizacao": "asc"}, {"numeroProcesso.keyword": "asc"}]``,
+        which provides stable cursor-based pagination without deep-paging penalties.
+
+        Yields tuples of ``(hits, last_sort_key)`` where:
+          - ``hits`` is a list of process `_source` dicts (with ``_id`` injected if present).
+          - ``last_sort_key`` is the ES sort tie-breaker list suitable for resumption via `search_after`.
+
+        Employs adaptive page sizing: on gateway timeouts (HTTP 504) or rate rejections,
+        the requested batch size halves (down to `min_page_size`) and retries the current page
+        before resuming normal progression.
+        """
+        current_search_after = search_after
+        current_page_size = page_size
+        consecutive_successes = 0
+        pages_yielded = 0
+
+        range_filter: dict[str, Any] = {}
+        if since_iso:
+            range_filter["gte"] = since_iso
+        if until_iso:
+            range_filter["lte"] = until_iso
+
+        query: dict[str, Any] = (
+            {"range": {"dataHoraUltimaAtualizacao": range_filter}}
+            if range_filter
+            else {"match_all": {}}
+        )
+
+        while True:
+            if max_pages is not None and pages_yielded >= max_pages:
+                break
+
+            payload = None
+            while True:
+                body: dict[str, Any] = {
+                    "size": current_page_size,
+                    "track_total_hits": True,
+                    "query": query,
+                    "sort": [
+                        {"dataHoraUltimaAtualizacao": "asc"},
+                        {"numeroProcesso.keyword": "asc"},
+                    ],
+                }
+                if current_search_after:
+                    body["search_after"] = current_search_after
+
+                try:
+                    payload = await self.search(body)
+                    break
+                except (DataJudRateLimitError, httpx.TimeoutException, httpx.TransportError) as exc:
+                    if current_page_size > min_page_size:
+                        new_size = max(min_page_size, current_page_size // 2)
+                        log.warning(
+                            "datajud_adaptive_page_reduction",
+                            tribunal=self.tribunal,
+                            from_size=current_page_size,
+                            to_size=new_size,
+                            error=str(exc),
+                        )
+                        current_page_size = new_size
+                        consecutive_successes = 0
+                        if pause_between_pages:
+                            await asyncio.sleep(pause_between_pages)
+                        continue
+                    raise
+
+            hits_raw = payload.get("hits", {}).get("hits", [])
+            if not hits_raw:
+                break
+
+            sources: list[dict] = []
+            for hit in hits_raw:
+                src = hit.get("_source", {})
+                if isinstance(src, dict) and "_id" not in src and "_id" in hit:
+                    src["_id"] = hit["_id"]
+                sources.append(src)
+
+            last_sort = hits_raw[-1].get("sort")
+            current_search_after = last_sort
+            pages_yielded += 1
+
+            consecutive_successes += 1
+            if consecutive_successes >= 3 and current_page_size < page_size:
+                current_page_size = min(page_size, current_page_size * 2)
+
+            yield sources, last_sort
+
+            if len(hits_raw) < current_page_size:
+                break
+
+            if pause_between_pages:
+                await asyncio.sleep(pause_between_pages)
+
 
 def _raise_for_status_flavor(resp: httpx.Response) -> None:
     """Classify the response status into the client's error taxonomy."""
@@ -338,8 +449,13 @@ def _raise_for_status_flavor(resp: httpx.Response) -> None:
             f"and set the {API_KEY_ENV} environment variable."
         )
         raise DataJudAuthError(msg)
-    if resp.status_code == HTTP_TOO_MANY_REQUESTS:
-        msg = "HTTP 429 (gateway rate limit)"
+    if resp.status_code in (
+        HTTP_TOO_MANY_REQUESTS,
+        HTTP_BAD_GATEWAY,
+        HTTP_SERVICE_UNAVAILABLE,
+        HTTP_GATEWAY_TIMEOUT,
+    ):
+        msg = f"HTTP {resp.status_code} (transient gateway error or rate limit)"
         raise _TransientRejectionError(msg)
     resp.raise_for_status()
 

@@ -334,3 +334,145 @@ async def test_transport_error_is_retried_then_succeeds():
 
     assert payload == OK_BODY
     assert route.call_count == 2
+
+
+# ── Transient Gateway Errors (502, 503, 504) ──────────────────────────────
+
+
+@pytest.mark.parametrize("status_code", [502, 503, 504])
+async def test_transient_gateway_errors_are_retried(status_code: int):
+    with respx.mock() as router:
+        route = router.post(ENDPOINT)
+        route.side_effect = [httpx.Response(status_code), httpx.Response(200, json=OK_BODY)]
+        async with _client() as client:
+            payload = await client.search({"query": {"match_all": {}}})
+
+    assert payload == OK_BODY
+    assert route.call_count == 2
+
+
+# ── CDC / search_after pagination ─────────────────────────────────────────
+
+
+def _hits_with_sort(items: list[tuple[dict, list[object]]]) -> dict:
+    return {
+        "hits": {
+            "total": {"value": len(items), "relation": "eq"},
+            "hits": [
+                {"_id": f"id-{i}", "_source": s, "sort": sort_key}
+                for i, (s, sort_key) in enumerate(items)
+            ],
+        }
+    }
+
+
+async def test_iter_updated_since_search_after_pagination():
+    doc1 = {"numeroProcesso": CNJ_A, "dataHoraUltimaAtualizacao": "2026-03-01T10:00:00.000Z"}
+    doc2 = {"numeroProcesso": CNJ_B, "dataHoraUltimaAtualizacao": "2026-03-01T11:00:00.000Z"}
+    doc3 = {"numeroProcesso": CNJ_C, "dataHoraUltimaAtualizacao": "2026-03-01T12:00:00.000Z"}
+
+    sort1 = [1772359200000, CNJ_A]
+    sort2 = [1772362800000, CNJ_B]
+    sort3 = [1772366400000, CNJ_C]
+
+    with respx.mock() as router:
+        route = router.post(ENDPOINT)
+        route.side_effect = [
+            # page 1: returns 2 items (matches page_size=2)
+            httpx.Response(200, json=_hits_with_sort([(doc1, sort1), (doc2, sort2)])),
+            # page 2: returns 1 item (< page_size=2 → triggers end)
+            httpx.Response(200, json=_hits_with_sort([(doc3, sort3)])),
+        ]
+
+        pages = []
+        async with _client() as client:
+            async for batch, last_sort in client.iter_updated_since(
+                since_iso="2026-03-01T00:00:00.000Z",
+                until_iso="2026-03-02T00:00:00.000Z",
+                page_size=2,
+                pause_between_pages=0.0,
+            ):
+                pages.append((batch, last_sort))
+
+    assert len(pages) == 2
+    assert len(pages[0][0]) == 2
+    assert pages[0][1] == sort2
+    # Verify injected _id
+    assert pages[0][0][0]["_id"] == "id-0"
+
+    assert len(pages[1][0]) == 1
+    assert pages[1][1] == sort3
+
+    # Check request bodies
+    req1 = json.loads(route.calls[0].request.content)
+    req2 = json.loads(route.calls[1].request.content)
+
+    assert req1["query"]["range"]["dataHoraUltimaAtualizacao"]["gte"] == "2026-03-01T00:00:00.000Z"
+    assert req1["query"]["range"]["dataHoraUltimaAtualizacao"]["lte"] == "2026-03-02T00:00:00.000Z"
+    assert "search_after" not in req1
+    assert req1["sort"] == [
+        {"dataHoraUltimaAtualizacao": "asc"},
+        {"numeroProcesso.keyword": "asc"},
+    ]
+
+    assert req2["search_after"] == sort2
+
+
+async def test_iter_updated_since_empty_stream():
+    with respx.mock() as router:
+        router.post(ENDPOINT).respond(200, json=_hits_with_sort([]))
+        pages = []
+        async with _client() as client:
+            async for batch, last_sort in client.iter_updated_since(
+                page_size=10, pause_between_pages=0.0
+            ):
+                pages.append((batch, last_sort))
+
+    assert pages == []
+
+
+async def test_iter_updated_since_respects_max_pages():
+    doc = {"numeroProcesso": CNJ_A}
+    sort_key = [1, CNJ_A]
+
+    with respx.mock() as router:
+        route = router.post(ENDPOINT).respond(
+            200, json=_hits_with_sort([(doc, sort_key), (doc, sort_key)])
+        )
+        pages = []
+        async with _client() as client:
+            async for batch, _ in client.iter_updated_since(
+                page_size=2, max_pages=1, pause_between_pages=0.0
+            ):
+                pages.append(batch)
+
+    assert len(pages) == 1
+    assert route.call_count == 1
+
+
+async def test_iter_updated_since_adaptive_page_reduction():
+    doc = {"numeroProcesso": CNJ_A}
+    sort_key = [1, CNJ_A]
+
+    with respx.mock() as router:
+        route = router.post(ENDPOINT)
+        # Attempt with page_size=4 fails (504 repeated max_retries+1 times -> DataJudRateLimitError)
+        # Then next attempt with page_size=2 succeeds
+        route.side_effect = [
+            httpx.Response(504),
+            httpx.Response(504),
+            httpx.Response(200, json=_hits_with_sort([(doc, sort_key)])),
+        ]
+
+        pages = []
+        async with _client(max_retries=1) as client:
+            async for batch, _ in client.iter_updated_since(
+                page_size=4, min_page_size=2, pause_between_pages=0.0
+            ):
+                pages.append(batch)
+
+    assert len(pages) == 1
+    # 2 calls on size=4 (exhausting max_retries=1) + 1 call on size=2
+    assert route.call_count == 3
+    body_last = json.loads(route.calls[-1].request.content)
+    assert body_last["size"] == 2

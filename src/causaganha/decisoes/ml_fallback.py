@@ -15,8 +15,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, VotingClassifier
 from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.linear_model import LogisticRegression
 
 # Restrição de domínio entre Eixo 1 (Macro-Categoria) e Eixo 2 (Desfechos Permitidos no ML Fallback)
 ALLOWED_OUTCOMES_BY_MACRO: dict[str, frozenset[str]] = {
@@ -184,7 +185,7 @@ class FallbackPrediction:
 
 
 class WeakSupervisionOutcomeFallback:
-    """Classificador TF-IDF + Random Forest treinado via Supervisão Fraca e Distante."""
+    """Classificador Híbrido Soft-Voting (LogisticRegression L2 + RandomForest) via TF-IDF."""
 
     def __init__(self, min_proba: float = 0.40):
         self.min_proba = min_proba
@@ -195,11 +196,25 @@ class WeakSupervisionOutcomeFallback:
             strip_accents="unicode",
             lowercase=True,
         )
-        self.classifier = RandomForestClassifier(
-            n_estimators=100,
-            class_weight="balanced_subsample",
-            random_state=42,
-            n_jobs=1,
+        self.classifier = VotingClassifier(
+            estimators=[
+                (
+                    "lr",
+                    LogisticRegression(
+                        C=2.0, class_weight="balanced", max_iter=500, random_state=42
+                    ),
+                ),
+                (
+                    "rf",
+                    RandomForestClassifier(
+                        n_estimators=100,
+                        class_weight="balanced_subsample",
+                        random_state=42,
+                        n_jobs=1,
+                    ),
+                ),
+            ],
+            voting="soft",
         )
         self._is_fitted = False
 
