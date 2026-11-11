@@ -4,14 +4,14 @@
     {
       "cnj": "00007544720245220006",
       "shard": "shards/shard_001.zip",
-      "offset": 40216,
-      "length": 654,
+      "offset": 40153,
+      "length": 656,
       "tribunal": "TST",
       "classe": "Recurso de Revista",
       "instancias": [
         "TST SUP"
       ],
-      "compressed_size": 654
+      "compressed_size": 656
     }
   ]
 }

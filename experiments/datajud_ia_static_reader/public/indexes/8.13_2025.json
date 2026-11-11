@@ -5,25 +5,25 @@
       "cnj": "10016885520258130231",
       "shard": "shards/shard_001.zip",
       "offset": 14930,
-      "length": 582,
+      "length": 579,
       "tribunal": "TJMG",
       "classe": "Apelação Cível",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 582
+      "compressed_size": 579
     },
     {
       "cnj": "30821922820258130000",
       "shard": "shards/shard_001.zip",
-      "offset": 30375,
-      "length": 651,
+      "offset": 30323,
+      "length": 649,
       "tribunal": "STJ",
       "classe": "Agravo em Recurso Especial",
       "instancias": [
         "STJ SUP"
       ],
-      "compressed_size": 651
+      "compressed_size": 649
     }
   ]
 }

@@ -4,7 +4,7 @@
     {
       "cnj": "04655553120263000000",
       "shard": "shards/shard_001.zip",
-      "offset": 31777,
+      "offset": 31720,
       "length": 359,
       "tribunal": "STJ",
       "classe": "Sentença Estrangeira",
@@ -16,26 +16,26 @@
     {
       "cnj": "01389770720263000000",
       "shard": "shards/shard_001.zip",
-      "offset": 32195,
-      "length": 1186,
+      "offset": 32138,
+      "length": 1187,
       "tribunal": "STJ",
       "classe": "Habeas Corpus",
       "instancias": [
         "STJ SUP"
       ],
-      "compressed_size": 1186
+      "compressed_size": 1187
     },
     {
       "cnj": "04641254420263000000",
       "shard": "shards/shard_001.zip",
-      "offset": 39734,
-      "length": 423,
+      "offset": 39672,
+      "length": 422,
       "tribunal": "STJ",
       "classe": "Habeas Corpus",
       "instancias": [
         "STJ SUP"
       ],
-      "compressed_size": 423
+      "compressed_size": 422
     }
   ]
 }

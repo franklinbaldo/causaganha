@@ -4,8 +4,8 @@
     {
       "cnj": "00123979220128260577",
       "shard": "shards/shard_001.zip",
-      "offset": 53169,
-      "length": 3244,
+      "offset": 53124,
+      "length": 3246,
       "tribunal": "TJSP",
       "classe": "Apelação / Remessa Necessária",
       "instancias": [
@@ -13,7 +13,7 @@
         "TJSP G1",
         "TJSP G2"
       ],
-      "compressed_size": 3244
+      "compressed_size": 3246
     }
   ]
 }

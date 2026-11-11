@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "20000374820258110094",
+      "shard": "shards/shard_001.zip",
+      "offset": 1335491,
+      "length": 682,
+      "tribunal": "TJRO",
+      "classe": "Execução da Pena",
+      "instancias": [
+        "TJRO G1"
+      ],
+      "compressed_size": 682
+    }
+  ]
+}

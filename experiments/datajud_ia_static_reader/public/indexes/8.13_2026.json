@@ -4,19 +4,19 @@
     {
       "cnj": "28247228620268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 14086,
-      "length": 785,
+      "offset": 14089,
+      "length": 782,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 785
+      "compressed_size": 782
     },
     {
       "cnj": "28246786720268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 15571,
+      "offset": 15568,
       "length": 683,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
@@ -28,43 +28,43 @@
     {
       "cnj": "28246431020268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 16313,
-      "length": 573,
+      "offset": 16310,
+      "length": 570,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 573
+      "compressed_size": 570
     },
     {
       "cnj": "28163842620268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 16945,
-      "length": 595,
+      "offset": 16939,
+      "length": 593,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 595
+      "compressed_size": 593
     },
     {
       "cnj": "28171949820268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 17599,
-      "length": 555,
+      "offset": 17591,
+      "length": 549,
       "tribunal": "TJMG",
       "classe": "Conflito de competência cível",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 555
+      "compressed_size": 549
     },
     {
       "cnj": "28134189020268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 18213,
+      "offset": 18199,
       "length": 886,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
@@ -76,43 +76,43 @@
     {
       "cnj": "28132750420268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 19158,
-      "length": 694,
+      "offset": 19144,
+      "length": 684,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 694
+      "compressed_size": 684
     },
     {
       "cnj": "28132699420268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 19911,
-      "length": 637,
+      "offset": 19887,
+      "length": 632,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 637
+      "compressed_size": 632
     },
     {
       "cnj": "20146723420268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 24034,
-      "length": 697,
+      "offset": 24001,
+      "length": 695,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 697
+      "compressed_size": 695
     },
     {
       "cnj": "20025724720268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 26752,
+      "offset": 26711,
       "length": 840,
       "tribunal": "TJMG",
       "classe": "Mandado de Segurança Cível",
@@ -124,14 +124,14 @@
     {
       "cnj": "28202409520268130000",
       "shard": "shards/shard_001.zip",
-      "offset": 27651,
-      "length": 617,
+      "offset": 27610,
+      "length": 613,
       "tribunal": "TJMG",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "TJMG G2"
       ],
-      "compressed_size": 617
+      "compressed_size": 613
     }
   ]
 }

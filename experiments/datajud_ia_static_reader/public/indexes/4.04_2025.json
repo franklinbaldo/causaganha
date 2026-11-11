@@ -4,28 +4,28 @@
     {
       "cnj": "50219851420254040000",
       "shard": "shards/shard_001.zip",
-      "offset": 44636,
-      "length": 1418,
+      "offset": 44581,
+      "length": 1420,
       "tribunal": "TRF4",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "STJ SUP",
         "TRF4 G2"
       ],
-      "compressed_size": 1418
+      "compressed_size": 1420
     },
     {
       "cnj": "50396755620254040000",
       "shard": "shards/shard_001.zip",
-      "offset": 46113,
-      "length": 1102,
+      "offset": 46060,
+      "length": 1103,
       "tribunal": "TRF4",
       "classe": "Agravo de Instrumento",
       "instancias": [
         "STJ SUP",
         "TRF4 G2"
       ],
-      "compressed_size": 1102
+      "compressed_size": 1103
     }
   ]
 }

@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "70437403820168220001",
+      "shard": "shards/shard_001.zip",
+      "offset": 885119,
+      "length": 850,
+      "tribunal": "TJRO",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 850
+    }
+  ]
+}
