@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "08075742320218220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 9539,
+      "length": 2844,
+      "tribunal": "TJRO",
+      "classe": "Ação Rescisória",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 2844
+    }
+  ]
+}

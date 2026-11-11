@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "08167415920248220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 13264,
+      "length": 763,
+      "tribunal": "TJRO",
+      "classe": "Precatório",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 763
+    }
+  ]
+}
