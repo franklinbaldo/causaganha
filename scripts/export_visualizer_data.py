@@ -49,6 +49,7 @@ def main():
         "extinção da execução",
         "extinto sem mérito",
         "despacho de expediente",
+        "homologação de decisão leiga",
         "acordo",
         "não conhecido",
         "tutela deferida",
@@ -269,7 +270,31 @@ def main():
                 "tribunal": str(row["tribunal"]) if pd.notna(row["tribunal"]) else "DJEN",
                 "classe": str(row["classe_processual"])
                 if pd.notna(row["classe_processual"])
-                else "Sentença",
+                else "[7] Procedimento Comum Cível",
+                "classe_codigo": int(row["classe_codigo"])
+                if pd.notna(row.get("classe_codigo"))
+                else None,
+                "classe_nome": str(row["classe_nome"])
+                if pd.notna(row.get("classe_nome"))
+                else "Procedimento Comum Cível",
+                "origem_classe": str(row["origem_classe"])
+                if pd.notna(row.get("origem_classe"))
+                else "inferencia_taxonomia",
+                "assunto_principal": str(row["assunto_principal"])
+                if (
+                    pd.notna(row.get("assunto_principal"))
+                    and str(row.get("assunto_principal")) != "N/A"
+                )
+                else None,
+                "datajud_desfecho_tpu": str(row["datajud_desfecho_tpu"])
+                if (
+                    pd.notna(row.get("datajud_desfecho_tpu"))
+                    and str(row.get("datajud_desfecho_tpu")) != "N/A"
+                )
+                else None,
+                "winning_rule": str(row["winning_rule"])
+                if pd.notna(row.get("winning_rule"))
+                else None,
                 "tipo_documento": str(row["tipo_documento"])
                 if pd.notna(row["tipo_documento"])
                 else "Sentença",

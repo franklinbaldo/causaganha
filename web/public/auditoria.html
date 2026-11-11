@@ -1110,7 +1110,17 @@
 
       // Entity Strip
       const entityStrip = document.getElementById('entityStrip');
+      const origemLabels = {
+        'datajud_acervo': '⚡ DataJud SQLite',
+        'metadado_djen': '📋 Metadado DJEN',
+        'cabecalho_ner': '🔍 NER Cabeçalho',
+        'inferencia_taxonomia': '🧭 Taxonomia'
+      };
+      const origemBadge = c.origem_classe ? ` <small style="opacity:0.8;">(${origemLabels[c.origem_classe] || c.origem_classe})</small>` : '';
+      const assuntoChip = c.assunto_principal ? `<span class="entity-chip" style="background:#eef2ff; border-color:#c7d2fe;"><strong>Assunto DataJud:</strong> ${escapeHtml(c.assunto_principal)}</span>` : '';
       entityStrip.innerHTML = `
+        <span class="entity-chip" style="background:#f0fdf4; border-color:#bbf7d0;"><strong>Classe TPU:</strong> ${escapeHtml(c.classe || 'Não identificada')}${origemBadge}</span>
+        ${assuntoChip}
         <span class="entity-chip"><strong>Autor:</strong> ${escapeHtml(c.autor || 'Não identificado')}</span>
         <span class="entity-chip"><strong>Réu:</strong> ${escapeHtml(c.reu || 'Não identificado')}</span>
         <span class="entity-chip"><strong>Adv:</strong> ${escapeHtml(c.advogado || 'Não identificado')} ${c.oab && c.oab !== 'Não identificada' ? `(${c.oab})` : ''}</span>

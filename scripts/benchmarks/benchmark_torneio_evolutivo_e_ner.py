@@ -21,8 +21,8 @@ ROOT_DIR = Path(__file__).resolve().parent.parent.parent
 sys.path.insert(0, str(ROOT_DIR / "src"))
 sys.path.insert(0, str(ROOT_DIR / "scripts"))
 
+from causaganha.decisoes.multi_axis import MultiAxisJudicialClassifier
 from causaganha.decisoes.ner.composite import CompositeEntityExtractor
-from causaganha.decisoes.regex_tournament import build_default_tournament
 from causaganha.decisoes.structural_segmenter import FullDocumentStructuralSegmenter
 from classify_djen_sample_1000 import clean_html_if_present, load_1000_djen_sample
 
@@ -55,6 +55,9 @@ def run_benchmark(sample_size: int = 1000) -> dict:
             {
                 "doc_id": doc_id,
                 "tribunal": row.get("tribunal", "DJEN"),
+                "tipo_documento_hint": doc.get("tipo_documento_hint", ""),
+                "classe_hint": doc.get("classe_hint", ""),
+                "cnj": row.get("cnj", ""),
                 "texto": clean_text,
                 "desfecho_esperado": str(row.get("desfecho_cpc", "unknown")).lower().strip(),
             }
@@ -63,13 +66,15 @@ def run_benchmark(sample_size: int = 1000) -> dict:
     print(f"✓ {len(dataset)} decisões carregadas e preparadas.")
 
     # 2. Inicialização dos componentes
-    print("\n[2/5] Inicializando Segmentador, NER Transversal e Torneio Evolutivo...")
+    print("\n[2/5] Inicializando Segmentador, NER Transversal e Classificador Multi-Eixo...")
     segmenter = FullDocumentStructuralSegmenter()
     ner = CompositeEntityExtractor()
-    tournament = build_default_tournament()
-
-    # Executa primeiro o treinamento/calibração do torneio no dataset
-    tournament.evaluate_tournament(dataset, text_key="texto", label_key="desfecho_esperado")
+    multi_clf = MultiAxisJudicialClassifier()
+    multi_clf.fit_fallback_from_corpus(
+        texts=[d["texto"] for d in dataset],
+        labels=[d["desfecho_esperado"] for d in dataset],
+        min_confidence=0.85,
+    )
 
     # 3. Execução do Benchmark com medição de latência fina
     print(f"\n[3/5] Executando benchmark completo em {len(dataset)} documentos...")
@@ -110,23 +115,30 @@ def run_benchmark(sample_size: int = 1000) -> dict:
             t_val = m.entity_type.value if hasattr(m.entity_type, "value") else str(m.entity_type)
             entity_counts_by_type[t_val] = entity_counts_by_type.get(t_val, 0) + 1
 
-        # Etapa C: Torneio Evolutivo Ponderado por Seção
+        # Etapa C: Classificação Multi-Eixo (Torneio Ponderado + Taxonomia + DataJud + ML Fallback)
         sections_text = {k: v.text for k, v in doc_struct.sections.items()}
+        meta_doc = {
+            "court": doc["tribunal"],
+            "tipo_documento": doc["tipo_documento_hint"],
+            "classe_processual": doc["classe_hint"],
+            "cnj": doc["cnj"],
+        }
         t_tourn_0 = time.perf_counter()
-        explanation = tournament.classify_with_explanation(text, sections=sections_text)
+        multi_res = multi_clf.classify(text, metadata=meta_doc, sections=sections_text)
         t_tourn_1 = time.perf_counter()
         lat_tourn = (t_tourn_1 - t_tourn_0) * 1000.0
         latencies_tournament.append(lat_tourn)
 
-        predicted = explanation.category
-        conf = explanation.confidence
+        predicted = multi_res.desfecho_operativo
+        conf = multi_res.confianca_desfecho
+        explanation = multi_res.explicacao
 
         t_end = time.perf_counter()
         lat_total = (t_end - t0) * 1000.0
         latencies_total.append(lat_total)
 
         # Verificação de shadow citation e negative guards
-        if explanation.winning_section == "dispositivo":
+        if explanation and explanation.winning_section == "dispositivo":
             rel_matches = [
                 c
                 for c in explanation.all_candidates
@@ -144,10 +156,8 @@ def run_benchmark(sample_size: int = 1000) -> dict:
                 "expected": expected,
                 "predicted": predicted,
                 "confidence": conf,
-                "winning_rule": explanation.winning_rule.pattern_id
-                if explanation.winning_rule
-                else None,
-                "winning_section": explanation.winning_section,
+                "winning_rule": multi_res.winning_rule,
+                "winning_section": multi_res.winning_section,
                 "num_entities": len(mentions),
                 "lat_total_ms": lat_total,
             }
