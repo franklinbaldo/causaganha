@@ -68,44 +68,48 @@ Mapeamento de valores mínimos e máximos para dimensionar tipos binários no Fl
 
 ---
 
-## 4. Matriz Controlada Lossless: Isolando Modelagem de Dados vs Serialização
+## 4. Matriz Comparativa Abrangente: JSON vs FlatBuffers vs Parquet vs Protocol Buffers
 
 Para responder com precisão científica e estrita paridade de conteúdo à pergunta do experimento:
-$$\text{"Dado exatamente o mesmo modelo lógico 100% reversível, quanto FlatBuffers economiza vs JSON?"}$$
+$$\text{"Qual formato atinge a menor pegada de armazenamento reversível e a melhor viabilidade de consulta estática?"}$$
 
 Submetemos o acervo aos mesmos níveis de modelagem, com a garantia formal e testada em suite automatizada de que:
 $$\operatorname{decode}(\operatorname{encode}(D)) == D \quad (\forall D \in \text{Corpus})$$
 
-O vocabulário reversível compartilhado contém **394 termos únicos** (abrangendo todas as descrições de movimentos, complementos, nomes de classes, sistemas e órgãos julgadores, inclusive variações de grafia e acentuação dos tribunais):
+O vocabulário reversível compartilhado contém **394 termos únicos** e o catálogo de templates TPU (Estratégia B) contém **278 tipos estruturais estáveis**:
 
-| Nível de Modelagem | JSON (100% Lossless) | FlatBuffers | Delta FB vs JSON | Economia da Modelagem |
-| :--- | :--- | :--- | :--- | :--- |
-| **Nível 1: Dados Originais (Bruto)** | 808.223 B (4,2 ms) | 728.696 B (123,9 ms) | **0,90x** | 0,0% (Base) |
-| **Nível 2: Modelo Lossless + Vocabulário** | **265.839 B** (9,7 ms) | **92.016 B** (13,8 ms) | **0,35x** | **67,1% de redução** |
-| └─ *Detalhamento JSON* | *Dados: 254.699 B \| Vocabulário: 11.140 B* | - | - | - |
-| **Nível 3: Modelo Lossless + Zstandard** | **58.767 B** (1,4 ms) | **89.263 B** (0,6 ms) | **1,52x** | **92,7% de redução** |
-| └─ *Detalhamento Zstandard* | *Dados Zstd: 54.205 B \| Vocab Zstd: 4.562 B* | - | - | - |
+| Formato / Variante | Tamanho Total (Bytes) | Redução s/ Bruto | Tempo Enc | Tempo Dec | Características de Acesso |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **1. JSON Bruto Original** | 763.146 B | 0,0% (Base) | 6,1 ms | 6,1 ms | Texto puro não comprimido |
+| **2. FlatBuffers v1 (Esquema Canônico)** | 728.696 B | 4,5% | 123,9 ms | **1,2 ms** | Zero-copy com overhead de vtables e padding |
+| **3. Protocol Buffers Canônico (Sem Compressão)** | **385.762 B** | **49,5%** | **25,4 ms** | **1,2 ms** | Varints (LEB128) sem padding de alinhamento |
+| **4. JSON.gz (nível 6 padrão)** | 90.909 B | 88,1% | 8,1 ms | 6,5 ms | Compactação padrão de mercado |
+| **5. FlatBuffers Híbrido (Capa FB + Zstd)** | 92.016 B | 87,9% | 13,8 ms | 1,1 ms | Capa O(1) em FB + movimentos em Zstd |
+| **6. Protocol Buffers Canônico + Zstandard** | **83.047 B** | **89,1%** | 1,9 ms | 2,7 ms | Supera o JSON.gz padrão |
+| **7. JSON Tokenizado Lossless + Zstandard** | 58.767 B | 92,3% | 1,6 ms | 6,0 ms | Zstd nível 3 + vocabulário compartilhado |
+| **8. Parquet Nativo Aninhado + Zstandard** | 47.464 B | 93,8% | - | 4,5 ms | Colunar com Dictionary Encoding e Bit-Packing |
+| **9. Protocol Buffers Compacto + Zstd (Estratégia B)** | **41.272 B** | **94,6%** | **1,8 ms** | **1,4 ms** | **Menor marca absoluta (Campeão em densidade)** |
 
 ### O que os Dados Rigorosamente Comprovam:
 
-1. **Reversibilidade Matemática Estrita ($0$ perda):**
-   - Ao contrário de modelos conceituais que descartavam nomes de movimentos, o codec implementado em `src/datajud/schema/lossless_codec.py` preserva 100% dos dados brutos, envelopes (`_score`, `sort`), anomalias e estruturas aninhadas (`codigoMunicipioIBGE: null`, etc.).
-2. **FlatBuffers sem Compressão Externa é 65% Menor que JSON Equivalente (0,35x):**
-   - No Nível 2 (sem compressor LZ/Zstd), o FlatBuffers Híbrido ocupa **92 KB**, enquanto o JSON com vocabulário ocupa **265 KB**. O layout binário tipado elimina delimitadores textuais e sintaxe JSON com enorme eficiência.
-3. **Zstandard em JSON Tokenizado atinge 58,7 KB (92,7% de redução):**
-   - O Zstandard comprime sequências de inteiros e vocabulário textual para **58,7 KB** (comparado a **90,9 KB** do `JSON.gz` bruto tradicional). Representa uma economia adicional de **35,4% de espaço sobre o JSON.gz padrão**.
-4. **O Trade-off Inegociável: Latência O(1) vs Espaço em Disco:**
-   - **JSON Tokenizado + Zstd:** Ocupa menos espaço (58,7 KB vs 89,2 KB), porém exige descompressão de bloco inteiro e reconstrução em memória via dicionário antes de consultar qualquer campo do processo.
-   - **FlatBuffers Híbrido:** Ocupa ligeiramente mais espaço em repouso (89,2 KB com Zstd ou 92,0 KB sem compressão de bloco externo), mas viabiliza **projeção O(1) da Capa em 1,07 ms (15,7 µs/processo)** via HTTP Range Requests ou mmap, sem tocar nos 3.206 movimentos.
+1. **Protocol Buffers é 47% Menor que FlatBuffers sem Compressão:**
+   - O Protobuf Canônico sem Zstd ocupa **385 KB**, contra **728 KB** do FlatBuffers v1.
+   - O uso de **varints (LEB128)** permite que inteiros pequenos (códigos TPU, níveis de sigilo, IDs) ocupem de 1 a 2 bytes em vez de 8 bytes fixos, sem os bytes vazios de alinhamento (*zero-padding*) exigidos pelo FlatBuffers.
+2. **Protobuf Compacto + Zstandard é o Campeão Absoluto (41,2 KB):**
+   - Ao adotar a **Estratégia B** (templates TPU como IDs no Protobuf e complementos dinâmicos em arrays), o acervo cai para **41.272 bytes** (~720 bytes por processo completo com todos os graus e instâncias).
+   - Supera o Parquet (**47,4 KB**) e o JSON Tokenizado (**58,7 KB**).
+3. **Parquet vs Protobuf para a Web Estática no Internet Archive:**
+   - **Parquet (Colunar):** Exige runtime de 30 MB (DuckDB-WASM) no navegador e fragmenta os dados de um mesmo processo em múltiplos chunks colunares distantes no arquivo.
+   - **Protobuf (Documental Contíguo):** O processo inteiro é um bloco sequencial contíguo de bytes. Permite o resgate via **1 único HTTP Range request** e decodifica em **1,4 ms** com bibliotecas JS levíssimas (~15 KB).
 
 ---
 
-## 5. Recomendações Arquiteturais Fundamentadas
+## 5. Recomendações Arquiteturais Finais
 
-1. **Para Distribuição de Acervo Público no Internet Archive:**
-   - Shards diários de processos compactados com **Zstandard (Zstd)** empacotados em arquivos ZIP com **`ZIP_STORED`**.
-   - Isso alcança a menor pegada de armazenamento (**39,8 KB por lote**, economizando 95% de espaço e custo de rede).
-2. **Para a Camada de Indexação e Resolução Rápida:**
-   - O **Índice de Resolução Parquet** (`indice_processos_{tribunal}.parquet`) armazena os metadados de capa em colunas analíticas, apontando para o offset dentro do arquivo do Internet Archive.
-3. **Para Aplicações de Acesso Local e Filtro em Memória:**
-   - O **FlatBuffers Híbrido** é a escolha ideal quando o cliente precisa inspecionar metadados de capa em milissegundos sem pagar o custo de CPU de descompressão do histórico de movimentos.
+1. **Armazenamento de Processos no Internet Archive:**
+   - Shards empacotados em **`ZIP_STORED`** contendo documentos contíguos em **Protocol Buffers Compacto + Zstandard (`.pb.zst`)**.
+   - Menor tamanho de rede (**41 KB total / ~720 B por processo**) e resgate em 1 requisição HTTP Range.
+2. **Índice Público de Roteamento:**
+   - Micro-índices estáticos particionados por Tribunal e Ano (`indexes/{J.TR}_{ANO}.json` ou `.parquet`), cacheados no IndexedDB do navegador.
+3. **Catálogo de Andamentos:**
+   - Tabela estática de templates TPU servida junto aos assets do site estático para reconstrução instantânea da linha do tempo.

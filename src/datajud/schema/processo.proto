@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package datajud;
+
+message CodigoNome {
+  int64 codigo = 1;
+  string nome = 2;
+}
+
+message OrgaoJulgador {
+  int64 codigo = 1;
+  string nome = 2;
+  int64 codigoMunicipioIBGE = 3;
+  bool tem_ibge = 4;
+}
+
+message ComplementoTabelado {
+  int64 codigo = 1;
+  string nome = 2;
+  string descricao = 3;
+  string valor = 4;
+}
+
+message Movimento {
+  int64 codigo = 1;
+  string nome = 2;
+  string dataHora = 3;
+  CodigoNome orgaoJulgador = 4;
+  repeated ComplementoTabelado complementosTabelados = 5;
+  bool tem_complementos = 6;
+}
+
+message DocumentoDataJud {
+  string index_origem = 1;
+  string id_origem = 2;
+  int64 sort_epoch = 3;
+  string numeroProcesso = 4;
+  string tribunal = 5;
+  string grau = 6;
+  int32 nivelSigilo = 7;
+  string dataAjuizamento = 8;
+  string dataHoraUltimaAtualizacao = 9;
+  string timestamp = 10;
+  CodigoNome classe = 11;
+  CodigoNome sistema = 12;
+  CodigoNome formato = 13;
+  OrgaoJulgador orgaoJulgador = 14;
+  repeated CodigoNome assuntos = 15;
+  repeated Movimento movimentos = 16;
+  string campos_desconhecidos_json = 17;
+  double score = 18;
+  bool tem_score = 19;
+}
+
+message ProcessoCNJCollection {
+  string numeroProcesso = 1;
+  repeated DocumentoDataJud documentos = 2;
+}
+
+// ── VARIANTE COMPACTA (ESTRATÉGIA B: TEMPLATES TPU) ──
+
+message MovimentoCompacto {
+  uint32 tipo_id = 1;
+  string dataHora = 2;
+  CodigoNome orgaoJulgador = 3;
+  repeated string valores_complementos = 4;
+}
+
+message DocumentoCompacto {
+  string index_origem = 1;
+  string id_origem = 2;
+  int64 sort_epoch = 3;
+  string numeroProcesso = 4;
+  string tribunal = 5;
+  string grau = 6;
+  int32 nivelSigilo = 7;
+  string dataAjuizamento = 8;
+  string dataHoraUltimaAtualizacao = 9;
+  string timestamp = 10;
+  CodigoNome classe = 11;
+  CodigoNome sistema = 12;
+  CodigoNome formato = 13;
+  OrgaoJulgador orgaoJulgador = 14;
+  repeated CodigoNome assuntos = 15;
+  repeated MovimentoCompacto movimentos = 16;
+  string campos_desconhecidos_json = 17;
+  double score = 18;
+  bool tem_score = 19;
+}
+
+message ProcessoCompactoCollection {
+  string numeroProcesso = 1;
+  repeated DocumentoCompacto documentos = 2;
+}
