@@ -220,7 +220,7 @@ class RegexTournament:
 
     def __init__(
         self,
-        top_k: int = 3,
+        top_k: int = 15,
         fp_penalty: float = 2.0,
         min_precision: float = 0.75,
     ):
@@ -228,6 +228,9 @@ class RegexTournament:
         self.fp_penalty = fp_penalty
         self.min_precision = min_precision
         self.categories: dict[str, list[CompetitiveRegex]] = {}
+        self._master_cache: dict[
+            str, tuple[re.Pattern[str] | None, dict[str, CompetitiveRegex], list[CompetitiveRegex]]
+        ] = {}
 
     def register(
         self,
@@ -264,6 +267,7 @@ class RegexTournament:
             scope=scope,
         )
         self.categories[cat].append(reg)
+        self._master_cache.pop(cat, None)
         return reg
 
     def evaluate_tournament(
@@ -318,6 +322,7 @@ class RegexTournament:
 
             leaderboard_summary[cat] = [r.to_dict() for r in regex_list]
 
+        self._master_cache.clear()
         return {
             "total_documents_tested": len(dataset),
             "category_distribution": cat_totals,
@@ -337,6 +342,58 @@ class RegexTournament:
             promoted = pool[: self.top_k]
         return promoted[: self.top_k]
 
+    def _get_compiled_category_plan(
+        self, cat: str
+    ) -> tuple[re.Pattern[str] | None, dict[str, CompetitiveRegex], list[CompetitiveRegex]]:
+        """Compila uma Master Regex com grupos nomeados para regras positivas sem guarda negativa."""
+        cached = self._master_cache.get(cat)
+        if cached is not None:
+            return cached
+
+        top_rules = self.get_top_k(cat)
+        positive_parts: list[str] = []
+        group_map: dict[str, CompetitiveRegex] = {}
+        guarded_rules: list[CompetitiveRegex] = []
+
+        for idx, r in enumerate(top_rules):
+            if r.negative_pattern is None and r.scope == "all":
+                grp_name = f"g_{idx}"
+                positive_parts.append(f"(?P<{grp_name}>{r.pattern})")
+                group_map[grp_name] = r
+            else:
+                guarded_rules.append(r)
+
+        master_re = re.compile("|".join(positive_parts), re.IGNORECASE) if positive_parts else None
+        plan = (master_re, group_map, guarded_rules)
+        self._master_cache[cat] = plan
+        return plan
+
+    def _append_candidate(
+        self,
+        candidates: list[MatchCandidate],
+        cat: str,
+        rule: CompetitiveRegex,
+        sec_name: str,
+        sec_text: str,
+        weights: dict[str, float],
+    ) -> None:
+        weight = weights.get(sec_name.lower(), 1.0)
+        base_score = max(rule.score, (rule.precision * 100.0) if rule.precision > 0 else 10.0)
+        effective_score = round(base_score * weight, 2)
+        section_conf_factor = 1.0 if weight >= 1.0 else 0.75
+        conf = round(min(0.99, max(0.50, rule.precision * section_conf_factor)), 4)
+        candidates.append(
+            MatchCandidate(
+                category=cat,
+                rule=rule,
+                section=sec_name,
+                weight=weight,
+                effective_score=effective_score,
+                confidence=conf,
+                matched_snippet=sec_text[:120],
+            )
+        )
+
     def classify_with_explanation(
         self,
         text: str,
@@ -353,38 +410,25 @@ class RegexTournament:
 
         candidates: list[MatchCandidate] = []
 
-        for cat, _ in self.categories.items():
-            top_rules = self.get_top_k(cat)
-            for r in top_rules:
-                # Testa contra cada seção avaliável
-                for sec_name, sec_text in eval_sections.items():
-                    if not sec_text:
-                        continue
-                    if r.matches(sec_text, section=sec_name):
-                        weight = weights.get(sec_name.lower(), 1.0)
-                        # Score base histórico ponderado pelo peso da seção
-                        base_score = max(
-                            r.score, (r.precision * 100.0) if r.precision > 0 else 10.0
-                        )
-                        effective_score = round(base_score * weight, 2)
-
-                        # Confiança proporcional à precisão histórica e peso da seção
-                        section_conf_factor = 1.0 if weight >= 1.0 else 0.75
-                        conf = round(min(0.99, max(0.50, r.precision * section_conf_factor)), 4)
-
-                        candidates.append(
-                            MatchCandidate(
-                                category=cat,
-                                rule=r,
-                                section=sec_name,
-                                weight=weight,
-                                effective_score=effective_score,
-                                confidence=conf,
-                                matched_snippet=sec_text[:120],
-                            )
-                        )
-                        # Encontrou o melhor match da categoria nesta seção, avança
-                        break
+        for cat in self.categories:
+            master_re, group_map, guarded_rules = self._get_compiled_category_plan(cat)
+            for sec_name, sec_text in eval_sections.items():
+                if not sec_text:
+                    continue
+                matched_rule: CompetitiveRegex | None = None
+                if master_re is not None:
+                    m = master_re.search(sec_text)
+                    if m and m.lastgroup:
+                        matched_rule = group_map.get(m.lastgroup)
+                if matched_rule is None and guarded_rules:
+                    for r in guarded_rules:
+                        if r.matches(sec_text, section=sec_name):
+                            matched_rule = r
+                            break
+                if matched_rule is not None:
+                    self._append_candidate(
+                        candidates, cat, matched_rule, sec_name, sec_text, weights
+                    )
 
         if not candidates:
             return ClassificationExplanation(
@@ -479,11 +523,12 @@ class RegexTournament:
         self.categories = {}
         for cat, r_list in data.get("categories", {}).items():
             self.categories[cat] = [CompetitiveRegex.from_dict(d) for d in r_list]
+        self._master_cache.clear()
 
 
 def build_default_tournament() -> RegexTournament:
     """Inicializa o torneio com o catálogo de regexes sementes e variantes conhecidas."""
-    t = RegexTournament(top_k=3, fp_penalty=2.0, min_precision=0.75)
+    t = RegexTournament(top_k=15, fp_penalty=2.0, min_precision=0.75)
 
     def _seed(
         pattern: str,
@@ -518,14 +563,19 @@ def build_default_tournament() -> RegexTournament:
         "proc_procedente_pedido",
         negative_pattern=r"(?:parcialmente|em\s+parte)",
     )
-    _seed(r"\bcondeno\s+o\s+r[eé]u\b", "procedente", "proc_condeno_reu")
+    _seed(r"\bcondeno\s+o\s+(?:r[eé]u|acusado|requerido)\b", "procedente", "proc_condeno_reu")
     _seed(
-        r"\bjulgo\s+procedente\s+o\s+pedido\b",
+        r"\bjulgo\s+procedente\s+(?:o\s+pedido|a\s+denúncia|a\s+pretensão\s+punitiva)\b",
         "procedente",
         "proc_julgo_proc_pedido",
         negative_pattern=r"(?:parcialmente|em\s+parte)",
     )
     _seed(r"\bacolher\s+o\s+pedido\s+inicial\b", "procedente", "proc_acolher_pedido_inicial")
+    _seed(
+        r"\b(?:concedo\s+a\s+segurança|defiro\s+o\s+pedido\s+de\s+alvará|autorizo\s+[^.]{1,70}?\ba\s+levantar\s+e\s+receber\s+o\s+valor)\b",
+        "procedente",
+        "proc_concedo_seguranca_alvara",
+    )
 
     # 2. IMPROCEDENTE
     _seed(
@@ -542,7 +592,14 @@ def build_default_tournament() -> RegexTournament:
         negative_pattern=r"(?:não\s+é\s+caso|parcialmente)",
     )
     _seed(
-        r"\bjulgo\s+improcedente\s+a\s+pretensão\b", "improcedente", "improc_julgo_improc_pretensao"
+        r"\bjulgo\s+improcedente\s+(?:a\s+pretensão|a\s+denúncia)\b",
+        "improcedente",
+        "improc_julgo_improc_pretensao",
+    )
+    _seed(
+        r"\b(?:denego\s+a\s+segurança|absolvo\s+o\s+(?:r[eé]u|acusado))\b",
+        "improcedente",
+        "improc_denego_seguranca_absolvo",
     )
 
     # 3. PARCIALMENTE PROCEDENTE
@@ -564,14 +621,14 @@ def build_default_tournament() -> RegexTournament:
     _seed(r"\bparcialmente\s+procedente\b", "parcialmente procedente", "parcial_parcialmente_proc")
     _seed(r"\bprocedência\s+parcial\b", "parcialmente procedente", "parcial_procedencia_parcial")
 
-    # 4. EXTINTO SEM MÉRITO (CPC art. 485 e Lei 9.099/95 art. 51)
+    # 4. EXTINTO SEM MÉRITO (CPC art. 485 e Lei 9.099/95 arts. 51 e 53)
     _seed(
-        r"\b(?:extingo|julgo\s+extinto)\s+(?:o\s+processo\s+)?sem\s+resolução\s+(?:de|do)\s+mérito\b",
+        r"\b(?:extingo|julgo\s+extinto|declaro\s+extinto)\s+(?:o\s+(?:processo|feito)\s*,?\s*)?sem\s+(?:resolução|julgamento)\s+(?:de|do)\s+mérito\b",
         "extinto sem mérito",
         "extinto_sem_resolucao",
     )
     _seed(
-        r"\bextinto\s+sem\s+resolução\s+do\s+mérito\b",
+        r"\bextinto\s+sem\s+(?:resolução|julgamento)\s+(?:do|de)\s+mérito\b",
         "extinto sem mérito",
         "extinto_sem_resolucao_2",
     )
@@ -586,7 +643,11 @@ def build_default_tournament() -> RegexTournament:
         "extinto sem mérito",
         "extinto_art_51_lei_9099",
     )
-    _seed(r"\bindefiro\s+a\s+petição\s+inicial\b", "extinto sem mérito", "extinto_indefiro_inicial")
+    _seed(
+        r"\b(?:indefiro\s+a\s+petição\s+inicial|homologo\s+a\s+desistência|extingo\s+o\s+processo\s+com\s+fundamento\s+no\s+art\.?\s*53)\b",
+        "extinto sem mérito",
+        "extinto_indefiro_inicial",
+    )
     _seed(r"\bjulgo\s+extinto\s+o\s+processo\b", "extinto sem mérito", "extinto_julgo_extinto")
 
     # 5. ACORDO (CPC art. 487, III, b)
@@ -599,9 +660,14 @@ def build_default_tournament() -> RegexTournament:
     _seed(r"\bhomologo\s+a\s+transação\b", "acordo", "acordo_homologo_transacao")
     _seed(r"\bhomologo\s+a\s+avença\b", "acordo", "acordo_homologo_avenca")
     _seed(r"\bhomologação\s+de\s+acordo\b", "acordo", "acordo_homologacao")
+    _seed(
+        r"\bart\.?\s*487,\s*(?:inciso\s+)?III,\s*[\"']?b[\"']?\b",
+        "acordo",
+        "acordo_art_487_iii_b",
+    )
 
-    # 6. EXTINÇÃO DA EXECUÇÃO (CPC art. 924)
-    _seed(r"\bart\.?\s*924\b", "extinção da execução", "exec_art_924")
+    # 6. EXTINÇÃO DA EXECUÇÃO (CPC art. 924 / Prescrição Intercorrente)
+    _seed(r"\b(?:art\.?|artigo)\s*924\b", "extinção da execução", "exec_art_924")
     _seed(r"\bsatisfação\s+da\s+obrigação\b", "extinção da execução", "exec_satisfacao_obrigacao")
     _seed(
         r"\bextinção\s+d[ao]\s+cumprimento\s+de\s+sentença\b",
@@ -609,23 +675,38 @@ def build_default_tournament() -> RegexTournament:
         "exec_extincao_cumprimento",
     )
     _seed(
-        r"\bjulgo\s+extint[ao]\s+(?:a\s+presente\s+execução|o\s+cumprimento\s+de\s+sentença)\b",
+        r"\b(?:julgo\s+extint[ao]|extingo)\s+(?:a\s+presente\s+execução(?:\s+fiscal)?|o\s+cumprimento\s+de\s+sentença)\b",
         "extinção da execução",
         "exec_julgo_extinta_exec",
     )
-
-    # 7. RECURSAIS / ACÓRDÃOS (2º Grau)
     _seed(
-        r"\b(?:nego|negaram|negou|negar|negando|nega-se)\s+provimento\b",
+        r"\bprescrição\s+intercorrente\b",
+        "extinção da execução",
+        "exec_prescricao_intercorrente",
+    )
+
+    # 7. RECURSAIS / ACÓRDÃOS (2º Grau e Turmas Recursais)
+    _seed(
+        r"\b(?:nego|negaram|negou|negar|negando|nega-se)(?:-lhe)?\s+provimento\b",
         "não provido",
         "rec_negou_provimento",
     )
     _seed(r"\bdesprovido\s+o\s+recurso\b", "não provido", "rec_desprovido")
     _seed(r"\brecurso\s+não\s+provido\b", "não provido", "rec_recurso_nao_provido")
     _seed(r"\brecurso\s+improvido\b", "não provido", "rec_improvido")
+    _seed(
+        r"\b(?:sentença\s+(?:confirmada|mantida)\s+por\s+seus\s+próprios\s+fundamentos|mantenho\s+a\s+sentença\s+por\s+seus\s+próprios\s+fundamentos|mantenh[oa]\s+inalterados\s+todos\s+os\s+demais\s+termos\s+da\s+sentença|os\s+demais\s+termos\s+da\s+sentença\s+embargada\s+restam\s+inalterados)\b",
+        "não provido",
+        "rec_mantida_proprios_fundamentos",
+    )
+    _seed(
+        r"\b(?:rejeit(?:o|am-se|aram|ar)\s+os\s+embargos\s+de\s+declaração|inexistir\s+no\s+acórdão\s+embargado\s+omissão|obscuridade,\s+contradição\s+ou\s+qualquer\s+outro\s+vício\s+no\s+acórdão\s+embargado)\b",
+        "não provido",
+        "rec_rejeito_embargos_declaracao",
+    )
 
     _seed(
-        r"\b(?:deram|deu|dou|dar|dando|da-se)\s+parcial\s+provimento\b",
+        r"\b(?:deram|deu|dou|dar|dando|d[aá]-se)(?:-lhe)?\s+parcial\s+provimento\b",
         "parcialmente provido",
         "rec_parcial_provimento",
     )
@@ -635,13 +716,18 @@ def build_default_tournament() -> RegexTournament:
         "rec_recurso_parcialmente_provido",
     )
     _seed(
-        r"\b(?:dou|deu|deram|dar|dando)\s+provimento\s+em\s+parte\b",
+        r"\b(?:dou|deu|deram|dar|dando)(?:-lhe)?\s+provimento\s+em\s+parte\b",
         "parcialmente provido",
         "rec_provimento_em_parte",
     )
+    _seed(
+        r"\bexercer\s+o\s+juízo\s+de\s+retratação\s+em\s+parte\b",
+        "parcialmente provido",
+        "rec_retratacao_em_parte",
+    )
 
     _seed(
-        r"\b(?:dou|deu|deram|dar|dando|da-se)\s+provimento\b",
+        r"\b(?:dou|deu|deram|dar|dando|d[aá]-se)(?:-lhe)?\s+provimento\b",
         "provido",
         "rec_deu_provimento",
         negative_pattern=r"(?:parcial|em\s+parte|não)",
@@ -654,7 +740,7 @@ def build_default_tournament() -> RegexTournament:
     )
 
     _seed(
-        r"\b(?:não\s+conhec(?:eram|eu|o|endo)|não\s+conhecer)\b",
+        r"\b(?:não\s+conhe[cç](?:eram|eu|o|am|endo)|não\s+conhecer|inadmito\s+o\s+(?:recurso|pedido)|nego(?:-lhe)?\s+seguimento)\b",
         "não conhecido",
         "rec_nao_conhecido",
     )
@@ -662,32 +748,52 @@ def build_default_tournament() -> RegexTournament:
 
     # 8. TUTELAS DE URGÊNCIA / LIMINARES
     _seed(
-        r"\b(?:defiro|concedo)\s+(?:o\s+pedido\s+de\s+)?(?:a\s+)?(?:tutela\s+de\s+urgência|liminar|efeito\s+suspensivo)\b",
+        r"\b(?:defiro|concedo)\s+(?:o\s+pedido\s+de\s+)?(?:a\s+)?(?:tutela\s+(?:provisória|de\s+urgência|antecipada)|liminar|efeito\s+suspensivo|medidas?\s+protetivas?)\b",
         "tutela deferida",
         "tut_deferida",
     )
     _seed(
-        r"\b(?:indefiro|denego)\s+(?:o\s+pedido\s+de\s+)?(?:a\s+)?(?:tutela\s+de\s+urgência|liminar|efeito\s+suspensivo)\b",
+        r"\butilize-se\s+esta\s+decisão\s+como\s+mandado\s+de\s+busca\s+e\s+apreensão\b",
+        "tutela deferida",
+        "tut_busca_apreensao_deferida",
+    )
+    _seed(
+        r"\b(?:indefiro|denego)\s+(?:o\s+pedido\s+de\s+)?(?:a\s+)?(?:tutela\s+(?:provisória|de\s+urgência|antecipada)|liminar|efeito\s+suspensivo)\b",
         "tutela indeferida",
         "tut_indeferida",
     )
 
-    # 9. DESPACHOS DE MERO EXPEDIENTE
+    # 9. DESPACHOS DE MERO EXPEDIENTE / IMPULSO OFICIAL / SOBRESTAMENTO
     _seed(r"\bdê-se\s+vista\b", "despacho de expediente", "desp_de_se_vista")
     _seed(r"\bdesigno\s+(?:sessão|audiência)\b", "despacho de expediente", "desp_designo_audiencia")
     _seed(
-        r"\bintime-se\s+(?:a\s+parte|o\s+autor|o\s+réu|as\s+partes)\b",
+        r"\bintime-se\s+(?:a\s+parte|o\s+autor|o\s+réu|as\s+partes|a\s+defesa|o\s+exequente|o\s+executado)\b",
         "despacho de expediente",
         "desp_intime_se",
     )
     _seed(r"\baguarde-se\s+manifestação\b", "despacho de expediente", "desp_aguarde_se")
     _seed(r"\bcumpra-se\s+o\s+despacho\b", "despacho de expediente", "desp_cumpra_se")
+    _seed(
+        r"\b(?:determino\s+(?:o\s+sobrestamento|a\s+suspensão\s+do\s+(?:feito|trâmite|processo)|a\s+realização\s+de\s+audiência)|redistribua-se\s+o\s+recurso|promova-se\s+a\s+redistribuição|declino\s+(?:da\s+|a\s+)?competência|remetam-se\s+os\s+autos|voltem(?:-me)?\s+os\s+autos\s+conclusos|nada\s+a\s+prover)\b",
+        "despacho de expediente",
+        "desp_sobrestamento_redistribuicao_impulso",
+    )
+    _seed(
+        r"\b(?:fica\s+a\s+parte\s+(?:autora|ré|exequente|executada|requerente|impugnada)\s+(?:,\s*por\s+meio\s+de\s+seu\s+advogado,\s*)?(?:no\s+prazo\s+de\s+[^,]+,\s*)?intimada|ato\s+ordinatório\s+finalidade:\s*intimar|prazo\s+de\s+15\s*\(quinze\)\s*dias\s+(?:subsequentes\s+)?para\s+o\s+executado\s+apresentar\s+impugnação)\b",
+        "despacho de expediente",
+        "desp_intimacao_impulso_cartorario",
+    )
 
     # 10. HOMOLOGAÇÃO DE DECISÃO LEIGA (Lei 9.099/95 art. 40)
     _seed(
-        r"\bhomologo\s+(?:a\s+decisão\s+leiga|o\s+projeto\s+de\s+sentença)\b",
+        r"\bhomologo(?:\s*,\s*[^.]{1,90}?,\s*|\s+)(?:a\s+decisão\s+(?:do\s+juiz\s+)?leig[oa]|o\s+projeto\s+de\s+sentença)\b",
         "homologação de decisão leiga",
         "leiga_homologo",
+    )
+    _seed(
+        r"\bprojeto\s+de\s+sentença\s+elaborado\s+pel[oa]\s+ju[ií]z[a]?\s+leig[oa]\b",
+        "homologação de decisão leiga",
+        "leiga_projeto_elaborado",
     )
 
     return t

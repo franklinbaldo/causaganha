@@ -202,25 +202,7 @@ def run_pipeline_on_sample(limit: int = 1000):
         sec_names = [s.upper() for s in doc_struct.sections.keys()]
         sec_str = " | ".join(sec_names)
 
-        # --- ETAPA 2: Classificação Multi-Eixo (Taxonomia + Torneio Ponderado) ---
-        st_clf = time.perf_counter()
-        sec_dict_text = {k: v.text for k, v in doc_struct.sections.items()}
-        if has_disp and "dispositivo" not in sec_dict_text:
-            sec_dict_text["dispositivo"] = disp_text
-
-        multi_res = multi_classifier.classify(
-            text,
-            metadata=meta_in,
-            sections=sec_dict_text,
-        )
-        raw_outcome = multi_res.desfecho_operativo
-        outcome_conf = multi_res.confianca_desfecho
-        winner_polo = multi_res.polo_vencedor
-
-        lat_clf = (time.perf_counter() - st_clf) * 1000.0
-        lat_clf_list.append(lat_clf)
-
-        # --- ETAPA 3: Multi-Algorithm NER Seccional ---
+        # --- ETAPA 2: Multi-Algorithm NER Seccional ---
         st_ner = time.perf_counter()
         mentions = extractor.extract_from_sections(doc_struct.sections, metadata=meta_in)
         lat_ner = (time.perf_counter() - st_ner) * 1000.0
@@ -320,6 +302,31 @@ def run_pipeline_on_sample(limit: int = 1000):
                 if canonical not in normas_principais:
                     normas_principais.append(canonical)
 
+        # --- ETAPA 3: Classificação Multi-Eixo (Taxonomia + Classe TPU/DataJud + Torneio + ML Fallback) ---
+        st_clf = time.perf_counter()
+        sec_dict_text = {k: v.text for k, v in doc_struct.sections.items()}
+        if has_disp and "dispositivo" not in sec_dict_text:
+            sec_dict_text["dispositivo"] = disp_text
+
+        if cnj_principal:
+            meta_in["cnj"] = cnj_principal
+        if autor_nome:
+            meta_in["autor"] = autor_nome
+        if reu_nome:
+            meta_in["reu"] = reu_nome
+
+        multi_res = multi_classifier.classify(
+            text,
+            metadata=meta_in,
+            sections=sec_dict_text,
+        )
+        raw_outcome = multi_res.desfecho_operativo
+        outcome_conf = multi_res.confianca_desfecho
+        winner_polo = multi_res.polo_vencedor
+
+        lat_clf = (time.perf_counter() - st_clf) * 1000.0
+        lat_clf_list.append(lat_clf)
+
         # Métrica Econômica Contínua de Sucesso
         taxa_sucesso = None
         if valor_causa and valor_causa > 0 and valor_condenacao is not None:
@@ -330,12 +337,23 @@ def run_pipeline_on_sample(limit: int = 1000):
         lat_total = (time.perf_counter() - st_total) * 1000.0
         lat_total_list.append(lat_total)
 
+        classe_fmt = (
+            f"[{multi_res.classe_codigo}] {multi_res.classe_nome}"
+            if multi_res.classe_codigo
+            else multi_res.classe_nome
+        )
+
         row_res = {
             "indice": idx,
             "doc_id": doc["doc_id"],
             "tribunal": court,
             "topologia": multi_res.macro_categoria,
-            "classe_processual": doc["classe_hint"] or "Não especificada",
+            "classe_processual": classe_fmt,
+            "classe_codigo": multi_res.classe_codigo,
+            "classe_nome": multi_res.classe_nome,
+            "origem_classe": multi_res.origem_classe,
+            "assunto_principal": multi_res.assunto_principal or "N/A",
+            "datajud_desfecho_tpu": multi_res.datajud_desfecho_tpu or "N/A",
             "tipo_documento": multi_res.especie_ato,
             "macro_categoria": multi_res.macro_categoria,
             "especie_ato": multi_res.especie_ato,
@@ -359,6 +377,7 @@ def run_pipeline_on_sample(limit: int = 1000):
             else "N/A",
             "desfecho_cpc": raw_outcome,
             "confianca_desfecho": round(outcome_conf, 2),
+            "winning_rule": multi_res.winning_rule or "N/A",
             "polo_vencedor": winner_polo,
             "cnj": cnj_principal or "Não detectado",
             "autor": autor_nome or "Não identificado",
@@ -404,6 +423,45 @@ def run_pipeline_on_sample(limit: int = 1000):
             print(
                 f"  .. {idx}/{limit} docs processados ({idx / (time.perf_counter() - t0_exec):.1f} doc/s | latência média: {np.mean(lat_total_list):.1f}ms)"
             )
+
+    # --- PASSO 2: Calibração via Supervisão Fraca / Distante (TF-IDF + Random Forest) ---
+    all_texts = [d["texto"] for d in sample]
+    all_labels = [str(r["desfecho_cpc"]) for r in results]
+    all_confs = [float(r["confianca_desfecho"]) for r in results]
+    n_trained = multi_classifier.fit_fallback_from_corpus(
+        texts=all_texts,
+        labels=all_labels,
+        confidences=all_confs,
+        min_confidence=0.85,
+    )
+    if multi_classifier.ml_fallback is not None:
+        multi_classifier.ml_fallback.min_proba = 0.32
+
+    resolved_by_ml = 0
+    for i, r in enumerate(results):
+        if r["desfecho_cpc"] == "unknown" and multi_classifier.ml_fallback is not None:
+            fb_pred = multi_classifier.ml_fallback.predict(
+                all_texts[i],
+                macro_categoria=str(r["macro_categoria"]),
+            )
+            if fb_pred.category != "unknown":
+                r["desfecho_cpc"] = fb_pred.category
+                r["confianca_desfecho"] = round(fb_pred.confidence, 2)
+                r["winning_rule"] = fb_pred.rule_id or "ml_rf_tfidf_fallback"
+                # Re-resolve polo vencedor com o novo desfecho
+                re_res = multi_classifier.classify(
+                    all_texts[i],
+                    metadata={
+                        "cnj": r["cnj"],
+                        "tipo_documento": sample[i]["tipo_documento_hint"],
+                        "classe_processual": sample[i]["classe_hint"],
+                    },
+                )
+                r["polo_vencedor"] = re_res.polo_vencedor
+                resolved_by_ml += 1
+    print(
+        f"✓ Supervisão Fraca (TF-IDF + Random Forest): treinado em {n_trained} casos de alta confiança -> resolveu +{resolved_by_ml} casos residuais."
+    )
 
     elap_total = time.perf_counter() - t0_exec
     throughput = len(sample) / max(elap_total, 0.001)
@@ -456,6 +514,15 @@ def run_pipeline_on_sample(limit: int = 1000):
     outcomes_vc = df_res["desfecho_cpc"].value_counts()
     for o, c in outcomes_vc.items():
         print(f"  • {o:<30}: {c:>4d} ({c / len(df_res) * 100:>5.1f}%)")
+
+    # Distribuição de Classes Processuais (TPU CNJ + DataJud)
+    print("\n--- 1.5 CLASSES PROCESSUAIS (TPU CNJ + DATAJUD ACERVO) ---")
+    origem_vc = df_res["origem_classe"].value_counts()
+    for orig, cnt in origem_vc.items():
+        print(f"  • Origem [{orig:<20}]: {cnt:>4d} ({cnt / len(df_res) * 100:>5.1f}%)")
+    print("  Top 10 Classes Processuais Identificadas:")
+    for cl, cnt in df_res["classe_processual"].value_counts().head(10).items():
+        print(f"    - {cl:<52}: {cnt:>4d} ({cnt / len(df_res) * 100:>5.1f}%)")
 
     # Distribuição de Polo Vencedor
     print("\n--- 2. POLO VENCEDOR INVARIANTE (CPC ART. 1.008) ---")
