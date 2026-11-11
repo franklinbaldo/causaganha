@@ -62,6 +62,35 @@ def test_backlog_store_yearly_slices(tmp_path: Path):
     assert len(slices) == 4
     assert {s.ano for s in slices} == {2020, 2021, 2022, 2023}
     assert all(s.mes == 0 for s in slices)
+    assert all(s.dia == 0 for s in slices)
+
+
+def test_backlog_store_daily_slices(tmp_path: Path):
+    db_file = tmp_path / "backlog_daily.sqlite"
+    store = DataJudBacklogStore(db_file)
+
+    # Year 2024 is a leap year (366 days)
+    slices = store.init_slices("tjro", 2024, 2024, slice_by="day")
+    assert len(slices) == 366
+    assert all(s.ano == 2024 for s in slices)
+    assert all(1 <= s.mes <= 12 for s in slices)
+    assert all(1 <= s.dia <= 31 for s in slices)
+
+    # Next pending slice should be the latest day of the year: 2024-12-31
+    pending = store.get_next_pending_slice("tjro")
+    assert pending is not None
+    assert pending.ano == 2024
+    assert pending.mes == 12
+    assert pending.dia == 31
+    assert pending.data_inicio == "20241231000000"
+    assert pending.data_fim == "20241231235959"
+
+    # Specific day query
+    day_slice = store.get_slice("tjro", 2024, 2, 29)
+    assert day_slice is not None
+    assert day_slice.dia == 29
+    assert day_slice.data_inicio == "20240229000000"
+    assert day_slice.data_fim == "20240229235959"
 
 
 # ── Run Backlog Slice & Orchestrator Tests ─────────────────────────────────
