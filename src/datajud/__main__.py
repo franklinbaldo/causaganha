@@ -225,6 +225,30 @@ def cdc_cmd(
             help="Não consolida deltas L1 em parquets L0 ao final.",
         ),
     ] = False,
+    no_pack_daily: Annotated[
+        bool,
+        Parameter(
+            name="--no-pack-daily",
+            negative=[],
+            help="Não gera o arquivo ZIP diário com processos completos.",
+        ),
+    ] = False,
+    upload: Annotated[
+        bool,
+        Parameter(
+            name="--upload",
+            negative=[],
+            help="Envia os artefatos diários e canônicos para o Internet Archive.",
+        ),
+    ] = False,
+    skip_upload: Annotated[
+        bool,
+        Parameter(
+            name="--skip-upload",
+            negative=[],
+            help="Ignora envio ao Internet Archive.",
+        ),
+    ] = False,
     data_dir: Annotated[
         Path, Parameter(help="Diretório base do CDC (checkpoints e deltas).")
     ] = cdc_engine.DEFAULT_CDC_DIR,
@@ -233,6 +257,9 @@ def cdc_cmd(
     ] = cdc_engine.DEFAULT_CANONICAL_DIR,
 ) -> int:
     """Extração incremental de processos via CDC search_after com deltas particionados."""
+    ia_key, ia_secret = service.ia_credentials()
+    should_upload = upload and not skip_upload
+
     print(f"DataJud CDC — Tribunal: {tribunal.upper()}")
     if since:
         print(f"  Filtro since  : {since}")
@@ -240,6 +267,8 @@ def cdc_cmd(
         print(f"  Filtro until  : {until}")
     print(f"  Page size     : {page_size:,}")
     print(f"  Base dir      : {data_dir}")
+    print(f"  Pack Daily    : {not no_pack_daily}")
+    print(f"  Upload IA     : {should_upload}")
 
     try:
         res = asyncio.run(
@@ -251,8 +280,12 @@ def cdc_cmd(
                 max_pages=max_pages,
                 resume=not no_resume,
                 consolidate=not skip_consolidate,
+                pack_daily=not no_pack_daily,
+                upload=should_upload,
                 base_dir=data_dir,
                 canonical_dir=canonical_dir,
+                ia_key=ia_key,
+                ia_secret=ia_secret,
             )
         )
     except (DataJudError, httpx.HTTPError) as exc:
@@ -270,6 +303,17 @@ def cdc_cmd(
         print("\nConsolidação Canônica L0:")
         print(f"  Total de capas        : {res.consolidated_capas:,}")
         print(f"  Total de movimentos   : {res.consolidated_movs or 0:,}")
+
+    if res.daily_zip_path:
+        print("\nPacote Diário ZIP (Internet Archive Transparent Unzip):")
+        print(f"  Arquivo gerado        : {res.daily_zip_path.name}")
+        print(f"  Processos empacotados : {res.daily_processes_count:,}")
+        print(f"  Total indexado        : {res.index_total:,}")
+
+    if res.uploaded_files:
+        print(f"\nUpload IA concluído ({len(res.uploaded_files)} arquivos):")
+        for uf in res.uploaded_files:
+            print(f"  ✓ {uf}")
 
     return 0
 

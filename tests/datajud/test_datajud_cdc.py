@@ -5,7 +5,7 @@ Zero real network. Fully reproducible using temporary directories.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
@@ -18,10 +18,6 @@ from datajud.cdc import (
     sync_tribunal_cdc,
     write_delta_batch,
 )
-
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 CNJ_1 = "00000010220248220001"
@@ -245,6 +241,10 @@ def test_cli_cdc_command(tmp_path: Path, monkeypatch):
     mock_result.batches_streamed = 1
     mock_result.consolidated_capas = 10
     mock_result.consolidated_movs = 15
+    mock_result.daily_zip_path = Path("tjro_2026-11-10.zip")
+    mock_result.daily_processes_count = 10
+    mock_result.index_total = 10
+    mock_result.uploaded_files = ["tjro_2026-11-10.zip", "indice_processos_tjro.parquet"]
     mock_result.checkpoint = MagicMock(
         total_documents=10,
         last_updated_at="2026-03-01T12:00:00.000Z",

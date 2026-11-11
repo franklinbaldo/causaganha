@@ -1,0 +1,81 @@
+# ============================================================================
+# DATAJUD CDC & BACKUP — Incremental CDC & Daily Packaging to Internet Archive
+# ============================================================================
+#
+# Daily schedule (RFC 0010 + Issue #1701):
+# 1. Runs CDC search_after against DataJud public ES index for the target tribunal.
+# 2. Partitions raw updates as L1 Parquet deltas and updates SQLite checkpoint.
+# 3. Consolidates L1 deltas into canonical L0 Parquet tables (capa + movimentos).
+# 4. Generates daily full-process ZIP for transparent-unzip retrieval on IA.
+# 5. Updates resolution index (indice_processos_{tribunal}.parquet).
+# 6. Uploads artifacts to Internet Archive item `causaganha-datajud-{tribunal}`.
+# ============================================================================
+
+name: DataJud CDC & Backup
+
+on:
+  schedule:
+    - cron: '27 6 * * *'
+  workflow_dispatch:
+    inputs:
+      tribunal:
+        description: 'Sigla do tribunal (ex.: tjro, tjce, tjsp)'
+        required: false
+        default: 'tjro'
+      page_size:
+        description: 'Tamanho da página search_after'
+        required: false
+        default: '1000'
+      max_pages:
+        description: 'Limite máximo de páginas (deixe vazio para sem limite)'
+        required: false
+        default: ''
+      skip_upload:
+        description: 'Skip IA upload (dry run)'
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: datajud-cdc
+  cancel-in-progress: false
+
+jobs:
+  cdc-backup:
+    name: DataJud CDC & IA Backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment: dev
+
+    env:
+      IA_ACCESS_KEY: ${{ secrets.IA_ACCESS_KEY }}
+      IA_SECRET_KEY: ${{ secrets.IA_SECRET_KEY }}
+      DATAJUD_API_KEY: ${{ secrets.DATAJUD_API_KEY }}
+
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: ./.github/actions/setup
+        with:
+          dev: "false"
+
+      - name: Run DataJud CDC Sync and Backup
+        run: |
+          MAX_PAGES_FLAG=""
+          if [ -n "${{ github.event.inputs.max_pages }}" ]; then
+            MAX_PAGES_FLAG="--max-pages ${{ github.event.inputs.max_pages }}"
+          fi
+
+          UPLOAD_FLAG="--upload"
+          if [ "${{ github.event.inputs.skip_upload }}" = "true" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
+            UPLOAD_FLAG="--skip-upload"
+          fi
+
+          uv run datajud cdc \
+            --tribunal "${{ github.event.inputs.tribunal || 'tjro' }}" \
+            --page-size "${{ github.event.inputs.page_size || '1000' }}" \
+            $MAX_PAGES_FLAG \
+            $UPLOAD_FLAG

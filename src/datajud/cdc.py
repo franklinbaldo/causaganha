@@ -22,6 +22,12 @@ from pydantic import ValidationError
 
 from datajud import archive
 from datajud.client import DataJudClient
+from datajud.daily_pack import (
+    DEFAULT_DAILY_DIR,
+    DEFAULT_INDEX_DIR,
+    pack_daily_zip,
+    update_resolution_index,
+)
 from datajud.dedup import capa_row_key, merge_capa_rows, merge_movimento_rows
 from datajud.models import ProcessoCapa
 
@@ -280,6 +286,10 @@ class CdcSyncResult:
     checkpoint: CdcCheckpoint
     consolidated_capas: int | None = None
     consolidated_movs: int | None = None
+    daily_zip_path: Path | None = None
+    daily_processes_count: int = 0
+    index_total: int = 0
+    uploaded_files: list[str] | None = None
 
 
 async def sync_tribunal_cdc(
@@ -293,8 +303,14 @@ async def sync_tribunal_cdc(
     pause_between_pages: float = 0.5,
     resume: bool = True,
     consolidate: bool = True,
+    pack_daily: bool = True,
+    upload: bool = False,
     base_dir: Path = DEFAULT_CDC_DIR,
     canonical_dir: Path = DEFAULT_CANONICAL_DIR,
+    daily_dir: Path = DEFAULT_DAILY_DIR,
+    index_dir: Path = DEFAULT_INDEX_DIR,
+    ia_key: str = "",
+    ia_secret: str = "",
     client: DataJudClient | None = None,
 ) -> CdcSyncResult:
     """Stream changed processes for a tribunal, writing L1 deltas and updating checkpoints.
@@ -310,8 +326,14 @@ async def sync_tribunal_cdc(
         pause_between_pages: Sleep pause in seconds between page requests.
         resume: If True, resumes from SQLite checkpoint if available.
         consolidate: If True, automatically merges L1 deltas into canonical L0 Parquet tables.
+        pack_daily: If True, packages all full processes in a daily ZIP for Internet Archive.
+        upload: If True, uploads daily ZIP, index, and canonical Parquets to Internet Archive.
         base_dir: Directory for checkpoints SQLite and L1 deltas.
         canonical_dir: Directory for canonical L0 Parquet tables.
+        daily_dir: Directory for daily ZIP archives.
+        index_dir: Directory for resolution index Parquet table.
+        ia_key: Internet Archive S3 access key.
+        ia_secret: Internet Archive S3 secret key.
         client: Optional pre-configured `DataJudClient`.
     """
     tribunal_slug = tribunal.lower()
@@ -348,6 +370,7 @@ async def sync_tribunal_cdc(
         part_seq = checkpoint.total_batches
         docs_session = 0
         batches_session = 0
+        session_documents: list[dict[str, Any]] = []
 
         async for batch_hits, last_sort in active_client.iter_updated_since(
             since_iso=checkpoint.since_iso,
@@ -361,6 +384,7 @@ async def sync_tribunal_cdc(
             part_seq += 1
             batches_session += 1
             docs_session += len(batch_hits)
+            session_documents.extend(batch_hits)
 
             # Write L1 Delta Parquet
             write_delta_batch(batch_hits, tribunal_slug, part_seq, deltas_dir)
@@ -403,12 +427,52 @@ async def sync_tribunal_cdc(
 
     # Consolidate L1 deltas into L0 canonical Parquet if requested
     n_capa, n_mov = None, None
+    capa_canonical, mov_canonical = None, None
     if consolidate:
-        _, _, n_capa, n_mov = compact_deltas(
+        capa_canonical, mov_canonical, n_capa, n_mov = compact_deltas(
             tribunal_slug,
             deltas_dir=deltas_dir,
             canonical_dir=canonical_dir,
         )
+
+    # Pack full process documents in daily ZIP if requested
+    daily_zip_path = None
+    daily_count = 0
+    index_total = 0
+    if pack_daily and session_documents:
+        target_date = datetime.now(UTC).strftime("%Y-%m-%d")
+        daily_zip_path, daily_count = pack_daily_zip(
+            session_documents,
+            tribunal_slug,
+            target_date=target_date,
+            output_dir=daily_dir,
+        )
+        index_path = index_dir / f"indice_processos_{tribunal_slug}.parquet"
+        index_total = update_resolution_index(
+            index_path,
+            session_documents,
+            daily_zip_path.name,
+            tribunal=tribunal_slug,
+        )
+
+    # Upload to Internet Archive if requested
+    uploaded_files: list[str] = []
+    if upload and ia_key and ia_secret:
+        to_upload: list[Path] = []
+        if daily_zip_path and daily_zip_path.exists():
+            to_upload.append(daily_zip_path)
+        index_file = index_dir / f"indice_processos_{tribunal_slug}.parquet"
+        if index_file.exists():
+            to_upload.append(index_file)
+        if capa_canonical and capa_canonical.exists():
+            to_upload.append(capa_canonical)
+        if mov_canonical and mov_canonical.exists():
+            to_upload.append(mov_canonical)
+
+        for p in to_upload:
+            ok = archive.upload_file(p, tribunal_slug, ia_key, ia_secret)
+            if ok:
+                uploaded_files.append(p.name)
 
     return CdcSyncResult(
         tribunal=tribunal_slug,
@@ -417,4 +481,8 @@ async def sync_tribunal_cdc(
         checkpoint=checkpoint,
         consolidated_capas=n_capa,
         consolidated_movs=n_mov,
+        daily_zip_path=daily_zip_path,
+        daily_processes_count=daily_count,
+        index_total=index_total,
+        uploaded_files=uploaded_files if upload else None,
     )

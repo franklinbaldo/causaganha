@@ -58,3 +58,60 @@ def validar_digito_verificador(value: str | None) -> bool:
     resto = int(corpo + "00") % 97
     dv_calculado = 98 - resto
     return dv_informado == f"{dv_calculado:02d}"
+
+
+def calcular_digito_verificador(
+    numero_sequencial: int,
+    ano: int,
+    jtr: str,
+    orgao: str,
+) -> str:
+    """Calcula o dígito verificador DD (2 dígitos) conforme Resolução CNJ 65/2008 (Módulo 97)."""
+    corpo = f"{numero_sequencial:07d}{ano:04d}{jtr}{orgao}"
+    resto = int(corpo + "00") % 97
+    dv_calculado = 98 - resto
+    return f"{dv_calculado:02d}"
+
+
+def gerar_cnj(
+    numero_sequencial: int,
+    ano: int,
+    jtr: str,
+    orgao: str,
+) -> str:
+    """Gera o CNJ normalizado de 20 dígitos (NNNNNNNDDAAAAJTROOOO)."""
+    dv = calcular_digito_verificador(numero_sequencial, ano, jtr, orgao)
+    return f"{numero_sequencial:07d}{dv}{ano:04d}{jtr}{orgao}"
+
+
+def extrapolar_sequencia_cnj(
+    cnj_referencia: str,
+    quantidade: int = 10,
+    *,
+    avancar: bool = True,
+) -> list[str]:
+    """Gera os próximos (ou anteriores) CNJs válidos a partir do sequencial de *cnj_referencia*.
+
+    Extrai sequencial (7 dígitos), ano (4 dígitos), segmento+tribunal JTR (3 dígitos)
+    e órgão judicante OOOO (4 dígitos), calculando o DV correto para cada novo número.
+    """
+    digits = normalizar_cnj(cnj_referencia)
+    if not digits:
+        msg = f"CNJ inválido para extrapolação: {cnj_referencia!r}"
+        raise ValueError(msg)
+
+    seq_atual = int(digits[0:7])
+    ano = int(digits[9:13])
+    jtr = digits[13:16]
+    orgao = digits[16:20]
+
+    resultado: list[str] = []
+    step = 1 if avancar else -1
+
+    for offset in range(1, quantidade + 1):
+        novo_seq = seq_atual + (offset * step)
+        if novo_seq <= 0 or novo_seq > 9_999_999:
+            break
+        resultado.append(gerar_cnj(novo_seq, ano, jtr, orgao))
+
+    return resultado
