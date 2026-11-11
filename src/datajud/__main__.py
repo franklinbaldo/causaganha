@@ -38,6 +38,7 @@ from typing import Annotated
 import httpx
 from cyclopts import App, Parameter
 
+from datajud import cdc as cdc_engine
 from datajud import service
 from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudError
 
@@ -190,6 +191,87 @@ def status(
     print(f"  Com documentos   : {result.com_docs}")
     print(f"  Sem documentos   : {result.sem_docs}")
     print(f"  Com erro         : {result.com_erro}")
+
+
+@app.command(name="cdc")
+def cdc_cmd(
+    *,
+    tribunal: Annotated[
+        str, Parameter(help="Sigla do índice DataJud (ex.: tjro, tjce, tjsp).")
+    ] = DEFAULT_TRIBUNAL,
+    since: Annotated[
+        str | None,
+        Parameter(name="--since", help="Data/hora inicial ISO (ex.: 2026-01-01T00:00:00.000Z)."),
+    ] = None,
+    until: Annotated[
+        str | None,
+        Parameter(name="--until", help="Data/hora final ISO (ex.: 2026-03-01T00:00:00.000Z)."),
+    ] = None,
+    page_size: Annotated[
+        int, Parameter(help="Tamanho do lote por página search_after (padrão 1000).")
+    ] = 1000,
+    max_pages: Annotated[
+        int | None, Parameter(help="Limite máximo de páginas a extrair nesta sessão.")
+    ] = None,
+    no_resume: Annotated[
+        bool,
+        Parameter(name="--no-resume", negative=[], help="Ignora checkpoint e inicia do zero."),
+    ] = False,
+    skip_consolidate: Annotated[
+        bool,
+        Parameter(
+            name="--skip-consolidate",
+            negative=[],
+            help="Não consolida deltas L1 em parquets L0 ao final.",
+        ),
+    ] = False,
+    data_dir: Annotated[
+        Path, Parameter(help="Diretório base do CDC (checkpoints e deltas).")
+    ] = cdc_engine.DEFAULT_CDC_DIR,
+    canonical_dir: Annotated[
+        Path, Parameter(help="Diretório dos parquets canônicos L0.")
+    ] = cdc_engine.DEFAULT_CANONICAL_DIR,
+) -> int:
+    """Extração incremental de processos via CDC search_after com deltas particionados."""
+    print(f"DataJud CDC — Tribunal: {tribunal.upper()}")
+    if since:
+        print(f"  Filtro since  : {since}")
+    if until:
+        print(f"  Filtro until  : {until}")
+    print(f"  Page size     : {page_size:,}")
+    print(f"  Base dir      : {data_dir}")
+
+    try:
+        res = asyncio.run(
+            cdc_engine.sync_tribunal_cdc(
+                tribunal,
+                since_iso=since,
+                until_iso=until,
+                page_size=page_size,
+                max_pages=max_pages,
+                resume=not no_resume,
+                consolidate=not skip_consolidate,
+                base_dir=data_dir,
+                canonical_dir=canonical_dir,
+            )
+        )
+    except (DataJudError, httpx.HTTPError) as exc:
+        print(f"ERROR no CDC: {exc}", file=sys.stderr)
+        return 1
+
+    print("\nSincronização CDC concluída:")
+    print(f"  Documentos nesta sessão: {res.documents_streamed:,}")
+    print(f"  Lotes (batches) salvos : {res.batches_streamed:,}")
+    print(f"  Total acumulado        : {res.checkpoint.total_documents:,}")
+    print(f"  Última atualização     : {res.checkpoint.last_updated_at or 'n/a'}")
+    print(f"  Status do checkpoint   : {res.checkpoint.status}")
+
+    if res.consolidated_capas is not None:
+        print("\nConsolidação Canônica L0:")
+        print(f"  Total de capas        : {res.consolidated_capas:,}")
+        print(f"  Total de movimentos   : {res.consolidated_movs or 0:,}")
+
+    return 0
 
 
 if __name__ == "__main__":
