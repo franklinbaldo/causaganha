@@ -91,9 +91,9 @@ def carregar_todas_as_colecoes() -> dict[str, list[dict[str, Any]]]:
                         if not any(d.get("_id") == envelope["_id"] for d in colecoes[clean_cnj]):
                             colecoes[clean_cnj].append(envelope)
                             daily_count += 1
-                    except Exception:
+                    except (json.JSONDecodeError, KeyError, ValueError, gzip.BadGzipFile):
                         continue
-        except Exception as e:
+        except (zipfile.BadZipFile, OSError) as e:
             print(f"Aviso ao ler {zpath}: {e}")
 
     print(f"Processos reais incorporados dos pacotes daily: {daily_count}")

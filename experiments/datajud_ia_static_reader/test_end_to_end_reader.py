@@ -172,16 +172,22 @@ def test_fluxo_operacional_completo():
         idx_tjro = json.loads(resp.read().decode("utf-8"))
     proc_tjro = next((p for p in idx_tjro["processos"] if p["cnj"] == cnj_tjro), None)
     assert proc_tjro is not None, f"Processo {cnj_tjro} não encontrado no índice 8.22_2026.json"
-    print(f"[TJRO 2026] Localizado no índice: {proc_tjro['classe']} | Offset: {proc_tjro['offset']} | Size: {proc_tjro['length']} B")
+    print(
+        f"[TJRO 2026] Localizado no índice: {proc_tjro['classe']} | Offset: {proc_tjro['offset']} | Size: {proc_tjro['length']} B"
+    )
 
     range_tjro = f"bytes={proc_tjro['offset']}-{proc_tjro['offset'] + proc_tjro['length'] - 1}"
-    req_range = urllib.request.Request(f"{BASE_URL}/{proc_tjro['shard']}", headers={"Range": range_tjro})
+    req_range = urllib.request.Request(
+        f"{BASE_URL}/{proc_tjro['shard']}", headers={"Range": range_tjro}
+    )
     with urllib.request.urlopen(req_range) as resp:
         assert resp.status == 206
         tjro_payload = resp.read()
     tjro_decomp = zstd_dctx.decompress(tjro_payload)
     tjro_obj = json.loads(tjro_decomp.decode("utf-8"))
-    print(f"[TJRO 2026] Descomprimido com sucesso! Total de documentos: {len(tjro_obj['documentos'])}")
+    print(
+        f"[TJRO 2026] Descomprimido com sucesso! Total de documentos: {len(tjro_obj['documentos'])}"
+    )
     assert len(tjro_obj["documentos"]) >= 1
 
     print("\n==================================================================")
