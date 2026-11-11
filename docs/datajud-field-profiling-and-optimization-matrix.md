@@ -68,31 +68,35 @@ Mapeamento de valores mínimos e máximos para dimensionar tipos binários no Fl
 
 ---
 
-## 4. Matriz Controlada 2x4: Isolando Modelagem de Dados vs Serialização
+## 4. Matriz Controlada Lossless: Isolando Modelagem de Dados vs Serialização
 
-Para responder com precisão à pergunta do experimento:
-$$\text{"Dado exatamente o mesmo modelo lógico, quanto FlatBuffers economiza vs JSON?"}$$
+Para responder com precisão científica e estrita paridade de conteúdo à pergunta do experimento:
+$$\text{"Dado exatamente o mesmo modelo lógico 100% reversível, quanto FlatBuffers economiza vs JSON?"}$$
 
-Submetemos o acervo aos mesmos níveis de modelagem e comparamos a representação em JSON e FlatBuffers:
+Submetemos o acervo aos mesmos níveis de modelagem, com a garantia formal e testada em suite automatizada de que:
+$$\operatorname{decode}(\operatorname{encode}(D)) == D \quad (\forall D \in \text{Corpus})$$
 
-| Nível de Modelagem | JSON | FlatBuffers | Delta FB vs JSON | Economia da Modelagem |
+O vocabulário reversível compartilhado contém **394 termos únicos** (abrangendo todas as descrições de movimentos, complementos, nomes de classes, sistemas e órgãos julgadores, inclusive variações de grafia e acentuação dos tribunais):
+
+| Nível de Modelagem | JSON (100% Lossless) | FlatBuffers | Delta FB vs JSON | Economia da Modelagem |
 | :--- | :--- | :--- | :--- | :--- |
-| **Nível 1: Dados Originais (Bruto)** | 808.223 B (4,5 ms) | 728.696 B (119,0 ms) | **0,90x** | 0,0% (Base) |
-| **Nível 2: Modelo Compacto Otimizado** | **145.900 B** (3,0 ms) | **92.016 B** (13,8 ms) | **0,63x** | **82,0% de redução** |
-| **Nível 3: Modelo Compacto + Zstandard** | **39.840 B** (0,8 ms) | **89.263 B** (0,7 ms) | **2,24x** | **95,1% de redução** |
+| **Nível 1: Dados Originais (Bruto)** | 808.223 B (4,2 ms) | 728.696 B (123,9 ms) | **0,90x** | 0,0% (Base) |
+| **Nível 2: Modelo Lossless + Vocabulário** | **265.839 B** (9,7 ms) | **92.016 B** (13,8 ms) | **0,35x** | **67,1% de redução** |
+| └─ *Detalhamento JSON* | *Dados: 254.699 B \| Vocabulário: 11.140 B* | - | - | - |
+| **Nível 3: Modelo Lossless + Zstandard** | **58.767 B** (1,4 ms) | **89.263 B** (0,6 ms) | **1,52x** | **92,7% de redução** |
+| └─ *Detalhamento Zstandard* | *Dados Zstd: 54.205 B \| Vocab Zstd: 4.562 B* | - | - | - |
 
-### O que os Dados Revelam:
+### O que os Dados Rigorosamente Comprovam:
 
-1. **O Maior Ganho Vem da Modelagem Lógica (82% de economia):**
-   - Ao deduplicar nomes repetidos de movimentações TPU e derivar o `_id`, o JSON encolhe de **808 KB para 145 KB**, independentemente de qualquer compressão binária.
-2. **FlatBuffers sem Compressão Adicional é mais compacto que JSON sem compressão (0,63x):**
-   - No Nível 2 (sem Gzip/Zstd), o FlatBuffers Híbrido ocupa **92 KB**, enquanto o JSON Compacto ocupa **145 KB** (FlatBuffers é 37% menor que JSON puro equivalente).
-3. **Com Compressão Zstandard, JSON Compacto atinge a menor marca absoluta (39,8 KB):**
-   - O algoritmo Zstandard comprime JSON textual compacto de forma mais agressiva que o layout binário alinhado do FlatBuffers, atingindo **39,8 KB** (redução total de 95%).
-4. **O Diferencial Crítico do FlatBuffers é Latência e Acesso O(1):**
-   - Para ler a capa de todos os processos sem descomprimir movimentos:
-     - **FlatBuffers Híbrido:** **1,07 ms** (acesso direto a ponteiros via vtable).
-     - **JSON Compacto + Zstd:** Precisa descomprimir o stream Zstd inteiro para ler 1 campo da capa.
+1. **Reversibilidade Matemática Estrita ($0$ perda):**
+   - Ao contrário de modelos conceituais que descartavam nomes de movimentos, o codec implementado em `src/datajud/schema/lossless_codec.py` preserva 100% dos dados brutos, envelopes (`_score`, `sort`), anomalias e estruturas aninhadas (`codigoMunicipioIBGE: null`, etc.).
+2. **FlatBuffers sem Compressão Externa é 65% Menor que JSON Equivalente (0,35x):**
+   - No Nível 2 (sem compressor LZ/Zstd), o FlatBuffers Híbrido ocupa **92 KB**, enquanto o JSON com vocabulário ocupa **265 KB**. O layout binário tipado elimina delimitadores textuais e sintaxe JSON com enorme eficiência.
+3. **Zstandard em JSON Tokenizado atinge 58,7 KB (92,7% de redução):**
+   - O Zstandard comprime sequências de inteiros e vocabulário textual para **58,7 KB** (comparado a **90,9 KB** do `JSON.gz` bruto tradicional). Representa uma economia adicional de **35,4% de espaço sobre o JSON.gz padrão**.
+4. **O Trade-off Inegociável: Latência O(1) vs Espaço em Disco:**
+   - **JSON Tokenizado + Zstd:** Ocupa menos espaço (58,7 KB vs 89,2 KB), porém exige descompressão de bloco inteiro e reconstrução em memória via dicionário antes de consultar qualquer campo do processo.
+   - **FlatBuffers Híbrido:** Ocupa ligeiramente mais espaço em repouso (89,2 KB com Zstd ou 92,0 KB sem compressão de bloco externo), mas viabiliza **projeção O(1) da Capa em 1,07 ms (15,7 µs/processo)** via HTTP Range Requests ou mmap, sem tocar nos 3.206 movimentos.
 
 ---
 

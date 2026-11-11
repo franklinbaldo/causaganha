@@ -25,6 +25,7 @@ import zstandard as zstd
 
 from datajud.schema.compact_codec import CompactFlatBuffersCodec
 from datajud.schema.flatbuffers_codec import FlatBuffersCodec
+from datajud.schema.lossless_codec import LosslessCodec, LosslessVocabulary
 from scripts.datajud.benchmark_formats import carregar_colecoes_cnj
 
 FIXTURES_DIR = Path(__file__).resolve().parents[2] / "fixtures" / "datajud_sample"
@@ -158,83 +159,11 @@ def analisar_perfil_campos(colecoes: dict[str, list[dict]]) -> dict[str, Any]:
     }
 
 
-# ── MODELAGEM COMPACTA NORMALIZADA (APLICADA A JSON E FLATBUFFERS) ────
-
-
-def to_json_compacto(doc: dict) -> dict:
-    """Modelo compacto: elimina _id derivável, deduplica nomes TPU e usa timestamps."""
-    src = doc.get("_source", {})
-    tribunal = src.get("tribunal", "")
-    grau = src.get("grau", "")
-    np = src.get("numeroProcesso", "")
-    esperado_id = f"{tribunal}_{grau}_{np}"
-    atual_id = doc.get("_id", "")
-
-    compacto = {
-        "_i": doc.get("_index"),
-        "t": tribunal,
-        "g": grau,
-        "s": src.get("nivelSigilo", 0),
-        "c": src.get("classe", {}).get("codigo") if isinstance(src.get("classe"), dict) else 0,
-        "o": src.get("orgaoJulgador", {}).get("codigo")
-        if isinstance(src.get("orgaoJulgador"), dict)
-        else 0,
-    }
-    # Só armazena _id se for exceção não-derivável!
-    if atual_id != esperado_id:
-        compacto["_id"] = atual_id
-
-    # Assuntos apenas códigos
-    assuntos = src.get("assuntos") or []
-    compacto["a"] = [a.get("codigo") for a in assuntos if isinstance(a, dict) and a.get("codigo")]
-
-    # Movimentos enxutos: [codigo, dataHora, orgao, complementos]
-    movs = src.get("movimentos") or []
-    compacto["m"] = [
-        [
-            m.get("codigo"),
-            m.get("dataHora"),
-            [[c.get("codigo"), c.get("valor")] for c in (m.get("complementosTabelados") or [])],
-        ]
-        for m in movs
-        if isinstance(m, dict)
-    ]
-    return compacto
-
-
-def from_json_compacto(compacto: dict, cnj: str) -> dict:
-    """Reconstrói exatamente a estrutura e os campos originais do documento."""
-    tribunal = compacto.get("t", "")
-    grau = compacto.get("g", "")
-    # Reconstrói _id derivado ou usa a exceção explícita
-    doc_id = compacto.get("_id") or f"{tribunal}_{grau}_{cnj}"
-
-    return {
-        "_index": compacto.get("_i"),
-        "_id": doc_id,
-        "_source": {
-            "id": doc_id,
-            "numeroProcesso": cnj,
-            "tribunal": tribunal,
-            "grau": grau,
-            "nivelSigilo": compacto.get("s", 0),
-            "classe": {"codigo": compacto.get("c")},
-            "orgaoJulgador": {"codigo": compacto.get("o")},
-            "assuntos": [{"codigo": cod} for cod in compacto.get("a", [])],
-            "movimentos": [
-                {
-                    "codigo": m[0],
-                    "dataHora": m[1],
-                    "complementosTabelados": [{"codigo": c[0], "valor": c[1]} for c in m[2]],
-                }
-                for m in compacto.get("m", [])
-            ],
-        },
-    }
+# ── MODELAGEM COMPACTA LOSSLESS REVERSÍVEL (APLICADA A JSON E FLATBUFFERS) ────
 
 
 def executar_matriz_comparativa(colecoes: dict[str, list[dict]]):
-    """Executa a matriz 2x4 isolando o ganho de Modelagem do ganho de Serialização."""
+    """Executa a matriz comparativa isolando o ganho de Modelagem do ganho de Serialização."""
     zstd_cctx = zstd.ZstdCompressor(level=3)
     zstd_dctx = zstd.ZstdDecompressor()
 
@@ -264,21 +193,36 @@ def executar_matriz_comparativa(colecoes: dict[str, list[dict]]):
         _ = FlatBuffersCodec.decode_collection(b, mode="raw")
     t_dec_fb_bruto = time.perf_counter() - t0
 
-    # Nível 2: Modelo Compacto Otimizado (JSON Compacto vs FlatBuffers Híbrido)
+    # Nível 2: Modelo Compacto Lossless (com Vocabulário Reversível)
+    vocab = LosslessVocabulary()
     t0 = time.perf_counter()
     json_compact_store = {
-        cnj: json.dumps({"cnj": cnj, "docs": [to_json_compacto(d) for d in docs]}).encode("utf-8")
+        cnj: json.dumps(
+            {"cnj": cnj, "docs": [LosslessCodec.encode_document(d, vocab) for d in docs]},
+            ensure_ascii=False,
+        ).encode("utf-8")
         for cnj, docs in colecoes.items()
     }
+    vocab_json_bytes = json.dumps(vocab.export(), ensure_ascii=False).encode("utf-8")
     t_enc_json_compact = time.perf_counter() - t0
-    b_json_compact = sum(len(b) for b in json_compact_store.values())
+    b_json_compact_data = sum(len(b) for b in json_compact_store.values())
+    b_vocab_json = len(vocab_json_bytes)
+    b_json_compact_total = b_json_compact_data + b_vocab_json
 
     t0 = time.perf_counter()
+    loaded_vocab = LosslessVocabulary.load(json.loads(vocab_json_bytes.decode("utf-8")))
+    mismatches = 0
     for cnj, b in json_compact_store.items():
         obj = json.loads(b.decode("utf-8"))
-        _ = [from_json_compacto(d, cnj) for d in obj["docs"]]
+        reconstructed = [LosslessCodec.decode_document(d, cnj, loaded_vocab) for d in obj["docs"]]
+        orig_docs = colecoes[cnj]
+        for od, rd in zip(orig_docs, reconstructed):
+            if json.dumps(od, sort_keys=True) != json.dumps(rd, sort_keys=True):
+                mismatches += 1
     t_dec_json_compact = time.perf_counter() - t0
+    assert mismatches == 0, f"Falha de reversibilidade no modelo compacto: {mismatches} erros"
 
+    # FlatBuffers Híbrido
     t0 = time.perf_counter()
     fb_compact_store = {
         cnj: CompactFlatBuffersCodec.encode_hybrid(cnj, docs) for cnj, docs in colecoes.items()
@@ -291,16 +235,22 @@ def executar_matriz_comparativa(colecoes: dict[str, list[dict]]):
         _ = CompactFlatBuffersCodec.decode_full(b)
     t_dec_fb_compact = time.perf_counter() - t0
 
-    # Nível 3: Modelo Compacto Comprimido (JSON Compacto + Zstd vs FB Compacto + Zstd)
+    # Nível 3: Modelo Compacto Comprimido (JSON Lossless + Zstd vs FB Compacto + Zstd)
     t0 = time.perf_counter()
+    vocab_zstd = zstd_cctx.compress(vocab_json_bytes)
     json_zstd_store = {cnj: zstd_cctx.compress(b) for cnj, b in json_compact_store.items()}
     t_enc_json_zstd = time.perf_counter() - t0
-    b_json_zstd = sum(len(b) for b in json_zstd_store.values())
+    b_json_zstd_data = sum(len(b) for b in json_zstd_store.values())
+    b_vocab_zstd = len(vocab_zstd)
+    b_json_zstd_total = b_json_zstd_data + b_vocab_zstd
 
     t0 = time.perf_counter()
+    v_zstd_loaded = LosslessVocabulary.load(
+        json.loads(zstd_dctx.decompress(vocab_zstd).decode("utf-8"))
+    )
     for cnj, b in json_zstd_store.items():
         obj = json.loads(zstd_dctx.decompress(b).decode("utf-8"))
-        _ = [from_json_compacto(d, cnj) for d in obj["docs"]]
+        _ = [LosslessCodec.decode_document(d, cnj, v_zstd_loaded) for d in obj["docs"]]
     t_dec_json_zstd = time.perf_counter() - t0
 
     # FB Compacto + Zstd total (comprimindo o buffer do FB)
@@ -322,18 +272,23 @@ def executar_matriz_comparativa(colecoes: dict[str, list[dict]]):
         "b_fb_bruto": b_fb_bruto,
         "t_enc_fb_bruto": t_enc_fb_bruto,
         "t_dec_fb_bruto": t_dec_fb_bruto,
-        "b_json_compact": b_json_compact,
+        "b_json_compact_data": b_json_compact_data,
+        "b_vocab_json": b_vocab_json,
+        "b_json_compact": b_json_compact_total,
         "t_enc_json_compact": t_enc_json_compact,
         "t_dec_json_compact": t_dec_json_compact,
         "b_fb_compact": b_fb_compact,
         "t_enc_fb_compact": t_enc_fb_compact,
         "t_dec_fb_compact": t_dec_fb_compact,
-        "b_json_zstd": b_json_zstd,
+        "b_json_zstd_data": b_json_zstd_data,
+        "b_vocab_zstd": b_vocab_zstd,
+        "b_json_zstd": b_json_zstd_total,
         "t_enc_json_zstd": t_enc_json_zstd,
         "t_dec_json_zstd": t_dec_json_zstd,
         "b_fb_zstd": b_fb_zstd,
         "t_enc_fb_zstd": t_enc_fb_zstd,
         "t_dec_fb_zstd": t_dec_fb_zstd,
+        "vocab_terms_count": len(vocab.export()),
     }
 
 
@@ -388,25 +343,38 @@ def main():
     print("\nExecutando Matriz 2x4 (Isolando Modelagem de Dados vs Serialização)...")
     matriz = executar_matriz_comparativa(colecoes)
 
-    print("\n========================= MATRIZ CONTROLADA 2x4 =========================")
-    print(f"{'Nível de Otimização':30} | {'JSON':20} | {'FlatBuffers':20} | {'Delta FB vs JSON'}")
-    print("-" * 88)
+    print(
+        "\n========================= MATRIZ CONTROLADA LOSSLESS (100% REVERSÍVEL) ========================="
+    )
+    print(f"Vocabulário compartilhado construído com {matriz['vocab_terms_count']} termos únicos.")
+    print(
+        f"{'Nível de Otimização':32} | {'JSON (Lossless)':22} | {'FlatBuffers':20} | {'Delta FB vs JSON'}"
+    )
+    print("-" * 92)
 
     # Nível 1: Bruto
     print(
-        f"{'1. Dados Originais (Bruto)':30} | {matriz['b_json_bruto']:10,d} B ({matriz['t_enc_json_bruto'] * 1000:5.1f}ms) | {matriz['b_fb_bruto']:10,d} B ({matriz['t_enc_fb_bruto'] * 1000:5.1f}ms) | {matriz['b_fb_bruto'] / matriz['b_json_bruto']:0.2f}x"
+        f"{'1. Dados Originais (Bruto)':32} | {matriz['b_json_bruto']:10,d} B ({matriz['t_enc_json_bruto'] * 1000:5.1f}ms) | {matriz['b_fb_bruto']:10,d} B ({matriz['t_enc_fb_bruto'] * 1000:5.1f}ms) | {matriz['b_fb_bruto'] / matriz['b_json_bruto']:0.2f}x"
     )
 
     # Nível 2: Modelo Compacto
     print(
-        f"{'2. Modelo Compacto Otimizado':30} | {matriz['b_json_compact']:10,d} B ({matriz['t_enc_json_compact'] * 1000:5.1f}ms) | {matriz['b_fb_compact']:10,d} B ({matriz['t_enc_fb_compact'] * 1000:5.1f}ms) | {matriz['b_fb_compact'] / matriz['b_json_compact']:0.2f}x"
+        f"{'2. Modelo Lossless + Vocab':32} | {matriz['b_json_compact']:10,d} B ({matriz['t_enc_json_compact'] * 1000:5.1f}ms) | {matriz['b_fb_compact']:10,d} B ({matriz['t_enc_fb_compact'] * 1000:5.1f}ms) | {matriz['b_fb_compact'] / matriz['b_json_compact']:0.2f}x"
+    )
+    print(
+        f"   └─ JSON Dados: {matriz['b_json_compact_data']:,d} B | Vocabulário JSON: {matriz['b_vocab_json']:,d} B"
     )
 
     # Nível 3: Modelo Compacto + Zstd
     print(
-        f"{'3. Modelo Compacto + Zstd':30} | {matriz['b_json_zstd']:10,d} B ({matriz['t_enc_json_zstd'] * 1000:5.1f}ms) | {matriz['b_fb_zstd']:10,d} B ({matriz['t_enc_fb_zstd'] * 1000:5.1f}ms) | {matriz['b_fb_zstd'] / matriz['b_json_zstd']:0.2f}x"
+        f"{'3. Modelo Lossless + Zstd':32} | {matriz['b_json_zstd']:10,d} B ({matriz['t_enc_json_zstd'] * 1000:5.1f}ms) | {matriz['b_fb_zstd']:10,d} B ({matriz['t_enc_fb_zstd'] * 1000:5.1f}ms) | {matriz['b_fb_zstd'] / matriz['b_json_zstd']:0.2f}x"
     )
-    print("=========================================================================")
+    print(
+        f"   └─ JSON Dados Zstd: {matriz['b_json_zstd_data']:,d} B | Vocab Zstd: {matriz['b_vocab_zstd']:,d} B"
+    )
+    print(
+        "================================================================================================="
+    )
 
 
 if __name__ == "__main__":
