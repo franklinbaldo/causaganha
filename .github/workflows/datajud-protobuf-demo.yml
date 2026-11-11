@@ -1,0 +1,59 @@
+name: DataJud Protobuf demonstration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/datajud-protobuf-demo.yml'
+      - 'experiments/datajud_protobuf_demo/**'
+      - 'src/datajud/schema/processo.proto'
+      - 'fixtures/datajud_sample/**'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: datajud-protobuf-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demonstrate:
+    name: Protobuf roundtrip (${{ matrix.scope }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        scope: [all-hits, legacy-68]
+    env:
+      SOURCE_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+      DEMO_SCOPE: ${{ matrix.scope }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: '3.12'
+      - uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
+        with:
+          version: '0.7.22'
+      - name: Compile schema, encode, recover in a fresh process and measure
+        run: >-
+          uv run --no-project experiments/datajud_protobuf_demo/run.py
+          --scope "$DEMO_SCOPE" --output "artifacts/protobuf-$DEMO_SCOPE"
+      - name: Check nulls, unknown fields, large integers and repeated captures
+        if: matrix.scope == 'all-hits'
+        run: >-
+          uv run --no-project --with protobuf==7.36.2 --with grpcio-tools==1.85.1
+          --with zstandard==0.25.0 --with pytest==8.4.2
+          pytest -q experiments/datajud_protobuf_demo/test_demo.py
+      - name: Upload reproducible evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: datajud-protobuf-${{ matrix.scope }}-${{ github.run_id }}
+          path: artifacts/protobuf-${{ matrix.scope }}/
+          if-no-files-found: error
+          retention-days: 14

@@ -1,0 +1,25 @@
+syntax = "proto3";
+package datajud.demo;
+import "processo.proto";
+
+// Experiment-only wrappers. The original typed schemas remain unchanged.
+// Residuals store only differences needed for exact JSON reconstruction.
+message CanonicalRecord {
+  datajud.DocumentoDataJud document = 1;
+  bytes residual_json = 2;
+}
+message CanonicalCollection {
+  string cnj = 1;
+  repeated CanonicalRecord records = 2;
+}
+message CompactRecord {
+  datajud.DocumentoCompacto document = 1;
+  bytes residual_json = 2;
+}
+message CompactCollection {
+  string cnj = 1;
+  repeated CompactRecord records = 2;
+}
+message TemplateCatalog {
+  repeated bytes templates_json = 1;
+}
