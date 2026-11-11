@@ -338,6 +338,7 @@ class DataJudClient:
         since_iso: str | None = None,
         *,
         until_iso: str | None = None,
+        range_field: str = "dataHoraUltimaAtualizacao",
         page_size: int = 1000,
         min_page_size: int = 100,
         max_pages: int | None = None,
@@ -346,7 +347,7 @@ class DataJudClient:
     ) -> AsyncIterator[tuple[list[dict], list[Any] | None]]:
         """Yield pages of documents updated since `since_iso` using Elasticsearch CDC search_after.
 
-        Sorts deterministically by ``[{"dataHoraUltimaAtualizacao": "asc"}, {"numeroProcesso.keyword": "asc"}]``,
+        Sorts deterministically by ``[{range_field: "asc"}, {"numeroProcesso.keyword": "asc"}]``,
         which provides stable cursor-based pagination without deep-paging penalties.
 
         Yields tuples of ``(hits, last_sort_key)`` where:
@@ -369,9 +370,7 @@ class DataJudClient:
             range_filter["lte"] = until_iso
 
         query: dict[str, Any] = (
-            {"range": {"dataHoraUltimaAtualizacao": range_filter}}
-            if range_filter
-            else {"match_all": {}}
+            {"range": {range_field: range_filter}} if range_filter else {"match_all": {}}
         )
 
         while True:
@@ -385,7 +384,7 @@ class DataJudClient:
                     "track_total_hits": True,
                     "query": query,
                     "sort": [
-                        {"dataHoraUltimaAtualizacao": "asc"},
+                        {range_field: "asc"},
                         {"numeroProcesso.keyword": "asc"},
                     ],
                 }

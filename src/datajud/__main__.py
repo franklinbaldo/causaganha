@@ -38,6 +38,8 @@ from typing import Annotated
 import httpx
 from cyclopts import App, Parameter
 
+from datajud import backlog as backlog_engine
+from datajud import cdc as cdc_engine
 from datajud import service
 from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudError
 
@@ -190,6 +192,209 @@ def status(
     print(f"  Com documentos   : {result.com_docs}")
     print(f"  Sem documentos   : {result.sem_docs}")
     print(f"  Com erro         : {result.com_erro}")
+
+
+@app.command(name="cdc")
+def cdc_cmd(
+    *,
+    tribunal: Annotated[
+        str, Parameter(help="Sigla do índice DataJud (ex.: tjro, tjce, tjsp).")
+    ] = DEFAULT_TRIBUNAL,
+    since: Annotated[
+        str | None,
+        Parameter(name="--since", help="Data/hora inicial ISO (ex.: 2026-01-01T00:00:00.000Z)."),
+    ] = None,
+    until: Annotated[
+        str | None,
+        Parameter(name="--until", help="Data/hora final ISO (ex.: 2026-03-01T00:00:00.000Z)."),
+    ] = None,
+    page_size: Annotated[
+        int, Parameter(help="Tamanho do lote por página search_after (padrão 1000).")
+    ] = 1000,
+    max_pages: Annotated[
+        int | None, Parameter(help="Limite máximo de páginas a extrair nesta sessão.")
+    ] = None,
+    no_resume: Annotated[
+        bool,
+        Parameter(name="--no-resume", negative=[], help="Ignora checkpoint e inicia do zero."),
+    ] = False,
+    skip_consolidate: Annotated[
+        bool,
+        Parameter(
+            name="--skip-consolidate",
+            negative=[],
+            help="Não consolida deltas L1 em parquets L0 ao final.",
+        ),
+    ] = False,
+    no_pack_daily: Annotated[
+        bool,
+        Parameter(
+            name="--no-pack-daily",
+            negative=[],
+            help="Não gera o arquivo ZIP diário com processos completos.",
+        ),
+    ] = False,
+    upload: Annotated[
+        bool,
+        Parameter(
+            name="--upload",
+            negative=[],
+            help="Envia os artefatos diários e canônicos para o Internet Archive.",
+        ),
+    ] = False,
+    skip_upload: Annotated[
+        bool,
+        Parameter(
+            name="--skip-upload",
+            negative=[],
+            help="Ignora envio ao Internet Archive.",
+        ),
+    ] = False,
+    data_dir: Annotated[
+        Path, Parameter(help="Diretório base do CDC (checkpoints e deltas).")
+    ] = cdc_engine.DEFAULT_CDC_DIR,
+    canonical_dir: Annotated[
+        Path, Parameter(help="Diretório dos parquets canônicos L0.")
+    ] = cdc_engine.DEFAULT_CANONICAL_DIR,
+) -> int:
+    """Extração incremental de processos via CDC search_after com deltas particionados."""
+    ia_key, ia_secret = service.ia_credentials()
+    should_upload = upload and not skip_upload
+
+    print(f"DataJud CDC — Tribunal: {tribunal.upper()}")
+    if since:
+        print(f"  Filtro since  : {since}")
+    if until:
+        print(f"  Filtro until  : {until}")
+    print(f"  Page size     : {page_size:,}")
+    print(f"  Base dir      : {data_dir}")
+    print(f"  Pack Daily    : {not no_pack_daily}")
+    print(f"  Upload IA     : {should_upload}")
+
+    try:
+        res = asyncio.run(
+            cdc_engine.sync_tribunal_cdc(
+                tribunal,
+                since_iso=since,
+                until_iso=until,
+                page_size=page_size,
+                max_pages=max_pages,
+                resume=not no_resume,
+                consolidate=not skip_consolidate,
+                pack_daily=not no_pack_daily,
+                upload=should_upload,
+                base_dir=data_dir,
+                canonical_dir=canonical_dir,
+                ia_key=ia_key,
+                ia_secret=ia_secret,
+            )
+        )
+    except (DataJudError, httpx.HTTPError) as exc:
+        print(f"ERROR no CDC: {exc}", file=sys.stderr)
+        return 1
+
+    print("\nSincronização CDC concluída:")
+    print(f"  Documentos nesta sessão: {res.documents_streamed:,}")
+    print(f"  Lotes (batches) salvos : {res.batches_streamed:,}")
+    print(f"  Total acumulado        : {res.checkpoint.total_documents:,}")
+    print(f"  Última atualização     : {res.checkpoint.last_updated_at or 'n/a'}")
+    print(f"  Status do checkpoint   : {res.checkpoint.status}")
+
+    if res.consolidated_capas is not None:
+        print("\nConsolidação Canônica L0:")
+        print(f"  Total de capas        : {res.consolidated_capas:,}")
+        print(f"  Total de movimentos   : {res.consolidated_movs or 0:,}")
+
+    if res.daily_zip_path:
+        print("\nPacote Diário ZIP (Internet Archive Transparent Unzip):")
+        print(f"  Arquivo gerado        : {res.daily_zip_path.name}")
+        print(f"  Processos empacotados : {res.daily_processes_count:,}")
+        print(f"  Total indexado        : {res.index_total:,}")
+
+    if res.uploaded_files:
+        print(f"\nUpload IA concluído ({len(res.uploaded_files)} arquivos):")
+        for uf in res.uploaded_files:
+            print(f"  ✓ {uf}")
+
+    return 0
+
+
+@app.command(name="backlog")
+def backlog_cmd(
+    *,
+    tribunal: Annotated[
+        str, Parameter(help="Sigla do índice DataJud (ex.: tjro, tjce, tjsp).")
+    ] = DEFAULT_TRIBUNAL,
+    start_year: Annotated[int, Parameter(help="Ano inicial do backlog.")] = 2024,
+    end_year: Annotated[int, Parameter(help="Ano final do backlog.")] = 2026,
+    slice_by: Annotated[
+        str, Parameter(help="Fatiamento temporal: 'month' (mensal) ou 'year' (anual).")
+    ] = "month",
+    max_slices: Annotated[
+        int | None, Parameter(help="Máximo de fatias a processar nesta sessão.")
+    ] = None,
+    page_size: Annotated[int, Parameter(help="Tamanho do lote por página search_after.")] = 1000,
+    upload: Annotated[
+        bool,
+        Parameter(name="--upload", negative=[], help="Envia parquets ao Internet Archive."),
+    ] = False,
+    status: Annotated[
+        bool,
+        Parameter(name="--status", negative=[], help="Mostra o panorama de fatias do backlog."),
+    ] = False,
+    data_dir: Annotated[
+        Path, Parameter(help="Diretório base do backlog.")
+    ] = backlog_engine.DEFAULT_BACKLOG_DIR,
+) -> int:
+    """Coleta e ingestão de backlog histórico particionado em fatias temporais."""
+    store = backlog_engine.DataJudBacklogStore(data_dir / "backlog_slices.sqlite")
+
+    if status:
+        slices = store.list_slices(tribunal)
+        if not slices:
+            print(f"Nenhum backlog registrado para {tribunal.upper()} em {data_dir}.")
+            return 0
+        total_docs = sum(s.documentos_coletados for s in slices)
+        by_status: dict[str, int] = {}
+        for s in slices:
+            by_status[s.status] = by_status.get(s.status, 0) + 1
+
+        print(f"Status do Backlog — Tribunal: {tribunal.upper()} ({len(slices)} fatias)")
+        print(f"  Documentos coletados: {total_docs:,}")
+        for st, count in sorted(by_status.items()):
+            print(f"  {st.capitalize():<15}: {count}")
+        return 0
+
+    ia_key, ia_secret = service.ia_credentials()
+    print(f"DataJud Backlog — Tribunal: {tribunal.upper()}")
+    print(f"  Período       : {start_year} a {end_year} (fatiamento: {slice_by})")
+    print(f"  Page size     : {page_size:,}")
+    print(f"  Upload IA     : {upload}")
+
+    try:
+        res = asyncio.run(
+            backlog_engine.run_backlog(
+                tribunal,
+                start_year,
+                end_year,
+                slice_by=slice_by,
+                max_slices=max_slices,
+                page_size=page_size,
+                upload=upload,
+                base_dir=data_dir,
+                ia_key=ia_key,
+                ia_secret=ia_secret,
+            )
+        )
+    except (DataJudError, httpx.HTTPError) as exc:
+        print(f"ERROR no Backlog: {exc}", file=sys.stderr)
+        return 1
+
+    print("\nSessão de Backlog concluída:")
+    print(f"  Fatias processadas nesta sessão: {res['slices_processed']}")
+    print(f"  Documentos coletados           : {res['total_documents']:,}")
+
+    return 0
 
 
 if __name__ == "__main__":
