@@ -1,0 +1,63 @@
+// Esquema FlatBuffers Compacto e Otimizado para o DataJud (Issue #1710, #1711)
+//
+// Projetado para eliminar redundâncias:
+// 1. Tipos inteiros compactos (uint32, uint16, uint8).
+// 2. Timestamps inteiros em milissegundos (epoch ms).
+// 3. Resolução de nomes repetidos via dicionário TPU / tabela de termos compartilhada.
+// 4. Sem duplicação de payload bruto integral.
+// 5. Suporte a bloco compacto de movimentos para equilíbrio entre tamanho e acesso à capa.
+
+namespace DataJud.Compact;
+
+table CodigoRef {
+  codigo: uint;
+  nome_override: string; // preenchido apenas se diferir da TPU oficial
+}
+
+table ComplementoCompacto {
+  codigo: uint;
+  valor: string;
+  descricao_override: string;
+}
+
+table MovimentoCompacto {
+  codigo: uint;
+  data_hora_epoch_ms: long;
+  orgao_codigo: uint;
+  complementos: [ComplementoCompacto];
+}
+
+table DocumentoCompacto {
+  index_origem: string;
+  id_origem: string;
+  tribunal: string;
+  grau: string;
+  nivel_sigilo: ubyte;
+  data_ajuizamento_ms: long;
+  data_atualizacao_ms: long;
+
+  classe_codigo: uint;
+  sistema_codigo: ushort;
+  formato_codigo: ubyte;
+  orgao_codigo: uint;
+  orgao_municipio_ibge: uint;
+
+  assuntos_codigos: [uint];
+
+  // Movimentos estruturados tipados
+  movimentos: [MovimentoCompacto];
+
+  // Bloco alternativo comprimido com Zstd para ultra-compressão sem perder acesso à capa
+  movimentos_zstd_bytes: [ubyte];
+
+  // Campos desconhecidos para garantia estrita de zero-loss
+  campos_desconhecidos_json: string;
+}
+
+table ProcessoCompactoCollection {
+  numero_processo: string;
+  total_documentos: ushort;
+  documentos: [DocumentoCompacto];
+}
+
+root_type ProcessoCompactoCollection;

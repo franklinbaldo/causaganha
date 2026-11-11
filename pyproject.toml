@@ -72,6 +72,7 @@ dev = [
     "nbformat>=5.10.4",
     "wisk @ git+https://github.com/franklinbaldo/wisk.git@8d16567ebe61c5a6733ec23f61965fb2cd00259d",
     "flatbuffers>=25.12.19",
+    "zstandard>=0.25.0",
 ]
 
 [project.scripts]

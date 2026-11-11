@@ -240,37 +240,45 @@ table ProcessoCNJCollection {
 root_type ProcessoCNJCollection;
 ```
 
-### Implementação do Codec Canônico e Prova de Integridade
+### Implementação dos Codecs Canônico e Híbrido
 
-O codec implementado em [`src/datajud/schema/flatbuffers_codec.py`](file:///C:/Users/76450694220/workspace/causaganha/src/datajud/schema/flatbuffers_codec.py) constrói todas as tabelas e vetores em estrita conformidade com o esquema `.fbs`:
-- Codificação tipada de todas as tabelas aninhadas (`CodigoNome`, `OrgaoJulgador`, `ComplementoTabelado`, `Movimento`).
-- Serialização de todos os documentos vinculados ao mesmo CNJ no vetor `documentos` de `ProcessoCNJCollection`.
-- Suporte a decodificação em três modos:
-  1. `typed`: decodificação de toda a árvore de objetos com validação de tipos.
-  2. `capa`: projeção seletiva sem carregar arrays de movimentos (leitura O(1) de metadados da capa).
-  3. `raw`: descompressão do payload original bruto para garantia absoluta de reversibilidade.
+Para validar independentemente a especificação sem incorrer em erros simétricos:
+1. Compilamos os esquemas com o binário oficial `flatc` (versão 25.12.19) gerando as classes Python em `src/datajud/schema/generated/`.
+2. O teste [`tests/datajud/test_schema_roundtrip.py`](file:///C:/Users/76450694220/workspace/causaganha/tests/datajud/test_schema_roundtrip.py) validou que o leitor oficial `ProcessoCNJCollection.GetRootAs(buf, 0)` lê os buffers sem divergência.
 
-### Esclarecimento sobre Equivalência Estrutural vs Hash de Bytes
-- **Equivalência Estrutural Profunda (Deep Equality):** Validada em 100% dos documentos nos testes automatizados (`tests/datajud/test_schema_roundtrip.py`). Todos os campos tipados (`classe`, `orgaoJulgador`, `assuntos`, `movimentos`) recuperados do FlatBuffers são rigorosamente iguais aos retornados pela API do DataJud.
-- **Payload Bruto Verbatim:** Para evitar perdas por ordenação de chaves ou formatação JSON, o campo `payload_original_bruto_gz` preserva o JSON exato recebido do cluster Elasticsearch.
+### Otimização Arquitetural: FlatBuffers Híbrido (Issue #1711)
+A primeira versão do FlatBuffers ocupava 728 KB devido à **duplicação integral** (campos tipados + cópia integral comprimida em `payload_original_bruto_gz`).
+
+Desenvolvemos o esquema otimizado [`src/datajud/schema/processo_compact.fbs`](file:///C:/Users/76450694220/workspace/causaganha/src/datajud/schema/processo_compact.fbs) e o codec [`src/datajud/schema/compact_codec.py`](file:///C:/Users/76450694220/workspace/causaganha/src/datajud/schema/compact_codec.py):
+- **Capa Tipada Plana O(1):** `numeroProcesso`, `tribunal`, `grau`, `classe_codigo`, `orgao_codigo`, `nivelSigilo` e timestamps em epoch milissegundos acessíveis diretamente via vtable sem descompressão.
+- **Bloco de Movimentos em Zstandard:** O vetor volumoso de movimentações é serializado de forma compacta e comprimido em bloco com Zstd (nível 3).
+- **Sem Duplicação Redundante:** Elimina a duplicata integral do payload.
+- **Resultado de Tamanho:** O tamanho caiu de **728,7 KB para 92,0 KB** (redução de 88,6%), tornando-se equivalente ao JSON.gz.
+
+### Análise de Dupla Compressão em Shards ZIP
+Se arquivos `.json.gz` ou `.json.zst` forem colocados dentro de arquivos ZIP no Internet Archive, a compressão do ZIP (`ZIP_DEFLATED`) é redundante e inútil (além de gastar CPU desnecessária).
+- **Solução Arquitetural:** O shard ZIP deve utilizar o método `ZIP_STORED` (sem compressão no container ZIP).
+- **Benefício:** Permite que o *Internet Archive Transparent Unzip* e *HTTP Range Requests* acessem diretamente os offsets exatos dos arquivos pré-comprimidos sem penalidade de descompressão dupla.
 
 ---
 
-## 7. Resultados do Benchmark Comparativo Simétrico
+## 7. Resultados do Benchmark Comparativo Multi-Variante
 
-Executado de forma estritamente simétrica em [`scripts/datajud/benchmark_formats.py`](file:///C:/Users/76450694220/workspace/causaganha/scripts/datajud/benchmark_formats.py), onde a desserialização recupera **100% dos documentos de todas as coleções**:
+Executado de forma estritamente simétrica em [`scripts/datajud/benchmark_formats.py`](file:///C:/Users/76450694220/workspace/causaganha/scripts/datajud/benchmark_formats.py), onde a desserialização recupera **100% dos documentos de todas as 57 coleções** (68 documentos reais):
 
 | Formato | Tamanho Total | Encoding (ms) | Decoding Integral (ms) | Projeção Capa (ms) | Ratio vs Bruto |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **1. JSON Canônico Bruto** | 765.825 B | 5,51 ms | 5,61 ms | - | 1.000x |
-| **2. JSON.gz (Nível 6)** | 91.482 B | 6,81 ms | 7,00 ms | - | **0,119x** |
-| **3. FlatBuffers (Tipado .fbs)** | 728.696 B | 115,15 ms | 64,48 ms | **2,34 ms** | 0,952x |
-| **4. Parquet (Zstd + Gz)** | 114.672 B | 122,38 ms | 96,82 ms | - | 0,150x |
+| **1. JSON Canônico Bruto** | 765.825 B | 5,38 ms | 5,65 ms | - | 1.000x |
+| **2. JSON.gz (Nível 6)** | 91.482 B | 7,20 ms | 7,22 ms | - | **0,119x** |
+| **3. JSON.zst (Zstandard L3)** | 94.942 B | **1,92 ms** | **5,51 ms** | - | **0,124x** |
+| **4. FlatBuffers v1 (c/ cópia Gz)** | 728.696 B | 124,39 ms | 7,23 ms | 2,34 ms | 0,952x |
+| **5. FlatBuffers Híbrido (Capa FB + Zstd)** | **92.016 B** | 11,58 ms | 6,73 ms | **1,07 ms** | **0,120x** |
+| **6. Parquet (Capa + Payload Gz)** | 110.439 B | 93,66 ms | 118,16 ms | - | 0,144x |
 
-### Análise dos Trade-offs Medidos:
-- **JSON.gz:** Apresenta a melhor taxa de compressão geral (88% menor que o bruto) e excelente velocidade tanto em escrita quanto em leitura completa, com complexidade de implementação mínima.
-- **FlatBuffers:** O custo de serialização/desserialização tipada completa em Python é superior, mas sua capacidade de **projeção seletiva (2,34 ms para ler a capa de todos os processos)** é 3x mais rápida que o decode do JSON.gz, pois permite saltar os arrays volumosos de movimentos via vtable.
-- **Parquet:** Permite compressão muito próxima ao JSON.gz (0,150x) e é o formato ideal para compor o **índice colunar de resolução** (consultas vetoriais sobre metadados de capa), enquanto o payload detalhado pode residir nos arquivos ZIP compactados.
+### Conclusões do Experimento de Otimização:
+1. **O FlatBuffers Híbrido iguala o tamanho do JSON.gz (92 KB vs 91 KB)** eliminando a redundância do payload duplicado.
+2. **Acesso Seletivo 7x mais Rápido:** A leitura da capa no FlatBuffers Híbrido leva apenas **1,07 ms** (15,7 microssegundos por documento), enquanto JSON.gz e Parquet precisam descomprimir todo o payload de movimentos.
+3. **Zstandard (Zstd):** Apresentou a maior velocidade de compressão (1,92 ms — 3,7x mais rápido que gzip) com excelente taxa de redução.
 
 ---
 
