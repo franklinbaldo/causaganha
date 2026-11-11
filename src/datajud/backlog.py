@@ -105,13 +105,21 @@ class DataJudBacklogStore:
         *,
         slice_by: str = "month",
     ) -> list[BacklogSlice]:
-        """Generate and insert pending slices for the given year range."""
+        """Generate and insert pending slices for the given year range up to current date."""
         tribunal_slug = tribunal.lower()
         slices: list[BacklogSlice] = []
-        now_iso = datetime.now(UTC).isoformat(timespec="seconds")
+        now_dt = datetime.now(UTC)
+        now_iso = now_dt.isoformat(timespec="seconds")
+        today = now_dt.date()
 
         for year in range(start_year, end_year + 1):
+            if year > today.year:
+                continue
             if slice_by == "year":
+                if year == today.year:
+                    data_fim = f"{year}{today.month:02d}{today.day:02d}235959"
+                else:
+                    data_fim = f"{year}1231235959"
                 slices.append(
                     BacklogSlice(
                         tribunal=tribunal_slug,
@@ -119,12 +127,14 @@ class DataJudBacklogStore:
                         mes=0,
                         dia=0,
                         data_inicio=f"{year}0101000000",
-                        data_fim=f"{year}1231235959",
+                        data_fim=data_fim,
                         atualizado_em=now_iso,
                     )
                 )
             elif slice_by == "day":
                 for month in range(1, 13):
+                    if year == today.year and month > today.month:
+                        break
                     if month in (1, 3, 5, 7, 8, 10, 12):
                         last_day = 31
                     elif month in (4, 6, 9, 11):
@@ -135,6 +145,8 @@ class DataJudBacklogStore:
                         )
 
                     for day in range(1, last_day + 1):
+                        if year == today.year and month == today.month and day > today.day:
+                            break
                         slices.append(
                             BacklogSlice(
                                 tribunal=tribunal_slug,
@@ -148,6 +160,8 @@ class DataJudBacklogStore:
                         )
             else:
                 for month in range(1, 13):
+                    if year == today.year and month > today.month:
+                        break
                     # Compute end day of month
                     if month in (1, 3, 5, 7, 8, 10, 12):
                         last_day = 31
@@ -157,6 +171,9 @@ class DataJudBacklogStore:
                         last_day = (
                             29 if (year % 4 == 0 and (year % 100 != 0 or year % 400 == 0)) else 28
                         )
+
+                    if year == today.year and month == today.month:
+                        last_day = today.day
 
                     slices.append(
                         BacklogSlice(
@@ -171,6 +188,26 @@ class DataJudBacklogStore:
                     )
 
         with self._get_connection() as conn:
+            # Purge any future slices that may have been erroneously created
+            conn.execute(
+                """
+                DELETE FROM datajud_backlog_slices
+                WHERE tribunal = ? AND (
+                    ano > ? OR
+                    (ano = ? AND mes > ?) OR
+                    (ano = ? AND mes = ? AND dia > ?)
+                );
+                """,
+                (
+                    tribunal_slug,
+                    today.year,
+                    today.year,
+                    today.month,
+                    today.year,
+                    today.month,
+                    today.day,
+                ),
+            )
             for s in slices:
                 conn.execute(
                     """
@@ -217,7 +254,7 @@ class DataJudBacklogStore:
                 """
                 SELECT * FROM datajud_backlog_slices
                 WHERE tribunal = ? AND status IN ('pending', 'in_progress')
-                ORDER BY ano DESC, mes DESC, dia DESC
+                ORDER BY ano ASC, mes ASC, dia ASC
                 LIMIT 1;
                 """,
                 (tribunal.lower(),),

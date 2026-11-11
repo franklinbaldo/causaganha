@@ -35,23 +35,23 @@ def test_backlog_store_init_and_pending_selection(tmp_path: Path):
     slices = store.init_slices("tjro", 2024, 2025, slice_by="month")
     assert len(slices) == 24
 
-    # The next pending slice should be the newest: 2025-12
+    # The next pending slice should be the oldest: 2024-01
     pending = store.get_next_pending_slice("tjro")
     assert pending is not None
-    assert pending.ano == 2025
-    assert pending.mes == 12
+    assert pending.ano == 2024
+    assert pending.mes == 1
     assert pending.status == "pending"
 
-    # Mark 2025-12 as completed
+    # Mark 2024-01 as completed
     pending.status = "completed"
     pending.documentos_coletados = 500
     store.update_slice(pending)
 
-    # Next pending should now be 2025-11
+    # Next pending should now be 2024-02
     next_pending = store.get_next_pending_slice("tjro")
     assert next_pending is not None
-    assert next_pending.ano == 2025
-    assert next_pending.mes == 11
+    assert next_pending.ano == 2024
+    assert next_pending.mes == 2
 
 
 def test_backlog_store_yearly_slices(tmp_path: Path):
@@ -76,14 +76,14 @@ def test_backlog_store_daily_slices(tmp_path: Path):
     assert all(1 <= s.mes <= 12 for s in slices)
     assert all(1 <= s.dia <= 31 for s in slices)
 
-    # Next pending slice should be the latest day of the year: 2024-12-31
+    # Next pending slice should be the first day of the year: 2024-01-01
     pending = store.get_next_pending_slice("tjro")
     assert pending is not None
     assert pending.ano == 2024
-    assert pending.mes == 12
-    assert pending.dia == 31
-    assert pending.data_inicio == "20241231000000"
-    assert pending.data_fim == "20241231235959"
+    assert pending.mes == 1
+    assert pending.dia == 1
+    assert pending.data_inicio == "20240101000000"
+    assert pending.data_fim == "20240101235959"
 
     # Specific day query
     day_slice = store.get_slice("tjro", 2024, 2, 29)
