@@ -122,3 +122,8 @@ deployment/archive-cors-proxy/dist/
 # uv.lock, never a source of truth.
 requirements-mcp.txt
 sbom-mcp.json
+
+# Local binaries and downloads
+bin/
+*.exe
+

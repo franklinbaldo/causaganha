@@ -1,0 +1,29 @@
+{
+  "total": 2,
+  "processos": [
+    {
+      "cnj": "00033864820208220002",
+      "shard": "shards/shard_001.zip",
+      "offset": 871019,
+      "length": 1324,
+      "tribunal": "TJRO",
+      "classe": "Ação Penal - Procedimento Ordinário",
+      "instancias": [
+        "TJRO G1"
+      ],
+      "compressed_size": 1324
+    },
+    {
+      "cnj": "70076559320208220007",
+      "shard": "shards/shard_001.zip",
+      "offset": 2032106,
+      "length": 797,
+      "tribunal": "TJRO",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 797
+    }
+  ]
+}

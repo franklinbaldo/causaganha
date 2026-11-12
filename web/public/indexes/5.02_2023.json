@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "10019614720235020203",
+      "shard": "shards/shard_001.zip",
+      "offset": 41488,
+      "length": 679,
+      "tribunal": "TST",
+      "classe": "Agravo de Instrumento em Recurso de Revista",
+      "instancias": [
+        "TST SUP"
+      ],
+      "compressed_size": 679
+    }
+  ]
+}

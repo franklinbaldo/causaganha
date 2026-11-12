@@ -1,0 +1,77 @@
+{
+  "total": 6,
+  "processos": [
+    {
+      "cnj": "08075742320218220000",
+      "shard": "shards/shard_001.zip",
+      "offset": 9543,
+      "length": 2843,
+      "tribunal": "TJRO",
+      "classe": "Ação Rescisória",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 2843
+    },
+    {
+      "cnj": "70027202820218220022",
+      "shard": "shards/shard_001.zip",
+      "offset": 866499,
+      "length": 938,
+      "tribunal": "TJRO",
+      "classe": "Ação Penal - Procedimento Sumário",
+      "instancias": [
+        "TJRO G1"
+      ],
+      "compressed_size": 938
+    },
+    {
+      "cnj": "40000828820218220017",
+      "shard": "shards/shard_001.zip",
+      "offset": 876204,
+      "length": 1846,
+      "tribunal": "TJRO",
+      "classe": "Execução da Pena",
+      "instancias": [
+        "TJRO G1"
+      ],
+      "compressed_size": 1846
+    },
+    {
+      "cnj": "70008671120218220013",
+      "shard": "shards/shard_001.zip",
+      "offset": 1117246,
+      "length": 1189,
+      "tribunal": "TJRO",
+      "classe": "Ação Penal - Procedimento Ordinário",
+      "instancias": [
+        "TJRO G1"
+      ],
+      "compressed_size": 1189
+    },
+    {
+      "cnj": "70003172520218220010",
+      "shard": "shards/shard_001.zip",
+      "offset": 1652177,
+      "length": 532,
+      "tribunal": "TJRO",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJRO G2"
+      ],
+      "compressed_size": 532
+    },
+    {
+      "cnj": "70018222720218220018",
+      "shard": "shards/shard_001.zip",
+      "offset": 1961942,
+      "length": 523,
+      "tribunal": "TJRO",
+      "classe": "Apelação Criminal",
+      "instancias": [
+        "TJRO TR"
+      ],
+      "compressed_size": 523
+    }
+  ]
+}

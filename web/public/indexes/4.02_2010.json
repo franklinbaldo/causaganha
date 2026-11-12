@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "00012679520104025001",
+      "shard": "shards/shard_001.zip",
+      "offset": 34362,
+      "length": 1647,
+      "tribunal": "STJ",
+      "classe": "Embargos de Divergência em Recurso Especial",
+      "instancias": [
+        "STJ SUP"
+      ],
+      "compressed_size": 1647
+    }
+  ]
+}

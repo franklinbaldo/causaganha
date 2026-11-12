@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "50262255720238130024",
+      "shard": "shards/shard_001.zip",
+      "offset": 24755,
+      "length": 1897,
+      "tribunal": "TJMG",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJMG G2"
+      ],
+      "compressed_size": 1897
+    }
+  ]
+}
