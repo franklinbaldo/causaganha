@@ -9,6 +9,8 @@ Gera:
 
 from __future__ import annotations
 
+import glob
+import gzip
 import json
 import os
 import sys
@@ -46,9 +48,62 @@ def parse_cnj_parts(cnj: str) -> tuple[str, str, str]:
     return "outros", "geral", digits
 
 
-def construir_catalogo_e_shards():
-    print("Carregando coleções reais do DataJud...")
+def carregar_todas_as_colecoes() -> dict[str, list[dict[str, Any]]]:
+    """Carrega fixtures do benchmark + todos os processos reais de data/datajud/daily/*.zip."""
     colecoes = carregar_colecoes_cnj()
+    print(f"Coleções base do benchmark carregadas: {len(colecoes)}")
+
+    daily_files = sorted(glob.glob(str(ROOT / "data" / "datajud" / "daily" / "*.zip")))
+    print(f"Verificando arquivos em data/datajud/daily/: encontrados {len(daily_files)} zips")
+    daily_count = 0
+
+    for zpath in daily_files:
+        try:
+            with zipfile.ZipFile(zpath, "r") as z:
+                for name in z.namelist():
+                    if not name.endswith(".json.gz"):
+                        continue
+                    try:
+                        raw_bytes = z.read(name)
+                        doc_data = json.loads(gzip.decompress(raw_bytes).decode("utf-8"))
+                        if "_source" in doc_data:
+                            src = doc_data["_source"]
+                        else:
+                            src = doc_data
+                        cnj = src.get("numeroProcesso") or name.split(".")[0]
+                        clean_cnj = "".join(c for c in cnj if c.isdigit())
+                        if not clean_cnj:
+                            continue
+
+                        envelope = {
+                            "_source": src,
+                            "_id": doc_data.get(
+                                "_id",
+                                f"{src.get('tribunal', 'tjro')}_{src.get('grau', 'G1')}_{clean_cnj}",
+                            ),
+                            "_index": f"api_publica_{src.get('tribunal', 'tjro').lower()}",
+                        }
+
+                        if clean_cnj not in colecoes:
+                            colecoes[clean_cnj] = []
+
+                        # Evita duplicatas da mesma instância
+                        if not any(d.get("_id") == envelope["_id"] for d in colecoes[clean_cnj]):
+                            colecoes[clean_cnj].append(envelope)
+                            daily_count += 1
+                    except (json.JSONDecodeError, KeyError, ValueError, gzip.BadGzipFile):
+                        continue
+        except (zipfile.BadZipFile, OSError) as e:
+            print(f"Aviso ao ler {zpath}: {e}")
+
+    print(f"Processos reais incorporados dos pacotes daily: {daily_count}")
+    print(f"Total de processos unificados para o protótipo: {len(colecoes)}")
+    return colecoes
+
+
+def construir_catalogo_e_shards():
+    print("Iniciando build do catálogo e shards estáticos...")
+    colecoes = carregar_todas_as_colecoes()
     print(f"Total de coleções carregadas: {len(colecoes)}")
 
     # 1. Constrói o Catálogo de Templates TPU (Estratégia B)

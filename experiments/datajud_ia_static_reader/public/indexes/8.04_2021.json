@@ -4,14 +4,14 @@
     {
       "cnj": "07774574720218040001",
       "shard": "shards/shard_001.zip",
-      "offset": 33440,
-      "length": 924,
+      "offset": 33384,
+      "length": 919,
       "tribunal": "STJ",
       "classe": "Agravo em Recurso Especial",
       "instancias": [
         "STJ SUP"
       ],
-      "compressed_size": 924
+      "compressed_size": 919
     }
   ]
 }

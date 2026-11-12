@@ -1,5 +1,5 @@
 {
-  "total_tipos": 278,
+  "total_tipos": 620,
   "tipos": [
     {
       "id": 1,
@@ -3078,6 +3078,4441 @@
       "id": 278,
       "codigo": 230,
       "nome": "Recurso prejudicado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 279,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [],
+      "tem_complementos": true
+    },
+    {
+      "id": 280,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 281,
+      "codigo": 12261,
+      "nome": "Emenda a inicial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 282,
+      "codigo": 221,
+      "nome": "Procedência em Parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 283,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 284,
+      "codigo": 818,
+      "nome": "Liberdade provisória",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 285,
+      "codigo": 15409,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 286,
+      "codigo": 12646,
+      "nome": "Determinada a Redistribuição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 287,
+      "codigo": 137,
+      "nome": "Desapensamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 288,
+      "codigo": 12455,
+      "nome": "Indeferimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 289,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "de justificação",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 290,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 291,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 292,
+      "codigo": 12028,
+      "nome": "Cumprimento de transação penal",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 293,
+      "codigo": 12738,
+      "nome": "Homologação de Transação Penal",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 294,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 295,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 296,
+      "codigo": 12215,
+      "nome": "Processo devolvido à Secretaria",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 297,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 298,
+      "codigo": 128,
+      "nome": "Prisão",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 299,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "para despacho",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 300,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Petição (outras)",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 301,
+      "codigo": 235,
+      "nome": "Não Conhecimento de recurso",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Outros documentos",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 302,
+      "codigo": 459,
+      "nome": "Ausência de pressupostos processuais",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 303,
+      "codigo": 15164,
+      "nome": "Não Acolhimento de Embargos de Declaração",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 304,
+      "codigo": 12146,
+      "nome": "Liberdade Provisória",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 305,
+      "codigo": 11019,
+      "nome": "Ordenação de entrega de autos",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 306,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 307,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 308,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "não-realizada",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 309,
+      "codigo": 460,
+      "nome": "Perempção, litispendência ou coisa julgada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 310,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 311,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 312,
+      "codigo": 463,
+      "nome": "Desistência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 313,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Termo/Auto de Penhora",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 314,
+      "codigo": 12325,
+      "nome": "Perda do objeto",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 315,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "outros motivos",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 316,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "dependência",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 317,
+      "codigo": 14099,
+      "nome": "Homologação de Acordo em Execução ou em Cumprimento de Sentença",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 318,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 319,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 320,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 321,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Termo de Compromisso",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 322,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 323,
+      "codigo": 12548,
+      "nome": "Expedição de alvará de levantamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 324,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 325,
+      "codigo": 14702,
+      "nome": "Incidente ou Cautelar - Procedimento Resolvido",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 326,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 327,
+      "codigo": 198,
+      "nome": "Acolhimento de Embargos de Declaração",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 328,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "convertida em diligência",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 329,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "competência exclusiva",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 330,
+      "codigo": 12306,
+      "nome": "Perito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 331,
+      "codigo": 12457,
+      "nome": "Expedição de precatório/rpv",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 332,
+      "codigo": 15248,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 333,
+      "codigo": 196,
+      "nome": "Extinção da execução ou do cumprimento da sentença",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 334,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 335,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 336,
+      "codigo": 245,
+      "nome": "Provisório",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 337,
+      "codigo": 893,
+      "nome": "Desarquivamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 338,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 339,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 340,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Impugnação ao cumprimento de sentença ",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 341,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 342,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "prevenção",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 343,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 344,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 345,
+      "codigo": 15086,
+      "nome": "Deferimento em Parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 346,
+      "codigo": 889,
+      "nome": "Antecipação de Tutela",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 347,
+      "codigo": 454,
+      "nome": "Indeferimento da petição inicial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 348,
+      "codigo": 347,
+      "nome": "Antecipação de Tutela",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 349,
+      "codigo": 15162,
+      "nome": "Acolhimento de Embargos de Declaração",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 350,
+      "codigo": 12255,
+      "nome": "Redistribuição por prevenção",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 351,
+      "codigo": 961,
+      "nome": "Suscitação de Conflito de Competência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 352,
+      "codigo": 980,
+      "nome": "Remessa",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 353,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Outros documentos",
+          "descricao": "tipo_de_documento"
+        },
+        {
+          "codigo": 4,
+          "nome": "Outros documentos",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 354,
+      "codigo": 11377,
+      "nome": "Inadmissibilidade do procedimento sumaríssimo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 355,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Agravo de Instrumento em Agravo de Petição",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 356,
+      "codigo": 892,
+      "nome": "Liminar",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 357,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 358,
+      "codigo": 383,
+      "nome": "Impugnação ao cumprimento de sentença",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 359,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Alvará",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 360,
+      "codigo": 12330,
+      "nome": "Pedido conhecido em parte e procedente em parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 361,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 362,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "antecipada",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 363,
+      "codigo": 451,
+      "nome": "Habeas corpus",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 364,
+      "codigo": 12467,
+      "nome": "Desistência de pedido",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 365,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 366,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 367,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 368,
+      "codigo": 12259,
+      "nome": "Prescrição intercorrente (art. 921, § 4º, CPC)",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 369,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 370,
+      "codigo": 457,
+      "nome": "Paralisação por negligência das partes",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 371,
+      "codigo": 804,
+      "nome": "Recurso",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 372,
+      "codigo": 788,
+      "nome": "Exceção de pré-executividade",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 373,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 374,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 375,
+      "codigo": 478,
+      "nome": "Cálculo de Liquidação",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 376,
+      "codigo": 1042,
+      "nome": "Morte do agente",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 377,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJBA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 378,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de custódia",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 379,
+      "codigo": 11380,
+      "nome": "Autor falecido e sem habilitação de sucessores",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 380,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Informações",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 381,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 382,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 383,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 384,
+      "codigo": 11378,
+      "nome": "Incompetência territorial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 385,
+      "codigo": 1063,
+      "nome": "Determinação de arquivamento de procedimentos investigatórios",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 386,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "por julgamento definitivo do recurso",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 387,
+      "codigo": 15238,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 388,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJAM",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 389,
+      "codigo": 26,
+      "nome": "Distribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 390,
+      "codigo": 1046,
+      "nome": "Renúncia do queixoso ou perdão aceito ",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 391,
+      "codigo": 12421,
+      "nome": "Juízo provisório para medidas urgentes",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 392,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 393,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 394,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 395,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 396,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 397,
+      "codigo": 12749,
+      "nome": "de Instrução",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 398,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "incompetência",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 399,
+      "codigo": 12749,
+      "nome": "de Instrução",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 400,
+      "codigo": 12749,
+      "nome": "de Instrução",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 401,
+      "codigo": 12098,
+      "nome": "Incidente de Resolução de Demandas Repetitivas ",
+      "complementos": [
+        {
+          "codigo": 52,
+          "nome": "convertida em diligência",
+          "descricao": "numero_tema_IRDR"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 402,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 403,
+      "codigo": 272,
+      "nome": "A depender do julgamento de outra causa, de outro juízo ou declaração incidente",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 404,
+      "codigo": 14233,
+      "nome": "Não-Acolhimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 405,
+      "codigo": 11975,
+      "nome": "Recurso Especial repetitivo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 406,
+      "codigo": 12459,
+      "nome": "Prejudicado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 407,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 408,
+      "codigo": 458,
+      "nome": "Abandono da causa",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 409,
+      "codigo": 277,
+      "nome": "Convenção das Partes para Satisfação Voluntária da Obrigação em Execução ou Cumprimento de Sentença",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 410,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "sorteio",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 411,
+      "codigo": 944,
+      "nome": "Desistência de Recurso",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 412,
+      "codigo": 83,
+      "nome": "Cancelamento da distribuição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 413,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 414,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "para julgamento",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 415,
+      "codigo": 14235,
+      "nome": "Rejeição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 416,
+      "codigo": 12305,
+      "nome": "Outros auxiliares de justiça",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 417,
+      "codigo": 12307,
+      "nome": "Decretação de revelia",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 418,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 17,
+          "nome": "incompetência",
+          "descricao": "motivo_da_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 419,
+      "codigo": 471,
+      "nome": "Pronúncia de Decadência ou Prescrição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 420,
+      "codigo": 12649,
+      "nome": "Homologado o Pedido",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 421,
+      "codigo": 12151,
+      "nome": "Suspeição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 422,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "suspeição",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 423,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "alteração de competência do Ã³rgÃ£o",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 424,
+      "codigo": 12331,
+      "nome": "Pedido conhecido em parte e improcedente",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 425,
+      "codigo": 11374,
+      "nome": "Devedor não encontrado",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 426,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Aviso de recebimento (AR)",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 427,
+      "codigo": 15223,
+      "nome": "",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 428,
+      "codigo": 11879,
+      "nome": "Decadência ou perempção",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 429,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "outros motivos",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 430,
+      "codigo": 871,
+      "nome": "Acolhimento em parte de Embargos de Declaração",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 431,
+      "codigo": 15216,
+      "nome": "",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 432,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 433,
+      "codigo": 12749,
+      "nome": "de Instrução",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 434,
+      "codigo": 15103,
+      "nome": "Gratuidade da Justiça",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 435,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 436,
+      "codigo": 12740,
+      "nome": "de Conciliação",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "convertida em diligência",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 437,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "conciliação",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 438,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Projeto de sentença",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 439,
+      "codigo": 12458,
+      "nome": "Não conhecimento do habeas corpus",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 440,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 441,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "não-realizada",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 442,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "para decisão",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 443,
+      "codigo": 123,
+      "nome": "Remessa",
+      "complementos": [
+        {
+          "codigo": 18,
+          "nome": "em diligência",
+          "descricao": "motivo_da_remessa"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 444,
+      "codigo": 12616,
+      "nome": "Composição Civil dos Danos",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 445,
+      "codigo": 263,
+      "nome": "Réu revel citado por edital ",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 446,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJES",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 447,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 448,
+      "codigo": 11379,
+      "nome": "Incompetência em razão da pessoa",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 449,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Projeto de sentença",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 450,
+      "codigo": 480,
+      "nome": "Atualização de conta",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 451,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "outros motivos",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 452,
+      "codigo": 11795,
+      "nome": "Procedência do Pedido - Reconhecimento pelo réu",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 453,
+      "codigo": 456,
+      "nome": "Extinção",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 454,
+      "codigo": 276,
+      "nome": "Execução frustrada",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 455,
+      "codigo": 11025,
+      "nome": "Suspensão ou Sobrestamento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 456,
+      "codigo": 1049,
+      "nome": "Pagamento integral do débito",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 457,
+      "codigo": 11409,
+      "nome": "Improcedência do pedido e improcedência do pedido contraposto",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 458,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico em regime hospitalar",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 459,
+      "codigo": 12452,
+      "nome": "procedência parcial",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 460,
+      "codigo": 15025,
+      "nome": "Revogação da Transação Penal",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 461,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "competência exclusiva",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "alteração de competência do Ã³rgÃ£o",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 462,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "admonitária",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 463,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 464,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "de interrogatório",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 465,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "de interrogatório",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 466,
+      "codigo": 12213,
+      "nome": "Decisão Monocrática",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 467,
+      "codigo": 1019,
+      "nome": "Transferência da Execução da Pena",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 468,
+      "codigo": 1018,
+      "nome": "Transferência para outro Estabelecimento Penal",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 469,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJGO",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJSE",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 470,
+      "codigo": 1047,
+      "nome": "Retratação do agente",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 471,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "admonitária",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 472,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Guia de Recolhimento Penal",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 473,
+      "codigo": 10966,
+      "nome": "Mudança de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJBA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 474,
+      "codigo": 10966,
+      "nome": "Mudança de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJCE",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 475,
+      "codigo": 12733,
+      "nome": "Homologação do Acordo de Não Persecução Penal",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 476,
+      "codigo": 10966,
+      "nome": "Mudança de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 477,
+      "codigo": 12735,
+      "nome": "Extinção de Punibilidade em Razão do Cumprimento de Acordo de Não Persecução Penal",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 478,
+      "codigo": 15582,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 479,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "Memoriais",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 480,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJSE",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 481,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "antecipada",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 482,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "inicial",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 483,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "dependência",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 484,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 485,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Renúncia de mandato",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 486,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "em diligência",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 487,
+      "codigo": 581,
+      "nome": "Documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Carta",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 488,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "Outros documentos",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 489,
+      "codigo": 11376,
+      "nome": "Ausência do autor à audiência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 490,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 491,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 492,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Outros documentos",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 493,
+      "codigo": 1002,
+      "nome": "Progressão de regime",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 494,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 495,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "recusa de prevenção/dependência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 496,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TRE-RR",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 497,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TRE-RR",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Restituição de bens indevidamente subtraídos pelo agressor Ã  ofendida (art. 24",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 498,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "conciliação",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 499,
+      "codigo": 10966,
+      "nome": "Mudança de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJAM",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJBA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 500,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "criação de unidade judiciária",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 501,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 502,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 503,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Memoriais",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 504,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "proibição de acesso ou frequência a determinados lugares",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 505,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "recolhimento domiciliar no período noturno e nos dias de folga",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 506,
+      "codigo": 14682,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [
+        {
+          "codigo": 42,
+          "nome": "proibição de ausentar da Comarca",
+          "descricao": "tipo_de_medida_cautelar_diversa_da_prisao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 507,
+      "codigo": 10966,
+      "nome": "Mudança de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 508,
+      "codigo": 12149,
+      "nome": "Detração/Remição da Pena",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 509,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução e julgamento",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 510,
+      "codigo": 10953,
+      "nome": "Pronúncia",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 511,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 512,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TJBA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 513,
+      "codigo": 12749,
+      "nome": "de Instrução",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 514,
+      "codigo": 12749,
+      "nome": "de Instrução",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 515,
+      "codigo": 264,
+      "nome": "Suspensão Condicional do Processo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 516,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "admonitária",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 517,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Carta de ordem",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 518,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico em regime hospitalar",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 519,
+      "codigo": 12472,
+      "nome": "Devolução dos autos à origem ",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 520,
+      "codigo": 982,
+      "nome": "Remessa",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 521,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de justificação",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de justificação",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 522,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de justificação",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de justificação",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 523,
+      "codigo": 12148,
+      "nome": "Prisão Domiciliar",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 524,
+      "codigo": 1003,
+      "nome": "Remição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 525,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJAM",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 526,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJAM",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJBA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 527,
+      "codigo": 11878,
+      "nome": "Prescrição",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 528,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de justificação",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "de justificação",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 529,
+      "codigo": 1014,
+      "nome": "Regressão de Regime",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 530,
+      "codigo": 12258,
+      "nome": "Emissão de juízo de retratação pelo Órgão Julgador",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 531,
+      "codigo": 1043,
+      "nome": "Anistia, graça ou indulto",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 532,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 533,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "convertida em diligência",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "para julgamento",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 534,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJBA",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 535,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "sorteio manual",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 536,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Pública",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 537,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Execução / cumprimento de sentença",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 538,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Renúncia de mandato",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 539,
+      "codigo": 1009,
+      "nome": "Trabalho Externo",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 540,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "em grau de recurso",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 541,
+      "codigo": 12207,
+      "nome": "Liminar",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 542,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TRF4",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 543,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJCE",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJSE",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 544,
+      "codigo": 1050,
+      "nome": "Cumprimento da Pena",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 545,
+      "codigo": 15366,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 546,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "erro material",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 547,
+      "codigo": 14232,
+      "nome": "Acolhimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 548,
+      "codigo": 388,
+      "nome": "Aditamento da denúncia",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 549,
+      "codigo": 429,
+      "nome": "Recurso extraordinário",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 550,
+      "codigo": 12753,
+      "nome": "Preliminar",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 551,
+      "codigo": 12422,
+      "nome": "Devolução da carta rogatória ao juízo rogante",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 552,
+      "codigo": 12624,
+      "nome": "Audiência do art. 334 CPC",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Conciliador(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 553,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "erro material",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 554,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJGO",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TJGO",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 555,
+      "codigo": 901,
+      "nome": "Negação de seguimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 556,
+      "codigo": 12204,
+      "nome": "Pedido de Vista",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 557,
+      "codigo": 972,
+      "nome": "Provimento (art. 557 do CPC)",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 558,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "prevenção",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 559,
+      "codigo": 1060,
+      "nome": "Recurso",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 560,
+      "codigo": 402,
+      "nome": "Denúncia",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 561,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "sorteio",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "erro material",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 562,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "Termo/Auto de Penhora",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 563,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Sentença",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 564,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 565,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TRE-RR",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 566,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TRE-RR",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 567,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 568,
+      "codigo": 15223,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 569,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Recurso ordinário",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 570,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "recusa de prevenção/dependência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 571,
+      "codigo": 106,
+      "nome": "Mandado",
+      "complementos": [
+        {
+          "codigo": 6,
+          "nome": "inicial",
+          "descricao": "resultado"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 572,
+      "codigo": 12253,
+      "nome": "Sentença confirmada em parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 573,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "cancelada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "admonitária",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 574,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJAM",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 575,
+      "codigo": 12319,
+      "nome": "Não conhecimento do pedido",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 576,
+      "codigo": 11012,
+      "nome": "Conflito de Competência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 577,
+      "codigo": 446,
+      "nome": "Segurança",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 578,
+      "codigo": 36,
+      "nome": "Redistribuição",
+      "complementos": [
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 2,
+          "nome": "dependência",
+          "descricao": "tipo_de_distribuicao_redistribuicao"
+        },
+        {
+          "codigo": 17,
+          "nome": "recusa de prevenção/dependência",
+          "descricao": "motivo_da_redistribuicao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 579,
+      "codigo": 11554,
+      "nome": "Indulto",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 580,
+      "codigo": 236,
+      "nome": "Negação de Seguimento",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 581,
+      "codigo": 15409,
+      "nome": "",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 582,
+      "codigo": 15493,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 583,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 584,
+      "codigo": 51,
+      "nome": "Conclusão",
+      "complementos": [
+        {
+          "codigo": 3,
+          "nome": "prevenção",
+          "descricao": "tipo_de_conclusao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 585,
+      "codigo": 12750,
+      "nome": "de Instrução e Julgamento",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "não-realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 36,
+          "nome": "Juiz(a)",
+          "descricao": "dirigida_por"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 586,
+      "codigo": 14739,
+      "nome": "Evolução da Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico em regime hospitalar",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 587,
+      "codigo": 12308,
+      "nome": "Substituição/Sucessão da Parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 588,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Comparecimento do agressor a programas de recuperação e reeducação (art. 22",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 589,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Comparecimento do agressor a programas de recuperação e reeducação (art. 22",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 590,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 591,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "TRE-RR",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 592,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TRE-RR",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 593,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "Conferências de Grupos Familiares",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 594,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "outros motivos",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 595,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Requisição de tratamento psiquiátrico em regime hospitalar",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 596,
+      "codigo": 12098,
+      "nome": "Incidente de Resolução de Demandas Repetitivas ",
+      "complementos": [
+        {
+          "codigo": 52,
+          "nome": "conciliação",
+          "descricao": "numero_tema_IRDR"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 597,
+      "codigo": 15589,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 598,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TJPA",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 599,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "suspeição",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "por devolução ao deprecante",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 600,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "TRT1",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 601,
+      "codigo": 12092,
+      "nome": "Afetação ao rito dos recursos repetitivos ",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 602,
+      "codigo": 12453,
+      "nome": "improcedência",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 603,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "designada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 604,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "entregue ao destinatário",
+          "descricao": "classe_anterior"
+        },
+        {
+          "codigo": 27,
+          "nome": "Petição inicial",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 605,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "realizada",
+          "descricao": "situacao_da_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 606,
+      "codigo": 85,
+      "nome": "Petição",
+      "complementos": [
+        {
+          "codigo": 19,
+          "nome": "Incidente de uniformização de jurisprudência",
+          "descricao": "tipo_de_peticao"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 607,
+      "codigo": 12318,
+      "nome": "Reconhecimento de prevenção",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 608,
+      "codigo": 60,
+      "nome": "Expedição de documento",
+      "complementos": [
+        {
+          "codigo": 4,
+          "nome": "Guia de Recolhimento Penal",
+          "descricao": "tipo_de_documento"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 609,
+      "codigo": 442,
+      "nome": "Segurança",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 610,
+      "codigo": 11375,
+      "nome": "Inexistência de bens penhoráveis",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 611,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 26,
+          "nome": "TJRJ",
+          "descricao": "classe_anterior"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 612,
+      "codigo": 14234,
+      "nome": "Acolhimento em Parte",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 613,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "Projeto de sentença",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 614,
+      "codigo": 970,
+      "nome": "Audiência",
+      "complementos": [
+        {
+          "codigo": 16,
+          "nome": "instrução",
+          "descricao": "tipo_de_audiencia"
+        },
+        {
+          "codigo": 15,
+          "nome": "redesignada",
+          "descricao": "situacao_da_audiencia"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 615,
+      "codigo": 11877,
+      "nome": "Absolvição sumária - crimes dolosos contra a vida",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 616,
+      "codigo": 14738,
+      "nome": "Retificação de Classe Processual",
+      "complementos": [
+        {
+          "codigo": 27,
+          "nome": "Restituição de bens indevidamente subtraídos pelo agressor Ã  ofendida (art. 24",
+          "descricao": "classe_nova"
+        }
+      ],
+      "tem_complementos": true
+    },
+    {
+      "id": 617,
+      "codigo": 15426,
+      "nome": null,
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 618,
+      "codigo": 14683,
+      "nome": "Medida Cautelar Diversa da Prisão",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 619,
+      "codigo": 11406,
+      "nome": "Procedência em parte do pedido e improcedência do pedido contraposto",
+      "complementos": [],
+      "tem_complementos": false
+    },
+    {
+      "id": 620,
+      "codigo": 349,
+      "nome": "Assistência Judiciária Gratuita",
       "complementos": [],
       "tem_complementos": false
     }

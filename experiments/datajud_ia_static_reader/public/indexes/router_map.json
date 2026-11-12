@@ -3,23 +3,23 @@
   "particoes": {
     "8.22_2026": {
       "url": "indexes/8.22_2026.json",
-      "total_processos": 12,
-      "tamanho_bytes": 3605
+      "total_processos": 2479,
+      "tamanho_bytes": 745307
     },
     "8.22_2025": {
       "url": "indexes/8.22_2025.json",
-      "total_processos": 1,
-      "tamanho_bytes": 326
+      "total_processos": 156,
+      "tamanho_bytes": 46825
     },
     "8.22_2021": {
       "url": "indexes/8.22_2021.json",
-      "total_processos": 1,
-      "tamanho_bytes": 329
+      "total_processos": 6,
+      "tamanho_bytes": 1814
     },
     "8.22_2024": {
       "url": "indexes/8.22_2024.json",
-      "total_processos": 1,
-      "tamanho_bytes": 321
+      "total_processos": 41,
+      "tamanho_bytes": 12052
     },
     "8.13_2026": {
       "url": "indexes/8.13_2026.json",
@@ -150,6 +150,91 @@
       "url": "indexes/8.26_2012.json",
       "total_processos": 1,
       "tamanho_bytes": 384
+    },
+    "8.21_2025": {
+      "url": "indexes/8.21_2025.json",
+      "total_processos": 1,
+      "tamanho_bytes": 329
+    },
+    "8.22_2022": {
+      "url": "indexes/8.22_2022.json",
+      "total_processos": 6,
+      "tamanho_bytes": 1811
+    },
+    "8.22_2023": {
+      "url": "indexes/8.22_2023.json",
+      "total_processos": 17,
+      "tamanho_bytes": 5060
+    },
+    "8.22_2020": {
+      "url": "indexes/8.22_2020.json",
+      "total_processos": 2,
+      "tamanho_bytes": 639
+    },
+    "8.22_2016": {
+      "url": "indexes/8.22_2016.json",
+      "total_processos": 1,
+      "tamanho_bytes": 328
+    },
+    "8.22_2011": {
+      "url": "indexes/8.22_2011.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
+    },
+    "8.22_2017": {
+      "url": "indexes/8.22_2017.json",
+      "total_processos": 2,
+      "tamanho_bytes": 639
+    },
+    "8.22_2000": {
+      "url": "indexes/8.22_2000.json",
+      "total_processos": 1,
+      "tamanho_bytes": 331
+    },
+    "8.11_2025": {
+      "url": "indexes/8.11_2025.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
+    },
+    "8.22_2018": {
+      "url": "indexes/8.22_2018.json",
+      "total_processos": 1,
+      "tamanho_bytes": 329
+    },
+    "8.22_2015": {
+      "url": "indexes/8.22_2015.json",
+      "total_processos": 1,
+      "tamanho_bytes": 352
+    },
+    "8.22_2019": {
+      "url": "indexes/8.22_2019.json",
+      "total_processos": 1,
+      "tamanho_bytes": 329
+    },
+    "8.04_2023": {
+      "url": "indexes/8.04_2023.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
+    },
+    "8.10_2025": {
+      "url": "indexes/8.10_2025.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
+    },
+    "8.01_2020": {
+      "url": "indexes/8.01_2020.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
+    },
+    "4.01_2025": {
+      "url": "indexes/4.01_2025.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
+    },
+    "8.01_2021": {
+      "url": "indexes/8.01_2021.json",
+      "total_processos": 1,
+      "tamanho_bytes": 330
     }
   }
 }

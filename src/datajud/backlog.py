@@ -236,9 +236,7 @@ class DataJudBacklogStore:
                 )
         return self.list_slices(tribunal_slug)
 
-    def get_slice(
-        self, tribunal: str, ano: int, mes: int, dia: int = 0
-    ) -> BacklogSlice | None:
+    def get_slice(self, tribunal: str, ano: int, mes: int, dia: int = 0) -> BacklogSlice | None:
         with self._get_connection() as conn:
             row = conn.execute(
                 "SELECT * FROM datajud_backlog_slices WHERE tribunal = ? AND ano = ? AND mes = ? AND dia = ?",
