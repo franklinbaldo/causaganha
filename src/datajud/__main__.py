@@ -340,7 +340,8 @@ def backlog_cmd(
     start_year: Annotated[int, Parameter(help="Ano inicial do backlog.")] = 2024,
     end_year: Annotated[int, Parameter(help="Ano final do backlog.")] = 2026,
     slice_by: Annotated[
-        str, Parameter(help="Fatiamento temporal: 'day' (diário), 'month' (mensal) ou 'year' (anual).")
+        str,
+        Parameter(help="Fatiamento temporal: 'day' (diário), 'month' (mensal) ou 'year' (anual)."),
     ] = "day",
     max_slices: Annotated[
         int | None, Parameter(help="Máximo de fatias a processar nesta sessão.")
@@ -365,7 +366,9 @@ def backlog_cmd(
     if status:
         slices = store.list_slices(tribunal)
         if not slices:
-            console.print(f"[yellow]Nenhum backlog registrado para {tribunal.upper()} em {data_dir}.[/yellow]")
+            console.print(
+                f"[yellow]Nenhum backlog registrado para {tribunal.upper()} em {data_dir}.[/yellow]"
+            )
             return 0
 
         table = Table(title=f"Status do Backlog — {tribunal.upper()} ({len(slices)} fatias)")
@@ -388,7 +391,9 @@ def backlog_cmd(
 
         console.print(table)
         total_docs = sum(s.documentos_coletados for s in slices)
-        console.print(f"[bold]Total acumulado:[/bold] [green]{total_docs:,}[/green] processos coletados.")
+        console.print(
+            f"[bold]Total acumulado:[/bold] [green]{total_docs:,}[/green] processos coletados."
+        )
         return 0
 
     ia_key, ia_secret = service.ia_credentials()

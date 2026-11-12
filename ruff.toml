@@ -23,6 +23,8 @@ extend-exclude = [
     "experiments/archive/train_privacy_filter.ipynb",
     "experiments/archive/train_decision_segmenter.py",
     "experiments/archive/train_decision_segmenter.ipynb",
+    "src/datajud/schema/generated_proto",
+    "src/datajud/schema/generated",
 ]
 
 [lint]
