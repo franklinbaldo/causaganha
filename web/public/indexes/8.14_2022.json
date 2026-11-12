@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "08084722420228140000",
+      "shard": "shards/shard_001.zip",
+      "offset": 37122,
+      "length": 627,
+      "tribunal": "STJ",
+      "classe": "Agravo em Recurso Especial",
+      "instancias": [
+        "STJ SUP"
+      ],
+      "compressed_size": 627
+    }
+  ]
+}

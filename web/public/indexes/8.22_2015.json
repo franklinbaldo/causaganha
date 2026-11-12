@@ -1,0 +1,17 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "00027521920158220005",
+      "shard": "shards/shard_001.zip",
+      "offset": 1636915,
+      "length": 1269,
+      "tribunal": "TJRO",
+      "classe": "Ação Penal - Procedimento Ordinário",
+      "instancias": [
+        "TJRO G1"
+      ],
+      "compressed_size": 1269
+    }
+  ]
+}

@@ -1,0 +1,31 @@
+{
+  "total": 2,
+  "processos": [
+    {
+      "cnj": "50055564320248130704",
+      "shard": "shards/shard_001.zip",
+      "offset": 22400,
+      "length": 1542,
+      "tribunal": "TJMG",
+      "classe": "Apelação Cível",
+      "instancias": [
+        "TJMG G2"
+      ],
+      "compressed_size": 1542
+    },
+    {
+      "cnj": "00013115120248130647",
+      "shard": "shards/shard_001.zip",
+      "offset": 48726,
+      "length": 4339,
+      "tribunal": "TJMG",
+      "classe": "Procedimento Especial da Lei Antitóxicos",
+      "instancias": [
+        "STJ SUP",
+        "TJMG G1",
+        "TJMG G2"
+      ],
+      "compressed_size": 4339
+    }
+  ]
+}

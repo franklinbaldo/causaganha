@@ -1,0 +1,18 @@
+{
+  "total": 1,
+  "processos": [
+    {
+      "cnj": "00880585520238160000",
+      "shard": "shards/shard_001.zip",
+      "offset": 47222,
+      "length": 1445,
+      "tribunal": "TJPR",
+      "classe": "Agravo de Instrumento",
+      "instancias": [
+        "STJ SUP",
+        "TJPR G2"
+      ],
+      "compressed_size": 1445
+    }
+  ]
+}
