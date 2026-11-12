@@ -73,7 +73,7 @@ from scripts import reconcile_processos  # noqa: E402 — idem
 from tjro_juris.service import _PARQUET_SCHEMA as _TJRO_JURIS_SCHEMA  # noqa: E402 — idem
 
 
-QUERIES_DIR = ROOT / "web" / "src" / "queries"
+QUERIES_DIR = ROOT / "web" / "queries"
 PUBLIC_DIR = ROOT / "web" / "public"
 MANIFEST_PARQUET_URL = "https://archive.org/download/causaganha-dashboard/sync-manifest.parquet"
 LOCAL_MANIFEST_PARQUET = ROOT / "data" / "sync-manifest.parquet"
