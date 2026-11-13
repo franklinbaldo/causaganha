@@ -1,5 +1,6 @@
 const ALLOWED_METHODS = new Set(["GET", "HEAD"]);
-const ITEM_PATTERN = /^djen-[a-z0-9-]+$/i;
+const ITEM_PATTERN = /^djen-[a-z0-9]+-20[0-9]{2}$/i;
+const INDEX_ITEM_PATTERN = /^causaganha-index-[a-z0-9]+$/i;
 const DOWNLOAD_PATH_PATTERN = /^\/download\/([^/]+)\/([^/]+)$/;
 const UPSTREAM_BASE = "https://archive.org";
 
@@ -24,8 +25,9 @@ export function parseDownloadPath(pathname) {
   if (!match) return null;
 
   const [, item, file] = match;
-  if (!ITEM_PATTERN.test(item)) return null;
-  if (!/\.(?:parquet|zip)$/i.test(file)) return null;
+  const original = ITEM_PATTERN.test(item) && /\\.(?:parquet|zip)$/i.test(file);
+  const index = INDEX_ITEM_PATTERN.test(item) && /^[0-9]{4}_[0-9]{4}\\.zip$/.test(file);
+  if (!original && !index) return null;
 
   return { item, file };
 }
