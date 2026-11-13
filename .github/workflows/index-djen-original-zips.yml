@@ -51,7 +51,7 @@ jobs:
           tribunal = report["tribunal"]
           source_year = report["source_year"]
           for name in report["publish_files"]:
-              if name.startswith("manifest-"):
+              if name == "manifest.json":
                   local = Path("data/djen-cnj-index") / f"{tribunal}_manifest.json"
                   item = f"causaganha-index-control-{tribunal}"
                   remote_name = name
