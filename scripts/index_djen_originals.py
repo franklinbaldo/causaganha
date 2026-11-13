@@ -29,7 +29,7 @@ from causaganha.consolidate.zip_processor import (
 )
 
 ITEM_RE = re.compile(r"^djen-([a-z0-9]+)-(20[0-9]{2})$")
-ZIP_RE = re.compile(r"^djen-(20[0-9]{2}-[0-9]{2}-[0-9]{2})-([A-Z0-9]+)\\.zip$")
+ZIP_RE = re.compile(r"^djen-(20[0-9]{2}-[0-9]{2}-[0-9]{2})-([A-Z0-9]+)\.zip$")
 CNJ_RE = re.compile(r"^[0-9]{20}$")
 INDEX_BASE = "https://archive.org/download/causaganha-djen-original-index"
 
