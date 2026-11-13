@@ -1,6 +1,6 @@
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
-COPY go.mod djen_proxy.go .
+COPY go.mod djen_proxy.go ./
 RUN go build -o djen_proxy .
 
 FROM alpine:latest
