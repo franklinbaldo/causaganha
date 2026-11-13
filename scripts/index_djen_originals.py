@@ -8,8 +8,6 @@ replaceable. Every run processes a bounded set of new/changed original ZIPs.
 from __future__ import annotations
 
 import argparse
-import csv
-import io
 import json
 import re
 import tempfile
@@ -19,6 +17,11 @@ from pathlib import Path
 
 import httpx
 
+from causaganha.consolidate.process_pointer_pb import (
+    decode_index,
+    encode_index,
+    update_datajud,
+)
 from causaganha.consolidate.zip_processor import (
     MAX_DOWNLOAD_BYTES,
     MAX_TOTAL_UNCOMPRESSED_BYTES,
@@ -131,74 +134,96 @@ def extract_locations(
     return dict(rows)
 
 
-def decode_csv(content: bytes) -> list[tuple[str, str, str, str]]:
-    text = content.decode("utf-8")
-    reader = csv.reader(io.StringIO(text, newline=""))
-    header = next(reader, None)
-    if tuple(header or ()) != HEADER:
-        raise ValueError("Unexpected CSV index header")
-    result = []
-    for row in reader:
-        if len(row) != 4:
-            raise ValueError("Malformed CSV index row")
-        result.append(tuple(row))
-    return result
-
-
-def encode_csv(rows: list[tuple[str, str, str, str]]) -> bytes:
-    out = io.StringIO(newline="")
-    writer = csv.writer(out, lineterminator="\n")
-    writer.writerow(HEADER)
-    writer.writerows(sorted(set(rows)))
-    return out.getvalue().encode("utf-8")
-
-
-def load_partition(
-    zip_path: Path, *, court: str = "822"
-) -> dict[str, list[tuple[str, str, str, str]]]:
+def load_partition(zip_path: Path) -> dict[str, dict]:
+    """Read PB members keyed by CNJ reconstructed from the partition."""
     if not zip_path.exists():
         return {}
-    result = {}
+    result: dict[str, dict] = {}
     with zipfile.ZipFile(zip_path) as archive:
         for info in archive.infolist():
-            if not re.fullmatch(r"[0-9]{20}\.csv", info.filename):
+            if not re.fullmatch(r"[0-9]{9}\.pb", info.filename):
                 raise ValueError(f"Unexpected index ZIP member: {info.filename}")
-            result[info.filename[:-4]] = decode_csv(archive.read(info))
+            cnj = expand_cnj_filename(info.filename[:-3] + ".csv", zip_path)
+            if cnj in result:
+                raise ValueError(f"Duplicate CNJ index member: {info.filename}")
+            result[cnj] = decode_index(archive.read(info))
     return result
 
 
-def write_partition(
-    path: Path, data: dict[str, list[tuple[str, str, str, str]]]
-) -> None:
+def write_partition(path: Path, data: dict[str, dict]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     staged = path.with_suffix(".part")
     with zipfile.ZipFile(staged, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-        for cnj in sorted(data):
-            if data[cnj]:
-                if partition_for(cnj) != path.name or cnj[13:16] != "822":
-                    raise ValueError(f"CNJ does not belong in index partition: {cnj}")
-                archive.writestr(short_cnj_filename(cnj), encode_csv(data[cnj]))
+        for cnj, pointer in sorted(data.items()):
+            if partition_for(cnj) != path.name or cnj[13:16] != "822":
+                raise ValueError(f"CNJ does not belong in index partition: {cnj}")
+            pubs = pointer["publicacoes"]
+            snapshots = pointer["datajud"]
+            if pubs or snapshots:
+                name = short_cnj_filename(cnj).removesuffix(".csv") + ".pb"
+                archive.writestr(name, encode_index(pubs, snapshots))
     staged.replace(path)
 
 
+def merge_datajud(
+    partition: dict[str, dict], rows: dict[str, list[dict[str, str]]]
+) -> bool:
+    """Update the latest DataJud pointer per document identity."""
+    changed = False
+    for cnj, incoming in rows.items():
+        current = partition.setdefault(cnj, {"publicacoes": [], "datajud": []})
+        updated = update_datajud(current["datajud"], incoming)
+        if updated != current["datajud"]:
+            current["datajud"] = updated
+            changed = True
+    return changed
+
+
+def load_datajud_locators(path: Path) -> dict[str, list[dict[str, str]]]:
+    """Read explicit per-document DataJud ZIP locators from an optional JSONL feed."""
+    required = {
+        "tribunal", "grau", "documento_id", "item_ia",
+        "arquivo_zip", "membro", "atualizado_em",
+    }
+    records: dict[str, list[dict[str, str]]] = defaultdict(list)
+    with path.open(encoding="utf-8") as stream:
+        for line in stream:
+            if not line.strip():
+                continue
+            entry = json.loads(line)
+            cnj = entry.get("numero_processo")
+            if not isinstance(cnj, str) or not CNJ_RE.fullmatch(cnj):
+                raise ValueError("Invalid DataJud CNJ locator")
+            if not all(isinstance(entry.get(field), str) and entry[field] for field in required):
+                raise ValueError("Incomplete DataJud locator; no implicit item/ZIP guesses")
+            records[cnj].append({field: entry[field] for field in required})
+    return dict(records)
+
+
 def apply_source(
-    partition: dict[str, list[tuple[str, str, str, str]]],
+    partition: dict[str, dict],
     *,
     publication_date: str,
     new_rows: dict[str, list[tuple[str, str, str, str]]],
 ) -> bool:
-    """Replace that publication date (not the process year) in a partition."""
-    before = {cnj: sorted(rows) for cnj, rows in partition.items()}
+    """Replace publications of one source date; preserve DataJud pointers."""
+    changed = False
     for cnj in list(partition):
-        remaining = [row for row in partition[cnj] if row[0] != publication_date]
-        if remaining:
-            partition[cnj] = remaining
-        else:
+        pointer = partition[cnj]
+        old = pointer["publicacoes"]
+        remaining = [row for row in old if row[0] != publication_date]
+        if remaining != old:
+            pointer["publicacoes"] = remaining
+            changed = True
+        if not pointer["publicacoes"] and not pointer["datajud"]:
             del partition[cnj]
     for cnj, rows in new_rows.items():
-        partition.setdefault(cnj, []).extend(rows)
-        partition[cnj] = sorted(set(partition[cnj]))
-    return before != {cnj: sorted(rows) for cnj, rows in partition.items()}
+        current = partition.setdefault(cnj, {"publicacoes": [], "datajud": []})
+        new = sorted(set(current["publicacoes"] + rows))
+        if new != current["publicacoes"]:
+            current["publicacoes"] = new
+            changed = True
+    return changed
 
 
 def download(client: httpx.Client, url: str, target: Path) -> bool:
@@ -217,7 +242,8 @@ def download(client: httpx.Client, url: str, target: Path) -> bool:
 
 
 def run(
-    item: str, output: Path, max_zips: int, *, restore_remote: bool = False
+    item: str, output: Path, max_zips: int, *, restore_remote: bool = False,
+    datajud_locators: Path | None = None,
 ) -> dict:
     match = ITEM_RE.fullmatch(item)
     if not match:
@@ -313,6 +339,19 @@ def run(
                     known_partitions.add(part_name)
             manifest["sources"][filename] = fingerprint
             source_partitions[filename] = sorted(by_partition)
+        # Optional DataJud pointer feed. Preserve independent grau/document identities.
+        datajud_rows = (
+            load_datajud_locators(datajud_locators) if datajud_locators else {}
+        )
+        dj_by_partition: dict[str, dict[str, list[dict[str, str]]]] = defaultdict(dict)
+        for cnj, snapshots in datajud_rows.items():
+            if cnj[13:16] == "822":
+                dj_by_partition[partition_for(cnj)][cnj] = snapshots
+        for part_name, rows in dj_by_partition.items():
+            partition = get_partition(part_name)
+            if merge_datajud(partition, rows):
+                touched.add(part_name)
+                known_partitions.add(part_name)
         counts: dict[str, int] = defaultdict(int)
         for part_name in known_partitions:
             counts[part_name[:4]] += 1
@@ -321,7 +360,7 @@ def run(
         for part_name in sorted(touched):
             write_partition(output / part_name, loaded[part_name])
         processed = min(len(candidates), max_zips)
-        if processed:
+        if processed or touched:
             manifest["partitions"] = sorted(known_partitions)
             staged = manifest_file.with_suffix(".tmp")
             staged.write_text(
@@ -337,7 +376,7 @@ def run(
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
-            "publish_files": sorted(touched) + (["manifest.json"] if processed else []),
+            "publish_files": sorted(touched) + (["manifest.json"] if processed or touched else []),
         }
 
 
@@ -347,6 +386,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("data/djen-cnj-index"))
     parser.add_argument("--max-zips", type=int, default=5)
     parser.add_argument("--restore-remote", action="store_true")
+    parser.add_argument("--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed")
     args = parser.parse_args()
     if args.max_zips < 1:
         parser.error("--max-zips must be positive")
@@ -357,6 +397,7 @@ def main() -> None:
                 args.output,
                 args.max_zips,
                 restore_remote=args.restore_remote,
+                datajud_locators=args.datajud_locators,
             )
         )
     )
