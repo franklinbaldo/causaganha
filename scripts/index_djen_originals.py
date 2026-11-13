@@ -51,7 +51,9 @@ def records_of(data: object) -> list[dict]:
     return []
 
 
-def extract_locations(zip_path: Path, *, item: str, filename: str) -> dict[str, list[dict]]:
+def extract_locations(
+    zip_path: Path, *, item: str, filename: str
+) -> dict[str, list[dict]]:
     """Extract only CNJ-to-member references, with the existing ZIP limits."""
     result: dict[str, list[dict]] = defaultdict(list)
     with zipfile.ZipFile(zip_path) as zf:
@@ -103,7 +105,10 @@ def load_index(path: Path, *, item: str) -> dict:
 
 def save_index(path: Path, index: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    content = json.dumps(index, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n"
+    content = (
+        json.dumps(index, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
+        + "\n"
+    )
     staged = path.with_suffix(".tmp")
     staged.write_text(content, encoding="utf-8")
     staged.replace(path)
@@ -164,7 +169,9 @@ def restore(out_dir: Path, partition: str) -> None:
             future.result()
 
 
-def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False) -> dict:
+def run(
+    item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
+) -> dict:
     match = ITEM_RE.fullmatch(item)
     if not match:
         raise ValueError(f"Invalid IA item ID: {item}")
@@ -194,7 +201,11 @@ def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
                 continue
             name = file_info.get("name", "")
             parsed = ZIP_RE.fullmatch(name)
-            if parsed and parsed.group(2).lower() == tribunal and parsed.group(1).startswith(year):
+            if (
+                parsed
+                and parsed.group(2).lower() == tribunal
+                and parsed.group(1).startswith(year)
+            ):
                 fingerprint = file_info.get("md5") or file_info.get("sha1")
                 # Missing fingerprint is not treated as a stable unchanged source.
                 if not fingerprint or source_fingerprints.get(name) != str(fingerprint):
@@ -213,7 +224,9 @@ def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
                         for chunk in download.iter_bytes():
                             total_bytes += len(chunk)
                             if total_bytes > MAX_DOWNLOAD_BYTES:
-                                raise ZipBudgetExceededError("ZIP download exceeds budget")
+                                raise ZipBudgetExceededError(
+                                    "ZIP download exceeds budget"
+                                )
                             handle.write(chunk)
                 rows = extract_locations(target, item=item, filename=name)
             by_shard: dict[str, dict[str, list[dict]]] = defaultdict(dict)
@@ -236,7 +249,8 @@ def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
             "indexed_zips": changed,
             "pending_zips": max(0, len(candidates) - changed),
             "shards_changed": len(touched),
-            "publish_files": sorted(touched) + ([manifest_file.name] if changed else []),
+            "publish_files": sorted(touched)
+            + ([manifest_file.name] if changed else []),
         }
         return report
 
@@ -244,13 +258,24 @@ def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--item", required=True, help="djen-tjro-2026")
-    parser.add_argument("--output", type=Path, default=Path("web/public/indexes/djen-raw"))
+    parser.add_argument(
+        "--output", type=Path, default=Path("web/public/indexes/djen-raw")
+    )
     parser.add_argument("--max-zips", type=int, default=5)
     parser.add_argument("--restore-remote", action="store_true")
     args = parser.parse_args()
     if args.max_zips < 1:
         parser.error("--max-zips must be >= 1")
-    print(json.dumps(run(args.item, args.output, args.max_zips, restore_remote=args.restore_remote)))
+    print(
+        json.dumps(
+            run(
+                args.item,
+                args.output,
+                args.max_zips,
+                restore_remote=args.restore_remote,
+            )
+        )
+    )
 
 
 if __name__ == "__main__":
