@@ -9,7 +9,6 @@ NOT interpreted as absence of communications.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import re
 import tempfile
