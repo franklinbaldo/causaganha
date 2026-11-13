@@ -16,7 +16,12 @@ from scripts.index_djen_originals import (
 )
 
 CNJ = "70726450920238220001"
-PUB = ("2026-11-09", "TJRO-D-2026-11-09_1.json", "778704990", "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2")
+PUB = (
+    "2026-11-09",
+    "TJRO-D-2026-11-09_1.json",
+    "778704990",
+    "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2",
+)
 
 
 def snapshot(grau, updated="2026-11-09T09:00:00Z"):
@@ -41,7 +46,9 @@ def test_routing_from_cnj_is_filing_year_and_origin():
 
 def test_pointer_zip_roundtrip(tmp_path):
     path = tmp_path / "2023_0001.zip"
-    data = {CNJ: {"publicacoes": [PUB, PUB], "datajud": [snapshot("G1"), snapshot("G2")]}}
+    data = {
+        CNJ: {"publicacoes": [PUB, PUB], "datajud": [snapshot("G1"), snapshot("G2")]}
+    }
     write_partition(path, data)
     with zipfile.ZipFile(path) as archive:
         assert archive.namelist() == ["707264509.pb"]
@@ -55,12 +62,16 @@ def test_djen_updates_do_not_erase_datajud():
     later = ("2026-11-10", "new.json", "778704991", "hash-2")
     assert apply_source(data, publication_date="2026-11-10", new_rows={CNJ: [later]})
     assert data[CNJ]["datajud"] == [snapshot("G1")]
-    assert not apply_source(data, publication_date="2026-11-10", new_rows={CNJ: [later]})
+    assert not apply_source(
+        data, publication_date="2026-11-10", new_rows={CNJ: [later]}
+    )
 
 
 def test_datajud_upserts_by_document_identity():
     data = {CNJ: {"publicacoes": [PUB], "datajud": [snapshot("G1")]}}
-    assert merge_datajud(data, {CNJ: [snapshot("G1", "2026-11-10T00:00:00Z"), snapshot("G2")]})
+    assert merge_datajud(
+        data, {CNJ: [snapshot("G1", "2026-11-10T00:00:00Z"), snapshot("G2")]}
+    )
     assert len(data[CNJ]["datajud"]) == 2
     assert not merge_datajud(data, {CNJ: [snapshot("G1", "2026-11-09T00:00:00Z")]})
 
