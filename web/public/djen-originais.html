@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Publicações originais do DJEN | CausaGanha</title>
+  <style>
+    :root{color-scheme:light dark;font-family:system-ui,sans-serif}
+    body{max-width:880px;margin:2rem auto;padding:0 1rem;line-height:1.5}
+    input{min-width:min(85vw,360px);padding:.65rem;font:inherit}
+    button{padding:.65rem 1rem;font:inherit;cursor:pointer}
+    article{border:1px solid #9996;border-radius:8px;padding:1rem;margin:1rem 0}
+    code{overflow-wrap:anywhere} pre{white-space:pre-wrap;overflow-wrap:anywhere}
+    .muted{opacity:.75}
+  </style>
+</head>
+<body>
+  <p><a href="./">CausaGanha</a> / Fonte primária</p>
+  <h1>Publicações originais do DJEN</h1>
+  <p>Encontre comunicações pelo número CNJ. Os índices são derivados dos ZIPs preservados no Internet Archive; não substituem os arquivos oficiais.</p>
+  <form id="lookup">
+    <label for="cnj">Número CNJ</label><br>
+    <input id="cnj" autocomplete="off" placeholder="7003990-14.2026.8.22.0022" required>
+    <button>Consultar</button>
+  </form>
+  <p id="status" role="status" aria-live="polite"></p>
+  <section id="results" aria-label="Publicações encontradas"></section>
+  <p class="muted">Piloto: TJRO, 2026. A ausência de resultados não significa ausência de publicação: o acervo e a indexação podem estar incompletos.</p>
+  <script type="module">
+    const form = document.querySelector("#lookup");
+    const input = document.querySelector("#cnj");
+    const status = document.querySelector("#status");
+    const results = document.querySelector("#results");
+    const allowed = Object.freeze({"822":"tjro"});
+    const clean = value => value.replace(/\D/g, "");
+    function element(name, text, parent) {
+      const node = document.createElement(name);
+      node.textContent = text;
+      parent.append(node);
+      return node;
+    }
+    function sourceUrl(row) {
+      const base = "https://archive.org/download/";
+      return base + encodeURIComponent(row.item) + "/" + encodeURIComponent(row.zip);
+    }
+    async function showDetails(row, article) {
+      const url = sourceUrl(row) + "/" + row.member.split("/").map(encodeURIComponent).join("/");
+      const output = element("pre", "Consultando arquivo original...", article);
+      try {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const data = await response.json();
+        const records = Array.isArray(data) ? data : Array.isArray(data.items) ? data.items : [data];
+        const found = records.find(r => String(r.id) === String(row.id) && r.hash === row.hash);
+        if (!found) throw new Error("Registro não encontrado no membro indicado");
+        output.textContent = JSON.stringify(found, null, 2);
+      } catch (err) {
+        output.textContent = "Não foi possível ler o membro ZIP pelo navegador (" + err.message +
+          "). Use o link do arquivo original. A leitura individual depende do suporte HTTP/CORS do Internet Archive.";
+      }
+    }
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      results.replaceChildren();
+      const cnj = clean(input.value);
+      if (!/^[0-9]{20}$/.test(cnj)) {
+        status.textContent = "Informe exatamente 20 dígitos CNJ.";
+        return;
+      }
+      const tribunal = allowed[cnj.slice(13,16)];
+      if (!tribunal) {
+        status.textContent = "Tribunal ainda não disponível no índice de ZIPs originais.";
+        return;
+      }
+      const year = cnj.slice(9,13);
+      status.textContent = "Consultando índice remoto...";
+      try {
+        const response = await fetch("indexes/djen-raw/" + tribunal + "_" + year + ".json");
+        if (response.status === 404) {
+          status.textContent = "Esta partição ainda não foi indexada.";
+          return;
+        }
+        if (!response.ok) throw new Error("HTTP " + response.status);
+        const index = await response.json();
+        if (index.version !== 1) throw new Error("Versão do índice desconhecida");
+        const rows = index.processos[cnj] || [];
+        status.textContent = rows.length ? rows.length + " publicação(ões) localizada(s)." :
+          "Nenhuma publicação indexada nesta partição. Isso não confirma ausência no DJEN.";
+        for (const row of rows) {
+          const article = document.createElement("article");
+          results.append(article);
+          element("h2", "Comunicação " + (row.id ?? "sem ID"), article);
+          element("p", "Arquivo: " + row.zip + " / " + row.member, article);
+          element("p", "Hash DJEN: " + (row.hash ?? "não informado"), article);
+          const link = element("a", "Abrir ZIP original no Internet Archive", article);
+          link.href = sourceUrl(row);
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          const button = element("button", "Ler publicação original", article);
+          button.type = "button";
+          button.addEventListener("click", () => { button.disabled = true; showDetails(row, article); });
+        }
+      } catch (err) {
+        status.textContent = "Falha na consulta: " + err.message;
+      }
+    });
+    const initial = new URLSearchParams(location.search).get("cnj");
+    if (initial) { input.value = initial; form.requestSubmit(); }
+  </script>
+</body>
+</html>
