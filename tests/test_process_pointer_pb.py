@@ -8,7 +8,12 @@ from causaganha.consolidate.process_pointer_pb import (
     update_datajud,
 )
 
-PUB = ("2026-11-09", "TJRO-D-2026-11-09_1.json", "778704990", "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2")
+PUB = (
+    "2026-11-09",
+    "TJRO-D-2026-11-09_1.json",
+    "778704990",
+    "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2",
+)
 
 
 def locator(grau, updated="2026-11-09T12:00:00Z"):
