@@ -1,6 +1,7 @@
 """Index ZIPs contain one CSV per CNJ and never duplicate DJEN texts."""
 
 import zipfile
+from pathlib import Path
 
 from scripts.index_djen_originals import (
     apply_source,
@@ -68,4 +69,4 @@ def test_ia_item_per_tribunal_and_filing_year():
 def test_cnj_filename_roundtrip_without_repeating_coordinates():
     cnj = "70726450920238220001"
     assert short_cnj_filename(cnj) == "707264509.csv"
-    assert expand_cnj_filename("707264509.csv", __import__("pathlib").Path("2023_0001.zip")) == cnj
+    assert expand_cnj_filename("707264509.csv", Path("2023_0001.zip")) == cnj
