@@ -1,22 +1,22 @@
 #!/usr/bin/env python3
-"""Build sharded CNJ locators from original DJEN ZIPs preserved on Internet Archive.
+"""Index original DJEN ZIPs as per-process CSVs inside year/forum ZIP partitions.
 
-The index stores only file/member/ID/hash locations; not publication text.
-Shards are stable SHA-256(CNJ) prefixes (256 shards per tribunal/year).
+The original DJEN archives stay immutable in IA. Derived index ZIPs are
+replaceable. Every run processes a bounded set of new/changed original ZIPs.
 """
 
 from __future__ import annotations
 
 import argparse
+import csv
 import hashlib
+import io
 import json
 import re
 import tempfile
 import zipfile
 from collections import defaultdict
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
-from urllib.parse import quote
 
 import httpx
 
@@ -31,33 +31,45 @@ from causaganha.consolidate.zip_processor import (
 ITEM_RE = re.compile(r"^djen-([a-z0-9]+)-(20[0-9]{2})$")
 ZIP_RE = re.compile(r"^djen-(20[0-9]{2}-[0-9]{2}-[0-9]{2})-([A-Z0-9]+)\.zip$")
 CNJ_RE = re.compile(r"^[0-9]{20}$")
-INDEX_BASE = "https://archive.org/download/causaganha-djen-original-index"
+PARTITION_RE = re.compile(r"^([0-9]{4})_([0-9]{4})\.zip$")
+INDEX_BASE = "https://archive.org/download"
+INDEX_PREFIX = "causaganha-index-"
+MAX_PARTITIONS_PER_ITEM = 1000
+HEADER = ("data", "membro", "id", "hash")
 
 
-def shard_for(cnj: str) -> str:
-    """Stable, uniform partition independent of the digits' legal structure."""
-    return hashlib.sha256(cnj.encode("ascii")).hexdigest()[:2]
+def index_item(tribunal: str) -> str:
+    return INDEX_PREFIX + tribunal
 
 
-def records_of(data: object) -> list[dict]:
-    if isinstance(data, list):
-        return [r for r in data if isinstance(r, dict)]
-    if isinstance(data, dict):
-        items = data.get("items")
-        if isinstance(items, list):
-            return [r for r in items if isinstance(r, dict)]
-        if "numero_processo" in data:
-            return [data]
+def partition_for(cnj: str) -> str:
+    if not CNJ_RE.fullmatch(cnj):
+        raise ValueError(f"Invalid CNJ: {cnj!r}")
+    return f"{cnj[9:13]}_{cnj[16:20]}.zip"
+
+
+def records_of(value: object) -> list[dict]:
+    if isinstance(value, list):
+        return [row for row in value if isinstance(row, dict)]
+    if isinstance(value, dict):
+        if isinstance(value.get("items"), list):
+            return [row for row in value["items"] if isinstance(row, dict)]
+        if "numero_processo" in value:
+            return [value]
     return []
 
 
 def extract_locations(
-    zip_path: Path, *, item: str, filename: str
-) -> dict[str, list[dict]]:
-    """Extract only CNJ-to-member references, with the existing ZIP limits."""
-    result: dict[str, list[dict]] = defaultdict(list)
-    with zipfile.ZipFile(zip_path) as zf:
-        infos = zf.infolist()
+    zip_path: Path, *, filename: str
+) -> dict[str, list[tuple[str, str, str, str]]]:
+    """Return CNJ -> (publication date, JSON member, ID, DJEN hash)."""
+    match = ZIP_RE.fullmatch(filename)
+    if not match:
+        raise ValueError(f"Unexpected DJEN file name: {filename}")
+    publication_date = match.group(1)
+    rows: dict[str, list[tuple[str, str, str, str]]] = defaultdict(list)
+    with zipfile.ZipFile(zip_path) as archive:
+        infos = archive.infolist()
         if len(infos) > MAX_ZIP_MEMBERS:
             raise ZipBudgetExceededError("Too many ZIP members")
         total = 0
@@ -68,212 +80,221 @@ def extract_locations(
             total += info.file_size
             if total > MAX_TOTAL_UNCOMPRESSED_BYTES:
                 raise ZipBudgetExceededError("ZIP cumulative size exceeded")
-            with zf.open(info) as stream:
-                data = json.load(stream)
-            for record in records_of(data):
+            with archive.open(info) as stream:
+                contents = json.load(stream)
+            for record in records_of(contents):
                 cnj = str(record.get("numero_processo") or "")
                 if not CNJ_RE.fullmatch(cnj):
                     continue
-                result[cnj].append(
-                    {
-                        "item": item,
-                        "zip": filename,
-                        "member": info.filename,
-                        "id": record.get("id"),
-                        "hash": record.get("hash"),
-                    }
+                record_id = record.get("id")
+                record_hash = record.get("hash")
+                if record_id is None or not isinstance(record_hash, str) or not record_hash:
+                    raise ValueError(f"Missing DJEN identity for CNJ {cnj}")
+                rows[cnj].append(
+                    (publication_date, info.filename, str(record_id), record_hash)
                 )
-    return dict(result)
+    return dict(rows)
 
 
-def manifest_path(out_dir: Path, partition: str) -> Path:
-    return out_dir / f"{partition}_manifest.json"
+def decode_csv(content: bytes) -> list[tuple[str, str, str, str]]:
+    text = content.decode("utf-8")
+    reader = csv.reader(io.StringIO(text, newline=""))
+    header = next(reader, None)
+    if tuple(header or ()) != HEADER:
+        raise ValueError("Unexpected CSV index header")
+    result = []
+    for row in reader:
+        if len(row) != 4:
+            raise ValueError("Malformed CSV index row")
+        result.append(tuple(row))
+    return result
 
 
-def shard_path(out_dir: Path, partition: str, shard: str) -> Path:
-    return out_dir / f"{partition}_{shard}.json"
+def encode_csv(rows: list[tuple[str, str, str, str]]) -> bytes:
+    out = io.StringIO(newline="")
+    writer = csv.writer(out, lineterminator="\n")
+    writer.writerow(HEADER)
+    writer.writerows(sorted(set(rows)))
+    return out.getvalue().encode("utf-8")
 
 
-def load_index(path: Path, *, item: str) -> dict:
-    if not path.exists():
-        return {"version": 2, "item": item, "processos": {}}
-    doc = json.loads(path.read_text(encoding="utf-8"))
-    if doc.get("version") != 2 or doc.get("item") != item:
-        raise ValueError(f"Incompatible index in {path}")
-    return doc
+def load_partition(zip_path: Path) -> dict[str, list[tuple[str, str, str, str]]]:
+    if not zip_path.exists():
+        return {}
+    result = {}
+    with zipfile.ZipFile(zip_path) as archive:
+        for info in archive.infolist():
+            if not re.fullmatch(r"[0-9]{20}\.csv", info.filename):
+                raise ValueError(f"Unexpected index ZIP member: {info.filename}")
+            result[info.filename[:-4]] = decode_csv(archive.read(info))
+    return result
 
 
-def save_index(path: Path, index: dict) -> None:
+def write_partition(
+    path: Path, data: dict[str, list[tuple[str, str, str, str]]]
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
-    content = (
-        json.dumps(index, ensure_ascii=False, separators=(",", ":"), sort_keys=True)
-        + "\n"
-    )
-    staged = path.with_suffix(".tmp")
-    staged.write_text(content, encoding="utf-8")
+    staged = path.with_suffix(".part")
+    with zipfile.ZipFile(staged, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+        for cnj in sorted(data):
+            if data[cnj]:
+                archive.writestr(f"{cnj}.csv", encode_csv(data[cnj]))
     staged.replace(path)
 
 
-def merge_zip(index: dict, *, filename: str, rows: dict[str, list[dict]]) -> bool:
-    """Idempotently replace all entries for one source in one shard."""
-    items = index["processos"]
-    old = {cnj: list(entries) for cnj, entries in items.items()}
-    for cnj in list(items):
-        remaining = [entry for entry in items[cnj] if entry["zip"] != filename]
+def apply_source(
+    partition: dict[str, list[tuple[str, str, str, str]]],
+    *,
+    publication_date: str,
+    new_rows: dict[str, list[tuple[str, str, str, str]]],
+) -> bool:
+    """Replace that publication date (not the process year) in a partition."""
+    before = {cnj: sorted(rows) for cnj, rows in partition.items()}
+    for cnj in list(partition):
+        remaining = [row for row in partition[cnj] if row[0] != publication_date]
         if remaining:
-            items[cnj] = remaining
+            partition[cnj] = remaining
         else:
-            del items[cnj]
-    for cnj, entries in rows.items():
-        items.setdefault(cnj, []).extend(entries)
-    for entries in items.values():
-        entries.sort(key=lambda r: (r["zip"], r["member"], str(r["id"])))
-    return old != items
+            del partition[cnj]
+    for cnj, rows in new_rows.items():
+        partition.setdefault(cnj, []).extend(rows)
+        partition[cnj] = sorted(set(partition[cnj]))
+    return before != {cnj: sorted(rows) for cnj, rows in partition.items()}
 
 
-def read_remote(url: str, target: Path, *, required: bool = False) -> bool:
-    """Restore a shard; a missing previously published file is an error."""
-    with httpx.Client(timeout=60, follow_redirects=True) as client:
-        response = client.get(url)
+def download(client: httpx.Client, url: str, target: Path) -> bool:
+    with client.stream("GET", url) as response:
         if response.status_code == 404:
-            if required:
-                raise FileNotFoundError(f"Published index is missing: {url}")
             return False
         response.raise_for_status()
-        target.write_bytes(response.content)
-        return True
-
-
-def restore(out_dir: Path, partition: str) -> None:
-    """Restore the manifest and only its declared nonempty shards."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    manifest_name = f"{partition}_manifest.json"
-    manifest_file = out_dir / manifest_name
-    if not read_remote(f"{INDEX_BASE}/{manifest_name}", manifest_file):
-        return
-    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-    shards = manifest.get("shards")
-    if not isinstance(shards, list):
-        raise ValueError("Published manifest missing shard list")
-    with ThreadPoolExecutor(max_workers=12) as pool:
-        futures = [
-            pool.submit(
-                read_remote,
-                f"{INDEX_BASE}/{partition}_{shard}.json",
-                shard_path(out_dir, partition, shard),
-                required=True,
-            )
-            for shard in shards
-        ]
-        for future in as_completed(futures):
-            future.result()
+        size = 0
+        with target.open("wb") as handle:
+            for chunk in response.iter_bytes():
+                size += len(chunk)
+                if size > MAX_DOWNLOAD_BYTES:
+                    raise ZipBudgetExceededError(f"Download exceeds budget: {url}")
+                handle.write(chunk)
+    return True
 
 
 def run(
-    item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
+    item: str, output: Path, max_zips: int, *, restore_remote: bool = False
 ) -> dict:
     match = ITEM_RE.fullmatch(item)
     if not match:
-        raise ValueError(f"Invalid IA item ID: {item}")
+        raise ValueError("Invalid DJEN tribunal/year item")
     tribunal, year = match.groups()
-    partition = f"{tribunal}_{year}"
-    if restore_remote:
-        restore(out_dir, partition)
-    manifest_file = manifest_path(out_dir, partition)
-    if manifest_file.exists():
-        manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
-    else:
-        manifest = {"version": 2, "item": item, "sources": {}, "shards": []}
-    if manifest.get("version") != 2 or manifest.get("item") != item:
-        raise ValueError("Incompatible source manifest")
-    source_fingerprints = manifest["sources"]
-    known_shards = set(manifest["shards"])
+    target_item = index_item(tribunal)
+    output.mkdir(parents=True, exist_ok=True)
+    manifest_file = output / f"{tribunal}_manifest.json"
     with httpx.Client(timeout=120, follow_redirects=True) as client:
+        if restore_remote:
+            download(client, f"{INDEX_BASE}/{target_item}/manifest.json", manifest_file)
+        manifest = (
+            json.loads(manifest_file.read_text(encoding="utf-8"))
+            if manifest_file.exists()
+            else {"version": 3, "tribunal": tribunal, "sources": {}, "partitions": []}
+        )
+        if manifest.get("version") != 3 or manifest.get("tribunal") != tribunal:
+            raise ValueError("Incompatible index manifest")
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
-        remote = response.json()
-        files = remote.get("result", remote)
+        listing = response.json()
+        files = listing.get("result", listing)
         if not isinstance(files, list):
-            raise ValueError("Unexpected IA files response")
+            raise ValueError("Unexpected IA file listing")
         candidates = []
-        for file_info in files:
-            if not isinstance(file_info, dict):
+        for info in files:
+            if not isinstance(info, dict):
                 continue
-            name = file_info.get("name", "")
-            parsed = ZIP_RE.fullmatch(name)
-            if (
-                parsed
-                and parsed.group(2).lower() == tribunal
-                and parsed.group(1).startswith(year)
-            ):
-                fingerprint = file_info.get("md5") or file_info.get("sha1")
-                # Missing fingerprint is not treated as a stable unchanged source.
-                if not fingerprint or source_fingerprints.get(name) != str(fingerprint):
-                    candidates.append((name, str(fingerprint or "unknown")))
+            filename = str(info.get("name", ""))
+            parsed = ZIP_RE.fullmatch(filename)
+            if not parsed or parsed.group(2).lower() != tribunal:
+                continue
+            if not parsed.group(1).startswith(year):
+                continue
+            fingerprint = info.get("sha1") or info.get("md5")
+            # Unknown fingerprint is intentionally always rechecked.
+            if not fingerprint or manifest["sources"].get(filename) != fingerprint:
+                candidates.append((filename, fingerprint))
         candidates.sort(reverse=True)
+        loaded: dict[str, dict] = {}
         touched: set[str] = set()
-        changed = 0
-        for name, fingerprint in candidates[:max_zips]:
-            url = f"https://archive.org/download/{quote(item)}/{quote(name)}"
-            with tempfile.TemporaryDirectory() as temp_dir:
-                target = Path(temp_dir) / name
-                with client.stream("GET", url) as download:
-                    download.raise_for_status()
-                    total_bytes = 0
-                    with target.open("wb") as handle:
-                        for chunk in download.iter_bytes():
-                            total_bytes += len(chunk)
-                            if total_bytes > MAX_DOWNLOAD_BYTES:
-                                raise ZipBudgetExceededError(
-                                    "ZIP download exceeds budget"
-                                )
-                            handle.write(chunk)
-                rows = extract_locations(target, item=item, filename=name)
-            by_shard: dict[str, dict[str, list[dict]]] = defaultdict(dict)
-            for cnj, entries in rows.items():
-                by_shard[shard_for(cnj)][cnj] = entries
-            # Changed ZIP may have old records in any shard: update all shards.
-            for shard in (f"{i:02x}" for i in range(256)):
-                path = shard_path(out_dir, partition, shard)
-                index = load_index(path, item=item)
-                if merge_zip(index, filename=name, rows=by_shard.get(shard, {})):
-                    save_index(path, index)
-                    touched.add(path.name)
-                    known_shards.add(shard)
-            source_fingerprints[name] = fingerprint
-            changed += 1
-        if changed:
-            save_index(manifest_file, manifest)
-        report = {
-            "item": item,
-            "indexed_zips": changed,
-            "pending_zips": max(0, len(candidates) - changed),
-            "shards_changed": len(touched),
-            "publish_files": sorted(touched)
-            + ([manifest_file.name] if changed else []),
+        known_partitions = set(manifest["partitions"])
+
+        def get_partition(partition_name: str) -> dict:
+            if partition_name not in loaded:
+                path = output / partition_name
+                if restore_remote and partition_name in known_partitions:
+                    if not download(
+                        client, f"{INDEX_BASE}/{target_item}/{partition_name}", path
+                    ):
+                        raise FileNotFoundError(f"Missing indexed partition {path}")
+                loaded[partition_name] = load_partition(path)
+            return loaded[partition_name]
+
+        for filename, fingerprint in candidates[:max_zips]:
+            with tempfile.TemporaryDirectory() as directory:
+                original = Path(directory) / filename
+                if not download(
+                    client, f"{INDEX_BASE}/{item}/{filename}", original
+                ):
+                    raise FileNotFoundError(f"Original ZIP disappeared: {filename}")
+                records = extract_locations(original, filename=filename)
+            by_partition: dict[str, dict[str, list[tuple[str, str, str, str]]]] = (
+                defaultdict(dict)
+            )
+            for cnj, rows in records.items():
+                by_partition[partition_for(cnj)][cnj] = rows
+            publication_date = ZIP_RE.fullmatch(filename).group(1)
+            # A changed original may have removed processes in any old partition.
+            # Iterate every known partition plus all partitions in the new source.
+            for part_name in sorted(known_partitions | set(by_partition)):
+                data = get_partition(part_name)
+                if apply_source(
+                    data,
+                    publication_date=publication_date,
+                    new_rows=by_partition.get(part_name, {}),
+                ):
+                    touched.add(part_name)
+                if data:
+                    known_partitions.add(part_name)
+            manifest["sources"][filename] = fingerprint
+        if len(known_partitions) > MAX_PARTITIONS_PER_ITEM:
+            raise ValueError("IA index item exceeds 1000-partition policy")
+        for part_name in sorted(touched):
+            write_partition(output / part_name, loaded[part_name])
+        processed = min(len(candidates), max_zips)
+        if processed:
+            manifest["partitions"] = sorted(known_partitions)
+            staged = manifest_file.with_suffix(".tmp")
+            staged.write_text(
+                json.dumps(manifest, ensure_ascii=False, sort_keys=True),
+                encoding="utf-8",
+            )
+            staged.replace(manifest_file)
+        return {
+            "source_item": item,
+            "index_item": target_item,
+            "indexed_zips": processed,
+            "pending_zips": max(0, len(candidates) - processed),
+            "changed_partitions": len(touched),
+            "publish_files": sorted(touched) + (["manifest.json"] if processed else []),
         }
-        return report
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--item", required=True, help="djen-tjro-2026")
-    parser.add_argument(
-        "--output", type=Path, default=Path("web/public/indexes/djen-raw")
-    )
+    parser.add_argument("--item", default="djen-tjro-2026")
+    parser.add_argument("--output", type=Path, default=Path("data/djen-cnj-index"))
     parser.add_argument("--max-zips", type=int, default=5)
     parser.add_argument("--restore-remote", action="store_true")
     args = parser.parse_args()
     if args.max_zips < 1:
-        parser.error("--max-zips must be >= 1")
+        parser.error("--max-zips must be positive")
     print(
         json.dumps(
-            run(
-                args.item,
-                args.output,
-                args.max_zips,
-                restore_remote=args.restore_remote,
-            )
+            run(args.item, args.output, args.max_zips, restore_remote=args.restore_remote)
         )
     )
 
