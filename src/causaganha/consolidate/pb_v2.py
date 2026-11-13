@@ -146,8 +146,10 @@ def _encode_int(field_num: int, v: int | None) -> bytes:
     return _encode_tag(field_num, 0) + encode_varint(int(v))
 
 
-def _encode_bytes_field(field_num: int, b: bytes) -> bytes:
-    if not b:
+def _encode_bytes_field(field_num: int, b: bytes | None, *, allow_empty: bool = False) -> bytes:
+    if b is None:
+        return b""
+    if not b and not allow_empty:
         return b""
     return _encode_tag(field_num, 2) + encode_varint(len(b)) + b
 
@@ -269,8 +271,8 @@ class BatchDict:
         self.str_to_id: dict[str, int] = {}
         self.link_prefixes: list[str] = []
         self.prefix_to_id: dict[str, int] = {}
-        self.advogados: list[tuple[int, str, str, str]] = []
-        self.adv_to_id: dict[tuple[int, str, str, str], int] = {}
+        self.advogados: list[tuple[int | None, str | None, str | None, str | None]] = []
+        self.adv_to_id: dict[tuple[int, str | None, str | None, str | None], int] = {}
         self.vocab: list[str] = []
         self.hash_templates: list[str] = []
 
@@ -295,16 +297,19 @@ class BatchDict:
         return idx
 
     def intern_adv(self, adv: dict) -> int:
+        adv_id = int(adv["id"]) if adv.get("id") is not None else None
         key = (
-            int(adv["id"]),
-            adv.get("nome") or "",
-            adv.get("numero_oab") or "",
-            adv.get("uf_oab") or "",
+            adv_id if adv_id is not None else -1,
+            adv.get("nome"),
+            adv.get("numero_oab"),
+            adv.get("uf_oab"),
         )
         idx = self.adv_to_id.get(key)
         if idx is None:
             idx = len(self.advogados) + 1
-            self.advogados.append(key)
+            self.advogados.append(
+                (adv_id, adv.get("nome"), adv.get("numero_oab"), adv.get("uf_oab"))
+            )
             self.adv_to_id[key] = idx
         return idx
 
@@ -315,13 +320,16 @@ class BatchDict:
         for p in self.link_prefixes:
             parts.append(_encode_str(2, p))
         for adv_id, nome, oab, uf in self.advogados:
-            inner = (
-                _encode_int(1, adv_id)
-                + _encode_str(2, nome)
-                + _encode_str(3, oab)
-                + _encode_str(4, uf)
-            )
-            parts.append(_encode_bytes_field(3, inner))
+            inner: list[bytes] = []
+            if adv_id is not None and adv_id >= 0:
+                inner.append(_encode_int(1, adv_id))
+            if nome is not None:
+                inner.append(_encode_str(2, nome))
+            if oab is not None:
+                inner.append(_encode_str(3, oab))
+            if uf is not None:
+                inner.append(_encode_str(4, uf))
+            parts.append(_encode_bytes_field(3, b"".join(inner), allow_empty=True))
         for tok in self.vocab:
             parts.append(_encode_str(4, tok))
         for tmpl in self.hash_templates:
@@ -341,8 +349,8 @@ class BatchDict:
                 bd.link_prefixes.append(p)
                 bd.prefix_to_id[p] = len(bd.link_prefixes)
             elif fnum == 3:
-                adv_id = 0
-                nome = oab = uf = ""
+                adv_id = None
+                nome = oab = uf = None
                 for af, _, av in _iter_pb_fields(val):
                     if af == 1:
                         adv_id = av
@@ -352,8 +360,8 @@ class BatchDict:
                         oab = av.decode("utf-8")
                     elif af == 4:
                         uf = av.decode("utf-8")
-                key = (adv_id, nome, oab, uf)
-                bd.advogados.append(key)
+                key = (adv_id if adv_id is not None else -1, nome, oab, uf)
+                bd.advogados.append((adv_id, nome, oab, uf))
                 bd.adv_to_id[key] = len(bd.advogados)
             elif fnum == 4:
                 bd.vocab.append(val.decode("utf-8"))
@@ -397,7 +405,7 @@ def encode_item_pb(item: dict, bd: BatchDict, vocab_map: dict[str, int]) -> byte
 
     txt = item.get("texto")
     if txt is not None:
-        parts.append(_encode_bytes_field(12, tokenize_text(txt, vocab_map)))
+        parts.append(_encode_bytes_field(12, tokenize_text(txt, vocab_map), allow_empty=True))
 
     cnj = item.get("numero_processo")
     if cnj and len(cnj) == 20 and cnj.isdigit():
@@ -434,40 +442,66 @@ def encode_item_pb(item: dict, bd: BatchDict, vocab_map: dict[str, int]) -> byte
             inner.append(_encode_str(1, d["nome"]))
         if d.get("polo") is not None:
             inner.append(_encode_str(2, d["polo"]))
-        if d.get("comunicacao_id") != cid:
-            inner.append(_encode_int(3, d.get("comunicacao_id")))
-        parts.append(_encode_bytes_field(25, b"".join(inner)))
+        d_cid = d.get("comunicacao_id")
+        if d_cid != cid:
+            if d_cid is None:
+                inner.append(_encode_int(4, 1))
+            else:
+                inner.append(_encode_int(3, d_cid))
+        parts.append(_encode_bytes_field(25, b"".join(inner), allow_empty=True))
 
     for da in item.get("destinatarioadvogados") or []:
-        inner = [_encode_int(1, da.get("id"))]
-        if da.get("comunicacao_id") != cid:
-            inner.append(_encode_int(2, da.get("comunicacao_id")))
+        inner = []
+        if da.get("id") is not None:
+            inner.append(_encode_int(1, da["id"]))
+        da_cid = da.get("comunicacao_id")
+        if da_cid != cid:
+            if da_cid is None:
+                inner.append(_encode_int(11, 1))
+            else:
+                inner.append(_encode_int(2, da_cid))
+
         adv = da.get("advogado")
         if adv is not None:
             adv_idx = bd.intern_adv(adv)
             inner.append(_encode_int(3, adv_idx))
-            if da.get("advogado_id") != adv.get("id"):
-                inner.append(_encode_int(4, da.get("advogado_id")))
+            adv_id = adv.get("id")
+            da_adv_id = da.get("advogado_id")
+            if da_adv_id != adv_id:
+                if da_adv_id is None:
+                    inner.append(_encode_int(12, 1))
+                else:
+                    inner.append(_encode_int(4, da_adv_id))
         elif da.get("advogado_id") is not None:
-            inner.append(_encode_int(4, da.get("advogado_id")))
+            inner.append(_encode_int(4, da["advogado_id"]))
 
         ca = da.get("created_at")
         ua = da.get("updated_at")
         ca_ts = _parse_ts(ca)
         if ca_ts is not None:
-            inner.append(_encode_int(5, ca_ts))
-            if ua != ca:
-                ua_ts = _parse_ts(ua)
-                if ua_ts is not None:
-                    inner.append(_encode_int(6, ua_ts))
-                elif ua is not None:
-                    inner.append(_encode_str(8, ua))
+            if ua == ca:
+                inner.append(_encode_int(5, ca_ts))
+            else:
+                inner.append(_encode_int(6, ca_ts))
+                if ua is not None:
+                    ua_ts = _parse_ts(ua)
+                    if ua_ts is not None:
+                        inner.append(_encode_int(8, ua_ts))
+                    else:
+                        inner.append(_encode_str(9, ua))
         else:
             if ca is not None:
                 inner.append(_encode_str(7, ca))
             if ua is not None:
-                inner.append(_encode_str(8, ua))
-        parts.append(_encode_bytes_field(26, b"".join(inner)))
+                if ua == ca:
+                    inner.append(_encode_int(10, 1))
+                else:
+                    ua_ts = _parse_ts(ua)
+                    if ua_ts is not None:
+                        inner.append(_encode_int(8, ua_ts))
+                    else:
+                        inner.append(_encode_str(9, ua))
+        parts.append(_encode_bytes_field(26, b"".join(inner), allow_empty=True))
 
     return b"".join(parts)
 
@@ -480,7 +514,7 @@ def decode_item_pb(data: bytes, item_hash: str, bd: BatchDict) -> dict:
         "siglaTribunal": None,
         "tipoComunicacao": None,
         "nomeOrgao": None,
-        "texto": "",
+        "texto": None,
         "numero_processo": None,
         "meio": None,
         "link": None,
@@ -527,7 +561,7 @@ def decode_item_pb(data: bytes, item_hash: str, bd: BatchDict) -> dict:
         elif fnum == 11:
             out["status"] = bd.strings[val - 1] if val else None
         elif fnum == 12:
-            out["texto"] = detokenize_text(val, bd.vocab)
+            out["texto"] = detokenize_text(val, bd.vocab) if val else ""
         elif fnum == 13:
             seq = dv = ano = jt = orig = 0
             for cf, _, cv in _iter_pb_fields(val):
@@ -571,6 +605,8 @@ def decode_item_pb(data: bytes, item_hash: str, bd: BatchDict) -> dict:
                     d["polo"] = dv.decode("utf-8")
                 elif df == 3:
                     d["comunicacao_id"] = dv
+                elif df == 4:
+                    d["comunicacao_id"] = None
             out["destinatarios"].append(d)
         elif fnum == 26:
             da: dict = {
@@ -581,6 +617,8 @@ def decode_item_pb(data: bytes, item_hash: str, bd: BatchDict) -> dict:
                 "updated_at": None,
                 "advogado": None,
             }
+            adv_id_from_adv = None
+            adv_id_explicit = False
             for af, _, av in _iter_pb_fields(val):
                 if af == 1:
                     da["id"] = av
@@ -594,21 +632,33 @@ def decode_item_pb(data: bytes, item_hash: str, bd: BatchDict) -> dict:
                         "numero_oab": oab,
                         "uf_oab": uf,
                     }
-                    if da["advogado_id"] is None:
-                        da["advogado_id"] = adv_id
+                    adv_id_from_adv = adv_id
                 elif af == 4:
                     da["advogado_id"] = av
+                    adv_id_explicit = True
                 elif af == 5:
                     ts = _fmt_ts(av)
                     da["created_at"] = ts
-                    if da["updated_at"] is None:
-                        da["updated_at"] = ts
+                    da["updated_at"] = ts
                 elif af == 6:
-                    da["updated_at"] = _fmt_ts(av)
+                    da["created_at"] = _fmt_ts(av)
                 elif af == 7:
                     da["created_at"] = av.decode("utf-8")
                 elif af == 8:
+                    da["updated_at"] = _fmt_ts(av)
+                elif af == 9:
                     da["updated_at"] = av.decode("utf-8")
+                elif af == 10:
+                    da["updated_at"] = da["created_at"]
+                elif af == 11:
+                    da["comunicacao_id"] = None
+                elif af == 12:
+                    da["advogado_id"] = None
+                    adv_id_explicit = True
+
+            if not adv_id_explicit and adv_id_from_adv is not None:
+                da["advogado_id"] = adv_id_from_adv
+
             out["destinatarioadvogados"].append(da)
 
     if link_suff is not None or link_pref_id:
@@ -637,12 +687,26 @@ def encode_records_to_pb_zip_bytes(
     vocab_map = {tok: i + 1 for i, tok in enumerate(bd.vocab)}
 
     pb_map: dict[str, bytes] = {}
+    seen_hashes: dict[str, dict] = {}
+    hashes: list[str] = []
     for it in records:
         h = it.get("hash")
         if not h:
             msg = f"Record id={it.get('id')} is missing required DJEN 'hash'"
             raise ValueError(msg)
+        if h in seen_hashes:
+            prev = seen_hashes[h]
+            if prev != it:
+                msg = f"Conflicting duplicate record detected for hash '{h}' (id={prev.get('id')} vs id={it.get('id')})"
+                raise ValueError(msg)
+            msg = f"Duplicate record detected for hash '{h}'"
+            raise ValueError(msg)
+        seen_hashes[h] = it
+        hashes.append(h)
         pb_map[h] = encode_item_pb(it, bd, vocab_map)
+
+    hash_codec = TemplateHashCodec.train(hashes)
+    bd.hash_templates = list(hash_codec.templates)
 
     dict_pb = bd.to_pb()
     buf = io.BytesIO()
@@ -745,3 +809,48 @@ def convert_djen_zip_to_pb_zip(
         "src_bytes": src_zip.stat().st_size,
         "dst_bytes": len(out_bytes),
     }
+
+
+def build_secondary_hash_index(
+    hashes: list[str],
+    *,
+    templates: list[str] | None = None,
+) -> bytes:
+    """Build a compact protobuf binary secondary index for a list of DJEN hashes."""
+    if templates is None:
+        codec = TemplateHashCodec.train(hashes)
+    else:
+        codec = TemplateHashCodec(templates=templates)
+
+    parts: list[bytes] = []
+    for tmpl in codec.templates:
+        parts.append(_encode_str(1, tmpl))
+
+    for h in hashes:
+        tid, payload = codec.encode(h)
+        entry = _encode_int(1, tid) + _encode_str(2, payload)
+        parts.append(_encode_bytes_field(2, entry, allow_empty=True))
+
+    return b"".join(parts)
+
+
+def read_secondary_hash_index(data: bytes) -> list[str]:
+    """Decode a protobuf binary secondary index back into the list of original hashes."""
+    templates: list[str] = []
+    entries: list[tuple[int, str]] = []
+
+    for fnum, _, val in _iter_pb_fields(data):
+        if fnum == 1:
+            templates.append(val.decode("utf-8"))
+        elif fnum == 2:
+            tid = 0
+            payload = ""
+            for ef, _, ev in _iter_pb_fields(val):
+                if ef == 1:
+                    tid = ev
+                elif ef == 2:
+                    payload = ev.decode("utf-8")
+            entries.append((tid, payload))
+
+    codec = TemplateHashCodec(templates=templates)
+    return [codec.decode(tid, payload) for tid, payload in entries]

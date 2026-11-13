@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 import json
 import zipfile
 from pathlib import Path
@@ -9,10 +10,13 @@ from pathlib import Path
 import pytest
 
 from causaganha.consolidate.pb_v2 import (
+    BatchDict,
     TemplateHashCodec,
+    build_secondary_hash_index,
     convert_djen_zip_to_pb_zip,
     decode_pb_zip_bytes,
     encode_records_to_pb_zip_bytes,
+    read_secondary_hash_index,
 )
 
 
@@ -137,3 +141,178 @@ def test_template_hash_codec_lossless() -> None:
         tid, var_payload = codec.encode(h)
         reconstructed = codec.decode(tid, var_payload)
         assert reconstructed == h
+
+
+def test_edge_cases_integrity() -> None:
+    records = [
+        {
+            "id": 1,
+            "hash": "H11111111111111111111111111111",
+            "data_disponibilizacao": None,
+            "siglaTribunal": None,
+            "tipoComunicacao": None,
+            "nomeOrgao": None,
+            "texto": None,  # Explicit None vs ""
+            "numero_processo": None,
+            "meio": None,
+            "link": None,
+            "tipoDocumento": None,
+            "nomeClasse": None,
+            "codigoClasse": None,
+            "numeroComunicacao": 1,
+            "ativo": None,  # Explicit None vs False
+            "status": None,
+            "motivo_cancelamento": None,
+            "data_cancelamento": None,
+            "datadisponibilizacao": None,
+            "dataenvio": None,
+            "destinatarios": [
+                {},  # Empty recipient dict
+                {"nome": None, "polo": None, "comunicacao_id": 1},
+                {"nome": "", "polo": "", "comunicacao_id": None},
+            ],
+            "destinatarioadvogados": [
+                {
+                    "id": 101,
+                    "comunicacao_id": 1,
+                    "advogado_id": 501,
+                    "created_at": "2026-11-09 10:00:00",
+                    "updated_at": None,  # Must stay None!
+                    "advogado": None,
+                },
+                {
+                    "id": 102,
+                    "comunicacao_id": 1,
+                    "advogado_id": 502,
+                    "created_at": "2026-11-09 10:00:00",
+                    "updated_at": "2026-11-09 10:00:00",  # Shared ts
+                    "advogado": {
+                        "id": 502,
+                        "nome": "",  # Empty string
+                        "numero_oab": None,  # None
+                        "uf_oab": "",  # Empty string
+                    },
+                },
+                {
+                    "id": 103,
+                    "comunicacao_id": 1,
+                    "advogado_id": 503,
+                    "created_at": "2026-11-09 10:00:00",
+                    "updated_at": "2026-11-09 12:00:00",  # Different ts
+                    "advogado": {
+                        "id": 503,
+                        "nome": None,  # None
+                        "numero_oab": "12345",  # Valid string
+                        "uf_oab": None,  # None
+                    },
+                },
+            ],
+        },
+        {
+            "id": 2,
+            "hash": "H22222222222222222222222222222",
+            "data_disponibilizacao": "2026-11-09",
+            "siglaTribunal": "TJRO",
+            "tipoComunicacao": "Intimação",
+            "nomeOrgao": "Vara 1",
+            "texto": "",  # Explicit empty string
+            "numero_processo": "70726450920238220001",
+            "meio": "D",
+            "link": "https://example.com/doc",
+            "tipoDocumento": "Decisão",
+            "nomeClasse": "Procedimento",
+            "codigoClasse": "1",
+            "numeroComunicacao": 2,
+            "ativo": False,  # Explicit False
+            "status": "P",
+            "motivo_cancelamento": None,
+            "data_cancelamento": None,
+            "datadisponibilizacao": "09/11/2026",
+            "dataenvio": "06/11/2026",
+            "destinatarios": [],
+            "destinatarioadvogados": [],
+        },
+    ]
+
+    for mode in ["stored", "zstd_dict"]:
+        encoded = encode_records_to_pb_zip_bytes(records, mode=mode)  # type: ignore[arg-type]
+        decoded = decode_pb_zip_bytes(encoded)
+        # Verify first item
+        r1 = decoded[0] if decoded[0]["id"] == 1 else decoded[1]
+        assert r1["texto"] is None
+        assert r1["ativo"] is None
+        assert len(r1["destinatarios"]) == 3
+        assert r1["destinatarios"][0] == {"nome": None, "polo": None, "comunicacao_id": None}
+        assert r1["destinatarios"][1] == {"nome": None, "polo": None, "comunicacao_id": 1}
+        assert r1["destinatarios"][2] == {"nome": "", "polo": "", "comunicacao_id": None}
+
+        da1 = r1["destinatarioadvogados"][0]
+        assert da1["created_at"] == "2026-11-09 10:00:00"
+        assert da1["updated_at"] is None  # Integrity: no false mutation to created_at!
+
+        da2 = r1["destinatarioadvogados"][1]
+        assert da2["updated_at"] == "2026-11-09 10:00:00"
+        assert da2["advogado"]["nome"] == ""
+        assert da2["advogado"]["numero_oab"] is None
+        assert da2["advogado"]["uf_oab"] == ""
+
+        da3 = r1["destinatarioadvogados"][2]
+        assert da3["updated_at"] == "2026-11-09 12:00:00"
+        assert da3["advogado"]["nome"] is None
+        assert da3["advogado"]["numero_oab"] == "12345"
+        assert da3["advogado"]["uf_oab"] is None
+
+        # Verify second item
+        r2 = decoded[1] if decoded[1]["id"] == 2 else decoded[0]
+        assert r2["texto"] == ""
+        assert r2["ativo"] is False
+
+
+def test_duplicate_hash_rejection() -> None:
+    rec1 = {
+        "id": 1,
+        "hash": "DUPLICATE_HASH_12345678901234",
+        "texto": "First version",
+    }
+    rec2_identical = {
+        "id": 1,
+        "hash": "DUPLICATE_HASH_12345678901234",
+        "texto": "First version",
+    }
+    rec2_conflicting = {
+        "id": 2,
+        "hash": "DUPLICATE_HASH_12345678901234",
+        "texto": "Different version",
+    }
+
+    with pytest.raises(ValueError, match="Duplicate record detected"):
+        encode_records_to_pb_zip_bytes([rec1, rec2_identical], mode="stored")
+
+    with pytest.raises(ValueError, match="Conflicting duplicate record"):
+        encode_records_to_pb_zip_bytes([rec1, rec2_conflicting], mode="stored")
+
+
+def test_secondary_hash_index_roundtrip() -> None:
+    hashes = [
+        "QpOqvB2l63OtMxU9TXG5Jj6yPD35na",
+        "QpOqvB2lZ3OtebH9TXG5JjZyPD35na",
+        "KOdGxm7gZmLtXXC1T7mM5l6y5DBkl2",
+        "KOdGxm7g6mLtdXT1T7mM5lRy5DBkl2",
+        "FALLBACK_LITERAL_HASH_12345678",
+        "SHORT_HASH",
+    ]
+    idx_bytes = build_secondary_hash_index(hashes)
+    assert len(idx_bytes) > 0
+    recovered = read_secondary_hash_index(idx_bytes)
+    assert recovered == hashes
+
+
+def test_batch_dict_populates_hash_templates() -> None:
+    records = [
+        {"id": 1, "hash": "QpOqvB2l63OtMxU9TXG5Jj6yPD35na", "texto": "A"},
+        {"id": 2, "hash": "QpOqvB2lZ3OtebH9TXG5JjZyPD35na", "texto": "B"},
+    ]
+    zip_bytes = encode_records_to_pb_zip_bytes(records, mode="stored")
+    with zipfile.ZipFile(io.BytesIO(zip_bytes)) as zf:
+        bd = BatchDict.from_pb(zf.read("_dict.pb"))
+        assert len(bd.hash_templates) >= 1
