@@ -58,7 +58,7 @@ jobs:
               else:
                   local = Path("data/djen-cnj-index") / name
                   year, origin_zip = name.split("_", 1)
-                  item = f"causaganha-index-{tribunal}-{year}"
+                  item = f"causaganha-{year}-8-22"
                   remote_name = origin_zip
               if not local.is_file():
                   raise SystemExit(f"Index artifact missing: {local}")
