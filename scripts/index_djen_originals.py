@@ -257,6 +257,8 @@ def run(
     *,
     restore_remote: bool = False,
     datajud_locators: Path | None = None,
+    datajud_from_ia: bool = False,
+    max_datajud_files: int = 5,
 ) -> dict:
     match = ITEM_RE.fullmatch(item)
     if not match:
@@ -352,10 +354,53 @@ def run(
                     known_partitions.add(part_name)
             manifest["sources"][filename] = fingerprint
             source_partitions[filename] = sorted(by_partition)
-        # Optional DataJud pointer feed. Preserve independent grau/document identities.
-        datajud_rows = (
-            load_datajud_locators(datajud_locators) if datajud_locators else {}
-        )
+        # Collect independent source-confirmed DataJud locator sidecars.
+        # A sidecar is written *after* its snapshot ZIP and contains exact member names.
+        feeds: list[Path] = [datajud_locators] if datajud_locators else []
+        processed_datajud: dict[str, str] = {}
+        if datajud_from_ia:
+            datajud_item = f"datajud-{tribunal}"
+            response = client.get(f"https://archive.org/metadata/{datajud_item}/files")
+            if response.status_code != 404:
+                response.raise_for_status()
+                listing = response.json()
+                ia_files = listing.get("result", listing)
+                if not isinstance(ia_files, list):
+                    raise ValueError("Malformed DataJud IA inventory")
+                datajud_seen = manifest.setdefault("datajud_sources", {})
+                available = []
+                for info in ia_files:
+                    if not isinstance(info, dict):
+                        continue
+                    name = info.get("name", "")
+                    if not re.fullmatch(
+                        rf"{re.escape(tribunal)}_20[0-9]{{2}}-[0-9]{{2}}-[0-9]{{2}}\\.locators\\.jsonl",
+                        name,
+                    ):
+                        continue
+                    checksum = info.get("sha1") or info.get("md5")
+                    if not checksum:
+                        continue
+                    if name in datajud_seen and datajud_seen[name] != checksum:
+                        raise ValueError(
+                            f"Changed DataJud sidecar {name}: explicit rebuild required"
+                        )
+                    if name not in datajud_seen:
+                        available.append((name, str(checksum)))
+                available.sort()
+                for name, checksum in available[:max_datajud_files]:
+                    local = output / name
+                    if not download(
+                        client, f"{INDEX_BASE}/{datajud_item}/{name}", local
+                    ):
+                        raise FileNotFoundError(f"Missing DataJud locator: {name}")
+                    feeds.append(local)
+                    processed_datajud[name] = checksum
+
+        datajud_rows: dict[str, list[dict[str, str]]] = defaultdict(list)
+        for feed in feeds:
+            for cnj, snapshots in load_datajud_locators(feed).items():
+                datajud_rows[cnj].extend(snapshots)
         dj_by_partition: dict[str, dict[str, list[dict[str, str]]]] = defaultdict(dict)
         for cnj, snapshots in datajud_rows.items():
             if cnj[13:16] == "822":
@@ -365,6 +410,7 @@ def run(
             if merge_datajud(partition, rows):
                 touched.add(part_name)
                 known_partitions.add(part_name)
+        manifest.setdefault("datajud_sources", {}).update(processed_datajud)
         counts: dict[str, int] = defaultdict(int)
         for part_name in known_partitions:
             counts[part_name[:4]] += 1
@@ -373,7 +419,7 @@ def run(
         for part_name in sorted(touched):
             write_partition(output / part_name, loaded[part_name])
         processed = min(len(candidates), max_zips)
-        if processed or touched:
+        if processed or touched or processed_datajud:
             manifest["partitions"] = sorted(known_partitions)
             staged = manifest_file.with_suffix(".tmp")
             staged.write_text(
@@ -389,8 +435,9 @@ def run(
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
+            "processed_datajud_files": len(processed_datajud),
             "publish_files": sorted(touched)
-            + (["manifest.json"] if processed or touched else []),
+            + (["manifest.json"] if processed or touched or processed_datajud else []),
         }
 
 
@@ -414,6 +461,8 @@ def main() -> None:
                 args.max_zips,
                 restore_remote=args.restore_remote,
                 datajud_locators=args.datajud_locators,
+                datajud_from_ia=args.datajud_from_ia,
+                max_datajud_files=args.max_datajud_files,
             )
         )
     )
