@@ -97,7 +97,7 @@
       status.textContent = "Localizando CSV do processo no Internet Archive...";
       try {
         const rawCsv = await readOriginalMember({
-          item: indexItem, zip: indexZip, member: cnj + ".csv",
+          item: indexItem, zip: indexZip, member: cnj.slice(0,9) + ".csv",
           proxyBase, asText: true
         });
         const rows = parseCsv(rawCsv);
