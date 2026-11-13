@@ -32,45 +32,33 @@ jobs:
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
-      - name: Restore published incremental index
+      - name: Restore index and incrementally index preserved ZIPs
         env:
           ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
         run: |
           set -euo pipefail
-          partition="${ITEM#djen-}"
-          partition="${partition/-/_}"
-          mkdir -p web/public/indexes/djen-raw
-          url="https://archive.org/download/causaganha-djen-original-index/${partition}.json"
-          status=$(curl -sSL --retry 3 -o "web/public/indexes/djen-raw/${partition}.json" -w '%{http_code}' "$url")
-          if [ "$status" = "404" ]; then
-            rm "web/public/indexes/djen-raw/${partition}.json"
-          elif [ "$status" != "200" ]; then
-            echo "Could not load previously published index: HTTP $status" >&2
-            exit 1
-          fi
-      - name: Incrementally index preserved ZIPs
-        id: index
-        env:
-          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
+          uv run python scripts/index_djen_originals.py --item "$ITEM" --restore-remote --max-zips 5 | tee index-report.json
+      - name: Publish changed shards before manifest
         run: |
           set -euo pipefail
-          uv run python scripts/index_djen_originals.py --item "$ITEM" --max-zips 5 | tee index-report.json
           python - <<'PY'
           import json
+          import subprocess
           from pathlib import Path
-          data = json.loads(Path("index-report.json").read_text())
-          with open(__import__("os").environ["GITHUB_OUTPUT"], "a") as fd:
-              print(f"changed={str(data['indexed_zips'] > 0).lower()}", file=fd)
+
+          report = json.loads(Path("index-report.json").read_text())
+          base = Path("web/public/indexes/djen-raw")
+          for filename in report["publish_files"]:
+              path = base / filename
+              if not path.is_file():
+                  raise SystemExit(f"Missing index output: {path}")
+              subprocess.run(
+                  ["uv", "run", "ia", "upload", "causaganha-djen-original-index",
+                   str(path), "--no-derive"],
+                  check=True,
+              )
+          print(f"Published {len(report['publish_files'])} index files")
           PY
-      - name: Publish thin index on Internet Archive
-        if: steps.index.outputs.changed == 'true'
-        env:
-          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
-        run: |
-          set -euo pipefail
-          partition="${ITEM#djen-}"
-          partition="${partition/-/_}"
-          uv run ia upload causaganha-djen-original-index "web/public/indexes/djen-raw/${partition}.json" --no-derive
       - name: Index report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
