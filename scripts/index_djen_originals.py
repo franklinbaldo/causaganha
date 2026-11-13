@@ -71,7 +71,7 @@ def short_cnj_filename(cnj: str) -> str:
 def expand_cnj_filename(filename: str, partition: Path, *, court: str = "822") -> str:
     """Recover the full CNJ from a nine-digit name and partition coordinates."""
     match = PARTITION_RE.fullmatch(partition.name)
-    if not match or not re.fullmatch(r"[0-9]{9}\\.csv", filename):
+    if not match or not re.fullmatch(r"[0-9]{9}\.csv", filename):
         raise ValueError(f"Invalid index member or partition: {partition}/{filename}")
     if not re.fullmatch(r"[0-9]{3}", court):
         raise ValueError("Invalid justice/tribunal digits")
