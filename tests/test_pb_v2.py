@@ -137,4 +137,3 @@ def test_template_hash_codec_lossless() -> None:
         tid, var_payload = codec.encode(h)
         reconstructed = codec.decode(tid, var_payload)
         assert reconstructed == h
-
