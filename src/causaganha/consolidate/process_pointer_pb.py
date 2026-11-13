@@ -12,7 +12,12 @@ from typing import Any
 VERSION = 1
 PUB_FIELDS = ("data", "membro_json", "comunicacao_id", "hash")
 DJ_FIELDS = (
-    "tribunal", "grau", "documento_id", "item_ia", "arquivo_zip", "membro",
+    "tribunal",
+    "grau",
+    "documento_id",
+    "item_ia",
+    "arquivo_zip",
+    "membro",
     "atualizado_em",
 )
 
@@ -66,17 +71,17 @@ def _fields(data: bytes):
             length, pos = _read_varint(data, pos)
             if length > len(data) - pos:
                 raise ValueError("Truncated protobuf field")
-            value = data[pos:pos + length]
+            value = data[pos : pos + length]
             pos += length
         elif kind == 1:
             if pos + 8 > len(data):
                 raise ValueError("Truncated fixed64")
-            value = data[pos:pos + 8]
+            value = data[pos : pos + 8]
             pos += 8
         elif kind == 5:
             if pos + 4 > len(data):
                 raise ValueError("Truncated fixed32")
-            value = data[pos:pos + 4]
+            value = data[pos : pos + 4]
             pos += 4
         else:
             raise ValueError(f"Unsupported protobuf wire type {kind}")
@@ -89,16 +94,17 @@ def _encode_publication(row: tuple[str, str, str, str]) -> bytes:
     if identity_value < 0:
         raise ValueError("Negative DJEN communication ID")
     return (
-        _text(1, day) + _text(2, member)
-        + _varint(3 << 3) + _varint(identity_value)
+        _text(1, day)
+        + _text(2, member)
+        + _varint(3 << 3)
+        + _varint(identity_value)
         + _text(4, dj_hash)
     )
 
 
 def _encode_datajud(document: dict[str, str]) -> bytes:
     return b"".join(
-        _text(number, document[name])
-        for number, name in enumerate(DJ_FIELDS, start=1)
+        _text(number, document[name]) for number, name in enumerate(DJ_FIELDS, start=1)
     )
 
 
@@ -107,9 +113,7 @@ def encode_index(
     datajud: list[dict[str, str]] | None = None,
 ) -> bytes:
     """Deterministic v1 encoding; duplicate pointers are eliminated."""
-    encoded = [
-        _field(1, _encode_publication(row)) for row in sorted(set(publications))
-    ]
+    encoded = [_field(1, _encode_publication(row)) for row in sorted(set(publications))]
     identities = set()
     for document in sorted(
         datajud or [],
@@ -167,9 +171,7 @@ def update_datajud(
     previous: list[dict[str, str]], incoming: list[dict[str, str]]
 ) -> list[dict[str, str]]:
     """Keep the newest pointer *per document identity*, not per CNJ."""
-    rows = {
-        (r["tribunal"], r["grau"], r["documento_id"]): r for r in previous
-    }
+    rows = {(r["tribunal"], r["grau"], r["documento_id"]): r for r in previous}
     for row in incoming:
         key = (row["tribunal"], row["grau"], row["documento_id"])
         prior = rows.get(key)
