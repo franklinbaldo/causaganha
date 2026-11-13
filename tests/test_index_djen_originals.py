@@ -9,6 +9,8 @@ from scripts.index_djen_originals import (
     load_partition,
     partition_for,
     write_partition,
+    index_item,
+    remote_partition_name,
 )
 
 
@@ -54,3 +56,8 @@ def test_updates_only_publication_date_without_losing_history():
 def test_csv_roundtrip_unicode_and_commas():
     row = ("2026-11-09", "subfolder,1.json", "123", "hash")
     assert decode_csv(encode_csv([row])) == [row]
+
+
+def test_ia_item_per_tribunal_and_filing_year():
+    assert index_item("tjro", "2023") == "causaganha-index-tjro-2023"
+    assert remote_partition_name("2023_0001.zip") == "0001.zip"
