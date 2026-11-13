@@ -61,6 +61,24 @@ def partition_for(cnj: str) -> str:
     return f"{cnj[9:13]}_{cnj[16:20]}.zip"
 
 
+def short_cnj_filename(cnj: str) -> str:
+    """The other 11 CNJ digits live in the IA item and origin ZIP path."""
+    if not CNJ_RE.fullmatch(cnj):
+        raise ValueError(f"Invalid CNJ: {cnj!r}")
+    return f"{cnj[:9]}.csv"
+
+
+def expand_cnj_filename(filename: str, partition: Path, *, court: str = "822") -> str:
+    """Recover the full CNJ from a nine-digit name and partition coordinates."""
+    match = PARTITION_RE.fullmatch(partition.name)
+    if not match or not re.fullmatch(r"[0-9]{9}\\.csv", filename):
+        raise ValueError(f"Invalid index member or partition: {partition}/{filename}")
+    if not re.fullmatch(r"[0-9]{3}", court):
+        raise ValueError("Invalid justice/tribunal digits")
+    year, origin = match.groups()
+    return f"{filename[:9]}{year}{court}{origin}"
+
+
 def records_of(value: object) -> list[dict]:
     if isinstance(value, list):
         return [row for row in value if isinstance(row, dict)]
@@ -135,7 +153,9 @@ def encode_csv(rows: list[tuple[str, str, str, str]]) -> bytes:
     return out.getvalue().encode("utf-8")
 
 
-def load_partition(zip_path: Path) -> dict[str, list[tuple[str, str, str, str]]]:
+def load_partition(
+    zip_path: Path, *, court: str = "822"
+) -> dict[str, list[tuple[str, str, str, str]]]:
     if not zip_path.exists():
         return {}
     result = {}
@@ -155,7 +175,9 @@ def write_partition(
     with zipfile.ZipFile(staged, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for cnj in sorted(data):
             if data[cnj]:
-                archive.writestr(f"{cnj}.csv", encode_csv(data[cnj]))
+                if partition_for(cnj) != path.name or cnj[13:16] != "822":
+                    raise ValueError(f"CNJ does not belong in index partition: {cnj}")
+                archive.writestr(short_cnj_filename(cnj), encode_csv(data[cnj]))
     staged.replace(path)
 
 
