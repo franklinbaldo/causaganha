@@ -26,7 +26,7 @@ export function parseDownloadPath(pathname) {
 
   const [, item, file] = match;
   const original = ITEM_PATTERN.test(item) && /\\.(?:parquet|zip)$/i.test(file);
-  const index = INDEX_ITEM_PATTERN.test(item) && /^[0-9]{4}_[0-9]{4}\\.zip$/.test(file);
+  const index = INDEX_ITEM_PATTERN.test(item) && /^[0-9]{4}\\.zip$/.test(file);
   if (!original && !index) return null;
 
   return { item, file };
