@@ -37,8 +37,21 @@ MAX_PARTITIONS_PER_ITEM = 1000
 HEADER = ("data", "membro", "id", "hash")
 
 
-def index_item(tribunal: str) -> str:
-    return INDEX_PREFIX + tribunal
+def index_item(tribunal: str, process_year: str) -> str:
+    """One IA item per tribunal and filing year."""
+    return f"{INDEX_PREFIX}{tribunal}-{process_year}"
+
+
+def control_item(tribunal: str) -> str:
+    """Manifest separate from original DJEN ZIPs and derived ZIP partitions."""
+    return f"{INDEX_PREFIX}control-{tribunal}"
+
+
+def remote_partition_name(partition: str) -> str:
+    match = PARTITION_RE.fullmatch(partition)
+    if not match:
+        raise ValueError(f"Invalid index partition: {partition}")
+    return f"{match.group(2)}.zip"
 
 
 def partition_for(cnj: str) -> str:
@@ -187,18 +200,18 @@ def run(
     if not match:
         raise ValueError("Invalid DJEN tribunal/year item")
     tribunal, year = match.groups()
-    target_item = index_item(tribunal)
+    target_item = control_item(tribunal)
     output.mkdir(parents=True, exist_ok=True)
-    manifest_file = output / f"{tribunal}_manifest.json"
+    manifest_file = output / f"{tribunal}_{year}_manifest.json"
     with httpx.Client(timeout=120, follow_redirects=True) as client:
         if restore_remote:
-            download(client, f"{INDEX_BASE}/{target_item}/manifest.json", manifest_file)
+            download(client, f"{INDEX_BASE}/{target_item}/manifest-{year}.json", manifest_file)
         manifest = (
             json.loads(manifest_file.read_text(encoding="utf-8"))
             if manifest_file.exists()
-            else {"version": 3, "tribunal": tribunal, "sources": {}, "partitions": []}
+            else {"version": 3, "tribunal": tribunal, "source_year": year, "sources": {}, "partitions": [], "source_partitions": {}}
         )
-        if manifest.get("version") != 3 or manifest.get("tribunal") != tribunal:
+        if (manifest.get("version") != 3 or manifest.get("tribunal") != tribunal or manifest.get("source_year") != year):
             raise ValueError("Incompatible index manifest")
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
@@ -224,13 +237,14 @@ def run(
         loaded: dict[str, dict] = {}
         touched: set[str] = set()
         known_partitions = set(manifest["partitions"])
+        source_partitions = manifest.setdefault("source_partitions", {})
 
         def get_partition(partition_name: str) -> dict:
             if partition_name not in loaded:
                 path = output / partition_name
                 if restore_remote and partition_name in known_partitions:
                     if not download(
-                        client, f"{INDEX_BASE}/{target_item}/{partition_name}", path
+                        client, f"{INDEX_BASE}/{index_item(tribunal, partition_name[:4])}/{remote_partition_name(partition_name)}", path
                     ):
                         raise FileNotFoundError(f"Missing indexed partition {path}")
                 loaded[partition_name] = load_partition(path)
@@ -250,7 +264,13 @@ def run(
             publication_date = ZIP_RE.fullmatch(filename).group(1)
             # A changed original may have removed processes in any old partition.
             # Iterate every known partition plus all partitions in the new source.
-            for part_name in sorted(known_partitions | set(by_partition)):
+            former = source_partitions.get(filename)
+            affected = (
+                known_partitions | set(by_partition)
+                if filename in manifest["sources"] and former is None
+                else set(former or []) | set(by_partition)
+            )
+            for part_name in sorted(affected):
                 data = get_partition(part_name)
                 if apply_source(
                     data,
@@ -261,8 +281,12 @@ def run(
                 if data:
                     known_partitions.add(part_name)
             manifest["sources"][filename] = fingerprint
-        if len(known_partitions) > MAX_PARTITIONS_PER_ITEM:
-            raise ValueError("IA index item exceeds 1000-partition policy")
+            source_partitions[filename] = sorted(by_partition)
+        counts: dict[str, int] = defaultdict(int)
+        for part_name in known_partitions:
+            counts[part_name[:4]] += 1
+        if any(count > MAX_PARTITIONS_PER_ITEM for count in counts.values()):
+            raise ValueError("IA filing-year index item exceeds 1000-partition policy")
         for part_name in sorted(touched):
             write_partition(output / part_name, loaded[part_name])
         processed = min(len(candidates), max_zips)
@@ -277,10 +301,12 @@ def run(
         return {
             "source_item": item,
             "index_item": target_item,
+            "tribunal": tribunal,
+            "source_year": year,
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
-            "publish_files": sorted(touched) + (["manifest.json"] if processed else []),
+            "publish_files": sorted(touched) + ([f"manifest-{year}.json"] if processed else []),
         }
 
 
