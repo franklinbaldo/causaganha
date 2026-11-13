@@ -28,6 +28,7 @@
   <p class="muted">Piloto: TJRO (partições por ano e unidade de origem). A ausência de resultados não significa ausência de publicação: o acervo e a indexação podem estar incompletos.</p>
   <script type="module">
     import { readOriginalMember } from "./djen-zip-range.js";
+    import { decodeProcessIndex } from "./process-pointer-pb.js";
     const form = document.querySelector("#lookup");
     const input = document.querySelector("#cnj");
     const status = document.querySelector("#status");
@@ -37,20 +38,17 @@
     const params = new URLSearchParams(location.search);
     // Configure proxy URL at deployment time; ?proxy= is also available for manual smoke tests.
     const proxyBase = params.get("proxy") || "";
-    function parseCsv(text) {
-      const lines = text.trimEnd().split(/\r?\n/);
-      if (lines.shift() !== "data,membro,id,hash") throw new Error("Cabeçalho CSV desconhecido");
-      return lines.filter(Boolean).map(line => {
-        const fields = line.split(",");
-        if (fields.length !== 4 || !/^20\d{2}-\d{2}-\d{2}$/.test(fields[0])) {
-          throw new Error("Coordenada CSV inválida");
+    function publishedRows(index, tribunal) {
+      return index.publicacoes.map(pub => {
+        if (!/^20\\d{2}-\\d{2}-\\d{2}$/.test(pub.data)) {
+          throw new Error("Data de publicação inválida");
         }
-        const [date, member, id, hash] = fields;
-        const publicationYear = date.slice(0, 4);
         return {
-          item: "djen-tjro-" + publicationYear,
-          zip: "djen-" + date + "-TJRO.zip",
-          member, id, hash,
+          item: "djen-" + tribunal + "-" + pub.data.slice(0, 4),
+          zip: "djen-" + pub.data + "-" + tribunal.toUpperCase() + ".zip",
+          member: pub.membro_json,
+          id: pub.comunicacao_id,
+          hash: pub.hash,
         };
       });
     }
@@ -96,13 +94,33 @@
       const indexZip = origin + ".zip";
       status.textContent = "Localizando CSV do processo no Internet Archive...";
       try {
-        const rawCsv = await readOriginalMember({
-          item: indexItem, zip: indexZip, member: cnj.slice(0,9) + ".csv",
-          proxyBase, asText: true
+        const rawIndex = await readOriginalMember({
+          item: indexItem, zip: indexZip, member: cnj.slice(0,9) + ".pb",
+          proxyBase, asBytes: true
         });
-        const rows = parseCsv(rawCsv);
+        const pointer = decodeProcessIndex(rawIndex);
+        const rows = publishedRows(pointer, tribunal);
         status.textContent = rows.length ? rows.length + " publicação(ões) localizada(s)." :
           "Nenhuma publicação indexada nesta partição. Isso não confirma ausência no DJEN.";
+        if (pointer.datajud.length) {
+          const section = document.createElement("article");
+          results.append(section);
+          element("h2", "Snapshots DataJud mais recentes", section);
+          for (const snap of pointer.datajud) {
+            const label = snap.tribunal + " / " + snap.grau + " / " + snap.documento_id;
+            element("p", label + " (atualizado em " + snap.atualizado_em + ")", section);
+            const link = element("a", "Abrir arquivo DataJud no Internet Archive", section);
+            if (!/^datajud-[a-z0-9-]+$/.test(snap.item_ia) ||
+                !/^[a-zA-Z0-9_.-]+\\.zip$/.test(snap.arquivo_zip)) {
+              link.remove();
+              throw new Error("Localização DataJud não autorizada");
+            }
+            link.href = "https://archive.org/download/" +
+              encodeURIComponent(snap.item_ia) + "/" + encodeURIComponent(snap.arquivo_zip);
+            link.target = "_blank";
+            link.rel = "noopener noreferrer";
+          }
+        }
         for (const row of rows) {
           const article = document.createElement("article");
           results.append(article);
