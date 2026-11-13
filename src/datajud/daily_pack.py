@@ -91,7 +91,9 @@ def pack_daily_zip(
 
     with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for cnj, doc in deduped.items():
-            payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode(
+                "utf-8"
+            )
             if compress_internal_json:
                 buf = io.BytesIO()
                 with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0.0) as gz:
@@ -144,7 +146,9 @@ def update_resolution_index(
         updated_at = doc.get("dataHoraUltimaAtualizacao") or ""
         current = existing_rows.get(cnj)
 
-        if current is None or updated_at >= (current.get("data_hora_ultima_atualizacao") or ""):
+        if current is None or updated_at >= (
+            current.get("data_hora_ultima_atualizacao") or ""
+        ):
             existing_rows[cnj] = {
                 "numero_processo": cnj,
                 "tribunal": tribunal_slug,
@@ -197,22 +201,26 @@ def export_daily_locators(
             updated = doc.get("dataHoraUltimaAtualizacao")
             if not cnj or not degree or not original_id or not updated:
                 raise ValueError(f"Incomplete DataJud source identity in {name}")
-            rows.append({
-                "numero_processo": cnj,
-                "tribunal": tribunal.upper(),
-                "grau": str(degree),
-                "documento_id": str(original_id),
-                "item_ia": item,
-                "arquivo_zip": zip_path.name,
-                "membro": name,
-                "atualizado_em": str(updated),
-            })
+            rows.append(
+                {
+                    "numero_processo": cnj,
+                    "tribunal": tribunal.upper(),
+                    "grau": str(degree),
+                    "documento_id": str(original_id),
+                    "item_ia": item,
+                    "arquivo_zip": zip_path.name,
+                    "membro": name,
+                    "atualizado_em": str(updated),
+                }
+            )
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text(
-        "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
-                for row in sorted(rows, key=lambda r: (
-                    r["numero_processo"], r["grau"], r["documento_id"]
-                ))),
+        "".join(
+            json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+            for row in sorted(
+                rows, key=lambda r: (r["numero_processo"], r["grau"], r["documento_id"])
+            )
+        ),
         encoding="utf-8",
     )
     return target
