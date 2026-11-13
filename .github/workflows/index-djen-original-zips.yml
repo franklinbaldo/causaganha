@@ -38,7 +38,8 @@ jobs:
         run: |
           set -euo pipefail
           uv run python scripts/index_djen_originals.py \
-            --item "$ITEM" --restore-remote --max-zips 5 | tee index-report.json
+            --item "$ITEM" --restore-remote --max-zips 5 \
+            --datajud-from-ia --max-datajud-files 5 | tee index-report.json
       - name: Publish changed ZIPs and finally the manifest
         run: |
           set -euo pipefail
