@@ -1,65 +1,47 @@
-"""Tests for sharded DJEN original ZIP CNJ locators."""
+"""Index ZIPs contain one CSV per CNJ and never duplicate DJEN texts."""
 
-import json
 import zipfile
 
-import pytest
-
 from scripts.index_djen_originals import (
-    extract_locations,
-    load_index,
-    merge_zip,
-    save_index,
-    shard_for,
+    apply_source,
+    decode_csv,
+    encode_csv,
+    load_partition,
+    partition_for,
+    write_partition,
 )
 
 
-def sample(tmp_path):
-    path = tmp_path / "djen-2026-11-09-TJRO.zip"
-    entries = [
-        {"numero_processo": "70039901420268220022", "id": 1, "hash": "H1"},
-        {"numero_processo": "70039901420268220022", "id": 2, "hash": "H2"},
-        {"numero_processo": "08116865920268220000", "id": 3, "hash": "H3"},
-    ]
-    with zipfile.ZipFile(path, "w") as archive:
-        archive.writestr("TJRO-D-2026-11-09_1.json", json.dumps({"items": entries}))
-    return path
+def test_routing_from_cnj_is_filing_year_and_origin():
+    assert partition_for("70726450920238220001") == "2023_0001.zip"
+    assert partition_for("70039901420268220022") == "2026_0022.zip"
 
 
-def test_multiple_publications_preserved(tmp_path):
-    path = sample(tmp_path)
-    rows = extract_locations(path, item="djen-tjro-2026", filename=path.name)
-    assert len(rows["70039901420268220022"]) == 2
-    assert {r["hash"] for r in rows["70039901420268220022"]} == {"H1", "H2"}
-    assert all(
-        row["member"] == "TJRO-D-2026-11-09_1.json"
-        for entries in rows.values()
-        for row in entries
-    )
+def test_csv_roundtrip_and_deduplication(tmp_path):
+    cnj = "70726450920238220001"
+    row = ("2026-11-09", "TJRO-D-2026-11-09_1.json", "778704990", "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2")
+    data = {cnj: [row, row]}
+    path = tmp_path / "2023_0001.zip"
+    write_partition(path, data)
+    with zipfile.ZipFile(path) as archive:
+        assert archive.namelist() == [f"{cnj}.csv"]
+        raw = archive.read(f"{cnj}.csv")
+        assert raw.startswith(b"data,membro,id,hash\n")
+        assert decode_csv(raw) == [row]
+    assert load_partition(path)[cnj] == [row]
 
 
-def test_idempotent_update_and_replacement(tmp_path):
-    path = sample(tmp_path)
-    rows = extract_locations(path, item="djen-tjro-2026", filename=path.name)
-    index = load_index(tmp_path / "index.json", item="djen-tjro-2026")
-    assert merge_zip(index, filename=path.name, rows=rows)
-    assert not merge_zip(index, filename=path.name, rows=rows)
-    assert len(index["processos"]["70039901420268220022"]) == 2
-    assert merge_zip(index, filename=path.name, rows={})
-    assert not index["processos"]
-    save_index(tmp_path / "index.json", index)
-    assert load_index(tmp_path / "index.json", item="djen-tjro-2026") == index
+def test_updates_only_publication_date_without_losing_history():
+    cnj = "70726450920238220001"
+    old = ("2026-11-09", "old.json", "1", "hash-1")
+    unrelated = ("2026-11-10", "later.json", "2", "hash-2")
+    replacement = ("2026-11-09", "new.json", "3", "hash-3")
+    data = {cnj: [old, unrelated]}
+    assert apply_source(data, publication_date="2026-11-09", new_rows={cnj: [replacement]})
+    assert sorted(data[cnj]) == sorted([replacement, unrelated])
+    assert not apply_source(data, publication_date="2026-11-09", new_rows={cnj: [replacement]})
 
 
-def test_stable_sharding():
-    cnj = "70039901420268220022"
-    assert shard_for(cnj) == shard_for(cnj)
-    assert len(shard_for(cnj)) == 2
-    assert all(character in "0123456789abcdef" for character in shard_for(cnj))
-
-
-def test_reject_bad_partition(tmp_path):
-    path = tmp_path / "index.json"
-    path.write_text('{"version":2,"item":"djen-tjsp-2026"}')
-    with pytest.raises(ValueError):
-        load_index(path, item="djen-tjro-2026")
+def test_csv_roundtrip_unicode_and_commas():
+    row = ("2026-11-09", "subfolder,1.json", "123", "hash")
+    assert decode_csv(encode_csv([row])) == [row]
