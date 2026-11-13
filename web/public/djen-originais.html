@@ -25,7 +25,7 @@
   </form>
   <p id="status" role="status" aria-live="polite"></p>
   <section id="results" aria-label="Publicações encontradas"></section>
-  <p class="muted">Piloto: TJRO, 2026. A ausência de resultados não significa ausência de publicação: o acervo e a indexação podem estar incompletos.</p>
+  <p class="muted">Piloto: TJRO (partições por ano e unidade de origem). A ausência de resultados não significa ausência de publicação: o acervo e a indexação podem estar incompletos.</p>
   <script type="module">
     import { readOriginalMember } from "./djen-zip-range.js";
     const form = document.querySelector("#lookup");
@@ -37,9 +37,22 @@
     const params = new URLSearchParams(location.search);
     // Configure proxy URL at deployment time; ?proxy= is also available for manual smoke tests.
     const proxyBase = params.get("proxy") || "";
-    async function shardFor(cnj) {
-      const bytes = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(cnj));
-      return new Uint8Array(bytes)[0].toString(16).padStart(2, "0");
+    function parseCsv(text) {
+      const lines = text.trimEnd().split(/\r?\n/);
+      if (lines.shift() !== "data,membro,id,hash") throw new Error("Cabeçalho CSV desconhecido");
+      return lines.filter(Boolean).map(line => {
+        const fields = line.split(",");
+        if (fields.length !== 4 || !/^20\d{2}-\d{2}-\d{2}$/.test(fields[0])) {
+          throw new Error("Coordenada CSV inválida");
+        }
+        const [date, member, id, hash] = fields;
+        const publicationYear = date.slice(0, 4);
+        return {
+          item: "djen-tjro-" + publicationYear,
+          zip: "djen-" + date + "-TJRO.zip",
+          member, id, hash,
+        };
+      });
     }
     function element(name, text, parent) {
       const node = document.createElement(name);
@@ -77,20 +90,17 @@
         status.textContent = "Tribunal ainda não disponível no índice de ZIPs originais.";
         return;
       }
-      // Ano de publicacao, nao ano do processo (CNJ). Piloto restrito a 2026.
-      const year = "2026";
-      status.textContent = "Consultando índice remoto...";
+      const processYear = cnj.slice(9,13);
+      const origin = cnj.slice(16,20);
+      const indexItem = "causaganha-index-" + tribunal;
+      const indexZip = processYear + "_" + origin + ".zip";
+      status.textContent = "Localizando CSV do processo no Internet Archive...";
       try {
-        const shard = await shardFor(cnj);
-        const response = await fetch("https://archive.org/download/causaganha-djen-original-index/" + tribunal + "_" + year + "_" + shard + ".json");
-        if (response.status === 404) {
-          status.textContent = "Esta partição ainda não foi indexada.";
-          return;
-        }
-        if (!response.ok) throw new Error("HTTP " + response.status);
-        const index = await response.json();
-        if (index.version !== 2) throw new Error("Versão do índice desconhecida");
-        const rows = index.processos[cnj] || [];
+        const rawCsv = await readOriginalMember({
+          item: indexItem, zip: indexZip, member: cnj + ".csv",
+          proxyBase, asText: true
+        });
+        const rows = parseCsv(rawCsv);
         status.textContent = rows.length ? rows.length + " publicação(ões) localizada(s)." :
           "Nenhuma publicação indexada nesta partição. Isso não confirma ausência no DJEN.";
         for (const row of rows) {
