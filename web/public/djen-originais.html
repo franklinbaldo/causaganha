@@ -75,7 +75,7 @@
       const year = cnj.slice(9,13);
       status.textContent = "Consultando índice remoto...";
       try {
-        const response = await fetch("indexes/djen-raw/" + tribunal + "_" + year + ".json");
+        const response = await fetch("https://archive.org/download/causaganha-djen-original-index/" + tribunal + "_" + year + ".json");
         if (response.status === 404) {
           status.textContent = "Esta partição ainda não foi indexada.";
           return;
