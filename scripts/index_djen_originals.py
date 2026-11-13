@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import csv
-import hashlib
 import io
 import json
 import re
@@ -88,7 +87,11 @@ def extract_locations(
                     continue
                 record_id = record.get("id")
                 record_hash = record.get("hash")
-                if record_id is None or not isinstance(record_hash, str) or not record_hash:
+                if (
+                    record_id is None
+                    or not isinstance(record_hash, str)
+                    or not record_hash
+                ):
                     raise ValueError(f"Missing DJEN identity for CNJ {cnj}")
                 rows[cnj].append(
                     (publication_date, info.filename, str(record_id), record_hash)
@@ -236,9 +239,7 @@ def run(
         for filename, fingerprint in candidates[:max_zips]:
             with tempfile.TemporaryDirectory() as directory:
                 original = Path(directory) / filename
-                if not download(
-                    client, f"{INDEX_BASE}/{item}/{filename}", original
-                ):
+                if not download(client, f"{INDEX_BASE}/{item}/{filename}", original):
                     raise FileNotFoundError(f"Original ZIP disappeared: {filename}")
                 records = extract_locations(original, filename=filename)
             by_partition: dict[str, dict[str, list[tuple[str, str, str, str]]]] = (
@@ -294,7 +295,12 @@ def main() -> None:
         parser.error("--max-zips must be positive")
     print(
         json.dumps(
-            run(args.item, args.output, args.max_zips, restore_remote=args.restore_remote)
+            run(
+                args.item,
+                args.output,
+                args.max_zips,
+                restore_remote=args.restore_remote,
+            )
         )
     )
 
