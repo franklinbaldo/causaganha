@@ -38,6 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           partition="${ITEM#djen-}"
+          partition="${partition/-/_}"
           mkdir -p web/public/indexes/djen-raw
           url="https://archive.org/download/causaganha-djen-original-index/${partition}.json"
           status=$(curl -sSL --retry 3 -o "web/public/indexes/djen-raw/${partition}.json" -w '%{http_code}' "$url")
@@ -68,6 +69,7 @@ jobs:
         run: |
           set -euo pipefail
           partition="${ITEM#djen-}"
+          partition="${partition/-/_}"
           uv run ia upload causaganha-djen-original-index "web/public/indexes/djen-raw/${partition}.json" --no-derive
       - name: Index report
         if: always()
