@@ -128,8 +128,8 @@ export async function readOriginalMember({ item, zip, member, proxyBase, asText 
   const original = /^djen-[a-z0-9]+-20\d{2}$/.test(item) &&
       /^djen-20\d{2}-\d{2}-\d{2}-[A-Z0-9]+\.zip$/.test(zip) &&
       member.endsWith(".json");
-  const derived = /^causaganha-index-[a-z0-9]+$/.test(item) &&
-      /^[0-9]{4}_[0-9]{4}\.zip$/.test(zip) &&
+  const derived = /^causaganha-index-[a-z0-9]+-20\d{2}$/.test(item) &&
+      /^[0-9]{4}\.zip$/.test(zip) &&
       /^[0-9]{20}\.csv$/.test(member);
   if (!(original || derived) || member.includes("..")) {
     throw new Error("Identificadores de arquivo inválidos");
