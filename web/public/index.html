@@ -326,6 +326,24 @@
       background: rgba(11, 17, 32, 0.2);
       color: #0b1120;
     }
+    .tab-btn.tab-djen {
+      border-color: rgba(16, 185, 129, 0.45);
+      color: #6ee7b7;
+    }
+    .tab-btn.tab-djen.active {
+      background: var(--accent);
+      color: #0b1120;
+      border-color: var(--accent);
+    }
+    .timeline-link {
+      display: inline-block;
+      margin-top: 0.45rem;
+      font-size: 0.78rem;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 600;
+    }
+    .timeline-link:hover { text-decoration: underline; }
 
     .timeline-controls {
       display: flex;
@@ -499,10 +517,10 @@
         <img src="favicon.svg" alt="Logo CausaGanha">
         <div>
           <div class="brand-title">CausaGanha</div>
-          <div class="brand-sub">Consulta aberta de processos judiciais (DataJud / CNJ)</div>
+          <div class="brand-sub">Consulta aberta de processos judiciais (DataJud + DJEN)</div>
         </div>
       </a>
-      <span class="arch-pill">Zero-Backend • HTTP Range + Zstd</span>
+      <span class="arch-pill">Zero-Backend • HTTP Range + Zstd + DuckDB-WASM</span>
     </header>
 
     <!-- Busca -->
@@ -597,7 +615,110 @@
     let catalogoTPU = null;
     let currentDoc = null;
     let currentFullData = null;
+    let currentViewMode = 'datajud'; // 'datajud' | 'djen'
+    let currentDjenRows = [];
+    let currentDjenStatus = 'idle'; // 'idle' | 'loading' | 'ready' | 'error'
+    let currentDjenError = '';
     let sortDesc = true;
+
+    let dbInstance = null;
+    let connInstance = null;
+    let duckdbInitPromise = null;
+
+    async function getDuckDB() {
+      if (dbInstance && connInstance) {
+        return { db: dbInstance, conn: connInstance };
+      }
+      if (duckdbInitPromise) {
+        return duckdbInitPromise;
+      }
+      duckdbInitPromise = (async () => {
+        try {
+          const t0 = performance.now();
+          log('DUCKDB WASM', 'badge-wasm', 'Inicializando motor DuckDB-WASM (jsDelivr CDN)...');
+          const duckdb = await import('https://cdn.jsdelivr.net/npm/@duckdb/duckdb-wasm/+esm');
+          const JSDELIVR_BUNDLES = duckdb.getJsDelivrBundles();
+          const bundle = await duckdb.selectBundle(JSDELIVR_BUNDLES);
+          if (!bundle.mainWorker) {
+            throw new Error('DuckDB bundle selection failed: No mainWorker found.');
+          }
+          let worker;
+          try {
+            worker = new Worker(bundle.mainWorker);
+          } catch (_) {
+            const response = await fetch(bundle.mainWorker);
+            const content = await response.text();
+            const blob = new Blob([content], { type: 'application/javascript' });
+            worker = new Worker(URL.createObjectURL(blob));
+          }
+          const logger = new duckdb.ConsoleLogger();
+          dbInstance = new duckdb.AsyncDuckDB(logger, worker);
+          await dbInstance.instantiate(bundle.mainModule, bundle.pthreadWorker);
+          connInstance = await dbInstance.connect();
+          await connInstance.query("INSTALL httpfs; LOAD httpfs;");
+          await connInstance.query("SET enable_http_metadata_cache=true;");
+          const t1 = performance.now();
+          log('HTTPFS OK', 'badge-wasm', `DuckDB-WASM + httpfs prontos em ${(t1 - t0).toFixed(0)} ms.`);
+          return { db: dbInstance, conn: connInstance };
+        } catch (err) {
+          duckdbInitPromise = null;
+          throw err;
+        }
+      })();
+      return duckdbInitPromise;
+    }
+
+    async function consultarDjenDuckDB(tribunalSigla, ano, cnjLimpo) {
+      currentDjenRows = [];
+      currentDjenStatus = 'loading';
+      currentDjenError = '';
+      atualizarAbaDjen();
+
+      const trib = (tribunalSigla || '').toLowerCase();
+      if (!trib || !ano) {
+        currentDjenStatus = 'ready';
+        atualizarAbaDjen();
+        return;
+      }
+
+      const parquetUrl = `https://archive.org/download/djen-${trib}-${ano}/comunicacoes.parquet`;
+      try {
+        const { conn } = await getDuckDB();
+        const t0 = performance.now();
+        log('PARQUET DJEN', 'badge-range', `Consultando ${parquetUrl} (numero_processo = '${cnjLimpo}')...`);
+        const stmt = await conn.prepare(`
+          SELECT
+            CAST(data_disponibilizacao AS VARCHAR) AS data_disponibilizacao,
+            tipo_comunicacao,
+            nome_orgao,
+            nome_classe,
+            meio,
+            numero_comunicacao,
+            link,
+            texto_id
+          FROM read_parquet('${parquetUrl}')
+          WHERE numero_processo = ?
+          ORDER BY data_disponibilizacao DESC
+        `);
+        try {
+          const res = await stmt.query(cnjLimpo);
+          currentDjenRows = res.toArray().map(r => r.toJSON());
+        } finally {
+          await stmt.close();
+        }
+        const t1 = performance.now();
+        currentDjenStatus = 'ready';
+        log('DJEN OK', 'badge-range', `${currentDjenRows.length} publicação(ões) DJEN lida(s) via Parquet httpfs em ${(t1 - t0).toFixed(0)} ms.`);
+      } catch (err) {
+        currentDjenStatus = 'error';
+        currentDjenError = err && err.message ? err.message : String(err);
+        log('DJEN AVISO', 'badge-err', `Parquet DJEN (${trib}-${ano}): ${currentDjenError}`);
+      }
+      atualizarAbaDjen();
+      if (currentViewMode === 'djen') {
+        renderizarPublicacoesDjen();
+      }
+    }
 
     const cnjInput = document.getElementById('cnj-input');
     const btnSearch = document.getElementById('btn-search');
@@ -840,7 +961,26 @@
       saveRecent(cnjFormatado);
       setStatus(null);
       btnSearch.disabled = false;
+      currentViewMode = 'datajud';
       renderizarProcesso(meta, decompressedJson, cnjFormatado);
+      consultarDjenDuckDB(meta.tribunal, ano, cnjLimpo);
+    }
+
+    function atualizarAbaDjen() {
+      const btn = document.getElementById('tab-djen-btn');
+      if (!btn) return;
+      const countEl = btn.querySelector('.tab-count');
+      if (countEl) {
+        if (currentDjenStatus === 'loading') countEl.textContent = '…';
+        else if (currentDjenStatus === 'error') countEl.textContent = '!';
+        else countEl.textContent = String(currentDjenRows.length);
+      }
+      const metaPubEl = document.getElementById('meta-djen-val');
+      if (metaPubEl) {
+        if (currentDjenStatus === 'loading') metaPubEl.textContent = 'Consultando Parquet...';
+        else if (currentDjenStatus === 'error') metaPubEl.textContent = 'Indisponível (CORS/Rede)';
+        else metaPubEl.textContent = `${currentDjenRows.length} publicação(ões)`;
+      }
     }
 
     function renderizarMeta(doc) {
@@ -856,14 +996,22 @@
         }
       }
 
+      const djenSummary =
+        currentDjenStatus === 'loading'
+          ? 'Consultando Parquet...'
+          : currentDjenStatus === 'error'
+            ? 'Indisponível (CORS/Rede)'
+            : `${currentDjenRows.length} publicação(ões)`;
+
       const items = [
-        ['Ajuizamento', formatCompactDate(doc.da)],
-        ['Última Atualização', formatIsoBr(doc.du)],
-        ['Órgão Julgador', orgaoAtual],
-        ['Movimentações', `${movs.length} registro(s)`]
+        ['Ajuizamento', formatCompactDate(doc.da), null],
+        ['Última Atualização', formatIsoBr(doc.du), null],
+        ['Órgão Julgador', orgaoAtual, null],
+        ['Movimentações DataJud', `${movs.length} registro(s)`, null],
+        ['Publicações DJEN', djenSummary, 'meta-djen-val']
       ];
 
-      for (const [label, value] of items) {
+      for (const [label, value, valId] of items) {
         const box = document.createElement('div');
         box.className = 'meta-item';
         const l = document.createElement('div');
@@ -871,6 +1019,7 @@
         l.textContent = label;
         const v = document.createElement('div');
         v.className = 'meta-item-val';
+        if (valId) v.id = valId;
         v.textContent = value;
         box.appendChild(l);
         box.appendChild(v);
@@ -910,12 +1059,33 @@
         btn.addEventListener('click', () => {
           document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
           btn.classList.add('active');
+          currentViewMode = 'datajud';
           currentDoc = doc;
+          filterMovs.placeholder = 'Filtrar movimentos...';
           renderizarMeta(doc);
           renderizarMovimentos(doc);
         });
         tabsNav.appendChild(btn);
       });
+
+      const djenBtn = document.createElement('button');
+      djenBtn.id = 'tab-djen-btn';
+      djenBtn.className = 'tab-btn tab-djen';
+      const djenLabel = document.createElement('span');
+      djenLabel.textContent = 'Publicações DJEN';
+      const djenCount = document.createElement('span');
+      djenCount.className = 'tab-count';
+      djenCount.textContent = '…';
+      djenBtn.appendChild(djenLabel);
+      djenBtn.appendChild(djenCount);
+      djenBtn.addEventListener('click', () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        djenBtn.classList.add('active');
+        currentViewMode = 'djen';
+        filterMovs.placeholder = 'Filtrar publicações DJEN...';
+        renderizarPublicacoesDjen();
+      });
+      tabsNav.appendChild(djenBtn);
 
       if (docs.length > 0) {
         currentDoc = docs[0];
@@ -923,6 +1093,111 @@
         renderizarMovimentos(docs[0]);
       }
       resultCard.style.display = 'block';
+    }
+
+    function renderizarPublicacoesDjen() {
+      const timeline = document.getElementById('timeline');
+      timeline.textContent = '';
+
+      if (currentDjenStatus === 'loading') {
+        const msg = document.createElement('p');
+        msg.style.color = 'var(--primary)';
+        msg.style.fontSize = '0.9rem';
+        msg.textContent = 'Inicializando DuckDB-WASM (httpfs) e consultando Parquet do DJEN no Internet Archive...';
+        timeline.appendChild(msg);
+        return;
+      }
+
+      if (currentDjenStatus === 'error') {
+        const errBox = document.createElement('div');
+        errBox.className = 'comp-box';
+        errBox.style.borderLeftColor = 'var(--danger)';
+        const strong = document.createElement('strong');
+        strong.textContent = 'Falha ao consultar Parquet DJEN via DuckDB-WASM (httpfs): ';
+        errBox.appendChild(strong);
+        errBox.appendChild(document.createTextNode(currentDjenError));
+        timeline.appendChild(errBox);
+        return;
+      }
+
+      const query = filterMovs.value.trim().toLowerCase();
+      let rows = [...currentDjenRows];
+      if (!sortDesc) rows.reverse();
+
+      if (query) {
+        rows = rows.filter(r => {
+          const tipo = String(r.tipo_comunicacao || '').toLowerCase();
+          const orgao = String(r.nome_orgao || '').toLowerCase();
+          const classe = String(r.nome_classe || '').toLowerCase();
+          return tipo.includes(query) || orgao.includes(query) || classe.includes(query);
+        });
+      }
+
+      if (rows.length === 0) {
+        const empty = document.createElement('p');
+        empty.style.color = 'var(--text-muted)';
+        empty.style.fontSize = '0.88rem';
+        empty.textContent = query
+          ? 'Nenhuma publicação DJEN corresponde ao filtro.'
+          : 'Nenhuma publicação DJEN encontrada no Parquet para este processo.';
+        timeline.appendChild(empty);
+        return;
+      }
+
+      for (const r of rows) {
+        const div = document.createElement('div');
+        div.className = 'timeline-item';
+
+        const dot = document.createElement('div');
+        dot.className = 'timeline-point';
+        dot.style.background = 'var(--accent)';
+        div.appendChild(dot);
+
+        const top = document.createElement('div');
+        top.className = 'timeline-top';
+
+        const dateEl = document.createElement('span');
+        dateEl.className = 'timeline-date';
+        dateEl.style.color = 'var(--accent)';
+        dateEl.textContent = r.data_disponibilizacao ? String(r.data_disponibilizacao) : 'Data não informada';
+        top.appendChild(dateEl);
+
+        if (r.nome_orgao) {
+          const orgEl = document.createElement('span');
+          orgEl.className = 'timeline-orgao';
+          orgEl.textContent = String(r.nome_orgao);
+          top.appendChild(orgEl);
+        }
+        div.appendChild(top);
+
+        const titleEl = document.createElement('div');
+        titleEl.className = 'timeline-title';
+        titleEl.textContent = `${r.tipo_comunicacao || 'Comunicação DJEN'} — ${r.nome_classe || ''}`;
+        div.appendChild(titleEl);
+
+        const compList = document.createElement('div');
+        compList.className = 'comp-list';
+
+        if (r.numero_comunicacao || r.meio) {
+          const box = document.createElement('div');
+          box.className = 'comp-box';
+          box.textContent = `Comunicação nº ${r.numero_comunicacao || '-'} • Meio: ${r.meio || 'D'}`;
+          compList.appendChild(box);
+        }
+
+        if (r.link) {
+          const a = document.createElement('a');
+          a.className = 'timeline-link';
+          a.href = String(r.link);
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          a.textContent = 'Abrir documento / certidão no PJe ↗';
+          compList.appendChild(a);
+        }
+
+        div.appendChild(compList);
+        timeline.appendChild(div);
+      }
     }
 
     function renderizarMovimentos(doc) {
@@ -1020,13 +1295,21 @@
     });
 
     filterMovs.addEventListener('input', () => {
-      if (currentDoc) renderizarMovimentos(currentDoc);
+      if (currentViewMode === 'djen') {
+        renderizarPublicacoesDjen();
+      } else if (currentDoc) {
+        renderizarMovimentos(currentDoc);
+      }
     });
 
     btnSort.addEventListener('click', () => {
       sortDesc = !sortDesc;
       btnSort.textContent = sortDesc ? 'Mais recentes ↓' : 'Mais antigos ↑';
-      if (currentDoc) renderizarMovimentos(currentDoc);
+      if (currentViewMode === 'djen') {
+        renderizarPublicacoesDjen();
+      } else if (currentDoc) {
+        renderizarMovimentos(currentDoc);
+      }
     });
 
     document.getElementById('btn-copy-cnj').addEventListener('click', async (e) => {
