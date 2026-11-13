@@ -7,6 +7,7 @@ skipped, with malformed inputs rejected. Does not contain original document text
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from typing import Any
 
 VERSION = 1
@@ -167,6 +168,17 @@ def decode_index(data: bytes) -> dict[str, Any]:
     return {"publicacoes": publications, "datajud": datajud}
 
 
+def _timestamp(value: str) -> datetime:
+    """Require an offset-aware ISO timestamp for ordering DataJud snapshots."""
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise ValueError(f"Invalid DataJud timestamp: {value!r}") from exc
+    if parsed.tzinfo is None:
+        raise ValueError("DataJud timestamp must include a timezone")
+    return parsed.astimezone(timezone.utc)
+
+
 def update_datajud(
     previous: list[dict[str, str]], incoming: list[dict[str, str]]
 ) -> list[dict[str, str]]:
@@ -175,8 +187,8 @@ def update_datajud(
     for row in incoming:
         key = (row["tribunal"], row["grau"], row["documento_id"])
         prior = rows.get(key)
-        if prior is None or row["atualizado_em"] > prior["atualizado_em"]:
+        if prior is None or _timestamp(row["atualizado_em"]) > _timestamp(prior["atualizado_em"]):
             rows[key] = row
-        elif row["atualizado_em"] == prior["atualizado_em"] and row != prior:
+        elif _timestamp(row["atualizado_em"]) == _timestamp(prior["atualizado_em"]) and row != prior:
             raise ValueError(f"Conflicting DataJud snapshots at same timestamp: {key}")
     return [rows[key] for key in sorted(rows)]
