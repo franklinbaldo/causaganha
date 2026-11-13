@@ -1,89 +1,107 @@
-# DJEN: leitura direta dos ZIPs originais (piloto TJRO/2026)
+# DJEN original no IA + índices ZIP/CSV por CNJ
 
-## Objetivo
+## Decisão
 
-Preservar os ZIPs do DJEN exatamente como foram recebidos no Internet
-Archive (IA). O site consulta índices **finos** por CNJ e recupera um membro
-JSON original usando HTTP Range. Não armazena textos integrais novamente e
-não depende do PB v2 da PR #1720, que permanece independente e aberta.
+A PR #1721 **não converte o acervo DJEN para Protobuf ou Parquet**.
+Os ZIPs do CNJ permanecem intocados em `djen-{tribunal}-{ano}`, organizados
+pela data de disponibilização. O site consulta um **índice derivado**:
+um ZIP por `ANO_DE_AJUIZAMENTO_UNIDADE_DE_ORIGEM`, com um CSV por CNJ.
 
-## O que o IA indexa e o que não indexa
+Exemplo de índice em `causaganha-index-tjro`:
 
-A API `/metadata/{item}/files` é o inventário de arquivos preservados.
-Conforme testes externos com `advancedsearch.php` e
-`/services/search/v1/scrape`, CNJ `70726450920238220001` e ID
-`778704990` não foram encontrados, embora o item `djen-tjro-2026`
-exista. A busca geral do IA não substitui o nosso índice por CNJ.
-
-Não assumir que a ausência na busca do IA prova ausência de publicação.
-Os ZIPs foram enviados com `--no-derive`, e não há evidência de indexação
-integral dos seus JSONs pelo IA.
-
-## Contrato de dados
-
-- Original: `https://archive.org/download/djen-tjro-2026/djen-AAAA-MM-DD-TJRO.zip`
-- Índice: `https://archive.org/download/causaganha-djen-original-index/tjro_2026_<shard>.json`
-- Manifesto: `https://archive.org/download/causaganha-djen-original-index/tjro_2026_manifest.json`
-- Shard: primeiros dois dígitos hexadecimais de `SHA-256(numero_processo)`,
-  ou seja, 256 fragmentos aproximadamente equilibrados
-- Cada shard: `numero_processo -> [{item, zip, member, id, hash}]`.
-- O manifesto lista checksums dos ZIPs processados e nomes dos shards publicados.
-- Não contém texto integral ou novo ZIP derivado.
-
-O número CNJ contém o ano de ajuizamento, **não o ano da publicação**.
-O piloto consulta especificamente o acervo TJRO/2026; a consulta
-multianual deve usar inventário de anos publicados, não o ano do CNJ.
-
-## Indexação incremental
-
-O workflow `index-djen-original-zips.yml` roda diariamente, restaura o
-manifesto anterior e somente os shards listados nele, consulta o inventário
-do IA e processa até cinco ZIPs novos/alterados. Atualizações substituem
-as referências anteriores do mesmo ZIP, de maneira idempotente. Publica
-primeiro os shards alterados e por último o manifesto.
-
-O limite de cinco ZIPs é um orçamento operacional, **não** garantia de
-cobertura histórica. O relatório distingue ZIPs indexados de pendentes.
-A publicação dos arquivos no IA tem consistência eventual; não declarar
-atualização instantaneamente atômica entre vários arquivos.
-
-## Leitura seletiva (piloto)
-
-Nos testes empíricos relatados para `djen-2026-11-09-TJRO.zip`, o IA
-retornou HTTP 206 e Content-Range. A leitura do JSON
-`TJRO-D-2026-11-09_1.json` consumiu aproximadamente 1,1 MB de bytes
-comprimidos, versus aproximadamente 9,15 MB do ZIP inteiro.
-
-O cliente `web/public/djen-zip-range.js` obtém tamanho do ZIP via
-metadados do IA, busca EOCD e diretório central, lê cabeçalhos locais,
-transfere apenas o membro comprimido por Range e decodifica DEFLATE no
-navegador. Os limites do proxy são 2 MiB por requisição Range; o cliente
-fraciona leituras maiores. O fluxo ainda depende da configuração de uma
-**URL real do proxy Cloudflare** na página, para a qual o piloto permite
-`?proxy=https://seu-proxy.example`. Até essa configuração existir,
-a página mantém o link ao ZIP original como fallback.
-
-O Worker `deployment/archive-cors-proxy` deve ser implantado com a
-alteração desta PR. Seu contrato permanece limitado a `djen-*`,
-extensões `.parquet` ou `.zip`, e para ZIP exclusivamente GET com Range
-explícito de até 2 MiB. Uma resposta ZIP upstream HTTP 200 não deve
-ser aceita como resposta a Range.
-
-## Verificação
-
-```sh
-uv run python scripts/index_djen_originals.py --item djen-tjro-2026 --max-zips 2
-uv run pytest tests/test_index_djen_originals.py -q
-cd deployment/archive-cors-proxy && npm test
+```text
+2023_0001.zip
+  70726450920238220001.csv
 ```
 
-## Gates antes de tirar de Draft
+Conteúdo de um CSV:
 
-1. CI verde, incluindo lint/Ruff, proxy e testes de indexação.
-2. End-to-end com URL do proxy implantado: CNJ -> shard -> membro JSON
-   via HTTP Range -> ID/hash exatos; validar CORS, bytes e navegador.
-3. Medir tamanho real e dispersão dos 256 shards com dias acumulados.
-4. Verificar integridade do manifesto e reprocessamento de ZIP alterado,
-   bem como dados de cobertura/freshness na interface.
-5. Ampliar para tribunais e anos preservados sem transformar lacunas do
-   inventário em conclusão de ausência de publicações.
+```csv
+data,membro,id,hash
+2026-11-09,TJRO-D-2026-11-09_1.json,778704990,JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2
+```
+
+Cada registro permite derivar o original:
+
+- Item: `djen-tjro-{ano(data)}`.
+- ZIP: `djen-{data}-TJRO.zip`.
+- Membro interno: coluna `membro`.
+- Registro: campos `id` e `hash` usados para conferir a identidade.
+
+O ano de ajuizamento e o código de origem são derivados dos dígitos CNJ;
+**não** determinam a data de publicação. Também não indicam, sozinhos,
+trânsito em julgado ou encerramento do processo.
+
+## O que o Internet Archive faz
+
+O serviço hospeda os ZIPs originais e derivados. A API
+`/metadata/{item}/files` permite inventariar o acervo. A busca geral
+não indexa automaticamente números CNJ dentro dos JSONs dos ZIPs. Em
+testes relatados para o item `djen-tjro-2026`, `advancedsearch` e
+`/services/search/v1/scrape` retornaram zero resultados para um CNJ e
+um ID reais presentes no ZIP.
+
+A função de visualização de membros ZIP no IA é útil, mas pode variar
+conforme o processamento do item. Para não depender de uma extração
+automática, a leitura do site usa o diretório central ZIP via HTTP Range
+pelo proxy CORS restrito. **A implantação e o smoke test público ainda
+são gates da PR.** Não considerar `--no-derive` promessa de extração
+permanente de membros internos no IA.
+
+## Atualização diária
+
+O workflow `index-djen-original-zips.yml` consulta a lista de arquivos
+ZIP originais. Por execução lê no máximo cinco ZIPs novos ou com hash
+de arquivo alterado. O controle `manifest.json` guarda os ZIPs já
+processados e as partições existentes. Publicações novas acrescentam
+linhas aos CSVs; se um ZIP de origem é republicado, suas linhas daquele
+dia são substituídas, sem remover publicações de outras datas.
+
+Cada partição alterada é regravada e publicada no IA. O manifesto é
+publicado **por último**, para evitar anunciar um índice antes de seus
+arquivos. Essa ordem não oferece transação atômica no IA; quedas durante
+o upload exigem reconciliação na rodada seguinte.
+
+É uma arquitetura incremental, não uma promessa de atualização
+instantânea: indexação atrasada e falhas permanecem explicitamente
+possíveis. Itens antigos não são declarados encerrados; uma publicação
+nova em processo antigo atualiza sua partição.
+
+A recomendação conservadora inicial é ficar abaixo de mil arquivos
+por item. O código valida esse orçamento e não cria automaticamente
+itens adicionais. Uma estratégia de particionamento de itens será
+necessária se a coleção crescer além do orçamento.
+
+## Navegador
+
+Com CNJ `70726450920238220001`:
+
+1. Deriva `causaganha-index-tjro/2023_0001.zip`.
+2. Lê `70726450920238220001.csv` por Range.
+3. Deriva os endereços dos ZIPs originais a partir das datas.
+4. Busca somente o membro JSON pertinente, usando seu diretório
+   central e DEFLATE, e identifica o registro pelo par ID/hash.
+
+O navegador não baixa o ZIP integral quando os endpoints respeitam
+Range. O CSV não é equivalente ao texto da publicação; a referência é
+verificada contra o original na leitura.
+
+Para testar a página `web/public/djen-originais.html`, configure
+`?proxy=https://ENDERECO-REAL-DO-WORKER`. O proxy atual deve ser
+implantado com as alterações de suporte ao item
+`causaganha-index-*` e aos ZIPs DJEN. Sem URL pública e teste E2E,
+a consulta não está pronta para o público.
+
+## Validações antes de merge
+
+- Ruff, testes Python e Vitest do proxy verdes.
+- Testes reais da leitura HTTP Range em navegador, com medição de bytes,
+  suporte a DEFLATE e compatibilidade CORS.
+- Verificar idempotência, reprocessamento de ZIP alterado e caso
+  CNJ com várias comunicações em dias diferentes.
+- Conferir publicação do índice e restauração do manifesto no IA.
+- Medir tamanho dos ZIPs de índices e custo de reenvio.
+- Tratar ausência de índice separadamente de ausência de comunicação.
+
+A PR #1720 permanece aberta e independente: nenhum formato PB
+é requisito para o índice por CNJ.
