@@ -48,20 +48,25 @@ jobs:
           from pathlib import Path
 
           report = json.loads(Path("index-report.json").read_text())
-          item = report["index_item"]
+          tribunal = report["tribunal"]
+          source_year = report["source_year"]
           for name in report["publish_files"]:
-              path = (
-                  Path("data/djen-cnj-index") / name
-                  if name.endswith(".zip")
-                  else Path("data/djen-cnj-index") / (item.removeprefix("causaganha-index-") + "_manifest.json")
+              if name.startswith("manifest-"):
+                  local = Path("data/djen-cnj-index") / f"{tribunal}_{source_year}_manifest.json"
+                  item = f"causaganha-index-control-{tribunal}"
+                  remote_name = name
+              else:
+                  local = Path("data/djen-cnj-index") / name
+                  year, origin_zip = name.split("_", 1)
+                  item = f"causaganha-index-{tribunal}-{year}"
+                  remote_name = origin_zip
+              if not local.is_file():
+                  raise SystemExit(f"Index artifact missing: {local}")
+              subprocess.run(
+                  ["uv", "run", "ia", "upload", item, str(local),
+                   "--remote-name=" + remote_name, "--no-derive"],
+                  check=True,
               )
-              if not path.is_file():
-                  raise SystemExit(f"Index artifact missing: {path}")
-              cmd = [
-                  "uv", "run", "ia", "upload", item, str(path),
-                  "--remote-name=" + name, "--no-derive",
-              ]
-              subprocess.run(cmd, check=True)
           print("Published", len(report["publish_files"]), "index artifacts")
           PY
       - name: Index report
