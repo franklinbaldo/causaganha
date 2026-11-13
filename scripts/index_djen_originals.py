@@ -210,9 +210,15 @@ def run(
         manifest = (
             json.loads(manifest_file.read_text(encoding="utf-8"))
             if manifest_file.exists()
-            else {"version": 3, "tribunal": tribunal, "sources": {}, "partitions": [], "source_partitions": {}}
+            else {
+                "version": 3,
+                "tribunal": tribunal,
+                "sources": {},
+                "partitions": [],
+                "source_partitions": {},
+            }
         )
-        if (manifest.get("version") != 3 or manifest.get("tribunal") != tribunal):
+        if manifest.get("version") != 3 or manifest.get("tribunal") != tribunal:
             raise ValueError("Incompatible index manifest")
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
@@ -245,7 +251,9 @@ def run(
                 path = output / partition_name
                 if restore_remote and partition_name in known_partitions:
                     if not download(
-                        client, f"{INDEX_BASE}/{index_item(tribunal, partition_name[:4])}/{remote_partition_name(partition_name)}", path
+                        client,
+                        f"{INDEX_BASE}/{index_item(tribunal, partition_name[:4])}/{remote_partition_name(partition_name)}",
+                        path,
                     ):
                         raise FileNotFoundError(f"Missing indexed partition {path}")
                 loaded[partition_name] = load_partition(path)
