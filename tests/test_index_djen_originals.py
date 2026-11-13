@@ -19,7 +19,12 @@ def test_routing_from_cnj_is_filing_year_and_origin():
 
 def test_csv_roundtrip_and_deduplication(tmp_path):
     cnj = "70726450920238220001"
-    row = ("2026-11-09", "TJRO-D-2026-11-09_1.json", "778704990", "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2")
+    row = (
+        "2026-11-09",
+        "TJRO-D-2026-11-09_1.json",
+        "778704990",
+        "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2",
+    )
     data = {cnj: [row, row]}
     path = tmp_path / "2023_0001.zip"
     write_partition(path, data)
@@ -37,9 +42,13 @@ def test_updates_only_publication_date_without_losing_history():
     unrelated = ("2026-11-10", "later.json", "2", "hash-2")
     replacement = ("2026-11-09", "new.json", "3", "hash-3")
     data = {cnj: [old, unrelated]}
-    assert apply_source(data, publication_date="2026-11-09", new_rows={cnj: [replacement]})
+    assert apply_source(
+        data, publication_date="2026-11-09", new_rows={cnj: [replacement]}
+    )
     assert sorted(data[cnj]) == sorted([replacement, unrelated])
-    assert not apply_source(data, publication_date="2026-11-09", new_rows={cnj: [replacement]})
+    assert not apply_source(
+        data, publication_date="2026-11-09", new_rows={cnj: [replacement]}
+    )
 
 
 def test_csv_roundtrip_unicode_and_commas():
