@@ -203,16 +203,16 @@ def run(
     tribunal, year = match.groups()
     target_item = control_item(tribunal)
     output.mkdir(parents=True, exist_ok=True)
-    manifest_file = output / f"{tribunal}_{year}_manifest.json"
+    manifest_file = output / f"{tribunal}_manifest.json"
     with httpx.Client(timeout=120, follow_redirects=True) as client:
         if restore_remote:
-            download(client, f"{INDEX_BASE}/{target_item}/manifest-{year}.json", manifest_file)
+            download(client, f"{INDEX_BASE}/{target_item}/manifest.json", manifest_file)
         manifest = (
             json.loads(manifest_file.read_text(encoding="utf-8"))
             if manifest_file.exists()
-            else {"version": 3, "tribunal": tribunal, "source_year": year, "sources": {}, "partitions": [], "source_partitions": {}}
+            else {"version": 3, "tribunal": tribunal, "sources": {}, "partitions": [], "source_partitions": {}}
         )
-        if (manifest.get("version") != 3 or manifest.get("tribunal") != tribunal or manifest.get("source_year") != year):
+        if (manifest.get("version") != 3 or manifest.get("tribunal") != tribunal):
             raise ValueError("Incompatible index manifest")
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
@@ -307,7 +307,7 @@ def run(
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
-            "publish_files": sorted(touched) + ([f"manifest-{year}.json"] if processed else []),
+            "publish_files": sorted(touched) + (["manifest.json"] if processed else []),
         }
 
 
