@@ -1,0 +1,78 @@
+name: Index original DJEN ZIPs
+
+on:
+  schedule:
+    - cron: '35 8 * * *'
+  workflow_dispatch:
+    inputs:
+      item:
+        description: 'IA tribunal/year item, e.g. djen-tjro-2026'
+        required: false
+        type: string
+        default: djen-tjro-2026
+
+permissions:
+  contents: read
+
+concurrency:
+  group: index-djen-original-zip
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: dev
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: ./.github/actions/setup
+        with:
+          dev: 'false'
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+      - name: Restore published incremental index
+        env:
+          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
+        run: |
+          set -euo pipefail
+          partition="${ITEM#djen-}"
+          mkdir -p web/public/indexes/djen-raw
+          url="https://archive.org/download/causaganha-djen-original-index/${partition}.json"
+          status=$(curl -sSL --retry 3 -o "web/public/indexes/djen-raw/${partition}.json" -w '%{http_code}' "$url")
+          if [ "$status" = "404" ]; then
+            rm "web/public/indexes/djen-raw/${partition}.json"
+          elif [ "$status" != "200" ]; then
+            echo "Could not load previously published index: HTTP $status" >&2
+            exit 1
+          fi
+      - name: Incrementally index preserved ZIPs
+        id: index
+        env:
+          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/index_djen_originals.py --item "$ITEM" --max-zips 5 | tee index-report.json
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          data = json.loads(Path("index-report.json").read_text())
+          with open(__import__("os").environ["GITHUB_OUTPUT"], "a") as fd:
+              print(f"changed={str(data['indexed_zips'] > 0).lower()}", file=fd)
+          PY
+      - name: Publish thin index on Internet Archive
+        if: steps.index.outputs.changed == 'true'
+        env:
+          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
+        run: |
+          set -euo pipefail
+          partition="${ITEM#djen-}"
+          uv run ia upload causaganha-djen-original-index "web/public/indexes/djen-raw/${partition}.json" --no-derive
+      - name: Index report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: djen-original-index-report
+          path: index-report.json
+          if-no-files-found: ignore
