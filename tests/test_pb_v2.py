@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from causaganha.consolidate.pb_v2 import (
+    TemplateHashCodec,
     convert_djen_zip_to_pb_zip,
     decode_pb_zip_bytes,
     encode_records_to_pb_zip_bytes,
@@ -119,3 +120,21 @@ def test_convert_djen_zip_to_pb_zip(tmp_path: Path) -> None:
     assert stats["records"] == 2
     assert dst_zip.exists()
     assert decode_pb_zip_bytes(dst_zip.read_bytes()) == records
+
+
+def test_template_hash_codec_lossless() -> None:
+    hashes = [
+        "QpOqvB2l63OtMxU9TXG5Jj6yPD35na",
+        "QpOqvB2lZ3OtebH9TXG5JjZyPD35na",
+        "KOdGxm7gZmLtXXC1T7mM5l6y5DBkl2",
+        "KOdGxm7g6mLtdXT1T7mM5lRy5DBkl2",
+        "NON_STANDARD_HASH_FALLBACK_LITERAL",
+    ]
+    codec = TemplateHashCodec.train(hashes, min_occurrences=2)
+    assert len(codec.templates) >= 1
+
+    for h in hashes:
+        tid, var_payload = codec.encode(h)
+        reconstructed = codec.decode(tid, var_payload)
+        assert reconstructed == h
+

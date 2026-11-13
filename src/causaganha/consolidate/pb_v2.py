@@ -28,10 +28,79 @@ CompressionMode = Literal["stored", "deflated", "zstd", "zstd_dict"]
 
 EPOCH_DATE = date(1970, 1, 1)
 EPOCH_DT = datetime(1970, 1, 1, tzinfo=UTC)
-TOKEN_RE = re.compile(r"[A-Za-zÀ-ÖØ-öø-ÿ0-9]+|\s+|[^\sA-Za-zÀ-ÖØ-öø-ÿ0-9]+")
+TOKEN_RE = re.compile(r" ?[A-Za-zÀ-ÖØ-öø-ÿ0-9]+|\s+|[^\sA-Za-zÀ-ÖØ-öø-ÿ0-9]+")
 DEFAULT_VOCAB_SIZE = 32_000
 MIN_DICT_SAMPLES = 50
 MIN_DICT_TOTAL_BYTES = 16_384
+DEFAULT_HASH_MASK_POSITIONS: list[int] = [8, 12, 13, 14, 15, 22, 23]
+
+
+class TemplateHashCodec:
+    """Lossless reversible template-based codec for 30-character DJEN communication hashes.
+
+    Decomposes repetitive DJEN communication hashes into:
+    - Shared 23-character template (stored once in a template dictionary)
+    - 7 variable characters per hash
+    - Literal fallback (template_id = 0) for unrecognized or exceptional hash structures.
+
+    Guarantees 100% exact 30-character lossless reconstruction without guessing or assuming
+    unverified backend generator formulas.
+    """
+
+    def __init__(
+        self,
+        templates: list[str] | None = None,
+        mask_positions: list[int] | None = None,
+    ) -> None:
+        self.mask_positions = mask_positions or list(DEFAULT_HASH_MASK_POSITIONS)
+        self.templates: list[str] = list(templates or [])
+        self.tmpl_to_id: dict[str, int] = {t: i + 1 for i, t in enumerate(self.templates)}
+
+    def mask_hash(self, h: str) -> str:
+        if len(h) != 30:
+            return h
+        chars = list(h)
+        for p in self.mask_positions:
+            chars[p] = "?"
+        return "".join(chars)
+
+    @classmethod
+    def train(
+        cls,
+        hashes: list[str],
+        *,
+        min_occurrences: int = 2,
+        mask_positions: list[int] | None = None,
+    ) -> TemplateHashCodec:
+        positions = mask_positions or list(DEFAULT_HASH_MASK_POSITIONS)
+        counts: Counter[str] = Counter()
+        for h in hashes:
+            if len(h) == 30:
+                chars = list(h)
+                for p in positions:
+                    chars[p] = "?"
+                counts["".join(chars)] += 1
+        known = [tmpl for tmpl, cnt in counts.most_common() if cnt >= min_occurrences]
+        return cls(templates=known, mask_positions=positions)
+
+    def encode(self, h: str) -> tuple[int, str]:
+        if len(h) == 30:
+            tmpl = self.mask_hash(h)
+            tid = self.tmpl_to_id.get(tmpl)
+            if tid is not None:
+                var_chars = "".join(h[p] for p in self.mask_positions)
+                return tid, var_chars
+        return 0, h  # Literal fallback
+
+    def decode(self, tid: int, payload: str) -> str:
+        if tid == 0 or tid > len(self.templates):
+            return payload
+        tmpl_chars = list(self.templates[tid - 1])
+        if len(payload) != len(self.mask_positions):
+            return payload
+        for p, c in zip(self.mask_positions, payload):
+            tmpl_chars[p] = c
+        return "".join(tmpl_chars)
 
 
 def encode_varint(val: int) -> bytes:
@@ -203,6 +272,7 @@ class BatchDict:
         self.advogados: list[tuple[int, str, str, str]] = []
         self.adv_to_id: dict[tuple[int, str, str, str], int] = {}
         self.vocab: list[str] = []
+        self.hash_templates: list[str] = []
 
     def intern_str(self, s: str | None) -> int:
         if s is None:
@@ -254,6 +324,8 @@ class BatchDict:
             parts.append(_encode_bytes_field(3, inner))
         for tok in self.vocab:
             parts.append(_encode_str(4, tok))
+        for tmpl in self.hash_templates:
+            parts.append(_encode_str(5, tmpl))
         return b"".join(parts)
 
     @classmethod
@@ -285,6 +357,8 @@ class BatchDict:
                 bd.adv_to_id[key] = len(bd.advogados)
             elif fnum == 4:
                 bd.vocab.append(val.decode("utf-8"))
+            elif fnum == 5:
+                bd.hash_templates.append(val.decode("utf-8"))
         return bd
 
 
