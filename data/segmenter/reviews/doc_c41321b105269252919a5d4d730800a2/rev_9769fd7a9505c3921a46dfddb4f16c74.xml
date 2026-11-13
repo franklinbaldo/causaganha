@@ -1,0 +1,25 @@
+<review id="rev_9769fd7a9505c3921a46dfddb4f16c74" document_id="doc_c41321b105269252919a5d4d730800a2">
+  <input_annotations>
+    <annotation_id>ann_f7cc4824729ec3aec4aee364d1e282eb</annotation_id>
+    <annotation_id>ann_22bf57e555a3da62e78c0352c91550fc</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched />
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>adopted B's cabecalho pair (A omitted it entirely), B's fundamentacao_legal ANEEL citation (A missed it), B's tighter ementa_fim and wider/more-complete resultado span covering both the preliminary rejection and merits outcome; kept A's ref_processual</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 4 span(s) agreed by both annotators, 4 only in annotation A, 6 only in annotation B — categories in A-only: ['ementa_fim', 'ementa_inicio', 'ref_processual', 'resultado']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'ementa_fim', 'ementa_inicio', 'fundamentacao_legal', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T12:11:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Apelação Cível nº</inicio> <ref_processual ord="1">0827208-78.2021.8.12.0001</ref_processual>
+Comarca de Campo Grande - 13ª Vara Cível
+Relator(a): Juiz Lúcio R. da Silveira
+Apelante: Elektro Redes S.A
+Advogado: Bruno Henrique Gonçalves (OAB: 131351/SP)
+Apelado: Itaú Seguros de Auto e Residência S/A
+Advogada: Cintia Malfatti Massoni Cenize <fim ord="2">(OAB: 138636/SP)</fim></cabecalho>
+
+<ementa><inicio ord="7">EMENTA</inicio> - APELAÇÃO CÍVEL - AÇÃO REGRESSIVA DE RESSARCIMENTO - RECURSO DA CONCESSIONÁRIA DE ENERGIA ELÉTRICA - PRELIMINAR DE AUSÊNCIA DE REQUERIMENTO ADMINISTRATIVO - REJEITADA - MÉRITO - SUB-ROGAÇÃO DE DIREITOS DA SEGURADORA - LEGISLAÇÃO CONSUMERISTA QUE SE APLICA AO SEGURADO - RESPONSABILIDADE CIVIL OBJETIVA DA CONCESSIONÁRIA DE ENERGIA ELÉTRICA - FALHA NA PRESTAÇÃO DE SERVIÇO COMPROVADA - INDENIZAÇÃO PAGA AO SEGURADO COMPROVADA - NEXO CAUSAL COMPROVADO - DEVER DE INDENIZAR - RECURSO CONHECIDO E DESPROVIDO. I - Não é necessário o esgotamento da via administrativa para o ajuizamento da presente ação de regresso, sendo bastante a apresentação de prova documental para solicitação de eventual ressarcimento administrativo, prescindindo-se, pois, de pedido ou esgotamento do procedimento administrativo <fundamentacao_legal ord="3">previsto Resolução Normativa n. 414/2010 da ANEEL</fundamentacao_legal>. Preliminar de ausência de interesse de agir rejeitada. II - Comprovado o pagamento da indenização ao segurado, a Seguradora-Apelada assume sua posição, sub-rogando-se em todos os seus direitos e deveres, inclusive no que diz respeito aos privilégios das normas protetivas do consumidor, tendo em vista a relação de consumo existente entre os interessados originários. III - A parte Apelada comprovou que houve sobrecarga elétrica que foi responsável por danificar os equipamentos analisados, desincumbindo-se do ônus de prova que lhe competia, <fundamentacao_legal ord="8">consoante dispõe o art. 373, I, do CPC</fundamentacao_legal>. Evidenciou-se, portanto, o nexo de causalidade entre a conduta da concessionária de energia elétrica e o dano experimentado pelos segurados da parte Apelada. Nesse sentido, cabia à Apelante provar a existência de fato impeditivo, modificativo ou extintivo do direito do Autor, <fundamentacao_legal ord="9">nos termos do art. 373, II, do mesmo diploma processual</fundamentacao_legal>, ônus do qual não se desincumbiu. IV - <fim ord="4">Recurso conhecido e desprovido</fim></ementa>. A C Ó R D Ã O <acordao_decisorio><inicio ord="10">Vistos, relatados e discutidos</inicio> estes autos, ACORDAM, em sessão permanente e virtual, os Magistrados da 4ª Câmara Cível do Tribunal de Justiça de Mato Grosso do Sul, na conformidade da ata de julgamentos, a seguinte decisão: <fim ord="5">Por unanimidade</fim></acordao_decisorio>, <resultado ord="6">afastaram a preliminar e, no mérito, negaram provimento ao recurso</resultado>, nos termos do voto do Relator.</text>
+</review>
