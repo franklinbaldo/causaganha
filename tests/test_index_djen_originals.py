@@ -59,5 +59,5 @@ def test_csv_roundtrip_unicode_and_commas():
 
 
 def test_ia_item_per_tribunal_and_filing_year():
-    assert index_item("tjro", "2023") == "causaganha-index-tjro-2023"
+    assert index_item("tjro", "2023") == "causaganha-2023-8-22"
     assert remote_partition_name("2023_0001.zip") == "0001.zip"
