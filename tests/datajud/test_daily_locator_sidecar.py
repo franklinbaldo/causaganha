@@ -37,11 +37,13 @@ def test_no_implicit_identity_when_source_lacks_id(tmp_path):
     with zipfile.ZipFile(zip_path, "w") as archive:
         archive.writestr(
             f"{cnj}.json",
-            json.dumps({
-                "numeroProcesso": cnj,
-                "grau": "G1",
-                "dataHoraUltimaAtualizacao": "2026-11-13T12:30:00Z",
-            }),
+            json.dumps(
+                {
+                    "numeroProcesso": cnj,
+                    "grau": "G1",
+                    "dataHoraUltimaAtualizacao": "2026-11-13T12:30:00Z",
+                }
+            ),
         )
     with pytest.raises(ValueError, match="Incomplete DataJud source identity"):
         export_daily_locators(zip_path, "tjro")
