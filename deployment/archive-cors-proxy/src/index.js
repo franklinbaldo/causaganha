@@ -25,7 +25,7 @@ export function parseDownloadPath(pathname) {
 
   const [, item, file] = match;
   if (!ITEM_PATTERN.test(item)) return null;
-  if (!/\\.(?:parquet|zip)$/i.test(file)) return null;
+  if (!/\.(?:parquet|zip)$/i.test(file)) return null;
 
   return { item, file };
 }
