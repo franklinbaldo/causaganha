@@ -94,3 +94,43 @@ func TestSecurityRejectsMutatingMethodEvenOffWhitelist(t *testing.T) {
 		t.Errorf("POST /login: got status %d, want %d", rr.Code, http.StatusMethodNotAllowed)
 	}
 }
+
+func TestArchiveDownloadPathAllowlist(t *testing.T) {
+	cases := map[string]bool{
+		"/download/djen-tjro-2026/comunicacoes.parquet":          true,
+		"/download/datajud-tjro/processos.parquet":               true,
+		"/download/causaganha-dashboard/indice_processual.parquet": true,
+		"/download/evil-item/comunicacoes.parquet":               false,
+		"/download/djen-tjro-2026/secret.txt":                    false,
+		"/download/djen-tjro-2026/../etc/passwd.parquet":         false,
+	}
+	for path, want := range cases {
+		if got := isArchiveDownloadPath(path); got != want {
+			t.Errorf("isArchiveDownloadPath(%q) = %v, want %v", path, got, want)
+		}
+	}
+}
+
+func TestArchiveDownloadOptionsAndInvalidPaths(t *testing.T) {
+	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	handler := security(inner)
+
+	optReq := httptest.NewRequest(http.MethodOptions, "/download/djen-tjro-2026/comunicacoes.parquet", nil)
+	optRR := httptest.NewRecorder()
+	handler.ServeHTTP(optRR, optReq)
+	if optRR.Code != http.StatusNoContent {
+		t.Errorf("OPTIONS /download/...: got %d, want 204", optRR.Code)
+	}
+	if got := optRR.Header().Get("Access-Control-Allow-Origin"); got != "*" {
+		t.Errorf("Access-Control-Allow-Origin = %q, want *", got)
+	}
+
+	badReq := httptest.NewRequest(http.MethodGet, "/download/evil-item/file.txt", nil)
+	badRR := httptest.NewRecorder()
+	handler.ServeHTTP(badRR, badReq)
+	if badRR.Code != http.StatusNotFound {
+		t.Errorf("GET invalid download path: got %d, want 404", badRR.Code)
+	}
+}

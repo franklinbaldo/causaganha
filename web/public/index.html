@@ -681,7 +681,7 @@
         return;
       }
 
-      const parquetUrl = `https://archive.org/download/djen-${trib}-${ano}/comunicacoes.parquet`;
+      const parquetUrl = `https://djen-proxy-mhgmawcn3a-rj.a.run.app/download/djen-${trib}-${ano}/comunicacoes.parquet`;
       try {
         const { conn } = await getDuckDB();
         const t0 = performance.now();
