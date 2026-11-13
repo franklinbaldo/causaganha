@@ -7,7 +7,7 @@ Os ZIPs do CNJ permanecem intocados em `djen-{tribunal}-{ano}`, organizados
 pela data de disponibilização. O site consulta um **índice derivado**:
 um ZIP por `ANO_DE_AJUIZAMENTO_UNIDADE_DE_ORIGEM`, com um CSV por CNJ.
 
-Exemplo de índice em `causaganha-index-tjro`:
+Exemplo de índice em `causaganha-2023-8-22`:
 
 ```text
 2023_0001.zip
@@ -76,7 +76,7 @@ necessária se a coleção crescer além do orçamento.
 
 Com CNJ `70726450920238220001`:
 
-1. Deriva `causaganha-index-tjro/2023_0001.zip`.
+1. Deriva `causaganha-2023-8-22/2023_0001.zip`.
 2. Lê `70726450920238220001.csv` por Range.
 3. Deriva os endereços dos ZIPs originais a partir das datas.
 4. Busca somente o membro JSON pertinente, usando seu diretório
@@ -105,3 +105,19 @@ a consulta não está pronta para o público.
 
 A PR #1720 permanece aberta e independente: nenhum formato PB
 é requisito para o índice por CNJ.
+
+
+## Nomeação dos itens de índice (decisão)
+
+A chave é `AAAA.J.TR/OOOO.zip` na notação CNJ, mas o identificador físico
+adotado no IA é `causaganha-AAAA-J-TR`, com `OOOO.zip` como arquivo.
+Exemplo: `causaganha-2026-8-22/0001.zip`. Os CSVs internos continuam
+`{CNJ}.csv`. O prefixo evita colisões de identificadores globais no IA,
+e hífens seguem a nomenclatura recomendada. Os originais do DJEN ficam nos
+itens `djen-{tribunal}-{ano-publicacao}` sem qualquer alteração.
+
+O piloto mapeia TJRO a `8-22`. Outros tribunais exigem roteamento CNJ
+validado antes de serem habilitados. O manifesto de fontes é compartilhado
+entre os anos de publicação do TJRO e fica no item
+`causaganha-index-control-tjro/manifest.json`. Isso evita que rodadas de
+origens anuais diferentes sobrescrevam referências históricas.
