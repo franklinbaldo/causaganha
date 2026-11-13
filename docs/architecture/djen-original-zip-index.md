@@ -48,11 +48,19 @@ Cada linha precisa informar explicitamente `numero_processo`,
 `membro` e `atualizado_em` (ISO com timezone). Não inventamos
 localizações do DataJud a partir de nomes presumidos.
 
-A integração automática do produtor DataJud a esse feed ainda precisa
-ser validada. O `indice_processos_{tribunal}.parquet` existente no
-`daily_pack.py` contém, na sua versão atual, **apenas uma linha por CNJ**,
-logo não prova cobertura completa de todos os graus. Não é seguro usá-lo
-como se preservasse todas as identidades documentais.
+O `datajud.daily_pack.export_daily_locators` extrai identidades e
+localizações dos próprios membros ZIP efetivamente publicados pelo CDC.
+O `cdc.py` publica esse sidecar JSONL no item `datajud-{tribunal}`.
+O workflow diário da PR #1721 usa `--datajud-from-ia` e consome apenas
+sidecars ainda não registrados no manifesto, com checksum. Correções de
+um sidecar já processado exigem rebuild explícito: o processo falha de
+forma visível em vez de manter referências antigas silenciosamente.
+
+O `indice_processos_{tribunal}.parquet` histórico contém apenas uma linha
+por CNJ; ele **não** comprova cobertura de todos os graus. O sidecar
+novo reflete somente os membros realmente presentes nos ZIPs DataJud,
+sem inventar registros ausentes. A ampliação da cobertura multigrau do
+empacotador DataJud continua sendo um trabalho independente.
 
 ### Organização e atualização no IA
 
@@ -66,7 +74,7 @@ O fluxo é incremental: identifica ZIPs originais novos ou alterados,
 atualiza apenas partições atingidas, reenvia os ZIPs de índice alterados
 e só então publica o manifesto em
 `causaganha-index-control-tjro/manifest.json`. O manifesto é
-controle de cobertura; não fornece atomicidade transacional no IA.
+controle de cobertura; a versão 4 sinaliza a incompatibilidade com os ZIPs CSV anteriores e não fornece atomicidade transacional no IA.
 
 ### Consulta web
 
