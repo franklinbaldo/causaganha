@@ -182,8 +182,13 @@ def merge_datajud(
 def load_datajud_locators(path: Path) -> dict[str, list[dict[str, str]]]:
     """Read explicit per-document DataJud ZIP locators from an optional JSONL feed."""
     required = {
-        "tribunal", "grau", "documento_id", "item_ia",
-        "arquivo_zip", "membro", "atualizado_em",
+        "tribunal",
+        "grau",
+        "documento_id",
+        "item_ia",
+        "arquivo_zip",
+        "membro",
+        "atualizado_em",
     }
     records: dict[str, list[dict[str, str]]] = defaultdict(list)
     with path.open(encoding="utf-8") as stream:
@@ -194,8 +199,12 @@ def load_datajud_locators(path: Path) -> dict[str, list[dict[str, str]]]:
             cnj = entry.get("numero_processo")
             if not isinstance(cnj, str) or not CNJ_RE.fullmatch(cnj):
                 raise ValueError("Invalid DataJud CNJ locator")
-            if not all(isinstance(entry.get(field), str) and entry[field] for field in required):
-                raise ValueError("Incomplete DataJud locator; no implicit item/ZIP guesses")
+            if not all(
+                isinstance(entry.get(field), str) and entry[field] for field in required
+            ):
+                raise ValueError(
+                    "Incomplete DataJud locator; no implicit item/ZIP guesses"
+                )
             records[cnj].append({field: entry[field] for field in required})
     return dict(records)
 
@@ -242,7 +251,11 @@ def download(client: httpx.Client, url: str, target: Path) -> bool:
 
 
 def run(
-    item: str, output: Path, max_zips: int, *, restore_remote: bool = False,
+    item: str,
+    output: Path,
+    max_zips: int,
+    *,
+    restore_remote: bool = False,
     datajud_locators: Path | None = None,
 ) -> dict:
     match = ITEM_RE.fullmatch(item)
@@ -376,7 +389,8 @@ def run(
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
-            "publish_files": sorted(touched) + (["manifest.json"] if processed or touched else []),
+            "publish_files": sorted(touched)
+            + (["manifest.json"] if processed or touched else []),
         }
 
 
@@ -386,7 +400,9 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("data/djen-cnj-index"))
     parser.add_argument("--max-zips", type=int, default=5)
     parser.add_argument("--restore-remote", action="store_true")
-    parser.add_argument("--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed")
+    parser.add_argument(
+        "--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed"
+    )
     args = parser.parse_args()
     if args.max_zips < 1:
         parser.error("--max-zips must be positive")
