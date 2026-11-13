@@ -1,0 +1,67 @@
+<review id="rev_5bd9138089715028081fe79dea06d810" document_id="doc_e2986082e14face4a4120f6de20e2248">
+  <input_annotations>
+    <annotation_id>ann_b78f513e8ccba032bbceb2199888f386</annotation_id>
+    <annotation_id>ann_a462dbbafd9b1fba979a22cebb5417a6</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="ementa" reason="TRF2 capa+ementa-estruturada format: EMENTA opens directly into numbered I-IV sections (CASO EM EXAME/QUESTAO EM DISCUSSAO/RAZOES DE DECIDIR/DISPOSITIVO) with no separate RELATORIO/VOTO section -- guideline documented exception, no closing cue exists in source." />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>Adopted A's tighter acordao_decisorio_inicio/fim (Rule 1: anchors are short; B's original inicio spanned the entire clause, ~150 chars, since repaired in B's own stored annotation too before finalizing). Adopted B's shorter resultado span ('NEGAR PROVIMENTO', matching the guideline's own 2-word canonical examples) over A's longer object-clause version. Added B's 2 extra fundamentacao_legal spans (guideline: tag every distinct citation, A missed both). Kept ref_processual and ementa_inicio agreed by both. Carried forward A's declared allowed_unmatched reason for ementa (TRF2 capa+ementa-estruturada format).</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 2 span(s) agreed by both annotators, 3 only in annotation A, 5 only in annotation B — categories in A-only: ['acordao_decisorio_fim', 'acordao_decisorio_inicio', 'resultado']; categories in B-only: ['acordao_decisorio_fim', 'acordao_decisorio_inicio', 'fundamentacao_legal', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T16:58:00Z</approved_at>
+  <text>Apelação Cível  Nº <ref_processual ord="0">5000607-66.2024.4.02.9999/ES</ref_processual>
+
+ RELATORA : Desembargadora Federal CLAUDIA FRANCO CORREA
+
+ APELADO : VALDETE MARIA SALVADOR JACOME
+
+ ADVOGADO(A) : Elton Areia Alves de Souza (OAB ES020392)
+
+ ADVOGADO(A) : ANTONIO ALVES DE SOUZA FILHO (OAB ES019546)
+
+<ementa><inicio ord="1">EMENTA</inicio></ementa>
+
+DIREITO PROCESSUAL CIVIL E PREVIDENCIÁRIO. EMBARGOS DE DECLARAÇÃO. APOSENTADORIA POR TEMPO DE CONTRIBUIÇÃO. ATIVIDADE RURAL. AUSÊNCIA DE OMISSÃO. INEXISTÊNCIA DE VÍCIOS NO ACÓRDÃO. EMBARGOS REJEITADOS.
+
+I. CASO EM EXAME
+
+1. Embargos de declaração opostos pela sucessora processual da parte autora, com o objetivo de sanar omissão no acórdão que negou o reconhecimento de atividade rural sob o regime de economia familiar nos anos de 2001 a 2009 e de março de 2012 a 2014.
+
+II. QUESTÃO EM DISCUSSÃO
+
+2. A questão em discussão consiste em definir se o acórdão recorrido incorreu em omissão ao deixar de apreciar ponto essencial para o deslinde da causa, especialmente quanto à análise do período rural alegado e à eventual aplicação da Súmula nº 14 da TNU.
+
+III. RAZÕES DE DECIDIR
+
+3. <fundamentacao_legal ord="2">O art. 1.022 do CPC</fundamentacao_legal> delimita o cabimento dos embargos de declaração às hipóteses de obscuridade, contradição, omissão ou erro material, tratando-se de recurso de fundamentação vinculada.
+
+4. O acórdão recorrido apreciou expressamente os períodos alegados como de atividade rural, afastando a possibilidade de reconhecimento do labor campesino em razão do exercício concomitante de cargos comissionados na Prefeitura e Câmara de Nova Venécia.
+
+5. A fundamentação do acórdão também esclareceu que os documentos apresentados pelo autor apenas indicavam a condição de proprietário rural, sem comprovar o efetivo exercício da atividade agrícola sob o regime de economia familiar.
+
+6. A ausência de menção expressa <fundamentacao_legal ord="3">à Súmula nº 14 da TNU</fundamentacao_legal> não configura omissão, pois a controvérsia foi julgada à luz do conjunto fático-probatório delimitado pelo próprio autor, sem que se evidenciasse a aplicabilidade da referida súmula ao caso concreto.
+
+IV. DISPOSITIVO E TESE
+
+7. Embargos de declaração rejeitados.
+
+Tese de julgamento:
+
+1. A ausência de menção expressa a enunciado de súmula não configura omissão quando o acórdão enfrenta de modo fundamentado as questões centrais da controvérsia.
+
+Dispositivos relevantes citados: CPC, art. 1.022.
+
+Jurisprudência relevante citada: STJ, EDcl no AgInt no AREsp 1.964.593, Rel. Min. Paulo Sérgio Domingues, 1ª Turma, DJe 30.05.2023.
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="4">Vistos e relatados</inicio> estes autos em que são partes as acima indicadas, a Egrégia 9ª Turma Especializada do Tribunal Regional Federal da 2ª Região decidiu, <fim ord="5">por unanimidade</fim></acordao_decisorio>, <resultado ord="6">NEGAR PROVIMENTO</resultado> aos embargos de declaração, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Rio de Janeiro, 10 de junho de 2025.</text>
+</review>

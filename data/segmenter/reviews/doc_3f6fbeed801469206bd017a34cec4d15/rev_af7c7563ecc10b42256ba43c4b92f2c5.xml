@@ -1,0 +1,27 @@
+<review id="rev_af7c7563ecc10b42256ba43c4b92f2c5" document_id="doc_3f6fbeed801469206bd017a34cec4d15">
+  <input_annotations>
+    <annotation_id>ann_1d4765386cdf76e303acdd7b02e5f888</annotation_id>
+    <annotation_id>ann_70db09938a0a6c267f60c5831f30a386</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched />
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>Adopted B's cabecalho_inicio/cabecalho_fim (A omitted cabecalho entirely). Adopted A's ementa_fim (B omitted it) and A's tighter acordao_decisorio_inicio (Rule 1: anchors are short, A=4 words vs B=7 words). Split B's acordao_decisorio_fim/resultado overlap into adjacent non-overlapping spans (fim ends at the comma, resultado covers the operative verb phrase, matching the sibling-not-nested convention already established for this pair in other same-tribunal-family documents). Kept the 3 agreed fundamentacao_legal spans and ref_processual/ementa_inicio unchanged.</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 5 span(s) agreed by both annotators, 3 only in annotation A, 5 only in annotation B — categories in A-only: ['acordao_decisorio_fim', 'acordao_decisorio_inicio', 'ementa_fim']; categories in B-only: ['acordao_decisorio_fim', 'acordao_decisorio_inicio', 'cabecalho_fim', 'cabecalho_inicio', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T16:55:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Apelação / Remessa Necessária nº</inicio> <ref_processual ord="1">0800379-45.2021.8.12.0006</ref_processual>
+Comarca de Camapuã - 2ª Vara
+Relator(a): Des. Marcos José de Brito Rodrigues
+Juízo Recorr.: Juiz(a) de Direito da 2ª Vara da Comarca de Camapuã
+Apelante: Município de Camapuã
+Proc. Município: Wellington Miranda Cabral (OAB: 18373/MS)
+Apelada: Márcia Malaquias França
+Advogada: Yara Cristine Vaz (OAB: 21090/MS)
+Interessado: <fim ord="2">Estado de Mato Grosso do Sul</fim></cabecalho>
+
+<ementa><inicio ord="3">EMENTA</inicio> - APELAÇÃO CÍVEL E REMESSA NECESSÁRIA - AÇÃO DE COBRANÇA - SERVIDORA PÚBLICA MUNICIPAL - COLETORA DE RESÍDUOS - ADICIONAL DE INSALUBRIDADE - PREVISÃO EM LEGISLAÇÃO MUNICIPAL - VERBA DEVIDA PERCENTUAL GRAU MÁXIMO - FORMA DE APLICAÇÃO DOS JUROS E CORREÇÃO - JUROS A PARTIR DA CITAÇÃO ART. 1°-F, DA LEI N.º 9.494/1997, COM REDAÇÃO DA LEI N.° 11.960/2009 CORREÇÃO MONETÁRIA IPCA-E - RE N.º 870.947 HONORÁRIOS ADVOCATÍCIOS - ART. 85, § 4º, II, CPC ARBITRAMENTO QUANDO DA LIQUIDAÇÃO RECURSOS OBRIGATÓRIO E VOLUNTÁRIOS PROVIDOS EM PARTE Por se tratar de sentença ilíquida proferida contra a Fazenda Pública, a remessa necessária deve ser conhecida de ofício, <fundamentacao_legal ord="4">nos termos da Súmula n.º 490, do STJ</fundamentacao_legal>. Havendo expressa previsão em legislação municipal do adicional de insalubridade, assim como provado por meio de laudo pericial que a autora labora em condições insalubres de grau máximo, faz jus ao recebimento da verba pleiteada no percentual de 30% (trinta por cento) sobre o vencimento do cargo. <fundamentacao_legal ord="5">Nos termos da súmula n.º 85, do STJ</fundamentacao_legal>, "nas relações jurídicas de trato sucessivo em que a Fazenda Pública figure como devedora, quando não tiver sido negado o próprio direito reclamado, a prescrição atinge apenas as prestações vencidas antes do quinquênio anterior à propositura da ação". A sentença atacada deve ser retificada em parte, sanando o vício apontado, tão somente para determinar que valores a serem apurados em liquidação de sentença deverão ser atualizados pelo IPCA-E desde a data em que deveriam ter sido pagas e acrescidas de juros de mora, <fundamentacao_legal ord="6">na forma do art. 1º-F da Lei 9.494/97</fundamentacao_legal>, desde a citação, até o dia 08/12/2021, data da promulgação da EC nº 113/2021, quando então, a título de correção monetária e juros de mora, incidirá uma única vez a Taxa Selic. Nas ações em que for sucumbente a Fazenda Pública, não sendo líquida a sentença, a definição do percentual dos honorários advocatícios somente ocorrerá <fim ord="7">quando liquidado o julgado.</fim></ementa> A C Ó R D Ã O <acordao_decisorio><inicio ord="8">Vistos, relatados e discutidos</inicio> estes autos, ACORDAM, em sessão permanente e virtual, os(as) magistrados(as) do(a) 1ª Câmara Cível do Tribunal de Justiça de Mato Grosso do Sul, na conformidade da ata de julgamentos, a seguinte decisão: <fim ord="9">Por unanimidade, </fim></acordao_decisorio><resultado ord="10">deram parcial provimento aos recursos</resultado>, nos termos do voto do Relator.</text>
+</review>

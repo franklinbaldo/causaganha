@@ -1,0 +1,59 @@
+<review id="rev_8a4a3d5b4c3d0943c0c51a07d06c026f" document_id="doc_6129fdd7ecf441fb4629fd2476197bfa">
+  <input_annotations>
+    <annotation_id>ann_deb9b93341e0175d79a133c8ff1bf976</annotation_id>
+    <annotation_id>ann_1435fd400c1b3ae15de1907c9ecbe650</annotation_id>
+  </input_annotations>
+  <status>accepted</status>
+  <allowed_unmatched>
+    <entry base="ementa" reason="TRF2 capa+ementa-estruturada format: EMENTA opens directly into numbered I-IV sections with no separate RELATORIO/VOTO section -- guideline documented exception, no closing cue exists in source." />
+  </allowed_unmatched>
+  <reviewers>
+    <reviewer>segmenter_dataset_agent_review:v1</reviewer>
+  </reviewers>
+  <resolution>Adopted B's cabecalho_inicio/cabecalho_fim (A omitted cabecalho_fim; A's cabecalho_inicio wrongly nested ref_processual, trimmed to end where ref_processual begins). Kept ref_processual, ementa_inicio, 3 of 4 fundamentacao_legal spans, acordao_decisorio_inicio/fim agreed by both. Added B's extra fundamentacao_legal span (guideline: tag every distinct citation). Adopted B's shorter resultado span ('dar provimento ao recurso', matching the guideline's own 2-4-word canonical examples) over A's longer object-clause version. Carried forward A's declared allowed_unmatched reason for ementa (TRF2 capa+ementa-estruturada format).</resolution>
+  <notes>
+    <note>exact-match diff before adjudication: 7 span(s) agreed by both annotators, 1 only in annotation A, 4 only in annotation B — categories in A-only: ['resultado']; categories in B-only: ['cabecalho_fim', 'cabecalho_inicio', 'fundamentacao_legal', 'resultado']</note>
+  </notes>
+  <approved_at>2026-09-26T16:55:00Z</approved_at>
+  <text><cabecalho><inicio ord="0">Apelação Cível  Nº </inicio><ref_processual ord="1">5000497-33.2025.4.02.9999/ES</ref_processual>
+
+ RELATOR : Juiz Federal GUILHERME BOLLORINI PEREIRA
+
+ APELADO : MARIA LUCIA MARCHIORI NICOLI
+
+ ADVOGADO(A) : LUCAS FERNANDES SOUZA (OAB ES025803)
+
+ <fim ord="2">ADVOGADO(A) : EVANDRO BAETA AMARAL (OAB ES026968)</fim></cabecalho>
+
+<ementa><inicio ord="3">EMENTA</inicio></ementa>
+
+Ementa: DIREITO PREVIDENCIÁRIO. RECURSO DE APELAÇÃO. PEDIDO DE CONCESSÃO DO BENEFÍCIO DE APOSENTADORIA POR IDADE RURAL. CONFIGURAÇÃO DA COISA JULGADA. RECURSO PROVIDO.
+
+I. CASO EM EXAME
+
+1. Apelação interposta pelo INSS em face da sentença que o condenou a conceder à autora o benefício de aposentadoria por idade rural, a partir da data do requerimento administrativo, em 02/12/2022. A autarquia alega o não cumprimento dos requisitos pela autora, solicitando o afastamento da concessão do benefício de aposentadoria por idade rural.
+
+II. QUESTÃO EM DISCUSSÃO
+
+2. A questão em discussão consiste em: i. verificar se a pretensão à concessão do benefício de aposentadoria por idade rural está acobertada pela coisa julgada.
+
+III. RAZÕES DE DECIDIR
+
+3. A pretensão da autora à concessão do benefício de aposentadoria por idade rural, requerido administrativamente em 23/03/2019, resta abarcada pela coisa julgada, tendo em vista que tal pedido já fora examinado e julgado em ação anterior.
+
+4. Convém ressaltar que a coisa julgada é matéria de ordem pública, podendo ser conhecida de ofício pelo órgão julgador a qualquer tempo e grau de jurisdição, <fundamentacao_legal ord="4">com fulcro no artigo 485, V, 3º do CPC</fundamentacao_legal>.
+
+5. A autora requereu ao INSS, novamente, a concessão do benefício de aposentadoria por idade rural, em 02/12/2022, no entanto, não fazendo jus a este, já que considerando o período após o primeiro requerimento administrativo, formulado em 23/03/2019, não cumpriu a carência exigida em lei, <fundamentacao_legal ord="5">consoante o art. 25, II, da lei nº 8.213/91</fundamentacao_legal>.
+
+6. Excluída a condenação do INSS ao pagamento de honorários advocatícios <fundamentacao_legal ord="6">nos percentuais mínimos previstos no art. 85, §3º, do CPC</fundamentacao_legal>, condenando-se a parte autora ao pagamento de honorários advocatícios, no montante equivalente a 10% do valor da causa atualizado, <fundamentacao_legal ord="7">nos termos do art. 98, § 3º do Código de Processo Civil</fundamentacao_legal>, tendo em vista a gratuidade deferida. 
+
+IV. DISPOSITIVO
+
+7. Recurso provido para revogar a tutela concedida pela sentença e para julgar improcedente o pedido autoral, já que a autora não faz jus à concessão do benefício de aposentadoria por idade rural na DER assinalada.
+
+ACÓRDÃO
+
+<acordao_decisorio><inicio ord="8">Vistos e relatados estes autos</inicio> em que são partes as acima indicadas, a Egrégia 9ª Turma Especializada do Tribunal Regional Federal da 2ª Região decidiu, <fim ord="9">por unanimidade</fim></acordao_decisorio>, conhecer e <resultado ord="10">dar provimento ao recurso</resultado> interposto pelo INSS, nos termos do relatório, votos e notas de julgamento que ficam fazendo parte integrante do presente julgado.
+
+Rio de Janeiro, 10 de junho de 2025.</text>
+</review>
