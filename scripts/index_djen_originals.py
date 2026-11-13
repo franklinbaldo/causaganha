@@ -126,26 +126,40 @@ def merge_zip(index: dict, *, filename: str, rows: dict[str, list[dict]]) -> boo
     return old != items
 
 
-def read_remote(url: str, target: Path) -> None:
-    """Restore a published shard; missing shard means empty, other errors fail."""
+def read_remote(url: str, target: Path, *, required: bool = False) -> bool:
+    """Restore a shard; a missing previously published file is an error."""
     with httpx.Client(timeout=60, follow_redirects=True) as client:
         response = client.get(url)
         if response.status_code == 404:
-            return
+            if required:
+                raise FileNotFoundError(f"Published index is missing: {url}")
+            return False
         response.raise_for_status()
         target.write_bytes(response.content)
+        return True
 
 
 def restore(out_dir: Path, partition: str) -> None:
-    """Load only already-published index files, bounded to 257 requests."""
+    """Restore the manifest and only its declared nonempty shards."""
     out_dir.mkdir(parents=True, exist_ok=True)
-    names = [f"{partition}_manifest.json"]
-    names.extend(f"{partition}_{shard:02x}.json" for shard in range(256))
+    manifest_name = f"{partition}_manifest.json"
+    manifest_file = out_dir / manifest_name
+    if not read_remote(f"{INDEX_BASE}/{manifest_name}", manifest_file):
+        return
+    manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
+    shards = manifest.get("shards")
+    if not isinstance(shards, list):
+        raise ValueError("Published manifest missing shard list")
     with ThreadPoolExecutor(max_workers=12) as pool:
-        futures = {
-            pool.submit(read_remote, f"{INDEX_BASE}/{name}", out_dir / name): name
-            for name in names
-        }
+        futures = [
+            pool.submit(
+                read_remote,
+                f"{INDEX_BASE}/{partition}_{shard}.json",
+                shard_path(out_dir, partition, shard),
+                required=True,
+            )
+            for shard in shards
+        ]
         for future in as_completed(futures):
             future.result()
 
@@ -162,10 +176,11 @@ def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
     if manifest_file.exists():
         manifest = json.loads(manifest_file.read_text(encoding="utf-8"))
     else:
-        manifest = {"version": 2, "item": item, "sources": {}}
+        manifest = {"version": 2, "item": item, "sources": {}, "shards": []}
     if manifest.get("version") != 2 or manifest.get("item") != item:
         raise ValueError("Incompatible source manifest")
     source_fingerprints = manifest["sources"]
+    known_shards = set(manifest["shards"])
     with httpx.Client(timeout=120, follow_redirects=True) as client:
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
@@ -211,6 +226,7 @@ def run(item: str, out_dir: Path, max_zips: int, *, restore_remote: bool = False
                 if merge_zip(index, filename=name, rows=by_shard.get(shard, {})):
                     save_index(path, index)
                     touched.add(path.name)
+                    known_shards.add(shard)
             source_fingerprints[name] = fingerprint
             changed += 1
         if changed:
