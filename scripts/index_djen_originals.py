@@ -39,7 +39,8 @@ HEADER = ("data", "membro", "id", "hash")
 
 def index_item(tribunal: str, process_year: str) -> str:
     """One IA item per tribunal and filing year."""
-    return f"{INDEX_PREFIX}{tribunal}-{process_year}"
+    cnj_court = {"tjro": "8-22"}[tribunal]
+    return f"causaganha-{process_year}-{cnj_court}"
 
 
 def control_item(tribunal: str) -> str:
