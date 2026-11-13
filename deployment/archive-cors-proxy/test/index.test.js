@@ -19,12 +19,12 @@ describe("parseDownloadPath", () => {
   });
 
   it("accepts a derived CNJ CSV ZIP but not arbitrary index files", () => {
-    expect(parseDownloadPath("/download/causaganha-index-tjro-2023/0001.zip")).toEqual({
-      item: "causaganha-index-tjro-2023",
+    expect(parseDownloadPath("/download/causaganha-2023-8-22/0001.zip")).toEqual({
+      item: "causaganha-2023-8-22",
       file: "0001.zip",
     });
-    expect(parseDownloadPath("/download/causaganha-index-tjro-2023/manifest.json")).toBeNull();
-    expect(parseDownloadPath("/download/causaganha-index-tjro-2023/other.zip")).toBeNull();
+    expect(parseDownloadPath("/download/causaganha-2023-8-22/manifest.json")).toBeNull();
+    expect(parseDownloadPath("/download/causaganha-2023-8-22/other.zip")).toBeNull();
   });
 
   it.each([
