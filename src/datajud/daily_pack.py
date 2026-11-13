@@ -165,3 +165,54 @@ def update_resolution_index(
         total_indexed=len(sorted_rows),
     )
     return len(sorted_rows)
+
+
+def export_daily_locators(
+    zip_path: Path,
+    tribunal: str,
+    *,
+    output_path: Path | None = None,
+) -> Path:
+    """Publish exact IA locators for documents actually present in the daily ZIP.
+
+    Unlike the legacy single-row-per-CNJ resolution index, this feed includes
+    the source document identity and does not pretend that missing grades exist.
+    The original document bytes and member names are left unchanged.
+    """
+    tribunal_slug = tribunal.lower()
+    target = output_path or zip_path.with_suffix(".locators.jsonl")
+    item = f"datajud-{tribunal_slug}"
+    rows: list[dict[str, str]] = []
+    with zipfile.ZipFile(zip_path) as archive:
+        for name in archive.namelist():
+            if not (name.endswith(".json.gz") or name.endswith(".json")):
+                continue
+            content = archive.read(name)
+            if name.endswith(".gz"):
+                content = gzip.decompress(content)
+            doc = json.loads(content)
+            cnj = normalizar_cnj(doc.get("numeroProcesso", ""))
+            degree = doc.get("grau")
+            original_id = doc.get("id") or doc.get("_id")
+            updated = doc.get("dataHoraUltimaAtualizacao")
+            if not cnj or not degree or not original_id or not updated:
+                raise ValueError(f"Incomplete DataJud source identity in {name}")
+            rows.append({
+                "numero_processo": cnj,
+                "tribunal": tribunal.upper(),
+                "grau": str(degree),
+                "documento_id": str(original_id),
+                "item_ia": item,
+                "arquivo_zip": zip_path.name,
+                "membro": name,
+                "atualizado_em": str(updated),
+            })
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(
+        "".join(json.dumps(row, ensure_ascii=False, sort_keys=True) + "\n"
+                for row in sorted(rows, key=lambda r: (
+                    r["numero_processo"], r["grau"], r["documento_id"]
+                ))),
+        encoding="utf-8",
+    )
+    return target
