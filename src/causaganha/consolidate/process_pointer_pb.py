@@ -187,8 +187,13 @@ def update_datajud(
     for row in incoming:
         key = (row["tribunal"], row["grau"], row["documento_id"])
         prior = rows.get(key)
-        if prior is None or _timestamp(row["atualizado_em"]) > _timestamp(prior["atualizado_em"]):
+        if prior is None or _timestamp(row["atualizado_em"]) > _timestamp(
+            prior["atualizado_em"]
+        ):
             rows[key] = row
-        elif _timestamp(row["atualizado_em"]) == _timestamp(prior["atualizado_em"]) and row != prior:
+        elif (
+            _timestamp(row["atualizado_em"]) == _timestamp(prior["atualizado_em"])
+            and row != prior
+        ):
             raise ValueError(f"Conflicting DataJud snapshots at same timestamp: {key}")
     return [rows[key] for key in sorted(rows)]
