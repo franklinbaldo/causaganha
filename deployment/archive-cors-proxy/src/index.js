@@ -25,7 +25,7 @@ export function parseDownloadPath(pathname) {
 
   const [, item, file] = match;
   if (!ITEM_PATTERN.test(item)) return null;
-  if (!file.toLowerCase().endsWith(".parquet")) return null;
+  if (!/\\.(?:parquet|zip)$/i.test(file)) return null;
 
   return { item, file };
 }
@@ -62,6 +62,15 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
 
   const upstreamHeaders = new Headers();
   const range = request.headers.get("range");
+  if (parsed.file.toLowerCase().endsWith(".zip")) {
+    // ZIPs must be read in bounded chunks; never proxy the full archive.
+    if (request.method !== "GET" || !range) return plainText("ZIP requires bounded Range GET", 400);
+    const match = /^bytes=(\d+)-(\d+)$/.exec(range);
+    if (!match || Number(match[2]) < Number(match[1]) ||
+        Number(match[2]) - Number(match[1]) + 1 > 2 * 1024 * 1024) {
+      return plainText("ZIP Range must be explicit and <= 2 MiB", 416);
+    }
+  }
   if (range) upstreamHeaders.set("range", range);
 
   try {
@@ -70,6 +79,10 @@ export async function handleRequest(request, env, fetchImpl = fetch) {
       headers: upstreamHeaders,
       redirect: "follow",
     });
+
+    if (parsed.file.toLowerCase().endsWith(".zip") && upstream.status !== 206) {
+      return plainText("upstream did not honor ZIP range", 502);
+    }
 
     const responseHeaders = new Headers();
     for (const [name, value] of upstream.headers) {
