@@ -274,14 +274,14 @@ def run(
             json.loads(manifest_file.read_text(encoding="utf-8"))
             if manifest_file.exists()
             else {
-                "version": 3,
+                "version": 4,
                 "tribunal": tribunal,
                 "sources": {},
                 "partitions": [],
                 "source_partitions": {},
             }
         )
-        if manifest.get("version") != 3 or manifest.get("tribunal") != tribunal:
+        if manifest.get("version") != 4 or manifest.get("tribunal") != tribunal:
             raise ValueError("Incompatible index manifest")
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
