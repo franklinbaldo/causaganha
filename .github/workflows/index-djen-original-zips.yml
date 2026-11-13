@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       item:
-        description: 'IA tribunal/year item, e.g. djen-tjro-2026'
+        description: 'Source IA item, e.g. djen-tjro-2026'
         required: false
         type: string
         default: djen-tjro-2026
@@ -15,7 +15,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: index-djen-original-zip
+  group: djen-process-csv-index
   cancel-in-progress: false
 
 jobs:
@@ -32,37 +32,42 @@ jobs:
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
-      - name: Restore index and incrementally index preserved ZIPs
+      - name: Restore and build ZIPs of per-process CSVs
         env:
           ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
         run: |
           set -euo pipefail
-          uv run python scripts/index_djen_originals.py --item "$ITEM" --restore-remote --max-zips 5 | tee index-report.json
-      - name: Publish changed shards before manifest
+          uv run python scripts/index_djen_originals.py \
+            --item "$ITEM" --restore-remote --max-zips 5 | tee index-report.json
+      - name: Publish changed ZIPs and finally the manifest
         run: |
           set -euo pipefail
-          python - <<'PY'
+          uv run python - <<'PY'
           import json
           import subprocess
           from pathlib import Path
 
           report = json.loads(Path("index-report.json").read_text())
-          base = Path("web/public/indexes/djen-raw")
-          for filename in report["publish_files"]:
-              path = base / filename
-              if not path.is_file():
-                  raise SystemExit(f"Missing index output: {path}")
-              subprocess.run(
-                  ["uv", "run", "ia", "upload", "causaganha-djen-original-index",
-                   str(path), "--no-derive"],
-                  check=True,
+          item = report["index_item"]
+          for name in report["publish_files"]:
+              path = (
+                  Path("data/djen-cnj-index") / name
+                  if name.endswith(".zip")
+                  else Path("data/djen-cnj-index") / (item.removeprefix("causaganha-index-") + "_manifest.json")
               )
-          print(f"Published {len(report['publish_files'])} index files")
+              if not path.is_file():
+                  raise SystemExit(f"Index artifact missing: {path}")
+              cmd = [
+                  "uv", "run", "ia", "upload", item, str(path),
+                  "--remote-name=" + name, "--no-derive",
+              ]
+              subprocess.run(cmd, check=True)
+          print("Published", len(report["publish_files"]), "index artifacts")
           PY
       - name: Index report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: djen-original-index-report
+          name: djen-cnj-csv-index-report
           path: index-report.json
           if-no-files-found: ignore
