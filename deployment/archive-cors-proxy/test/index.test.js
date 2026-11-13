@@ -18,6 +18,15 @@ describe("parseDownloadPath", () => {
     });
   });
 
+  it("accepts a derived CNJ CSV ZIP but not arbitrary index files", () => {
+    expect(parseDownloadPath("/download/causaganha-index-tjro/2023_0001.zip")).toEqual({
+      item: "causaganha-index-tjro",
+      file: "2023_0001.zip",
+    });
+    expect(parseDownloadPath("/download/causaganha-index-tjro/manifest.json")).toBeNull();
+    expect(parseDownloadPath("/download/causaganha-index-tjro/other.zip")).toBeNull();
+  });
+
   it.each([
     "/download/other-item/comunicacoes.parquet",
     "/download/djen-tjro-2026/readme.txt",
