@@ -109,6 +109,37 @@ describe("archive CORS proxy forwarding", () => {
     expect(upstreamFetch).toHaveBeenCalledOnce();
   });
 
+  it("forwards bounded ZIP Range and rejects full-file downloads", async () => {
+    const path = "/download/djen-tjro-2026/djen-2026-11-09-TJRO.zip";
+    const fetcher = vi.fn(async (url, init) => {
+      expect(init.headers.get("range")).toBe("bytes=100-199");
+      return new Response("compressed-bytes", {
+        status: 206,
+        headers: { "content-range": "bytes 100-199/9150000" },
+      });
+    });
+    const denied = await handleRequest(proxyRequest(path), {}, fetcher);
+    expect(denied.status).toBe(400);
+    const invalid = await handleRequest(
+      proxyRequest(path, { headers: { range: "bytes=0-3000000" } }), {}, fetcher,
+    );
+    expect(invalid.status).toBe(416);
+    const permitted = await handleRequest(
+      proxyRequest(path, { headers: { range: "bytes=100-199" } }), {}, fetcher,
+    );
+    expect(permitted.status).toBe(206);
+    expect(permitted.headers.get("content-range")).toBe("bytes 100-199/9150000");
+    expect(fetcher).toHaveBeenCalledOnce();
+  });
+
+  it("rejects upstream ignoring a ZIP Range", async () => {
+    const path = "/download/djen-tjro-2026/djen-2026-11-09-TJRO.zip";
+    const response = await handleRequest(proxyRequest(path, {
+      headers: { range: "bytes=0-99" },
+    }), {}, vi.fn(async () => new Response("whole ZIP", { status: 200 })));
+    expect(response.status).toBe(502);
+  });
+
   it("forwards a HEAD request without a Range header", async () => {
     const upstreamFetch = vi.fn(async (url, init) => {
       expect(init.method).toBe("HEAD");
