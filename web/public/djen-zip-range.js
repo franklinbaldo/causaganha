@@ -123,14 +123,14 @@ async function unzipMember(compressedBytes, method, expectedSize) {
   return all;
 }
 
-export async function readOriginalMember({ item, zip, member, proxyBase, asText = false }) {
+export async function readOriginalMember({ item, zip, member, proxyBase, asText = false, asBytes = false }) {
   if (!proxyBase) throw new Error("Proxy CORS de ZIP não configurado");
   const original = /^djen-[a-z0-9]+-20\d{2}$/.test(item) &&
       /^djen-20\d{2}-\d{2}-\d{2}-[A-Z0-9]+\.zip$/.test(zip) &&
       member.endsWith(".json");
   const derived = /^causaganha-20\d{2}-[0-9]-[0-9]{2}$/.test(item) &&
       /^[0-9]{4}\.zip$/.test(zip) &&
-      /^[0-9]{9}\.csv$/.test(member);
+      /^[0-9]{9}\.pb$/.test(member);
   if (!(original || derived) || member.includes("..")) {
     throw new Error("Identificadores de arquivo inválidos");
   }
@@ -154,6 +154,7 @@ export async function readOriginalMember({ item, zip, member, proxyBase, asText 
   const start = found.localOffset + 30 + h.getUint16(26, true) + h.getUint16(28, true);
   const payload = await rangeBytes(proxyBase, item, zip, start, found.compressed);
   const json = await unzipMember(payload, found.compression, found.uncompressed);
+  if (asBytes) return json;
   const text = new TextDecoder("utf-8", { fatal: true }).decode(json);
   return asText ? text : JSON.parse(text);
 }
