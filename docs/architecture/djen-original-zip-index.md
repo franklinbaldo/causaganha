@@ -2,69 +2,88 @@
 
 ## Objetivo
 
-Preservar os ZIPs do DJEN tal como recebidos no Internet Archive (IA).
-O site consulta um índice **fino** por número CNJ e, a partir dele, abre o
-ZIP/membro JSON que contém a comunicação. Nenhuma conversão permanente para
-Protobuf ou cópia integral do texto em Parquet é necessária neste fluxo.
+Preservar os ZIPs do DJEN exatamente como foram recebidos no Internet
+Archive (IA). O site consulta índices **finos** por CNJ e recupera um membro
+JSON original usando HTTP Range. Não armazena textos integrais novamente e
+não depende do PB v2 da PR #1720, que permanece independente e aberta.
 
-A PR #1720 continua independente; não modifica nem fecha essa PR.
+## O que o IA indexa e o que não indexa
 
-## Fonte de dados e publicação
+A API `/metadata/{item}/files` é o inventário de arquivos preservados.
+Conforme testes externos com `advancedsearch.php` e
+`/services/search/v1/scrape`, CNJ `70726450920238220001` e ID
+`778704990` não foram encontrados, embora o item `djen-tjro-2026`
+exista. A busca geral do IA não substitui o nosso índice por CNJ.
 
-* Arquivo original: `https://archive.org/download/djen-tjro-2026/djen-AAAA-MM-DD-TJRO.zip`.
-* Índice publicado (novo item): `https://archive.org/download/causaganha-djen-original-index/tjro_2026.json`.
-* Interface: `web/public/djen-originais.html?cnj=70039901420268220022`.
-* Campos do índice: `numero_processo -> [{item, zip, member, id, hash}]`.
-* O índice contém **localizações**, não o texto integral da publicação.
-* Cada arquivo ZIP é identificado pelo checksum divulgado nos metadados do IA.
-  Quando alterado, as entradas desse ZIP são substituídas, não duplicadas.
+Não assumir que a ausência na busca do IA prova ausência de publicação.
+Os ZIPs foram enviados com `--no-derive`, e não há evidência de indexação
+integral dos seus JSONs pelo IA.
 
-## Atualização
+## Contrato de dados
 
-O workflow `index-djen-original-zips.yml` roda diariamente, consulta o
-inventário de `djen-tjro-2026`, restaura a última versão publicada do índice,
-lê até cinco ZIPs pendentes por execução e publica o resultado no IA.
-Também aceita execução manual com um item `djen-{tribunal}-{ano}`.
+- Original: `https://archive.org/download/djen-tjro-2026/djen-AAAA-MM-DD-TJRO.zip`
+- Índice: `https://archive.org/download/causaganha-djen-original-index/tjro_2026_<shard>.json`
+- Manifesto: `https://archive.org/download/causaganha-djen-original-index/tjro_2026_manifest.json`
+- Shard: primeiros dois dígitos hexadecimais de `SHA-256(numero_processo)`,
+  ou seja, 256 fragmentos aproximadamente equilibrados
+- Cada shard: `numero_processo -> [{item, zip, member, id, hash}]`.
+- O manifesto lista checksums dos ZIPs processados e nomes dos shards publicados.
+- Não contém texto integral ou novo ZIP derivado.
 
-O limite de cinco ZIPs é deliberado para controle de custo, mas significa
-que o backfill histórico pode durar muitas execuções. A atualização diária
-**não implica** índice histórico completo. O nome do item remoto e a rota da
-interface estão limitados ao TJRO/2026 nesta primeira fatia. Expandir
-para os demais tribunais requer configuração do roteamento CNJ e agendamento.
+O número CNJ contém o ano de ajuizamento, **não o ano da publicação**.
+O piloto consulta especificamente o acervo TJRO/2026; a consulta
+multianual deve usar inventário de anos publicados, não o ano do CNJ.
 
-O código não interfere no `sync-manifest.parquet` nem no
-`indice_processual.parquet` já publicados; eles continuam com suas
-responsabilidades e contratos atuais.
+## Indexação incremental
 
-## Execução local
+O workflow `index-djen-original-zips.yml` roda diariamente, restaura o
+manifesto anterior e somente os shards listados nele, consulta o inventário
+do IA e processa até cinco ZIPs novos/alterados. Atualizações substituem
+as referências anteriores do mesmo ZIP, de maneira idempotente. Publica
+primeiro os shards alterados e por último o manifesto.
+
+O limite de cinco ZIPs é um orçamento operacional, **não** garantia de
+cobertura histórica. O relatório distingue ZIPs indexados de pendentes.
+A publicação dos arquivos no IA tem consistência eventual; não declarar
+atualização instantaneamente atômica entre vários arquivos.
+
+## Leitura seletiva (piloto)
+
+Nos testes empíricos relatados para `djen-2026-11-09-TJRO.zip`, o IA
+retornou HTTP 206 e Content-Range. A leitura do JSON
+`TJRO-D-2026-11-09_1.json` consumiu aproximadamente 1,1 MB de bytes
+comprimidos, versus aproximadamente 9,15 MB do ZIP inteiro.
+
+O cliente `web/public/djen-zip-range.js` obtém tamanho do ZIP via
+metadados do IA, busca EOCD e diretório central, lê cabeçalhos locais,
+transfere apenas o membro comprimido por Range e decodifica DEFLATE no
+navegador. Os limites do proxy são 2 MiB por requisição Range; o cliente
+fraciona leituras maiores. O fluxo ainda depende da configuração de uma
+**URL real do proxy Cloudflare** na página, para a qual o piloto permite
+`?proxy=https://seu-proxy.example`. Até essa configuração existir,
+a página mantém o link ao ZIP original como fallback.
+
+O Worker `deployment/archive-cors-proxy` deve ser implantado com a
+alteração desta PR. Seu contrato permanece limitado a `djen-*`,
+extensões `.parquet` ou `.zip`, e para ZIP exclusivamente GET com Range
+explícito de até 2 MiB. Uma resposta ZIP upstream HTTP 200 não deve
+ser aceita como resposta a Range.
+
+## Verificação
 
 ```sh
 uv run python scripts/index_djen_originals.py --item djen-tjro-2026 --max-zips 2
 uv run pytest tests/test_index_djen_originals.py -q
+cd deployment/archive-cors-proxy && npm test
 ```
 
-Para operação incremental, restaure o índice remoto anterior em
-`web/public/indexes/djen-raw/tjro_2026.json` antes de executar o script,
-como o workflow faz.
+## Gates antes de tirar de Draft
 
-## Leitura pelo navegador e limitações
-
-O leitor busca o índice publicado no IA e identifica os ZIPs/membros. Tenta
-ler o JSON interno via endpoint de ZIP do Archive; se CORS ou a extração
-HTTP individual falharem, mostra uma mensagem e oferece o link canônico
-para o ZIP original. **Não existe prova E2E publicada de que a extração
-individual funciona em todos os navegadores**: validar essa capacidade
-no ambiente real é um gate antes de substituir os shards atuais.
-
-Não transformar um 404 de índice ou um CNJ não encontrado em prova de
-ausência de publicação. Não alterar a preservação dos ZIPs originais.
-
-## Próximos gates
-
-1. CI verde (indexação, idempotência, limites de recursos e UI).
-2. Smoke test público: CNJ -> índice IA -> membro JSON -> ID/hash correto,
-   no navegador, inclusive CORS e limites de transferência.
-3. Cobertura e freshness expostos na UI com total de ZIPs pendentes.
-4. Particionamento do índice para evitar downloads excessivos por consulta.
-5. Ampliação para os tribunais/anos presentes no inventário verificável,
-   sem confundir lacunas do acervo com ausência de publicações.
+1. CI verde, incluindo lint/Ruff, proxy e testes de indexação.
+2. End-to-end com URL do proxy implantado: CNJ -> shard -> membro JSON
+   via HTTP Range -> ID/hash exatos; validar CORS, bytes e navegador.
+3. Medir tamanho real e dispersão dos 256 shards com dias acumulados.
+4. Verificar integridade do manifesto e reprocessamento de ZIP alterado,
+   bem como dados de cobertura/freshness na interface.
+5. Ampliar para tribunais e anos preservados sem transformar lacunas do
+   inventário em conclusão de ausência de publicações.
