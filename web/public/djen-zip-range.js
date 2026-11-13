@@ -130,7 +130,7 @@ export async function readOriginalMember({ item, zip, member, proxyBase, asText 
       member.endsWith(".json");
   const derived = /^causaganha-20\d{2}-[0-9]-[0-9]{2}$/.test(item) &&
       /^[0-9]{4}\.zip$/.test(zip) &&
-      /^[0-9]{20}\.csv$/.test(member);
+      /^[0-9]{9}\.csv$/.test(member);
   if (!(original || derived) || member.includes("..")) {
     throw new Error("Identificadores de arquivo inválidos");
   }
