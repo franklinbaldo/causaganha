@@ -1,6 +1,6 @@
 const ALLOWED_METHODS = new Set(["GET", "HEAD"]);
 const ITEM_PATTERN = /^djen-[a-z0-9]+-20[0-9]{2}$/i;
-const INDEX_ITEM_PATTERN = /^causaganha-index-[a-z0-9]+$/i;
+const INDEX_ITEM_PATTERN = /^causaganha-index-[a-z0-9]+-20[0-9]{2}$/i;
 const DOWNLOAD_PATH_PATTERN = /^\/download\/([^/]+)\/([^/]+)$/;
 const UPSTREAM_BASE = "https://archive.org";
 
