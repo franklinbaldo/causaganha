@@ -11,6 +11,8 @@ from scripts.index_djen_originals import (
     write_partition,
     index_item,
     remote_partition_name,
+    short_cnj_filename,
+    expand_cnj_filename,
 )
 
 
@@ -31,8 +33,8 @@ def test_csv_roundtrip_and_deduplication(tmp_path):
     path = tmp_path / "2023_0001.zip"
     write_partition(path, data)
     with zipfile.ZipFile(path) as archive:
-        assert archive.namelist() == [f"{cnj}.csv"]
-        raw = archive.read(f"{cnj}.csv")
+        assert archive.namelist() == [f"{cnj[:9]}.csv"]
+        raw = archive.read(f"{cnj[:9]}.csv")
         assert raw.startswith(b"data,membro,id,hash\n")
         assert decode_csv(raw) == [row]
     assert load_partition(path)[cnj] == [row]
@@ -61,3 +63,9 @@ def test_csv_roundtrip_unicode_and_commas():
 def test_ia_item_per_tribunal_and_filing_year():
     assert index_item("tjro", "2023") == "causaganha-2023-8-22"
     assert remote_partition_name("2023_0001.zip") == "0001.zip"
+
+
+def test_cnj_filename_roundtrip_without_repeating_coordinates():
+    cnj = "70726450920238220001"
+    assert short_cnj_filename(cnj) == "707264509.csv"
+    assert expand_cnj_filename("707264509.csv", __import__("pathlib").Path("2023_0001.zip")) == cnj
