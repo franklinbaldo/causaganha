@@ -90,6 +90,12 @@ jobs:
         env:
           RELAY_URL: ${{ secrets.RELAY_URL }}
           RELAY_TOKEN: ${{ secrets.RELAY_TOKEN }}
+          # Every scheduled run since 2026-08 died with 500/502/503/ReadTimeout
+          # on the first full page (size ~1800-2000 hits, ~80-105 KB each, so
+          # ~150-200 MB per response) through the relay. A 200-hit page is
+          # ~21 MB and answered 200 in live probes (2026-11-14), staying under
+          # Cloud Run's ~32 MiB response ceiling. Tune here, not in code.
+          JURIS_PAGE_SIZE: "200"
           # Dispatch inputs arrive as env vars, never spliced into the script
           # text below — see #1608/TM-01: a bare `${{ inputs.X }}` inside a
           # `run:` block is substituted textually by GitHub Actions *before*
