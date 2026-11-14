@@ -25,6 +25,7 @@ from datajud.client import DataJudClient
 from datajud.daily_pack import (
     DEFAULT_DAILY_DIR,
     DEFAULT_INDEX_DIR,
+    export_daily_locators,
     pack_daily_zip,
     update_resolution_index,
 )
@@ -461,6 +462,9 @@ async def sync_tribunal_cdc(
         to_upload: list[Path] = []
         if daily_zip_path and daily_zip_path.exists():
             to_upload.append(daily_zip_path)
+            # The sidecar is generated from actual ZIP members, never inferred
+            # from the legacy one-row-per-CNJ DataJud resolution index.
+            to_upload.append(export_daily_locators(daily_zip_path, tribunal_slug))
         index_file = index_dir / f"indice_processos_{tribunal_slug}.parquet"
         if index_file.exists():
             to_upload.append(index_file)
