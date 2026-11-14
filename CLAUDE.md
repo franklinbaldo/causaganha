@@ -26,6 +26,10 @@ The canonical sync engine is in `src/djen_backup/`. Key concepts:
 - Phase 0 uses IA advanced search to discover existing items, then fetches metadata in parallel (~50 concurrent).
 - **IA item naming**: Items use `djen-{tribunal}-{year}` format (e.g. `djen-tjro-2025`). The old `djen-YYYY-MM-DD` per-day format is discontinued. ZIP files inside items still use `djen-YYYY-MM-DD-{TRIBUNAL}.zip`.
 
+### Lookup by CNJ vs. analytics
+
+**Proposed:** [ADR 0013](docs/adr/0013-indice-protobuf-por-cnj-sobre-originais.md). The original DJEN/DataJud ZIPs on IA are canonical; per-CNJ lookup goes through a Protobuf pointer index (item → ZIP → member) and returns the original bytes. Parquet stays as the analytics layer (jurimetria, catalog SQL, DuckDB scans), not as a CNJ index. Don't add a second canonical encoding of document content.
+
 ### Manifest query contracts (web)
 
 `.qmd` contracts in `web/queries/` declare analytical datasets. Each has YAML frontmatter (`output: /data/foo.json`, `format: array|object`, optional `optional: true`) and a SQL block. `scripts/render_queries.py` executes them against the manifest and writes JSON to `web/public/data/` (the deploy workflow runs it with `--strict`).
