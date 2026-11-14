@@ -310,3 +310,58 @@ def test_relay_strips_set_cookie_from_upstream_response(monkeypatch: pytest.Monk
     )
     _body, _status, headers = main.relay(request)
     assert "set-cookie" not in headers
+
+
+# ── stale pooled connection ──────────────────────────────────────────────
+
+
+def _juris_post() -> Request:
+    return _request(
+        method="POST",
+        headers={
+            "X-Relay-Token": RELAY_TOKEN,
+            "X-Relay-Url": "https://juris-back.tjro.jus.br/search/varios_parametros/",
+        },
+        data=b'{"from": 0, "size": 1}',
+    )
+
+
+def test_relay_retries_once_on_stale_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        if len(calls) == 1:
+            msg = "Server disconnected without sending a response."
+            raise httpx.RemoteProtocolError(msg, request=req)
+        return httpx.Response(200, content=b'{"hits": {}}')
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    body, status, _headers = main.relay(_juris_post())
+
+    assert status == 200
+    assert body == b'{"hits": {}}'
+    assert len(calls) == 2
+
+
+def test_relay_gives_up_after_one_stale_connection_retry(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[int] = []
+
+    def handler(req: httpx.Request) -> httpx.Response:
+        calls.append(1)
+        msg = "Server disconnected without sending a response."
+        raise httpx.RemoteProtocolError(msg, request=req)
+
+    monkeypatch.setattr(main, "_client", httpx.Client(transport=httpx.MockTransport(handler)))
+
+    body, status = main.relay(_juris_post())
+
+    assert status == 502
+    assert body == "upstream error: RemoteProtocolError"
+    assert len(calls) == 2
+
+
+def test_relay_client_expires_idle_connections_quickly() -> None:
+    pool = main._client._transport._pool  # noqa: SLF001 — asserting the configured limit
+    assert pool._keepalive_expiry <= 2.0  # noqa: SLF001

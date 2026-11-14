@@ -39,6 +39,7 @@ Contract:
 from __future__ import annotations
 
 import hmac
+from contextlib import ExitStack, contextmanager
 import logging
 import os
 import time
@@ -50,6 +51,8 @@ import httpx
 
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from flask import Request, Response
 
 logging.basicConfig(level=logging.INFO)
@@ -114,7 +117,17 @@ _RELAY_TOKEN = os.environ.get("RELAY_TOKEN", "")
 
 # One shared client for the function instance's lifetime — connection reuse
 # across warm invocations, same rationale as the repo's own tjro_juris client.
-_client = httpx.Client(timeout=60, follow_redirects=False)
+#
+# keepalive_expiry is kept short on purpose: callers (tjro_juris) pace requests
+# 5-8s apart, longer than the origin's idle keep-alive timeout, so a pooled
+# connection was usually already closed by the origin and the next request died
+# instantly with RemoteProtocolError ("Server disconnected"), surfaced to the
+# caller as 502 on every retry (TJRO Sync dispatch run 43603692021).
+_client = httpx.Client(
+    timeout=60,
+    follow_redirects=False,
+    limits=httpx.Limits(keepalive_expiry=2.0),
+)
 
 
 def _host_allowed(hostname: str | None) -> bool:
@@ -146,6 +159,32 @@ def _forward_headers(request: Request, target_host: str) -> dict[str, str]:
     return headers
 
 
+@contextmanager
+def _open_upstream(
+    method: str, url: str, headers: dict[str, str], body: bytes | None
+) -> Iterator[httpx.Response]:
+    """Open the upstream stream, retrying once if a pooled connection was stale.
+
+    ``RemoteProtocolError`` while *opening* the stream means the origin closed
+    the reused connection before sending any response, so the request was not
+    processed and a single retry on a fresh connection is safe. Errors after
+    the response started streaming are never retried here.
+    """
+    with ExitStack() as stack:
+        try:
+            upstream = stack.enter_context(
+                _client.stream(method, url, headers=headers, content=body)
+            )
+        except httpx.RemoteProtocolError:
+            logger.info(
+                "relay_stale_connection_retry method=%s url_host=%s", method, urlparse(url).hostname
+            )
+            upstream = stack.enter_context(
+                _client.stream(method, url, headers=headers, content=body)
+            )
+        yield upstream
+
+
 @functions_framework.http
 def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, dict[str, str]]:
     """Forward *request* to the host named in ``X-Relay-Url``, allowlist-checked."""
@@ -170,7 +209,7 @@ def relay(request: Request) -> Response | tuple[str, int] | tuple[bytes, int, di
     start = time.monotonic()
     try:
         content = bytearray()
-        with _client.stream(method, target_url, headers=headers, content=body) as upstream:
+        with _open_upstream(method, target_url, headers, body) as upstream:
             for chunk in upstream.iter_bytes():
                 content += chunk
                 if len(content) > MAX_RESPONSE_BODY_BYTES:
