@@ -2,7 +2,7 @@
 
 Data: 2026-11-14
 
-Status: proposta. Implementação candidata aberta na [PR #1721](https://github.com/franklinbaldo/causaganha/pull/1721); nada desta decisão foi publicado em produção.
+Status: aceita em 2026-11-14. Implementação candidata aberta na [PR #1721](https://github.com/franklinbaldo/causaganha/pull/1721); nada desta decisão foi publicado em produção.
 
 Relação: aplica a [ADR 0012](0012-acervo-inventariado-no-internet-archive.md) — o Internet Archive é a fonte de verdade sobre os arquivos preservados — ao caminho de leitura por número de processo.
 
