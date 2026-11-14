@@ -116,9 +116,7 @@ class DataJudCdcCheckpointStore:
             )
 
     def upsert(self, cp: CdcCheckpoint) -> None:
-        sort_key_json = (
-            json.dumps(cp.last_sort_key) if cp.last_sort_key is not None else None
-        )
+        sort_key_json = json.dumps(cp.last_sort_key) if cp.last_sort_key is not None else None
         with self._get_connection() as conn:
             conn.execute(
                 """
@@ -193,18 +191,14 @@ def write_delta_batch(
     if not capas:
         return None, None, 0, 0
 
-    capa_rows = [
-        c.capa_row(tribunal=tribunal, consultado_em=consultado_em) for c in capas
-    ]
+    capa_rows = [c.capa_row(tribunal=tribunal, consultado_em=consultado_em) for c in capas]
     mov_rows = [row for c in capas for row in c.movimento_rows(tribunal=tribunal)]
 
     tribunal_slug = tribunal.lower()
     tribunal_deltas_dir = deltas_dir / tribunal_slug
     tribunal_deltas_dir.mkdir(parents=True, exist_ok=True)
 
-    capa_path = (
-        tribunal_deltas_dir / f"capa_delta_{tribunal_slug}_{part_seq:06d}.parquet"
-    )
+    capa_path = tribunal_deltas_dir / f"capa_delta_{tribunal_slug}_{part_seq:06d}.parquet"
     mov_path = tribunal_deltas_dir / f"mov_delta_{tribunal_slug}_{part_seq:06d}.parquet"
 
     n_capa = archive.write_capa_parquet(capa_rows, capa_path, tribunal=tribunal_slug)
@@ -251,12 +245,8 @@ def compact_deltas(
     merged_capas = existing_capas
     merged_movs = existing_movs
 
-    capa_by_seq: dict[str, Path] = {
-        f.name.replace("capa_delta_", ""): f for f in capa_delta_files
-    }
-    mov_by_seq: dict[str, Path] = {
-        f.name.replace("mov_delta_", ""): f for f in mov_delta_files
-    }
+    capa_by_seq: dict[str, Path] = {f.name.replace("capa_delta_", ""): f for f in capa_delta_files}
+    mov_by_seq: dict[str, Path] = {f.name.replace("mov_delta_", ""): f for f in mov_delta_files}
 
     all_seqs = sorted(set(capa_by_seq.keys()) | set(mov_by_seq.keys()))
     for seq in all_seqs:
@@ -267,12 +257,8 @@ def compact_deltas(
         merged_capas = merge_capa_rows(merged_capas, batch_capas)
         merged_movs = merge_movimento_rows(merged_movs, batch_movs, refreshed_keys)
 
-    n_capa = archive.write_capa_parquet(
-        merged_capas, capa_canonical, tribunal=tribunal_slug
-    )
-    n_mov = archive.write_movimentos_parquet(
-        merged_movs, mov_canonical, tribunal=tribunal_slug
-    )
+    n_capa = archive.write_capa_parquet(merged_capas, capa_canonical, tribunal=tribunal_slug)
+    n_mov = archive.write_movimentos_parquet(merged_movs, mov_canonical, tribunal=tribunal_slug)
 
     if clean_after_compact:
         for f in [*capa_delta_files, *mov_delta_files]:

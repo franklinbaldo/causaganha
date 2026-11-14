@@ -91,9 +91,7 @@ def pack_daily_zip(
 
     with zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf:
         for cnj, doc in deduped.items():
-            payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode(
-                "utf-8"
-            )
+            payload = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
             if compress_internal_json:
                 buf = io.BytesIO()
                 with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0.0) as gz:
@@ -146,9 +144,7 @@ def update_resolution_index(
         updated_at = doc.get("dataHoraUltimaAtualizacao") or ""
         current = existing_rows.get(cnj)
 
-        if current is None or updated_at >= (
-            current.get("data_hora_ultima_atualizacao") or ""
-        ):
+        if current is None or updated_at >= (current.get("data_hora_ultima_atualizacao") or ""):
             existing_rows[cnj] = {
                 "numero_processo": cnj,
                 "tribunal": tribunal_slug,
@@ -200,7 +196,8 @@ def export_daily_locators(
             original_id = doc.get("id") or doc.get("_id")
             updated = doc.get("dataHoraUltimaAtualizacao")
             if not cnj or not degree or not original_id or not updated:
-                raise ValueError(f"Incomplete DataJud source identity in {name}")
+                msg = f"Incomplete DataJud source identity in {name}"
+                raise ValueError(msg)
             rows.append(
                 {
                     "numero_processo": cnj,

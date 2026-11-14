@@ -122,15 +122,9 @@ def extract_locations(
                     continue
                 record_id = record.get("id")
                 record_hash = record.get("hash")
-                if (
-                    record_id is None
-                    or not isinstance(record_hash, str)
-                    or not record_hash
-                ):
+                if record_id is None or not isinstance(record_hash, str) or not record_hash:
                     raise ValueError(f"Missing DJEN identity for CNJ {cnj}")
-                rows[cnj].append(
-                    (publication_date, info.filename, str(record_id), record_hash)
-                )
+                rows[cnj].append((publication_date, info.filename, str(record_id), record_hash))
     return dict(rows)
 
 
@@ -165,9 +159,7 @@ def write_partition(path: Path, data: dict[str, dict]) -> None:
     staged.replace(path)
 
 
-def merge_datajud(
-    partition: dict[str, dict], rows: dict[str, list[dict[str, str]]]
-) -> bool:
+def merge_datajud(partition: dict[str, dict], rows: dict[str, list[dict[str, str]]]) -> bool:
     """Update the latest DataJud pointer per document identity."""
     changed = False
     for cnj, incoming in rows.items():
@@ -199,12 +191,8 @@ def load_datajud_locators(path: Path) -> dict[str, list[dict[str, str]]]:
             cnj = entry.get("numero_processo")
             if not isinstance(cnj, str) or not CNJ_RE.fullmatch(cnj):
                 raise ValueError("Invalid DataJud CNJ locator")
-            if not all(
-                isinstance(entry.get(field), str) and entry[field] for field in required
-            ):
-                raise ValueError(
-                    "Incomplete DataJud locator; no implicit item/ZIP guesses"
-                )
+            if not all(isinstance(entry.get(field), str) and entry[field] for field in required):
+                raise ValueError("Incomplete DataJud locator; no implicit item/ZIP guesses")
             records[cnj].append({field: entry[field] for field in required})
     return dict(records)
 
@@ -216,23 +204,22 @@ def apply_source(
     new_rows: dict[str, list[tuple[str, str, str, str]]],
 ) -> bool:
     """Replace publications of one source date; preserve DataJud pointers."""
-    changed = False
+    before = {cnj: list(pointer["publicacoes"]) for cnj, pointer in partition.items()}
     for cnj in list(partition):
         pointer = partition[cnj]
-        old = pointer["publicacoes"]
-        remaining = [row for row in old if row[0] != publication_date]
-        if remaining != old:
-            pointer["publicacoes"] = remaining
-            changed = True
+        pointer["publicacoes"] = [
+            row for row in pointer["publicacoes"] if row[0] != publication_date
+        ]
         if not pointer["publicacoes"] and not pointer["datajud"]:
             del partition[cnj]
     for cnj, rows in new_rows.items():
+        if not rows:
+            continue
         current = partition.setdefault(cnj, {"publicacoes": [], "datajud": []})
-        new = sorted(set(current["publicacoes"] + rows))
-        if new != current["publicacoes"]:
-            current["publicacoes"] = new
-            changed = True
-    return changed
+        current["publicacoes"] = sorted(set(current["publicacoes"] + rows))
+    if set(partition) != set(before):
+        return True
+    return any(partition[cnj]["publicacoes"] != before[cnj] for cnj in partition)
 
 
 def download(client: httpx.Client, url: str, target: Path) -> bool:
@@ -288,7 +275,8 @@ def run(
         listing = response.json()
         files = listing.get("result", listing)
         if not isinstance(files, list):
-            raise ValueError("Unexpected IA file listing")
+            msg = "Unexpected IA file listing"
+            raise TypeError(msg)
         candidates = []
         for info in files:
             if not isinstance(info, dict):
@@ -328,9 +316,7 @@ def run(
                 if not download(client, f"{INDEX_BASE}/{item}/{filename}", original):
                     raise FileNotFoundError(f"Original ZIP disappeared: {filename}")
                 records = extract_locations(original, filename=filename)
-            by_partition: dict[str, dict[str, list[tuple[str, str, str, str]]]] = (
-                defaultdict(dict)
-            )
+            by_partition: dict[str, dict[str, list[tuple[str, str, str, str]]]] = defaultdict(dict)
             for cnj, rows in records.items():
                 by_partition[partition_for(cnj)][cnj] = rows
             publication_date = ZIP_RE.fullmatch(filename).group(1)
@@ -390,9 +376,7 @@ def run(
                 available.sort()
                 for name, checksum in available[:max_datajud_files]:
                     local = output / name
-                    if not download(
-                        client, f"{INDEX_BASE}/{datajud_item}/{name}", local
-                    ):
+                    if not download(client, f"{INDEX_BASE}/{datajud_item}/{name}", local):
                         raise FileNotFoundError(f"Missing DataJud locator: {name}")
                     feeds.append(local)
                     processed_datajud[name] = checksum
@@ -447,9 +431,7 @@ def main() -> None:
     parser.add_argument("--output", type=Path, default=Path("data/djen-cnj-index"))
     parser.add_argument("--max-zips", type=int, default=5)
     parser.add_argument("--restore-remote", action="store_true")
-    parser.add_argument(
-        "--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed"
-    )
+    parser.add_argument("--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed")
     args = parser.parse_args()
     if args.max_zips < 1:
         parser.error("--max-zips must be positive")

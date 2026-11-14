@@ -25,7 +25,8 @@ DJ_FIELDS = (
 
 def _varint(value: int) -> bytes:
     if not isinstance(value, int) or value < 0 or value >= 1 << 64:
-        raise ValueError("Invalid protobuf unsigned integer")
+        msg = "Invalid protobuf unsigned integer"
+        raise ValueError(msg)
     result = bytearray()
     while value > 127:
         result.append((value & 127) | 128)
@@ -38,15 +39,18 @@ def _read_varint(data: bytes, pos: int) -> tuple[int, int]:
     result = 0
     for i in range(10):
         if pos >= len(data):
-            raise ValueError("Truncated protobuf varint")
+            msg = "Truncated protobuf varint"
+            raise ValueError(msg)
         byte = data[pos]
         pos += 1
         if i == 9 and byte > 1:
-            raise ValueError("Protobuf varint overflow")
+            msg = "Protobuf varint overflow"
+            raise ValueError(msg)
         result |= (byte & 127) << (7 * i)
         if not byte & 128:
             return result, pos
-    raise ValueError("Protobuf varint too long")
+    msg = "Protobuf varint too long"
+    raise ValueError(msg)
 
 
 def _field(number: int, data: bytes) -> bytes:
@@ -55,7 +59,8 @@ def _field(number: int, data: bytes) -> bytes:
 
 def _text(number: int, value: Any) -> bytes:
     if not isinstance(value, str):
-        raise ValueError(f"Expected text for field {number}")
+        msg = f"Expected text for field {number}"
+        raise TypeError(msg)
     return _field(number, value.encode("utf-8"))
 
 
@@ -65,27 +70,32 @@ def _fields(data: bytes):
         tag, pos = _read_varint(data, pos)
         number, kind = tag >> 3, tag & 7
         if number == 0:
-            raise ValueError("Protobuf field zero is invalid")
+            msg = "Protobuf field zero is invalid"
+            raise ValueError(msg)
         if kind == 0:
             value, pos = _read_varint(data, pos)
         elif kind == 2:
             length, pos = _read_varint(data, pos)
             if length > len(data) - pos:
-                raise ValueError("Truncated protobuf field")
+                msg = "Truncated protobuf field"
+                raise ValueError(msg)
             value = data[pos : pos + length]
             pos += length
         elif kind == 1:
             if pos + 8 > len(data):
-                raise ValueError("Truncated fixed64")
+                msg = "Truncated fixed64"
+                raise ValueError(msg)
             value = data[pos : pos + 8]
             pos += 8
         elif kind == 5:
             if pos + 4 > len(data):
-                raise ValueError("Truncated fixed32")
+                msg = "Truncated fixed32"
+                raise ValueError(msg)
             value = data[pos : pos + 4]
             pos += 4
         else:
-            raise ValueError(f"Unsupported protobuf wire type {kind}")
+            msg = f"Unsupported protobuf wire type {kind}"
+            raise ValueError(msg)
         yield number, kind, value
 
 
@@ -93,7 +103,8 @@ def _encode_publication(row: tuple[str, str, str, str]) -> bytes:
     day, member, identity, dj_hash = row
     identity_value = int(identity)
     if identity_value < 0:
-        raise ValueError("Negative DJEN communication ID")
+        msg = "Negative DJEN communication ID"
+        raise ValueError(msg)
     return (
         _text(1, day)
         + _text(2, member)
@@ -104,9 +115,7 @@ def _encode_publication(row: tuple[str, str, str, str]) -> bytes:
 
 
 def _encode_datajud(document: dict[str, str]) -> bytes:
-    return b"".join(
-        _text(number, document[name]) for number, name in enumerate(DJ_FIELDS, start=1)
-    )
+    return b"".join(_text(number, document[name]) for number, name in enumerate(DJ_FIELDS, start=1))
 
 
 def encode_index(
@@ -122,7 +131,8 @@ def encode_index(
     ):
         key = (document["tribunal"], document["grau"], document["documento_id"])
         if key in identities:
-            raise ValueError(f"Duplicate DataJud identity: {key}")
+            msg = f"Duplicate DataJud identity: {key}"
+            raise ValueError(msg)
         identities.add(key)
         encoded.append(_field(2, _encode_datajud(document)))
     encoded.append(_varint(15 << 3) + _varint(VERSION))
@@ -137,7 +147,8 @@ def _decode_publication(data: bytes) -> tuple[str, str, str, str]:
         elif number in (1, 2, 4) and kind == 2:
             result[number] = value.decode("utf-8")
     if any(n not in result for n in range(1, 5)):
-        raise ValueError("Incomplete DJEN pointer")
+        msg = "Incomplete DJEN pointer"
+        raise ValueError(msg)
     return (result[1], result[2], result[3], result[4])
 
 
@@ -147,7 +158,8 @@ def _decode_datajud(data: bytes) -> dict[str, str]:
         if 1 <= number <= len(DJ_FIELDS) and kind == 2:
             result[DJ_FIELDS[number - 1]] = value.decode("utf-8")
     if any(name not in result for name in DJ_FIELDS):
-        raise ValueError("Incomplete DataJud pointer")
+        msg = "Incomplete DataJud pointer"
+        raise ValueError(msg)
     return result
 
 
@@ -164,7 +176,8 @@ def decode_index(data: bytes) -> dict[str, Any]:
         elif number == 15 and kind == 0:
             version = value
     if version != VERSION:
-        raise ValueError(f"Unsupported process-index schema version: {version}")
+        msg = f"Unsupported process-index schema version: {version}"
+        raise ValueError(msg)
     return {"publicacoes": publications, "datajud": datajud}
 
 
@@ -173,9 +186,11 @@ def _timestamp(value: str) -> datetime:
     try:
         parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError as exc:
-        raise ValueError(f"Invalid DataJud timestamp: {value!r}") from exc
+        msg = f"Invalid DataJud timestamp: {value!r}"
+        raise ValueError(msg) from exc
     if parsed.tzinfo is None:
-        raise ValueError("DataJud timestamp must include a timezone")
+        msg = "DataJud timestamp must include a timezone"
+        raise ValueError(msg)
     return parsed.astimezone(timezone.utc)
 
 
@@ -187,13 +202,11 @@ def update_datajud(
     for row in incoming:
         key = (row["tribunal"], row["grau"], row["documento_id"])
         prior = rows.get(key)
-        if prior is None or _timestamp(row["atualizado_em"]) > _timestamp(
-            prior["atualizado_em"]
-        ):
+        if prior is None or _timestamp(row["atualizado_em"]) > _timestamp(prior["atualizado_em"]):
             rows[key] = row
         elif (
-            _timestamp(row["atualizado_em"]) == _timestamp(prior["atualizado_em"])
-            and row != prior
+            _timestamp(row["atualizado_em"]) == _timestamp(prior["atualizado_em"]) and row != prior
         ):
-            raise ValueError(f"Conflicting DataJud snapshots at same timestamp: {key}")
+            msg = f"Conflicting DataJud snapshots at same timestamp: {key}"
+            raise ValueError(msg)
     return [rows[key] for key in sorted(rows)]
