@@ -12,14 +12,14 @@ from scripts import render_queries as rq
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-SITE_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "site_status.qmd"
-TOTALS_QMD = REPO_ROOT / "web" / "src" / "queries" / "totals.qmd"
-TRIBUNAL_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "tribunal_coverage.qmd"
-COURT_RELIABILITY_QMD = REPO_ROOT / "web" / "src" / "queries" / "court_reliability.qmd"
-CONSOLIDATION_STATUS_QMD = REPO_ROOT / "web" / "src" / "queries" / "consolidation_status.qmd"
-STATS_COVERAGE_QMD = REPO_ROOT / "web" / "src" / "queries" / "stats_coverage.qmd"
-WEEKLY_PATTERN_QMD = REPO_ROOT / "web" / "src" / "queries" / "weekly_pattern.qmd"
-DAILY_UPLOADS_QMD = REPO_ROOT / "web" / "src" / "queries" / "daily_uploads.qmd"
+SITE_STATUS_QMD = REPO_ROOT / "web" / "queries" / "site_status.qmd"
+TOTALS_QMD = REPO_ROOT / "web" / "queries" / "totals.qmd"
+TRIBUNAL_COVERAGE_QMD = REPO_ROOT / "web" / "queries" / "tribunal_coverage.qmd"
+COURT_RELIABILITY_QMD = REPO_ROOT / "web" / "queries" / "court_reliability.qmd"
+CONSOLIDATION_STATUS_QMD = REPO_ROOT / "web" / "queries" / "consolidation_status.qmd"
+STATS_COVERAGE_QMD = REPO_ROOT / "web" / "queries" / "stats_coverage.qmd"
+WEEKLY_PATTERN_QMD = REPO_ROOT / "web" / "queries" / "weekly_pattern.qmd"
+DAILY_UPLOADS_QMD = REPO_ROOT / "web" / "queries" / "daily_uploads.qmd"
 
 
 def _write_qmd(
@@ -205,7 +205,7 @@ def test_check_empty_dir_fails(tmp_path):
 
 
 def test_check_real_repo_contracts_pass():
-    """The contracts shipped in web/src/queries/ must validate offline."""
+    """The contracts shipped in web/queries/ must validate offline."""
     assert rq.check_queries(rq.QUERIES_DIR) == []
 
 
