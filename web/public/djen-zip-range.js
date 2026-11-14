@@ -123,8 +123,8 @@ async function unzipMember(compressedBytes, method, expectedSize) {
   return all;
 }
 
-export async function readOriginalMember({ item, zip, member, proxyBase, asText = false, asBytes = false }) {
-  if (!proxyBase) throw new Error("Proxy CORS de ZIP não configurado");
+export async function readOriginalMember({ item, zip, member, proxyBase = DEFAULT_ARCHIVE_BASE, asText = false, asBytes = false }) {
+  const baseUrl = (proxyBase || DEFAULT_ARCHIVE_BASE).replace(/\/$/, "");
   const original = /^djen-[a-z0-9]+-20\d{2}$/.test(item) &&
       /^djen-20\d{2}-\d{2}-\d{2}-[A-Z0-9]+\.zip$/.test(zip) &&
       member.endsWith(".json");
@@ -134,7 +134,7 @@ export async function readOriginalMember({ item, zip, member, proxyBase, asText 
   if (!(original || derived) || member.includes("..")) {
     throw new Error("Identificadores de arquivo inválidos");
   }
-  const listingResponse = await fetch("https://archive.org/metadata/" + encodeURIComponent(item) + "/files");
+  const listingResponse = await fetch(baseUrl + "/metadata/" + encodeURIComponent(item) + "/files");
   if (!listingResponse.ok) throw new Error("Inventário IA indisponível");
   const listing = await listingResponse.json();
   const files = Array.isArray(listing.result) ? listing.result : listing;
@@ -142,17 +142,17 @@ export async function readOriginalMember({ item, zip, member, proxyBase, asText 
   const zipSize = Number(entry?.size);
   if (!Number.isSafeInteger(zipSize) || zipSize < 22) throw new Error("Tamanho ZIP inválido");
   const tailSize = Math.min(zipSize, 65557);
-  const tail = await rangeBytes(proxyBase, item, zip, zipSize - tailSize, tailSize);
+  const tail = await rangeBytes(baseUrl, item, zip, zipSize - tailSize, tailSize);
   const directory = findEOCD(tail);
   if (directory.directoryBytes > MAX_MEMBER_BYTES) throw new Error("Diretório ZIP excessivo");
-  const central = await rangeBytes(proxyBase, item, zip,
+  const central = await rangeBytes(baseUrl, item, zip,
     directory.directoryOffset, directory.directoryBytes);
   const found = locateMember(central, member);
-  const header = await rangeBytes(proxyBase, item, zip, found.localOffset, 30);
+  const header = await rangeBytes(baseUrl, item, zip, found.localOffset, 30);
   const h = new DataView(header.buffer, header.byteOffset, header.byteLength);
   if (h.getUint32(0, true) !== 0x04034b50) throw new Error("Cabeçalho local ZIP inválido");
   const start = found.localOffset + 30 + h.getUint16(26, true) + h.getUint16(28, true);
-  const payload = await rangeBytes(proxyBase, item, zip, start, found.compressed);
+  const payload = await rangeBytes(baseUrl, item, zip, start, found.compressed);
   const json = await unzipMember(payload, found.compression, found.uncompressed);
   if (asBytes) return json;
   const text = new TextDecoder("utf-8", { fatal: true }).decode(json);

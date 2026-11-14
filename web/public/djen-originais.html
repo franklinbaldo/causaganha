@@ -72,7 +72,7 @@
         output.textContent = JSON.stringify(found, null, 2);
       } catch (err) {
         output.textContent = "Não foi possível ler o membro ZIP pelo navegador (" + err.message +
-          "). Use o link do arquivo original. A leitura individual precisa de um proxy CORS ZIP configurado e disponível.";
+          "). Use o link do arquivo original.";
       }
     }
     form.addEventListener("submit", async event => {
@@ -92,7 +92,7 @@
       const origin = cnj.slice(16,20);
       const indexItem = "causaganha-" + processYear + "-8-22";
       const indexZip = origin + ".zip";
-      status.textContent = "Localizando CSV do processo no Internet Archive...";
+      status.textContent = "Localizando índice Protobuf do processo no Internet Archive...";
       try {
         const rawIndex = await readOriginalMember({
           item: indexItem, zip: indexZip, member: cnj.slice(0,9) + ".pb",
@@ -111,7 +111,7 @@
             element("p", label + " (atualizado em " + snap.atualizado_em + ")", section);
             const link = element("a", "Abrir arquivo DataJud no Internet Archive", section);
             if (!/^datajud-[a-z0-9-]+$/.test(snap.item_ia) ||
-                !/^[a-zA-Z0-9_.-]+\\.zip$/.test(snap.arquivo_zip)) {
+                !/^[a-zA-Z0-9_.-]+\.zip$/.test(snap.arquivo_zip)) {
               link.remove();
               throw new Error("Localização DataJud não autorizada");
             }
