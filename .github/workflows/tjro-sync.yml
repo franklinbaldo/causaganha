@@ -173,7 +173,12 @@ jobs:
           "${CMD[@]}"
 
       - name: Upload parquets to Internet Archive
-        if: ${{ !inputs.skip_upload }}
+        # Run even when the crawl step failed: the crawler records every fully
+        # fetched (tipo, month) window in the local manifest as it goes, so a
+        # crawl cut short by an origin throttle still has finished windows to
+        # publish. Gating this on success() meant every run since 2026-08 died
+        # mid-crawl and published nothing. The job still ends red.
+        if: ${{ !cancelled() && !inputs.skip_upload }}
         run: uv run --no-dev tjro-juris upload data/tjro-juris
 
       - name: Show manifest status
