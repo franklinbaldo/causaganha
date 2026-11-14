@@ -957,9 +957,18 @@ def _load_and_transform(
         counts[table_name] = row_count
         if row_count:
             logger.info("table_populated", table=table_name, rows=row_count)
+        if table_name == "textos" and "texto" in raw.columns:
+            # The full text is the bulk of the raw payload and no builder after
+            # comunicacoes/textos reads it. Keeping it in raw_records doubled
+            # the text footprint (raw + textos) and exhausted DuckDB's temp
+            # directory on djen-tjba-2026 (9.4M rows) right after textos.
+            _create_or_replace_table(con, "raw_slim", obj=raw.drop("texto"))
+            _drop_table_if_exists(con, "raw_records")
+            raw = con.table("raw_slim")
 
     # Clean up staging tables
     _drop_table_if_exists(con, "raw_records")
+    _drop_table_if_exists(con, "raw_slim")
     _drop_table_if_exists(con, "_staging")
     return counts
 
