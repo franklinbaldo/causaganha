@@ -153,6 +153,14 @@ def _backoff_delay(attempt: int) -> float:
     return base * (1.0 + random.uniform(0.0, 0.25))  # noqa: S311 — jitter, not crypto
 
 
+def _body_snippet(response: httpx.Response, limit: int = 200) -> str:
+    """First *limit* chars of a (possibly unread) error response body, for logs."""
+    try:
+        return response.text[:limit]
+    except httpx.ResponseNotRead:
+        return "<body not read>"
+
+
 def _raise_last(last_exc: httpx.HTTPError) -> NoReturn:
     raise last_exc
 
@@ -182,6 +190,10 @@ def _retrying[T](op: Callable[[], T], url: str, *, max_attempts: int = MAX_ATTEM
                 url=url,
                 attempt=attempt,
                 status=exc.response.status_code,
+                # The relay answers 502 with "upstream error: <ExcName>" or
+                # "upstream response exceeds size budget" — the only way to
+                # tell an origin block from a relay limit from CI logs.
+                body=_body_snippet(exc.response),
             )
         else:
             return result
