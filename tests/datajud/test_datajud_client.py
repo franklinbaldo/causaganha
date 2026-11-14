@@ -476,3 +476,41 @@ async def test_iter_updated_since_adaptive_page_reduction():
     assert route.call_count == 3
     body_last = json.loads(route.calls[-1].request.content)
     assert body_last["size"] == 2
+
+
+async def test_iter_updated_since_full_page_after_regrowth_does_not_end_stream():
+    """A full page at the reduced size must not look 'short' once size regrows.
+
+    Regression: after a 504-driven reduction (4 -> 2), three full pages of 2
+    doubled the size back to 4 *before* the end-of-stream check, so the third
+    full page (2 hits) compared against 4 and silently ended the stream. In
+    production this truncated TJRO CDC runs at 4.5k/15.5k/49.5k of ~2.4M docs.
+    """
+    doc = {"numeroProcesso": CNJ_A}
+
+    def page(n: int, start: int) -> httpx.Response:
+        return httpx.Response(
+            200, json=_hits_with_sort([(doc, [start + i, CNJ_A]) for i in range(n)])
+        )
+
+    with respx.mock() as router:
+        route = router.post(ENDPOINT)
+        route.side_effect = [
+            httpx.Response(504),
+            httpx.Response(504),  # size 4 exhausted -> reduce to 2
+            page(2, 0),
+            page(2, 2),
+            page(2, 4),  # third success at size 2 -> regrow to 4
+            page(4, 6),
+            page(1, 10),  # genuinely short page at size 4 -> end
+        ]
+
+        pages = []
+        async with _client(max_retries=1) as client:
+            async for batch, _ in client.iter_updated_since(
+                page_size=4, min_page_size=2, pause_between_pages=0.0
+            ):
+                pages.append(len(batch))
+
+    assert pages == [2, 2, 2, 4, 1]
+    assert route.call_count == 7
