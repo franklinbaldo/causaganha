@@ -3,7 +3,7 @@
 Conforme estabelecido pelo proprietário, executamos o inventário empírico completo utilizando chamadas reais à API Pública do DataJud, sem pressupor modelos de deduplicação ou formatos físicos pré-concebidos.
 
 Os artefatos versionados no repositório são:
-- **Relatório Completo de Inventário:** [`docs/datajud-multindex-inventory.md`](docs/datajud-multindex-inventory.md)
+- **Relatório Completo de Inventário:** [`docs/datajud-multindex-inventory.md`](../datajud-multindex-inventory.md)
 - **Fixtures Reais Coletadas e Anonimizadas:** `fixtures/datajud_sample/inventario_datajud_bruto.json`
 - **Schema FlatBuffers com Zero-Loss:** `src/datajud/schema/processo.fbs`
 - **Script de Coleta & Descoberta Multíndice:** `scripts/datajud/inventory_multindex.py`

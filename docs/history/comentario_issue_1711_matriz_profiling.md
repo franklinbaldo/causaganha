@@ -3,8 +3,8 @@
 Conforme registrado nos comentários das issues [#1710](https://github.com/franklinbaldo/causaganha/issues/1710) e [#1711](https://github.com/franklinbaldo/causaganha/issues/1711), executamos o profiling estatístico, estrutural e orçamentário detalhado de todos os campos do DataJud a partir da amostra real (68 documentos / 57 coleções em múltiplos tribunais e graus).
 
 Os resultados completos estão versionados em:
-- **Relatório de Profiling:** [`docs/datajud-field-profiling-and-optimization-matrix.md`](docs/datajud-field-profiling-and-optimization-matrix.md)
-- **Script Reproduzível:** [`scripts/datajud/field_profiler.py`](scripts/datajud/field_profiler.py)
+- **Relatório de Profiling:** [`docs/datajud-field-profiling-and-optimization-matrix.md`](../datajud-field-profiling-and-optimization-matrix.md)
+- **Script Reproduzível:** [`scripts/datajud/field_profiler.py`](../../scripts/datajud/field_profiler.py)
 
 ---
 
