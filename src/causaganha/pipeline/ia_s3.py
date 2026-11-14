@@ -3,6 +3,7 @@ from __future__ import annotations
 import configparser
 import hashlib
 import os
+from collections.abc import AsyncIterator
 from pathlib import Path
 from urllib.parse import quote
 
@@ -175,11 +176,57 @@ def create_upload_client(
 # ---------------------------------------------------------------------------
 
 
+#: Chunk size for streaming a local file into an upload body. Peak memory per
+#: in-flight upload is one chunk, not the whole file (consolidate partitions
+#: are 2-3 GB parquet files).
+_UPLOAD_CHUNK_BYTES = 16 * 1024 * 1024
+
+# OSErrors that are deterministic for this file/attempt and will not clear on
+# retry. Any other OSError raised mid-transfer (connection reset, broken pipe,
+# transient I/O error reading the local file) is treated as transient.
+_NON_TRANSIENT_OS_ERRORS = (FileNotFoundError, PermissionError, IsADirectoryError)
+
+
 def _is_retryable_upload_error(exception: Exception) -> bool:
-    """Retry on network errors or retryable HTTP status codes."""
+    """Retry on network errors, retryable HTTP status codes, or transient OSError.
+
+    A mid-transfer ``OSError`` (e.g. ``ConnectionResetError``, or an
+    ``[Errno 0] Error`` surfacing from the socket or the local read while the
+    body is streaming) is not wrapped by httpx, so it must be matched here
+    explicitly or the upload is abandoned after a single attempt.
+    """
     if isinstance(exception, httpx.HTTPStatusError):
         return exception.response.status_code in _RETRYABLE_STATUS_CODES
-    return isinstance(exception, httpx.RequestError)
+    if isinstance(exception, httpx.RequestError):
+        return True
+    return isinstance(exception, OSError) and not isinstance(exception, _NON_TRANSIENT_OS_ERRORS)
+
+
+class _FileChunkStream:
+    """Re-iterable async request body that streams a local file in chunks.
+
+    httpx replays a redirected body only if it is not a generator: an async
+    generator body raises ``StreamConsumed`` on a 307/308 (IA occasionally
+    issues these). So this is a plain object whose ``__aiter__`` opens the
+    file afresh on every iteration. The file is re-read from the start each
+    time, which keeps retries and redirects sending the full body.
+    """
+
+    def __init__(self, file_path: Path, size: int) -> None:
+        self._path = file_path
+        self._size = size
+
+    async def __aiter__(self) -> AsyncIterator[bytes]:
+        sent = 0
+        async with await anyio.Path(self._path).open("rb") as fh:
+            while chunk := await fh.read(_UPLOAD_CHUNK_BYTES):
+                sent += len(chunk)
+                yield chunk
+        if sent != self._size:
+            message = (
+                f"{self._path.name} changed size during upload (stat={self._size}, read={sent})"
+            )
+            raise OSError(message)
 
 
 @retry(
@@ -191,9 +238,19 @@ def _is_retryable_upload_error(exception: Exception) -> bool:
 async def _perform_upload(
     client: httpx.AsyncClient, url: str, file_path: Path, headers: dict[str, str]
 ) -> None:
-    """Perform single upload attempt; retries are handled by tenacity."""
-    content = await anyio.Path(file_path).read_bytes()
-    response = await client.put(url, content=content, headers=headers)
+    """Perform single upload attempt; retries are handled by tenacity.
+
+    The body is streamed from disk. Size is stat'ed per attempt and sent as an
+    explicit ``Content-Length`` (IA S3 requires a length; without it httpx
+    would use chunked transfer encoding).
+    """
+    size = (await anyio.Path(file_path).stat()).st_size
+    body = _FileChunkStream(file_path, size)
+    response = await client.put(
+        url,
+        content=body,
+        headers={**headers, "Content-Length": str(size)},
+    )
     response.raise_for_status()
 
 
