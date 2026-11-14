@@ -418,3 +418,64 @@ def test_canary_heartbeat_unavailable_fails() -> None:
     )
 
     assert any("could not verify" in failure and "boom" in failure for failure in failures)
+
+
+def _status_error(code: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("GET", "https://proxy/api/v1/caderno")
+    return httpx.HTTPStatusError(
+        "boom", request=request, response=httpx.Response(code, request=request)
+    )
+
+
+async def test_djen_live_retries_transient_5xx_then_passes(monkeypatch) -> None:
+    calls: list[int] = []
+
+    async def flaky(*_args: object, **_kwargs: object) -> str:
+        calls.append(1)
+        if len(calls) == 1:
+            raise _status_error(500)
+        return "https://download/zip"
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(canary_check, "get_caderno_url", flaky)
+    monkeypatch.setattr(canary_check.asyncio, "sleep", no_sleep)
+
+    failures, warnings = await canary_check.check_djen_live(
+        datetime(2026, 11, 12, tzinfo=UTC).date()
+    )
+
+    assert (failures, warnings) == ([], [])
+    assert len(calls) == 2
+
+
+async def test_djen_live_fails_when_5xx_persists(monkeypatch) -> None:
+    async def down(*_args: object, **_kwargs: object) -> str:
+        raise _status_error(502)
+
+    async def no_sleep(_seconds: float) -> None:
+        return None
+
+    monkeypatch.setattr(canary_check, "get_caderno_url", down)
+    monkeypatch.setattr(canary_check.asyncio, "sleep", no_sleep)
+
+    failures, _ = await canary_check.check_djen_live(datetime(2026, 11, 12, tzinfo=UTC).date())
+
+    assert len(failures) == 1
+    assert "after 3 attempt(s)" in failures[0]
+
+
+async def test_djen_live_does_not_retry_4xx(monkeypatch) -> None:
+    calls: list[int] = []
+
+    async def bad(*_args: object, **_kwargs: object) -> str:
+        calls.append(1)
+        raise _status_error(418)
+
+    monkeypatch.setattr(canary_check, "get_caderno_url", bad)
+
+    failures, _ = await canary_check.check_djen_live(datetime(2026, 11, 12, tzinfo=UTC).date())
+
+    assert len(failures) == 1
+    assert len(calls) == 1

@@ -15,7 +15,7 @@ CausaGanha operates two interconnected runtime domains for Brazilian judicial da
    - 100% offline, zero-cost NLP and ML pipeline segmenting full-text decisions, extracting legal entities (parties, OABs, judges), and classifying judgment outcomes according to the Brazilian Code of Civil Procedure (CPC/2015).
    - Active learning flywheel with anomaly detection and automated ratchet regression gates.
 3. **Public Web Dashboard (`web/`)**:
-   - Astro 7 + Svelte 5 frontend with Panda CSS, providing interactive public dashboards and the Before-vs-After decision audit comparator (`/auditoria`).
+   - Static, zero-backend public reader in `web/public/` (plain HTML/JS, no build step), including the interactive DJEN decision audit page (`web/public/auditoria.html`).
 
 ---
 
@@ -38,7 +38,7 @@ Every agent modifying this repository **MUST** adhere to the following rules:
 - **Validate CNJ Numbers with Módulo 97**: All process numbers must pass the official CNJ checksum algorithm (`validate_cnj_checksum`).
 
 ### 2.4. Web Security & Content-Security-Policy (CSP)
-- Every web page in `web/public/` or `web/src/pages/` must comply with strict CSP policies.
+- Every web page in `web/public/` must comply with strict CSP policies.
 - The build pipeline enforces `web/scripts/injectCspHashes.mjs`. Static HTML pages must include:
   ```html
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';">
@@ -249,8 +249,7 @@ uv run ruff format --check
 # 2. Pytest suite
 uv run pytest -q tests/test_structural_segmenter.py tests/test_recurso_resolver.py tests/test_spike_thx02.py
 
-# 3. Web build and CSP audit (if web/ was modified)
-cd web && npm test && npm run build && cd ..
+# 3. Web: no build step. If web/public/ was modified, check the CSP meta tag on edited pages.
 ```
 
 ### 7.2. Git & PR Protocol

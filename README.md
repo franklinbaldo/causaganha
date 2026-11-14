@@ -161,7 +161,7 @@ flowchart LR
 Há duas superfícies de runtime principais:
 
 - backend Python/CLIs em `src/`;
-- frontend Astro + Svelte em `web/`.
+- frontend estático (HTML/JS em `web/public/`, sem build) em `web/`.
 
 Metadados estáveis de produto (fontes e pipelines) vivem no bundle OKF de `knowledge/`; contratos físicos continuam no código, Parquet e Zod. O OKF participa do `causaganha_status`, mas não substitui schema registry nem contratos de dados.
 
@@ -190,17 +190,17 @@ A consolidação Parquet é um module CLI: `python -m causaganha.consolidate`.
 
 ## Frontend e contratos de consulta
 
-O frontend usa Astro 7, Svelte 5, DuckDB WASM, Vitest e Zod.
+O frontend é estático: HTML/JS puro em `web/public/`, com DuckDB-WASM (httpfs) carregado do CDN para ler Parquet do DJEN.
 
-As necessidades de dados do site são declaradas em `web/src/queries/*.qmd`. Cada contrato define output/formato e uma consulta SQL. `scripts/render_queries.py` materializa JSON em `web/public/data/`, e os payloads renderizados são validados contra o registry Zod do frontend em CI.
+Os contratos de consulta são arquivos `web/queries/*.qmd`. Cada um define output/formato e uma consulta SQL. `scripts/render_queries.py` materializa JSON em `web/public/data/`; `--check` valida os contratos em CI.
 
 Para adicionar uma view:
 
-1. criar `web/src/queries/minha_view.qmd`;
-2. adicionar o schema/registry em `web/src/lib/data/contracts.ts`;
-3. executar `uv run python scripts/render_queries.py`.
+1. criar `web/queries/minha_view.qmd`;
+2. executar `uv run python scripts/render_queries.py --check`;
+3. ligar o JSON gerado a uma página em `web/public/`.
 
-Veja `web/src/queries/README.md` para o contrato completo.
+Veja `web/queries/README.md` para o contrato completo.
 
 ## Lab experimental
 
@@ -225,7 +225,6 @@ Gates usuais:
 uv run ruff format --check
 uv run ruff check
 uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
-cd web && npm ci && npm run lint && npm test && npm run build
 ```
 
 ## Estrutura do repositório
@@ -238,7 +237,7 @@ src/djen_backup/         motor de sincronização DJEN
 src/datajud/              client/service/archive DataJud
 src/tjro_juris/           pipeline JURIS
 src/stj_acordaos/         pipeline STJ
-web/                     site Astro + Svelte
+web/                     site estático (HTML/JS em public/, contratos em queries/)
 scripts/                 pipelines e operações auxiliares
 notebooks/               Lab / marimo + exports
 .github/workflows/       CI/CD e jobs de dados
@@ -249,7 +248,7 @@ notebooks/               Lab / marimo + exports
 - [`docs/PRODUCT.md`](docs/PRODUCT.md) — modelo de produto, proveniência e fronteiras
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) — setup e regras de contribuição
 - [`FRONTEND.md`](FRONTEND.md) — arquitetura/design do frontend
-- [`web/src/queries/README.md`](web/src/queries/README.md) — contratos `.qmd`
+- [`web/queries/README.md`](web/queries/README.md) — contratos `.qmd`
 - [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) — preservação, correção/restrição e licenciamento
 - [`docs/SERVICE_OBJECTIVES.md`](docs/SERVICE_OBJECTIVES.md) — objetivos operacionais e canário
 

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, date, datetime
-from pathlib import Path
 
 import pyarrow as pa
 import pyarrow.parquet as pq
@@ -218,25 +217,3 @@ def test_validate_roundtrip_equivalence(tmp_path):
 
     with pytest.raises(ValueError, match="Roundtrip equivalence failed: Text mismatch"):
         validate_roundtrip_equivalence(ndjson_dir, parquet_dir)
-
-
-def test_ts_schema_snapshot_parity():
-    ts_path = Path("web/src/lib/consolidated-schemas.ts")
-    assert ts_path.exists()
-    content = ts_path.read_text(encoding="utf-8")
-
-    assert 'export const CONSOLIDATED_SCHEMA_VERSION = "3";' in content
-
-    # Assert that all consolidated tables have schemas defined in TS
-    for table in TABLES:
-        expected_schema_name = f"{table}Schema"
-        if "_" in table:
-            parts = table.split("_")
-            camel = parts[0] + "".join(p.capitalize() for p in parts[1:])
-            expected_schema_name_alt = f"{camel}Schema"
-        else:
-            expected_schema_name_alt = expected_schema_name
-
-        assert (expected_schema_name in content) or (expected_schema_name_alt in content), (
-            f"Expected schema definition for '{table}' in TS file"
-        )

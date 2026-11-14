@@ -38,6 +38,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
 import sys
 from datetime import UTC, date, datetime, timedelta
@@ -355,6 +356,17 @@ def check_canary_heartbeat(
     return failures, warnings
 
 
+DJEN_LIVE_ATTEMPTS = 3
+DJEN_LIVE_BACKOFF_SECONDS = 5.0
+
+
+def _is_transient(exc: Exception) -> bool:
+    """5xx responses and transport errors are worth retrying; 4xx/parse errors are not."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return exc.response.status_code >= 500  # noqa: PLR2004
+    return isinstance(exc, httpx.TransportError)
+
+
 async def check_djen_live(target_date: date) -> tuple[list[str], list[str]]:
     """Return (failures, warnings) from one live DJEN lookup."""
     failures: list[str] = []
@@ -362,32 +374,43 @@ async def check_djen_live(target_date: date) -> tuple[list[str], list[str]]:
 
     base_url = DJEN_PROXY_FALLBACK_URL  # matches --use-proxy, the path GH runners use
     async with httpx.AsyncClient() as client:
-        try:
-            url = await get_caderno_url(client, base_url, CANARY_TRIBUNAL, target_date)
-            log.info(
-                "canary.djen.available",
-                tribunal=CANARY_TRIBUNAL,
-                date=str(target_date),
-                url=url,
-            )
-        except DJENNotFoundError as exc:
-            # Definitive absence (404/400/"Sem comunicações") — the client
-            # correctly parsed a conclusive verdict. This is a PASS: it
-            # proves the historically-buggy 200-without-URL path still
-            # resolves to "absent", not a silent "available".
-            log.info(
-                "canary.djen.absent",
-                tribunal=CANARY_TRIBUNAL,
-                date=str(target_date),
-                status_code=exc.status_code,
-                reason=exc.reason,
-            )
-        except DJENRateLimitedError as exc:
-            # 403 is documented as transient WAF rate-limiting, never proof
-            # of an outage — warn, don't fail a single occurrence.
-            warnings.append(f"DJEN rate-limited (403) on this single check: {exc}")
-        except (httpx.HTTPError, ValueError) as exc:
-            failures.append(f"DJEN live check failed unexpectedly: {exc}")
+        for attempt in range(1, DJEN_LIVE_ATTEMPTS + 1):
+            try:
+                url = await get_caderno_url(client, base_url, CANARY_TRIBUNAL, target_date)
+                log.info(
+                    "canary.djen.available",
+                    tribunal=CANARY_TRIBUNAL,
+                    date=str(target_date),
+                    url=url,
+                )
+            except DJENNotFoundError as exc:
+                # Definitive absence (404/400/"Sem comunicações") — the client
+                # correctly parsed a conclusive verdict. This is a PASS: it
+                # proves the historically-buggy 200-without-URL path still
+                # resolves to "absent", not a silent "available".
+                log.info(
+                    "canary.djen.absent",
+                    tribunal=CANARY_TRIBUNAL,
+                    date=str(target_date),
+                    status_code=exc.status_code,
+                    reason=exc.reason,
+                )
+            except DJENRateLimitedError as exc:
+                # 403 is documented as transient WAF rate-limiting, never proof
+                # of an outage — warn, don't fail a single occurrence.
+                warnings.append(f"DJEN rate-limited (403) on this single check: {exc}")
+            except (httpx.HTTPError, ValueError) as exc:
+                # A single 5xx/network blip from the proxy or upstream should
+                # not page the owner; only a failure that persists across
+                # every attempt counts as an outage.
+                if attempt < DJEN_LIVE_ATTEMPTS and _is_transient(exc):
+                    log.warning("canary.djen.retry", attempt=attempt, error=str(exc))
+                    await asyncio.sleep(DJEN_LIVE_BACKOFF_SECONDS * attempt)
+                    continue
+                failures.append(
+                    f"DJEN live check failed unexpectedly after {attempt} attempt(s): {exc}"
+                )
+            break
 
     return failures, warnings
 

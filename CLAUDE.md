@@ -7,7 +7,7 @@ Project guide for Claude Code. Keep this file short and actionable.
 CausaGanha archives Brazilian judicial communications (DJEN) on Internet Archive and serves a public dashboard. Two runtime surfaces:
 
 - **Python backend** in `src/causaganha` and `src/djen_backup`
-- **Web frontend** in `web/` (Astro 7 + Svelte 5)
+- **Web frontend** in `web/`: a static, zero-backend public reader (plain HTML/JS in `web/public/`, no build step). See `web/README.md`.
 - **Agent Operating Manual** in `AGENTS.md` (detailed architectural invariants, active learning flywheel, and jurimetrics rules)
 
 ## Architecture at a glance
@@ -26,11 +26,17 @@ The canonical sync engine is in `src/djen_backup/`. Key concepts:
 - Phase 0 uses IA advanced search to discover existing items, then fetches metadata in parallel (~50 concurrent).
 - **IA item naming**: Items use `djen-{tribunal}-{year}` format (e.g. `djen-tjro-2025`). The old `djen-YYYY-MM-DD` per-day format is discontinued. ZIP files inside items still use `djen-YYYY-MM-DD-{TRIBUNAL}.zip`.
 
+### Lookup by CNJ vs. analytics
+
+**Accepted:** [ADR 0013](docs/adr/0013-indice-protobuf-por-cnj-sobre-originais.md). The original DJEN/DataJud ZIPs on IA are canonical; per-CNJ lookup goes through a Protobuf pointer index (item → ZIP → member) and returns the original bytes. Parquet stays as the analytics layer (jurimetria, catalog SQL, DuckDB scans), not as a CNJ index. Don't add a second canonical encoding of document content.
+
 ### Manifest query contracts (web)
 
-The frontend declares its data needs via `.qmd` files in `web/src/queries/`. Each has YAML frontmatter (`output: /data/foo.json`, `format: array|object`) and a SQL block. Backend script `scripts/render_queries.py` executes them against the manifest and writes JSON to `web/public/data/`.
+`.qmd` contracts in `web/queries/` declare analytical datasets. Each has YAML frontmatter (`output: /data/foo.json`, `format: array|object`, optional `optional: true`) and a SQL block. `scripts/render_queries.py` executes them against the manifest and writes JSON to `web/public/data/` (the deploy workflow runs it with `--strict`).
 
-**When frontend needs a new dataset:** add a `.qmd`, add a Zod schema + registry entry in `web/src/lib/data/contracts.ts`, load it com `loadContract('name')` de `web/src/lib/data`, done. Python backend doesn't care.
+**Consumers:** `web/public/index.html` does not currently fetch `/data/*.json`. It reads `indexes/*.json`, shards via HTTP Range requests, `catalogo_tpu.json`, and DJEN parquet through DuckDB-WASM httpfs (via `djen-proxy`). Confirm a page consumes a contract before assuming it is shown.
+
+**Adding a dataset:** add a `.qmd` to `web/queries/`, validate with `uv run python scripts/render_queries.py --check`, then wire the JSON into a page by hand (there is no Zod registry or `loadContract` any more).
 
 ## Running things
 
@@ -47,8 +53,9 @@ uv run --env-file ~/workspace/.env djen-backup upload --workers 4
 # Render query contracts to JSON
 uv run python scripts/render_queries.py
 
-# Frontend dev
-cd web && npm run dev
+# Preview the static site (no build step; serve over HTTP, not file://)
+# Note: python's http.server ignores Range requests, which shard lookups need.
+python3 -m http.server -d web/public 8000
 ```
 
 ## Rules of the road
@@ -58,7 +65,7 @@ cd web && npm run dev
 - **Never treat 403 as absent.** CloudFront/WAF returns 403 when rate-limiting. Genuine absent is: **404**, **400** (holidays), **or 200 with body `"Sem comunicações"`** (no download URL). A bare 200 status is *not* enough to call it available.
 - **`djen_raw="200"` + `djen_status="available"` is NOT self-consistent proof — historically.** ~79K legacy rows were recorded by an older checker that read only the HTTP 200 and never inspected the body — they were actually "Sem comunicações" (absent). This was fixed by promoting the corrected `sync-manifest.parquet` (built from the probe **upload-delta** corrections) to the sole source of truth (see `docs/planning/manifest-source-of-truth.md` Fase 1); the legacy `sync-manifest.csv` was never backfilled and is no longer read by anything (Fase 3). Before "fixing" any available/absent discrepancy you find elsewhere, **verify against live DJEN** (sample → `get_caderno_url`) — do not assume a recorded status is right just because it looks canonical.
 - **Don't trust `absent` from old runs.** If auditing shows false positives, reset all `absent` entries (where `djen_raw` is empty) to unknown.
-- **Upload bug:** `ia_s3._perform_upload` must use `file_path.read_bytes()`, not `file_path.open("rb")` as content — sync file objects don't work with `AsyncClient`.
+- **Upload bodies are streamed, never fully buffered.** `causaganha.pipeline.ia_s3._perform_upload` streams the file via `_FileChunkStream` (16 MiB chunks) with an explicit `Content-Length`, building a fresh body per attempt so retries and 307 redirects resend the whole file. Don't pass a sync file object as `content=` (fails under `AsyncClient`), don't use a one-shot async generator (`StreamConsumed` on redirect), and don't go back to `read_bytes()` — consolidate parquets are 2-3 GB. Transient `OSError`s are retried; `FileNotFoundError`/`PermissionError`/`IsADirectoryError` are not.
 - **Per-item lock + token bucket for IA uploads** (in `src/djen_backup/archive.py`). IA serializes writes per item. `ItemBusyError` → re-queue, don't block.
 
 ### Performance
@@ -67,16 +74,9 @@ cd web && npm run dev
 - Cache `has_uploaded_entries` / `counts` in `SyncManifest`; invalidate on mutation.
 - For sampling/debugging absent entries, see patterns in previous audit (sample → `get_caderno_url` live).
 
-### CSS token boundary
+### Static page styling
 
-There is one design system, not two: **Panda CSS** via the `cobogo` preset (`web/panda.config.ts`). Almost every page styles through `css()`/`styled-system/recipes` (`alert`, `badge`, `card`, `table`, …) reading Panda's own tokens directly — this is the Cobogó/Panda reboot (#1169) and it now covers all substantive pages (the only two holdouts, `advogados.astro` and `comparador.astro`, are trivial redirect stubs to `/stats`).
-
-`web/src/index.css` is a **compatibility bridge**, not a second token system for a page category: it defines `--cg-*` primitives backed by Panda's `--colors-*`/`--fonts-*`, and re-exposes legacy custom-property names (`--papel-*`, `--s-*`, `--color-*`) as aliases to those same values. Those legacy names are consumed only inside the `<style>` blocks of three Svelte islands that predate the reboot and haven't been converted to Panda `css()` yet: `ProcessoLookup.svelte`, `PublicationSearch.svelte`, `SavedConsultations.svelte` (several call sites already fall back to the semantic alias, e.g. `var(--papel-20, var(--color-surface))`). `--pico-*` and `--tinta-*` no longer exist anywhere in the codebase.
-
-- New pages/components: use Panda (`css()`/recipes from the `cobogo` preset). Don't invent bespoke custom properties outside `panda.config.ts`.
-- **Panda's `include` in `panda.config.ts` only scans `.astro`/`.js`/`.jsx`/`.ts`/`.tsx` — never `.svelte`.** Recipes (`badge()`, `card()`, `table()`, `alert()`, …) are safe to call from a Svelte component because their full variant CSS is generated regardless of call site, but a raw `css({...})` call written inside a `.svelte` file is unreliable: any property/value combo not *also* used in an included file never gets its atomic class extracted into the stylesheet, so the style silently doesn't apply. This is why every Svelte component in the tree, legacy or not, styles through global element-level CSS/utility classes (`index.css`) and its own scoped `<style>` block rather than `css()` — a new Svelte component should follow that same pattern (recipes + scoped `<style>` with literal values, no bespoke custom properties), not import `css()` directly.
-- Maintaining one of the three legacy Svelte islands above: it's fine to keep using its existing `--papel-*`/`--s-*` names; don't introduce new ones, and prefer routing through the semantic aliases already declared in `index.css`.
-- There is no "marketing vs. data page" split to preserve — don't reintroduce one.
+`web/public/index.html` is a single self-contained page: styling is one inline `<style>` block with `:root` custom properties.
 
 ### Style
 
@@ -100,11 +100,17 @@ scripts/
 ├── render_queries.py              — .qmd → JSON
 └── generate_cache_from_manifest.py — legacy cache (kept during migration)
 
-web/src/queries/
-├── README.md              — query contract docs
-├── totals.qmd             — overall counts
-├── tribunal_coverage.qmd  — per-tribunal coverage
-└── daily_uploads.qmd      — velocity/heatmap input
+web/
+├── README.md              — static reader architecture (zero-backend)
+├── public/                — deployed as-is to GitHub Pages (index.html, auditoria.html, indexes/, shards/, tiles/, ...)
+└── queries/               — .qmd contracts (see web/queries/README.md)
+    ├── totals.qmd, datajud_totals.qmd, stj_totals.qmd, juris_totals.qmd
+    ├── tribunal_coverage.qmd, tribunal_calendar.qmd, stats_coverage.qmd
+    ├── daily_uploads.qmd, weekly_pattern.qmd, consolidation_status.qmd
+    ├── court_reliability.qmd, lawyer_leaderboard.qmd, site_status.qmd
+    ├── datajud_classes.qmd, juris_classes.qmd, juris_orgaos.qmd
+    ├── processos_multi_fonte.qmd, stj_temas.qmd, stj_relatores.qmd
+    └── README.md          — contract syntax
 ```
 
 ## Before committing

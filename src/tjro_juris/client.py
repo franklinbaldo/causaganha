@@ -78,7 +78,10 @@ PAGE_SIZE = _resolve_page_size(os.environ)
 # Elasticsearch max_result_window: requests with from + size beyond this 500.
 MAX_RESULT_WINDOW = 10_000
 
-MAX_ATTEMPTS = 4
+# 6 attempts = ~62s of backoff (2+4+8+16+32s, plus jitter). With 4 (~14s) the
+# relay/origin's bursts of instant 502s outlasted the retries mid-crawl
+# (dispatch run 43602993065, 2026-11-14: 18 pages fine, then 4x 502 within 18s).
+MAX_ATTEMPTS = 6
 _BASE_DELAY_S = 2.0
 _HTTP_SERVER_ERROR = 500
 
@@ -150,6 +153,14 @@ def _backoff_delay(attempt: int) -> float:
     return base * (1.0 + random.uniform(0.0, 0.25))  # noqa: S311 — jitter, not crypto
 
 
+def _body_snippet(response: httpx.Response, limit: int = 200) -> str:
+    """First *limit* chars of a (possibly unread) error response body, for logs."""
+    try:
+        return response.text[:limit]
+    except httpx.ResponseNotRead:
+        return "<body not read>"
+
+
 def _raise_last(last_exc: httpx.HTTPError) -> NoReturn:
     raise last_exc
 
@@ -179,6 +190,10 @@ def _retrying[T](op: Callable[[], T], url: str, *, max_attempts: int = MAX_ATTEM
                 url=url,
                 attempt=attempt,
                 status=exc.response.status_code,
+                # The relay answers 502 with "upstream error: <ExcName>" or
+                # "upstream response exceeds size budget" — the only way to
+                # tell an origin block from a relay limit from CI logs.
+                body=_body_snippet(exc.response),
             )
         else:
             return result

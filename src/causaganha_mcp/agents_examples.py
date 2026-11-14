@@ -1,10 +1,10 @@
-"""Canonical example questions for the public `/agentes` onboarding page (#1217).
+"""Canonical example questions for the public MCP agent jobs (#1217).
 
 Each entry pairs the natural-language question a person can copy-paste to an
 agent with the MCP tool it must exercise. This module is the single authority
-for that wording: `web/src/pages/agentes.astro` embeds the same text verbatim
-as a static attribute, and `tests/causaganha_mcp/test_agents_page_examples_contract.py`
-fails if the page ever drifts from it, or if a listed tool stops existing in
+for that wording. The `/agentes` Astro page that embedded it was removed in the
+web reset (#1715); `tests/causaganha_mcp/test_agents_page_examples_contract.py`
+still fails if a listed tool stops existing in
 `causaganha_mcp.server.build_server()`'s live catalog.
 
 The CNJ used is not live data — it is the same fictitious-but-deterministic

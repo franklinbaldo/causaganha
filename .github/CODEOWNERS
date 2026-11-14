@@ -8,10 +8,9 @@
 /src/djen_backup/manifest.py        @franklinbaldo
 
 # Manifest schema / consolidation contracts — changes here ripple into
-# every .qmd query contract and the frontend's Zod schemas.
+# every .qmd query contract.
 /src/causaganha/consolidate/        @franklinbaldo
-/web/src/queries/                   @franklinbaldo
-/web/src/lib/data/contracts.ts      @franklinbaldo
+/web/queries/                       @franklinbaldo
 
 # Security-sensitive network boundary (Cloud Run relay: allowlist, auth,
 # header handling for STJ/TJRO access from GitHub runners).

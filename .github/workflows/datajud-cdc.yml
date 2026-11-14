@@ -63,19 +63,28 @@ jobs:
           dev: "false"
 
       - name: Run DataJud CDC Sync and Backup
+        env:
+          # Dispatch inputs reach the script as env vars, never spliced into
+          # its text (same TM-01 rule as tjro-sync.yml).
+          CDC_TRIBUNAL: ${{ github.event.inputs.tribunal || 'tjro' }}
+          CDC_PAGE_SIZE: ${{ github.event.inputs.page_size || '1000' }}
+          CDC_MAX_PAGES: ${{ github.event.inputs.max_pages }}
+          CDC_SKIP_UPLOAD: ${{ github.event.inputs.skip_upload }}
+          CDC_EVENT: ${{ github.event_name }}
         run: |
-          MAX_PAGES_FLAG=""
-          if [ -n "${{ github.event.inputs.max_pages }}" ]; then
-            MAX_PAGES_FLAG="--max-pages ${{ github.event.inputs.max_pages }}"
+          set -euo pipefail
+          ARGS=(--tribunal "$CDC_TRIBUNAL" --page-size "$CDC_PAGE_SIZE")
+          if [ -n "${CDC_MAX_PAGES:-}" ]; then
+            ARGS+=(--max-pages "$CDC_MAX_PAGES")
           fi
-
-          UPLOAD_FLAG="--upload"
-          if [ "${{ github.event.inputs.skip_upload }}" = "true" ] || [ "${{ github.event_name }}" = "pull_request" ]; then
-            UPLOAD_FLAG="--skip-upload"
+          if [ "${CDC_SKIP_UPLOAD:-}" = "true" ] || [ "$CDC_EVENT" = "pull_request" ]; then
+            # Dry run still restores the published state (read-only) so it
+            # resumes from the real cursor instead of re-streaming from zero.
+            ARGS+=(--skip-upload --restore)
+          else
+            ARGS+=(--upload)
           fi
-
-          uv run datajud cdc \
-            --tribunal "${{ github.event.inputs.tribunal || 'tjro' }}" \
-            --page-size "${{ github.event.inputs.page_size || '1000' }}" \
-            $MAX_PAGES_FLAG \
-            $UPLOAD_FLAG
+          # Stop collecting after 90 min so consolidation and the ordered
+          # publish (ZIP -> Parquets/index -> state bundle last) fit in the
+          # 180-min job timeout. The published cursor resumes next run.
+          uv run datajud cdc "${ARGS[@]}" --max-minutes 90

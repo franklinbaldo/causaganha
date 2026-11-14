@@ -3,14 +3,17 @@
 import json
 import tempfile
 import time
+import uuid
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
+import duckdb
 import ibis
 import pytest
 import structlog
 
 from scripts.pipeline.consolidate import (
+    NAMESPACE_DJEN,
     TABLE_SCHEMAS,
     TABLES,
     _load_and_transform,
@@ -244,3 +247,122 @@ def test_parallel_export():
             f"Parallel export ({par_exported}) should match sequential ({seq_exported})"
         )
         assert par_time > 0, "Parallel export time should be positive"
+
+
+# ---------------------------------------------------------------------------
+# Advogado schema stability: read_json_auto infers ``advogado`` as JSON (not
+# STRUCT) when a partition mixes shapes.  The advogado tables must come out
+# identical whichever type DuckDB picks, otherwise the same lawyer gets a
+# different global UUID depending on the partition.
+# ---------------------------------------------------------------------------
+
+_ADV_TABLES = ("comunicacao_advogados", "advogados", "advogado_nomes")
+
+
+def _adv_record(record_id: str, advogados: list[dict]) -> dict:
+    return {
+        "id": record_id,
+        "texto": f"INTIMAÇÃO {record_id}",
+        "numeroProcesso": "0000001-02.2022.8.22.0001",
+        "dataDisponibilizacao": "2022-03-01",
+        "destinatarios": [{"nome": "PARTE AUTORA", "polo": "Ativo"}],
+        "destinatarioadvogados": [{"advogado": adv} for adv in advogados],
+    }
+
+
+_LAWYER_MARIA = {"nome": "DRA MARIA", "numeroOAB": "12345", "ufOAB": "RO", "id": 7}
+_LAWYER_PEDRO = {"nome": "DR PEDRO", "numeroOAB": "67890", "ufOAB": "RO"}
+
+
+# Third file per variant: (mixed lawyers, clean lawyers).  The mixed value forces
+# the JSON inference; the clean value is what the same record looks like when
+# every file agrees on the shape.  A bare string is treated as no advogado, the
+# same as null.
+_MIXED_THIRD_FILE = {
+    "advogado_json": ([["NAO INFORMADO"]], [None]),
+    "numero_oab_json": (
+        [{**_LAWYER_PEDRO, "numeroOAB": 67890}],
+        [_LAWYER_PEDRO],
+    ),
+}
+
+
+def _advogado_fixture_files(variant: str, *, mixed: bool) -> dict[str, list[dict]]:
+    """NDJSON files for one partition, with or without the forced-JSON record."""
+    if variant not in _MIXED_THIRD_FILE:
+        msg = f"unknown variant: {variant}"
+        raise ValueError(msg)
+    mixed_lawyers, clean_lawyers = _MIXED_THIRD_FILE[variant]
+    third = mixed_lawyers if mixed else clean_lawyers
+    return {
+        "TJRO__djen-2022-03-01-TJRO.ndjson": [_adv_record("1001", [_LAWYER_MARIA])],
+        "TJRO__djen-2022-03-02-TJRO.ndjson": [_adv_record("1002", [_LAWYER_PEDRO])],
+        "TJRO__djen-2022-03-03-TJRO.ndjson": [_adv_record("1003", third)],
+    }
+
+
+def _write_partition(ndjson_dir: Path, files: dict[str, list[dict]]) -> None:
+    for name, records in files.items():
+        with (ndjson_dir / name).open("w", encoding="utf-8") as f:
+            for rec in records:
+                f.write(json.dumps(rec, ensure_ascii=False) + "\n")
+
+
+def _inferred_destinatarioadvogados_type(ndjson_dir: Path) -> str:
+    """DuckDB's inferred type for destinatarioadvogados (the list holding advogado)."""
+    probe = duckdb.connect()
+    probe.execute(
+        f"CREATE TABLE probe AS SELECT * FROM read_json_auto('{ndjson_dir}/*.ndjson', "
+        f"filename=true, union_by_name=true)",
+    )
+    rows = probe.sql(
+        "SELECT column_type FROM (DESCRIBE probe) WHERE column_name = 'destinatarioadvogados'",
+    ).fetchall()
+    probe.close()
+    return str(rows[0][0])
+
+
+def _advogado_tables(variant: str, *, mixed: bool) -> tuple[str, dict[str, list[dict]]]:
+    con = ibis.duckdb.connect()
+    init_tables(con)
+    with tempfile.TemporaryDirectory() as tmpdir:
+        ndjson_dir = Path(tmpdir)
+        _write_partition(ndjson_dir, _advogado_fixture_files(variant, mixed=mixed))
+        inferred = _inferred_destinatarioadvogados_type(ndjson_dir)
+        _load_and_transform(con, ndjson_dir, item_id="djen-tjro-2022")
+    tables = {
+        name: sorted(
+            con.table(name).execute().to_dict("records"),
+            key=lambda r: json.dumps(r, sort_keys=True, default=str),
+        )
+        for name in _ADV_TABLES
+    }
+    return inferred, tables
+
+
+@pytest.mark.parametrize("variant", ["advogado_json", "numero_oab_json"])
+def test_advogado_tables_identical_when_partition_infers_json(variant):
+    """Mixed-shape partitions must produce the same advogado rows as STRUCT ones."""
+    struct_type, struct_tables = _advogado_tables(variant, mixed=False)
+    mixed_type, mixed_tables = _advogado_tables(variant, mixed=True)
+
+    # The fixture must actually force the type under test, or the test proves nothing.
+    assert "advogado STRUCT(" in struct_type, struct_type
+    assert "JSON" not in struct_type, struct_type
+    if variant == "advogado_json":
+        assert "advogado JSON" in mixed_type, mixed_type
+    else:
+        assert "advogado STRUCT(" in mixed_type
+        assert "numeroOAB JSON" in mixed_type, mixed_type
+
+    assert mixed_tables == struct_tables
+
+    # Values are unquoted text and the UUIDs use the OAB+UF key, not JSON text.
+    maria_id = str(uuid.uuid5(NAMESPACE_DJEN, "12345:RO"))
+    pedro_id = str(uuid.uuid5(NAMESPACE_DJEN, "67890:RO"))
+    adv_ids = {row["id"] for row in mixed_tables["advogados"]}
+    assert {maria_id, pedro_id} <= adv_ids
+    maria = next(r for r in mixed_tables["advogados"] if r["id"] == maria_id)
+    assert maria["numero_oab"] == "12345"
+    assert maria["uf_oab"] == "RO"
+    assert maria["nome"] == "DRA MARIA"

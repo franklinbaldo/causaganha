@@ -5,7 +5,7 @@ Todos os pontos levantados na revisão (P0 e P1) foram corrigidos e validados co
 ---
 
 ### 1. P0 — Implementação Canônica do Codec FlatBuffers (`processo.fbs`)
-- **Implementado em:** [`src/datajud/schema/flatbuffers_codec.py`](src/datajud/schema/flatbuffers_codec.py)
+- **Implementado em:** [`src/datajud/schema/flatbuffers_codec.py`](../../src/datajud/schema/flatbuffers_codec.py)
 - **Conformidade Estrita:** O codec implementa campo a campo todas as tabelas e vetores de `src/datajud/schema/processo.fbs`:
   - `DocumentoDataJud` (todas as 18 posições tipadas com vtables correspondentes).
   - Tabelas aninhadas: `CodigoNome`, `OrgaoJulgador`, `ComplementoTabelado`, `Movimento`.
@@ -17,8 +17,8 @@ Todos os pontos levantados na revisão (P0 e P1) foram corrigidos e validados co
 ---
 
 ### 2. P0 — Amostragem e Prova Efetiva de Busca Multíndice Pareada
-- **Implementado em:** [`scripts/datajud/cross_match_multindex.py`](scripts/datajud/cross_match_multindex.py)
-- **Fixture Comprovada:** [`fixtures/datajud_sample/pares_multindice_comprovados.json`](fixtures/datajud_sample/pares_multindice_comprovados.json)
+- **Implementado em:** [`scripts/datajud/cross_match_multindex.py`](../../scripts/datajud/cross_match_multindex.py)
+- **Fixture Comprovada:** [`fixtures/datajud_sample/pares_multindice_comprovados.json`](../../fixtures/datajud_sample/pares_multindice_comprovados.json)
 - **Resultados Empíricos Comprovados (Consultas Reais na API Pública do DataJud):**
   - **CNJ `5021985-14.2025.4.04.0000`:** Encontrado simultaneamente em `api_publica_stj` (SUP) e `api_publica_trf4` (G2).
   - **CNJ `5039675-56.2025.4.04.0000`:** Encontrado simultaneamente em `api_publica_stj` (SUP) e `api_publica_trf4` (G2).
@@ -29,7 +29,7 @@ Todos os pontos levantados na revisão (P0 e P1) foram corrigidos e validados co
 ---
 
 ### 3. P0 — Teste de Coleção e Cardinalidade Completo
-- **Atualizado em:** [`tests/datajud/test_schema_roundtrip.py`](tests/datajud/test_schema_roundtrip.py)
+- **Atualizado em:** [`tests/datajud/test_schema_roundtrip.py`](../../tests/datajud/test_schema_roundtrip.py)
 - O teste `test_multigrau_e_multindice_cardinality_all_documents` agora itera e recupera **todos os documentos de cada coleção** ($0 \dots N-1$), validando a identidade de proveniência por tupla `(index, id)` em todos os graus (`G1`, `G2`, `SUP`).
 - Adicionado `test_pares_multindice_comprovados_existencia` que valida formalmente a ausência de colisão de índices e a presença dos mesmos CNJs em múltiplos tribunais.
 
@@ -42,7 +42,7 @@ Todos os pontos levantados na revisão (P0 e P1) foram corrigidos e validados co
 ---
 
 ### 5. P1 — Benchmark Simétrico e Rigoroso
-- **Atualizado em:** [`scripts/datajud/benchmark_formats.py`](scripts/datajud/benchmark_formats.py)
+- **Atualizado em:** [`scripts/datajud/benchmark_formats.py`](../../scripts/datajud/benchmark_formats.py)
 - A desserialização agora recupera **100% dos documentos de todas as coleções** em todos os formatos:
 
 | Formato | Tamanho Total | Encoding (ms) | Decoding Completo (ms) | Projeção Capa (ms) | Ratio vs Bruto |
