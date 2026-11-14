@@ -11,9 +11,12 @@ from cyclopts import App, Parameter
 from rich.console import Console
 from rich.table import Table
 
+from causaganha.arena.cli import app as arena_app
+
 CATALOG_URL = "https://archive.org/download/causaganha-catalog/catalog.sql"
 console = Console()
 app = App(name="causaganha", help="Consulte o acervo público do CausaGanha.")
+app.command(arena_app)
 
 
 def _connection() -> duckdb.DuckDBPyConnection:

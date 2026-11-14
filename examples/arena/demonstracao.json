@@ -1,0 +1,175 @@
+{
+  "schema_version": 1,
+  "demonstration": true,
+  "rules": {
+    "min_cases": 1,
+    "promotion_score": 0.6,
+    "court_seats": 100,
+    "stj_seats": 35,
+    "stf_seats": 11
+  },
+  "competitors": [
+    {
+      "id": "a",
+      "model": "demo-a",
+      "revision": "v1"
+    },
+    {
+      "id": "b",
+      "model": "demo-b",
+      "revision": "v1"
+    },
+    {
+      "id": "c",
+      "model": "demo-c",
+      "revision": "v1"
+    },
+    {
+      "id": "d",
+      "model": "demo-d",
+      "revision": "v1"
+    }
+  ],
+  "rounds": [
+    {
+      "id": "0",
+      "matches": [
+        {
+          "case_id": "demo-1",
+          "claimant": {
+            "competitor": "a",
+            "text": "Pedido de demonstração."
+          },
+          "defendant": {
+            "competitor": "b",
+            "text": "Defesa de demonstração."
+          },
+          "panels": [],
+          "anchor": {
+            "court": "stj",
+            "source_url": "https://example.org/demo",
+            "document_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "disposition": {
+              "merits": true,
+              "claimant_share": 1.0
+            }
+          }
+        },
+        {
+          "case_id": "demo-2",
+          "claimant": {
+            "competitor": "c",
+            "text": "Pedido de demonstração."
+          },
+          "defendant": {
+            "competitor": "d",
+            "text": "Defesa de demonstração."
+          },
+          "panels": [],
+          "anchor": {
+            "court": "stj",
+            "source_url": "https://example.org/demo",
+            "document_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "disposition": {
+              "merits": true,
+              "claimant_share": 1.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "1",
+      "matches": [
+        {
+          "case_id": "demo-3",
+          "claimant": {
+            "competitor": "c",
+            "text": "Pedido de demonstração."
+          },
+          "defendant": {
+            "competitor": "d",
+            "text": "Defesa de demonstração."
+          },
+          "panels": [
+            {
+              "level": "juizo",
+              "votes": [
+                {
+                  "competitor": "a",
+                  "text": "Fundamentação de demonstração.",
+                  "disposition": {
+                    "merits": true,
+                    "claimant_share": 1.0
+                  }
+                }
+              ]
+            }
+          ],
+          "anchor": {
+            "court": "stj",
+            "source_url": "https://example.org/demo",
+            "document_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "disposition": {
+              "merits": true,
+              "claimant_share": 1.0
+            }
+          }
+        }
+      ]
+    },
+    {
+      "id": "2",
+      "matches": [
+        {
+          "case_id": "demo-4",
+          "claimant": {
+            "competitor": "b",
+            "text": "Pedido de demonstração."
+          },
+          "defendant": {
+            "competitor": "d",
+            "text": "Defesa de demonstração."
+          },
+          "panels": [
+            {
+              "level": "juizo",
+              "votes": [
+                {
+                  "competitor": "c",
+                  "text": "Fundamentação de demonstração.",
+                  "disposition": {
+                    "merits": true,
+                    "claimant_share": 1.0
+                  }
+                }
+              ]
+            },
+            {
+              "level": "tribunal",
+              "votes": [
+                {
+                  "competitor": "a",
+                  "text": "Fundamentação de demonstração.",
+                  "disposition": {
+                    "merits": true,
+                    "claimant_share": 1.0
+                  }
+                }
+              ]
+            }
+          ],
+          "anchor": {
+            "court": "stj",
+            "source_url": "https://example.org/demo",
+            "document_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+            "disposition": {
+              "merits": true,
+              "claimant_share": 1.0
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

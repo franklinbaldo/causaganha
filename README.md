@@ -208,6 +208,11 @@ Classificação de resultados, embeddings, segmentação de decisões, treinamen
 
 Notebooks são autorados em marimo (`notebooks/*.py`) e exportados para `.ipynb` em CI. A governança da camada analítica está em `docs/GOVERNANCE.md`.
 
+A [Arena jurídica](docs/arena-juridica.md) implementa o núcleo experimental de
+carreira competitiva de modelos: entrada na advocacia, habilitação por desempenho
+e disputa de vagas nos tribunais. O replay é offline e recebe partidas em JSON;
+a demonstração sintética não executa modelos nem representa resultados reais.
+
 ## Desenvolvimento
 
 Pré-requisitos: Python 3.12+, [`uv`](https://docs.astral.sh/uv/) e Node.js 22+.
