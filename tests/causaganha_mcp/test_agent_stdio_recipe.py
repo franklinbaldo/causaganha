@@ -1,4 +1,4 @@
-"""Contrato executável da configuração stdio publicada em ``/agentes``."""
+"""Contrato executável da configuração stdio publicada no README."""
 
 from __future__ import annotations
 
@@ -18,17 +18,17 @@ if TYPE_CHECKING:
 
 
 _REPO_ROOT = Path(__file__).parents[2]
-_AGENT_PAGE = _REPO_ROOT / "web" / "src" / "pages" / "agentes.astro"
+_README = _REPO_ROOT / "README.md"
 _CHECKOUT_PLACEHOLDER = "/caminho/para/causaganha"
-_LOCAL_CONFIG_RE = re.compile(r"const localConfig = `(?P<config>.*?)`;", re.DOTALL)
+_JSON_BLOCK_RE = re.compile(r"```json\n(?P<config>\{.*?\})\n```", re.DOTALL)
 
 
 def _published_server_config() -> dict[str, object]:
-    source = _AGENT_PAGE.read_text(encoding="utf-8")
-    match = _LOCAL_CONFIG_RE.search(source)
-    assert match is not None, "agentes.astro precisa publicar localConfig"
-    config = json.loads(match.group("config"))
-    return config["mcpServers"]["causaganha"]
+    source = _README.read_text(encoding="utf-8")
+    configs = [json.loads(match.group("config")) for match in _JSON_BLOCK_RE.finditer(source)]
+    published = next((config for config in configs if "mcpServers" in config), None)
+    assert published is not None, "README.md precisa publicar a configuração mcpServers"
+    return published["mcpServers"]["causaganha"]
 
 
 async def test_published_stdio_recipe_works_from_outside_checkout(
