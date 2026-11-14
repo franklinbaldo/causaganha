@@ -52,6 +52,7 @@ from rich.table import Table
 
 from datajud import backlog as backlog_engine
 from datajud import cdc as cdc_engine
+from datajud import cdc_state
 from datajud import service
 from datajud.client import DEFAULT_TRIBUNAL, FACET_FIELDS, DataJudError
 
@@ -268,6 +269,24 @@ def cdc_cmd(
     canonical_dir: Annotated[
         Path, Parameter(help="Diretório dos parquets canônicos L0.")
     ] = cdc_engine.DEFAULT_CANONICAL_DIR,
+    max_minutes: Annotated[
+        float | None,
+        Parameter(
+            help=(
+                "Interrompe a coleta após N minutos para ainda consolidar e publicar "
+                "antes do timeout do runner; o cursor continua na próxima execução."
+            )
+        ),
+    ] = None,
+    restore: Annotated[
+        bool | None,
+        Parameter(
+            help=(
+                "Restaura do Internet Archive o último estado CDC publicado antes de "
+                "coletar. Padrão: ligado quando há upload."
+            )
+        ),
+    ] = None,
 ) -> int:
     """Extração incremental de processos via CDC search_after com deltas particionados."""
     ia_key, ia_secret = service.ia_credentials()
@@ -299,9 +318,11 @@ def cdc_cmd(
                 canonical_dir=canonical_dir,
                 ia_key=ia_key,
                 ia_secret=ia_secret,
+                restore_remote=should_upload if restore is None else restore,
+                max_duration_s=max_minutes * 60 if max_minutes else None,
             )
         )
-    except (DataJudError, httpx.HTTPError) as exc:
+    except (DataJudError, httpx.HTTPError, cdc_state.CdcStateError) as exc:
         print(f"ERROR no CDC: {exc}", file=sys.stderr)
         return 1
 

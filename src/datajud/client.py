@@ -379,6 +379,7 @@ class DataJudClient:
 
             payload = None
             while True:
+                requested_size = current_page_size
                 body: dict[str, Any] = {
                     "size": current_page_size,
                     "track_total_hits": True,
@@ -432,7 +433,11 @@ class DataJudClient:
 
             yield sources, last_sort
 
-            if len(hits_raw) < current_page_size:
+            # Compare with the size this page was *requested* at, not the
+            # (possibly regrown) size for the next page: a full page fetched
+            # at a reduced size is not a short page. Comparing against the
+            # regrown size silently ended production CDC runs mid-stream.
+            if len(hits_raw) < requested_size:
                 break
 
             if pause_between_pages:

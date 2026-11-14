@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Execute .qmd query files against the manifest and emit JSON.
 
-Purpose:  Turn the frontend's .qmd query contracts into the JSON datasets it loads.
+Purpose:  Turn the frontend's .qmd query contracts into the JSON datasets the site publishes.
 Problem:  The web app declares its data needs as .qmd files; something must execute
           them against the manifest without depending on the Quarto binary.
-Strategy: Scan web/src/queries/*.qmd, parse the frontmatter (output/format) + SQL
+Strategy: Scan web/queries/*.qmd, parse the frontmatter (output/format) + SQL
           fence, run each against the manifest via DuckDB, and write JSON under
           web/public — staying Quarto-compatible for later HTML rendering.
 Status:   production — runs in deploy-web.yml (--strict), test.yml (--check) and
           update-catalog.yml; the canonical manifest→frontend data path (see
-          web/src/queries/README.md).
+          web/queries/README.md).
 
 Modes (RFC 0007 — fail-loud data contracts):
   (default)   render all contracts; missing optional sources warn, nothing fatal.

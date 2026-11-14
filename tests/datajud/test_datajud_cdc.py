@@ -204,6 +204,8 @@ async def test_sync_tribunal_cdc_full_flow(tmp_path: Path):
         since_iso="2026-03-01T00:00:00.000Z",
         base_dir=base_dir,
         canonical_dir=canonical_dir,
+        daily_dir=tmp_path / "daily",
+        index_dir=tmp_path / "index",
         consolidate=True,
         client=mock_client,
     )
@@ -213,7 +215,9 @@ async def test_sync_tribunal_cdc_full_flow(tmp_path: Path):
     assert res.batches_streamed == 2
     assert res.consolidated_capas == 2
     assert res.consolidated_movs == 2
-    assert res.checkpoint.status == "completed"
+    # Without upload the run only *collected*; "published" requires the bundle.
+    assert res.checkpoint.status == "collected"
+    assert res.stream_exhausted is True
     assert res.checkpoint.total_documents == 2
     assert res.checkpoint.last_sort_key == [2, CNJ_2]
 
@@ -221,7 +225,7 @@ async def test_sync_tribunal_cdc_full_flow(tmp_path: Path):
     store = DataJudCdcCheckpointStore(base_dir / "checkpoints.sqlite")
     saved_cp = store.get("tjro")
     assert saved_cp is not None
-    assert saved_cp.status == "completed"
+    assert saved_cp.status == "collected"
     assert saved_cp.total_documents == 2
 
 

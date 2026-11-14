@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import sqlite3
+import time
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -20,7 +21,7 @@ import pyarrow.parquet as pq
 import structlog
 from pydantic import ValidationError
 
-from datajud import archive
+from datajud import archive, cdc_state
 from datajud.client import DataJudClient
 from datajud.daily_pack import (
     DEFAULT_DAILY_DIR,
@@ -54,7 +55,10 @@ class CdcCheckpoint:
     total_documents: int = 0
     total_batches: int = 0
     last_run_at: str = ""
-    status: str = "in_progress"  # "in_progress", "completed", "error"
+    # "in_progress" while streaming; "collected" once the stream stopped and the
+    # local artifacts were built; "published" only after every artifact and the
+    # commit bundle reached Internet Archive; "error" on any failure.
+    status: str = "in_progress"
 
 
 class DataJudCdcCheckpointStore:
@@ -290,6 +294,8 @@ class CdcSyncResult:
     daily_processes_count: int = 0
     index_total: int = 0
     uploaded_files: list[str] | None = None
+    stream_exhausted: bool = False
+    restore_status: str | None = None
 
 
 async def sync_tribunal_cdc(
@@ -312,6 +318,8 @@ async def sync_tribunal_cdc(
     ia_key: str = "",
     ia_secret: str = "",
     client: DataJudClient | None = None,
+    restore_remote: bool = False,
+    max_duration_s: float | None = None,
 ) -> CdcSyncResult:
     """Stream changed processes for a tribunal, writing L1 deltas and updating checkpoints.
 
@@ -335,10 +343,41 @@ async def sync_tribunal_cdc(
         ia_key: Internet Archive S3 access key.
         ia_secret: Internet Archive S3 secret key.
         client: Optional pre-configured `DataJudClient`.
+        restore_remote: Restore the last published CDC generation (checkpoint,
+            canonical Parquets, index) from Internet Archive before streaming.
+            Required on ephemeral runners; fails closed on anything but a 404.
+        max_duration_s: Stop streaming after this many seconds so the run can
+            still consolidate and publish before the runner times out. The
+            cursor then resumes on the next run.
+
+    Raises:
+        cdc_state.CdcStateError: upload requested without credentials, remote
+            state unreadable, or any artifact failed to publish. The commit
+            bundle is published last, so a failure never advances the cursor
+            that the next runner restores.
     """
     tribunal_slug = tribunal.lower()
+    if upload and not (ia_key and ia_secret):
+        msg = "upload requested but Internet Archive credentials are missing"
+        raise cdc_state.CdcStateError(msg)
+
     store = DataJudCdcCheckpointStore(base_dir / "checkpoints.sqlite")
     deltas_dir = base_dir / "deltas"
+
+    restore_status: str | None = None
+    if restore_remote:
+        restored = cdc_state.restore_cdc_state(
+            tribunal_slug, canonical_dir=canonical_dir, index_dir=index_dir
+        )
+        restore_status = restored.status
+        log.info(
+            "datajud_cdc_state_restored",
+            tribunal=tribunal_slug,
+            status=restored.status,
+            generation=restored.generation,
+        )
+        if resume and restored.checkpoint is not None:
+            store.upsert(CdcCheckpoint(**restored.checkpoint))
 
     checkpoint = store.get(tribunal_slug) if resume else None
     if checkpoint is None:
@@ -371,6 +410,8 @@ async def sync_tribunal_cdc(
         docs_session = 0
         batches_session = 0
         session_documents: list[dict[str, Any]] = []
+        started = time.monotonic()
+        stream_exhausted = True
 
         async for batch_hits, last_sort in active_client.iter_updated_since(
             since_iso=checkpoint.since_iso,
@@ -412,7 +453,17 @@ async def sync_tribunal_cdc(
                 total_documents=checkpoint.total_documents,
             )
 
-        checkpoint.status = "completed"
+            if max_duration_s is not None and time.monotonic() - started >= max_duration_s:
+                stream_exhausted = False
+                log.info(
+                    "datajud_cdc_time_budget_reached",
+                    tribunal=tribunal_slug,
+                    elapsed_s=round(time.monotonic() - started),
+                    total_documents=checkpoint.total_documents,
+                )
+                break
+
+        checkpoint.status = "collected"
         store.upsert(checkpoint)
 
     except Exception as exc:  # per-session bulkhead, see docs/adr/0011
@@ -440,7 +491,10 @@ async def sync_tribunal_cdc(
     daily_count = 0
     index_total = 0
     if pack_daily and session_documents:
-        target_date = datetime.now(UTC).strftime("%Y-%m-%d")
+        # Run-unique name: a second run on the same day must not overwrite the
+        # first day's snapshot that the published index may still point to
+        # (issue #1707).
+        target_date = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
         daily_zip_path, daily_count = pack_daily_zip(
             session_documents,
             tribunal_slug,
@@ -455,24 +509,24 @@ async def sync_tribunal_cdc(
             tribunal=tribunal_slug,
         )
 
-    # Upload to Internet Archive if requested
     uploaded_files: list[str] = []
-    if upload and ia_key and ia_secret:
-        to_upload: list[Path] = []
-        if daily_zip_path and daily_zip_path.exists():
-            to_upload.append(daily_zip_path)
-        index_file = index_dir / f"indice_processos_{tribunal_slug}.parquet"
-        if index_file.exists():
-            to_upload.append(index_file)
-        if capa_canonical and capa_canonical.exists():
-            to_upload.append(capa_canonical)
-        if mov_canonical and mov_canonical.exists():
-            to_upload.append(mov_canonical)
-
-        for p in to_upload:
-            ok = archive.upload_file(p, tribunal_slug, ia_key, ia_secret)
-            if ok:
-                uploaded_files.append(p.name)
+    if upload:
+        try:
+            uploaded_files = _publish(
+                tribunal_slug,
+                checkpoint=checkpoint,
+                daily_zip_path=daily_zip_path,
+                capa_canonical=capa_canonical,
+                mov_canonical=mov_canonical,
+                index_file=index_dir / cdc_state.index_name(tribunal_slug),
+                ia_key=ia_key,
+                ia_secret=ia_secret,
+            )
+        except cdc_state.CdcStateError:
+            checkpoint.status = "error"
+            store.upsert(checkpoint)
+            raise
+        store.upsert(checkpoint)
 
     return CdcSyncResult(
         tribunal=tribunal_slug,
@@ -485,4 +539,57 @@ async def sync_tribunal_cdc(
         daily_processes_count=daily_count,
         index_total=index_total,
         uploaded_files=uploaded_files if upload else None,
+        stream_exhausted=stream_exhausted,
+        restore_status=restore_status,
     )
+
+
+def _upload_or_raise(path: Path, tribunal: str, ia_key: str, ia_secret: str) -> None:
+    if not archive.upload_file(path, tribunal, ia_key, ia_secret):
+        msg = f"failed to publish {path.name} to Internet Archive"
+        raise cdc_state.CdcStateError(msg)
+
+
+def _publish(
+    tribunal: str,
+    *,
+    checkpoint: CdcCheckpoint,
+    daily_zip_path: Path | None,
+    capa_canonical: Path | None,
+    mov_canonical: Path | None,
+    index_file: Path,
+    ia_key: str,
+    ia_secret: str,
+) -> list[str]:
+    """Publish artifacts in dependency order, then the commit bundle last.
+
+    The daily ZIP goes first because the index points into it; the canonical
+    Parquets and the index follow; the bundle (with the advanced cursor) is
+    only uploaded once all of them succeeded. Any failure raises and leaves the
+    previously published bundle — and therefore the previous cursor — intact.
+    """
+    uploaded: list[str] = []
+    data_paths: dict[str, Path] = {}
+    ordered = [daily_zip_path, capa_canonical, mov_canonical, index_file]
+    for path in ordered:
+        if path is None or not path.exists():
+            continue
+        _upload_or_raise(path, tribunal, ia_key, ia_secret)
+        uploaded.append(path.name)
+        if path is not daily_zip_path:
+            data_paths[path.name] = path
+
+    checkpoint.status = "published"
+    bundle_content, generation = cdc_state.build_bundle(checkpoint, data_paths, tribunal)
+    bundle_path = index_file.parent / cdc_state.bundle_name(tribunal)
+    bundle_path.write_bytes(bundle_content)
+    try:
+        _upload_or_raise(bundle_path, tribunal, ia_key, ia_secret)
+    except cdc_state.CdcStateError:
+        checkpoint.status = "collected"
+        raise
+    finally:
+        bundle_path.unlink(missing_ok=True)
+    uploaded.append(bundle_path.name)
+    log.info("datajud_cdc_published", tribunal=tribunal, generation=generation, files=uploaded)
+    return uploaded

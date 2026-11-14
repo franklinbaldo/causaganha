@@ -6,7 +6,7 @@ Em resposta direta ao re-review e à análise de otimização de esquemas, imple
 
 ### 1. Eliminação da Duplicação Integral e Esquema Híbrido (Otimização do `.fbs`)
 - **Diagnóstico Confirmado:** O benchmark anterior registrava 728 KB no FlatBuffers porque cada documento duplicava integralmente o JSON bruto comprimido em `payload_original_bruto_gz`.
-- **Novo Esquema Compacto:** [`src/datajud/schema/processo_compact.fbs`](src/datajud/schema/processo_compact.fbs) e codec [`src/datajud/schema/compact_codec.py`](src/datajud/schema/compact_codec.py):
+- **Novo Esquema Compacto:** [`src/datajud/schema/processo_compact.fbs`](../../src/datajud/schema/processo_compact.fbs) e codec [`src/datajud/schema/compact_codec.py`](../../src/datajud/schema/compact_codec.py):
   - **Capa Tipada Plana O(1):** Identificadores (`_index`, `_id`, `tribunal`, `grau`), códigos de TPU (`classe_codigo`, `orgao_codigo`, `sistema_codigo`) e datas em timestamps numéricos (epoch ms) residem na vtable do FlatBuffers.
   - **Bloco de Movimentos em Zstandard:** O vetor volumoso de movimentos é serializado e compactado em bloco via Zstd (nível 3).
   - **Sem Duplicação Redundante:** O payload deixa de ser duplicado.
@@ -16,7 +16,7 @@ Em resposta direta ao re-review e à análise de otimização de esquemas, imple
 ### 2. Validação Independente com Classes Geradas Oficialmente pelo `flatc`
 - Baixado e versionado o compilador oficial Google `flatc` (v25.12.19).
 - Geradas as classes canônicas Python em `src/datajud/schema/generated/`.
-- Criado o teste [`test_validacao_independente_classes_geradas_flatc`](tests/datajud/test_schema_roundtrip.py) que lê os buffers serializados utilizando **exclusivamente a classe `ProcessoCNJCollection.GetRootAs(buf, 0)`** gerada pelo `flatc`, eliminando o risco de erro simétrico de codec manual.
+- Criado o teste [`test_validacao_independente_classes_geradas_flatc`](../../tests/datajud/test_schema_roundtrip.py) que lê os buffers serializados utilizando **exclusivamente a classe `ProcessoCNJCollection.GetRootAs(buf, 0)`** gerada pelo `flatc`, eliminando o risco de erro simétrico de codec manual.
 
 ---
 

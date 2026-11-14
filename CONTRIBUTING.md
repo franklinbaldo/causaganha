@@ -34,20 +34,14 @@ uvx vulture src/ scripts/ vulture_whitelist.py --min-confidence 100
 
 Frontend checks:
 
-```bash
-cd web
-npm ci
-npm run lint
-npm test
-npm run build
-```
+The web frontend is static (`web/public/`, no npm or build step). Validate query contracts with `uv run python scripts/render_queries.py --check`.
 
 ## Repository map
 
 - [AGENTS.md](AGENTS.md): operating manual and architectural invariants for autonomous AI agents
 - [src/causaganha](src/causaganha): main Python package
 - [src/djen_backup](src/djen_backup): ZIP and backfill utilities
-- [web](web): Astro + Svelte frontend
+- [web](web): static zero-backend public reader (HTML/JS in `web/public/`)
 - [scripts](scripts): operational scripts and pipeline helpers
 - [notebooks](notebooks): marimo notebooks (`*.py`) + exported `*.ipynb`
 - [tests](tests): pytest and pytest-bdd suites
