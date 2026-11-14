@@ -10,6 +10,7 @@ Implements the delta-based ingestion pipeline outlined in Issue #1701:
 from __future__ import annotations
 
 import json
+import shutil
 import sqlite3
 import time
 from dataclasses import dataclass
@@ -17,6 +18,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import duckdb
+import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
 from pydantic import ValidationError
@@ -26,10 +29,9 @@ from datajud.client import DataJudClient
 from datajud.daily_pack import (
     DEFAULT_DAILY_DIR,
     DEFAULT_INDEX_DIR,
-    pack_daily_zip,
+    SessionSpool,
     update_resolution_index,
 )
-from datajud.dedup import capa_row_key, merge_capa_rows, merge_movimento_rows
 from datajud.models import ProcessoCapa
 
 
@@ -41,6 +43,8 @@ log = structlog.get_logger()
 
 DEFAULT_CDC_DIR = Path("data/datajud/cdc")
 DEFAULT_CANONICAL_DIR = Path("data/datajud")
+# DuckDB spills past this instead of growing RAM; the runner has 16 GB.
+COMPACT_MEMORY_LIMIT = "4GB"
 
 
 @dataclass
@@ -210,6 +214,70 @@ def write_delta_batch(
     return capa_path, mov_path, n_capa, n_mov
 
 
+def _duckdb_connection(work_dir: Path) -> duckdb.DuckDBPyConnection:
+    """In-process DuckDB that spills to *work_dir* instead of growing RAM."""
+    work_dir.mkdir(parents=True, exist_ok=True)
+    con = duckdb.connect()
+    con.execute(f"SET temp_directory = '{work_dir.as_posix()}'")
+    con.execute(f"SET memory_limit = '{COMPACT_MEMORY_LIMIT}'")
+    con.execute("SET preserve_insertion_order = false")
+    return con
+
+
+def _sql_list(paths: Sequence[Path]) -> str:
+    return "[" + ", ".join("'" + p.as_posix().replace("'", "''") + "'" for p in paths) + "]"
+
+
+def _kv_metadata_sql(tribunal: str) -> str:
+    pairs = archive.kv_metadata_for_export(archive.item_id(tribunal))
+    return "{" + ", ".join(f"'{k}': '{v}'" for k, v in pairs.items()) + "}"
+
+
+def _select_columns(schema: pa.Schema, source: str) -> str:
+    casts = {"string": "VARCHAR", "int64": "BIGINT"}
+    return ", ".join(f"CAST({source}.{f.name} AS {casts[str(f.type)]}) AS {f.name}" for f in schema)
+
+
+def _ordered_source(
+    con: duckdb.DuckDBPyConnection,
+    view: str,
+    canonical: Path,
+    deltas: Sequence[tuple[Path, int]],
+    schema: pa.Schema,
+) -> None:
+    """View over canonical (``_ord`` 0) and deltas (``_ord`` = batch position).
+
+    ``_row`` is the row position inside its file, so "later occurrence wins"
+    keeps the exact tie-break of :func:`datajud.dedup.merge_capa_rows`.
+    """
+    files = ([(canonical, 0)] if canonical.exists() else []) + list(deltas)
+    values = ", ".join(f"('{path.as_posix()}', {order})" for path, order in files)
+    con.execute(
+        f"CREATE OR REPLACE TEMP TABLE {view}_files AS "
+        f"SELECT * FROM (VALUES {values}) t(filename, _ord)"
+    )
+    con.execute(
+        f"CREATE OR REPLACE TEMP VIEW {view} AS "
+        f"SELECT {_select_columns(schema, 'r')}, f._ord, r.file_row_number AS _row "
+        f"FROM read_parquet({_sql_list([path for path, _ in files])}, union_by_name = true, "
+        "filename = true, file_row_number = true) r "
+        f"JOIN {view}_files f ON r.filename = f.filename"
+    )
+
+
+# Capa natural key, identical to datajud.dedup.capa_row_key: codigo when
+# present, else a namespaced nome fallback.
+_CAPA_KEY = (
+    "numero_processo, grau, "
+    "COALESCE(CAST(orgao_julgador_codigo AS VARCHAR), 'nome:' || COALESCE(orgao_julgador, ''))"
+)
+# Movimento rows carry no órgão *name*, so their replacement key can only use
+# the código. The old Python merge built "nome:" for them and "nome:<órgão>"
+# for the capa, so movements of documents without a código were never
+# replaced and piled up as duplicates on every refresh.
+_MOV_KEY = "numero_processo, grau, orgao_julgador_codigo"
+
+
 def compact_deltas(
     tribunal: str,
     *,
@@ -219,8 +287,15 @@ def compact_deltas(
 ) -> tuple[Path, Path, int, int]:
     """Merge all L1 delta Parquet files of *tribunal* into the canonical L0 Parquet tables.
 
-    Uses :func:`merge_capa_rows` and :func:`merge_movimento_rows` for natural-key
-    upserting, preserving the latest `dataHoraUltimaAtualizacao`.
+    Runs entirely in DuckDB over the Parquet files (spilling to disk), so memory
+    no longer grows with the size of the canonical tables (issue #1708).
+
+    Semantics match the previous Python merge, applied delta by delta:
+
+    * capa: per natural key the latest ``ultima_atualizacao`` wins; ties go to
+      the later occurrence (later delta, later row);
+    * movimentos: a document refreshed by any delta has its movements replaced
+      wholesale by those of the last delta that refreshed it.
 
     Returns:
         (canonical_capa_path, canonical_mov_path, total_capa_rows, total_mov_rows)
@@ -232,36 +307,71 @@ def compact_deltas(
     capa_canonical = canonical_dir / archive.capa_parquet_name(tribunal_slug)
     mov_canonical = canonical_dir / archive.movimentos_parquet_name(tribunal_slug)
 
-    existing_capas = read_parquet_rows(capa_canonical)
-    existing_movs = read_parquet_rows(mov_canonical)
-
-    if not trib_deltas_dir.exists():
-        return capa_canonical, mov_canonical, len(existing_capas), len(existing_movs)
-
-    capa_delta_files = sorted(trib_deltas_dir.glob("capa_delta_*.parquet"))
-    mov_delta_files = sorted(trib_deltas_dir.glob("mov_delta_*.parquet"))
+    capa_delta_files = (
+        sorted(trib_deltas_dir.glob("capa_delta_*.parquet")) if trib_deltas_dir.exists() else []
+    )
+    mov_delta_files = (
+        sorted(trib_deltas_dir.glob("mov_delta_*.parquet")) if trib_deltas_dir.exists() else []
+    )
 
     if not capa_delta_files and not mov_delta_files:
-        return capa_canonical, mov_canonical, len(existing_capas), len(existing_movs)
+        return (
+            capa_canonical,
+            mov_canonical,
+            _count_rows(capa_canonical),
+            _count_rows(mov_canonical),
+        )
 
-    # Apply delta batches sequentially so newer batches override older movements
-    merged_capas = existing_capas
-    merged_movs = existing_movs
+    # Align capa/mov deltas by batch sequence so _ord means the same batch in both.
+    seqs = sorted(
+        {f.name.replace("capa_delta_", "") for f in capa_delta_files}
+        | {f.name.replace("mov_delta_", "") for f in mov_delta_files}
+    )
+    capa_by_seq = {f.name.replace("capa_delta_", ""): f for f in capa_delta_files}
+    mov_by_seq = {f.name.replace("mov_delta_", ""): f for f in mov_delta_files}
 
-    capa_by_seq: dict[str, Path] = {f.name.replace("capa_delta_", ""): f for f in capa_delta_files}
-    mov_by_seq: dict[str, Path] = {f.name.replace("mov_delta_", ""): f for f in mov_delta_files}
-
-    all_seqs = sorted(set(capa_by_seq.keys()) | set(mov_by_seq.keys()))
-    for seq in all_seqs:
-        batch_capas = read_parquet_rows(capa_by_seq[seq]) if seq in capa_by_seq else []
-        batch_movs = read_parquet_rows(mov_by_seq[seq]) if seq in mov_by_seq else []
-        refreshed_keys = {capa_row_key(r) for r in batch_capas}
-
-        merged_capas = merge_capa_rows(merged_capas, batch_capas)
-        merged_movs = merge_movimento_rows(merged_movs, batch_movs, refreshed_keys)
-
-    n_capa = archive.write_capa_parquet(merged_capas, capa_canonical, tribunal=tribunal_slug)
-    n_mov = archive.write_movimentos_parquet(merged_movs, mov_canonical, tribunal=tribunal_slug)
+    work_dir = deltas_dir / f".duckdb-{tribunal_slug}"
+    con = _duckdb_connection(work_dir)
+    capa_tmp = capa_canonical.with_name(f".{capa_canonical.name}.tmp")
+    mov_tmp = mov_canonical.with_name(f".{mov_canonical.name}.tmp")
+    try:
+        kv = _kv_metadata_sql(tribunal_slug)
+        # _ord is the batch position, shared by the capa and mov delta of a batch.
+        capa_seq_files = [(capa_by_seq[s], i) for i, s in enumerate(seqs, 1) if s in capa_by_seq]
+        mov_seq_files = [(mov_by_seq[s], i) for i, s in enumerate(seqs, 1) if s in mov_by_seq]
+        _ordered_source(con, "capa_src", capa_canonical, capa_seq_files, archive.CAPA_SCHEMA)
+        _ordered_source(con, "mov_src", mov_canonical, mov_seq_files, archive.MOVIMENTOS_SCHEMA)
+        capa_cols = ", ".join(archive.CAPA_SCHEMA.names)
+        mov_cols = ", ".join(archive.MOVIMENTOS_SCHEMA.names)
+        con.execute(
+            f"COPY (SELECT {capa_cols} FROM ("
+            f"  SELECT *, row_number() OVER (PARTITION BY {_CAPA_KEY} "
+            "    ORDER BY COALESCE(ultima_atualizacao, '') DESC, _ord DESC, _row DESC) AS _rn"
+            "  FROM capa_src) WHERE _rn = 1 "
+            f"ORDER BY {_CAPA_KEY}"
+            f") TO '{capa_tmp.as_posix()}' (FORMAT parquet, COMPRESSION zstd, KV_METADATA {kv})"
+        )
+        con.execute(
+            "CREATE OR REPLACE TEMP TABLE refreshed AS "
+            f"SELECT {_MOV_KEY}, max(_ord) AS last_ord FROM capa_src WHERE _ord > 0 "
+            f"GROUP BY {_MOV_KEY}"
+        )
+        con.execute(
+            f"COPY (SELECT {mov_cols} FROM ("
+            f"  SELECT m.*, r.last_ord FROM mov_src m LEFT JOIN refreshed r "
+            "    ON m.numero_processo = r.numero_processo AND m.grau IS NOT DISTINCT FROM r.grau "
+            "    AND m.orgao_julgador_codigo IS NOT DISTINCT FROM r.orgao_julgador_codigo"
+            ") WHERE last_ord IS NULL OR _ord = last_ord "
+            "ORDER BY numero_processo, grau, COALESCE(data_hora, ''), codigo, nome"
+            f") TO '{mov_tmp.as_posix()}' (FORMAT parquet, COMPRESSION zstd, KV_METADATA {kv})"
+        )
+    finally:
+        con.close()
+        shutil.rmtree(work_dir, ignore_errors=True)
+    capa_tmp.replace(capa_canonical)
+    mov_tmp.replace(mov_canonical)
+    n_capa = _count_rows(capa_canonical)
+    n_mov = _count_rows(mov_canonical)
 
     if clean_after_compact:
         for f in [*capa_delta_files, *mov_delta_files]:
@@ -278,6 +388,10 @@ def compact_deltas(
         total_movs=n_mov,
     )
     return capa_canonical, mov_canonical, n_capa, n_mov
+
+
+def _count_rows(path: Path) -> int:
+    return pq.ParquetFile(path).metadata.num_rows if path.exists() else 0
 
 
 @dataclass
@@ -409,7 +523,7 @@ async def sync_tribunal_cdc(
         part_seq = checkpoint.total_batches
         docs_session = 0
         batches_session = 0
-        session_documents: list[dict[str, Any]] = []
+        spool = SessionSpool(base_dir / "session" / f"{tribunal_slug}.ndjson")
         started = time.monotonic()
         stream_exhausted = True
 
@@ -425,7 +539,7 @@ async def sync_tribunal_cdc(
             part_seq += 1
             batches_session += 1
             docs_session += len(batch_hits)
-            session_documents.extend(batch_hits)
+            spool.add(batch_hits)
 
             # Write L1 Delta Parquet
             write_delta_batch(batch_hits, tribunal_slug, part_seq, deltas_dir)
@@ -490,24 +604,24 @@ async def sync_tribunal_cdc(
     daily_zip_path = None
     daily_count = 0
     index_total = 0
-    if pack_daily and session_documents:
-        # Run-unique name: a second run on the same day must not overwrite the
-        # first day's snapshot that the published index may still point to
-        # (issue #1707).
-        target_date = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
-        daily_zip_path, daily_count = pack_daily_zip(
-            session_documents,
-            tribunal_slug,
-            target_date=target_date,
-            output_dir=daily_dir,
-        )
-        index_path = index_dir / f"indice_processos_{tribunal_slug}.parquet"
-        index_total = update_resolution_index(
-            index_path,
-            session_documents,
-            daily_zip_path.name,
-            tribunal=tribunal_slug,
-        )
+    spool.close()
+    try:
+        if pack_daily and len(spool):
+            # Run-unique name: a second run on the same day must not overwrite
+            # the snapshot that the published index may still point to (#1707).
+            target_date = datetime.now(UTC).strftime("%Y-%m-%dT%H%M%SZ")
+            daily_zip_path, daily_count = spool.pack_zip(
+                tribunal_slug, target_date=target_date, output_dir=daily_dir
+            )
+            index_path = index_dir / f"indice_processos_{tribunal_slug}.parquet"
+            index_total = update_resolution_index(
+                index_path,
+                spool.index_documents(),
+                daily_zip_path.name,
+                tribunal=tribunal_slug,
+            )
+    finally:
+        spool.path.unlink(missing_ok=True)
 
     uploaded_files: list[str] = []
     if upload:

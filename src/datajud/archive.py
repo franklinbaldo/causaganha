@@ -87,7 +87,7 @@ def item_id(tribunal: str) -> str:
 DATAJUD_SCHEMA_VERSION = "1.0.0"
 
 
-def _kv_metadata_for_export(datajud_item_id: str) -> dict[str, str]:
+def kv_metadata_for_export(datajud_item_id: str) -> dict[str, str]:
     """KV metadata to embed in the Parquet footer via ``replace_schema_metadata``."""
     return {
         "causaganha.schema_version": DATAJUD_SCHEMA_VERSION,
@@ -123,7 +123,7 @@ def write_movimentos_parquet(rows: list[dict], path: Path, *, tribunal: str) -> 
 def _write_parquet(rows: list[dict], schema: pa.Schema, path: Path, *, tribunal: str) -> int:
     filtered = [{name: row.get(name) for name in schema.names} for row in rows]
     table = pa.Table.from_pylist(filtered, schema=schema)
-    table = table.replace_schema_metadata(_kv_metadata_for_export(item_id(tribunal)))
+    table = table.replace_schema_metadata(kv_metadata_for_export(item_id(tribunal)))
     path.parent.mkdir(parents=True, exist_ok=True)
     pq.write_table(table, path, compression="zstd")
     log.info("datajud_parquet_written", path=str(path), rows=table.num_rows)
