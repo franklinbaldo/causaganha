@@ -432,6 +432,8 @@ def main() -> None:
     parser.add_argument("--max-zips", type=int, default=5)
     parser.add_argument("--restore-remote", action="store_true")
     parser.add_argument("--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed")
+    parser.add_argument("--datajud-from-ia", action="store_true")
+    parser.add_argument("--max-datajud-files", type=int, default=5)
     args = parser.parse_args()
     if args.max_zips < 1:
         parser.error("--max-zips must be positive")
