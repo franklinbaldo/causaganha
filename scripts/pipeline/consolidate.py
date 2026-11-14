@@ -51,6 +51,7 @@ import duckdb
 import httpx
 import ibis
 from ibis.common.exceptions import IbisError
+from ibis.expr import datatypes as dt
 import structlog
 from tenacity import (
     retry,
@@ -668,16 +669,55 @@ def _parte_id(d: ibis.Column) -> ibis.Column:
     return djen_uuid5(normalize_name(d["nome"].cast("string").fill_null("")))
 
 
+@ibis.udf.scalar.builtin(name="json_type")
+def _json_type(j: dt.JSON) -> str:
+    """DuckDB ``json_type``: 'OBJECT', 'VARCHAR', 'UBIGINT', ... (NULL for SQL NULL)."""
+
+
+@ibis.udf.scalar.builtin(name="json_extract_string")
+def _json_text(j: dt.JSON, path: str) -> str:
+    """DuckDB ``json_extract_string`` (``->>``): unquoted text for strings and numbers."""
+
+
+def _advogado(da: ibis.Column) -> ibis.Column:
+    """The ``advogado`` object of a destinatarioadvogados row.
+
+    ``read_json_auto`` infers the column as JSON, not STRUCT, when some file in
+    a partition holds a non-object value there (e.g. a bare string).  In that
+    case keep only the JSON objects; anything else becomes NULL, which the
+    callers already treat as "no advogado".
+    """
+    adv = da["advogado"]
+    if not isinstance(adv.type(), dt.JSON):
+        return adv
+    return ibis.cases((_json_type(adv) == "OBJECT", adv), else_=ibis.null().cast(dt.json))
+
+
+def _adv_field(adv: ibis.Column, *names: str) -> ibis.Column:
+    """Text of the first present advogado field, as ``_struct_field`` picks it.
+
+    On a STRUCT the first existing name wins.  On a JSON object each name is read
+    as unquoted text with ``->>`` and the first non-null one wins.  Quoted JSON
+    text would hash to a different UUID for the same lawyer, so it must not reach
+    ``_safe``.  A scalar DuckDB types JSON inside a STRUCT (``numeroOAB`` when one
+    file has a number and another a string) is unwrapped the same way.
+    """
+    if isinstance(adv.type(), dt.JSON):
+        return ibis.coalesce(*(_json_text(adv, f"$.{name}") for name in names))
+    col = _struct_field(adv, *names)
+    return _json_text(col, "$") if isinstance(col.type(), dt.JSON) else col
+
+
 def _adv_global_id(da: ibis.Column, tribunal: ibis.Column) -> ibis.Column:
     """Advogado UUID: prefer OAB+UF key, fall back to nome+tribunal+orig_id."""
-    adv = da["advogado"]
-    oab = _safe(_struct_field(adv, *FIELD_NUMERO_OAB))
-    uf = _safe(_struct_field(adv, *FIELD_UF_OAB))
-    nome = _safe(adv["nome"])
+    adv = _advogado(da)
+    oab = _safe(_adv_field(adv, *FIELD_NUMERO_OAB))
+    uf = _safe(_adv_field(adv, *FIELD_UF_OAB))
+    nome = _safe(_adv_field(adv, "nome"))
     orig_id = _safe(
         ibis.coalesce(
-            _struct_field(adv, "id"),
-            _struct_field(da, "advogado_id"),
+            _adv_field(adv, "id"),
+            _adv_field(da, "advogado_id"),
         ),
     )
     return ibis.cases(
@@ -792,16 +832,16 @@ def _build_advogados(raw: ibis.Table, item_id: str) -> ibis.Table:
         src_item_id=ibis.literal(item_id),
         da=raw.destinatarioadvogados.unnest(),
     )
-    adv = t.da["advogado"]
+    adv = _advogado(t.da)
     return t.filter(adv.notnull()).select(
         id=_adv_global_id(t.da, t.src_tribunal),
         original_id=_safe(
-            ibis.coalesce(_struct_field(adv, "id"), _struct_field(t.da, "advogado_id")),
+            ibis.coalesce(_adv_field(adv, "id"), _adv_field(t.da, "advogado_id")),
         ),
         tribunal=t.src_tribunal,
-        nome=_safe(adv["nome"]),
-        numero_oab=_safe(_struct_field(adv, *FIELD_NUMERO_OAB)),
-        uf_oab=_safe(_struct_field(adv, *FIELD_UF_OAB)),
+        nome=_safe(_adv_field(adv, "nome")),
+        numero_oab=_safe(_adv_field(adv, *FIELD_NUMERO_OAB)),
+        uf_oab=_safe(_adv_field(adv, *FIELD_UF_OAB)),
         p_ano=t.disp_date.year().fill_null(0).cast("int32"),
         p_mes=t.disp_date.month().fill_null(0).cast("int32"),
         p_item_ia=t.src_item_id,
@@ -814,10 +854,10 @@ def _build_advogado_nomes(raw: ibis.Table, _item_id: str) -> ibis.Table:
         disp_date=_date_expr(raw),
         da=raw.destinatarioadvogados.unnest(),
     )
-    adv = t.da["advogado"]
+    adv = _advogado(t.da)
     return t.filter(adv.notnull()).select(
         advogado_id=_adv_global_id(t.da, t.src_tribunal),
-        nome=_safe(adv["nome"]),
+        nome=_safe(_adv_field(adv, "nome")),
         tribunal=t.src_tribunal,
         first_seen=t.disp_date,
     )
@@ -841,7 +881,7 @@ def _build_representacoes(raw: ibis.Table, item_id: str) -> ibis.Table:
         step1.d,
         da=step1.destinatarioadvogados.unnest(),
     )
-    adv = step2.da["advogado"]
+    adv = _advogado(step2.da)
     return step2.filter(adv.notnull()).select(
         comunicacao_id=djen_uuid5(step2.com_key),
         tribunal=step2.src_tribunal,
