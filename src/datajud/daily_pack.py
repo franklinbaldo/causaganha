@@ -19,6 +19,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
+import duckdb
 import pyarrow as pa
 import pyarrow.parquet as pq
 import structlog
@@ -121,6 +122,10 @@ def update_resolution_index(
     """Upsert pointers into the resolution index Parquet table.
 
     Points each CNJ to the latest daily ZIP archive containing its full state.
+    The merge runs in DuckDB over the existing Parquet, so memory scales with
+    *documents* (the session), not with the whole index (issue #1708). Rule:
+    per CNJ the latest ``dataHoraUltimaAtualizacao`` wins; ties go to the new
+    pointer, and among new pointers to the later one.
 
     Returns:
         Total number of indexed processes in the updated index table.
@@ -129,39 +134,143 @@ def update_resolution_index(
     tribunal_slug = tribunal.lower()
     now_iso = datetime.now(UTC).isoformat(timespec="seconds")
 
-    existing_rows: dict[str, dict[str, Any]] = {}
-    if index_path.exists():
-        existing_table = pq.read_table(index_path)
-        for r in existing_table.to_pylist():
-            existing_rows[r["numero_processo"]] = r
-
+    new_rows = []
     for doc in documents:
         raw_cnj = doc.get("numeroProcesso", "")
         cnj = normalizar_cnj(raw_cnj) or raw_cnj
         if not cnj:
             continue
-
-        updated_at = doc.get("dataHoraUltimaAtualizacao") or ""
-        current = existing_rows.get(cnj)
-
-        if current is None or updated_at >= (current.get("data_hora_ultima_atualizacao") or ""):
-            existing_rows[cnj] = {
+        new_rows.append(
+            {
                 "numero_processo": cnj,
                 "tribunal": tribunal_slug,
                 "grau": doc.get("grau") or "G1",
-                "data_hora_ultima_atualizacao": updated_at,
+                "data_hora_ultima_atualizacao": doc.get("dataHoraUltimaAtualizacao") or "",
                 "zip_file": zip_filename,
                 "atualizado_em": now_iso,
             }
+        )
+    new_table = pa.Table.from_pylist(new_rows, schema=INDEX_SCHEMA)
+    cols = ", ".join(INDEX_SCHEMA.names)
+    tmp_path = index_path.with_name(f".{index_path.name}.tmp")
 
-    sorted_rows = sorted(existing_rows.values(), key=lambda r: r["numero_processo"])
-    table = pa.Table.from_pylist(sorted_rows, schema=INDEX_SCHEMA)
-    pq.write_table(table, index_path, compression="zstd")
+    con = duckdb.connect()
+    try:
+        con.execute("SET preserve_insertion_order = false")
+        con.register("new_rows", new_table)
+        existing = (
+            f"SELECT {cols}, 0 AS _ord, file_row_number AS _row "
+            f"FROM read_parquet('{index_path.as_posix()}', file_row_number = true) UNION ALL "
+            if index_path.exists()
+            else ""
+        )
+        con.execute(
+            f"COPY (SELECT {cols} FROM ("
+            "  SELECT *, row_number() OVER (PARTITION BY numero_processo ORDER BY "
+            "    COALESCE(data_hora_ultima_atualizacao, '') DESC, _ord DESC, _row DESC) AS _rn"
+            f"  FROM ({existing}SELECT {cols}, 1 AS _ord, row_number() OVER () AS _row FROM new_rows)"
+            ") WHERE _rn = 1 ORDER BY numero_processo"
+            f") TO '{tmp_path.as_posix()}' (FORMAT parquet, COMPRESSION zstd)"
+        )
+    finally:
+        con.close()
+    tmp_path.replace(index_path)
+    total = pq.ParquetFile(index_path).metadata.num_rows
 
     log.info(
         "datajud_index_updated",
         tribunal=tribunal_slug,
         index_path=str(index_path),
-        total_indexed=len(sorted_rows),
+        total_indexed=total,
     )
-    return len(sorted_rows)
+    return total
+
+
+class SessionSpool:
+    """On-disk spool of the raw documents streamed in one CDC session.
+
+    Keeps only a small pointer per CNJ in memory (latest
+    ``dataHoraUltimaAtualizacao`` wins, ties to the later document) and the
+    original JSON lines on disk, so a long run no longer holds every document
+    in RAM (issue #1708). The daily ZIP and the index are built from it.
+    """
+
+    def __init__(self, path: Path) -> None:
+        self.path = path
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.unlink(missing_ok=True)
+        self._fh = path.open("ab")
+        self._pointers: dict[str, tuple[str, int, int, str]] = {}
+
+    def __len__(self) -> int:
+        return len(self._pointers)
+
+    def add(self, documents: Sequence[dict[str, Any]]) -> None:
+        """Append *documents* to the spool and update the per-CNJ pointers."""
+        for doc in documents:
+            raw_cnj = doc.get("numeroProcesso", "")
+            cnj = normalizar_cnj(raw_cnj) or raw_cnj
+            if not cnj:
+                continue
+            line = json.dumps(doc, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
+            offset = self._fh.tell()
+            self._fh.write(line + b"\n")
+            updated = doc.get("dataHoraUltimaAtualizacao") or ""
+            current = self._pointers.get(cnj)
+            if current is None or updated >= current[0]:
+                self._pointers[cnj] = (updated, offset, len(line), doc.get("grau") or "")
+        self._fh.flush()
+
+    def close(self) -> None:
+        """Close the spool file handle (the file itself stays for packing)."""
+        self._fh.close()
+
+    def index_documents(self) -> list[dict[str, str]]:
+        """Minimal documents for :func:`update_resolution_index`."""
+        return [
+            {"numeroProcesso": cnj, "grau": grau or "G1", "dataHoraUltimaAtualizacao": updated}
+            for cnj, (updated, _offset, _length, grau) in self._pointers.items()
+        ]
+
+    def pack_zip(
+        self,
+        tribunal: str,
+        target_date: str,
+        output_dir: Path = DEFAULT_DAILY_DIR,
+        *,
+        compress_internal_json: bool = True,
+    ) -> tuple[Path, int]:
+        """Write the daily ZIP from the spool, one entry per CNJ (latest document).
+
+        Entry bytes are the original JSON lines, identical to what
+        :func:`pack_daily_zip` writes for the same documents.
+        """
+        output_dir.mkdir(parents=True, exist_ok=True)
+        tribunal_slug = tribunal.lower()
+        zip_path = output_dir / f"{tribunal_slug}_{target_date}.zip"
+        if not self._pointers:
+            return zip_path, 0
+        if not self._fh.closed:
+            self._fh.flush()
+        with (
+            self.path.open("rb") as src,
+            zipfile.ZipFile(zip_path, mode="w", compression=zipfile.ZIP_DEFLATED) as zf,
+        ):
+            for cnj, (_updated, offset, length, _grau) in self._pointers.items():
+                src.seek(offset)
+                payload = src.read(length)
+                if compress_internal_json:
+                    buf = io.BytesIO()
+                    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0.0) as gz:
+                        gz.write(payload)
+                    zf.writestr(f"{cnj}.json.gz", buf.getvalue())
+                else:
+                    zf.writestr(f"{cnj}.json", payload)
+        log.info(
+            "datajud_daily_zip_packed",
+            tribunal=tribunal_slug,
+            target_date=target_date,
+            zip_path=str(zip_path),
+            processes=len(self._pointers),
+        )
+        return zip_path, len(self._pointers)
