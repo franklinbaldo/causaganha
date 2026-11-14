@@ -903,6 +903,10 @@ def _load_and_transform(
         src_item_id=ibis.literal(item_id),
     )
     _create_or_replace_table(con, "raw_records", obj=raw_expr)
+    # raw_records is materialized; drop the staging copy so the raw payload is
+    # not held twice while the per-table builders run (large partitions hit
+    # DuckDB's temp-directory limit otherwise).
+    _drop_table_if_exists(con, "_staging")
     raw = con.table("raw_records")
 
     counts: dict[str, int] = {}
