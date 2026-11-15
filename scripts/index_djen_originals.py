@@ -8,7 +8,9 @@ replaceable. Every run processes a bounded set of new/changed original ZIPs.
 from __future__ import annotations
 
 import argparse
+import asyncio
 import json
+import os
 import re
 import tempfile
 import zipfile
@@ -452,6 +454,102 @@ def run(
         }
 
 
+PUBLISH_CONCURRENCY = 8
+
+
+async def _publish_item(
+    client: httpx.AsyncClient,
+    item: str,
+    files: list[Path],
+    year: str,
+    gate: asyncio.Semaphore,
+) -> list[str]:
+    """Upload *files* to one IA item sequentially (IA serializes writes per item)."""
+    from causaganha.pipeline.ia_s3 import (  # noqa: PLC0415 — publish-only dependency
+        meta_value,
+        upload_to_ia,
+    )
+
+    failed: list[str] = []
+    overrides = {
+        "x-archive-meta-title": meta_value(f"CausaGanha - índice CNJ de ponteiros ({item})"),
+        "x-archive-meta-description": meta_value(
+            "Protobuf pointer index (ADR 0013): per-process pointers from a CNJ to the "
+            "original DJEN/DataJud ZIP members on Internet Archive. No document copies."
+        ),
+    }
+    async with gate:
+        for path in files:
+            if not await upload_to_ia(client, item, path, year, metadata_overrides=overrides):
+                failed.append(f"{item}/{path.name}")
+    return failed
+
+
+async def publish_report(report: dict, output: Path) -> int:
+    """Publish the changed partitions of *report*, then the manifest last.
+
+    One worker per IA item, up to PUBLISH_CONCURRENCY items at once; each file
+    is retried by ``upload_to_ia``. The manifest is uploaded only if every
+    partition succeeded, so a partial run never advertises missing partitions.
+    Returns the number of files published.
+    """
+    from causaganha.pipeline.ia_s3 import (  # noqa: PLC0415 — publish-only dependency
+        create_upload_client,
+        get_ia_s3_auth,
+        upload_to_ia,
+    )
+
+    auth = get_ia_s3_auth()
+    if not auth:
+        msg = "Internet Archive credentials are missing"
+        raise RuntimeError(msg)
+    tribunal = report["tribunal"]
+    staging = output / ".publish"
+    by_item: dict[str, list[Path]] = defaultdict(list)
+    years: dict[str, str] = {}
+    manifest_name = "manifest.json"
+    for name in report["publish_files"]:
+        if name == manifest_name:
+            continue
+        local = output / name
+        if not local.is_file():
+            msg = f"Index artifact missing: {local}"
+            raise FileNotFoundError(msg)
+        year = name[:4]
+        item = index_item(tribunal, year)
+        staged = staging / item / remote_partition_name(name)
+        staged.parent.mkdir(parents=True, exist_ok=True)
+        staged.unlink(missing_ok=True)
+        os.link(local, staged)
+        by_item[item].append(staged)
+        years[item] = year
+
+    gate = asyncio.Semaphore(PUBLISH_CONCURRENCY)
+    async with create_upload_client(auth) as client:
+        results = await asyncio.gather(
+            *(
+                _publish_item(client, item, files, years[item], gate)
+                for item, files in by_item.items()
+            )
+        )
+        failed = [f for item_failures in results for f in item_failures]
+        if failed:
+            msg = f"{len(failed)} index partition(s) failed to publish; manifest withheld: {failed[:5]}"
+            raise RuntimeError(msg)
+        published = sum(len(files) for files in by_item.values())
+        if manifest_name in report["publish_files"]:
+            local_manifest = output / f"{tribunal}_manifest.json"
+            staged = staging / control_item(tribunal) / manifest_name
+            staged.parent.mkdir(parents=True, exist_ok=True)
+            staged.unlink(missing_ok=True)
+            os.link(local_manifest, staged)
+            if not await upload_to_ia(client, control_item(tribunal), staged, "control"):
+                msg = "index manifest failed to publish"
+                raise RuntimeError(msg)
+            published += 1
+    return published
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--item", default="djen-tjro-2026")
@@ -461,7 +559,17 @@ def main() -> None:
     parser.add_argument("--datajud-locators", type=Path, help="Optional DataJud JSONL pointer feed")
     parser.add_argument("--datajud-from-ia", action="store_true")
     parser.add_argument("--max-datajud-files", type=int, default=5)
+    parser.add_argument(
+        "--publish-report",
+        type=Path,
+        help="Publish the partitions listed in this run report (then the manifest) and exit",
+    )
     args = parser.parse_args()
+    if args.publish_report:
+        report = json.loads(args.publish_report.read_text(encoding="utf-8"))
+        count = asyncio.run(publish_report(report, args.output))
+        print(json.dumps({"published_files": count}))
+        return
     if args.max_zips < 1:
         parser.error("--max-zips must be positive")
     print(
