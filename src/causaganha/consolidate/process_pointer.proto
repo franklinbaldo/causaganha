@@ -1,0 +1,28 @@
+syntax = "proto3";
+
+package causaganha.index.v1;
+
+// Only references. The CNJ is reconstructed from IA item/year,
+// ZIP origin and the 9-digit Protobuf member basename.
+message PublicacaoDJEN {
+  string data = 1;               // DJEN publication YYYY-MM-DD
+  string membro_json = 2;        // original JSON member
+  uint64 comunicacao_id = 3;
+  string hash = 4;               // authoritative DJEN certidao ID
+}
+
+message SnapshotDataJud {
+  string tribunal = 1;           // identity dimension
+  string grau = 2;               // identity dimension
+  string documento_id = 3;       // original DataJud _id, not just CNJ
+  string item_ia = 4;
+  string arquivo_zip = 5;
+  string membro = 6;
+  string atualizado_em = 7;      // source timestamp; keep exact
+}
+
+message IndiceProcesso {
+  repeated PublicacaoDJEN publicacoes = 1;
+  repeated SnapshotDataJud datajud = 2; // latest by (tribunal, grau, documento_id)
+  uint32 schema_version = 15;            // must be 1
+}

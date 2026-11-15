@@ -30,6 +30,7 @@ from datajud.daily_pack import (
     DEFAULT_DAILY_DIR,
     DEFAULT_INDEX_DIR,
     SessionSpool,
+    export_daily_locators,
     update_resolution_index,
 )
 from datajud.models import ProcessoCapa
@@ -684,13 +685,25 @@ def _publish(
     """
     uploaded: list[str] = []
     data_paths: dict[str, Path] = {}
-    ordered = [daily_zip_path, capa_canonical, mov_canonical, index_file]
+    # The locator sidecar (#1721) lists the members actually inside the daily
+    # ZIP, so it is generated from the ZIP and published right after it, never
+    # inferred from the one-row-per-CNJ resolution index.
+    locators = None
+    if daily_zip_path is not None and daily_zip_path.exists():
+        try:
+            locators = export_daily_locators(daily_zip_path, tribunal)
+        except ValueError as exc:
+            # A member without a verifiable identity cannot be published as a
+            # locator; fail closed so the cursor does not advance past it.
+            msg = f"cannot build DataJud locators for {daily_zip_path.name}: {exc}"
+            raise cdc_state.CdcStateError(msg) from exc
+    ordered = [daily_zip_path, locators, capa_canonical, mov_canonical, index_file]
     for path in ordered:
         if path is None or not path.exists():
             continue
         _upload_or_raise(path, tribunal, ia_key, ia_secret)
         uploaded.append(path.name)
-        if path is not daily_zip_path:
+        if path not in (daily_zip_path, locators):
             data_paths[path.name] = path
 
     checkpoint.status = "published"
