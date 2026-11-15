@@ -84,9 +84,31 @@ membro no diretório central ZIP e decodifica o Protobuf. O DJEN é
 recuperado do membro JSON original somente quando solicitado.
 O DataJud é apresentado como ponteiro para o snapshot mais recente.
 
-O Worker de CORS deve estar implantado e sua URL pública configurada;
-a página piloto suporta `?proxy=https://ENDERECO-REAL` apenas para
-smoke tests. Sem essa implantação, a consulta não é produção.
+O proxy é o `djen-proxy` (Cloud Run, `deployment/djen_proxy.go`), o mesmo
+do leitor principal. Desde a revisão `djen-proxy-00004-lck` ele libera
+`.zip` por HTTP Range nos itens `djen-*`, `datajud-*` e `causaganha-*`.
+A página usa esse proxy por padrão; `?proxy=` só serve para smoke tests.
+
+O leitor descobre o tamanho do ZIP com um Range de sufixo
+(`bytes=-65557`), que devolve a cauda e o tamanho total no
+`Content-Range`; não há chamada a `/metadata`. O documento DataJud
+também é lido do membro original (`.json.gz`) e conferido contra CNJ e grau.
+
+### Medição de ponta a ponta (2026-11-15)
+
+Índice local construído com `djen-tjro-2026` (2 ZIPs) e os localizadores
+de `datajud-tjro/tjro_2026-11-14.zip` (49.355 documentos); originais lidos
+do Internet Archive real. CNJ `0028980-94.2007.8.22.0010` no Chromium:
+
+| Etapa | Requisições | Bytes |
+|---|---|---|
+| CNJ → `.pb` | 4 | 2,2 KB |
+| Publicação DJEN original | 5 | 1,36 MB |
+| Documento DataJud original | 7 | 3,8 MB |
+
+O custo do DataJud é dominado pelo diretório central do ZIP diário
+(3,6 MB para 49 mil membros). Guardar o offset do cabeçalho local no
+localizador reduziria a leitura a cerca de 3 KB; fica como melhoria.
 
 ### Gates
 
