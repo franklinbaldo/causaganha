@@ -1,0 +1,23 @@
+{
+  "case_sha256": "08067e8c4ae2d9d1ff026dcec583a53dcc05dbf7dc36a968c82fdc3ed9ee3f17",
+  "segments": [
+    {
+      "text": "Fato do exercício: A prestação foi concluída. Valor declarado: True.",
+      "fact_ids": [
+        "concluida"
+      ]
+    },
+    {
+      "text": "Fato do exercício: A conclusão ocorreu antes do marco acordado. Valor declarado: False.",
+      "fact_ids": [
+        "antes"
+      ]
+    },
+    {
+      "text": "Fato do exercício: Há um recibo apresentado pelas partes. Valor declarado: True.",
+      "fact_ids": [
+        "recibo"
+      ]
+    }
+  ]
+}

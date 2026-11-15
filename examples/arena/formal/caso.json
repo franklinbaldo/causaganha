@@ -1,0 +1,13 @@
+{
+  "id": "exercicio-ordem-temporal",
+  "question": "No exercício fictício, a prestação foi concluída antes do marco acordado?",
+  "synthetic": true,
+  "atoms": [
+    {"id": "concluida", "statement": "A prestação foi concluída."},
+    {"id": "antes", "statement": "A conclusão ocorreu antes do marco acordado."},
+    {"id": "recibo", "statement": "Há um recibo apresentado pelas partes."}
+  ],
+  "assignment": {"concluida": true, "antes": false, "recibo": true},
+  "constraints": [[{"atom": "antes", "positive": false}, {"atom": "concluida"}]],
+  "claim": [[{"atom": "concluida"}], [{"atom": "antes"}]]
+}
