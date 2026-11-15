@@ -44,7 +44,7 @@ function fields(bytes) {
 }
 
 const decoder = new TextDecoder("utf-8", { fatal: true });
-function parseMessage(bytes, schema) {
+function parseMessage(bytes, schema, optional = new Set()) {
   const record = {};
   for (const { number, wire, value } of fields(bytes)) {
     const entry = schema[number];
@@ -54,7 +54,9 @@ function parseMessage(bytes, schema) {
     if (type === "uint64" && wire === 0) record[key] = value.toString();
   }
   for (const [key] of Object.values(schema)) {
-    if (record[key] === undefined) throw new Error("Ponteiro protobuf incompleto: " + key);
+    if (record[key] === undefined && !optional.has(key)) {
+      throw new Error("Ponteiro protobuf incompleto: " + key);
+    }
   }
   return record;
 }
@@ -67,15 +69,18 @@ const DATAJUD = {
   1: ["tribunal", "string"], 2: ["grau", "string"],
   3: ["documento_id", "string"], 4: ["item_ia", "string"],
   5: ["arquivo_zip", "string"], 6: ["membro", "string"],
-  7: ["atualizado_em", "string"]
+  7: ["atualizado_em", "string"],
+  // Optional (absent in older pointers): where the member starts in the ZIP.
+  8: ["offset_cabecalho", "uint64"], 9: ["tamanho_comprimido", "uint64"]
 };
+const DATAJUD_OPTIONAL = new Set(["offset_cabecalho", "tamanho_comprimido"]);
 
 export function decodeProcessIndex(bytes) {
   const document = { publicacoes: [], datajud: [] };
   let version = null;
   for (const { number, wire, value } of fields(bytes)) {
     if (number === 1 && wire === 2) document.publicacoes.push(parseMessage(value, DJEN));
-    if (number === 2 && wire === 2) document.datajud.push(parseMessage(value, DATAJUD));
+    if (number === 2 && wire === 2) document.datajud.push(parseMessage(value, DATAJUD, DATAJUD_OPTIONAL));
     if (number === 15 && wire === 0) version = Number(value);
   }
   if (version !== 1) throw new Error("Versão do índice Protobuf desconhecida");

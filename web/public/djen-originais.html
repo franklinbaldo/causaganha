@@ -89,7 +89,8 @@
           throw new Error("Membro DataJud não autorizado");
         }
         let bytes = await readOriginalMember({
-          item: snap.item_ia, zip: snap.arquivo_zip, member: snap.membro, proxyBase, asBytes: true
+          item: snap.item_ia, zip: snap.arquivo_zip, member: snap.membro, proxyBase, asBytes: true,
+          headerOffset: snap.offset_cabecalho ?? null, compressedSize: snap.tamanho_comprimido ?? null
         });
         if (snap.membro.endsWith(".gz")) bytes = await gunzip(bytes);
         const doc = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));

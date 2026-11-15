@@ -44,6 +44,8 @@ async function rangeBytes(proxyBase, item, zip, start, length) {
   return result;
 }
 
+const U32_MAX = 0xffffffff;
+
 function findEOCD(bytes) {
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   for (let i = bytes.length - 22; i >= 0; i--) {
@@ -51,16 +53,55 @@ function findEOCD(bytes) {
     const comment = view.getUint16(i + 20, true);
     if (i + 22 + comment !== bytes.length) continue;
     const disk = view.getUint16(i + 4, true);
+    if (disk !== 0) throw new Error("ZIP multidisco não suportado");
     const entries = view.getUint16(i + 10, true);
     const directoryBytes = view.getUint32(i + 12, true);
     const directoryOffset = view.getUint32(i + 16, true);
-    if (disk !== 0 || entries === 0xffff ||
-        directoryBytes === 0xffffffff || directoryOffset === 0xffffffff) {
-      throw new Error("ZIP64 ou multidisco não suportado");
+    const zip64 = entries === 0xffff || directoryBytes === U32_MAX || directoryOffset === U32_MAX;
+    if (!zip64) return { entries, directoryBytes, directoryOffset };
+    // ZIP64 (e.g. DataJud daily ZIPs with > 65535 members): the locator sits
+    // right before the classic EOCD and points at the ZIP64 EOCD record.
+    const at = i - 20;
+    if (at < 0 || view.getUint32(at, true) !== 0x07064b50) {
+      throw new Error("Localizador ZIP64 ausente");
     }
-    return { entries, directoryBytes, directoryOffset };
+    return { zip64RecordOffset: Number(view.getBigUint64(at + 8, true)) };
   }
   throw new Error("Diretório central ZIP não encontrado");
+}
+
+async function readZip64Directory(baseUrl, item, zip, recordOffset) {
+  const record = await rangeBytes(baseUrl, item, zip, recordOffset, 56);
+  const view = new DataView(record.buffer, record.byteOffset, record.byteLength);
+  if (view.getUint32(0, true) !== 0x06064b50) throw new Error("Registro ZIP64 inválido");
+  const big = offset => {
+    const value = view.getBigUint64(offset, true);
+    if (value > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("ZIP64 grande demais");
+    return Number(value);
+  };
+  return { entries: big(32), directoryBytes: big(40), directoryOffset: big(48) };
+}
+
+// ZIP64 extended-information extra field (id 0x0001): 64-bit values appear,
+// in this order, only for the fields whose 32-bit slot is 0xFFFFFFFF.
+function zip64Extra(view, extraStart, extraLength, fields) {
+  for (let at = extraStart; at + 4 <= extraStart + extraLength;) {
+    const id = view.getUint16(at, true);
+    const size = view.getUint16(at + 2, true);
+    if (id === 0x0001) {
+      let cursor = at + 4;
+      const out = { ...fields };
+      for (const key of ["uncompressed", "compressed", "localOffset"]) {
+        if (fields[key] !== U32_MAX) continue;
+        if (cursor + 8 > at + 4 + size) throw new Error("Campo ZIP64 truncado");
+        out[key] = Number(view.getBigUint64(cursor, true));
+        cursor += 8;
+      }
+      return out;
+    }
+    at += 4 + size;
+  }
+  throw new Error("Campo ZIP64 ausente");
 }
 
 function locateMember(bytes, requested) {
@@ -85,10 +126,14 @@ function locateMember(bytes, requested) {
       if (flags & 1 || ![0, 8].includes(compression)) {
         throw new Error("Membro ZIP criptografado ou compressão não suportada");
       }
-      if (uncompressed > MAX_MEMBER_BYTES || compressed > MAX_MEMBER_BYTES) {
+      let sizes = { compressed, uncompressed, localOffset };
+      if (compressed === U32_MAX || uncompressed === U32_MAX || localOffset === U32_MAX) {
+        sizes = zip64Extra(view, offset + 46 + nameLength, extraLength, sizes);
+      }
+      if (sizes.uncompressed > MAX_MEMBER_BYTES || sizes.compressed > MAX_MEMBER_BYTES) {
         throw new Error("Membro ZIP excede o orçamento de leitura");
       }
-      return { compression, compressed, uncompressed, localOffset };
+      return { compression, ...sizes };
     }
     offset = end;
   }
@@ -115,7 +160,9 @@ async function unzipMember(compressedBytes, method, expectedSize) {
     }
     chunks.push(value);
   }
-  if (total !== expectedSize) throw new Error("Tamanho descompactado diferente do ZIP");
+  if (expectedSize !== null && total !== expectedSize) {
+    throw new Error("Tamanho descompactado diferente do ZIP");
+  }
   const all = new Uint8Array(total);
   let at = 0;
   for (const bytes of chunks) {
@@ -158,16 +205,61 @@ const ORIGINAL_DATAJUD = (item, zip, member) =>
   /^[a-z0-9]+_20\d{2}-\d{2}-\d{2}(T\d{6}Z)?\.zip$/.test(zip) &&
   /^[0-9]{20}\.json(\.gz)?$/.test(member);
 
-export async function readOriginalMember({ item, zip, member, proxyBase = DEFAULT_ARCHIVE_BASE, asText = false, asBytes = false }) {
+// Direct read when the pointer already knows where the member starts (the
+// DataJud locator records the local-header offset and compressed size): two
+// small Ranges instead of fetching a central directory that grows with every
+// member of the daily ZIP. The local header's name must match the member.
+async function readAtOffset(baseUrl, item, zip, member, headerOffset, compressedSize) {
+  const name = new TextEncoder().encode(member);
+  if (!Number.isSafeInteger(compressedSize) || compressedSize < 0 ||
+      compressedSize > MAX_MEMBER_BYTES) {
+    throw new Error("Membro ZIP excede o orçamento de leitura");
+  }
+  const header = await rangeBytes(baseUrl, item, zip, headerOffset, 30 + name.length);
+  const h = new DataView(header.buffer, header.byteOffset, header.byteLength);
+  if (h.getUint32(0, true) !== 0x04034b50) throw new Error("Cabeçalho local ZIP inválido");
+  const flags = h.getUint16(6, true);
+  const compression = h.getUint16(8, true);
+  if (flags & 1 || ![0, 8].includes(compression)) {
+    throw new Error("Membro ZIP criptografado ou compressão não suportada");
+  }
+  const nameLength = h.getUint16(26, true);
+  const extraLength = h.getUint16(28, true);
+  const stored = header.subarray(30, 30 + nameLength);
+  if (nameLength !== name.length || stored.some((byte, i) => byte !== name[i])) {
+    throw new Error("Ponteiro não corresponde ao membro do ZIP");
+  }
+  const uncompressed = h.getUint32(22, true);
+  const expected = flags & 8 || uncompressed === U32_MAX ? null : uncompressed;
+  const start = headerOffset + 30 + nameLength + extraLength;
+  const payload = await rangeBytes(baseUrl, item, zip, start, Math.max(compressedSize, 1));
+  return unzipMember(payload.subarray(0, compressedSize), compression, expected);
+}
+
+function decodeMember(bytes, asText, asBytes) {
+  if (asBytes) return bytes;
+  const text = new TextDecoder("utf-8", { fatal: true }).decode(bytes);
+  return asText ? text : JSON.parse(text);
+}
+
+export async function readOriginalMember({ item, zip, member, proxyBase = DEFAULT_ARCHIVE_BASE, asText = false, asBytes = false, headerOffset = null, compressedSize = null }) {
   const baseUrl = (proxyBase || DEFAULT_ARCHIVE_BASE).replace(/\/$/, "");
   const allowed = ORIGINAL_DJEN(item, zip, member) || POINTER_INDEX(item, zip, member) ||
     ORIGINAL_DATAJUD(item, zip, member);
   if (!allowed || member.includes("..")) {
     throw new Error("Identificadores de arquivo inválidos");
   }
+  if (headerOffset !== null && compressedSize !== null) {
+    const bytes = await readAtOffset(baseUrl, item, zip, member,
+      Number(headerOffset), Number(compressedSize));
+    return decodeMember(bytes, asText, asBytes);
+  }
   const { bytes: tail, total: zipSize } = await tailBytes(baseUrl, item, zip, 65557);
   if (zipSize < 22) throw new Error("Tamanho ZIP inválido");
-  const directory = findEOCD(tail);
+  let directory = findEOCD(tail);
+  if (directory.zip64RecordOffset !== undefined) {
+    directory = await readZip64Directory(baseUrl, item, zip, directory.zip64RecordOffset);
+  }
   if (directory.directoryBytes > MAX_MEMBER_BYTES) throw new Error("Diretório ZIP excessivo");
   const central = await rangeBytes(baseUrl, item, zip,
     directory.directoryOffset, directory.directoryBytes);
@@ -178,7 +270,5 @@ export async function readOriginalMember({ item, zip, member, proxyBase = DEFAUL
   const start = found.localOffset + 30 + h.getUint16(26, true) + h.getUint16(28, true);
   const payload = await rangeBytes(baseUrl, item, zip, start, found.compressed);
   const json = await unzipMember(payload, found.compression, found.uncompressed);
-  if (asBytes) return json;
-  const text = new TextDecoder("utf-8", { fatal: true }).decode(json);
-  return asText ? text : JSON.parse(text);
+  return decodeMember(json, asText, asBytes);
 }
