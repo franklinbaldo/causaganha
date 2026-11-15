@@ -128,3 +128,46 @@ def test_download_503_on_existing_item_fails_closed(tmp_path):
     )
     with pytest.raises(httpx.HTTPStatusError):
         download(client, url, tmp_path / "m.json")
+
+
+def _publish_fixture(tmp_path, monkeypatch, fail: set[str] | None = None):
+    import asyncio
+
+    from causaganha.pipeline import ia_s3
+
+    calls: list[tuple[str, str]] = []
+
+    async def fake_upload(_client, item, path, _date, metadata_overrides=None):
+        calls.append((item, path.name))
+        return f"{item}/{path.name}" not in (fail or set())
+
+    monkeypatch.setattr(ia_s3, "upload_to_ia", fake_upload)
+    monkeypatch.setattr(ia_s3, "get_ia_s3_auth", lambda: "LOW k:s")
+    for name in ("2011_0021.zip", "2011_0001.zip", "2026_0022.zip"):
+        (tmp_path / name).write_bytes(b"pk")
+    (tmp_path / "tjro_manifest.json").write_text("{}")
+    report = {
+        "tribunal": "tjro",
+        "publish_files": ["2011_0021.zip", "2011_0001.zip", "2026_0022.zip", "manifest.json"],
+    }
+    from scripts.index_djen_originals import publish_report
+
+    return calls, lambda: asyncio.run(publish_report(report, tmp_path))
+
+
+def test_publish_report_routes_partitions_and_sends_manifest_last(tmp_path, monkeypatch):
+    calls, run = _publish_fixture(tmp_path, monkeypatch)
+    assert run() == 4
+    assert set(calls[:-1]) == {
+        ("causaganha-2011-8-22", "0021.zip"),
+        ("causaganha-2011-8-22", "0001.zip"),
+        ("causaganha-2026-8-22", "0022.zip"),
+    }
+    assert calls[-1] == ("causaganha-index-control-tjro", "manifest.json")
+
+
+def test_publish_report_withholds_manifest_when_a_partition_fails(tmp_path, monkeypatch):
+    calls, run = _publish_fixture(tmp_path, monkeypatch, fail={"causaganha-2011-8-22/0021.zip"})
+    with pytest.raises(RuntimeError, match="manifest withheld"):
+        run()
+    assert ("causaganha-index-control-tjro", "manifest.json") not in calls
