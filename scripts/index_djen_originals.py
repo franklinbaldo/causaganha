@@ -236,9 +236,25 @@ def apply_source(
     return any(partition[cnj]["publicacoes"] != before[cnj] for cnj in partition)
 
 
+def _item_exists(client: httpx.Client, url: str) -> bool:
+    """Whether the IA item named in a ``/download/{item}/...`` URL exists.
+
+    IA answers a download from a *nonexistent item* with 503, not 404, while
+    ``/metadata/{item}`` returns ``{}``. Only that empty answer counts as
+    absence; any metadata error propagates, so a transient 503 on a real item
+    never looks like an empty index.
+    """
+    item = url.split("/download/", 1)[1].split("/", 1)[0]
+    response = client.get(f"https://archive.org/metadata/{item}")
+    response.raise_for_status()
+    return response.json() != {}
+
+
 def download(client: httpx.Client, url: str, target: Path) -> bool:
     with client.stream("GET", url) as response:
         if response.status_code == 404:
+            return False
+        if response.status_code >= 400 and not _item_exists(client, url):
             return False
         response.raise_for_status()
         size = 0

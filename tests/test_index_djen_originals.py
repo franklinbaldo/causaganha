@@ -1,6 +1,9 @@
 """The per-process ZIP contains a PB pointer, not a copy of the publication."""
 
 import zipfile
+
+import httpx
+import pytest
 from pathlib import Path
 
 from scripts.index_djen_originals import (
@@ -85,3 +88,43 @@ def test_datajud_sidecar_names_are_discovered():
     assert pattern.fullmatch("tjro_2026-11-15T062700Z.locators.jsonl")
     assert not pattern.fullmatch("tjro_2026-11-15T062700Z.zip")
     assert not pattern.fullmatch("tjce_2026-11-15.locators.jsonl")
+
+
+def _client(routes: dict[str, httpx.Response]):
+    def handler(request: httpx.Request) -> httpx.Response:
+        return routes[str(request.url)]
+
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def test_download_treats_missing_item_503_as_absent(tmp_path):
+    """IA serves 503 for downloads from an item that doesn't exist yet."""
+    from scripts.index_djen_originals import download
+
+    url = "https://archive.org/download/causaganha-index-control-tjro/manifest.json"
+    client = _client(
+        {
+            url: httpx.Response(503),
+            "https://archive.org/metadata/causaganha-index-control-tjro": httpx.Response(
+                200, json={}
+            ),
+        }
+    )
+    assert download(client, url, tmp_path / "m.json") is False
+
+
+def test_download_503_on_existing_item_fails_closed(tmp_path):
+
+    from scripts.index_djen_originals import download
+
+    url = "https://archive.org/download/causaganha-index-control-tjro/manifest.json"
+    client = _client(
+        {
+            url: httpx.Response(503),
+            "https://archive.org/metadata/causaganha-index-control-tjro": httpx.Response(
+                200, json={"metadata": {"identifier": "causaganha-index-control-tjro"}}
+            ),
+        }
+    )
+    with pytest.raises(httpx.HTTPStatusError):
+        download(client, url, tmp_path / "m.json")
