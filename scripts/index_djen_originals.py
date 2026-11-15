@@ -209,7 +209,14 @@ def load_datajud_locators(path: Path) -> dict[str, list[dict[str, str]]]:
                 raise ValueError("Invalid DataJud CNJ locator")
             if not all(isinstance(entry.get(field), str) and entry[field] for field in required):
                 raise ValueError("Incomplete DataJud locator; no implicit item/ZIP guesses")
-            records[cnj].append({field: entry[field] for field in required})
+            record = {field: entry[field] for field in required}
+            for field in ("offset_cabecalho", "tamanho_comprimido"):
+                value = entry.get(field)
+                if value is not None:
+                    if not (isinstance(value, str) and value.isdigit()):
+                        raise ValueError(f"Invalid DataJud locator {field}")
+                    record[field] = value
+            records[cnj].append(record)
     return dict(records)
 
 

@@ -68,3 +68,21 @@ def test_conflicting_equal_timestamp_is_rejected():
 def test_duplicate_datajud_identity_is_not_encoded_twice():
     with pytest.raises(ValueError):
         encode_index([], [locator("G1"), locator("G1")])
+
+
+def test_datajud_locator_offsets_roundtrip_and_stay_optional():
+    from causaganha.consolidate.process_pointer_pb import decode_index, encode_index
+
+    base = {
+        "tribunal": "TJRO",
+        "grau": "G1",
+        "documento_id": "TJRO_7_G1_1_00000010220248220001",
+        "item_ia": "datajud-tjro",
+        "arquivo_zip": "tjro_2026-11-15T153820Z.zip",
+        "membro": "00000010220248220001.json.gz",
+        "atualizado_em": "2026-11-15T10:00:00Z",
+    }
+    with_offsets = {**base, "offset_cabecalho": "123456789", "tamanho_comprimido": "2808"}
+    assert decode_index(encode_index([], [with_offsets]))["datajud"] == [with_offsets]
+    # Pointers written before the fields existed still decode, without them.
+    assert decode_index(encode_index([], [base]))["datajud"] == [base]

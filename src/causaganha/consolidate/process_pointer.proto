@@ -19,6 +19,11 @@ message SnapshotDataJud {
   string arquivo_zip = 5;
   string membro = 6;
   string atualizado_em = 7;      // source timestamp; keep exact
+  // Optional: where the member starts in the ZIP. Lets a reader fetch the
+  // local header + data directly instead of the whole central directory,
+  // which grows with every member of the daily ZIP (and is ZIP64 past 65535).
+  uint64 offset_cabecalho = 8;   // local file header offset
+  uint64 tamanho_comprimido = 9; // compressed size of the member data
 }
 
 message IndiceProcesso {

@@ -171,3 +171,29 @@ def test_publish_report_withholds_manifest_when_a_partition_fails(tmp_path, monk
     with pytest.raises(RuntimeError, match="manifest withheld"):
         run()
     assert ("causaganha-index-control-tjro", "manifest.json") not in calls
+
+
+def test_locator_offsets_flow_into_the_index(tmp_path):
+    import json
+
+    from scripts.index_djen_originals import load_datajud_locators
+
+    feed = tmp_path / "f.locators.jsonl"
+    row = {
+        "numero_processo": "00000010220248220001",
+        "tribunal": "TJRO",
+        "grau": "G1",
+        "documento_id": "TJRO_7_G1_1_00000010220248220001",
+        "item_ia": "datajud-tjro",
+        "arquivo_zip": "tjro_2026-11-15T153820Z.zip",
+        "membro": "00000010220248220001.json.gz",
+        "atualizado_em": "2026-11-15T10:00:00Z",
+        "offset_cabecalho": "42",
+        "tamanho_comprimido": "7",
+    }
+    feed.write_text(json.dumps(row) + "\n")
+    loaded = load_datajud_locators(feed)["00000010220248220001"][0]
+    assert (loaded["offset_cabecalho"], loaded["tamanho_comprimido"]) == ("42", "7")
+    feed.write_text(json.dumps({**row, "offset_cabecalho": "-1"}) + "\n")
+    with pytest.raises(ValueError, match="offset_cabecalho"):
+        load_datajud_locators(feed)

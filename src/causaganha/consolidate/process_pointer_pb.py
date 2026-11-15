@@ -21,6 +21,9 @@ DJ_FIELDS = (
     "membro",
     "atualizado_em",
 )
+# Optional uint64 locator fields (8, 9): absent in pointers built before they
+# existed; readers fall back to the ZIP central directory then.
+DJ_OPTIONAL_INTS = (("offset_cabecalho", 8), ("tamanho_comprimido", 9))
 
 
 def _varint(value: int) -> bytes:
@@ -115,7 +118,17 @@ def _encode_publication(row: tuple[str, str, str, str]) -> bytes:
 
 
 def _encode_datajud(document: dict[str, str]) -> bytes:
-    return b"".join(_text(number, document[name]) for number, name in enumerate(DJ_FIELDS, start=1))
+    encoded = b"".join(
+        _text(number, document[name]) for number, name in enumerate(DJ_FIELDS, start=1)
+    )
+    for name, number in DJ_OPTIONAL_INTS:
+        if document.get(name) not in (None, ""):
+            value = int(document[name])
+            if value < 0:
+                msg = f"Negative DataJud {name}"
+                raise ValueError(msg)
+            encoded += _varint(number << 3) + _varint(value)
+    return encoded
 
 
 def encode_index(
@@ -154,9 +167,12 @@ def _decode_publication(data: bytes) -> tuple[str, str, str, str]:
 
 def _decode_datajud(data: bytes) -> dict[str, str]:
     result = {}
+    optional = {number: name for name, number in DJ_OPTIONAL_INTS}
     for number, kind, value in _fields(data):
         if 1 <= number <= len(DJ_FIELDS) and kind == 2:
             result[DJ_FIELDS[number - 1]] = value.decode("utf-8")
+        elif number in optional and kind == 0:
+            result[optional[number]] = str(value)
     if any(name not in result for name in DJ_FIELDS):
         msg = "Incomplete DataJud pointer"
         raise ValueError(msg)

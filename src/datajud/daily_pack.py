@@ -293,7 +293,8 @@ def export_daily_locators(
     item = f"datajud-{tribunal_slug}"
     rows: list[dict[str, str]] = []
     with zipfile.ZipFile(zip_path) as archive:
-        for name in archive.namelist():
+        for info in archive.infolist():
+            name = info.filename
             if not (name.endswith(".json.gz") or name.endswith(".json")):
                 continue
             content = archive.read(name)
@@ -317,6 +318,9 @@ def export_daily_locators(
                     "arquivo_zip": zip_path.name,
                     "membro": name,
                     "atualizado_em": str(updated),
+                    # Lets readers fetch this member directly by Range.
+                    "offset_cabecalho": str(info.header_offset),
+                    "tamanho_comprimido": str(info.compress_size),
                 }
             )
     target.parent.mkdir(parents=True, exist_ok=True)
