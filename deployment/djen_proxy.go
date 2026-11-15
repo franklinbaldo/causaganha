@@ -26,11 +26,14 @@ var WHITELIST = []string{"/api/"}
 // ALLOWED_METHODS is the only HTTP method this proxy forwards to the DJEN backend.
 var ALLOWED_METHODS = map[string]bool{http.MethodGet: true}
 
-// ARCHIVE_DOWNLOAD_RE matches narrow Internet Archive Parquet download paths
-// (/download/{item}/{file}.parquet for djen-*, datajud-*, tjro-juris-*, or
+// ARCHIVE_DOWNLOAD_RE matches narrow Internet Archive download paths
+// (/download/{item}/{file} for djen-*, datajud-*, tjro-juris-*, or
 // causaganha-* items), mirroring deployment/archive-cors-proxy/src/index.js
-// (issue #1482) so DuckDB-WASM httpfs can perform CORS + HTTP Range reads.
-var ARCHIVE_DOWNLOAD_RE = regexp.MustCompile(`^/download/((?:djen|datajud|tjro-juris|causaganha)-[a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+\.parquet)$`)
+// (issue #1482). Parquet serves DuckDB-WASM httpfs; .zip serves the CNJ
+// lookup of ADR 0013, which reads the ZIP central directory and a single
+// member of the original DJEN/DataJud ZIPs and the Protobuf index ZIPs by
+// HTTP Range — never the whole archive. Both need CORS + Range.
+var ARCHIVE_DOWNLOAD_RE = regexp.MustCompile(`^/download/((?:djen|datajud|tjro-juris|causaganha)-[a-zA-Z0-9_-]+)/([a-zA-Z0-9_.-]+\.(?:parquet|zip))$`)
 
 var ARCHIVE_STRIP_HEADERS = map[string]bool{
 	"connection":        true,

@@ -29,6 +29,7 @@ CNJ_3 = "00000030420248220003"
 
 def _doc(cnj: str, updated_at: str) -> dict:
     return {
+        "_id": f"TJRO_7_G1_100_{cnj}",
         "numeroProcesso": cnj,
         "grau": "G1",
         "tribunal": "TJRO",
@@ -52,7 +53,7 @@ class FakeArchive:
         self.download_error = False
 
     def upload_file(self, path: Path, _tribunal: str, _key: str, _secret: str) -> bool:
-        if any(path.name.startswith(prefix) for prefix in self.fail_upload):
+        if any(prefix in path.name for prefix in self.fail_upload):
             return False
         self.files[path.name] = path.read_bytes()
         self.upload_order.append(path.name)
@@ -139,8 +140,10 @@ async def test_bundle_is_published_last(tmp_path: Path, fake_ia: FakeArchive):
     await _run(tmp_path, [([_doc(CNJ_1, "2026-03-01T10:00:00Z")], [1, CNJ_1])], [], **PUBLISH)
     order = fake_ia.upload_order
     assert order[0].startswith("tjro_") and order[0].endswith(".zip")
+    # The locator sidecar describes the ZIP's members, so it follows the ZIP.
+    assert order[1] == order[0].removesuffix(".zip") + ".locators.jsonl"
     assert order[-1] == cdc_state.bundle_name("tjro")
-    assert set(order[1:-1]) == {
+    assert set(order[2:-1]) == {
         archive.capa_parquet_name("tjro"),
         archive.movimentos_parquet_name("tjro"),
         cdc_state.index_name("tjro"),
@@ -149,7 +152,14 @@ async def test_bundle_is_published_last(tmp_path: Path, fake_ia: FakeArchive):
 
 @pytest.mark.parametrize(
     "failing",
-    ["tjro_", "datajud-capa-", "datajud-movimentos-", "indice_processos_", "datajud-cdc-state-"],
+    [
+        "tjro_",
+        ".locators",
+        "datajud-capa-",
+        "datajud-movimentos-",
+        "indice_processos_",
+        "datajud-cdc-state-",
+    ],
 )
 async def test_failure_at_any_stage_raises_and_keeps_previous_cursor(
     tmp_path: Path, fake_ia: FakeArchive, failing: str
@@ -243,3 +253,11 @@ async def test_time_budget_stops_stream_and_still_publishes(tmp_path: Path, fake
     assert res.documents_streamed == 1
     assert res.checkpoint.last_sort_key == [1, CNJ_1]
     assert res.checkpoint.status == "published"
+
+
+async def test_document_without_identity_fails_closed(tmp_path: Path, fake_ia: FakeArchive):
+    doc = _doc(CNJ_1, "2026-03-01T10:00:00Z")
+    del doc["_id"]
+    with pytest.raises(cdc_state.CdcStateError, match="cannot build DataJud locators"):
+        await _run(tmp_path, [([doc], [1, CNJ_1])], [], **PUBLISH)
+    assert cdc_state.bundle_name("tjro") not in fake_ia.files
