@@ -4,6 +4,8 @@
  * and a browser with DecompressionStream('deflate-raw'). No ZIP is downloaded
  * in full. ZIP64/multidisk archives intentionally fail closed.
  */
+// CORS + Range proxy for IA downloads (deployment/djen_proxy.go).
+const DEFAULT_ARCHIVE_BASE = "https://djen-proxy-mhgmawcn3a-rj.a.run.app";
 const CHUNK = 1024 * 1024;
 const MAX_MEMBER_BYTES = 32 * 1024 * 1024;
 
@@ -123,26 +125,48 @@ async function unzipMember(compressedBytes, method, expectedSize) {
   return all;
 }
 
+async function tailBytes(proxyBase, item, zip, length) {
+  // Suffix range: the ZIP tail *and* its total size (from Content-Range) in one
+  // request, so no /metadata call is needed (djen-proxy only serves /download).
+  const url = proxyBase.replace(/\/$/, "") + "/download/" +
+    encodeURIComponent(item) + "/" + encodeURIComponent(zip);
+  const response = await fetch(url, { headers: { Range: "bytes=-" + length } });
+  if (response.status !== 206) {
+    throw new Error("Servidor não respeitou HTTP Range: " + response.status);
+  }
+  const match = /^bytes (\d+)-(\d+)\/(\d+)$/.exec(response.headers.get("Content-Range") || "");
+  if (!match) throw new Error("Content-Range incompatível");
+  const [start, end, total] = match.slice(1).map(Number);
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (end !== total - 1 || bytes.length !== end - start + 1) {
+    throw new Error("Cauda ZIP incompleta");
+  }
+  return { bytes, total };
+}
+
+const ORIGINAL_DJEN = (item, zip, member) =>
+  /^djen-[a-z0-9]+-20\d{2}$/.test(item) &&
+  /^djen-20\d{2}-\d{2}-\d{2}-[A-Z0-9]+\.zip$/.test(zip) &&
+  /^[A-Za-z0-9_.-]+\.json$/.test(member);
+// Process (filing) years start well before 2000; the index item uses them.
+const POINTER_INDEX = (item, zip, member) =>
+  /^causaganha-(19|20)\d{2}-[0-9]-[0-9]{2}$/.test(item) &&
+  /^[0-9]{4}\.zip$/.test(zip) &&
+  /^[0-9]{9}\.pb$/.test(member);
+const ORIGINAL_DATAJUD = (item, zip, member) =>
+  /^datajud-[a-z0-9]+$/.test(item) &&
+  /^[a-z0-9]+_20\d{2}-\d{2}-\d{2}(T\d{6}Z)?\.zip$/.test(zip) &&
+  /^[0-9]{20}\.json(\.gz)?$/.test(member);
+
 export async function readOriginalMember({ item, zip, member, proxyBase = DEFAULT_ARCHIVE_BASE, asText = false, asBytes = false }) {
   const baseUrl = (proxyBase || DEFAULT_ARCHIVE_BASE).replace(/\/$/, "");
-  const original = /^djen-[a-z0-9]+-20\d{2}$/.test(item) &&
-      /^djen-20\d{2}-\d{2}-\d{2}-[A-Z0-9]+\.zip$/.test(zip) &&
-      member.endsWith(".json");
-  const derived = /^causaganha-20\d{2}-[0-9]-[0-9]{2}$/.test(item) &&
-      /^[0-9]{4}\.zip$/.test(zip) &&
-      /^[0-9]{9}\.pb$/.test(member);
-  if (!(original || derived) || member.includes("..")) {
+  const allowed = ORIGINAL_DJEN(item, zip, member) || POINTER_INDEX(item, zip, member) ||
+    ORIGINAL_DATAJUD(item, zip, member);
+  if (!allowed || member.includes("..")) {
     throw new Error("Identificadores de arquivo inválidos");
   }
-  const listingResponse = await fetch(baseUrl + "/metadata/" + encodeURIComponent(item) + "/files");
-  if (!listingResponse.ok) throw new Error("Inventário IA indisponível");
-  const listing = await listingResponse.json();
-  const files = Array.isArray(listing.result) ? listing.result : listing;
-  const entry = files.find(file => file.name === zip);
-  const zipSize = Number(entry?.size);
-  if (!Number.isSafeInteger(zipSize) || zipSize < 22) throw new Error("Tamanho ZIP inválido");
-  const tailSize = Math.min(zipSize, 65557);
-  const tail = await rangeBytes(baseUrl, item, zip, zipSize - tailSize, tailSize);
+  const { bytes: tail, total: zipSize } = await tailBytes(baseUrl, item, zip, 65557);
+  if (zipSize < 22) throw new Error("Tamanho ZIP inválido");
   const directory = findEOCD(tail);
   if (directory.directoryBytes > MAX_MEMBER_BYTES) throw new Error("Diretório ZIP excessivo");
   const central = await rangeBytes(baseUrl, item, zip,

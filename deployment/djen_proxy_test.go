@@ -13,15 +13,15 @@ import (
 
 func TestAllowed(t *testing.T) {
 	cases := map[string]bool{
-		"/":                                  true,
-		"/api/v1/comunicacao":                true,
-		"/api/v1/caderno/TJRO/2026-01-01/D":  true,
-		"/api/v1/comunicacao/tribunal":       true,
-		"/swagger/index.html":                false,
-		"/comunicacao":                       false,
-		"/login":                             false,
-		"/evil":                              false,
-		"/api-look-alike/v1/comunicacao":     false,
+		"/":                                 true,
+		"/api/v1/comunicacao":               true,
+		"/api/v1/caderno/TJRO/2026-01-01/D": true,
+		"/api/v1/comunicacao/tribunal":      true,
+		"/swagger/index.html":               false,
+		"/comunicacao":                      false,
+		"/login":                            false,
+		"/evil":                             false,
+		"/api-look-alike/v1/comunicacao":    false,
 	}
 	for path, want := range cases {
 		if got := allowed(path); got != want {
@@ -97,12 +97,19 @@ func TestSecurityRejectsMutatingMethodEvenOffWhitelist(t *testing.T) {
 
 func TestArchiveDownloadPathAllowlist(t *testing.T) {
 	cases := map[string]bool{
-		"/download/djen-tjro-2026/comunicacoes.parquet":          true,
-		"/download/datajud-tjro/processos.parquet":               true,
+		"/download/djen-tjro-2026/comunicacoes.parquet":            true,
+		"/download/datajud-tjro/processos.parquet":                 true,
 		"/download/causaganha-dashboard/indice_processual.parquet": true,
-		"/download/evil-item/comunicacoes.parquet":               false,
-		"/download/djen-tjro-2026/secret.txt":                    false,
-		"/download/djen-tjro-2026/../etc/passwd.parquet":         false,
+		"/download/evil-item/comunicacoes.parquet":                 false,
+		"/download/djen-tjro-2026/secret.txt":                      false,
+		"/download/djen-tjro-2026/../etc/passwd.parquet":           false,
+		// ADR 0013 CNJ lookup: original ZIPs and Protobuf index ZIPs.
+		"/download/djen-tjro-2026/djen-2026-09-04-TJRO.zip":  true,
+		"/download/datajud-tjro/tjro_2026-11-15T062700Z.zip": true,
+		"/download/causaganha-2023-8-22/0001.zip":            true,
+		"/download/evil-item/0001.zip":                       false,
+		"/download/djen-tjro-2026/payload.zip.exe":           false,
+		"/download/djen-tjro-2026/../x.zip":                  false,
 	}
 	for path, want := range cases {
 		if got := isArchiveDownloadPath(path); got != want {

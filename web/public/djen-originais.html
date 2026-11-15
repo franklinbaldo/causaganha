@@ -36,11 +36,12 @@
     const allowed = Object.freeze({"822":"tjro"});
     const clean = value => value.replace(/\D/g, "");
     const params = new URLSearchParams(location.search);
-    // Configure proxy URL at deployment time; ?proxy= is also available for manual smoke tests.
-    const proxyBase = params.get("proxy") || "";
+    // Same CORS + Range proxy the main reader uses (deployment/djen_proxy.go);
+    // ?proxy= overrides it for smoke tests against another deployment.
+    const proxyBase = params.get("proxy") || "https://djen-proxy-mhgmawcn3a-rj.a.run.app";
     function publishedRows(index, tribunal) {
       return index.publicacoes.map(pub => {
-        if (!/^20\\d{2}-\\d{2}-\\d{2}$/.test(pub.data)) {
+        if (!/^20\d{2}-\d{2}-\d{2}$/.test(pub.data)) {
           throw new Error("Data de publicação inválida");
         }
         return {
@@ -72,6 +73,32 @@
         output.textContent = JSON.stringify(found, null, 2);
       } catch (err) {
         output.textContent = "Não foi possível ler o membro ZIP pelo navegador (" + err.message +
+          "). Use o link do arquivo original.";
+      }
+    }
+    async function gunzip(bytes) {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream("gzip"));
+      return new Uint8Array(await new Response(stream).arrayBuffer());
+    }
+    // ADR 0013: show the DataJud document exactly as published, read from the
+    // daily ZIP member by HTTP Range (never the whole ZIP).
+    async function showDatajud(snap, cnj, section) {
+      const output = element("pre", "Lendo membro do ZIP DataJud via HTTP Range...", section);
+      try {
+        if (!/^[0-9]{20}\.json(\.gz)?$/.test(snap.membro)) {
+          throw new Error("Membro DataJud não autorizado");
+        }
+        let bytes = await readOriginalMember({
+          item: snap.item_ia, zip: snap.arquivo_zip, member: snap.membro, proxyBase, asBytes: true
+        });
+        if (snap.membro.endsWith(".gz")) bytes = await gunzip(bytes);
+        const doc = JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
+        if (clean(String(doc.numeroProcesso || "")) !== cnj || String(doc.grau) !== snap.grau) {
+          throw new Error("Documento não corresponde ao ponteiro do índice");
+        }
+        output.textContent = JSON.stringify(doc, null, 2);
+      } catch (err) {
+        output.textContent = "Não foi possível ler o documento DataJud (" + err.message +
           "). Use o link do arquivo original.";
       }
     }
@@ -119,6 +146,12 @@
               encodeURIComponent(snap.item_ia) + "/" + encodeURIComponent(snap.arquivo_zip);
             link.target = "_blank";
             link.rel = "noopener noreferrer";
+            const button = element("button", "Ler documento DataJud original", section);
+            button.type = "button";
+            button.addEventListener("click", () => {
+              button.disabled = true;
+              showDatajud(snap, cnj, section);
+            });
           }
         }
         for (const row of rows) {
