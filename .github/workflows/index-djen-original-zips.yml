@@ -38,7 +38,7 @@ jobs:
         run: |
           set -euo pipefail
           uv run python scripts/index_djen_originals.py \
-            --item "$ITEM" --restore-remote --max-zips 5 \
+            --item "$ITEM" --restore-remote --max-zips 30 \
             --datajud-from-ia --max-datajud-files 5 | tee index-report.json
       - name: Publish changed ZIPs and finally the manifest
         # One process, one worker per IA item (IA serializes writes per item),
