@@ -1,0 +1,55 @@
+name: Index original DJEN ZIPs
+
+on:
+  schedule:
+    - cron: '35 8 * * *'
+  workflow_dispatch:
+    inputs:
+      item:
+        description: 'Source IA item, e.g. djen-tjro-2026'
+        required: false
+        type: string
+        default: djen-tjro-2026
+
+permissions:
+  contents: read
+
+concurrency:
+  group: djen-process-csv-index
+  cancel-in-progress: false
+
+jobs:
+  index:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    environment: dev
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: ./.github/actions/setup
+        with:
+          dev: 'false'
+      - uses: ./.github/actions/configure-ia
+        with:
+          access-key: ${{ secrets.IA_ACCESS_KEY }}
+          secret-key: ${{ secrets.IA_SECRET_KEY }}
+      - name: Restore and build ZIPs of per-process CSVs
+        env:
+          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
+        run: |
+          set -euo pipefail
+          uv run python scripts/index_djen_originals.py \
+            --item "$ITEM" --restore-remote --max-zips 30 \
+            --datajud-from-ia --max-datajud-files 5 | tee index-report.json
+      - name: Publish changed ZIPs and finally the manifest
+        # One process, one worker per IA item (IA serializes writes per item),
+        # per-file retries; the manifest only goes up if every partition did.
+        # The previous per-file `uv run ia upload` loop took ~16 s per file and
+        # aborted the whole publish on a single read timeout.
+        run: uv run python scripts/index_djen_originals.py --publish-report index-report.json
+      - name: Index report
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: djen-cnj-csv-index-report
+          path: index-report.json
+          if-no-files-found: ignore

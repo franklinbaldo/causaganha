@@ -47,7 +47,7 @@ jobs:
   cdc-backup:
     name: DataJud CDC & IA Backup
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 350
     environment: dev
 
     env:
@@ -84,7 +84,10 @@ jobs:
           else
             ARGS+=(--upload)
           fi
-          # Stop collecting after 90 min so consolidation and the ordered
-          # publish (ZIP -> Parquets/index -> state bundle last) fit in the
-          # 180-min job timeout. The published cursor resumes next run.
-          uv run datajud cdc "${ARGS[@]}" --max-minutes 90
+          # Stop collecting after 300 min so consolidation and the ordered
+          # publish (ZIP -> locators -> Parquets/index -> state bundle last)
+          # fit in the 350-min job timeout (GitHub caps hosted jobs at 360).
+          # The first run (2026-11-15) collected 128k docs in 90 min and
+          # compacted + published in ~1 min; the published cursor resumes
+          # on the next run.
+          uv run datajud cdc "${ARGS[@]}" --max-minutes 300
