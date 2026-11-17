@@ -14,6 +14,7 @@ on:
 
 permissions:
   contents: read
+  actions: write  # a run with backlog left dispatches its successor
 
 concurrency:
   group: djen-process-csv-index
@@ -34,6 +35,7 @@ jobs:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
       - name: Index and publish, newest source year first
+        id: index
         env:
           ITEM: ${{ inputs.item }}
         # Source years run SEQUENTIALLY in one job, never in parallel: a 2025
@@ -64,6 +66,17 @@ jobs:
             DATAJUD=()  # DataJud sidecars only need one pass per run
             echo "::endgroup::"
           done
+          # Budget fully spent => there may be more backlog; tell the next step.
+          echo "budget_left=$BUDGET" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch the next run while backlog remains
+        # Drains the multi-year backlog continuously instead of twice a day;
+        # once a run ends with budget to spare, everything is indexed and the
+        # cron only picks up the new daily ZIPs.
+        if: ${{ success() && steps.index.outputs.budget_left == '0' && inputs.item == '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run index-djen-original-zips.yml --ref "$GITHUB_REF_NAME"
       - name: Index report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
