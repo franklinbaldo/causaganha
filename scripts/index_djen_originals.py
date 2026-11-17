@@ -35,6 +35,8 @@ from causaganha.consolidate.zip_processor import (
 ITEM_RE = re.compile(r"^djen-([a-z0-9]+)-(20[0-9]{2})$")
 ZIP_RE = re.compile(r"^djen-(20[0-9]{2}-[0-9]{2}-[0-9]{2})-([A-Z0-9]+)\.zip$")
 CNJ_RE = re.compile(r"^[0-9]{20}$")
+# J.TR digits of the CNJ (positions 13-16) for each tribunal this index routes.
+COURT_SEGMENT = {"tjro": "822"}
 
 
 def datajud_sidecar_re(tribunal: str) -> re.Pattern[str]:
@@ -352,6 +354,7 @@ def run(
                 loaded[partition_name] = load_partition(path)
             return loaded[partition_name]
 
+        foreign_cnjs = 0
         for filename, fingerprint in candidates[:max_zips]:
             with tempfile.TemporaryDirectory() as directory:
                 original = Path(directory) / filename
@@ -360,6 +363,14 @@ def run(
                 records = extract_locations(original, filename=filename)
             by_partition: dict[str, dict[str, list[tuple[str, str, str, str]]]] = defaultdict(dict)
             for cnj, rows in records.items():
+                # A tribunal's DJEN also carries processes of other courts
+                # (cartas precatórias, cross-court intimações, e.g. a TRT14
+                # CNJ ...5.14... in TJRO's caderno). This index is routed by
+                # the tribunal's own J.TR segment, so those can't live here;
+                # count and skip them instead of aborting the run.
+                if cnj[13:16] != COURT_SEGMENT[tribunal]:
+                    foreign_cnjs += 1
+                    continue
                 by_partition[partition_for(cnj)][cnj] = rows
             publication_date = ZIP_RE.fullmatch(filename).group(1)
             # A changed original may have removed processes in any old partition.
@@ -426,7 +437,7 @@ def run(
                 datajud_rows[cnj].extend(snapshots)
         dj_by_partition: dict[str, dict[str, list[dict[str, str]]]] = defaultdict(dict)
         for cnj, snapshots in datajud_rows.items():
-            if cnj[13:16] == "822":
+            if cnj[13:16] == COURT_SEGMENT[tribunal]:
                 dj_by_partition[partition_for(cnj)][cnj] = snapshots
         for part_name, rows in dj_by_partition.items():
             partition = get_partition(part_name)
@@ -458,6 +469,7 @@ def run(
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
+            "skipped_foreign_cnjs": foreign_cnjs,
             "processed_datajud_files": len(processed_datajud),
             "publish_files": sorted(touched)
             + (["manifest.json"] if processed or touched or processed_datajud else []),

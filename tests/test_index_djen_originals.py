@@ -236,3 +236,44 @@ def test_restore_reuses_local_state_from_earlier_item_in_same_job(tmp_path, monk
     idx.run("djen-tjro-2025", tmp_path, 5, restore_remote=True)
     assert not any(url.endswith("/manifest.json") for url in fetched)
     assert json.loads(manifest.read_text())["sources"] == {"x": "1"}
+
+
+def test_foreign_court_cnjs_in_tribunal_djen_are_skipped_not_fatal(tmp_path, monkeypatch):
+    """TJRO's DJEN carries other courts' processes (e.g. TRT14 5.14); they
+    can't be routed into the 8.22 index and must not abort the run."""
+    import io
+    import json
+
+    from scripts import index_djen_originals as idx
+
+    own, foreign = "70726450920238220001", "00001860420155140092"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(
+            "TJRO-D-2026-11-12_1.json",
+            json.dumps(
+                {
+                    "items": [
+                        {"numero_processo": own, "id": 1, "hash": "h1"},
+                        {"numero_processo": foreign, "id": 2, "hash": "h2"},
+                    ]
+                }
+            ),
+        )
+    zip_name = "djen-2026-11-12-TJRO.zip"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/files"):
+            return httpx.Response(200, json={"result": [{"name": zip_name, "md5": "abc"}]})
+        return httpx.Response(200, content=buffer.getvalue())
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    report = idx.run("djen-tjro-2026", tmp_path, 5)
+
+    assert report["indexed_zips"] == 1
+    assert report["skipped_foreign_cnjs"] == 1
+    assert report["publish_files"] == [idx.partition_for(own), "manifest.json"]
+    assert own in idx.load_partition(tmp_path / idx.partition_for(own))
