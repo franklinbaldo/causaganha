@@ -57,6 +57,8 @@ def datajud_sidecar_re(tribunal: str) -> re.Pattern[str]:
 # routed by its OWN CNJ court (J.TR), not by the caderno it was published in,
 # so a TRT14 process found in TJRO's DJEN lands in causaganha-{y}-5-14.
 PARTITION_RE = re.compile(r"^([0-9]{4})_([0-9])_([0-9]{2})_([0-9]{4})\.zip$")
+# Manifest marker of the routing scheme; older manifests trigger a re-index.
+ROUTING_VERSION = "cnj-court-v1"
 # Names written before routing by CNJ court; all were TJRO (8.22) partitions.
 LEGACY_PARTITION_RE = re.compile(r"^([0-9]{4})_([0-9]{4})\.zip$")
 INDEX_BASE = "https://archive.org/download"
@@ -345,6 +347,13 @@ def run(
         )
         if manifest.get("version") != 4 or manifest.get("tribunal") != tribunal:
             raise ValueError("Incompatible index manifest")
+        # One-time migration to routing by the CNJ's own court: sources indexed
+        # before it either skipped other courts' processes or wrote pointers
+        # without tribunal_fonte, so they must all be re-indexed once. Forget
+        # them; the budgeted runs re-index them (idempotently) over time.
+        if manifest.get("routing") != ROUTING_VERSION:
+            manifest["sources"] = {}
+            manifest["routing"] = ROUTING_VERSION
         # Partition names from before routing by CNJ court; same IA paths.
         manifest["partitions"] = sorted({upgrade_partition_name(n) for n in manifest["partitions"]})
         manifest["source_partitions"] = {

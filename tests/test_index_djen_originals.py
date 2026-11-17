@@ -368,7 +368,53 @@ def test_manifest_partition_names_are_upgraded(tmp_path, monkeypatch):
     monkeypatch.setattr(
         idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
     )
-    idx.run("djen-tjro-2026", tmp_path, 5)
+    report = idx.run("djen-tjro-2026", tmp_path, 5)
     manifest = json.loads((tmp_path / "tjro_manifest.json").read_text())
+    assert manifest["routing"] == idx.ROUTING_VERSION
+    assert report["indexed_zips"] == 1
     assert manifest["partitions"] == ["2015_8_22_0092.zip", "2023_8_22_0001.zip"]
     assert manifest["source_partitions"]["djen-2026-11-11-TJRO.zip"] == ["2023_8_22_0001.zip"]
+
+
+def test_pre_routing_manifest_reindexes_already_indexed_sources(tmp_path, monkeypatch):
+    """Sources indexed with the old skip must be re-indexed once, so the
+    other-court processes they skipped get their pointers."""
+    import io
+    import json
+
+    from scripts import index_djen_originals as idx
+
+    zip_name = "djen-2026-06-11-TJRO.zip"
+    (tmp_path / "tjro_manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 4,
+                "tribunal": "tjro",
+                "sources": {zip_name: "abc"},  # already indexed, same fingerprint
+                "partitions": [],
+                "source_partitions": {zip_name: []},
+            }
+        )
+    )
+    foreign = "00001860420155140092"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(
+            "TJRO-D-2026-06-11_6.json",
+            json.dumps({"numero_processo": foreign, "id": 9, "hash": "h"}),
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/files"):
+            return httpx.Response(200, json={"result": [{"name": zip_name, "md5": "abc"}]})
+        return httpx.Response(200, content=buffer.getvalue())
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    first = idx.run("djen-tjro-2026", tmp_path, 5)
+    assert first["indexed_zips"] == 1
+    assert foreign in idx.load_partition(tmp_path / idx.partition_for(foreign))
+    # The migration happens once: the next run has nothing to redo.
+    assert idx.run("djen-tjro-2026", tmp_path, 5)["indexed_zips"] == 0
