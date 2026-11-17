@@ -27,10 +27,13 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import time
 import zipfile
 from dataclasses import asdict, dataclass
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Literal
+
+import httpx
 
 from datajud import archive
 
@@ -228,3 +231,50 @@ def restore_cdc_state(
     if index is not None:
         _replace_file(targets[idx_name], index)
     return CdcRestoreResult(status="legacy")
+
+
+VISIBILITY_TIMEOUT_S = 20 * 60
+VISIBILITY_POLL_S = 30.0
+
+
+def _published_md5(tribunal: str, name: str) -> str | None:
+    response = httpx.get(
+        f"https://archive.org/metadata/{archive.item_id(tribunal)}/files",
+        timeout=30,
+        follow_redirects=True,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    files = payload.get("result", payload) if isinstance(payload, dict) else payload
+    for entry in files if isinstance(files, list) else []:
+        if isinstance(entry, dict) and entry.get("name") == name:
+            return entry.get("md5")
+    return None
+
+
+def await_bundle_visible(
+    tribunal: str,
+    content: bytes,
+    *,
+    timeout_s: float = VISIBILITY_TIMEOUT_S,
+    poll_s: float = VISIBILITY_POLL_S,
+) -> bool:
+    """Wait until IA serves the bundle just uploaded (matched by md5).
+
+    An S3 PUT returns before IA's item task makes the file downloadable, so a
+    CDC run queued right behind this one could otherwise restore the
+    *previous* bundle and re-collect the same cursor range. Cheap: polls the
+    metadata API, never re-downloads the bundle. Returns False on timeout
+    (the data is published; the next run may just redo some work).
+    """
+    expected = hashlib.md5(content, usedforsecurity=False).hexdigest()
+    deadline = time.monotonic() + timeout_s
+    while True:
+        try:
+            if _published_md5(tribunal, bundle_name(tribunal)) == expected:
+                return True
+        except (httpx.HTTPError, ValueError):
+            pass  # transient metadata hiccup: keep polling until the deadline
+        if time.monotonic() >= deadline:
+            return False
+        time.sleep(poll_s)

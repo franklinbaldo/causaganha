@@ -719,4 +719,12 @@ def _publish(
         bundle_path.unlink(missing_ok=True)
     uploaded.append(bundle_path.name)
     log.info("datajud_cdc_published", tribunal=tribunal, generation=generation, files=uploaded)
+    visible = cdc_state.await_bundle_visible(tribunal, bundle_content)
+    log.info("datajud_cdc_bundle_visible", tribunal=tribunal, visible=visible)
+    if not visible:
+        log.warning(
+            "datajud_cdc_bundle_not_yet_visible",
+            tribunal=tribunal,
+            hint="the next queued run may restore the previous generation and redo work",
+        )
     return uploaded
