@@ -31,6 +31,7 @@ read from the environment only — not CLI options — so they never appear in
 from __future__ import annotations
 
 import asyncio
+import json
 import sys
 from pathlib import Path
 from typing import Annotated
@@ -278,6 +279,15 @@ def cdc_cmd(
             )
         ),
     ] = None,
+    report_json: Annotated[
+        Path | None,
+        Parameter(
+            help=(
+                "Grava um JSON com o resultado (stop_reason, documentos), para o "
+                "workflow decidir se encadeia a próxima execução."
+            )
+        ),
+    ] = None,
     restore: Annotated[
         bool | None,
         Parameter(
@@ -326,12 +336,27 @@ def cdc_cmd(
         print(f"ERROR no CDC: {exc}", file=sys.stderr)
         return 1
 
+    if report_json is not None:
+        report_json.parent.mkdir(parents=True, exist_ok=True)
+        report_json.write_text(
+            json.dumps(
+                {
+                    "stop_reason": res.stop_reason,
+                    "documents_streamed": res.documents_streamed,
+                    "total_documents": res.checkpoint.total_documents,
+                    "checkpoint_status": res.checkpoint.status,
+                }
+            ),
+            encoding="utf-8",
+        )
+
     print("\nSincronização CDC concluída:")
     print(f"  Documentos nesta sessão: {res.documents_streamed:,}")
     print(f"  Lotes (batches) salvos : {res.batches_streamed:,}")
     print(f"  Total acumulado        : {res.checkpoint.total_documents:,}")
     print(f"  Última atualização     : {res.checkpoint.last_updated_at or 'n/a'}")
     print(f"  Status do checkpoint   : {res.checkpoint.status}")
+    print(f"  Motivo da parada       : {res.stop_reason}")
 
     if res.consolidated_capas is not None:
         print("\nConsolidação Canônica L0:")

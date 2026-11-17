@@ -15,9 +15,9 @@ name: DataJud CDC & Backup
 
 on:
   schedule:
-    # Every 6 h: runs queue behind each other (concurrency group, no
-    # cancel) and each resumes from the cursor the previous one published,
-    # so collection is near-continuous instead of 5 h/day.
+    # Safety net only. Collection is continuous because each run dispatches
+    # the next one when it finishes (see the last step); this cron restarts
+    # the chain if it ever breaks and picks up new updates once caught up.
     - cron: '27 */6 * * *'
   workflow_dispatch:
     inputs:
@@ -38,9 +38,14 @@ on:
         type: boolean
         required: false
         default: false
+      cooldown_minutes:
+        description: 'Wait before collecting (set by the chain after a DataJud rate limit)'
+        required: false
+        default: '0'
 
 permissions:
   contents: read
+  actions: write  # the run dispatches its successor (continuous collection)
 
 concurrency:
   group: datajud-cdc
@@ -65,6 +70,15 @@ jobs:
         with:
           dev: "false"
 
+      - name: Cool down after a rate-limited run
+        if: ${{ github.event.inputs.cooldown_minutes != '' && github.event.inputs.cooldown_minutes != '0' }}
+        env:
+          COOLDOWN: ${{ github.event.inputs.cooldown_minutes }}
+        run: |
+          case "$COOLDOWN" in ''|*[!0-9]*) echo "invalid cooldown"; exit 1;; esac
+          echo "Waiting $COOLDOWN min before hitting DataJud again"
+          sleep $((COOLDOWN * 60))
+
       - name: Run DataJud CDC Sync and Backup
         env:
           # Dispatch inputs reach the script as env vars, never spliced into
@@ -74,6 +88,7 @@ jobs:
           CDC_MAX_PAGES: ${{ github.event.inputs.max_pages }}
           CDC_SKIP_UPLOAD: ${{ github.event.inputs.skip_upload }}
           CDC_EVENT: ${{ github.event_name }}
+          CDC_COOLDOWN: ${{ github.event.inputs.cooldown_minutes || '0' }}
         run: |
           set -euo pipefail
           ARGS=(--tribunal "$CDC_TRIBUNAL" --page-size "$CDC_PAGE_SIZE")
@@ -93,4 +108,26 @@ jobs:
           # The first run (2026-11-15) collected 128k docs in 90 min and
           # compacted + published in ~1 min; the published cursor resumes
           # on the next run.
-          uv run datajud cdc "${ARGS[@]}" --max-minutes 300
+          # A cooldown spends part of the job's time, so collect for less.
+          MAX_MINUTES=$((300 - CDC_COOLDOWN))
+          uv run datajud cdc "${ARGS[@]}" --max-minutes "$MAX_MINUTES" --report-json cdc-report.json
+
+      - name: Dispatch the next run (continuous collection)
+        # Not for dry runs/PRs. "exhausted" means caught up with DataJud: stop
+        # chaining and let the cron pick up new updates. After a rate limit,
+        # the next run waits 30 min before paging again.
+        if: ${{ success() && github.event_name != 'pull_request' && github.event.inputs.skip_upload != 'true' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CDC_TRIBUNAL: ${{ github.event.inputs.tribunal || 'tjro' }}
+        run: |
+          set -euo pipefail
+          REASON=$(python3 -c 'import json;print(json.load(open("cdc-report.json"))["stop_reason"])')
+          echo "stop_reason=$REASON"
+          case "$REASON" in
+            exhausted) echo "Caught up; the cron takes over."; exit 0;;
+            rate_limited) COOLDOWN=30;;
+            *) COOLDOWN=0;;
+          esac
+          gh workflow run datajud-cdc.yml --ref "$GITHUB_REF_NAME" \
+            -f tribunal="$CDC_TRIBUNAL" -f cooldown_minutes="$COOLDOWN"

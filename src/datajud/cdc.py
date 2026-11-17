@@ -25,7 +25,9 @@ import structlog
 from pydantic import ValidationError
 
 from datajud import archive, cdc_state
-from datajud.client import DataJudClient
+import httpx
+
+from datajud.client import DataJudClient, DataJudRateLimitError
 from datajud.daily_pack import (
     DEFAULT_DAILY_DIR,
     DEFAULT_INDEX_DIR,
@@ -411,6 +413,8 @@ class CdcSyncResult:
     uploaded_files: list[str] | None = None
     stream_exhausted: bool = False
     restore_status: str | None = None
+    # "exhausted" (caught up), "time_budget" or "rate_limited".
+    stop_reason: str = "exhausted"
 
 
 async def sync_tribunal_cdc(
@@ -528,55 +532,72 @@ async def sync_tribunal_cdc(
         started = time.monotonic()
         stream_exhausted = True
 
-        async for batch_hits, last_sort in active_client.iter_updated_since(
-            since_iso=checkpoint.since_iso,
-            until_iso=checkpoint.until_iso,
-            page_size=page_size,
-            min_page_size=min_page_size,
-            max_pages=max_pages,
-            pause_between_pages=pause_between_pages,
-            search_after=checkpoint.last_sort_key,
-        ):
-            part_seq += 1
-            batches_session += 1
-            docs_session += len(batch_hits)
-            spool.add(batch_hits)
+        stop_reason = "exhausted"
+        try:
+            async for batch_hits, last_sort in active_client.iter_updated_since(
+                since_iso=checkpoint.since_iso,
+                until_iso=checkpoint.until_iso,
+                page_size=page_size,
+                min_page_size=min_page_size,
+                max_pages=max_pages,
+                pause_between_pages=pause_between_pages,
+                search_after=checkpoint.last_sort_key,
+            ):
+                part_seq += 1
+                batches_session += 1
+                docs_session += len(batch_hits)
+                spool.add(batch_hits)
 
-            # Write L1 Delta Parquet
-            write_delta_batch(batch_hits, tribunal_slug, part_seq, deltas_dir)
+                # Write L1 Delta Parquet
+                write_delta_batch(batch_hits, tribunal_slug, part_seq, deltas_dir)
 
-            # Determine latest update timestamp in batch
-            latest_update = max(
-                (h.get("dataHoraUltimaAtualizacao") or "" for h in batch_hits),
-                default="",
-            )
+                # Determine latest update timestamp in batch
+                latest_update = max(
+                    (h.get("dataHoraUltimaAtualizacao") or "" for h in batch_hits),
+                    default="",
+                )
 
-            # Update checkpoint state atomically
-            checkpoint.last_sort_key = last_sort
-            if latest_update:
-                checkpoint.last_updated_at = latest_update
-            checkpoint.total_documents += len(batch_hits)
-            checkpoint.total_batches = part_seq
-            checkpoint.last_run_at = datetime.now(UTC).isoformat(timespec="seconds")
-            store.upsert(checkpoint)
+                # Update checkpoint state atomically
+                checkpoint.last_sort_key = last_sort
+                if latest_update:
+                    checkpoint.last_updated_at = latest_update
+                checkpoint.total_documents += len(batch_hits)
+                checkpoint.total_batches = part_seq
+                checkpoint.last_run_at = datetime.now(UTC).isoformat(timespec="seconds")
+                store.upsert(checkpoint)
 
-            log.info(
-                "datajud_cdc_batch_saved",
-                tribunal=tribunal_slug,
-                batch_seq=part_seq,
-                batch_size=len(batch_hits),
-                total_documents=checkpoint.total_documents,
-            )
-
-            if max_duration_s is not None and time.monotonic() - started >= max_duration_s:
-                stream_exhausted = False
                 log.info(
-                    "datajud_cdc_time_budget_reached",
+                    "datajud_cdc_batch_saved",
                     tribunal=tribunal_slug,
-                    elapsed_s=round(time.monotonic() - started),
+                    batch_seq=part_seq,
+                    batch_size=len(batch_hits),
                     total_documents=checkpoint.total_documents,
                 )
-                break
+
+                if max_duration_s is not None and time.monotonic() - started >= max_duration_s:
+                    stream_exhausted = False
+                    stop_reason = "time_budget"
+                    log.info(
+                        "datajud_cdc_time_budget_reached",
+                        tribunal=tribunal_slug,
+                        elapsed_s=round(time.monotonic() - started),
+                        total_documents=checkpoint.total_documents,
+                    )
+                    break
+        except (DataJudRateLimitError, httpx.TimeoutException, httpx.TransportError) as exc:
+            # The DataJud API throttles sustained collection (HTTP 429 after
+            # hours of paging). Every batch so far is saved with its cursor, so
+            # stop here and publish them like a time-budget stop; the next run
+            # resumes from the published cursor. Raising would throw away hours
+            # of collected work (run 44073497427: 4.5 h lost to a 429).
+            stream_exhausted = False
+            stop_reason = "rate_limited"
+            log.warning(
+                "datajud_cdc_stopped_by_upstream",
+                tribunal=tribunal_slug,
+                error=str(exc),
+                total_documents=checkpoint.total_documents,
+            )
 
         checkpoint.status = "collected"
         store.upsert(checkpoint)
@@ -656,6 +677,7 @@ async def sync_tribunal_cdc(
         uploaded_files=uploaded_files if upload else None,
         stream_exhausted=stream_exhausted,
         restore_status=restore_status,
+        stop_reason=stop_reason,
     )
 
 

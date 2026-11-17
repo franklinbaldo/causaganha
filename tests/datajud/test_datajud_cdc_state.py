@@ -278,3 +278,43 @@ def test_await_bundle_visible_gives_up_at_deadline(monkeypatch: pytest.MonkeyPat
     monkeypatch.setattr(cdc_state, "_published_md5", lambda *_a: "stale-md5")
     monkeypatch.setattr(cdc_state.time, "sleep", lambda _s: None)
     assert cdc_state.await_bundle_visible("tjro", b"x", timeout_s=0, poll_s=0) is False
+
+
+async def test_rate_limit_mid_stream_publishes_what_was_collected(
+    tmp_path: Path, fake_ia: FakeArchive
+):
+    """Run 44073497427 lost 4.5 h of collection to a persistent HTTP 429."""
+    from datajud.client import DataJudRateLimitError
+
+    client = MagicMock()
+    client.__aenter__ = AsyncMock(return_value=client)
+    client.__aexit__ = AsyncMock(return_value=None)
+
+    async def iterate(**_kwargs: object):
+        yield [_doc(CNJ_1, "2026-03-01T10:00:00Z")], [1, CNJ_1]
+        msg = "DataJud rate limit persisted after 6 attempts: HTTP 429"
+        raise DataJudRateLimitError(msg)
+
+    client.iter_updated_since = iterate
+    res = await sync_tribunal_cdc(
+        "tjro",
+        base_dir=tmp_path / "cdc",
+        canonical_dir=tmp_path / "canonical",
+        daily_dir=tmp_path / "daily",
+        index_dir=tmp_path / "index",
+        client=client,
+        pause_between_pages=0.0,
+        **PUBLISH,
+    )
+    assert res.stop_reason == "rate_limited"
+    assert res.documents_streamed == 1
+    assert res.checkpoint.status == "published"
+    assert res.checkpoint.last_sort_key == [1, CNJ_1]
+    assert cdc_state.bundle_name("tjro") in fake_ia.files
+
+
+async def test_stop_reason_reports_time_budget_and_exhaustion(tmp_path: Path, fake_ia: FakeArchive):
+    pages = [([_doc(CNJ_1, "2026-03-01T10:00:00Z")], [1, CNJ_1])]
+    assert (await _run(tmp_path / "a", pages, [], **PUBLISH)).stop_reason == "exhausted"
+    budget = await _run(tmp_path / "b", pages * 2, [], max_duration_s=0, **PUBLISH)
+    assert budget.stop_reason == "time_budget"
