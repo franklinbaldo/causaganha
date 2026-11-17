@@ -2,7 +2,8 @@ name: Index original DJEN ZIPs
 
 on:
   schedule:
-    - cron: '35 8 * * *'
+    # Twice a day until the backlog clears (each run is budgeted below).
+    - cron: '35 8,20 * * *'
   workflow_dispatch:
     inputs:
       item:
@@ -21,7 +22,7 @@ concurrency:
 jobs:
   index:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     environment: dev
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
@@ -32,24 +33,41 @@ jobs:
         with:
           access-key: ${{ secrets.IA_ACCESS_KEY }}
           secret-key: ${{ secrets.IA_SECRET_KEY }}
-      - name: Restore and build ZIPs of per-process CSVs
+      - name: Index and publish, newest source year first
         env:
-          ITEM: ${{ inputs.item || 'djen-tjro-2026' }}
+          ITEM: ${{ inputs.item }}
+        # Source years run SEQUENTIALLY in one job, never in parallel: a 2025
+        # DJEN ZIP touches the same filing-year partitions and the same control
+        # manifest as a 2026 one, so concurrent writers would drop pointers.
+        # One budget of ZIPs per run is spent on the newest year with pending
+        # ZIPs, then carries over to older years. Later years reuse this job's
+        # local partitions/manifest (see run(): IA may still serve stale
+        # copies right after an upload).
         run: |
           set -euo pipefail
-          uv run python scripts/index_djen_originals.py \
-            --item "$ITEM" --restore-remote --max-zips 30 \
-            --datajud-from-ia --max-datajud-files 5 | tee index-report.json
-      - name: Publish changed ZIPs and finally the manifest
-        # One process, one worker per IA item (IA serializes writes per item),
-        # per-file retries; the manifest only goes up if every partition did.
-        # The previous per-file `uv run ia upload` loop took ~16 s per file and
-        # aborted the whole publish on a single read timeout.
-        run: uv run python scripts/index_djen_originals.py --publish-report index-report.json
+          BUDGET=100
+          if [ -n "${ITEM:-}" ]; then
+            ITEMS=("$ITEM")
+          else
+            ITEMS=(djen-tjro-2026 djen-tjro-2025 djen-tjro-2024 djen-tjro-2023 djen-tjro-2022 djen-tjro-2021)
+          fi
+          DATAJUD=(--datajud-from-ia --max-datajud-files 5)
+          for it in "${ITEMS[@]}"; do
+            [ "$BUDGET" -gt 0 ] || break
+            echo "::group::$it (budget $BUDGET)"
+            uv run python scripts/index_djen_originals.py \
+              --item "$it" --restore-remote --max-zips "$BUDGET" "${DATAJUD[@]}" | tee index-report.json
+            uv run python scripts/index_djen_originals.py --publish-report index-report.json
+            cp index-report.json "index-report-$it.json"
+            USED=$(python3 -c 'import json;print(json.load(open("index-report.json"))["indexed_zips"])')
+            BUDGET=$((BUDGET - USED))
+            DATAJUD=()  # DataJud sidecars only need one pass per run
+            echo "::endgroup::"
+          done
       - name: Index report
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
           name: djen-cnj-csv-index-report
-          path: index-report.json
+          path: index-report-*.json
           if-no-files-found: ignore

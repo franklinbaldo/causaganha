@@ -15,7 +15,10 @@ name: DataJud CDC & Backup
 
 on:
   schedule:
-    - cron: '27 6 * * *'
+    # Every 6 h: runs queue behind each other (concurrency group, no
+    # cancel) and each resumes from the cursor the previous one published,
+    # so collection is near-continuous instead of 5 h/day.
+    - cron: '27 */6 * * *'
   workflow_dispatch:
     inputs:
       tribunal:

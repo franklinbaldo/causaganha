@@ -294,7 +294,10 @@ def run(
     output.mkdir(parents=True, exist_ok=True)
     manifest_file = output / f"{tribunal}_manifest.json"
     with httpx.Client(timeout=120, follow_redirects=True) as client:
-        if restore_remote:
+        # A local copy can only come from an earlier item indexed in this same
+        # job (the workflow starts from an empty directory). It is newer than
+        # what IA may still serve right after its upload, so reuse it.
+        if restore_remote and not manifest_file.exists():
             download(client, f"{INDEX_BASE}/{target_item}/manifest.json", manifest_file)
         manifest = (
             json.loads(manifest_file.read_text(encoding="utf-8"))
@@ -339,7 +342,7 @@ def run(
         def get_partition(partition_name: str) -> dict:
             if partition_name not in loaded:
                 path = output / partition_name
-                if restore_remote and partition_name in known_partitions:
+                if restore_remote and partition_name in known_partitions and not path.exists():
                     if not download(
                         client,
                         f"{INDEX_BASE}/{index_item(tribunal, partition_name[:4])}/{remote_partition_name(partition_name)}",

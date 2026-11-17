@@ -197,3 +197,42 @@ def test_locator_offsets_flow_into_the_index(tmp_path):
     feed.write_text(json.dumps({**row, "offset_cabecalho": "-1"}) + "\n")
     with pytest.raises(ValueError, match="offset_cabecalho"):
         load_datajud_locators(feed)
+
+
+def test_restore_reuses_local_state_from_earlier_item_in_same_job(tmp_path, monkeypatch):
+    """IA may serve a stale manifest right after an upload; a later source
+    year in the same job must keep using the local (newer) copy."""
+    import json
+
+    from scripts import index_djen_originals as idx
+
+    manifest = tmp_path / "tjro_manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "version": 4,
+                "tribunal": "tjro",
+                "sources": {"x": "1"},
+                "partitions": [],
+                "source_partitions": {},
+            }
+        )
+    )
+    fetched: list[str] = []
+
+    def fake_download(_client, url, _target):
+        fetched.append(url)
+        return False
+
+    monkeypatch.setattr(idx, "download", fake_download)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"result": []})
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    idx.run("djen-tjro-2025", tmp_path, 5, restore_remote=True)
+    assert not any(url.endswith("/manifest.json") for url in fetched)
+    assert json.loads(manifest.read_text())["sources"] == {"x": "1"}

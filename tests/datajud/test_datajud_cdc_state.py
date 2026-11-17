@@ -71,6 +71,7 @@ def fake_ia(monkeypatch: pytest.MonkeyPatch) -> FakeArchive:
     fake = FakeArchive()
     monkeypatch.setattr(archive, "upload_file", fake.upload_file)
     monkeypatch.setattr(archive, "download_file", fake.download_file)
+    monkeypatch.setattr(cdc_state, "await_bundle_visible", lambda *_a, **_k: True)
     return fake
 
 
@@ -261,3 +262,19 @@ async def test_document_without_identity_fails_closed(tmp_path: Path, fake_ia: F
     with pytest.raises(cdc_state.CdcStateError, match="cannot build DataJud locators"):
         await _run(tmp_path, [([doc], [1, CNJ_1])], [], **PUBLISH)
     assert cdc_state.bundle_name("tjro") not in fake_ia.files
+
+
+def test_await_bundle_visible_polls_until_md5_matches(monkeypatch: pytest.MonkeyPatch):
+    import hashlib
+
+    content = b"bundle-v2"
+    answers = iter([None, "stale-md5", hashlib.md5(content).hexdigest()])
+    monkeypatch.setattr(cdc_state, "_published_md5", lambda *_a: next(answers))
+    monkeypatch.setattr(cdc_state.time, "sleep", lambda _s: None)
+    assert cdc_state.await_bundle_visible("tjro", content, timeout_s=60, poll_s=0) is True
+
+
+def test_await_bundle_visible_gives_up_at_deadline(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setattr(cdc_state, "_published_md5", lambda *_a: "stale-md5")
+    monkeypatch.setattr(cdc_state.time, "sleep", lambda _s: None)
+    assert cdc_state.await_bundle_visible("tjro", b"x", timeout_s=0, poll_s=0) is False
