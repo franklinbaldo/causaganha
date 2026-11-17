@@ -24,6 +24,7 @@ PUB = (
     "TJRO-D-2026-11-09_1.json",
     "778704990",
     "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2",
+    "tjro",
 )
 
 
@@ -39,16 +40,27 @@ def snapshot(grau, updated="2026-11-09T09:00:00Z"):
     }
 
 
-def test_routing_from_cnj_is_filing_year_and_origin():
-    assert partition_for(CNJ) == "2023_0001.zip"
+def test_routing_from_cnj_is_filing_year_court_and_origin():
+    from scripts.index_djen_originals import partition_item, upgrade_partition_name
+
+    assert partition_for(CNJ) == "2023_8_22_0001.zip"
+    assert partition_item("2023_8_22_0001.zip") == "causaganha-2023-8-22"
     assert index_item("tjro", "2023") == "causaganha-2023-8-22"
-    assert remote_partition_name("2023_0001.zip") == "0001.zip"
+    assert remote_partition_name("2023_8_22_0001.zip") == "0001.zip"
     assert short_cnj_filename(CNJ) == "707264509.csv"
-    assert expand_cnj_filename("707264509.csv", Path("2023_0001.zip")) == CNJ
+    assert expand_cnj_filename("707264509.csv", Path("2023_8_22_0001.zip")) == CNJ
+    # A TRT14 process routes to its own court's item, whatever caderno it was in.
+    trt14 = "00001860420155140092"
+    assert partition_for(trt14) == "2015_5_14_0092.zip"
+    assert partition_item(partition_for(trt14)) == "causaganha-2015-5-14"
+    assert expand_cnj_filename("000018604.csv", Path("2015_5_14_0092.zip")) == trt14
+    # Names published before court routing map onto the same IA paths.
+    assert upgrade_partition_name("2023_0001.zip") == "2023_8_22_0001.zip"
+    assert upgrade_partition_name("2023_8_22_0001.zip") == "2023_8_22_0001.zip"
 
 
 def test_pointer_zip_roundtrip(tmp_path):
-    path = tmp_path / "2023_0001.zip"
+    path = tmp_path / "2023_8_22_0001.zip"
     data = {CNJ: {"publicacoes": [PUB, PUB], "datajud": [snapshot("G1"), snapshot("G2")]}}
     write_partition(path, data)
     with zipfile.ZipFile(path) as archive:
@@ -60,7 +72,7 @@ def test_pointer_zip_roundtrip(tmp_path):
 
 def test_djen_updates_do_not_erase_datajud():
     data = {CNJ: {"publicacoes": [PUB], "datajud": [snapshot("G1")]}}
-    later = ("2026-11-10", "new.json", "778704991", "hash-2")
+    later = ("2026-11-10", "new.json", "778704991", "hash-2", "tjro")
     assert apply_source(data, publication_date="2026-11-10", new_rows={CNJ: [later]})
     assert data[CNJ]["datajud"] == [snapshot("G1")]
     assert not apply_source(data, publication_date="2026-11-10", new_rows={CNJ: [later]})
@@ -130,25 +142,35 @@ def test_download_503_on_existing_item_fails_closed(tmp_path):
         download(client, url, tmp_path / "m.json")
 
 
-def _publish_fixture(tmp_path, monkeypatch, fail: set[str] | None = None):
+def _publish_fixture(tmp_path, monkeypatch, fail: set[str] | None = None, fail_times: int = 99):
     import asyncio
 
     from causaganha.pipeline import ia_s3
+    from scripts import index_djen_originals as idx
 
     calls: list[tuple[str, str]] = []
+    attempts: dict[str, int] = {}
+    monkeypatch.setattr(idx, "PUBLISH_RETRY_WAITS_S", (0, 0, 0))
 
     async def fake_upload(_client, item, path, _date, metadata_overrides=None):
         calls.append((item, path.name))
-        return f"{item}/{path.name}" not in (fail or set())
+        key = f"{item}/{path.name}"
+        attempts[key] = attempts.get(key, 0) + 1
+        return key not in (fail or set()) or attempts[key] > fail_times
 
     monkeypatch.setattr(ia_s3, "upload_to_ia", fake_upload)
     monkeypatch.setattr(ia_s3, "get_ia_s3_auth", lambda: "LOW k:s")
-    for name in ("2011_0021.zip", "2011_0001.zip", "2026_0022.zip"):
+    for name in ("2011_8_22_0021.zip", "2011_8_22_0001.zip", "2026_8_22_0022.zip"):
         (tmp_path / name).write_bytes(b"pk")
     (tmp_path / "tjro_manifest.json").write_text("{}")
     report = {
         "tribunal": "tjro",
-        "publish_files": ["2011_0021.zip", "2011_0001.zip", "2026_0022.zip", "manifest.json"],
+        "publish_files": [
+            "2011_8_22_0021.zip",
+            "2011_8_22_0001.zip",
+            "2026_8_22_0022.zip",
+            "manifest.json",
+        ],
     }
     from scripts.index_djen_originals import publish_report
 
@@ -236,3 +258,163 @@ def test_restore_reuses_local_state_from_earlier_item_in_same_job(tmp_path, monk
     idx.run("djen-tjro-2025", tmp_path, 5, restore_remote=True)
     assert not any(url.endswith("/manifest.json") for url in fetched)
     assert json.loads(manifest.read_text())["sources"] == {"x": "1"}
+
+
+def test_foreign_court_cnjs_in_tribunal_djen_are_routed_to_their_own_court(tmp_path, monkeypatch):
+    """TJRO's DJEN carries other courts' processes (e.g. TRT14 5.14): each is
+    indexed under its own court, pointing back at TJRO's caderno."""
+    import io
+    import json
+
+    from scripts import index_djen_originals as idx
+
+    own, foreign = "70726450920238220001", "00001860420155140092"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(
+            "TJRO-D-2026-11-12_1.json",
+            json.dumps(
+                {
+                    "items": [
+                        {"numero_processo": own, "id": 1, "hash": "h1"},
+                        {"numero_processo": foreign, "id": 2, "hash": "h2"},
+                    ]
+                }
+            ),
+        )
+    zip_name = "djen-2026-11-12-TJRO.zip"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/files"):
+            return httpx.Response(200, json={"result": [{"name": zip_name, "md5": "abc"}]})
+        return httpx.Response(200, content=buffer.getvalue())
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    report = idx.run("djen-tjro-2026", tmp_path, 5)
+
+    assert report["indexed_zips"] == 1
+    assert report["foreign_court_cnjs"] == 1
+    assert report["publish_files"] == sorted(
+        [idx.partition_for(own), idx.partition_for(foreign)]
+    ) + ["manifest.json"]
+    assert idx.partition_for(foreign) == "2015_5_14_0092.zip"
+    pointer = idx.load_partition(tmp_path / idx.partition_for(foreign))[foreign]
+    assert pointer["publicacoes"] == [("2026-11-12", "TJRO-D-2026-11-12_1.json", "2", "h2", "tjro")]
+
+
+def test_publish_report_retries_slow_down_failures_in_later_rounds(tmp_path, monkeypatch):
+    """IA '503 Slow Down' outlasts per-file retries; a later round succeeds."""
+    calls, run = _publish_fixture(
+        tmp_path, monkeypatch, fail={"causaganha-2011-8-22/0021.zip"}, fail_times=2
+    )
+    assert run() == 4
+    assert calls.count(("causaganha-2011-8-22", "0021.zip")) == 3
+    assert calls[-1] == ("causaganha-index-control-tjro", "manifest.json")
+
+
+def test_reprocessing_one_caderno_keeps_another_cadernos_pointers():
+    """A TRT14 process may hold pointers from TJRO's and TRT14's cadernos for
+    the same day; reprocessing TJRO's day must leave TRT14's untouched."""
+    trt14 = "00001860420155140092"
+    from_tjro = ("2026-11-12", "TJRO-D-2026-11-12_1.json", "2", "h2", "tjro")
+    from_trt14 = ("2026-11-12", "TRT14-D-2026-11-12_1.json", "9", "h9", "trt14")
+    data = {trt14: {"publicacoes": [from_tjro, from_trt14], "datajud": []}}
+    assert apply_source(data, publication_date="2026-11-12", source="tjro", new_rows={})
+    assert data[trt14]["publicacoes"] == [from_trt14]
+
+
+def test_legacy_pointers_are_replaced_by_their_tjro_day():
+    legacy = PUB[:4] + ("",)
+    data = {CNJ: {"publicacoes": [legacy], "datajud": []}}
+    assert apply_source(data, publication_date=PUB[0], source="tjro", new_rows={CNJ: [PUB]})
+    assert data[CNJ]["publicacoes"] == [PUB]
+
+
+def test_manifest_partition_names_are_upgraded(tmp_path, monkeypatch):
+    """Names published before court routing keep pointing at the same IA paths."""
+    import io
+    import json
+
+    from scripts import index_djen_originals as idx
+
+    cnj = "70726450920238220001"
+    (tmp_path / "tjro_manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 4,
+                "tribunal": "tjro",
+                "sources": {},
+                "partitions": ["2023_0001.zip", "2015_0092.zip"],
+                "source_partitions": {"djen-2026-11-11-TJRO.zip": ["2023_0001.zip"]},
+            }
+        )
+    )
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(
+            "TJRO-D-2026-11-12_1.json", json.dumps({"numero_processo": cnj, "id": 1, "hash": "h"})
+        )
+    zip_name = "djen-2026-11-12-TJRO.zip"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/files"):
+            return httpx.Response(200, json={"result": [{"name": zip_name, "md5": "abc"}]})
+        return httpx.Response(200, content=buffer.getvalue())
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    report = idx.run("djen-tjro-2026", tmp_path, 5)
+    manifest = json.loads((tmp_path / "tjro_manifest.json").read_text())
+    assert manifest["routing"] == idx.ROUTING_VERSION
+    assert report["indexed_zips"] == 1
+    assert manifest["partitions"] == ["2015_8_22_0092.zip", "2023_8_22_0001.zip"]
+    assert manifest["source_partitions"]["djen-2026-11-11-TJRO.zip"] == ["2023_8_22_0001.zip"]
+
+
+def test_pre_routing_manifest_reindexes_already_indexed_sources(tmp_path, monkeypatch):
+    """Sources indexed with the old skip must be re-indexed once, so the
+    other-court processes they skipped get their pointers."""
+    import io
+    import json
+
+    from scripts import index_djen_originals as idx
+
+    zip_name = "djen-2026-06-11-TJRO.zip"
+    (tmp_path / "tjro_manifest.json").write_text(
+        json.dumps(
+            {
+                "version": 4,
+                "tribunal": "tjro",
+                "sources": {zip_name: "abc"},  # already indexed, same fingerprint
+                "partitions": [],
+                "source_partitions": {zip_name: []},
+            }
+        )
+    )
+    foreign = "00001860420155140092"
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as zf:
+        zf.writestr(
+            "TJRO-D-2026-06-11_6.json",
+            json.dumps({"numero_processo": foreign, "id": 9, "hash": "h"}),
+        )
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/files"):
+            return httpx.Response(200, json={"result": [{"name": zip_name, "md5": "abc"}]})
+        return httpx.Response(200, content=buffer.getvalue())
+
+    real_client = httpx.Client
+    monkeypatch.setattr(
+        idx.httpx, "Client", lambda **kw: real_client(transport=httpx.MockTransport(handler), **kw)
+    )
+    first = idx.run("djen-tjro-2026", tmp_path, 5)
+    assert first["indexed_zips"] == 1
+    assert foreign in idx.load_partition(tmp_path / idx.partition_for(foreign))
+    # The migration happens once: the next run has nothing to redo.
+    assert idx.run("djen-tjro-2026", tmp_path, 5)["indexed_zips"] == 0
