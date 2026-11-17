@@ -13,6 +13,7 @@ PUB = (
     "TJRO-D-2026-11-09_1.json",
     "778704990",
     "JKOdGxm7gYmLtXh1T7mM5lZy5DBkl2",
+    "tjro",
 )
 
 
@@ -86,3 +87,14 @@ def test_datajud_locator_offsets_roundtrip_and_stay_optional():
     assert decode_index(encode_index([], [with_offsets]))["datajud"] == [with_offsets]
     # Pointers written before the fields existed still decode, without them.
     assert decode_index(encode_index([], [base]))["datajud"] == [base]
+
+
+def test_publication_source_roundtrips_and_legacy_pointers_resolve_to_tjro():
+    from causaganha.consolidate.process_pointer_pb import publication_source
+
+    foreign_caderno = (*PUB[:4], "trt14")
+    assert decode_index(encode_index([foreign_caderno]))["publicacoes"] == [foreign_caderno]
+    legacy = PUB[:4]  # written before field 5 existed
+    decoded = decode_index(encode_index([legacy]))["publicacoes"][0]
+    assert decoded == (*legacy, "")
+    assert publication_source(decoded) == "tjro"

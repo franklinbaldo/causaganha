@@ -102,8 +102,22 @@ def _fields(data: bytes):
         yield number, kind, value
 
 
-def _encode_publication(row: tuple[str, str, str, str]) -> bytes:
-    day, member, identity, dj_hash = row
+# A publication pointer: (date, JSON member, communication id, DJEN hash,
+# source tribunal). The source names whose DJEN caderno holds the record; it
+# is "" in pointers written before field 5 existed, all of which came from
+# the TJRO caderno (see LEGACY_PUBLICATION_SOURCE).
+Publication = tuple[str, str, str, str, str]
+LEGACY_PUBLICATION_SOURCE = "tjro"
+
+
+def publication_source(row: tuple[str, ...]) -> str:
+    """Source tribunal of a publication pointer, resolving legacy pointers."""
+    return (row[4] if len(row) > 4 else "") or LEGACY_PUBLICATION_SOURCE
+
+
+def _encode_publication(row: tuple[str, ...]) -> bytes:
+    day, member, identity, dj_hash = row[:4]
+    source = row[4] if len(row) > 4 else ""
     identity_value = int(identity)
     if identity_value < 0:
         msg = "Negative DJEN communication ID"
@@ -114,6 +128,7 @@ def _encode_publication(row: tuple[str, str, str, str]) -> bytes:
         + _varint(3 << 3)
         + _varint(identity_value)
         + _text(4, dj_hash)
+        + (_text(5, source) if source else b"")
     )
 
 
@@ -132,7 +147,7 @@ def _encode_datajud(document: dict[str, str]) -> bytes:
 
 
 def encode_index(
-    publications: list[tuple[str, str, str, str]],
+    publications: list[tuple[str, ...]],
     datajud: list[dict[str, str]] | None = None,
 ) -> bytes:
     """Deterministic v1 encoding; duplicate pointers are eliminated."""
@@ -152,17 +167,17 @@ def encode_index(
     return b"".join(encoded)
 
 
-def _decode_publication(data: bytes) -> tuple[str, str, str, str]:
+def _decode_publication(data: bytes) -> Publication:
     result: dict[int, str] = {}
     for number, kind, value in _fields(data):
         if number == 3 and kind == 0:
             result[number] = str(value)
-        elif number in (1, 2, 4) and kind == 2:
+        elif number in (1, 2, 4, 5) and kind == 2:
             result[number] = value.decode("utf-8")
     if any(n not in result for n in range(1, 5)):
         msg = "Incomplete DJEN pointer"
         raise ValueError(msg)
-    return (result[1], result[2], result[3], result[4])
+    return (result[1], result[2], result[3], result[4], result.get(5, ""))
 
 
 def _decode_datajud(data: bytes) -> dict[str, str]:

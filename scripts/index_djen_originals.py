@@ -22,6 +22,7 @@ import httpx
 from causaganha.consolidate.process_pointer_pb import (
     decode_index,
     encode_index,
+    publication_source,
     update_datajud,
 )
 from causaganha.consolidate.zip_processor import (
@@ -35,7 +36,8 @@ from causaganha.consolidate.zip_processor import (
 ITEM_RE = re.compile(r"^djen-([a-z0-9]+)-(20[0-9]{2})$")
 ZIP_RE = re.compile(r"^djen-(20[0-9]{2}-[0-9]{2}-[0-9]{2})-([A-Z0-9]+)\.zip$")
 CNJ_RE = re.compile(r"^[0-9]{20}$")
-# J.TR digits of the CNJ (positions 13-16) for each tribunal this index routes.
+# J.TR digits of the CNJ (positions 13-16) of each DJEN source tribunal, for
+# reporting how many of its publications concern other courts' processes.
 COURT_SEGMENT = {"tjro": "822"}
 
 
@@ -51,7 +53,12 @@ def datajud_sidecar_re(tribunal: str) -> re.Pattern[str]:
     )
 
 
-PARTITION_RE = re.compile(r"^([0-9]{4})_([0-9]{4})\.zip$")
+# Local partition name: {filing year}_{J}_{TR}_{origin}.zip. Every process is
+# routed by its OWN CNJ court (J.TR), not by the caderno it was published in,
+# so a TRT14 process found in TJRO's DJEN lands in causaganha-{y}-5-14.
+PARTITION_RE = re.compile(r"^([0-9]{4})_([0-9])_([0-9]{2})_([0-9]{4})\.zip$")
+# Names written before routing by CNJ court; all were TJRO (8.22) partitions.
+LEGACY_PARTITION_RE = re.compile(r"^([0-9]{4})_([0-9]{4})\.zip$")
 INDEX_BASE = "https://archive.org/download"
 INDEX_PREFIX = "causaganha-index-"
 MAX_PARTITIONS_PER_ITEM = 1000
@@ -59,9 +66,27 @@ HEADER = ("data", "membro", "id", "hash")
 
 
 def index_item(tribunal: str, process_year: str) -> str:
-    """One IA item per tribunal and filing year."""
-    cnj_court = {"tjro": "8-22"}[tribunal]
-    return f"causaganha-{process_year}-{cnj_court}"
+    """IA item of a tribunal's own processes for one filing year."""
+    segment = COURT_SEGMENT[tribunal]
+    return f"causaganha-{process_year}-{segment[0]}-{segment[1:]}"
+
+
+def upgrade_partition_name(partition: str) -> str:
+    """Map a pre-court-routing name (``2023_0001.zip``) to the current one."""
+    legacy = LEGACY_PARTITION_RE.fullmatch(partition)
+    if legacy:
+        year, origin = legacy.groups()
+        return f"{year}_8_22_{origin}.zip"
+    return partition
+
+
+def partition_item(partition: str) -> str:
+    """IA item holding a partition: ``causaganha-{year}-{J}-{TR}``."""
+    match = PARTITION_RE.fullmatch(partition)
+    if not match:
+        raise ValueError(f"Invalid index partition: {partition}")
+    year, justice, court, _origin = match.groups()
+    return f"causaganha-{year}-{justice}-{court}"
 
 
 def control_item(tribunal: str) -> str:
@@ -73,13 +98,13 @@ def remote_partition_name(partition: str) -> str:
     match = PARTITION_RE.fullmatch(partition)
     if not match:
         raise ValueError(f"Invalid index partition: {partition}")
-    return f"{match.group(2)}.zip"
+    return f"{match.group(4)}.zip"
 
 
 def partition_for(cnj: str) -> str:
     if not CNJ_RE.fullmatch(cnj):
         raise ValueError(f"Invalid CNJ: {cnj!r}")
-    return f"{cnj[9:13]}_{cnj[16:20]}.zip"
+    return f"{cnj[9:13]}_{cnj[13]}_{cnj[14:16]}_{cnj[16:20]}.zip"
 
 
 def short_cnj_filename(cnj: str) -> str:
@@ -89,15 +114,13 @@ def short_cnj_filename(cnj: str) -> str:
     return f"{cnj[:9]}.csv"
 
 
-def expand_cnj_filename(filename: str, partition: Path, *, court: str = "822") -> str:
+def expand_cnj_filename(filename: str, partition: Path) -> str:
     """Recover the full CNJ from a nine-digit name and partition coordinates."""
     match = PARTITION_RE.fullmatch(partition.name)
     if not match or not re.fullmatch(r"[0-9]{9}\.csv", filename):
         raise ValueError(f"Invalid index member or partition: {partition}/{filename}")
-    if not re.fullmatch(r"[0-9]{3}", court):
-        raise ValueError("Invalid justice/tribunal digits")
-    year, origin = match.groups()
-    return f"{filename[:9]}{year}{court}{origin}"
+    year, justice, court, origin = match.groups()
+    return f"{filename[:9]}{year}{justice}{court}{origin}"
 
 
 def records_of(value: object) -> list[dict]:
@@ -167,7 +190,7 @@ def write_partition(path: Path, data: dict[str, dict]) -> None:
     staged = path.with_suffix(".part")
     with zipfile.ZipFile(staged, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for cnj, pointer in sorted(data.items()):
-            if partition_for(cnj) != path.name or cnj[13:16] != "822":
+            if partition_for(cnj) != path.name:
                 raise ValueError(f"CNJ does not belong in index partition: {cnj}")
             pubs = pointer["publicacoes"]
             snapshots = pointer["datajud"]
@@ -226,14 +249,22 @@ def apply_source(
     partition: dict[str, dict],
     *,
     publication_date: str,
-    new_rows: dict[str, list[tuple[str, str, str, str]]],
+    source: str = "tjro",
+    new_rows: dict[str, list[tuple[str, ...]]],
 ) -> bool:
-    """Replace publications of one source date; preserve DataJud pointers."""
+    """Replace the publications of one (source caderno, date); keep the rest.
+
+    A partition mixes publications from several cadernos (a TRT14 process may
+    appear in TJRO's DJEN and in TRT14's own), so reprocessing one caderno's
+    day must not drop pointers that came from another caderno.
+    """
     before = {cnj: list(pointer["publicacoes"]) for cnj, pointer in partition.items()}
     for cnj in list(partition):
         pointer = partition[cnj]
         pointer["publicacoes"] = [
-            row for row in pointer["publicacoes"] if row[0] != publication_date
+            row
+            for row in pointer["publicacoes"]
+            if not (row[0] == publication_date and publication_source(row) == source)
         ]
         if not pointer["publicacoes"] and not pointer["datajud"]:
             del partition[cnj]
@@ -314,6 +345,12 @@ def run(
         )
         if manifest.get("version") != 4 or manifest.get("tribunal") != tribunal:
             raise ValueError("Incompatible index manifest")
+        # Partition names from before routing by CNJ court; same IA paths.
+        manifest["partitions"] = sorted({upgrade_partition_name(n) for n in manifest["partitions"]})
+        manifest["source_partitions"] = {
+            source: sorted({upgrade_partition_name(n) for n in names})
+            for source, names in manifest.get("source_partitions", {}).items()
+        }
         response = client.get(f"https://archive.org/metadata/{item}/files")
         response.raise_for_status()
         listing = response.json()
@@ -344,12 +381,17 @@ def run(
         def get_partition(partition_name: str) -> dict:
             if partition_name not in loaded:
                 path = output / partition_name
-                if restore_remote and partition_name in known_partitions and not path.exists():
-                    if not download(
+                if restore_remote and not path.exists():
+                    # Try IA even for partitions this manifest never wrote: a
+                    # partition (e.g. a TRT14 one) can also receive pointers
+                    # from another court's caderno run, and starting it empty
+                    # would erase them. Absent on IA -> genuinely new.
+                    found = download(
                         client,
-                        f"{INDEX_BASE}/{index_item(tribunal, partition_name[:4])}/{remote_partition_name(partition_name)}",
+                        f"{INDEX_BASE}/{partition_item(partition_name)}/{remote_partition_name(partition_name)}",
                         path,
-                    ):
+                    )
+                    if not found and partition_name in known_partitions:
                         raise FileNotFoundError(f"Missing indexed partition {path}")
                 loaded[partition_name] = load_partition(path)
             return loaded[partition_name]
@@ -361,17 +403,14 @@ def run(
                 if not download(client, f"{INDEX_BASE}/{item}/{filename}", original):
                     raise FileNotFoundError(f"Original ZIP disappeared: {filename}")
                 records = extract_locations(original, filename=filename)
-            by_partition: dict[str, dict[str, list[tuple[str, str, str, str]]]] = defaultdict(dict)
+            by_partition: dict[str, dict[str, list[tuple[str, ...]]]] = defaultdict(dict)
             for cnj, rows in records.items():
-                # A tribunal's DJEN also carries processes of other courts
-                # (cartas precatórias, cross-court intimações, e.g. a TRT14
-                # CNJ ...5.14... in TJRO's caderno). This index is routed by
-                # the tribunal's own J.TR segment, so those can't live here;
-                # count and skip them instead of aborting the run.
+                # Route by the process's own court; a TRT14 CNJ found in
+                # TJRO's caderno goes to causaganha-{y}-5-14 with
+                # tribunal_fonte="tjro" on each publication pointer.
                 if cnj[13:16] != COURT_SEGMENT[tribunal]:
                     foreign_cnjs += 1
-                    continue
-                by_partition[partition_for(cnj)][cnj] = rows
+                by_partition[partition_for(cnj)][cnj] = [(*row, tribunal) for row in rows]
             publication_date = ZIP_RE.fullmatch(filename).group(1)
             # A changed original may have removed processes in any old partition.
             # Iterate every known partition plus all partitions in the new source.
@@ -386,6 +425,7 @@ def run(
                 if apply_source(
                     data,
                     publication_date=publication_date,
+                    source=tribunal,
                     new_rows=by_partition.get(part_name, {}),
                 ):
                     touched.add(part_name)
@@ -437,8 +477,7 @@ def run(
                 datajud_rows[cnj].extend(snapshots)
         dj_by_partition: dict[str, dict[str, list[dict[str, str]]]] = defaultdict(dict)
         for cnj, snapshots in datajud_rows.items():
-            if cnj[13:16] == COURT_SEGMENT[tribunal]:
-                dj_by_partition[partition_for(cnj)][cnj] = snapshots
+            dj_by_partition[partition_for(cnj)][cnj] = snapshots
         for part_name, rows in dj_by_partition.items():
             partition = get_partition(part_name)
             if merge_datajud(partition, rows):
@@ -447,9 +486,9 @@ def run(
         manifest.setdefault("datajud_sources", {}).update(processed_datajud)
         counts: dict[str, int] = defaultdict(int)
         for part_name in known_partitions:
-            counts[part_name[:4]] += 1
+            counts[partition_item(part_name)] += 1
         if any(count > MAX_PARTITIONS_PER_ITEM for count in counts.values()):
-            raise ValueError("IA filing-year index item exceeds 1000-partition policy")
+            raise ValueError("IA index item exceeds the 1000-partition policy")
         for part_name in sorted(touched):
             write_partition(output / part_name, loaded[part_name])
         processed = min(len(candidates), max_zips)
@@ -469,7 +508,7 @@ def run(
             "indexed_zips": processed,
             "pending_zips": max(0, len(candidates) - processed),
             "changed_partitions": len(touched),
-            "skipped_foreign_cnjs": foreign_cnjs,
+            "foreign_court_cnjs": foreign_cnjs,
             "processed_datajud_files": len(processed_datajud),
             "publish_files": sorted(touched)
             + (["manifest.json"] if processed or touched or processed_datajud else []),
@@ -541,7 +580,7 @@ async def publish_report(report: dict, output: Path) -> int:
             msg = f"Index artifact missing: {local}"
             raise FileNotFoundError(msg)
         year = name[:4]
-        item = index_item(tribunal, year)
+        item = partition_item(name)
         staged = staging / item / remote_partition_name(name)
         staged.parent.mkdir(parents=True, exist_ok=True)
         staged.unlink(missing_ok=True)

@@ -63,8 +63,12 @@ function parseMessage(bytes, schema, optional = new Set()) {
 
 const DJEN = {
   1: ["data", "string"], 2: ["membro_json", "string"],
-  3: ["comunicacao_id", "uint64"], 4: ["hash", "string"]
+  3: ["comunicacao_id", "uint64"], 4: ["hash", "string"],
+  // Optional: whose DJEN caderno holds the record (absent in older pointers,
+  // which all came from TJRO's caderno).
+  5: ["tribunal_fonte", "string"]
 };
+const DJEN_OPTIONAL = new Set(["tribunal_fonte"]);
 const DATAJUD = {
   1: ["tribunal", "string"], 2: ["grau", "string"],
   3: ["documento_id", "string"], 4: ["item_ia", "string"],
@@ -79,7 +83,7 @@ export function decodeProcessIndex(bytes) {
   const document = { publicacoes: [], datajud: [] };
   let version = null;
   for (const { number, wire, value } of fields(bytes)) {
-    if (number === 1 && wire === 2) document.publicacoes.push(parseMessage(value, DJEN));
+    if (number === 1 && wire === 2) document.publicacoes.push(parseMessage(value, DJEN, DJEN_OPTIONAL));
     if (number === 2 && wire === 2) document.datajud.push(parseMessage(value, DATAJUD, DATAJUD_OPTIONAL));
     if (number === 15 && wire === 0) version = Number(value);
   }

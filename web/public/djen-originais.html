@@ -33,20 +33,27 @@
     const input = document.querySelector("#cnj");
     const status = document.querySelector("#status");
     const results = document.querySelector("#results");
-    const allowed = Object.freeze({"822":"tjro"});
+    // Pointers written before tribunal_fonte existed all came from TJRO's
+    // caderno (the index then only held 8.22 processes).
+    const LEGACY_SOURCE = "tjro";
     const clean = value => value.replace(/\D/g, "");
     const params = new URLSearchParams(location.search);
     // Same CORS + Range proxy the main reader uses (deployment/djen_proxy.go);
     // ?proxy= overrides it for smoke tests against another deployment.
     const proxyBase = params.get("proxy") || "https://djen-proxy-mhgmawcn3a-rj.a.run.app";
-    function publishedRows(index, tribunal) {
+    function publishedRows(index) {
       return index.publicacoes.map(pub => {
         if (!/^20\d{2}-\d{2}-\d{2}$/.test(pub.data)) {
           throw new Error("Data de publicação inválida");
         }
+        // The caderno that published it may be another court's (e.g. a TRT14
+        // process in TJRO's DJEN): the original ZIP is that caderno's.
+        const source = pub.tribunal_fonte || LEGACY_SOURCE;
+        if (!/^[a-z0-9]+$/.test(source)) throw new Error("Tribunal de origem inválido");
         return {
-          item: "djen-" + tribunal + "-" + pub.data.slice(0, 4),
-          zip: "djen-" + pub.data + "-" + tribunal.toUpperCase() + ".zip",
+          item: "djen-" + source + "-" + pub.data.slice(0, 4),
+          zip: "djen-" + pub.data + "-" + source.toUpperCase() + ".zip",
+          source,
           member: pub.membro_json,
           id: pub.comunicacao_id,
           hash: pub.hash,
@@ -111,14 +118,11 @@
         status.textContent = "Informe exatamente 20 dígitos CNJ.";
         return;
       }
-      const tribunal = allowed[cnj.slice(13,16)];
-      if (!tribunal) {
-        status.textContent = "Tribunal ainda não disponível no índice de ZIPs originais.";
-        return;
-      }
+      // Every process is indexed under its OWN court (J.TR digits of the
+      // CNJ), whichever caderno published it.
       const processYear = cnj.slice(9,13);
       const origin = cnj.slice(16,20);
-      const indexItem = "causaganha-" + processYear + "-8-22";
+      const indexItem = "causaganha-" + processYear + "-" + cnj[13] + "-" + cnj.slice(14,16);
       const indexZip = origin + ".zip";
       status.textContent = "Localizando índice Protobuf do processo no Internet Archive...";
       try {
@@ -127,7 +131,7 @@
           proxyBase, asBytes: true
         });
         const pointer = decodeProcessIndex(rawIndex);
-        const rows = publishedRows(pointer, tribunal);
+        const rows = publishedRows(pointer);
         status.textContent = rows.length ? rows.length + " publicação(ões) localizada(s)." :
           "Nenhuma publicação indexada nesta partição. Isso não confirma ausência no DJEN.";
         if (pointer.datajud.length) {
@@ -170,7 +174,11 @@
           button.addEventListener("click", () => { button.disabled = true; showDetails(row, article); });
         }
       } catch (err) {
-        status.textContent = "Falha na consulta: " + err.message;
+        // 404/503 on the index ZIP: this court/year (or origin) has no index
+        // partition yet. That is a coverage gap, never proof of no publication.
+        status.textContent = /HTTP Range: (404|503)\b/.test(err.message)
+          ? "Processo ainda não indexado (tribunal/ano ainda sem índice). Isso não confirma ausência de publicação no DJEN."
+          : "Falha na consulta: " + err.message;
       }
     });
     const initial = new URLSearchParams(location.search).get("cnj");

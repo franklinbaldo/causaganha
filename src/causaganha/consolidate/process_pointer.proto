@@ -9,6 +9,11 @@ message PublicacaoDJEN {
   string membro_json = 2;        // original JSON member
   uint64 comunicacao_id = 3;
   string hash = 4;               // authoritative DJEN certidao ID
+  // Tribunal whose DJEN caderno holds this record (e.g. "tjro"). A process is
+  // indexed under its own CNJ court, but may be published in another court's
+  // caderno (cartas precatórias, cross-court intimações). Absent in pointers
+  // written before this field existed; those all came from TJRO's caderno.
+  string tribunal_fonte = 5;
 }
 
 message SnapshotDataJud {

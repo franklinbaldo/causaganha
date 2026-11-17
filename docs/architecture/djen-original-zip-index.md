@@ -17,7 +17,24 @@ CNJ: `70726450920238220001` (`7072645-09.2023.8.22.0001`)
 
 A repetição dos outros 11 dígitos do CNJ no nome/payload é desnecessária:
 ano, justiça e tribunal estão no item IA; unidade de origem no ZIP.
-O piloto atende TJRO; demais tribunais exigem mapeamento validado.
+
+### Roteamento pelo CNJ do próprio processo
+
+Cada processo é indexado no item do **seu** segmento J.TR, qualquer que seja
+o caderno que o publicou. O DJEN de um tribunal carrega processos de outros
+(cartas precatórias, intimações cruzadas): o CNJ `0000186-04.2015.5.14.0092`
+(TRT14) tem 17 comunicações no caderno do TJRO e fica em
+`causaganha-2015-5-14/0092.zip`. Cada ponteiro de publicação registra
+`tribunal_fonte` (campo 5), e a página monta o ZIP original desse caderno.
+Reprocessar o dia de um caderno substitui apenas os ponteiros
+`(data, tribunal_fonte)` daquele caderno. Ponteiros anteriores ao campo 5
+vieram todos do TJRO.
+
+Localmente a partição chama-se `{ano}_{J}_{TR}_{origem}.zip`; nomes antigos
+(`{ano}_{origem}.zip`, todos 8.22) são migrados ao ler o manifesto e
+apontam para os mesmos caminhos no IA. Uma partição ausente localmente é
+sempre buscada no IA, mesmo que o manifesto deste tribunal não a conheça,
+porque cadernos de outros tribunais também escrevem nela.
 
 ### Contrato Protobuf
 
