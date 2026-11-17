@@ -476,7 +476,10 @@ def run(
         }
 
 
-PUBLISH_CONCURRENCY = 8
+PUBLISH_CONCURRENCY = 4
+# IA answers "503 Slow Down" when an item's task queue is busy; the per-file
+# retries in upload_to_ia span only ~15 s, so failed files get later rounds.
+PUBLISH_RETRY_WAITS_S = (60, 180, 300)
 
 
 async def _publish_item(
@@ -492,7 +495,7 @@ async def _publish_item(
         upload_to_ia,
     )
 
-    failed: list[str] = []
+    failed: list[Path] = []
     overrides = {
         "x-archive-meta-title": meta_value(f"CausaGanha - índice CNJ de ponteiros ({item})"),
         "x-archive-meta-description": meta_value(
@@ -503,7 +506,7 @@ async def _publish_item(
     async with gate:
         for path in files:
             if not await upload_to_ia(client, item, path, year, metadata_overrides=overrides):
-                failed.append(f"{item}/{path.name}")
+                failed.append(path)
     return failed
 
 
@@ -548,15 +551,27 @@ async def publish_report(report: dict, output: Path) -> int:
 
     gate = asyncio.Semaphore(PUBLISH_CONCURRENCY)
     async with create_upload_client(auth) as client:
-        results = await asyncio.gather(
-            *(
-                _publish_item(client, item, files, years[item], gate)
-                for item, files in by_item.items()
+        pending = dict(by_item)
+        for wait_s in (0, *PUBLISH_RETRY_WAITS_S):
+            if not pending:
+                break
+            if wait_s:
+                files_left = sum(len(v) for v in pending.values())
+                print(json.dumps({"publish_retry_in_s": wait_s, "files": files_left}), flush=True)
+                await asyncio.sleep(wait_s)
+            results = await asyncio.gather(
+                *(
+                    _publish_item(client, item, files, years[item], gate)
+                    for item, files in pending.items()
+                )
             )
-        )
-        failed = [f for item_failures in results for f in item_failures]
-        if failed:
-            msg = f"{len(failed)} index partition(s) failed to publish; manifest withheld: {failed[:5]}"
+            pending = {item: still for item, still in zip(pending, results, strict=True) if still}
+        if pending:
+            failed = [f"{item}/{path.name}" for item, paths in pending.items() for path in paths]
+            msg = (
+                f"{len(failed)} index partition(s) failed to publish; "
+                f"manifest withheld: {failed[:5]}"
+            )
             raise RuntimeError(msg)
         published = sum(len(files) for files in by_item.values())
         if manifest_name in report["publish_files"]:

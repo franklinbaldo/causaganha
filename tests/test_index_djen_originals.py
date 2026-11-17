@@ -130,16 +130,21 @@ def test_download_503_on_existing_item_fails_closed(tmp_path):
         download(client, url, tmp_path / "m.json")
 
 
-def _publish_fixture(tmp_path, monkeypatch, fail: set[str] | None = None):
+def _publish_fixture(tmp_path, monkeypatch, fail: set[str] | None = None, fail_times: int = 99):
     import asyncio
 
     from causaganha.pipeline import ia_s3
+    from scripts import index_djen_originals as idx
 
     calls: list[tuple[str, str]] = []
+    attempts: dict[str, int] = {}
+    monkeypatch.setattr(idx, "PUBLISH_RETRY_WAITS_S", (0, 0, 0))
 
     async def fake_upload(_client, item, path, _date, metadata_overrides=None):
         calls.append((item, path.name))
-        return f"{item}/{path.name}" not in (fail or set())
+        key = f"{item}/{path.name}"
+        attempts[key] = attempts.get(key, 0) + 1
+        return key not in (fail or set()) or attempts[key] > fail_times
 
     monkeypatch.setattr(ia_s3, "upload_to_ia", fake_upload)
     monkeypatch.setattr(ia_s3, "get_ia_s3_auth", lambda: "LOW k:s")
@@ -277,3 +282,13 @@ def test_foreign_court_cnjs_in_tribunal_djen_are_skipped_not_fatal(tmp_path, mon
     assert report["skipped_foreign_cnjs"] == 1
     assert report["publish_files"] == [idx.partition_for(own), "manifest.json"]
     assert own in idx.load_partition(tmp_path / idx.partition_for(own))
+
+
+def test_publish_report_retries_slow_down_failures_in_later_rounds(tmp_path, monkeypatch):
+    """IA '503 Slow Down' outlasts per-file retries; a later round succeeds."""
+    calls, run = _publish_fixture(
+        tmp_path, monkeypatch, fail={"causaganha-2011-8-22/0021.zip"}, fail_times=2
+    )
+    assert run() == 4
+    assert calls.count(("causaganha-2011-8-22", "0021.zip")) == 3
+    assert calls[-1] == ("causaganha-index-control-tjro", "manifest.json")
